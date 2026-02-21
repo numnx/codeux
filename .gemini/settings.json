@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "jules": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@jules-agent/mcp-server"
+      ]
+    }
+  }
+}

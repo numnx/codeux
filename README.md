@@ -136,26 +136,26 @@ Add to your `claude_desktop_config.json`:
 ### Sources
 | Tool | Description |
 |---|---|
-| `getSource` | Get detailed metadata for a repository source. |
-| `listSources` | Paginated list of connected sources. |
-| `listAllSources` | Fetches all sources across all pages. |
+| `get_source` | Get detailed metadata for a repository source. |
+| `list_sources` | Paginated list of connected sources. |
+| `list_all_sources` | Fetches all sources across all pages. |
 
 ### Sessions
 | Tool | Description |
 |---|---|
-| `createSession` | Start a new agent task (e.g., "Implement feature X"). |
-| `getSession` | Check current state (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`). |
-| `listSessions` | List recent sessions. |
-| `approveSessionPlan` | Approve a generated plan to start implementation. |
-| `sendSessionMessage` | Interaction with the agent during a session. |
-| `waitForSessionCompletion` | Polls until terminal state or PR creation. |
+| `create_session` | Start a new agent task (e.g., "Implement feature X"). |
+| `get_session` | Check current state (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`). |
+| `list_sessions` | List recent sessions. |
+| `approve_session_plan` | Approve a generated plan to start implementation. |
+| `send_session_message` | Interaction with the agent during a session. |
+| `wait_for_session_completion` | Polls until terminal state or PR creation. |
 
 ### Activities
 | Tool | Description |
 |---|---|
-| `getActivity` | Get details for a specific activity step. |
-| `listActivities` | Paginated list of session interactions. |
-| `listAllActivities` | All interactions for a session. |
+| `get_activity` | Get details for a specific activity step. |
+| `list_activities` | Paginated list of session interactions. |
+| `list_all_activities` | All interactions for a session. |
 
 ## Environment Variables
 
