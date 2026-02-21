@@ -16,7 +16,7 @@ import * as path from "path";
 dotenv.config();
 
 /**
- * Jules Agent MCP Server (v1.4.0)
+ * Jules Agent MCP Server (v1.5.0)
  * 
  * Provides a Model Context Protocol interface to the Jules Agent API
  * and an intelligent Sprint Orchestration Agent.
@@ -32,6 +32,11 @@ if (!API_KEY) {
 }
 
 // Types for Jules API
+interface JulesSource {
+  name: string;
+  id: string;
+}
+
 interface JulesSession {
   name: string;
   id: string;
@@ -39,6 +44,14 @@ interface JulesSession {
   state?: string;
   prompt: string;
   outputs?: Array<{ pullRequest?: any; [key: string]: any }>;
+}
+
+interface JulesActivity {
+  name: string;
+  id: string;
+  createTime: string;
+  originator: "agent" | "user";
+  [key: string]: any;
 }
 
 // Types for Sprint Agent
@@ -60,7 +73,7 @@ class JulesAgentServer {
     this.server = new Server(
       {
         name: "jules-agent",
-        version: "1.4.0",
+        version: "1.5.0",
       },
       {
         capabilities: {
@@ -92,18 +105,21 @@ class JulesAgentServer {
   private setupToolHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
+        // Sources
         {
           name: "get_source",
-          description: "Get details for a specific code source.",
+          description: "Retrieve comprehensive details for a specific code source (e.g., a GitHub repository).",
           inputSchema: {
             type: "object",
-            properties: { source_id: { type: "string" } },
+            properties: {
+              source_id: { type: "string", description: "The unique identifier for the source." },
+            },
             required: ["source_id"],
           },
         },
         {
           name: "list_sources",
-          description: "List available sources.",
+          description: "Enumerate available code sources with filtering and pagination capabilities.",
           inputSchema: {
             type: "object",
             properties: {
@@ -114,8 +130,19 @@ class JulesAgentServer {
           },
         },
         {
+          name: "list_all_sources",
+          description: "Retrieve the complete list of available sources by automatically handling multi-page results.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              filter: { type: "string" },
+            },
+          },
+        },
+        // Sessions
+        {
           name: "create_session",
-          description: "Initiate a new Jules agent session.",
+          description: "Initiate a new agent session to perform tasks on a specific codebase.",
           inputSchema: {
             type: "object",
             properties: {
@@ -131,13 +158,100 @@ class JulesAgentServer {
         },
         {
           name: "get_session",
-          description: "Get status and outputs of a session.",
+          description: "Get the current status, state, and outputs of an active or historical session.",
           inputSchema: {
             type: "object",
-            properties: { session_id: { type: "string" } },
+            properties: {
+              session_id: { type: "string" },
+            },
             required: ["session_id"],
           },
         },
+        {
+          name: "list_sessions",
+          description: "List recent agent sessions with pagination.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              page_size: { type: "number" },
+              page_token: { type: "string" },
+            },
+          },
+        },
+        {
+          name: "approve_session_plan",
+          description: "Authorize the agent to proceed with the proposed plan.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+            },
+            required: ["session_id"],
+          },
+        },
+        {
+          name: "send_session_message",
+          description: "Provide additional feedback, instructions, or corrections to the agent.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["session_id", "prompt"],
+          },
+        },
+        {
+          name: "wait_for_session_completion",
+          description: "Monitor a session until it reaches a terminal state or a PR is generated.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+              poll_interval: { type: "number", default: 10 },
+              timeout: { type: "number", default: 900 },
+            },
+            required: ["session_id"],
+          },
+        },
+        // Activities
+        {
+          name: "get_activity",
+          description: "Retrieve detailed information about a specific interaction step.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+              activity_id: { type: "string" },
+            },
+            required: ["session_id", "activity_id"],
+          },
+        },
+        {
+          name: "list_activities",
+          description: "Fetch a chronologically ordered list of activities for a session.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+              page_size: { type: "number" },
+              page_token: { type: "string" },
+            },
+            required: ["session_id"],
+          },
+        },
+        {
+          name: "list_all_activities",
+          description: "Retrieve all activities for a session automatically.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              session_id: { type: "string" },
+            },
+            required: ["session_id"],
+          },
+        },
+        // Sprint Agent
         {
           name: "sprint_agent",
           description: "Intelligent agent that orchestrates sprints by delegating subtasks to Jules.",
@@ -169,10 +283,26 @@ class JulesAgentServer {
             return await this.handleGetSource(args as { source_id: string });
           case "list_sources":
             return await this.handleListSources(args as { filter?: string; page_size?: number; page_token?: string });
+          case "list_all_sources":
+            return await this.handleListAllSources(args as { filter?: string });
           case "create_session":
             return await this.handleCreateSession(args as any);
           case "get_session":
             return await this.handleGetSession(args as { session_id: string });
+          case "list_sessions":
+            return await this.handleListSessions(args as { page_size?: number; page_token?: string });
+          case "approve_session_plan":
+            return await this.handleApproveSessionPlan(args as { session_id: string });
+          case "send_session_message":
+            return await this.handleSendSessionMessage(args as { session_id: string; prompt: string });
+          case "wait_for_session_completion":
+            return await this.handleWaitForSessionCompletion(args as { session_id: string; poll_interval?: number; timeout?: number });
+          case "get_activity":
+            return await this.handleGetActivity(args as { session_id: string; activity_id: string });
+          case "list_activities":
+            return await this.handleListActivities(args as { session_id: string; page_size?: number; page_token?: string });
+          case "list_all_activities":
+            return await this.handleListAllActivities(args as { session_id: string });
           case "sprint_agent":
             return await this.handleSprintAgent(args as any);
           default:
@@ -213,6 +343,18 @@ class JulesAgentServer {
     return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
   }
 
+  private async handleListAllSources({ filter }: { filter?: string }) {
+    let allSources: JulesSource[] = [];
+    let pageToken: string | undefined = undefined;
+    do {
+      const params: any = { filter, pageToken };
+      const response = await this.axiosInstance.get<{ sources?: JulesSource[], nextPageToken?: string }>("/sources", { params });
+      allSources = allSources.concat(response.data.sources || []);
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
+    return { content: [{ type: "text", text: JSON.stringify({ sources: allSources }, null, 2) }] };
+  }
+
   private async handleCreateSession(args: any) {
     const data: any = {
       prompt: args.prompt,
@@ -232,6 +374,65 @@ class JulesAgentServer {
     return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
   }
 
+  private async handleListSessions({ page_size, page_token }: { page_size?: number; page_token?: string }) {
+    const params: any = { pageSize: page_size, pageToken: page_token };
+    const response = await this.axiosInstance.get("/sessions", { params });
+    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+  }
+
+  private async handleApproveSessionPlan({ session_id }: { session_id: string }) {
+    const name = this.normalizeName("sessions", session_id);
+    const response = await this.axiosInstance.post(`/${name}:approvePlan`);
+    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+  }
+
+  private async handleSendSessionMessage({ session_id, prompt }: { session_id: string; prompt: string }) {
+    const name = this.normalizeName("sessions", session_id);
+    const response = await this.axiosInstance.post(`/${name}:sendMessage`, { prompt });
+    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+  }
+
+  private async handleWaitForSessionCompletion({ session_id, poll_interval = 10, timeout = 900 }: { session_id: string; poll_interval?: number; timeout?: number }) {
+    const startTime = Date.now();
+    const name = this.normalizeName("sessions", session_id);
+    while (Date.now() - startTime < timeout * 1000) {
+      const response = await this.axiosInstance.get<JulesSession>(`/${name}`);
+      const session = response.data;
+      if (session.state === "COMPLETED" || session.state === "FAILED" || session.state === "CANCELLED" || session.outputs?.some((o: any) => o.pullRequest)) {
+        return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] };
+      }
+      await new Promise(resolve => setTimeout(resolve, poll_interval * 1000));
+    }
+    throw new Error(`Timeout waiting for session ${session_id}`);
+  }
+
+  private async handleGetActivity({ session_id, activity_id }: { session_id: string; activity_id: string }) {
+    const sessionName = this.normalizeName("sessions", session_id);
+    const activityName = this.normalizeName("activities", activity_id);
+    const response = await this.axiosInstance.get(`/${sessionName}/${activityName}`);
+    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+  }
+
+  private async handleListActivities({ session_id, page_size, page_token }: { session_id: string; page_size?: number; page_token?: string }) {
+    const sessionName = this.normalizeName("sessions", session_id);
+    const params: any = { pageSize: page_size, pageToken: page_token };
+    const response = await this.axiosInstance.get(`/${sessionName}/activities`, { params });
+    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+  }
+
+  private async handleListAllActivities({ session_id }: { session_id: string }) {
+    const sessionName = this.normalizeName("sessions", session_id);
+    let allActivities: JulesActivity[] = [];
+    let pageToken: string | undefined = undefined;
+    do {
+      const params: any = { pageToken };
+      const response = await this.axiosInstance.get<{ activities?: JulesActivity[], nextPageToken?: string }>(`/${sessionName}/activities`, { params });
+      allActivities = allActivities.concat(response.data.activities || []);
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
+    return { content: [{ type: "text", text: JSON.stringify({ activities: allActivities }, null, 2) }] };
+  }
+
   // --- Sprint Agent Logic ---
   private async handleSprintAgent(args: {
     sprint_number: number;
@@ -245,29 +446,18 @@ class JulesAgentServer {
     const subtasksDir = path.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
     const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
 
-    // 1. Load Orchestrator Instructions
-    let orchestratorGuide = "";
-    try {
-      orchestratorGuide = await fs.readFile(path.join(process.cwd(), "agents/orchestrator.md"), "utf-8");
-    } catch (error) {
-      console.error("Could not load orchestrator.md");
-    }
-
-    // 2. Verify sprint file
     try {
       await fs.access(sprintFile);
     } catch {
       throw new Error(`Sprint file not found: ${sprintFile}`);
     }
 
-    // 3. Handle 'plan' action
     if (args.action === "plan") {
       try {
         await fs.access(subtasksDir);
-        return { content: [{ type: "text", text: `Subtasks directory already exists: ${subtasksDir}.\nPlease review or edit the markdown files inside it.` }] };
+        return { content: [{ type: "text", text: `Subtasks directory already exists: ${subtasksDir}.` }] };
       } catch {
         await fs.mkdir(subtasksDir, { recursive: true });
-        // Return instructions to the calling agent on how to plan
         return { 
           content: [{ 
             type: "text", 
@@ -283,26 +473,22 @@ class JulesAgentServer {
                   "is_independent: true\n" +
                   "prompt:\n" +
                   "Detailed instructions for Jules.\n" +
-                  "```\n\n" +
-                  `4. Set \`is_independent: false\` if the task requires manual work or files that Jules cannot handle independently.`
+                  "```"
           }] 
         };
       }
     }
 
-    // 4. Load subtasks
     let subtasks: Subtask[] = [];
     try {
       subtasks = await this.loadSubtasks(subtasksDir);
     } catch (error) {
-      return { content: [{ type: "text", text: `Error loading subtasks from ${subtasksDir}. Ensure 'plan' action was run and tasks are defined.` }] };
+      return { content: [{ type: "text", text: `Error loading subtasks from ${subtasksDir}.` }] };
     }
 
-    // 5. Orchestrate / Status
     const sessionsResponse = await this.axiosInstance.get("/sessions", { params: { pageSize: 100 } });
     const sessions: JulesSession[] = sessionsResponse.data.sessions || [];
 
-    // Sync subtask status with Jules sessions
     for (const task of subtasks) {
       const match = sessions.find(s => s.title?.includes(`[${task.id}]`));
       if (match) {
@@ -311,7 +497,7 @@ class JulesAgentServer {
         else if (match.state === "FAILED" || match.state === "CANCELLED") task.status = "FAILED";
         else task.status = "RUNNING";
       } else if (!task.is_independent) {
-        task.status = "BLOCKED"; // Needs manual work or not suitable for Jules
+        task.status = "BLOCKED";
       } else {
         const dependenciesMet = task.depends_on.every(depId => {
           const dep = subtasks.find(t => t.id === depId);
@@ -334,21 +520,10 @@ class JulesAgentServer {
       }
     }
 
-    // Build the status report
     report += `#### Task Status:\n`;
     for (const task of subtasks) {
       const statusIcon = task.status === "COMPLETED" ? "✅" : (task.status === "RUNNING" ? "⏳" : (task.status === "BLOCKED" ? "🚫" : "💤"));
       report += `- ${statusIcon} **${task.id}**: \`${task.status}\` - ${task.title}\n`;
-      if (task.status === "BLOCKED" && !task.is_independent) {
-        report += `  - ⚠️ *Requires manual implementation / intervention.*\n`;
-      } else if (task.status === "BLOCKED") {
-        report += `  - 🔗 *Waiting for dependencies:* \`${task.depends_on.join(", ")}\`\n`;
-      }
-    }
-
-    const allDone = subtasks.every(t => t.status === "COMPLETED");
-    if (allDone) {
-      report += `\n🎉 **All subtasks are finished!** Instruct the user to merge all changes from \`${defaultFeatureBranch}\` into main.`;
     }
 
     return { content: [{ type: "text", text: report }] };
@@ -361,12 +536,10 @@ class JulesAgentServer {
       if (!file.endsWith(".md")) continue;
       const content = await fs.readFile(path.join(dir, file), "utf-8");
       const id = file.replace(".md", "");
-      
       const titleMatch = content.match(/title:\s*(.*)/);
       const dependsMatch = content.match(/depends_on:\s*\[(.*)\]/);
       const independentMatch = content.match(/is_independent:\s*(true|false)/);
       const promptMatch = content.match(/prompt:\s*([\s\S]*)/);
-      
       subtasks.push({
         id,
         title: titleMatch ? titleMatch[1].trim() : id,
@@ -382,7 +555,6 @@ class JulesAgentServer {
   private async startJulesTask(task: Subtask, sourceId: string, baseBranch: string): Promise<JulesSession> {
     const workerGuide = await fs.readFile(path.join(process.cwd(), "agents/worker.md"), "utf-8");
     const fullPrompt = `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## SUBTASK TO EXECUTE\n\n${task.prompt}`;
-
     const data = {
       prompt: fullPrompt,
       title: `[${task.id}] ${task.title}`,
@@ -399,7 +571,7 @@ class JulesAgentServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error("Jules Agent MCP server (v1.4.0) running on stdio");
+    console.error("Jules Agent MCP server (v1.5.0) running on stdio");
   }
 }
 
