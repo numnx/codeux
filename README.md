@@ -1,77 +1,36 @@
-# Jules Agent MCP Server (v1.1.0)
+# 🤖 Jules Agent MCP Server (v1.5.0)
 
-A production-ready [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the [Jules Agent API](https://developers.google.com/jules). This server allows LLMs to interact with Jules to manage codebase sources, create agent sessions, and monitor activity.
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Protocol: MCP](https://img.shields.io/badge/Protocol-MCP-green.svg)](https://modelcontextprotocol.io/)
 
-## Features
+A production-grade [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the [Jules Agent API](https://developers.google.com/jules). This server empowers LLMs to interact with Jules for codebase management, agent session creation, and intelligent sprint orchestration.
 
-- **Enterprise-Grade Naming**: Tools use consistent camelCase naming conventions.
-- **Full API Coverage**: Implements all Jules API v1alpha endpoints.
-- **Pagination Handling**: Includes convenience tools like `listAllSources` and `listAllActivities` that handle token-based pagination automatically.
-- **Robust Monitoring**: `waitForSessionCompletion` allows long-running agent tasks to be monitored with configurable polling.
-- **Type-Safe Implementation**: Built with TypeScript for reliability.
+---
 
-## Prerequisites
+## ✨ Key Features
 
-- **Node.js**: v18.0.0 or later.
-- **Jules API Key**: Obtain from the [Jules Developer Console](https://developers.google.com/jules).
+- **🚀 Sprint Orchestration**: Intelligent task delegation with dependency management and parallel execution.
+- **🛠️ Enterprise-Grade Tools**: 12+ tools covering the full Jules API with automatic pagination and robust error handling.
+- **🧬 Smart Worker Context**: Automatically injects your technical standards into every Jules agent session.
+- **🔌 Multi-Client Support**: Seamlessly integrates with Gemini CLI, Codex CLI, and Claude Desktop.
+- **🛡️ Secure & Flexible Auth**: Support for environment variables, `.env` files, and command-line flags.
 
-## Installation
+---
 
-### From NPM (Global)
+## 📦 Quick Installation
+
+Install globally via NPM to use the `jules-agent` command anywhere:
+
 ```bash
 npm install -g @jules-agent/mcp-server
 ```
 
-### From Source (Detailed)
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/numnx/jules-agent-mcp.git
-    cd jules-agent-mcp
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-
-3.  **Configure Environment:**
-    Create a `.env` file from the provided example and add your API key:
-    ```bash
-    cp .env.example .env
-    # Edit .env and replace your_api_key_here with your actual Jules API key
-    ```
-
-4.  **Build the project:**
-    This compiles the TypeScript source into executable JavaScript in the `dist/` directory:
-    ```bash
-    npm run build
-    ```
-
-5.  **Verify the installation:**
-    You can test if the server starts correctly by running it manually. It will wait for JSON-RPC input on `stdin`:
-    ```bash
-    node dist/index.js
-    # You should see: "Jules Agent MCP server (v1.1.0) running on stdio"
-    # Press Ctrl+C to exit.
-    ```
-
-6.  **Optional: Link globally for local development:**
-    ```bash
-    npm link
-    # Now you can use 'jules-agent' command anywhere on your system
-    ```
-
 ---
 
-## Client Configuration
+## ⚙️ Client Configuration
 
-### 1. Gemini CLI Setup
-
-Gemini CLI uses a `settings.json` file for configuration. You can add the Jules Agent server to your global settings (`~/.gemini/settings.json`) or a project-specific one (`.gemini/settings.json`).
-
-**Manual Configuration:**
-Add the server under the `mcpServers` key:
+### 🌌 Gemini CLI
+Add to your `~/.gemini/settings.json`:
 
 ```json
 {
@@ -87,17 +46,8 @@ Add the server under the `mcpServers` key:
 }
 ```
 
-**CLI Configuration (Recommended):**
-```bash
-gemini mcp add jules npx -- -y @jules-agent/mcp-server --env JULES_API_KEY=your_api_key_here
-```
-
-### 2. Codex CLI Setup
-
-Codex CLI uses a `config.toml` file located at `~/.codex/config.toml` (global) or `.codex/config.toml` (project-scoped).
-
-**Manual Configuration:**
-Add a new `mcp_servers` table:
+### 💻 Codex CLI
+Add to your `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.jules]
@@ -106,13 +56,7 @@ args = ["-y", "@jules-agent/mcp-server"]
 env = { JULES_API_KEY = "your_api_key_here" }
 ```
 
-**CLI Configuration:**
-```bash
-codex mcp add jules --env JULES_API_KEY=your_api_key_here -- npx -y @jules-agent/mcp-server
-```
-
-### 3. Claude Desktop Setup
-
+### 🤖 Claude Desktop
 Add to your `claude_desktop_config.json`:
 
 ```json
@@ -131,63 +75,104 @@ Add to your `claude_desktop_config.json`:
 
 ---
 
-## Available Tools
+## 🏗️ Sprint Orchestration Workflow
 
-### Sources
-| Tool | Description |
-|---|---|
-| `get_source` | Get detailed metadata for a repository source. |
-| `list_sources` | Paginated list of connected sources. |
-| `list_all_sources` | Fetches all sources across all pages. |
+The `sprint_agent` tool provides a professional framework for managing complex sprints.
 
-### Sessions
-| Tool | Description |
-|---|---|
-| `create_session` | Start a new agent task (e.g., "Implement feature X"). |
-| `get_session` | Check current state (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`). |
-| `list_sessions` | List recent sessions. |
-| `approve_session_plan` | Approve a generated plan to start implementation. |
-| `send_session_message` | Interaction with the agent during a session. |
-| `wait_for_session_completion` | Polls until terminal state or PR creation. |
-
-### Sprint Orchestration (v1.3.0)
-| Tool | Description |
-|---|---|
-| `sprint_agent` | Orchestrates sprint subtasks by delegating work to Jules agents. |
-
-#### `sprint_agent` Usage
-This tool reads your `/sprints/sprint-N.md` and looks for subtasks in `/sprints/sprintN-subtasks/`.
-- **`sprint_number`**: (e.g., 34)
-- **`repo_path`**: Local path to the project repository.
-- **`source_id`**: The Jules source ID for the repo.
-- **`action`**:
-    - `plan`: Creates the subtasks directory if missing.
-    - `status`: Reports the current state of all subtasks and sessions.
-    - `orchestrate`: Intelligently starts Jules sessions for ready subtasks (based on `depends_on`).
-
-Subtasks should be defined as markdown files (e.g., `task-1.md`) in the subtasks directory with the following structure:
+### 1. Planning (`action: "plan"`)
+Initializes `/sprints/sprint<N>-subtasks/`. Break your sprint into independent and sequential tasks.
 ```markdown
-title: Implement Dashboard Component
-depends_on: [task-0, setup-env]
-prompt:
-Please implement the main dashboard component in src/components/Dashboard.tsx
----
-(The prompt to be sent to Jules starts here)
+title: Implement Auth API
+depends_on: [setup-db]
+is_independent: true
+prompt: Create the login and register endpoints in src/auth.
 ```
 
-## Environment Variables
+### 2. Status (`action: "status"`)
+Get a real-time report of all subtasks, their dependencies, and linked Jules sessions.
 
-| Variable | Description | Required |
+### 3. Orchestration (`action: "orchestrate"`)
+- **Parallelism**: Automatically starts Jules sessions for all ready, independent tasks.
+- **Branching**: Subtasks are isolated on their own branches created from the main feature branch.
+- **Blocking**: Identifies and reports tasks that require manual intervention.
+
+---
+
+## 🛠️ Available Tools
+
+### 🏗️ Sprint Management
+| Tool | Description |
+|---|---|
+| `sprint_agent` | The core orchestrator for planning and executing sprints. |
+
+### 📂 Sources
+| Tool | Description |
+|---|---|
+| `get_source` | Detailed metadata for a specific repository. |
+| `list_sources` | Paginated list of connected sources. |
+| `list_all_sources` | Convenience tool to fetch all sources automatically. |
+
+### 💬 Sessions
+| Tool | Description |
+|---|---|
+| `create_session` | Start a new agent task. |
+| `get_session` | Monitor state (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`). |
+| `list_sessions` | List recent agent interactions. |
+| `approve_session_plan` | Authorize an agent to proceed with a plan. |
+| `send_session_message` | Send follow-up instructions to an active agent. |
+| `wait_for_session_completion`| Poll until completion or PR creation. |
+
+### 📊 Activities
+| Tool | Description |
+|---|---|
+| `get_activity` | Details for a specific interaction step. |
+| `list_activities` | History of all interactions in a session. |
+| `list_all_activities` | Convenience tool to fetch the full session history. |
+
+---
+
+## 🛠️ Development & Source Build
+
+If you want to contribute or run from source:
+
+1.  **Clone & Install**:
+    ```bash
+    git clone https://github.com/numnx/jules-agent-mcp.git
+    cd jules-agent-mcp
+    npm install
+    ```
+2.  **Environment Setup**:
+    ```bash
+    cp .env.example .env
+    # Add your JULES_API_KEY to the .env file
+    ```
+3.  **Build**:
+    ```bash
+    npm run build
+    ```
+4.  **Verification**:
+    Test if the server starts correctly on stdio:
+    ```bash
+    node dist/index.js --api-key YOUR_KEY
+    ```
+5.  **Global Link**:
+    ```bash
+    npm link
+    ```
+
+---
+
+## 🔐 Configuration Reference
+
+| Flag / Var | Source | Description |
 |---|---|---|
-| `JULES_API_KEY` | Your Google API Key with Jules access. | Yes |
-| `JULES_API_BASE_URL` | Override for the API endpoint. | No |
+| `--api-key <key>` | CLI Argument | Highest priority API key source. |
+| `JULES_API_KEY` | Environment | Recommended environment variable. |
+| `JULES_KEY` | Environment | Fallback environment variable. |
+| `JULES_API_BASE_URL`| Environment | Override the default Google API endpoint. |
 
-## Development
+---
 
-- **Build**: `npm run build`
-- **Lint**: `npm run lint` (if configured)
-- **Local Test**: `node dist/index.js` (expects input on stdin)
+## 📄 License
 
-## License
-
-ISC
+This project is licensed under the **ISC License**.
