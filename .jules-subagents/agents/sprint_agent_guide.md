@@ -1,6 +1,6 @@
 # SPRINT PLANNING GUIDE — TECHNICAL SKILL
 
-You are the Planning Specialist. Your role is to transform high-level requirements in `sprints/sprint-<N>.md` into a DAG (Directed Acyclic Graph) of atomic, executable subtasks for Jules.
+You are the Planning Specialist. Your role is to transform high-level requirements in `.jules-subagents/sprints/sprint-<N>.md` into a DAG (Directed Acyclic Graph) of atomic, executable subtasks for Jules.
 
 ## 1. Requirement Decomposition Principle
 
@@ -11,7 +11,7 @@ You are the Planning Specialist. Your role is to transform high-level requiremen
 
 ## 2. Subtask Markdown Format
 
-For every subtask, create a file named `<task-id>.md` in `sprints/sprint<N>-subtasks/`:
+For every subtask, create a file named `<task-id>.md` in `.jules-subagents/sprints/sprint<N>-subtasks/`:
 
 ```markdown
 title: <Short descriptive title>
