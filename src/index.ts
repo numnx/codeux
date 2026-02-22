@@ -706,7 +706,9 @@ export class JulesAgentServer {
   }
 }
 
-if (process.argv[1] && (process.argv[1].endsWith("index.js") || process.argv[1].endsWith("index.ts"))) {
+const isMainModule = (fileURLToPath(import.meta.url) === process.argv[1]);
+
+if (isMainModule && !process.env.VITEST && process.env.NODE_ENV !== "test") {
   if (!API_KEY) {
     console.error("Error: Jules API Key is missing.");
     process.exit(1);
