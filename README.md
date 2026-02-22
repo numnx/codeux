@@ -134,10 +134,11 @@ The server searches for guides in this order:
 
 ## 🛠️ Available Tools
 
-### 🏗️ Sprint Management
+### 🏗️ Sprint & Task Management
 | Tool | Description |
 |---|---|
-| `sprint_agent` | The core orchestrator for planning and executing sprints. |
+| `sprint_agent` | The core orchestrator for planning and executing complex multi-task sprints. |
+| `task_agent` | Execute a single specific task with built-in engineering standards and optional completion waiting. |
 
 ### 📂 Sources
 | Tool | Description |
