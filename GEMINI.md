@@ -20,14 +20,14 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
 ## 🛠️ Building and Running
 
 ### Development
-- **Install Dependencies**: `npm install`
-- **Run in Dev Mode**: `npm run dev` (uses `ts-node-esm`)
-- **Build**: `npm run build` (runs `tsc`)
+- **Install Dependencies**: `pnpm install`
+- **Run in Dev Mode**: `pnpm run dev` (uses `ts-node-esm`)
+- **Build**: `pnpm run build` (runs `tsc`)
 
 ### Production / CLI Usage
-- **Start**: `npm start` (runs `node dist/index.js`)
+- **Start**: `pnpm start` (runs `node dist/index.js`)
 - **Direct Execution**: `node dist/index.js --api-key YOUR_KEY`
-- **Global Command**: Once linked via `npm link`, use the `jules-agent` command.
+- **Global Command**: Once linked via `pnpm link --global`, use the `jules-agent` command.
 
 ### Configuration
 The server looks for the `JULES_API_KEY` in:
@@ -73,17 +73,17 @@ The project uses **GitHub Actions** for continuous integration.
 - **Trigger**: Pull requests to the `main` branch.
 - **Actions**:
   1. Installs dependencies.
-  2. Runs linting (`npm run lint`).
-  3. Runs type-checking (`npm run typecheck`).
-  4. Builds the project (`npm run build`).
-  5. Runs unit tests (`npm test`).
+  2. Runs linting (`pnpm run lint`).
+  3. Runs type-checking (`pnpm run typecheck`).
+  4. Builds the project (`pnpm run build`).
+  5. Runs unit tests (`pnpm test`).
   6. **Auto-Merge**: Attempts to enable auto-merge for the PR if all checks pass.
 
 ## 🧪 Testing Strategy
 
 The project uses **Vitest** for unit testing. All tests are designed to run **without calling the Jules API** by mocking dependencies like `axios` and `fs`.
 
-- **Run Tests**: `npm test`
+- **Run Tests**: `pnpm test`
 - **Location**: `src/index.test.ts`
 - **Focus**: Verifying name normalization, prompt injection, and orchestration logic.
 

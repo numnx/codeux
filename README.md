@@ -19,10 +19,10 @@ A production-grade [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 
 ## 📦 Quick Installation
 
-Install globally via NPM to use the `jules-agent` command anywhere:
+Install globally via PNPM to use the `jules-agent` command anywhere:
 
 ```bash
-npm install -g @jules-agent/mcp-server
+pnpm add -g @jules-agent/mcp-server
 ```
 
 ---
@@ -174,7 +174,7 @@ If you want to contribute or run from source:
     ```bash
     git clone https://github.com/numnx/jules-agent-mcp.git
     cd jules-agent-mcp
-    npm install
+    pnpm install
     ```
 2.  **Environment Setup**:
     ```bash
@@ -183,7 +183,7 @@ If you want to contribute or run from source:
     ```
 3.  **Build**:
     ```bash
-    npm run build
+    pnpm run build
     ```
 4.  **Verification**:
     Test if the server starts correctly on stdio:
@@ -192,7 +192,7 @@ If you want to contribute or run from source:
     ```
 5.  **Global Link**:
     ```bash
-    npm link
+    pnpm link --global
     ```
 6.  **Add to Gemini CLI (Manual Build)**:
     Once linked, you can use the `jules-agent` command globally:
@@ -226,7 +226,7 @@ If you want to contribute or run from source:
 This project uses Vitest for unit testing. Tests are designed to be safe and do not make actual calls to the Jules API.
 
 ```bash
-npm test
+pnpm test
 ```
 
 ## 📄 License
