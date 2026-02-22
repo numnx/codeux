@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { JulesAgentServer } from './index.js';
-import axios from 'axios';
+import _axios from 'axios';
 import * as fs from 'fs/promises';
 
 vi.mock('axios', () => {

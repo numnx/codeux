@@ -529,7 +529,7 @@ export class JulesAgentServer {
     let subtasks: Subtask[] = [];
     try {
       subtasks = await this.loadSubtasks(subtasksDir);
-    } catch (error) {
+    } catch (_error) {
       return { content: [{ type: "text", text: `Error loading subtasks from ${subtasksDir}.` }] };
     }
 
@@ -594,7 +594,7 @@ export class JulesAgentServer {
     let workerGuide = "";
     try {
       workerGuide = await this.getGuideContent("worker.md", args.repo_path);
-    } catch (error) {
+    } catch (_error) {
       // Fallback if no worker guide is found, though it's recommended
       console.error("Warning: worker.md guide not found for task_agent.");
     }

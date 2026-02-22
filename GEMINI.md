@@ -73,9 +73,11 @@ The project uses **GitHub Actions** for continuous integration.
 - **Trigger**: Pull requests to the `main` branch.
 - **Actions**:
   1. Installs dependencies.
-  2. Builds the project (`npm run build`).
-  3. Runs unit tests (`npm test`).
-  4. **Auto-Merge**: Attempts to enable auto-merge for the PR if all checks pass.
+  2. Runs linting (`npm run lint`).
+  3. Runs type-checking (`npm run typecheck`).
+  4. Builds the project (`npm run build`).
+  5. Runs unit tests (`npm test`).
+  6. **Auto-Merge**: Attempts to enable auto-merge for the PR if all checks pass.
 
 ## 🧪 Testing Strategy
 
