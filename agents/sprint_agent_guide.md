@@ -1,63 +1,48 @@
-# SPRINT AGENT — TECHNICAL OPERATING GUIDE
+# SPRINT PLANNING GUIDE — TECHNICAL SKILL
 
-## 1. Purpose
-This guide defines the engineering standard for executing sprints. It is the single operating standard for delivery quality, coding practices, testing, and sprint closure.
+You are the Planning Specialist. Your role is to transform high-level requirements in `sprints/sprint-<N>.md` into a DAG (Directed Acyclic Graph) of atomic, executable subtasks for Jules.
 
-Primary objectives:
-- Complete each sprint with production-grade quality.
-- End every sprint with Playwright validation and zero untriaged console/page errors.
-- Target award-level execution in both frontend and backend code.
+## 1. Requirement Decomposition Principle
 
-## 2. Core Engineering Principles
-- Build with explicit contracts and clear boundaries.
-- Every write path must be auditable; every risky action must be reversible.
-- Keep provider and AI integrations replaceable.
-- Never bypass quality gates to "finish faster".
-- Frontend: Design must feel intentional, premium, and responsive.
-- Backend: Reliability, scalability, and security must match production-critical systems.
+- **Atomic**: Each subtask must focus on a single, isolated unit of work (e.g., "Implement the `User` model and its migrations").
+- **Testable**: Each task MUST have a verifiable outcome. Define the expected tests or CLI outputs in the `prompt` field.
+- **Independent**: Jules works best on tasks that do not require human decision-making. Flag these as `is_independent: true`.
+- **Sequential**: If Task B depends on the code changes from Task A, Task B MUST list `task-A` in its `depends_on` array.
 
-## 3. Sprint Execution Framework
-1. **Sprint Start**: Read sprint file, confirm dependencies, break into tasks.
-2. **Implementation**: Small increments, typed APIs, add tests with each change.
-3. **Verification**: Run lint, typecheck, unit/integration tests, and Playwright.
-4. **Closure**: Confirm DoD, publish summary (scope, tests, issues, carry-over).
+## 2. Subtask Markdown Format
 
-## 4. Mandatory End-of-Sprint Quality Gate
-A sprint is not complete until these commands pass locally:
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test`
-- `pnpm test:integration`
-- `pnpm test:e2e` (Playwright)
+For every subtask, create a file named `<task-id>.md` in `sprints/sprint<N>-subtasks/`:
 
-## 5. Playwright Standard
-- **Minimum Coverage**: One happy-path and one negative/edge scenario for new critical flows.
-- **Global Failure Conditions**: Fail on `pageerror` or unexpected `console.error`.
-- **Artifacts**: Collect trace, screenshot, and video for failures.
-- **Stability**: Fix flaky tests before closure.
+```markdown
+title: <Short descriptive title>
+depends_on: [<dependency-task-id-1>, <dependency-task-id-2>]
+is_independent: <true | false>
+prompt:
+As a senior developer, your task is to:
+1. <Action 1: Implement X>
+2. <Action 2: Update Y>
+3. <Action 3: Verify with Z>
 
-## 6. Coding Standards
-- **TypeScript**: Strict mode, avoid `any`.
-- **Structure**: Organize by domain; separate transport, domain logic, and persistence.
-- **APIs**: Validate all external input; use consistent error formats.
-- **Data**: Migration files for every schema change; forward-safe and rollback-aware.
-- **Frontend**: Reusable primitives, deterministic rendering, handle loading/error states.
+## Engineering Standard
+- Adhere to the technical baseline in `worker.md`.
+- Use the feature branch: feature/sprint<N>-<description>.
+- Ensure all tests pass before completing.
+```
 
-## 7. Security & Compliance
-- Enforce auth/RBAC checks server-side.
-- No secrets in code or logs.
-- Audit all critical writes.
+## 3. Heuristics for "Jules-Ready" Tasks
 
-## 8. Git Workflow and Branch Strategy
-- **Branching**: Sprints on feature branches (`feature/sprint-<n>-<description>`).
-- **Commits**: Small units (feat, fix, chore, test, docs).
-- **PRs**: Create using `gh pr create`; monitor CI checks until green; squash merge.
-- **PR Content**: Summary, test evidence (including local Playwright results), known risks.
+| Characteristic | Jules-Ready? | Action |
+|---|---|---|
+| Large refactor across multiple domains | No | Break into domain-specific subtasks. |
+| Implementing a new API endpoint | Yes | Provide the schema and route details. |
+| Fixing a bug with a known reproduction | Yes | Provide the reproduction steps in the prompt. |
+| UI/UX design exploration | No | Handle this as a manual blocker task. |
+| Infrastructure as Code (Terraform) | Yes | Provide the provider and resource specs. |
 
-## 9. Definition of Done
-- Deliverables implemented.
-- Tests added and passing.
-- End-of-sprint quality gate is fully green.
-- Playwright coverage exists and is stable.
-- Documentation updated.
-- No critical or high severity open defects.
+## 4. Final Review Checklist
+
+Before finishing the planning phase:
+1.  **Circular Dependency Check**: Ensure there are no cycles in the `depends_on` graph.
+2.  **Prompt Clarity**: Read each prompt. Is it a direct command? Is it ambiguous?
+3.  **Path Accuracy**: Ensure all referenced file paths in the prompt are correct.
+4.  **Verification Steps**: Does the prompt include how the agent should verify its work?
