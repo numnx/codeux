@@ -285,6 +285,22 @@ class JulesAgentServer {
             required: ["sprint_number", "repo_path", "source_id", "action"],
           },
         },
+        {
+          name: "task_agent",
+          description: "Executes a single specific task on a codebase by creating a Jules session with injected engineering standards.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              prompt: { type: "string", description: "The specific task to perform." },
+              source_id: { type: "string", description: "The Jules source ID (e.g., 'sources/123')." },
+              repo_path: { type: "string", description: "Local path to the repository to find worker.md." },
+              title: { type: "string", description: "Optional title for the session." },
+              branch: { type: "string", description: "Optional starting branch." },
+              wait: { type: "boolean", description: "Whether to wait for the task to reach a terminal state (COMPLETED/FAILED).", default: false }
+            },
+            required: ["prompt", "source_id", "repo_path"],
+          },
+        },
       ],
     }));
 
@@ -319,6 +335,8 @@ class JulesAgentServer {
             return await this.handleListAllActivities(args as { session_id: string });
           case "sprint_agent":
             return await this.handleSprintAgent(args as any);
+          case "task_agent":
+            return await this.handleTaskAgent(args as any);
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
         }
@@ -558,6 +576,51 @@ class JulesAgentServer {
     }
 
     return { content: [{ type: "text", text: report }] };
+  }
+
+  private async handleTaskAgent(args: {
+    prompt: string;
+    source_id: string;
+    repo_path: string;
+    title?: string;
+    branch?: string;
+    wait?: boolean;
+  }) {
+    let workerGuide = "";
+    try {
+      workerGuide = await this.getGuideContent("worker.md", args.repo_path);
+    } catch (error) {
+      // Fallback if no worker guide is found, though it's recommended
+      console.error("Warning: worker.md guide not found for task_agent.");
+    }
+
+    const fullPrompt = workerGuide 
+      ? `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## TASK TO EXECUTE\n\n${args.prompt}`
+      : args.prompt;
+
+    const data: any = {
+      prompt: fullPrompt,
+      sourceContext: { 
+        source: this.normalizeName("sources", args.source_id),
+      },
+      automationMode: "AUTO_CREATE_PR"
+    };
+
+    if (args.branch) {
+      data.sourceContext.githubRepoContext = { startingBranch: args.branch };
+    }
+    if (args.title) {
+      data.title = args.title;
+    }
+
+    const response = await this.axiosInstance.post<JulesSession>("/sessions", data);
+    const session = response.data;
+
+    if (args.wait) {
+      return await this.handleWaitForSessionCompletion({ session_id: session.id });
+    }
+
+    return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] };
   }
 
   private async getGuideContent(guideName: string, repoPath?: string): Promise<string> {

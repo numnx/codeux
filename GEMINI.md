@@ -61,6 +61,7 @@ The system uses a **tri-agent skill architecture** to ensure absolute precision 
 | **Discovery** | `list_all_sources` | `get_source` |
 | **Planning** | `sprint_agent(action: "plan")` | `read_file`, `write_file` |
 | **Execution** | `sprint_agent(action: "orchestrate")` | `create_session` |
+| **One-off Implementation** | `task_agent` | `wait_for_session_completion` |
 | **Monitoring** | `sprint_agent(action: "status")` | `get_session`, `wait_for_session_completion` |
 | **Verification** | `list_all_activities` | `get_activity` |
 
