@@ -39,16 +39,6 @@ const apiKeyArg = args.find(arg => arg.startsWith("--api-key="))?.split("=")[1] 
 const API_KEY = apiKeyArg || process.env.JULES_API_KEY || process.env.JULES_KEY;
 const BASE_URL = process.env.JULES_API_BASE_URL || "https://jules.googleapis.com/v1alpha";
 
-if (!API_KEY) {
-  console.error("Error: Jules API Key is missing.");
-  console.error("Please provide it via:");
-  console.error("  1. Environment variable: JULES_API_KEY or JULES_KEY");
-  console.error("  2. Command line argument: --api-key <your_key>");
-  console.error("  3. A .env file in the current directory");
-  console.error("\nAvailable environment variables:", Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("JULES")).join(", ") || "none");
-  process.exit(1);
-}
-
 // Types for Jules API
 interface JulesSource {
   name: string;
@@ -711,6 +701,11 @@ const isMainModule = (fileURLToPath(import.meta.url) === process.argv[1]);
 if (isMainModule && !process.env.VITEST && process.env.NODE_ENV !== "test") {
   if (!API_KEY) {
     console.error("Error: Jules API Key is missing.");
+    console.error("Please provide it via:");
+    console.error("  1. Environment variable: JULES_API_KEY or JULES_KEY");
+    console.error("  2. Command line argument: --api-key <your_key>");
+    console.error("  3. A .env file in the current directory");
+    console.error("\nAvailable environment variables:", Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("JULES")).join(", ") || "none");
     process.exit(1);
   }
   const server = new JulesAgentServer();

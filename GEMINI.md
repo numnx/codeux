@@ -85,6 +85,7 @@ The project uses **Vitest** for unit testing. All tests are designed to run **wi
 
 - **Run Tests**: `pnpm test`
 - **Location**: `src/index.test.ts`
+- **Configuration**: `vitest.config.ts` (excludes `dist/` and other non-source directories).
 - **Focus**: Verifying name normalization, prompt injection, and orchestration logic.
 
 ## 📁 Key Files & Directories
