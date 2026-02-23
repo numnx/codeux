@@ -77,6 +77,7 @@ interface Subtask {
   status?: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
   session_id?: string;
   is_independent: boolean; // Flag to indicate if it can be delegated to Jules
+  is_merged?: boolean; // Flag to indicate if the PR has been merged
 }
 
 class JulesAgentServer {
@@ -532,6 +533,7 @@ class JulesAgentServer {
                   "title: Task Title\n" +
                   "depends_on: [task_id_1, task_id_2]\n" +
                   "is_independent: true\n" +
+                  "merged: false\n" +
                   "prompt:\n" +
                   "Detailed instructions for Jules.\n" +
                   "```"
@@ -563,7 +565,7 @@ class JulesAgentServer {
         } else {
           const dependenciesMet = task.depends_on.every(depId => {
             const dep = subtasks.find(t => t.id === depId);
-            return dep?.status === "COMPLETED";
+            return dep?.status === "COMPLETED" && dep?.is_merged;
           });
           task.status = dependenciesMet ? "PENDING" : "BLOCKED";
         }
@@ -582,8 +584,19 @@ class JulesAgentServer {
 
       let statusTable = `#### Task Status:\n`;
       for (const task of subtasks) {
-        const statusIcon = task.status === "COMPLETED" ? "✅" : (task.status === "RUNNING" ? "⏳" : (task.status === "BLOCKED" ? "🚫" : "💤"));
-        statusTable += `- ${statusIcon} **${task.id}**: \`${task.status}\` - ${task.title}\n`;
+        let statusIcon = "💤";
+        if (task.status === "COMPLETED") {
+          statusIcon = task.is_merged ? "✅" : "🤝";
+        } else if (task.status === "RUNNING") {
+          statusIcon = "⏳";
+        } else if (task.status === "BLOCKED") {
+          statusIcon = "🚫";
+        } else if (task.status === "FAILED") {
+          statusIcon = "❌";
+        }
+        
+        const mergeInfo = (task.status === "COMPLETED" && !task.is_merged) ? " **(Awaiting Merge)**" : "";
+        statusTable += `- ${statusIcon} **${task.id}**: \`${task.status}\`${mergeInfo} - ${task.title}\n`;
       }
 
       return { subtasks, reportText, statusTable };
@@ -608,13 +621,20 @@ class JulesAgentServer {
           console.error(reportText);
         }
 
-        allFinished = subtasks.every(t => t.status === "COMPLETED" || t.status === "FAILED");
+        const runningTasks = subtasks.filter(t => t.status === "RUNNING");
+        const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
         
-        if (!allFinished) {
-          await new Promise(resolve => setTimeout(resolve, 120 * 1000));
-        } else {
+        allFinished = subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED");
+        const noMoreActionPossible = runningTasks.length === 0 && readyTasks.length === 0;
+        
+        if (allFinished || noMoreActionPossible) {
+          allFinished = true; // Force exit the loop
           fullReport += reportText;
           fullReport += statusTable;
+
+          if (!subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED") && noMoreActionPossible) {
+            fullReport += `\n🛑 **Action Required:** Orchestration paused. No tasks are running and no pending tasks can be started. Please merge any completed PRs and update subtask files with \`merged: true\` to continue.\n`;
+          }
           
           try {
             const watchGuide = await this.getGuideContent("watch.md", args.repo_path);
@@ -623,21 +643,24 @@ class JulesAgentServer {
             // No watch guide found
           }
 
-          // Cleanup subtasks only if EVERY task is COMPLETED.
-          // If there are FAILED tasks, we keep the directory for debugging and retries.
-          if (subtasks.every(t => t.status === "COMPLETED")) {
+          // Cleanup subtasks only if EVERY task is COMPLETED AND MERGED.
+          if (subtasks.every(t => t.status === "COMPLETED" && t.is_merged)) {
             try {
               console.error(`Cleaning up subtasks directory: ${subtasksDir}`);
               await fs.rm(subtasksDir, { recursive: true, force: true });
-              fullReport += `\n🧹 **Cleanup:** All tasks completed successfully. Deleted subtasks in \`${subtasksDir}\`.\n`;
+              fullReport += `\n🧹 **Cleanup:** All tasks completed and merged successfully. Deleted subtasks in \`${subtasksDir}\`.\n`;
             } catch (cleanupError) {
               console.error(`Warning: Failed to cleanup subtasks: ${cleanupError}`);
             }
           } else if (subtasks.some(t => t.status === "FAILED")) {
             fullReport += `\n⚠️ **Cleanup Skipped:** Some tasks failed. Subtasks in \`${subtasksDir}\` are preserved for debugging.\n`;
+          } else if (subtasks.some(t => t.status === "COMPLETED" && !t.is_merged)) {
+            fullReport += `\n⏸️ **Cleanup Deferred:** Awaiting merges for completed tasks.\n`;
           }
 
           fullReport += `\n✅ **Sprint Execution Finished.**\n`;
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 120 * 1000));
         }
       }
       return { content: [{ type: "text", text: fullReport }] };
@@ -745,6 +768,7 @@ class JulesAgentServer {
       const titleMatch = content.match(/title:\s*(.*)/);
       const dependsMatch = content.match(/depends_on:\s*\[(.*)\]/);
       const independentMatch = content.match(/is_independent:\s*(true|false)/);
+      const mergedMatch = content.match(/merged:\s*(true|false)/);
       const promptMatch = content.match(/prompt:\s*([\s\S]*)/);
       subtasks.push({
         id,
@@ -752,6 +776,7 @@ class JulesAgentServer {
         prompt: promptMatch ? promptMatch[1].trim() : content,
         depends_on: dependsMatch ? dependsMatch[1].split(",").map(s => s.trim()).filter(s => s) : [],
         is_independent: independentMatch ? independentMatch[1] === "true" : true,
+        is_merged: mergedMatch ? mergedMatch[1] === "true" : false,
         status: "PENDING",
       });
     }
