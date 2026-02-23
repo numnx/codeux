@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jules Sprint Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .dashboard-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .task-card { background: white; border-radius: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1rem; transition: transform 0.2s; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .status-badge { font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85rem; }
+        .status-PENDING { background-color: #e9ecef; color: #495057; }
+        .status-RUNNING { background-color: #cff4fc; color: #055160; animation: pulse 2s infinite; }
+        .status-COMPLETED { background-color: #d1e7dd; color: #0f5132; }
+        .status-FAILED { background-color: #f8d7da; color: #842029; }
+        .status-BLOCKED { background-color: #fff3cd; color: #664d03; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        pre { background: #f1f3f5; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
+        .refresh-info { font-size: 0.8rem; color: rgba(255,255,255,0.8); }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script type="module">
+        import { h, render } from 'https://esm.sh/preact';
+        import { useState, useEffect } from 'https://esm.sh/preact/hooks';
+        import htm from 'https://esm.sh/htm';
+
+        const html = htm.bind(h);
+
+        function App() {
+            const [status, setStatus] = useState({ subtasks: [], timestamp: null });
+            const [error, setError] = useState(null);
+
+            const fetchData = async () => {
+                try {
+                    const res = await fetch('/api/status');
+                    const data = await res.json();
+                    setStatus(data);
+                    setError(null);
+                } catch (err) {
+                    setError('Failed to connect to orchestrator API');
+                }
+            };
+
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 5000);
+                return () => clearInterval(interval);
+            }, []);
+
+            if (error) return html`
+                <div class="container mt-5">
+                    <div class="alert alert-danger">${error}</div>
+                </div>
+            `;
+
+            return html`
+                <div>
+                    <header class="dashboard-header text-center">
+                        <div class="container">
+                            <h1 class="display-5 fw-bold">Sprint ${status.sprint_number || '?'} Orchestration</h1>
+                            <p class="lead">Branch: <code>${status.feature_branch || 'N/A'}</code></p>
+                            <div class="refresh-info">Last updated: ${status.timestamp || 'Never'} (Auto-refreshing every 5s)</div>
+                        </div>
+                    </header>
+
+                    <main class="container">
+                        <div class="row">
+                            <div class="col-lg-8">
+                                <h3 class="mb-4">Task Pipeline</h3>
+                                ${status.subtasks.length === 0 ? html`
+                                    <div class="alert alert-info">No subtasks found or orchestration hasn't started yet.</div>
+                                ` : status.subtasks.map(task => html`
+                                    <div class="task-card card shadow-sm mb-3">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h5 class="card-title mb-0"><code>[${task.id}]</code> ${task.title}</h5>
+                                                <span class="status-badge status-${task.status}">${task.status}</span>
+                                            </div>
+                                            <p class="card-text text-muted small">${task.prompt.substring(0, 150)}...</p>
+                                            <div class="d-flex gap-2">
+                                                ${task.depends_on.length > 0 && html`
+                                                    <div class="small">
+                                                        <strong>Depends on:</strong> ${task.depends_on.join(', ')}
+                                                    </div>
+                                                `}
+                                                ${task.is_merged && html`<span class="badge bg-success">Merged ✅</span>`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `)}
+                            </div>
+
+                            <div class="col-lg-4">
+                                <h3 class="mb-4">Orchestration Logs</h3>
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body">
+                                        <h6>Recent Activity</h6>
+                                        <div class="small mb-4">
+                                            ${status.reportText ? html`<div dangerouslySetInnerHTML=${{ __html: status.reportText.replace(/
+/g, '<br>') }} />` : 'No recent activity.'}
+                                        </div>
+                                        
+                                        <h6>Instructions</h6>
+                                        <div class="small text-warning">
+                                            ${status.instructions ? html`<div dangerouslySetInnerHTML=${{ __html: status.instructions.replace(/
+/g, '<br>') }} />` : 'No pending instructions.'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        render(html`<${App} />`, document.getElementById('app'));
+    </script>
+</body>
+</html>

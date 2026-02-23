@@ -13,6 +13,7 @@ import dotenv from "dotenv";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import express from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,7 @@ const apiKeyArg = args.find(arg => arg.startsWith("--api-key="))?.split("=")[1] 
 
 const API_KEY = apiKeyArg || process.env.JULES_API_KEY || process.env.JULES_KEY;
 const BASE_URL = process.env.JULES_API_BASE_URL || "https://jules.googleapis.com/v1alpha";
+const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "3000");
 
 if (!API_KEY) {
   console.error("Error: Jules API Key is missing.");
@@ -85,6 +87,8 @@ class JulesAgentServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
   private completedSprints: Set<number> = new Set();
+  private lastStatus: any = { subtasks: [], timestamp: null };
+  private app = express();
 
   constructor() {
     this.server = new Server(
@@ -108,6 +112,7 @@ class JulesAgentServer {
     });
 
     this.setupToolHandlers();
+    this.setupDashboard();
     
     this.server.onerror = (error) => {
       console.error("[MCP Server Error]", JSON.stringify(error, null, 2));
@@ -116,6 +121,20 @@ class JulesAgentServer {
     process.on("SIGINT", async () => {
       await this.server.close();
       process.exit(0);
+    });
+  }
+
+  private setupDashboard() {
+    this.app.get("/api/status", (req, res) => {
+      res.json(this.lastStatus);
+    });
+
+    // We'll create this directory later
+    const dashboardDir = path.join(projectRoot, "dashboard");
+    this.app.use(express.static(dashboardDir));
+
+    this.app.listen(DASHBOARD_PORT, () => {
+      console.error(`Dashboard server running at http://localhost:${DASHBOARD_PORT}`);
     });
   }
 
@@ -645,59 +664,31 @@ class JulesAgentServer {
     if (shouldWait) {
       let allFinished = false;
       let fullReport = `### Sprint ${args.sprint_number} Continuous Orchestration\n\n`;
-      fullReport += `**Feature Branch:** \`${defaultFeatureBranch}\`\n\n`;
+      fullReport += `**Feature Branch:** \`${defaultFeatureBranch}\`\n`;
+      fullReport += `**Dashboard:** http://localhost:${DASHBOARD_PORT}\n\n`;
       
       console.error(`Starting watch loop for Sprint ${args.sprint_number}...`);
+      console.error(`Live dashboard available at http://localhost:${DASHBOARD_PORT}`);
 
       while (!allFinished) {
         const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
         
         const timestamp = new Date().toLocaleTimeString();
         
-        // ANSI Color Codes
-        const blue = '\x1b[34m';
-        const cyan = '\x1b[36m';
-        const green = '\x1b[32m';
-        const yellow = '\x1b[33m';
-        const reset = '\x1b[0m';
-        const bold = '\x1b[1m';
-        
-        // Clear screen and move cursor to top-left
-        process.stderr.write('\x1b[2J\x1b[3J\x1b[H');
-        
-        let liveOutput = `${blue}${bold}==================================================${reset}\n`;
-        liveOutput += `  ${cyan}${bold}SPRINT ${args.sprint_number} ORCHESTRATION - LIVE DASHBOARD${reset}\n`;
-        liveOutput += `${blue}${bold}==================================================${reset}\n`;
-        liveOutput += `Status as of: ${timestamp}\n`;
-        liveOutput += `Feature Branch: ${yellow}${defaultFeatureBranch}${reset}\n\n`;
-        
-        // Transform the status table with some spacing/indentation
-        const formattedStatus = statusTable
-          .split('\n')
-          .map(line => line.startsWith('-') ? `  ${line}` : line)
-          .join('\n');
-          
-        liveOutput += `${formattedStatus}\n`;
-        
-        if (reportText) {
-          liveOutput += `${green}${bold}--- Recent Activity ---${reset}\n${reportText}\n`;
-        }
+        // Update dashboard status
+        this.lastStatus = {
+          sprint_number: args.sprint_number,
+          feature_branch: defaultFeatureBranch,
+          subtasks,
+          reportText,
+          statusTable,
+          instructions,
+          timestamp
+        };
 
-        if (instructions) {
-          liveOutput += `${yellow}${bold}--- Pending Actions ---${reset}\n${instructions}\n`;
-        }
+        console.error(`[${timestamp}] Cycle complete. Status updated.`);
         
-        liveOutput += `${blue}${bold}==================================================${reset}\n`;
-        
-        process.stderr.write(liveOutput);
-
-        // Also send as a logging message for supporting clients
-        try {
-          this.server.sendLoggingMessage({
-            level: "info",
-            data: liveOutput
-          });
-        } catch {}
+        if (reportText) console.error(reportText);
 
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
@@ -749,14 +740,7 @@ class JulesAgentServer {
 
           fullReport += `\n✅ **Sprint Execution Finished.**\n`;
         } else {
-          // Live countdown for better UX
-          let countdown = 120;
-          while (countdown > 0) {
-            process.stderr.write(`\r\x1b[KNext poll in ${countdown}s...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            countdown--;
-          }
-          process.stderr.write(`\n`);
+          await new Promise(resolve => setTimeout(resolve, 120 * 1000));
         }
       }
       return { content: [{ type: "text", text: fullReport }] };
@@ -901,50 +885,10 @@ class JulesAgentServer {
     await this.server.connect(transport);
     console.error("Jules Subagents MCP server (v1.2.0) running on stdio");
   }
-
-  // Support for direct CLI execution
-  async runCli(action: string, sprintNumber: number, repoPath: string, sourceId: string, featureBranch?: string) {
-    console.error(`Running CLI Action: ${action} for Sprint ${sprintNumber}`);
-    const result = await this.handleSprintAgent({
-      sprint_number: sprintNumber,
-      repo_path: repoPath,
-      source_id: sourceId,
-      feature_branch: featureBranch,
-      action: action as any,
-      wait: true
-    });
-    
-    if (result.content && result.content[0].type === "text") {
-      console.log(result.content[0].text);
-    }
-  }
 }
 
 const server = new JulesAgentServer();
-
-// CLI vs MCP Mode Dispatcher
-const main = async () => {
-  const cliAction = args.find(a => ["orchestrate", "plan", "status"].includes(a));
-  
-  if (cliAction) {
-    const sprintNum = parseInt(args.find(a => a.startsWith("--sprint="))?.split("=")[1] || "");
-    const rPath = args.find(a => a.startsWith("--repo-path="))?.split("=")[1] || process.cwd();
-    const sId = args.find(a => a.startsWith("--source-id="))?.split("=")[1] || "";
-    const fBranch = args.find(a => a.startsWith("--branch="))?.split("=")[1];
-
-    if (isNaN(sprintNum) || !sId) {
-      console.error("Error: Missing required arguments for CLI mode.");
-      console.error("Usage: jules-subagents <action> --sprint=<number> --source-id=<id> [--repo-path=<path>] [--branch=<name>]");
-      process.exit(1);
-    }
-
-    await server.runCli(cliAction, sprintNum, rPath, sId, fBranch);
-  } else {
-    await server.run().catch((error) => {
-      console.error("Fatal error starting server:", error);
-      process.exit(1);
-    });
-  }
-};
-
-main();
+server.run().catch((error) => {
+  console.error("Fatal error starting server:", error);
+  process.exit(1);
+});
