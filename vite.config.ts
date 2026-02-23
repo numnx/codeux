@@ -5,7 +5,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [preact()],
   root: 'dashboard',
-  base: './',
+  base: '/',
   build: {
     outDir: '../dist/dashboard',
     emptyOutDir: true,

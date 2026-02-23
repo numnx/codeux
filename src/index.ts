@@ -126,6 +126,11 @@ class JulesAgentServer {
   }
 
   private setupDashboard() {
+    this.app.use((req, res, next) => {
+      console.error(`[Dashboard Request] ${req.method} ${req.url}`);
+      next();
+    });
+
     this.app.get("/api/status", (req, res) => {
       res.json(this.lastStatus);
     });
