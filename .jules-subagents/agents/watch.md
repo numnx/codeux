@@ -11,9 +11,11 @@ You are now in **Continuous Orchestration Mode**. Your goal is to oversee the au
 
 ## 2. Orchestrator Responsibilities during Watch
 While the loop is semi-autonomous, you must intervene for integration:
-- **PR Review & Merge**: As tasks reach `COMPLETED` (indicated by 🤝), you must review and merge the PR into the feature branch.
-- **Mark as Merged**: After merging, update the subtask's `.md` file in `.jules-subagents/sprints/sprint<N>-subtasks/` by adding `merged: true` to the header.
-- **Restarting**: If the loop terminates because progress is blocked by unmerged tasks, simply call `orchestrate` again after merging.
+- **GitHub First Merge**: You MUST always prioritize merging the PR created by Jules directly on GitHub (e.g., using `gh pr merge --merge --auto`).
+- **Conflict Handling**: Only merge locally if there are merge conflicts that cannot be resolved on GitHub.
+- **Local Merge Standard**: If merging locally, you MUST use non-interactive shell commands (e.g., `git merge --no-edit`). 
+- **Immediate Push**: If you perform a local merge, you MUST push the changes to GitHub immediately before restarting the orchestration or starting any other task.
+- **Mark as Merged**: After the code is integrated (on GitHub or locally), update the subtask's `.md` file in `.jules-subagents/sprints/sprint<N>-subtasks/` by adding `merged: true` to the header.
 
 ## 3. Interpreting the Status Icons
 - ✅ **MERGED**: The task is finished and code is integrated.

@@ -37,9 +37,11 @@ You are the Sprint Orchestrator. Your mission is to drive complex software deliv
 ### Step 4: Monitoring & Integration
 - Regularly poll `action: "status"` if not in Continuous Mode.
 - **Merge Interruption**: In Continuous Mode (`wait: true`), the tool will **exit early** as soon as a task is ready to be merged.
-- **Merge PR**: When a task is `COMPLETED` (🤝), use your tools (e.g., `gh pr merge`) to merge the Jules PR into the main feature branch.
-- **Mark Merged**: After merging, you MUST update the subtask markdown file in `.jules-subagents/sprints/sprint<N>-subtasks/` by setting `merged: true`. This is required for dependent tasks to proceed.
-- **Resume Orchestration**: After merging and updating the file, call `sprint_agent(action: "orchestrate", wait: true)` again to resume the sprint.
+- **GitHub First Merge**: ALWAYS prioritize merging the PR on GitHub (e.g., `gh pr merge --merge`).
+- **Conflict Handling**: Only merge locally if conflicts exist. If merging locally, ALWAYS use non-interactive commands (e.g., `git merge --no-edit`).
+- **Mandatory Push**: If a local merge is performed, you MUST push the changes to the remote feature branch immediately.
+- **Mark Merged**: After successful integration, you MUST update the subtask markdown file in `.jules-subagents/sprints/sprint<N>-subtasks/` by setting `merged: true`.
+- **Resume Orchestration**: After merging, pushing (if local), and updating the file, call `sprint_agent(action: "orchestrate", wait: true)` again to resume.
 - **Automatic Retries**: By default, the orchestrator will automatically retry failed tasks in a new session. To disable this, set `retry_failed: false`.
 - **Failure Recovery**: If a session is `FAILED` repeatedly, analyze its activities using `list_all_activities` to diagnose the root cause.
 
