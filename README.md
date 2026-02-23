@@ -106,6 +106,7 @@ Get a real-time report of all subtasks, their dependencies, and linked Jules ses
 ### 3. Orchestration (`action: "orchestrate"`)
 - **Parallelism**: Automatically starts Jules sessions for all ready, independent tasks.
 - **Continuous Mode**: Defaults to `wait: true`. Monitors progress every 120s and automatically starts dependent tasks.
+- **Automatic Retries**: Failed tasks are automatically retried in a new session (default `retry_failed: true`).
 - **Mandatory Merge Step**: Dependent tasks are only started when their dependencies are both `COMPLETED` and have `merged: true` set in their subtask file.
 - **Integration Instructions**: Provides explicit CLI instructions for merging PRs and updating subtask states.
 - **Finalization**: Automatically provides steps for merging the main feature branch into `main` and proceeding to the next sprint.
