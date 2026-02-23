@@ -572,6 +572,7 @@ class JulesAgentServer {
       }
 
       let reportText = "";
+      let instructions = "";
       if (args.action === "orchestrate") {
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
         for (const task of readyTasks) {
@@ -579,6 +580,16 @@ class JulesAgentServer {
           task.status = "RUNNING";
           task.session_id = session.id;
           reportText += `🚀 **Started Jules Session** for task \`${task.id}\`: [${session.id}](${session.id})\n`;
+        }
+      }
+
+      // Generate instructions for completed but unmerged tasks
+      const awaitingMerge = subtasks.filter(t => t.status === "COMPLETED" && !t.is_merged);
+      if (awaitingMerge.length > 0) {
+        instructions += `\n### 📥 MERGE INSTRUCTIONS\n`;
+        for (const task of awaitingMerge) {
+          instructions += `1. **Task ${task.id}**: Merge the Jules-created branch into \`${defaultFeatureBranch}\`.\n`;
+          instructions += `2. Update \`${path.join(subtasksDir, task.id + ".md")}\` with \`merged: true\`.\n`;
         }
       }
 
@@ -599,7 +610,7 @@ class JulesAgentServer {
         statusTable += `- ${statusIcon} **${task.id}**: \`${task.status}\`${mergeInfo} - ${task.title}\n`;
       }
 
-      return { subtasks, reportText, statusTable };
+      return { subtasks, reportText, statusTable, instructions };
     };
 
     const shouldWait = args.wait !== undefined ? args.wait : (args.action === "status" || args.action === "orchestrate");
@@ -612,13 +623,17 @@ class JulesAgentServer {
       console.error(`Starting watch loop for Sprint ${args.sprint_number}...`);
 
       while (!allFinished) {
-        const { subtasks, reportText, statusTable } = await runOrchestrationCycle();
+        const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
         
         const timestamp = new Date().toLocaleTimeString();
         console.error(`[${timestamp}] Cycle complete. Status updated.\n${statusTable}`);
         
         if (reportText) {
           console.error(reportText);
+        }
+
+        if (instructions) {
+          console.error(instructions);
         }
 
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
@@ -631,9 +646,10 @@ class JulesAgentServer {
           allFinished = true; // Force exit the loop
           fullReport += reportText;
           fullReport += statusTable;
+          fullReport += instructions;
 
           if (!subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED") && noMoreActionPossible) {
-            fullReport += `\n🛑 **Action Required:** Orchestration paused. No tasks are running and no pending tasks can be started. Please merge any completed PRs and update subtask files with \`merged: true\` to continue.\n`;
+            fullReport += `\n🛑 **Action Required:** Orchestration paused. No tasks are running and no pending tasks can be started.\n`;
           }
           
           try {
@@ -649,6 +665,13 @@ class JulesAgentServer {
               console.error(`Cleaning up subtasks directory: ${subtasksDir}`);
               await fs.rm(subtasksDir, { recursive: true, force: true });
               fullReport += `\n🧹 **Cleanup:** All tasks completed and merged successfully. Deleted subtasks in \`${subtasksDir}\`.\n`;
+              
+              fullReport += `\n## 🏁 SPRINT COMPLETION STEPS\n`;
+              fullReport += `1. **Create Pull Request**: Merge \`${defaultFeatureBranch}\` into \`main\`.\n`;
+              fullReport += `2. **Final Review**: Review all code changes implemented by Jules subagents.\n`;
+              fullReport += `3. **CI/CD Verification**: Wait for all CI checks to turn green. If merge conflicts or CI errors occur, fix them locally and push until all checks pass.\n`;
+              fullReport += `4. **Next Sprint**: Proceed with the implementation of Sprint ${args.sprint_number + 1} (auto-continue: true).\n`;
+
             } catch (cleanupError) {
               console.error(`Warning: Failed to cleanup subtasks: ${cleanupError}`);
             }
@@ -665,11 +688,12 @@ class JulesAgentServer {
       }
       return { content: [{ type: "text", text: fullReport }] };
     } else {
-      const { subtasks, reportText, statusTable } = await runOrchestrationCycle();
+      const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
       let report = `### Sprint ${args.sprint_number} Orchestration Report\n\n`;
       report += `**Feature Branch:** \`${defaultFeatureBranch}\`\n\n`;
       report += reportText;
       report += statusTable;
+      report += instructions;
 
       try {
         const orchGuide = await this.getGuideContent("orchestrator.md", args.repo_path);
