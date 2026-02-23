@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jules | Sprint Dashboard</title>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+        // Adding tailwindcss-animate via a custom script for the CDN version
+        window.tailwind.config.plugins = [
+            function({ addUtilities }) {
+                addUtilities({
+                    '.animate-in': { 'animation-name': 'enter', 'animation-duration': '300ms' },
+                    '.fade-in': { 'opacity': '0' },
+                    '.slide-in-from-top-2': { 'transform': 'translateY(-0.5rem)' },
+                })
+            }
+        ];
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
