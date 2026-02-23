@@ -8,6 +8,12 @@ export const renderMarkdown = (text) => {
     return marked.parse(text);
 };
 
+export const formatTime = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 export const getStatusColor = (s) => {
     switch(s) {
         case 'RUNNING': return 'bg-sky-500/10 text-sky-400 border-sky-500/20';

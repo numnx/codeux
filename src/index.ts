@@ -79,6 +79,7 @@ interface Subtask {
   depends_on: string[]; // IDs of other subtasks
   status?: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
   session_id?: string;
+  activities?: JulesActivity[];
   is_independent: boolean; // Flag to indicate if it can be delegated to Jules
   is_merged?: boolean; // Flag to indicate if the PR has been merged
 }
@@ -593,6 +594,18 @@ class JulesAgentServer {
         const match = sessions.find(s => s.title?.includes(`[${task.id}]`));
         if (match) {
           task.session_id = match.id;
+          
+          // Fetch recent activities for this session
+          try {
+            const activitiesResponse = await this.axiosInstance.get<{ activities?: JulesActivity[] }>(
+              `/sessions/${match.id}/activities`, 
+              { params: { pageSize: 5 } }
+            );
+            task.activities = (activitiesResponse.data.activities || []).reverse(); // Oldest first for display
+          } catch (e) {
+            console.error(`Warning: Could not fetch activities for task ${task.id}`);
+          }
+
           if (match.state === "COMPLETED") {
             task.status = "COMPLETED";
           } else if (match.state === "FAILED" || match.state === "CANCELLED") {
