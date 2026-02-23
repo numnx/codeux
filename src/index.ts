@@ -654,39 +654,50 @@ class JulesAgentServer {
         
         const timestamp = new Date().toLocaleTimeString();
         
-        // Clear screen and move cursor to top-left for live dashboard feel
-        // Using stderr.write for immediate unbuffered output
+        // ANSI Color Codes
+        const blue = '\x1b[34m';
+        const cyan = '\x1b[36m';
+        const green = '\x1b[32m';
+        const yellow = '\x1b[33m';
+        const reset = '\x1b[0m';
+        const bold = '\x1b[1m';
+        
+        // Clear screen and move cursor to top-left
         process.stderr.write('\x1b[2J\x1b[3J\x1b[H');
         
-        let liveOutput = `==================================================\n`;
-        liveOutput += `  SPRINT ${args.sprint_number} ORCHESTRATION - LIVE STATUS\n`;
-        liveOutput += `==================================================\n`;
-        liveOutput += `Last updated: ${timestamp}\n`;
-        liveOutput += `Feature Branch: ${defaultFeatureBranch}\n\n`;
-        liveOutput += `${statusTable}`;
+        let liveOutput = `${blue}${bold}==================================================${reset}\n`;
+        liveOutput += `  ${cyan}${bold}SPRINT ${args.sprint_number} ORCHESTRATION - LIVE DASHBOARD${reset}\n`;
+        liveOutput += `${blue}${bold}==================================================${reset}\n`;
+        liveOutput += `Status as of: ${timestamp}\n`;
+        liveOutput += `Feature Branch: ${yellow}${defaultFeatureBranch}${reset}\n\n`;
+        
+        // Transform the status table with some spacing/indentation
+        const formattedStatus = statusTable
+          .split('\n')
+          .map(line => line.startsWith('-') ? `  ${line}` : line)
+          .join('\n');
+          
+        liveOutput += `${formattedStatus}\n`;
         
         if (reportText) {
-          liveOutput += `\n--- Recent Actions ---\n${reportText}`;
+          liveOutput += `${green}${bold}--- Recent Activity ---${reset}\n${reportText}\n`;
         }
 
         if (instructions) {
-          liveOutput += `\n--- Pending Actions ---\n${instructions}`;
+          liveOutput += `${yellow}${bold}--- Pending Actions ---${reset}\n${instructions}\n`;
         }
         
-        liveOutput += `\n==================================================\n`;
+        liveOutput += `${blue}${bold}==================================================${reset}\n`;
         
-        // Output to stderr for users watching the terminal
         process.stderr.write(liveOutput);
 
-        // Also send as a logging message for MCP clients that support it
+        // Also send as a logging message for supporting clients
         try {
           this.server.sendLoggingMessage({
             level: "info",
             data: liveOutput
           });
-        } catch (logError) {
-          // Ignore if logging is not supported or server not fully connected
-        }
+        } catch {}
 
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
