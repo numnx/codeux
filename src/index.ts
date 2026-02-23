@@ -679,7 +679,7 @@ class JulesAgentServer {
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
         
-        allFinished = subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED");
+        allFinished = subtasks.length > 0 && subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED");
         const noMoreActionPossible = runningTasks.length === 0 && readyTasks.length === 0;
         
         if (allFinished || noMoreActionPossible) {
@@ -688,7 +688,7 @@ class JulesAgentServer {
           fullReport += statusTable;
           fullReport += instructions;
 
-          if (!subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED") && noMoreActionPossible) {
+          if (subtasks.length > 0 && !subtasks.every(t => (t.status === "COMPLETED" && t.is_merged) || t.status === "FAILED") && noMoreActionPossible) {
             fullReport += `\n🛑 **Action Required:** Orchestration paused. No tasks are running and no pending tasks can be started.\n`;
           }
           
@@ -699,8 +699,8 @@ class JulesAgentServer {
             // No watch guide found
           }
 
-          // Cleanup subtasks only if EVERY task is COMPLETED AND MERGED.
-          if (subtasks.every(t => t.status === "COMPLETED" && t.is_merged)) {
+          // Cleanup subtasks only if EVERY task is COMPLETED AND MERGED and there are actual tasks.
+          if (subtasks.length > 0 && subtasks.every(t => t.status === "COMPLETED" && t.is_merged)) {
             try {
               console.error(`Marking sprint as completed and cleaning up subtasks directory: ${subtasksDir}`);
               this.completedSprints.add(args.sprint_number);
@@ -720,6 +720,8 @@ class JulesAgentServer {
             fullReport += `\n⚠️ **Cleanup Skipped:** Some tasks failed. Subtasks in \`${subtasksDir}\` are preserved for debugging.\n`;
           } else if (subtasks.some(t => t.status === "COMPLETED" && !t.is_merged)) {
             fullReport += `\n⏸️ **Cleanup Deferred:** Awaiting merges for completed tasks.\n`;
+          } else if (subtasks.length === 0) {
+            fullReport += `\n⚠️ **Sprint Empty:** No subtasks found. The sprint has not been planned yet.\n`;
           }
 
           fullReport += `\n✅ **Sprint Execution Finished.**\n`;
