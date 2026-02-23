@@ -653,15 +653,28 @@ class JulesAgentServer {
         const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
         
         const timestamp = new Date().toLocaleTimeString();
-        console.error(`[${timestamp}] Cycle complete. Status updated.\n${statusTable}`);
+        
+        // Clear screen and move cursor to top-left for live dashboard feel
+        process.stderr.write('\x1b[2J\x1b[3J\x1b[H');
+        
+        let liveOutput = `==================================================\n`;
+        liveOutput += `  SPRINT ${args.sprint_number} ORCHESTRATION - LIVE STATUS\n`;
+        liveOutput += `==================================================\n`;
+        liveOutput += `Last updated: ${timestamp}\n`;
+        liveOutput += `Feature Branch: ${defaultFeatureBranch}\n\n`;
+        liveOutput += `${statusTable}`;
         
         if (reportText) {
-          console.error(reportText);
+          liveOutput += `\n--- Recent Actions ---\n${reportText}`;
         }
 
         if (instructions) {
-          console.error(instructions);
+          liveOutput += `\n--- Pending Actions ---\n${instructions}`;
         }
+        
+        liveOutput += `\n==================================================\n`;
+        
+        console.error(liveOutput);
 
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
