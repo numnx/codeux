@@ -134,6 +134,15 @@ class JulesAgentServer {
 
     // We'll create this directory later
     const dashboardDir = path.join(projectRoot, "dist", "dashboard");
+    console.error(`Serving dashboard from: ${dashboardDir}`);
+    
+    // Check if directory exists
+    fs.access(dashboardDir).then(() => {
+      console.error("Dashboard directory verified.");
+    }).catch(() => {
+      console.error("CRITICAL: Dashboard directory not found!");
+    });
+
     this.app.use(express.static(dashboardDir));
 
     this.app.listen(DASHBOARD_PORT, () => {
