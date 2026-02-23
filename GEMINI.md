@@ -12,6 +12,7 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
   - **Key Libraries**: `@modelcontextprotocol/sdk`, `axios`, `dotenv`
 - **Architecture**:
   - `src/index.ts`: The central entry point implementing the MCP server and its 12+ tools.
+  - `dashboard/`: A real-time Preact-based web dashboard for visualizing sprint progress.
   - `.jules-subagents/`: The primary directory for agent configuration and sprint management.
     - `agents/`: Contains Markdown guides that define the technical standards and orchestration logic for Jules agents.
       - `worker.md`: Defines the "Technical Baseline" for all subtasks.
@@ -72,6 +73,7 @@ The system uses a **tri-agent skill architecture** to ensure absolute precision 
 ## 📁 Key Files & Directories
 
 - `src/index.ts`: The MCP server implementation.
+- `dashboard/`: The Preact-based live monitoring dashboard.
 - `.jules-subagents/`: Agent guidance and sprint data.
 - `package.json`: Project metadata and dependency management.
 - `tsconfig.json`: TypeScript configuration (ESNext, Node16 resolution).

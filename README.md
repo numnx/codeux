@@ -10,6 +10,7 @@ A production-grade [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 ## ✨ Key Features
 
 - **🚀 Sprint Orchestration**: Intelligent task delegation with dependency management and parallel execution.
+- **✨ Live Web Dashboard**: A beautiful, real-time Preact dashboard to monitor your sprint progress at `http://localhost:4444`.
 - **🛠️ Enterprise-Grade Tools**: 12+ tools covering the full Jules API with automatic pagination and robust error handling.
 - **🧬 Smart Worker Context**: Automatically injects your technical standards into every Jules agent session.
 - **🔌 Multi-Client Support**: Seamlessly integrates with Gemini CLI, Codex CLI, and Claude Desktop.
@@ -83,6 +84,19 @@ Add to your `claude_desktop_config.json`:
   }
 }
 ```
+
+---
+
+## 📊 Live Web Dashboard
+
+The Jules Subagents MCP server includes a built-in, real-time web dashboard to visualize your sprint progress.
+
+- **URL**: `http://localhost:4444`
+- **Real-time**: Automatically polls every 4 seconds for live status updates.
+- **Visuals**: Track active tasks (⏳), completed integrations (✅), and potential blockers (🚫) with an award-winning UI.
+- **Activity Feed**: View live logs and automated protocol instructions in a clean, side-by-side view.
+
+Simply open the URL in your browser once the orchestration begins to watch Jules work in real-time.
 
 ---
 
