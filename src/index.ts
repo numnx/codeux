@@ -150,6 +150,11 @@ class JulesAgentServer {
 
     this.app.use(express.static(dashboardDir));
 
+    // Fallback to index.html for SPA routing
+    this.app.get("*", (req, res) => {
+      res.sendFile(path.join(dashboardDir, "index.html"));
+    });
+
     this.app.listen(DASHBOARD_PORT, () => {
       console.error(`Dashboard server running at http://localhost:${DASHBOARD_PORT}`);
     });
