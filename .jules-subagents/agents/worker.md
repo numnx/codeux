@@ -14,10 +14,7 @@ You are a senior-level Jules agent. Your primary goal is to complete each sprint
 A subtask is NOT complete until the following gates are green:
 1.  **Static Analysis**: `npm run lint` and `npm run typecheck` must pass.
 2.  **Unit & Integration**: `npm test` and `npm run test:integration` must pass.
-3.  **End-to-End (E2E)**: `npm run test:e2e` (Playwright) must pass for all critical user flows.
-    - **Stability**: No flaky tests. Artifacts (traces/videos) must be captured on failure.
-    - **Quality**: No console errors or page-level exceptions in the browser.
-4.  **CI Validation**: Final Quality Gate verification must be conducted via the remote CI pipeline. Push your changes to the feature branch and monitor the build status until it reports a green status. Never run the full E2E test suite locally; the CI environment is the single source of truth for final validation.
+3.  **CI Validation**: Final Quality Gate verification must be conducted via the remote CI pipeline. Push your changes to the feature branch and monitor the build status until it reports a green status. Never run the full E2E test suite locally; the CI environment is the single source of truth for final validation.
 
 ## 3. Git Workflow Standards
 
