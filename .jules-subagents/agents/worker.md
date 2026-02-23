@@ -25,6 +25,7 @@ A subtask is NOT complete until the following gates are green:
   - `feat(sprint-<N>): ...`
   - `fix(sprint-<N>): ...`
   - `test(sprint-<N>): ...`
+- **Visual Validation**: If your changes include UI/UX modifications (not purely code/logic), you MUST take a screenshot of the changes before pushing. Use appropriate tools to capture the visual state and include it in your session summary.
 - **Delivery**: When the subtask is finished, create a Pull Request (PR) with:
   - A summary of the changes.
   - Evidence of successful test runs.

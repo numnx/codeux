@@ -51,7 +51,6 @@ prompt:
 - **Criteria**: <What defines success? e.g., "Status code 200 returned with JSON schema A">
 
 ## Engineering Standard
-- Adhere to the technical baseline in `worker.md`.
 - Use the feature branch: feature/sprint<N>-<description> (created and pushed by the orchestrator via `git`).
 - Ensure all tests pass before completing.
 ```

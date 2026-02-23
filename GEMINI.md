@@ -18,6 +18,7 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
       - `orchestrator.md`: Defines the logic for the `sprint_agent` tool.
       - `sprint_agent_guide.md`: Operating instructions for the main orchestrator agent.
       - `watch.md`: Operating instructions for the continuous orchestration loop.
+      - `watch-skill.md`: A skill-like instruction for re-entering the watch loop.
     - `sprints/`: Contains sprint definitions (`sprint-<N>.md`) and their corresponding subtasks.
 
 ## 🛠️ Building and Running

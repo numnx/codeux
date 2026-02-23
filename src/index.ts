@@ -403,8 +403,25 @@ class JulesAgentServer {
   }
 
   private async handleGetSession({ session_id }: { session_id: string }) {
-    const response = await this.axiosInstance.get(`/${this.normalizeName("sessions", session_id)}`);
-    return { content: [{ type: "text", text: JSON.stringify(response.data, null, 2) }] };
+    const name = this.normalizeName("sessions", session_id);
+    const sessionResponse = await this.axiosInstance.get<JulesSession>(`/${name}`);
+    const session = sessionResponse.data;
+
+    try {
+      // Fetch activities to get the last message/activity
+      const activitiesResponse = await this.axiosInstance.get<{ activities?: JulesActivity[] }>(`/${name}/activities`, {
+        params: { pageSize: 50 }
+      });
+      const activities = activitiesResponse.data.activities || [];
+      if (activities.length > 0) {
+        // Assume chronological order, last is most recent
+        (session as any).last_activity = activities[activities.length - 1];
+      }
+    } catch (error) {
+      console.error(`Warning: Could not fetch activities for session ${session_id}`);
+    }
+
+    return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] };
   }
 
   private async handleListSessions({ page_size, page_token }: { page_size?: number; page_token?: string }) {
@@ -556,7 +573,7 @@ class JulesAgentServer {
       if (args.action === "orchestrate") {
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
         for (const task of readyTasks) {
-          const session = await this.startJulesTask(task, args.source_id, defaultFeatureBranch, args.repo_path);
+          const session = await this.startJulesTask(task, args.source_id, defaultFeatureBranch, args.repo_path, args.sprint_number);
           task.status = "RUNNING";
           task.session_id = session.id;
           reportText += `🚀 **Started Jules Session** for task \`${task.id}\`: [${session.id}](${session.id})\n`;
@@ -602,6 +619,20 @@ class JulesAgentServer {
             fullReport += `\n---\n\n### Watch Loop Operating Standard\n\n${watchGuide}`;
           } catch {
             // No watch guide found
+          }
+
+          // Cleanup subtasks only if EVERY task is COMPLETED.
+          // If there are FAILED tasks, we keep the directory for debugging and retries.
+          if (subtasks.every(t => t.status === "COMPLETED")) {
+            try {
+              console.error(`Cleaning up subtasks directory: ${subtasksDir}`);
+              await fs.rm(subtasksDir, { recursive: true, force: true });
+              fullReport += `\n🧹 **Cleanup:** All tasks completed successfully. Deleted subtasks in \`${subtasksDir}\`.\n`;
+            } catch (cleanupError) {
+              console.error(`Warning: Failed to cleanup subtasks: ${cleanupError}`);
+            }
+          } else if (subtasks.some(t => t.status === "FAILED")) {
+            fullReport += `\n⚠️ **Cleanup Skipped:** Some tasks failed. Subtasks in \`${subtasksDir}\` are preserved for debugging.\n`;
           }
 
           fullReport += `\n✅ **Sprint Execution Finished.**\n`;
@@ -725,12 +756,12 @@ class JulesAgentServer {
     return subtasks;
   }
 
-  private async startJulesTask(task: Subtask, sourceId: string, baseBranch: string, repoPath: string): Promise<JulesSession> {
+  private async startJulesTask(task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number): Promise<JulesSession> {
     const workerGuide = await this.getGuideContent("worker.md", repoPath);
     const fullPrompt = `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## SUBTASK TO EXECUTE\n\n${task.prompt}`;
     const data = {
       prompt: fullPrompt,
-      title: `[${task.id}] ${task.title}`,
+      title: `Sprint ${sprintNumber}: [${task.id}] ${task.title}`,
       sourceContext: {
         source: this.normalizeName("sources", sourceId),
         githubRepoContext: { startingBranch: baseBranch }
