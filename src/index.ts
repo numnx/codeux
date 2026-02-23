@@ -35,7 +35,7 @@ const apiKeyArg = args.find(arg => arg.startsWith("--api-key="))?.split("=")[1] 
 
 const API_KEY = apiKeyArg || process.env.JULES_API_KEY || process.env.JULES_KEY;
 const BASE_URL = process.env.JULES_API_BASE_URL || "https://jules.googleapis.com/v1alpha";
-const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "3000");
+const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "4444");
 
 if (!API_KEY) {
   console.error("Error: Jules API Key is missing.");
