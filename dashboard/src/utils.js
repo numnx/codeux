@@ -1,18 +1,9 @@
-import { h } from 'https://esm.sh/preact';
-import htm from 'https://esm.sh/htm';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-export const html = htm.bind(h);
-
-export const renderMarkdown = (text) => {
-    if (!text) return '';
-    return marked.parse(text);
-};
-
-export const formatTime = (isoString) => {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 export const getStatusColor = (s) => {
     switch(s) {
@@ -22,4 +13,10 @@ export const getStatusColor = (s) => {
         case 'BLOCKED': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
         default: return 'bg-slate-800/50 text-slate-400 border-slate-700';
     }
+};
+
+export const formatTime = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };

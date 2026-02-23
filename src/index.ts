@@ -133,7 +133,7 @@ class JulesAgentServer {
     this.app.get("/favicon.ico", (req, res) => res.status(204).end());
 
     // We'll create this directory later
-    const dashboardDir = path.join(projectRoot, "dashboard");
+    const dashboardDir = path.join(projectRoot, "dist", "dashboard");
     this.app.use(express.static(dashboardDir));
 
     this.app.listen(DASHBOARD_PORT, () => {
