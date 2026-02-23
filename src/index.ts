@@ -655,6 +655,7 @@ class JulesAgentServer {
         const timestamp = new Date().toLocaleTimeString();
         
         // Clear screen and move cursor to top-left for live dashboard feel
+        // Using stderr.write for immediate unbuffered output
         process.stderr.write('\x1b[2J\x1b[3J\x1b[H');
         
         let liveOutput = `==================================================\n`;
@@ -674,7 +675,18 @@ class JulesAgentServer {
         
         liveOutput += `\n==================================================\n`;
         
-        console.error(liveOutput);
+        // Output to stderr for users watching the terminal
+        process.stderr.write(liveOutput);
+
+        // Also send as a logging message for MCP clients that support it
+        try {
+          this.server.sendLoggingMessage({
+            level: "info",
+            data: liveOutput
+          });
+        } catch (logError) {
+          // Ignore if logging is not supported or server not fully connected
+        }
 
         const runningTasks = subtasks.filter(t => t.status === "RUNNING");
         const readyTasks = subtasks.filter(t => t.status === "PENDING" && t.is_independent);
@@ -726,7 +738,14 @@ class JulesAgentServer {
 
           fullReport += `\n✅ **Sprint Execution Finished.**\n`;
         } else {
-          await new Promise(resolve => setTimeout(resolve, 120 * 1000));
+          // Live countdown for better UX
+          let countdown = 120;
+          while (countdown > 0) {
+            process.stderr.write(`\r\x1b[KNext poll in ${countdown}s...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            countdown--;
+          }
+          process.stderr.write(`\n`);
         }
       }
       return { content: [{ type: "text", text: fullReport }] };
@@ -871,10 +890,50 @@ class JulesAgentServer {
     await this.server.connect(transport);
     console.error("Jules Subagents MCP server (v1.2.0) running on stdio");
   }
+
+  // Support for direct CLI execution
+  async runCli(action: string, sprintNumber: number, repoPath: string, sourceId: string, featureBranch?: string) {
+    console.error(`Running CLI Action: ${action} for Sprint ${sprintNumber}`);
+    const result = await this.handleSprintAgent({
+      sprint_number: sprintNumber,
+      repo_path: repoPath,
+      source_id: sourceId,
+      feature_branch: featureBranch,
+      action: action as any,
+      wait: true
+    });
+    
+    if (result.content && result.content[0].type === "text") {
+      console.log(result.content[0].text);
+    }
+  }
 }
 
 const server = new JulesAgentServer();
-server.run().catch((error) => {
-  console.error("Fatal error starting server:", error);
-  process.exit(1);
-});
+
+// CLI vs MCP Mode Dispatcher
+const main = async () => {
+  const cliAction = args.find(a => ["orchestrate", "plan", "status"].includes(a));
+  
+  if (cliAction) {
+    const sprintNum = parseInt(args.find(a => a.startsWith("--sprint="))?.split("=")[1] || "");
+    const rPath = args.find(a => a.startsWith("--repo-path="))?.split("=")[1] || process.cwd();
+    const sId = args.find(a => a.startsWith("--source-id="))?.split("=")[1] || "";
+    const fBranch = args.find(a => a.startsWith("--branch="))?.split("=")[1];
+
+    if (isNaN(sprintNum) || !sId) {
+      console.error("Error: Missing required arguments for CLI mode.");
+      console.error("Usage: jules-subagents <action> --sprint=<number> --source-id=<id> [--repo-path=<path>] [--branch=<name>]");
+      process.exit(1);
+    }
+
+    await server.runCli(cliAction, sprintNum, rPath, sId, fBranch);
+  } else {
+    await server.run().catch((error) => {
+      console.error("Fatal error starting server:", error);
+      process.exit(1);
+    });
+  }
+};
+
+main();
