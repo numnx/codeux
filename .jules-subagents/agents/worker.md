@@ -18,6 +18,7 @@ A subtask is NOT complete until the following gates are green:
 
 ## 3. Git Workflow Standards
 
+- **Context Gathering**: Before starting any work, you MUST check the latest commits of the feature branch to understand recent changes and context.
 - **Branching**: Work on a task-specific branch derived from the main feature branch (`feature/sprint<N>-...`).
 - **Commits**: Follow the Conventional Commits specification.
   - `feat(sprint-<N>): ...`
