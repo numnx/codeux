@@ -337,15 +337,16 @@ export class SprintOrchestrator {
               await fs.rm(subtasksDir, { recursive: true, force: true });
               fullReport += `\n🧹 **Cleanup:** All tasks completed and merged successfully. Deleted subtasks in \`${subtasksDir}\`.\n`;
               fullReport += `\n## 🏁 SPRINT COMPLETION STEPS\n`;
-              fullReport += `1. **Final Merge via Git Manager**: Use \`git_manager\` (${githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`"}) to merge \`${defaultFeatureBranch}\` into \`${defaultBranch}\`.\n`;
+              let completionStep = 1;
+              fullReport += `${completionStep++}. **Final Merge via Git Manager**: Use \`git_manager\` (${githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`"}) to merge \`${defaultFeatureBranch}\` into \`${defaultBranch}\`.\n`;
               if (githubMode === "REMOTE") {
-                fullReport += `2. **Watch Checks**: Run \`gh pr checks <number> --watch\` and merge only when all required checks are green.\n`;
-                fullReport += `3. **CI Not Starting Guardrail**: If CI checks do not start on \`${defaultBranch}\`, inspect merge conflicts/sync state immediately before retrying.\n`;
+                fullReport += `${completionStep++}. **Watch Checks**: Run \`gh pr checks <number> --watch\` and merge only when all required checks are green.\n`;
+                fullReport += `${completionStep++}. **CI Not Starting Guardrail**: If CI checks do not start on \`${defaultBranch}\`, inspect merge conflicts/sync state immediately before retrying.\n`;
               } else {
-                fullReport += `2. **Local CI Guardrail**: Complete local merge/push flow and verify local pipeline checks pass before continuing.\n`;
+                fullReport += `${completionStep++}. **Local CI Guardrail**: Complete local merge/push flow and verify local pipeline checks pass before continuing.\n`;
               }
-              fullReport += `4. **Final Review**: Confirm PR comments are reviewed and addressed before final merge.\n`;
-              fullReport += `5. **Next Sprint**: Proceed with Sprint ${args.sprint_number + 1} once \`${defaultBranch}\` is green.\n`;
+              fullReport += `${completionStep++}. **Final Review**: Confirm PR comments are reviewed and addressed before final merge.\n`;
+              fullReport += `${completionStep++}. **Next Sprint**: Proceed with Sprint ${args.sprint_number + 1} once \`${defaultBranch}\` is green.\n`;
             } catch (cleanupError) {
               console.error(`Warning: Failed to cleanup subtasks: ${cleanupError}`);
             }
