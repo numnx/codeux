@@ -831,11 +831,12 @@ class JulesAgentServer {
     if (shouldWait) {
       let allFinished = false;
       let fullReport = `### Sprint ${args.sprint_number} Continuous Orchestration\n\n`;
+      const dashboardPort = this.settings.dashboardPort || DASHBOARD_PORT;
       fullReport += `**Feature Branch:** \`${defaultFeatureBranch}\`\n`;
-      fullReport += `**Dashboard:** http://localhost:${DASHBOARD_PORT}\n\n`;
+      fullReport += `**Dashboard:** [http://localhost:${dashboardPort}](http://localhost:${dashboardPort})\n\n`;
       
       console.error(`Starting watch loop for Sprint ${args.sprint_number}...`);
-      console.error(`Live dashboard available at http://localhost:${DASHBOARD_PORT}`);
+      console.error(`Live dashboard available at http://localhost:${dashboardPort}`);
 
       while (!allFinished) {
         const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
@@ -918,8 +919,10 @@ class JulesAgentServer {
       return { content: [{ type: "text", text: fullReport }] };
     } else {
       const { subtasks, reportText, statusTable, instructions } = await runOrchestrationCycle();
+      const dashboardPort = this.settings.dashboardPort || DASHBOARD_PORT;
       let report = `### Sprint ${args.sprint_number} Orchestration Report\n\n`;
-      report += `**Feature Branch:** \`${defaultFeatureBranch}\`\n\n`;
+      report += `**Feature Branch:** \`${defaultFeatureBranch}\`\n`;
+      report += `**Dashboard:** [http://localhost:${dashboardPort}](http://localhost:${dashboardPort})\n\n`;
       report += reportText;
       report += statusTable;
       report += instructions;
