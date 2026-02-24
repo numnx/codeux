@@ -572,14 +572,31 @@ class JulesAgentServer {
     let existsRemote = false;
 
     try {
-      execSync(`git rev-parse --verify ${branch}`, { cwd: repoPath, stdio: "ignore" });
-      existsLocal = true;
-    } catch (e) {}
+      // 1. Verify repoPath is a directory
+      const stats = execSync(`[ -d "${repoPath}" ] && echo "dir" || echo "notdir"`, { encoding: "utf-8" }).trim();
+      if (stats !== "dir") return { existsLocal, existsRemote };
 
-    try {
-      const remoteOutput = execSync(`git ls-remote --heads origin ${branch}`, { cwd: repoPath, encoding: "utf-8" });
-      if (remoteOutput.trim()) existsRemote = true;
-    } catch (e) {}
+      // 2. Check if it's a git repo
+      try {
+        execSync("git rev-parse --is-inside-work-tree", { cwd: repoPath, stdio: "ignore" });
+      } catch (e) {
+        return { existsLocal, existsRemote }; // Not a git repo
+      }
+
+      // 3. Check local branch
+      try {
+        execSync(`git rev-parse --verify ${branch}`, { cwd: repoPath, stdio: "ignore" });
+        existsLocal = true;
+      } catch (e) {}
+
+      // 4. Check remote branch
+      try {
+        const remoteOutput = execSync(`git ls-remote --heads origin ${branch}`, { cwd: repoPath, encoding: "utf-8" });
+        if (remoteOutput.trim()) existsRemote = true;
+      } catch (e) {}
+    } catch (globalError) {
+      console.error(`Warning in checkBranch: ${globalError instanceof Error ? globalError.message : String(globalError)}`);
+    }
 
     return { existsLocal, existsRemote };
   }
@@ -599,6 +616,13 @@ class JulesAgentServer {
     const subtasksDir = path.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
     const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
     const retryFailed = args.retry_failed !== false; // Default to true
+
+    // --- Sprint File existence check must come first ---
+    try {
+      await fs.access(sprintFile);
+    } catch {
+      throw new Error(`Sprint file not found: ${sprintFile}. Please create the sprint definition before starting the agent.`);
+    }
 
     // --- Branch Blocker Logic ---
     if (args.action === "plan" || args.action === "orchestrate") {
@@ -620,12 +644,6 @@ class JulesAgentServer {
         
         return { content: [{ type: "text", text: branchBlocker }] };
       }
-    }
-
-    try {
-      await fs.access(sprintFile);
-    } catch {
-      throw new Error(`Sprint file not found: ${sprintFile}`);
     }
 
     if (this.completedSprints.has(args.sprint_number)) {
