@@ -183,8 +183,11 @@ class JulesAgentServer {
     const port = this.settings.dashboardPort || DASHBOARD_PORT;
     
     return new Promise<void>((resolve) => {
-      this.app.listen(port, () => {
-        console.error(`Dashboard server running at http://localhost:${port}`);
+      // Listen on 0.0.0.0 to ensure accessibility in remote/container environments
+      this.app.listen(port, "0.0.0.0", () => {
+        console.error(`\n🚀 [DASHBOARD] Live status available at:`);
+        console.error(`   - http://localhost:${port}`);
+        console.error(`   - http://127.0.0.1:${port}\n`);
         resolve();
       }).on("error", (err: any) => {
         if (err.code === "EADDRINUSE") {
