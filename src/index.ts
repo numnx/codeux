@@ -183,8 +183,8 @@ class JulesAgentServer {
     const port = this.settings.dashboardPort || DASHBOARD_PORT;
     
     return new Promise<void>((resolve) => {
-      // Listen on 0.0.0.0 to ensure accessibility in remote/container environments
-      this.app.listen(port, "0.0.0.0", () => {
+      // Listen on localhost only
+      this.app.listen(port, "localhost", () => {
         console.error(`\n🚀 [DASHBOARD] Live status available at:`);
         console.error(`   - http://localhost:${port}`);
         console.error(`   - http://127.0.0.1:${port}\n`);
