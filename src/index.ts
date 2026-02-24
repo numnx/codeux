@@ -121,9 +121,7 @@ class JulesAgentServer {
       },
     });
 
-    this.loadSettings();
     this.setupToolHandlers();
-    this.setupDashboard();
     
     this.server.onerror = (error) => {
       console.error("[MCP Server Error]", JSON.stringify(error, null, 2));
@@ -172,19 +170,30 @@ class JulesAgentServer {
     return [...new Set(paths)]; // Unique paths, highest priority first
   }
 
-  private setupDashboard() {
+  private async setupDashboard() {
     this.app.get("/api/status", (req, res) => {
       res.json(this.lastStatus);
     });
 
     this.app.get("/favicon.ico", (req, res) => res.status(204).end());
 
-    // We'll create this directory later
     const dashboardDir = path.join(projectRoot, "dashboard");
     this.app.use(express.static(dashboardDir));
 
-    this.app.listen(DASHBOARD_PORT, () => {
-      console.error(`Dashboard server running at http://localhost:${DASHBOARD_PORT}`);
+    const port = this.settings.dashboardPort || DASHBOARD_PORT;
+    
+    return new Promise<void>((resolve) => {
+      this.app.listen(port, () => {
+        console.error(`Dashboard server running at http://localhost:${port}`);
+        resolve();
+      }).on("error", (err: any) => {
+        if (err.code === "EADDRINUSE") {
+          console.error(`Warning: Dashboard port ${port} is already in use. Dashboard will not be available.`);
+        } else {
+          console.error(`Warning: Failed to start dashboard server: ${err.message}`);
+        }
+        resolve(); // Don't block the whole server if dashboard fails
+      });
     });
   }
 
@@ -1044,6 +1053,9 @@ class JulesAgentServer {
   }
 
   async run() {
+    await this.loadSettings();
+    await this.setupDashboard();
+    
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error("Jules Subagents MCP server (v1.2.0) running on stdio");
