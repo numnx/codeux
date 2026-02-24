@@ -78,3 +78,11 @@ The system uses a **tri-agent skill architecture** to ensure absolute precision 
 - `package.json`: Project metadata and dependency management.
 - `tsconfig.json`: TypeScript configuration (ESNext, Node16 resolution).
 - `.env.example`: Template for required environment variables.
+
+## Technical Standards for Preact App
+
+- Do not install external libraries beyond dependencies that already exist in the project.
+- Build modular, high-quality in-house modules for core features (small, testable, reusable).
+- Keep app bundle size as low as possible (code splitting, dead-code avoidance, lean assets).
+- Treat award-winning design as the quality target for UX, visuals, and interactions.
+- Use Tailwind as the default styling approach (no additional UI styling frameworks).
