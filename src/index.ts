@@ -177,6 +177,11 @@ class JulesAgentServer {
     return [...new Set(paths)]; // Unique paths, highest priority first
   }
 
+  private syncGitSettingsFromDashboard(): void {
+    this.settings.defaultBranch = this.dashboardSettings.git.defaultBranch;
+    this.settings.githubMode = this.dashboardSettings.git.githubMode;
+  }
+
   private async setupDashboard() {
     const dashboardDir = path.join(projectRoot, "dashboard");
     const port = this.settings.dashboardPort || appConfig.dashboardPort;
@@ -192,8 +197,7 @@ class JulesAgentServer {
       getSettings: () => this.dashboardSettings,
       saveSettings: (settings: DashboardSettings) => {
         this.dashboardSettings = this.settingsRepository.saveSettings(settings);
-        this.settings.defaultBranch = this.dashboardSettings.git.defaultBranch;
-        this.settings.githubMode = this.dashboardSettings.git.githubMode;
+        this.syncGitSettingsFromDashboard();
         this.gitStatusCache = { timestamp: 0, data: null };
         return this.dashboardSettings;
       },
@@ -510,8 +514,7 @@ class JulesAgentServer {
 
   async run() {
     await this.loadSettings();
-    this.settings.defaultBranch = this.dashboardSettings.git.defaultBranch;
-    this.settings.githubMode = this.dashboardSettings.git.githubMode;
+    this.syncGitSettingsFromDashboard();
     await this.setupDashboard();
     
     const transport = new StdioServerTransport();
