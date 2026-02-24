@@ -617,13 +617,6 @@ class JulesAgentServer {
     const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
     const retryFailed = args.retry_failed !== false; // Default to true
 
-    // --- Sprint File existence check must come first ---
-    try {
-      await fs.access(sprintFile);
-    } catch {
-      throw new Error(`Sprint file not found: ${sprintFile}. Please create the sprint definition before starting the agent.`);
-    }
-
     // --- Branch Blocker Logic ---
     if (args.action === "plan" || args.action === "orchestrate") {
       const { existsLocal, existsRemote } = this.checkBranch(args.repo_path, defaultFeatureBranch);
@@ -643,6 +636,21 @@ class JulesAgentServer {
         branchBlocker += `**Important:** Once these steps are completed, run this tool again to proceed with the \`${args.action}\` phase.`;
         
         return { content: [{ type: "text", text: branchBlocker }] };
+      }
+    }
+
+    if (args.action === "orchestrate" || args.action === "status") {
+      try {
+        await fs.access(subtasksDir);
+        const files = await fs.readdir(subtasksDir);
+        if (files.filter(f => f.endsWith(".md")).length === 0) {
+          throw new Error("No subtasks found");
+        }
+      } catch (e) {
+        let planBlocker = `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\n`;
+        planBlocker += `No subtasks found in \`${subtasksDir}\`. You must plan the sprint before orchestration can begin.\n\n`;
+        planBlocker += `**Instruction:** Run the \`sprint_agent\` with \`action: "plan"\` to initialize the subtasks and define the work items.`;
+        return { content: [{ type: "text", text: planBlocker }] };
       }
     }
 
