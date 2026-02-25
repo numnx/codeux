@@ -371,6 +371,7 @@ Behavior:
 - If the failed workspace is still valid, the new retry run resumes in that same worktree and branch.
 - If resume target is unavailable/corrupted, workflow falls back to a fresh worktree.
 - Legacy compatibility: if a failed session used the old repo-local worktree path, resume checks that legacy path and can still continue from it.
+- Branch-lock safety: if Git still registers the failed branch in another stale worktree entry, workflow now detects/removes stale registration (`git worktree list/prune/remove`) before creating a fresh fallback workspace.
 
 Related files:
 - `src/session-tracking-repository.ts`
