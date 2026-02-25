@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
+import * as fs from "fs/promises";
+import * as path from "path";
 import type { DashboardSettings, JulesSession, ProviderId, Subtask, ThinkingMode } from "./types.js";
 import { SessionTrackingRepository } from "./session-tracking-repository.js";
 
@@ -48,6 +50,8 @@ const buildProviderPrompt = (prompt: string, thinkingMode: ThinkingMode): string
 };
 
 export class CliWorkflowService {
+  private readonly repoLocks = new Map<string, Promise<void>>();
+
   constructor(private readonly deps: CliWorkflowServiceDependencies) {}
 
   async startTask(input: StartCliTaskInput): Promise<JulesSession> {
@@ -82,6 +86,7 @@ export class CliWorkflowService {
   }
 
   private async runTaskWorkflow(args: StartCliTaskInput & { sessionId: string; workerBranch: string; title: string }): Promise<void> {
+    const worktreePath = this.buildWorktreePath(args.repoPath, args.sessionId);
     try {
       const settings = this.deps.getDashboardSettings();
       const providerSettings = settings.aiProvider.providers[args.provider];
@@ -97,42 +102,47 @@ export class CliWorkflowService {
         : args.task.prompt;
       const providerPrompt = buildProviderPrompt(promptBody, providerSettings.thinkingMode);
 
-      await this.runCommand("git", ["fetch", "origin"], args.repoPath);
-      await this.runCommand("git", ["checkout", args.featureBranch], args.repoPath);
-      await this.runCommand("git", ["pull", "--ff-only", "origin", args.featureBranch], args.repoPath);
-      await this.runCommand("git", ["checkout", "-B", args.workerBranch], args.repoPath);
+      await this.withRepoLock(args.repoPath, async () => {
+        await fs.mkdir(path.dirname(worktreePath), { recursive: true });
+        await this.removeWorktree(args.repoPath, worktreePath);
+        await this.runCommand("git", ["fetch", "origin"], args.repoPath);
+        await this.runCommand(
+          "git",
+          ["worktree", "add", "--force", "-B", args.workerBranch, worktreePath, `origin/${args.featureBranch}`],
+          args.repoPath
+        );
+      });
 
       this.deps.sessionTracking.appendActivity(args.sessionId, {
         originator: "system",
-        description: `Running ${args.provider} prompt on ${args.workerBranch}.`,
+        description: `Running ${args.provider} prompt on ${args.workerBranch} (workspace: ${worktreePath}).`,
       });
 
       const providerResult = args.provider === "gemini"
-        ? await this.runGemini(providerPrompt, args.repoPath, providerSettings.model, providerSettings.apiKey, args.sessionId)
-        : await this.runCodex(providerPrompt, args.repoPath, providerSettings.model, providerSettings.apiKey, args.sessionId);
+        ? await this.runGemini(providerPrompt, worktreePath, providerSettings.model, providerSettings.apiKey, args.sessionId)
+        : await this.runCodex(providerPrompt, worktreePath, providerSettings.model, providerSettings.apiKey, args.sessionId);
 
       if (!providerResult.ok) {
         throw new Error(providerResult.stderr || providerResult.stdout || `${args.provider} command failed`);
       }
 
-      const statusResult = await this.runCommand("git", ["status", "--porcelain"], args.repoPath);
+      const statusResult = await this.runCommand("git", ["status", "--porcelain"], worktreePath);
       if (!statusResult.stdout.trim()) {
         this.deps.sessionTracking.appendActivity(args.sessionId, {
           originator: "system",
           description: `No file changes produced by ${args.provider}.`,
         });
         this.deps.sessionTracking.updateSession(args.sessionId, { state: "COMPLETED" });
-        await this.runCommand("git", ["checkout", args.featureBranch], args.repoPath);
         return;
       }
 
-      await this.runCommand("git", ["add", "-A"], args.repoPath);
+      await this.runCommand("git", ["add", "-A"], worktreePath);
       await this.runCommand(
         "git",
         ["commit", "-m", `feat(task ${args.task.id}): implement via ${args.provider}`],
-        args.repoPath
+        worktreePath
       );
-      await this.runCommand("git", ["push", "-u", "origin", args.workerBranch], args.repoPath);
+      await this.runCommand("git", ["push", "-u", "origin", args.workerBranch], worktreePath);
 
       let prUrl: string | undefined;
       if (settings.git.autoCreatePr) {
@@ -154,7 +164,7 @@ export class CliWorkflowService {
           prTitle,
           "--body",
           bodyLines.join("\n"),
-        ], args.repoPath, this.withGithubToken());
+        ], worktreePath, this.withGithubToken());
         if (prResult.ok) {
           prUrl = prResult.stdout.trim().split("\n").find((line) => line.startsWith("http"));
         }
@@ -179,12 +189,43 @@ export class CliWorkflowService {
       });
       console.error(`[CLI Workflow] ${args.sessionId} failed: ${message}`);
     } finally {
-      try {
-        await this.runCommand("git", ["checkout", args.featureBranch], args.repoPath);
-      } catch {
-        // no-op
+      await this.withRepoLock(args.repoPath, async () => {
+        await this.removeWorktree(args.repoPath, worktreePath);
+      });
+    }
+  }
+
+  private buildWorktreePath(repoPath: string, sessionId: string): string {
+    return path.join(repoPath, ".jules-subagents", "worktrees", sanitizeToken(sessionId));
+  }
+
+  private async withRepoLock<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
+    const current = this.repoLocks.get(repoPath) || Promise.resolve();
+    let releaseLock: () => void = () => {};
+    const next = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const queueEntry = current.then(() => next);
+    this.repoLocks.set(repoPath, queueEntry);
+
+    await current;
+    try {
+      return await fn();
+    } finally {
+      releaseLock();
+      if (this.repoLocks.get(repoPath) === queueEntry) {
+        this.repoLocks.delete(repoPath);
       }
     }
+  }
+
+  private async removeWorktree(repoPath: string, worktreePath: string): Promise<void> {
+    try {
+      await this.runCommand("git", ["worktree", "remove", "--force", worktreePath], repoPath);
+    } catch {
+      // ignore if missing/broken; ensure path is cleaned.
+    }
+    await fs.rm(worktreePath, { recursive: true, force: true });
   }
 
   private withGithubToken(): NodeJS.ProcessEnv {
