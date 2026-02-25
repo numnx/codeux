@@ -12,9 +12,7 @@ export class JulesApiClient {
   private apiKey: string | null;
 
   constructor(options: JulesApiClientOptions) {
-    this.apiKey = typeof options.apiKey === "string" && options.apiKey.trim().length > 0
-      ? options.apiKey.trim()
-      : null;
+    this.apiKey = this.normalizeApiKey(options.apiKey);
     this.axiosInstance = axios.create({
       baseURL: options.baseUrl,
       headers: {
@@ -35,9 +33,7 @@ export class JulesApiClient {
   }
 
   setApiKey(apiKey?: string | null): void {
-    this.apiKey = typeof apiKey === "string" && apiKey.trim().length > 0
-      ? apiKey.trim()
-      : null;
+    this.apiKey = this.normalizeApiKey(apiKey);
   }
 
   hasApiKey(): boolean {
@@ -48,6 +44,14 @@ export class JulesApiClient {
     if (!this.hasApiKey()) {
       throw new Error("Jules API key is not configured.");
     }
+  }
+
+  private normalizeApiKey(apiKey?: string | null): string | null {
+    if (typeof apiKey !== "string") {
+      return null;
+    }
+    const trimmed = apiKey.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   normalizeName(type: string, id: string): string {

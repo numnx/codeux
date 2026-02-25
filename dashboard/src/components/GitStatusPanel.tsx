@@ -101,7 +101,7 @@ export const GitStatusPanel: FunctionComponent<GitStatusPanelProps> = ({ status,
 
       <div>
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Recent Merges</p>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
           {status.mergedPullRequests.length === 0 ? (
             <p className="text-xs text-slate-500">No recent merges tracked.</p>
           ) : (
