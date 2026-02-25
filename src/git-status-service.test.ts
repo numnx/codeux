@@ -12,6 +12,7 @@ describe("GitStatusService", () => {
 
     const result = await service.getStatus("LOCAL");
     expect(result.available).toBe(false);
+    expect(result.tracking.scope).toBe("REPOSITORY");
     expect(result.warnings[0]).toContain("not a git repository");
   });
 
@@ -33,6 +34,7 @@ describe("GitStatusService", () => {
     expect(result.mode).toBe("LOCAL");
     expect(result.openPullRequests).toHaveLength(0);
     expect(result.ciRuns).toHaveLength(0);
+    expect(result.tracking.scope).toBe("REPOSITORY");
     expect(result.warnings[0]).toContain("Local mode");
   });
 
@@ -52,6 +54,7 @@ describe("GitStatusService", () => {
 
     const result = await service.getStatus("REMOTE");
     expect(result.available).toBe(false);
+    expect(result.tracking.scope).toBe("REPOSITORY");
     expect(result.warnings[0]).toContain("GitHub CLI");
   });
 
@@ -68,14 +71,142 @@ describe("GitStatusService", () => {
         "git status --porcelain": { ok: true, stdout: "", stderr: "" },
         "gh --version": { ok: true, stdout: "gh version", stderr: "" },
         "gh auth status": { ok: true, stdout: "ok", stderr: "" },
-        "gh pr list --state open --limit 20 --json number,title,url,state,isDraft,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup": { ok: true, stdout: "[]", stderr: "" },
-        "gh run list --limit 20 --json databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt": { ok: true, stdout: "[]", stderr: "" },
-        "gh pr list --state merged --limit 10 --json number,title,url,mergedAt,mergedBy": { ok: true, stdout: "[]", stderr: "" },
+        "gh pr list --state open --limit 50 --json number,title,url,state,isDraft,headRefName,baseRefName,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup": { ok: true, stdout: "[]", stderr: "" },
+        "gh run list --limit 50 --json databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt": { ok: true, stdout: "[]", stderr: "" },
+        "gh pr list --state merged --limit 100 --json number,title,url,headRefName,baseRefName,mergedAt,mergedBy": { ok: true, stdout: "[]", stderr: "" },
       };
       return responses[key] ?? { ok: false, stdout: "", stderr: "missing mock" };
     });
 
     await service.getStatus("REMOTE", "ghp_token");
     expect(contexts.some((entry) => entry.command === "gh" && entry.token === "ghp_token")).toBe(true);
+  });
+
+  it("tracks feature PR CI when requested", async () => {
+    const service = new GitStatusService("/tmp/repo", async (command, args, _context) => {
+      const key = `${command} ${args.join(" ")}`;
+      const responses: Record<string, { ok: boolean; stdout: string; stderr: string }> = {
+        "git rev-parse --is-inside-work-tree": { ok: true, stdout: "true\n", stderr: "" },
+        "git rev-parse --show-toplevel": { ok: true, stdout: "/tmp/repo\n", stderr: "" },
+        "git branch --show-current": { ok: true, stdout: "feature/sprint1-implementation\n", stderr: "" },
+        "git remote": { ok: true, stdout: "origin\n", stderr: "" },
+        "git status --porcelain": { ok: true, stdout: "", stderr: "" },
+        "gh --version": { ok: true, stdout: "gh version", stderr: "" },
+        "gh auth status": { ok: true, stdout: "ok", stderr: "" },
+        "gh pr list --state open --limit 50 --json number,title,url,state,isDraft,headRefName,baseRefName,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup": {
+          ok: true,
+          stdout: JSON.stringify([
+            {
+              number: 11,
+              title: "task PR",
+              url: "https://example/pr/11",
+              state: "OPEN",
+              isDraft: false,
+              headRefName: "task/one",
+              baseRefName: "feature/sprint1-implementation",
+              mergeStateStatus: "CLEAN",
+              reviewDecision: null,
+              updatedAt: "2026-02-25T00:00:00Z",
+              comments: { totalCount: 2 },
+              statusCheckRollup: [],
+            },
+            {
+              number: 12,
+              title: "other",
+              url: "https://example/pr/12",
+              state: "OPEN",
+              isDraft: false,
+              headRefName: "other/head",
+              baseRefName: "main",
+              mergeStateStatus: "CLEAN",
+              reviewDecision: null,
+              updatedAt: "2026-02-25T00:00:00Z",
+              comments: { totalCount: 0 },
+              statusCheckRollup: [],
+            },
+          ]),
+          stderr: "",
+        },
+        "gh run list --limit 50 --json databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt": {
+          ok: true,
+          stdout: JSON.stringify([
+            {
+              databaseId: 101,
+              name: "ci",
+              workflowName: "CI",
+              status: "completed",
+              conclusion: "success",
+              event: "pull_request",
+              headBranch: "task/one",
+              url: "https://example/run/101",
+              updatedAt: "2026-02-25T00:00:00Z",
+            },
+            {
+              databaseId: 102,
+              name: "ci",
+              workflowName: "CI",
+              status: "completed",
+              conclusion: "success",
+              event: "push",
+              headBranch: "main",
+              url: "https://example/run/102",
+              updatedAt: "2026-02-25T00:00:00Z",
+            },
+          ]),
+          stderr: "",
+        },
+        "gh pr list --state merged --limit 100 --json number,title,url,headRefName,baseRefName,mergedAt,mergedBy": { ok: true, stdout: "[]", stderr: "" },
+      };
+      return responses[key] ?? { ok: false, stdout: "", stderr: "missing mock" };
+    });
+
+    const result = await service.getStatus("REMOTE", undefined, {
+      scope: "FEATURE_PR_CI",
+      featureBranch: "feature/sprint1-implementation",
+      defaultBranch: "main",
+      featureBranchPrefix: "feature/",
+    });
+
+    expect(result.tracking.scope).toBe("FEATURE_PR_CI");
+    expect(result.openPullRequests).toHaveLength(1);
+    expect(result.openPullRequests[0].number).toBe(11);
+    expect(result.ciRuns).toHaveLength(1);
+    expect(result.ciRuns[0].headBranch).toBe("task/one");
+  });
+
+  it("tracks main branch CI between feature merge windows", async () => {
+    const service = new GitStatusService("/tmp/repo", async (command, args, _context) => {
+      const key = `${command} ${args.join(" ")}`;
+      const responses: Record<string, { ok: boolean; stdout: string; stderr: string }> = {
+        "git rev-parse --is-inside-work-tree": { ok: true, stdout: "true\n", stderr: "" },
+        "git rev-parse --show-toplevel": { ok: true, stdout: "/tmp/repo\n", stderr: "" },
+        "git branch --show-current": { ok: true, stdout: "feature/sprint1-implementation\n", stderr: "" },
+        "git remote": { ok: true, stdout: "origin\n", stderr: "" },
+        "git status --porcelain": { ok: true, stdout: "", stderr: "" },
+        "gh --version": { ok: true, stdout: "gh version", stderr: "" },
+        "gh auth status": { ok: true, stdout: "ok", stderr: "" },
+        "gh pr list --state open --limit 50 --json number,title,url,state,isDraft,headRefName,baseRefName,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup": { ok: true, stdout: "[]", stderr: "" },
+        "gh run list --limit 50 --json databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt": {
+          ok: true,
+          stdout: JSON.stringify([
+            { databaseId: 1, name: "ci", workflowName: "CI", status: "in_progress", conclusion: null, event: "push", headBranch: "main", url: "u1", updatedAt: null },
+            { databaseId: 2, name: "ci", workflowName: "CI", status: "completed", conclusion: "success", event: "push", headBranch: "dev", url: "u2", updatedAt: null },
+          ]),
+          stderr: "",
+        },
+        "gh pr list --state merged --limit 100 --json number,title,url,headRefName,baseRefName,mergedAt,mergedBy": { ok: true, stdout: "[]", stderr: "" },
+      };
+      return responses[key] ?? { ok: false, stdout: "", stderr: "missing mock" };
+    });
+
+    const result = await service.getStatus("REMOTE", undefined, {
+      scope: "MAIN_BRANCH_CI",
+      defaultBranch: "main",
+      featureBranchPrefix: "feature/",
+    });
+
+    expect(result.tracking.scope).toBe("MAIN_BRANCH_CI");
+    expect(result.ciRuns).toHaveLength(1);
+    expect(result.ciRuns[0].headBranch).toBe("main");
   });
 });

@@ -4,10 +4,14 @@ This runbook covers day-to-day operation and incident handling for the MCP serve
 
 ## Normal Startup Procedure
 
-1. Confirm API key source is available.
+1. Confirm API key source is available (recommended, but startup is allowed without key).
 2. Start server (`npm run dev` or `npm start`).
 3. Open dashboard and verify settings.
 4. Confirm `/api/status` and `/api/git-status` are responding.
+
+If started without key:
+- Configure `JULES_API_KEY` in `.env`, or `julesApiKey` in `.jules-subagents/settings.json`, or set it in dashboard settings.
+- Retry API-backed commands after configuration.
 
 ## Sprint Execution Procedure
 
@@ -43,13 +47,20 @@ Checks:
 - `gh auth status`
 - Token availability in settings/env
 
-### 3. Orchestration stuck with blocked tasks
+### 3. API-backed tools return key setup instructions
+Checks:
+- Is Jules API key configured in dashboard settings?
+- Is `.env` loaded with `JULES_API_KEY`?
+- Is `.jules-subagents/settings.json` containing `julesApiKey`?
+- Was settings save applied after editing dashboard value?
+
+### 4. Orchestration stuck with blocked tasks
 Checks:
 - Dependencies completed and merged?
 - Any action-required session states (`AWAITING_*`, `PAUSED`)?
 - Is merge protocol disabled in step toggles?
 
-### 4. Tasks completed but pipeline not progressing
+### 5. Tasks completed but pipeline not progressing
 Checks:
 - `merged: true` updated in subtask markdown files?
 - Merge actually integrated into feature branch?

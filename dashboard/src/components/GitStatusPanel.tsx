@@ -47,6 +47,7 @@ export const GitStatusPanel: FunctionComponent<GitStatusPanelProps> = ({ status,
       <div className="text-xs text-slate-400 space-y-1">
         <p>Branch: <span className="font-mono text-slate-200">{status.branch ?? "-"}</span></p>
         <p>Workspace: <span className="font-mono text-slate-200">{status.dirty ? "Dirty" : "Clean"}</span></p>
+        <p>Tracking: <span className="font-mono text-slate-200">{status.tracking.label}</span></p>
         <p>Updated: <span className="font-mono text-slate-300">{formatTime(status.lastUpdated)}</span></p>
       </div>
 
@@ -70,6 +71,7 @@ export const GitStatusPanel: FunctionComponent<GitStatusPanelProps> = ({ status,
             status.openPullRequests.slice(0, 5).map((pr) => (
               <a key={pr.url} href={pr.url} target="_blank" rel="noreferrer" className="block rounded-lg border border-slate-700/70 bg-slate-950/50 p-3 hover:border-slate-600 transition-colors">
                 <p className="text-xs font-semibold text-slate-200">#{pr.number} {pr.title}</p>
+                <p className="text-[11px] font-mono mt-1 text-slate-400">{pr.headRefName ?? "?"} {"->"} {pr.baseRefName ?? "?"}</p>
                 <p className={`text-[11px] font-mono mt-1 ${statusTone(pr.mergeStateStatus)}`}>
                   merge: {pr.mergeStateStatus ?? "UNKNOWN"} | comments: {pr.comments}
                 </p>
@@ -103,9 +105,10 @@ export const GitStatusPanel: FunctionComponent<GitStatusPanelProps> = ({ status,
           {status.mergedPullRequests.length === 0 ? (
             <p className="text-xs text-slate-500">No recent merges tracked.</p>
           ) : (
-            status.mergedPullRequests.slice(0, 5).map((merged) => (
+            status.mergedPullRequests.map((merged) => (
               <a key={merged.url} href={merged.url} target="_blank" rel="noreferrer" className="block rounded-lg border border-slate-700/70 bg-slate-950/50 p-3 hover:border-slate-600 transition-colors">
                 <p className="text-xs font-semibold text-slate-200">#{merged.number} {merged.title}</p>
+                <p className="text-[11px] font-mono mt-1 text-slate-400">{merged.headRefName ?? "?"} {"->"} {merged.baseRefName ?? "?"}</p>
                 <p className="text-[11px] font-mono mt-1 text-emerald-400">merged {formatTime(merged.mergedAt ?? undefined)}</p>
               </a>
             ))

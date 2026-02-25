@@ -26,11 +26,12 @@ import { SubtaskRepository } from "./subtask-repository.js";
 import { TaskService } from "./task-service.js";
 import { SettingsRepository } from "./settings-repository.js";
 import { formatSprintBranch } from "./branch-scheme.js";
-import { GitStatusService } from "./git-status-service.js";
+import { GitStatusService, type GitTrackingRequest } from "./git-status-service.js";
 import { loadExternalSettingsHints } from "./external-settings.js";
 import { InstructionService } from "./instructions/service.js";
 import { CoreToolHandler } from "./mcp/core-tool-handler.js";
 import { AgentToolHandler } from "./mcp/agent-tool-handler.js";
+import { buildMissingJulesApiKeyMessage } from "./api-key-guidance.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,17 +47,6 @@ dotenv.config({ path: path.join(projectRoot, ".env") });
  */
 
 const appConfig = loadAppConfig(process.argv, projectRoot);
-const apiKey = appConfig.apiKey;
-if (!apiKey) {
-  console.error("Error: Jules API Key is missing.");
-  console.error("Please provide it via:");
-  console.error("  1. Environment variable: JULES_API_KEY or JULES_KEY");
-  console.error("  2. Command line argument: --api-key <your_key>");
-  console.error("  3. A .env file in the current directory");
-  console.error("\nAvailable environment variables:", Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("JULES")).join(", ") || "none");
-  process.exit(1);
-}
-const requiredApiKey: string = apiKey;
 
 class JulesAgentServer {
   private static readonly DASHBOARD_ACTIVITY_PAGE_SIZE = 20;
@@ -98,14 +88,14 @@ class JulesAgentServer {
       }
     );
 
+    this.settingsRepository = new SettingsRepository(undefined, this.externalSettingsHints);
+    this.dashboardSettings = this.settingsRepository.getSettings();
     this.julesApi = new JulesApiClient({
-      apiKey: requiredApiKey,
+      apiKey: this.getEffectiveJulesApiKey(),
       baseUrl: appConfig.baseUrl,
     });
     this.guideRepository = new GuideRepository(projectRoot);
     this.subtaskRepository = new SubtaskRepository();
-    this.settingsRepository = new SettingsRepository(undefined, this.externalSettingsHints);
-    this.dashboardSettings = this.settingsRepository.getSettings();
     this.gitStatusService = new GitStatusService(projectRoot);
     this.instructionService = new InstructionService(projectRoot);
     this.taskService = new TaskService({
@@ -136,6 +126,8 @@ class JulesAgentServer {
         this.lastStatus = status;
       },
       getDashboardSettings: () => this.dashboardSettings,
+      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
       renderInstruction: (templateId, variables, repoPath) =>
         this.instructionService.render(templateId, variables, repoPath),
     });
@@ -150,6 +142,8 @@ class JulesAgentServer {
         this.consecutiveFailures = value;
       },
       getMaxFailures: () => this.settings.maxFailures || 5,
+      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
     });
     this.agentToolHandler = new AgentToolHandler({
       sprintOrchestrator: this.sprintOrchestrator,
@@ -161,6 +155,8 @@ class JulesAgentServer {
         this.consecutiveFailures = value;
       },
       getMaxFailures: () => this.settings.maxFailures || 5,
+      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
       waitForSessionCompletion: (args: { session_id: string; poll_interval?: number; timeout?: number }) =>
         this.coreToolHandler.handleWaitForSessionCompletion(args),
     });
@@ -219,6 +215,35 @@ class JulesAgentServer {
     this.settings.githubMode = this.dashboardSettings.git.githubMode;
   }
 
+  private getEffectiveJulesApiKey(): string | undefined {
+    const uiKey = this.dashboardSettings.aiProvider.julesApiKey?.trim();
+    if (uiKey && uiKey.length > 0) {
+      return uiKey;
+    }
+    const configKey = appConfig.apiKey?.trim();
+    if (configKey && configKey.length > 0) {
+      return configKey;
+    }
+    const fallback = this.externalSettingsHints.resolved.julesApiKey.trim();
+    return fallback.length > 0 ? fallback : undefined;
+  }
+
+  private refreshJulesApiKey(): void {
+    this.julesApi.setApiKey(this.getEffectiveJulesApiKey());
+  }
+
+  private isJulesApiConfigured(): boolean {
+    return this.julesApi.hasApiKey();
+  }
+
+  private getDashboardPort(): number {
+    return this.settings.dashboardPort || appConfig.dashboardPort;
+  }
+
+  private getMissingJulesApiKeyInstruction(): string {
+    return buildMissingJulesApiKeyMessage(this.getDashboardPort());
+  }
+
   private getEffectiveGithubToken(): string | undefined {
     const uiToken = this.dashboardSettings.git.githubToken?.trim();
     if (uiToken && uiToken.length > 0) {
@@ -228,9 +253,49 @@ class JulesAgentServer {
     return fallback.length > 0 ? fallback : undefined;
   }
 
+  private resolveGitTrackingRequest(): GitTrackingRequest {
+    const ci = this.dashboardSettings.ciIntelligence;
+    const subtasks: Subtask[] = Array.isArray(this.lastStatus?.subtasks) ? this.lastStatus.subtasks : [];
+    const featureBranch = typeof this.lastStatus?.feature_branch === "string" && this.lastStatus.feature_branch.trim().length > 0
+      ? this.lastStatus.feature_branch.trim()
+      : null;
+    const defaultBranch = this.dashboardSettings.git.defaultBranch?.trim() || "main";
+    const featureBranchPrefix = this.dashboardSettings.git.featureBranchPrefix?.trim() || "feature/";
+
+    const hasRunningTasks = subtasks.some((task) => task.status === "RUNNING");
+    const isReadyForMainMerge = subtasks.length > 0 && subtasks.every(
+      (task) => task.status === "COMPLETED" && task.is_merged
+    );
+
+    if (ci.enabled && ci.waitForCiBeforeFeatureMerge && hasRunningTasks && featureBranch) {
+      return {
+        scope: "FEATURE_PR_CI",
+        featureBranch,
+        defaultBranch,
+        featureBranchPrefix,
+      };
+    }
+
+    if (ci.enabled && ci.waitForCiBeforeMainMerge && isReadyForMainMerge && featureBranch) {
+      return {
+        scope: "MAIN_MERGE_PR_CI",
+        featureBranch,
+        defaultBranch,
+        featureBranchPrefix,
+      };
+    }
+
+    return {
+      scope: "MAIN_BRANCH_CI",
+      defaultBranch,
+      featureBranch,
+      featureBranchPrefix,
+    };
+  }
+
   private async setupDashboard() {
     const dashboardDir = path.join(projectRoot, "dashboard");
-    const port = this.settings.dashboardPort || appConfig.dashboardPort;
+    const port = this.getDashboardPort();
 
     await setupDashboardServer({
       app: this.app,
@@ -245,6 +310,7 @@ class JulesAgentServer {
       saveSettings: (settings: DashboardSettings) => {
         this.dashboardSettings = this.settingsRepository.saveSettings(settings);
         this.syncGitSettingsFromDashboard();
+        this.refreshJulesApiKey();
         this.gitStatusCache = { timestamp: 0, data: null };
         return this.dashboardSettings;
       },
@@ -357,7 +423,11 @@ class JulesAgentServer {
     }
 
     this.gitStatusFetchPromise = this.gitStatusService
-      .getStatus(this.dashboardSettings.git.githubMode, this.getEffectiveGithubToken())
+      .getStatus(
+        this.dashboardSettings.git.githubMode,
+        this.getEffectiveGithubToken(),
+        this.resolveGitTrackingRequest()
+      )
       .then((status) => {
         this.gitStatusCache = { timestamp: Date.now(), data: status };
         return status;
@@ -421,7 +491,13 @@ class JulesAgentServer {
   async run() {
     await this.loadSettings();
     this.syncGitSettingsFromDashboard();
+    this.refreshJulesApiKey();
     await this.setupDashboard();
+
+    if (!this.isJulesApiConfigured()) {
+      console.error("Warning: Jules API key is not set. API-powered tools are disabled until configured.");
+      console.error(this.getMissingJulesApiKeyInstruction());
+    }
     
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
