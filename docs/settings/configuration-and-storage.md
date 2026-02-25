@@ -82,6 +82,10 @@ Frontend contract:
   - `containerGeminiAuthPath` (default `~/.gemini`)
   - `containerCodexAuthPath` (default `~/.codex`)
 
+Repository demo script:
+- `.jules-subagents/container/setup.sh` is included as a baseline bootstrap script.
+- It installs `pnpm`, `@google/gemini-cli`, `@openai/codex`, and Playwright Chromium (+ deps when root/apt is available).
+
 ## Default Values
 
 Defined in:
