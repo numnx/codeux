@@ -4,6 +4,30 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   automationLevel: "SEMI_AUTO",
   aiProvider: {
     provider: "jules",
+    strategy: "MANUAL",
+    providers: {
+      jules: {
+        enabled: true,
+        model: "default",
+        weight: 60,
+        thinkingMode: "MEDIUM",
+        apiKey: "",
+      },
+      gemini: {
+        enabled: true,
+        model: "default",
+        weight: 20,
+        thinkingMode: "MEDIUM",
+        apiKey: "",
+      },
+      codex: {
+        enabled: true,
+        model: "gpt-5.3-codex",
+        weight: 20,
+        thinkingMode: "HIGH",
+        apiKey: "",
+      },
+    },
     julesApiKey: "",
   },
   git: {
@@ -47,7 +71,14 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
 
 export const cloneDefaultSettings = (): DashboardSettings => ({
   automationLevel: DEFAULT_DASHBOARD_SETTINGS.automationLevel,
-  aiProvider: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider },
+  aiProvider: {
+    ...DEFAULT_DASHBOARD_SETTINGS.aiProvider,
+    providers: {
+      jules: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.jules },
+      gemini: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.gemini },
+      codex: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.codex },
+    },
+  },
   git: { ...DEFAULT_DASHBOARD_SETTINGS.git },
   ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence },
   sprintLoopSteps: { ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps },

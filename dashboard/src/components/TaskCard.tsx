@@ -29,6 +29,7 @@ export const TaskCard: FunctionComponent<TaskCardProps> = ({ task }) => {
   const [showLogs, setShowLogs] = useState(false);
   const hasSession = Boolean(task.session_id || task.session_name);
   const sessionLabel = (task.session_id || task.session_name || "").replace(/^sessions\//, "");
+  const providerLabel = task.provider ? task.provider.toUpperCase() : "JULES";
 
   return (
     <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-5 rounded-2xl hover:bg-slate-900/80 transition-all duration-300 group">
@@ -112,8 +113,16 @@ export const TaskCard: FunctionComponent<TaskCardProps> = ({ task }) => {
             {task.status}
           </span>
           {hasSession && <div className="text-[9px] font-mono text-slate-600">{sessionLabel.substring(0, 12)}...</div>}
+          <div className="text-[9px] font-mono text-slate-600">{providerLabel}</div>
         </div>
       </div>
+      {task.pr_url && (
+        <div className="mt-3 pt-3 border-t border-slate-800">
+          <a className="text-[11px] text-sky-400 hover:text-sky-300 font-mono" href={task.pr_url} target="_blank" rel="noreferrer">
+            PR: {task.pr_url}
+          </a>
+        </div>
+      )}
     </div>
   );
 };

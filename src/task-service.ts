@@ -1,5 +1,7 @@
 import type { JulesApiClient } from "./jules-api.js";
-import type { JulesSession, Subtask } from "./types.js";
+import { chooseProviderForTask } from "./provider-routing.js";
+import type { DashboardSettings, JulesSession, ProviderId, Subtask } from "./types.js";
+import type { CliWorkflowService } from "./cli-workflow-service.js";
 
 export interface TaskServiceDependencies {
   julesApi: JulesApiClient;
@@ -7,6 +9,9 @@ export interface TaskServiceDependencies {
     getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   };
   normalizeSourceName: (sourceId: string) => string;
+  getDashboardSettings: () => DashboardSettings;
+  isJulesApiConfigured: () => boolean;
+  cliWorkflowService: CliWorkflowService;
 }
 
 export interface TaskAgentSessionArgs {
@@ -20,17 +25,55 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
-  async createTaskAgentSession(args: TaskAgentSessionArgs): Promise<JulesSession> {
+  private resolveProvider(task: Subtask): ProviderId {
+    const settings = this.deps.getDashboardSettings();
+    const chosen = chooseProviderForTask(settings, task);
+    if (chosen === "jules" && !this.deps.isJulesApiConfigured()) {
+      const fallback = (["gemini", "codex"] as const).find((provider) => settings.aiProvider.providers[provider].enabled);
+      if (fallback) {
+        return fallback;
+      }
+    }
+    return chosen;
+  }
+
+  private async buildPrompt(repoPath: string, sectionTitle: string, taskPrompt: string): Promise<string> {
     let workerGuide = "";
     try {
-      workerGuide = await this.deps.guideRepository.getGuideContent("worker.md", args.repo_path);
+      workerGuide = await this.deps.guideRepository.getGuideContent("worker.md", repoPath);
     } catch {
-      console.error("Warning: worker.md guide not found for task_agent.");
+      // optional
     }
 
-    const fullPrompt = workerGuide
-      ? `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## TASK TO EXECUTE\n\n${args.prompt}`
-      : args.prompt;
+    return workerGuide
+      ? `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## ${sectionTitle}\n\n${taskPrompt}`
+      : taskPrompt;
+  }
+
+  async createTaskAgentSession(args: TaskAgentSessionArgs): Promise<JulesSession> {
+    const pseudoTask: Subtask = {
+      id: `adhoc-${Date.now().toString(36)}`,
+      title: args.title || "Adhoc Task",
+      prompt: args.prompt,
+      depends_on: [],
+      is_independent: true,
+      status: "PENDING",
+    };
+    const provider = this.resolveProvider(pseudoTask);
+    const fullPrompt = await this.buildPrompt(args.repo_path, "TASK TO EXECUTE", args.prompt);
+
+    if (provider !== "jules") {
+      return await this.deps.cliWorkflowService.startTask({
+        provider,
+        task: {
+          ...pseudoTask,
+          prompt: fullPrompt,
+        },
+        repoPath: args.repo_path,
+        featureBranch: args.branch || this.deps.getDashboardSettings().git.defaultBranch,
+        sprintNumber: 0,
+      });
+    }
 
     const data: any = {
       prompt: fullPrompt,
@@ -47,12 +90,30 @@ export class TaskService {
       data.title = args.title;
     }
 
-    return await this.deps.julesApi.createSession(data);
+    const session = await this.deps.julesApi.createSession(data);
+    session.provider = "jules";
+    return session;
   }
 
   async startSprintTask(task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number): Promise<JulesSession> {
-    const workerGuide = await this.deps.guideRepository.getGuideContent("worker.md", repoPath);
-    const fullPrompt = `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerGuide}\n\n---\n\n## SUBTASK TO EXECUTE\n\n${task.prompt}`;
+    const provider = this.resolveProvider(task);
+    const fullPrompt = await this.buildPrompt(repoPath, "SUBTASK TO EXECUTE", task.prompt);
+
+    if (provider !== "jules") {
+      const session = await this.deps.cliWorkflowService.startTask({
+        provider,
+        task: {
+          ...task,
+          prompt: fullPrompt,
+        },
+        repoPath,
+        featureBranch: baseBranch,
+        sprintNumber,
+      });
+      session.provider = provider;
+      return session;
+    }
+
     const data = {
       prompt: fullPrompt,
       title: `Sprint ${sprintNumber}: [${task.id}] ${task.title}`,
@@ -63,6 +124,8 @@ export class TaskService {
       automationMode: "AUTO_CREATE_PR",
     };
 
-    return await this.deps.julesApi.createSession(data);
+    const session = await this.deps.julesApi.createSession(data);
+    session.provider = "jules";
+    return session;
   }
 }

@@ -14,6 +14,12 @@ Additional startup config:
 - `JULES_API_BASE_URL` (default: `https://jules.googleapis.com/v1alpha`)
 - `DASHBOARD_PORT` (default: `4444`)
 
+External hint env keys used for dashboard import:
+- `JULES_API_KEY` / `JULES_KEY`
+- `GEMINI_API_KEY`
+- `OPENAI_API_KEY` (Codex CLI)
+- `GH_TOKEN` / `GITHUB_TOKEN`
+
 ## Settings JSON Search Paths
 
 For `.jules-subagents/settings.json`, search roots include:
@@ -28,6 +34,7 @@ Backend file:
 
 Storage:
 - sqlite DB at `~/.jules-subagents/settings.db`
+- provider session DB at `~/.jules-subagents/session-tracking.db`
 
 Legacy migration:
 - If new DB missing and `~/jules-subagents/settings.db` exists, it is copied to dot-dir.
@@ -41,6 +48,12 @@ Top-level fields:
 - `ciIntelligence`
 - `sprintLoopSteps`
 - `skills`
+
+`aiProvider` contains:
+- `provider` (`jules|gemini|codex`)
+- `strategy` (`MANUAL|WEIGHTED|ORCHESTRATOR`)
+- `providers` map (enabled/model/weight/thinkingMode/apiKey per provider)
+- `julesApiKey` (backward-compatible alias synced with `providers.jules.apiKey`)
 
 Backend contract:
 - `src/types.ts`

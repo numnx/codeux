@@ -13,7 +13,8 @@ export const runStatusTableStep = (subtasks: Subtask[]): string => {
 
   for (const task of subtasks) {
     const mergeInfo = task.status === "COMPLETED" && !task.is_merged ? " **(Awaiting Merge)**" : "";
-    table += `- ${resolveStatusIcon(task)} **${task.id}**: \`${task.status}\`${mergeInfo} - ${task.title}\n`;
+    const providerInfo = task.provider ? ` [${task.provider}]` : "";
+    table += `- ${resolveStatusIcon(task)} **${task.id}**: \`${task.status}\`${mergeInfo}${providerInfo} - ${task.title}\n`;
   }
 
   return table;

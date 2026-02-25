@@ -55,13 +55,20 @@ Checks:
 - Is `.jules-subagents/settings.json` containing `julesApiKey`?
 - Was settings save applied after editing dashboard value?
 
-### 4. Orchestration stuck with blocked tasks
+### 4. Gemini/Codex task sessions fail immediately
+Checks:
+- Is the CLI installed and executable (`gemini`, `codex`)?
+- Is auth available system-wide or via provider API key settings?
+- Did child task branch creation succeed from feature branch?
+- Are `git` and `gh` available in PATH for commit/push/PR steps?
+
+### 5. Orchestration stuck with blocked tasks
 Checks:
 - Dependencies completed and merged?
 - Any action-required session states (`AWAITING_*`, `PAUSED`)?
 - Is merge protocol disabled in step toggles?
 
-### 5. Tasks completed but pipeline not progressing
+### 6. Tasks completed but pipeline not progressing
 Checks:
 - `merged: true` updated in subtask markdown files?
 - Merge actually integrated into feature branch?

@@ -12,6 +12,11 @@ interface CoreToolHandlerDependencies {
   getMaxFailures: () => number;
   isJulesApiConfigured: () => boolean;
   getMissingJulesApiKeyInstruction: () => string;
+  isTrackedCliSession: (sessionId: string) => boolean;
+  getTrackedSession: (sessionId: string) => JulesSession | null;
+  listTrackedSessions: (limit?: number) => { sessions: JulesSession[] };
+  listTrackedActivities: (args: { session_id: string; page_size?: number; page_token?: string }) => { activities: JulesActivity[]; nextPageToken?: string };
+  listAllTrackedActivities: (sessionId: string) => JulesActivity[];
 }
 
 export class CoreToolHandler {
@@ -70,6 +75,14 @@ export class CoreToolHandler {
   }
 
   async handleGetSession({ session_id }: { session_id: string }) {
+    if (this.deps.isTrackedCliSession(session_id)) {
+      const session = this.deps.getTrackedSession(session_id);
+      if (!session) {
+        throw new Error(`Session not found: ${session_id}`);
+      }
+      return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] };
+    }
+
     this.ensureJulesApiConfigured();
     const session = await this.deps.julesApi.getSession(session_id);
 
@@ -87,9 +100,15 @@ export class CoreToolHandler {
   }
 
   async handleListSessions({ page_size, page_token }: { page_size?: number; page_token?: string }) {
+    const trackedSessions = this.deps.listTrackedSessions(page_size || 100).sessions;
+    if (!this.deps.isJulesApiConfigured()) {
+      return { content: [{ type: "text", text: JSON.stringify({ sessions: trackedSessions }, null, 2) }] };
+    }
+
     this.ensureJulesApiConfigured();
     const sessions = await this.deps.julesApi.listSessions({ page_size, page_token });
-    return { content: [{ type: "text", text: JSON.stringify(sessions, null, 2) }] };
+    const merged = [...trackedSessions, ...(sessions.sessions || [])];
+    return { content: [{ type: "text", text: JSON.stringify({ ...sessions, sessions: merged }, null, 2) }] };
   }
 
   async handleApproveSessionPlan({ session_id }: { session_id: string }) {
@@ -113,6 +132,26 @@ export class CoreToolHandler {
     poll_interval?: number;
     timeout?: number;
   }) {
+    if (this.deps.isTrackedCliSession(session_id)) {
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeout * 1000) {
+        const session = this.deps.getTrackedSession(session_id);
+        if (!session) {
+          throw new Error(`Session not found: ${session_id}`);
+        }
+        if (
+          session.state === "COMPLETED" ||
+          session.state === "FAILED" ||
+          this.deps.isActionRequiredState(session.state) ||
+          session.outputs?.some((output: any) => output.pullRequest)
+        ) {
+          return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] };
+        }
+        await new Promise((resolve) => setTimeout(resolve, poll_interval * 1000));
+      }
+      throw new Error(`Timeout waiting for session ${session_id}`);
+    }
+
     this.ensureJulesApiConfigured();
     const startTime = Date.now();
     while (Date.now() - startTime < timeout * 1000) {
@@ -131,18 +170,39 @@ export class CoreToolHandler {
   }
 
   async handleGetActivity({ session_id, activity_id }: { session_id: string; activity_id: string }) {
+    if (this.deps.isTrackedCliSession(session_id)) {
+      const activity = this.deps.listAllTrackedActivities(session_id).find((entry) => {
+        const id = entry.id.replace(/^activities\//, "");
+        return id === activity_id || id.endsWith(`/${activity_id}`);
+      });
+      if (!activity) {
+        throw new Error(`Activity not found: ${activity_id}`);
+      }
+      return { content: [{ type: "text", text: JSON.stringify(activity, null, 2) }] };
+    }
+
     this.ensureJulesApiConfigured();
     const activity = await this.deps.julesApi.getActivity(session_id, activity_id);
     return { content: [{ type: "text", text: JSON.stringify(activity, null, 2) }] };
   }
 
   async handleListActivities({ session_id, page_size, page_token }: { session_id: string; page_size?: number; page_token?: string }) {
+    if (this.deps.isTrackedCliSession(session_id)) {
+      const activities = this.deps.listTrackedActivities({ session_id, page_size, page_token });
+      return { content: [{ type: "text", text: JSON.stringify(activities, null, 2) }] };
+    }
+
     this.ensureJulesApiConfigured();
     const activities = await this.deps.julesApi.listActivities({ session_id, page_size, page_token });
     return { content: [{ type: "text", text: JSON.stringify(activities, null, 2) }] };
   }
 
   async handleListAllActivities({ session_id }: { session_id: string }) {
+    if (this.deps.isTrackedCliSession(session_id)) {
+      const allActivities = this.deps.listAllTrackedActivities(session_id);
+      return { content: [{ type: "text", text: JSON.stringify({ activities: allActivities }, null, 2) }] };
+    }
+
     this.ensureJulesApiConfigured();
     const allActivities = await this.deps.julesApi.listAllActivities(session_id);
     return { content: [{ type: "text", text: JSON.stringify({ activities: allActivities }, null, 2) }] };

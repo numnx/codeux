@@ -51,6 +51,25 @@ From `dashboard/src/app.tsx`:
 - Status and live activities poll every 10 seconds.
 - Git status polls every 10 seconds.
 
+## Multi-Provider Settings
+
+AI Provider settings now support:
+- Providers: `jules`, `gemini`, `codex`
+- Routing strategy:
+  - `MANUAL` (single default provider)
+  - `WEIGHTED` (weight-based distribution)
+  - `ORCHESTRATOR` (rule-based routing with weighted fallback)
+- Provider toggles (`enabled`)
+- Model selection
+  - Gemini: curated model list in UI
+  - Codex/Jules: text model field
+- Thinking mode (`SMALL`, `MEDIUM`, `HIGH`)
+- Optional per-provider API key fields
+
+Behavior:
+- Empty provider key fields are valid.
+- Runtime falls back to system auth/environment where supported.
+
 ## CI Intelligence Settings
 
 Settings group:
@@ -108,6 +127,13 @@ Behavior:
 Runtime update:
 - Saving a key in dashboard settings updates runtime API usage without restart.
 - Leaving the dashboard key empty is supported; system-wide environment keys are used when present.
+
+## Session Tracking and Live Feed
+
+For Gemini/Codex runs, sessions are tracked locally and surfaced with the same dashboard flow:
+- Session IDs and states appear in task cards.
+- Live activity feed displays streamed CLI output.
+- PR URL is shown once the workflow creates the PR.
 
 ## Security Notes
 
