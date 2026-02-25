@@ -15,6 +15,9 @@ export interface JulesActivity {
 }
 
 export type TaskStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
+export type ProviderId = "jules" | "gemini" | "codex";
+export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
+export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
 
 export interface Subtask {
   id: string;
@@ -25,6 +28,9 @@ export interface Subtask {
   session_id?: string;
   session_name?: string;
   session_state?: string;
+  provider?: ProviderId;
+  worker_branch?: string;
+  pr_url?: string;
   activities?: JulesActivity[];
   is_independent: boolean;
   is_merged?: boolean;
@@ -54,6 +60,13 @@ export interface DashboardStats {
 }
 
 export type AutomationLevel = "FULL" | "SEMI_AUTO" | "ALWAYS_ASK";
+export interface ProviderSettings {
+  enabled: boolean;
+  model: string;
+  weight: number;
+  thinkingMode: ThinkingMode;
+  apiKey: string;
+}
 
 export interface SkillToggle {
   name: string;
@@ -64,7 +77,9 @@ export interface SkillToggle {
 export interface DashboardSettings {
   automationLevel: AutomationLevel;
   aiProvider: {
-    provider: "jules";
+    provider: ProviderId;
+    strategy: ProviderStrategy;
+    providers: Record<ProviderId, ProviderSettings>;
     julesApiKey: string;
   };
   git: {
@@ -166,14 +181,20 @@ export interface GitTrackingStatus {
 export interface ExternalSettingsHints {
   env: {
     julesApiKey: string;
+    geminiApiKey: string;
+    codexApiKey: string;
     githubToken: string;
   };
   settingsJson: {
     julesApiKey: string;
+    geminiApiKey: string;
+    codexApiKey: string;
     githubToken: string;
   };
   resolved: {
     julesApiKey: string;
+    geminiApiKey: string;
+    codexApiKey: string;
     githubToken: string;
   };
 }

@@ -1,1 +1,1 @@
-- **Task {{task_id}}** is `{{session_state}}`. Open the Jules session and resolve the pending action, then rerun orchestration.
+- **Task {{task_id}}** ({{provider}}) is `{{session_state}}`. Open the tracked session and resolve the pending action, then rerun orchestration.

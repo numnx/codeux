@@ -144,7 +144,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "sprint_agent",
-    description: "Intelligent agent that orchestrates sprints by delegating subtasks to Jules.",
+    description: "Intelligent agent that orchestrates sprints by delegating subtasks to configured providers (Jules/Gemini/Codex).",
     inputSchema: {
       type: "object",
       properties: {
@@ -165,7 +165,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "task_agent",
-    description: "Executes a single specific task on a codebase by creating a Jules session with injected engineering standards.",
+    description: "Executes a single specific task on a codebase via the configured provider workflow with injected engineering standards.",
     inputSchema: {
       type: "object",
       properties: {

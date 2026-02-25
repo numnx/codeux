@@ -25,6 +25,24 @@ export const runSessionSyncStep = async (
     task.session_name = sessionName;
     task.session_id = sessionId;
     task.session_state = match.state;
+    if (match.provider) {
+      task.provider = match.provider;
+    }
+
+    const pullRequestOutput = Array.isArray(match.outputs)
+      ? match.outputs.find((entry) => entry && typeof entry === "object" && "pullRequest" in entry)
+      : undefined;
+    const pullRequestData = pullRequestOutput && typeof pullRequestOutput.pullRequest === "object"
+      ? pullRequestOutput.pullRequest as Record<string, unknown>
+      : null;
+    if (pullRequestData) {
+      if (typeof pullRequestData.url === "string") {
+        task.pr_url = pullRequestData.url;
+      }
+      if (typeof pullRequestData.workerBranch === "string") {
+        task.worker_branch = pullRequestData.workerBranch;
+      }
+    }
 
     if (sessionName) {
       try {

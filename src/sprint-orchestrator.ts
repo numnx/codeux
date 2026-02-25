@@ -19,7 +19,6 @@ import type {
   SprintLoopStepSettings,
   Subtask,
 } from "./types.js";
-import type { JulesApiClient } from "./jules-api.js";
 
 const DEFAULT_STEP_SETTINGS: SprintLoopStepSettings = {
   branchPreflight: true,
@@ -43,7 +42,6 @@ const DEFAULT_CI_SETTINGS: CiIntelligenceSettings = {
 };
 
 export interface SprintOrchestratorDependencies {
-  julesApi: JulesApiClient;
   settings: Settings;
   dashboardPort: number;
   completedSprints: Set<number>;
@@ -53,13 +51,12 @@ export interface SprintOrchestratorDependencies {
   resolveSessionName: (session: Partial<JulesSession>) => string | undefined;
   extractSessionId: (session: Partial<JulesSession>) => string | undefined;
   fetchRecentActivities: (sessionName: string, pageSize?: number) => Promise<any[]>;
+  listSessions: () => Promise<{ sessions?: JulesSession[] }>;
   loadSubtasks: (dir: string) => Promise<Subtask[]>;
-  startJulesTask: (task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number) => Promise<JulesSession>;
+  startTask: (task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number) => Promise<JulesSession>;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   updateLastStatus: (status: any) => void;
   getDashboardSettings: () => DashboardSettings;
-  isJulesApiConfigured: () => boolean;
-  getMissingJulesApiKeyInstruction: () => string;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
 }
 
@@ -178,7 +175,7 @@ export class SprintOrchestrator {
       const syncResult = await runSessionSyncStep(
         subtasks,
         {
-          listSessions: () => this.deps.julesApi.listSessions({ page_size: 100 }),
+          listSessions: this.deps.listSessions,
           resolveSessionName: this.deps.resolveSessionName,
           extractSessionId: this.deps.extractSessionId,
           fetchRecentActivities: this.deps.fetchRecentActivities,
@@ -203,8 +200,8 @@ export class SprintOrchestrator {
         maxFailures: this.deps.settings.maxFailures || 5,
         getConsecutiveFailures: this.deps.getConsecutiveFailures,
         setConsecutiveFailures: this.deps.setConsecutiveFailures,
-        startJulesTask: (task) =>
-          this.deps.startJulesTask(task, args.sourceId, args.defaultFeatureBranch, args.repoPath, args.sprintNumber),
+        startTask: (task) =>
+          this.deps.startTask(task, args.sourceId, args.defaultFeatureBranch, args.repoPath, args.sprintNumber),
         resolveSessionName: this.deps.resolveSessionName,
         extractSessionId: this.deps.extractSessionId,
       });
@@ -246,13 +243,17 @@ export class SprintOrchestrator {
     const loopSteps = this.getLoopStepSettings();
     const ciIntelligence = this.getCiIntelligenceSettings();
 
-    if (!this.deps.isJulesApiConfigured() && args.action !== "plan") {
+    const enabledProviders = Object.entries(this.deps.getDashboardSettings().aiProvider.providers)
+      .filter(([, provider]) => provider.enabled)
+      .map(([provider]) => provider);
+    if (enabledProviders.length === 0 && args.action !== "plan") {
       const text = [
-        "### API Key Setup Required",
+        "### Provider Setup Required",
         "",
-        this.deps.getMissingJulesApiKeyInstruction(),
+        "No AI providers are enabled in dashboard settings.",
+        "Enable at least one provider in the AI Provider section, then retry orchestration.",
         "",
-        "Tip: You can still run `sprint_agent(action: \"plan\")` before configuring keys.",
+        "Tip: You can still run `sprint_agent(action: \"plan\")` before enabling providers.",
       ].join("\n");
       return { content: [{ type: "text", text }] };
     }

@@ -49,6 +49,7 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
         task_id: task.id,
         git_manager_skill: options.githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`",
         feature_branch: options.featureBranch,
+        provider: task.provider || "jules",
         subtask_file: path.join(options.subtasksDir, `${task.id}.md`),
         feature_ci_wait_line: buildFeatureCiWaitLine(options.ciIntelligence),
         feature_comments_line: buildFeatureCommentsLine(options.ciIntelligence),
@@ -64,6 +65,7 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
       instructions += await options.renderInstruction("actionRequiredTask", {
         task_id: task.id,
         session_state: task.session_state || "UNKNOWN",
+        provider: task.provider || "jules",
       });
       instructions += "\n";
     }

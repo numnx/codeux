@@ -2,7 +2,15 @@ import * as fs from "fs";
 import os from "os";
 import * as path from "path";
 import { DatabaseSync } from "node:sqlite";
-import type { DashboardSettings, ExternalSettingsHints, SkillToggle } from "./types.js";
+import type {
+  DashboardSettings,
+  ExternalSettingsHints,
+  ProviderId,
+  ProviderSettings,
+  ProviderStrategy,
+  SkillToggle,
+  ThinkingMode,
+} from "./types.js";
 import { DEFAULT_SPRINT_BRANCH_SCHEME } from "./branch-scheme.js";
 
 interface RowResult {
@@ -27,10 +35,44 @@ const DEFAULT_SKILLS: SkillToggle[] = INTERNAL_SKILL_NAMES.map((name) => ({
   isInternal: true,
 }));
 
+const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex"];
+const THINKING_MODES: ThinkingMode[] = ["SMALL", "MEDIUM", "HIGH"];
+const PROVIDER_STRATEGIES: ProviderStrategy[] = ["MANUAL", "WEIGHTED", "ORCHESTRATOR"];
+
+const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
+  jules: {
+    enabled: true,
+    model: "default",
+    weight: 60,
+    thinkingMode: "MEDIUM",
+    apiKey: "",
+  },
+  gemini: {
+    enabled: true,
+    model: "default",
+    weight: 20,
+    thinkingMode: "MEDIUM",
+    apiKey: "",
+  },
+  codex: {
+    enabled: true,
+    model: "gpt-5.3-codex",
+    weight: 20,
+    thinkingMode: "HIGH",
+    apiKey: "",
+  },
+};
+
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   automationLevel: "SEMI_AUTO",
   aiProvider: {
     provider: "jules",
+    strategy: "MANUAL",
+    providers: {
+      jules: { ...DEFAULT_PROVIDER_SETTINGS.jules },
+      gemini: { ...DEFAULT_PROVIDER_SETTINGS.gemini },
+      codex: { ...DEFAULT_PROVIDER_SETTINGS.codex },
+    },
     julesApiKey: "",
   },
   git: {
@@ -136,6 +178,20 @@ const cloneDefaults = (externalHints?: ExternalSettingsHints): DashboardSettings
   automationLevel: DEFAULT_DASHBOARD_SETTINGS.automationLevel,
   aiProvider: {
     ...DEFAULT_DASHBOARD_SETTINGS.aiProvider,
+    providers: {
+      jules: {
+        ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.jules,
+        apiKey: externalHints?.resolved.julesApiKey || DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.jules.apiKey,
+      },
+      gemini: {
+        ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.gemini,
+        apiKey: externalHints?.resolved.geminiApiKey || DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.gemini.apiKey,
+      },
+      codex: {
+        ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.codex,
+        apiKey: externalHints?.resolved.codexApiKey || DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.codex.apiKey,
+      },
+    },
     julesApiKey: externalHints?.resolved.julesApiKey || DEFAULT_DASHBOARD_SETTINGS.aiProvider.julesApiKey,
   },
   git: {
@@ -151,6 +207,46 @@ const cloneDefaults = (externalHints?: ExternalSettingsHints): DashboardSettings
   skills: DEFAULT_DASHBOARD_SETTINGS.skills.map((skill) => ({ ...skill })),
 });
 
+const normalizeProviderSettings = (
+  input: Partial<Record<ProviderId, Partial<ProviderSettings>>> | undefined,
+  externalHints?: ExternalSettingsHints,
+  julesApiKeyFallback?: string
+): Record<ProviderId, ProviderSettings> => {
+  const result: Record<ProviderId, ProviderSettings> = {
+    jules: { ...DEFAULT_PROVIDER_SETTINGS.jules },
+    gemini: { ...DEFAULT_PROVIDER_SETTINGS.gemini },
+    codex: { ...DEFAULT_PROVIDER_SETTINGS.codex },
+  };
+
+  for (const providerId of PROVIDER_IDS) {
+    const source = input?.[providerId];
+    const fallbackApiKey = providerId === "jules"
+      ? (julesApiKeyFallback || externalHints?.resolved.julesApiKey || "")
+      : providerId === "gemini"
+        ? (externalHints?.resolved.geminiApiKey || "")
+        : (externalHints?.resolved.codexApiKey || "");
+
+    const normalizedThinkingMode = THINKING_MODES.includes(source?.thinkingMode as ThinkingMode)
+      ? (source?.thinkingMode as ThinkingMode)
+      : DEFAULT_PROVIDER_SETTINGS[providerId].thinkingMode;
+
+    const weightCandidate = typeof source?.weight === "number" ? source.weight : DEFAULT_PROVIDER_SETTINGS[providerId].weight;
+    const normalizedWeight = Number.isFinite(weightCandidate) ? Math.max(0, Math.round(weightCandidate)) : DEFAULT_PROVIDER_SETTINGS[providerId].weight;
+
+    result[providerId] = {
+      enabled: typeof source?.enabled === "boolean" ? source.enabled : DEFAULT_PROVIDER_SETTINGS[providerId].enabled,
+      model: typeof source?.model === "string" && source.model.trim().length > 0
+        ? source.model.trim()
+        : DEFAULT_PROVIDER_SETTINGS[providerId].model,
+      weight: normalizedWeight,
+      thinkingMode: normalizedThinkingMode,
+      apiKey: typeof source?.apiKey === "string" ? source.apiKey : fallbackApiKey,
+    };
+  }
+
+  return result;
+};
+
 const sanitizeSettings = (value: unknown, externalHints?: ExternalSettingsHints): DashboardSettings => {
   const input = (value && typeof value === "object" ? value : {}) as Partial<DashboardSettings>;
   const automationLevel = input.automationLevel;
@@ -161,11 +257,22 @@ const sanitizeSettings = (value: unknown, externalHints?: ExternalSettingsHints)
   const aiProviderInput = (input.aiProvider && typeof input.aiProvider === "object"
     ? input.aiProvider
     : {}) as Partial<DashboardSettings["aiProvider"]>;
+  const normalizedProvider = PROVIDER_IDS.includes(aiProviderInput.provider as ProviderId)
+    ? (aiProviderInput.provider as ProviderId)
+    : DEFAULT_DASHBOARD_SETTINGS.aiProvider.provider;
+  const normalizedStrategy = PROVIDER_STRATEGIES.includes(aiProviderInput.strategy as ProviderStrategy)
+    ? (aiProviderInput.strategy as ProviderStrategy)
+    : DEFAULT_DASHBOARD_SETTINGS.aiProvider.strategy;
+  const julesApiKey = typeof aiProviderInput.julesApiKey === "string"
+    ? aiProviderInput.julesApiKey
+    : (externalHints?.resolved.julesApiKey || "");
+  const providers = normalizeProviderSettings(aiProviderInput.providers, externalHints, julesApiKey);
+  providers.jules.apiKey = julesApiKey || providers.jules.apiKey;
   const aiProvider = {
-    provider: "jules" as const,
-    julesApiKey: typeof aiProviderInput.julesApiKey === "string"
-      ? aiProviderInput.julesApiKey
-      : (externalHints?.resolved.julesApiKey || ""),
+    provider: normalizedProvider,
+    strategy: normalizedStrategy,
+    providers,
+    julesApiKey: providers.jules.apiKey,
   };
 
   const gitInput = (input.git && typeof input.git === "object" ? input.git : {}) as Partial<DashboardSettings["git"]>;

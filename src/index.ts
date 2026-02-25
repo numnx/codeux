@@ -32,6 +32,8 @@ import { InstructionService } from "./instructions/service.js";
 import { CoreToolHandler } from "./mcp/core-tool-handler.js";
 import { AgentToolHandler } from "./mcp/agent-tool-handler.js";
 import { buildMissingJulesApiKeyMessage } from "./api-key-guidance.js";
+import { SessionTrackingRepository } from "./session-tracking-repository.js";
+import { CliWorkflowService } from "./cli-workflow-service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +74,8 @@ class JulesAgentServer {
   private gitStatusCache: { timestamp: number; data: GitTrackingStatus | null } = { timestamp: 0, data: null };
   private gitStatusFetchPromise: Promise<GitTrackingStatus> | null = null;
   private instructionService: InstructionService;
+  private sessionTracking: SessionTrackingRepository;
+  private cliWorkflowService: CliWorkflowService;
   private coreToolHandler: CoreToolHandler;
   private agentToolHandler: AgentToolHandler;
 
@@ -98,15 +102,24 @@ class JulesAgentServer {
     this.subtaskRepository = new SubtaskRepository();
     this.gitStatusService = new GitStatusService(projectRoot);
     this.instructionService = new InstructionService(projectRoot);
+    this.sessionTracking = new SessionTrackingRepository();
+    this.cliWorkflowService = new CliWorkflowService({
+      sessionTracking: this.sessionTracking,
+      getDashboardSettings: () => this.dashboardSettings,
+      getGuideContent: (guideName: string, repoPath?: string) => this.getGuideContentIfEnabled(guideName, repoPath),
+      getGithubToken: () => this.getEffectiveGithubToken(),
+    });
     this.taskService = new TaskService({
       julesApi: this.julesApi,
       guideRepository: {
         getGuideContent: (guideName: string, repoPath?: string) => this.getGuideContentIfEnabled(guideName, repoPath),
       },
       normalizeSourceName: (sourceId: string) => this.normalizeName("sources", sourceId),
+      getDashboardSettings: () => this.dashboardSettings,
+      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      cliWorkflowService: this.cliWorkflowService,
     });
     this.sprintOrchestrator = new SprintOrchestrator({
-      julesApi: this.julesApi,
       settings: this.settings,
       dashboardPort: appConfig.dashboardPort,
       completedSprints: this.completedSprints,
@@ -118,16 +131,15 @@ class JulesAgentServer {
       resolveSessionName: (session: Partial<JulesSession>) => this.resolveSessionName(session),
       extractSessionId: (session: Partial<JulesSession>) => this.extractSessionId(session),
       fetchRecentActivities: (sessionName: string, pageSize?: number) => this.fetchRecentActivities(sessionName, pageSize),
+      listSessions: () => this.listSessionsForSync(),
       loadSubtasks: (dir: string) => this.subtaskRepository.loadSubtasks(dir),
-      startJulesTask: (task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number) =>
+      startTask: (task: Subtask, sourceId: string, baseBranch: string, repoPath: string, sprintNumber: number) =>
         this.taskService.startSprintTask(task, sourceId, baseBranch, repoPath, sprintNumber),
       getGuideContent: (guideName: string, repoPath?: string) => this.getGuideContentIfEnabled(guideName, repoPath),
       updateLastStatus: (status: any) => {
         this.lastStatus = status;
       },
       getDashboardSettings: () => this.dashboardSettings,
-      isJulesApiConfigured: () => this.isJulesApiConfigured(),
-      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
       renderInstruction: (templateId, variables, repoPath) =>
         this.instructionService.render(templateId, variables, repoPath),
     });
@@ -144,6 +156,14 @@ class JulesAgentServer {
       getMaxFailures: () => this.settings.maxFailures || 5,
       isJulesApiConfigured: () => this.isJulesApiConfigured(),
       getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
+      isTrackedCliSession: (sessionId: string) => {
+        const normalized = sessionId.startsWith("sessions/") ? sessionId : `sessions/${sessionId}`;
+        return this.isTrackedCliSession(normalized);
+      },
+      getTrackedSession: (sessionId: string) => this.sessionTracking.getSession(sessionId),
+      listTrackedSessions: (limit?: number) => this.sessionTracking.listSessions(limit),
+      listTrackedActivities: (args) => this.sessionTracking.listActivities(args),
+      listAllTrackedActivities: (sessionId: string) => this.sessionTracking.listAllActivities(sessionId),
     });
     this.agentToolHandler = new AgentToolHandler({
       sprintOrchestrator: this.sprintOrchestrator,
@@ -155,8 +175,6 @@ class JulesAgentServer {
         this.consecutiveFailures = value;
       },
       getMaxFailures: () => this.settings.maxFailures || 5,
-      isJulesApiConfigured: () => this.isJulesApiConfigured(),
-      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
       waitForSessionCompletion: (args: { session_id: string; poll_interval?: number; timeout?: number }) =>
         this.coreToolHandler.handleWaitForSessionCompletion(args),
     });
@@ -216,6 +234,10 @@ class JulesAgentServer {
   }
 
   private getEffectiveJulesApiKey(): string | undefined {
+    const uiProviderKey = this.dashboardSettings.aiProvider.providers?.jules?.apiKey?.trim();
+    if (uiProviderKey && uiProviderKey.length > 0) {
+      return uiProviderKey;
+    }
     const uiKey = this.dashboardSettings.aiProvider.julesApiKey?.trim();
     if (uiKey && uiKey.length > 0) {
       return uiKey;
@@ -413,7 +435,42 @@ class JulesAgentServer {
     return this.guideRepository.getGuideContent(guideName, repoPath);
   }
 
+  private isTrackedCliSession(sessionName: string): boolean {
+    const normalized = sessionName.replace(/^sessions\//, "");
+    return normalized.startsWith("cli-");
+  }
+
+  private async listSessionsForSync(): Promise<{ sessions?: JulesSession[] }> {
+    const tracked = this.sessionTracking.listSessions(300).sessions;
+    let julesSessions: JulesSession[] = [];
+    if (this.isJulesApiConfigured()) {
+      try {
+        const remote = await this.julesApi.listSessions({ page_size: 100 });
+        julesSessions = (remote.sessions || []).map((session) => ({ ...session, provider: "jules" }));
+      } catch {
+        // Keep tracked sessions available even if Jules API is unavailable.
+      }
+    }
+
+    const seen = new Set<string>();
+    const merged = [...tracked, ...julesSessions].filter((session) => {
+      const key = this.extractSessionId(session) || session.id || session.name;
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+    return { sessions: merged };
+  }
+
   private async fetchRecentActivities(sessionName: string, pageSize: number = JulesAgentServer.DASHBOARD_ACTIVITY_PAGE_SIZE): Promise<JulesActivity[]> {
+    if (this.isTrackedCliSession(sessionName)) {
+      return this.sessionTracking.fetchRecentActivities(sessionName, pageSize);
+    }
+    if (!this.isJulesApiConfigured()) {
+      return [];
+    }
     return this.julesApi.fetchRecentActivities(sessionName, pageSize);
   }
 
@@ -499,7 +556,7 @@ class JulesAgentServer {
     await this.setupDashboard();
 
     if (!this.isJulesApiConfigured()) {
-      console.error("Warning: Jules API key is not set. API-powered tools are disabled until configured.");
+      console.error("Warning: Jules API key is not set. Jules-native tools are disabled; Gemini/Codex CLI providers can still run.");
       console.error(this.getMissingJulesApiKeyInstruction());
     }
     

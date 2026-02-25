@@ -5,7 +5,7 @@ interface StartReadyTasksOptions {
   maxFailures: number;
   getConsecutiveFailures: () => number;
   setConsecutiveFailures: (value: number) => void;
-  startJulesTask: (task: Subtask) => Promise<{ id?: string; name?: string }>;
+  startTask: (task: Subtask) => Promise<{ id?: string; name?: string; provider?: string }>;
   resolveSessionName: (session: { id?: string; name?: string }) => string | undefined;
   extractSessionId: (session: { id?: string; name?: string }) => string | undefined;
 }
@@ -29,11 +29,13 @@ export const runStartReadyTasksStep = async (
   const readyTasks = subtasks.filter((task) => task.status === "PENDING" && task.is_independent);
   for (const task of readyTasks) {
     try {
-      const session = await options.startJulesTask(task);
+      const session = await options.startTask(task);
       task.status = "RUNNING";
       task.session_name = options.resolveSessionName(session);
       task.session_id = options.extractSessionId(session);
-      reportText += `🚀 **Started Jules Session** for task \`${task.id}\`: [${session.id}](${session.id})\n`;
+      task.provider = session.provider as Subtask["provider"];
+      const providerLabel = session.provider ? String(session.provider).toUpperCase() : "JULES";
+      reportText += `🚀 **Started ${providerLabel} Session** for task \`${task.id}\`: [${session.id}](${session.id})\n`;
       options.setConsecutiveFailures(0);
     } catch (error: unknown) {
       const currentFails = options.getConsecutiveFailures() + 1;

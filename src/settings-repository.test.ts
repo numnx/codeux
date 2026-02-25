@@ -23,6 +23,8 @@ describe("SettingsRepository", () => {
     const settings = repo.getSettings();
     expect(settings.automationLevel).toBe("SEMI_AUTO");
     expect(settings.aiProvider.provider).toBe("jules");
+    expect(settings.aiProvider.strategy).toBe("MANUAL");
+    expect(settings.aiProvider.providers.codex.model).toBe("gpt-5.3-codex");
     expect(settings.git.defaultBranch).toBe("main");
     expect(settings.git.githubMode).toBe("REMOTE");
     expect(settings.ciIntelligence.enabled).toBe(true);
@@ -39,6 +41,12 @@ describe("SettingsRepository", () => {
       automationLevel: "ALWAYS_ASK",
       aiProvider: {
         provider: "jules",
+        strategy: "WEIGHTED",
+        providers: {
+          jules: { enabled: true, model: "default", weight: 50, thinkingMode: "MEDIUM", apiKey: "test-key" },
+          gemini: { enabled: true, model: "gemini-2.5-pro", weight: 25, thinkingMode: "MEDIUM", apiKey: "gem-key" },
+          codex: { enabled: true, model: "gpt-5.3-codex", weight: 25, thinkingMode: "HIGH", apiKey: "codex-key" },
+        },
         julesApiKey: "test-key",
       },
       git: {
@@ -76,6 +84,8 @@ describe("SettingsRepository", () => {
 
     expect(saved.automationLevel).toBe("ALWAYS_ASK");
     expect(saved.aiProvider.julesApiKey).toBe("test-key");
+    expect(saved.aiProvider.providers.gemini.model).toBe("gemini-2.5-pro");
+    expect(saved.aiProvider.strategy).toBe("WEIGHTED");
     expect(saved.git.githubToken).toBe("ghp_test");
     expect(saved.git.featureBranchPrefix).toBe("work/");
     expect(saved.git.githubMode).toBe("LOCAL");
@@ -93,13 +103,15 @@ describe("SettingsRepository", () => {
   it("initializes defaults from external hints", async () => {
     const { dbPath } = await createRepo();
     const repo = new SettingsRepository(dbPath, {
-      env: { julesApiKey: "env-jules", githubToken: "env-gh" },
-      settingsJson: { julesApiKey: "", githubToken: "" },
-      resolved: { julesApiKey: "env-jules", githubToken: "env-gh" },
+      env: { julesApiKey: "env-jules", geminiApiKey: "env-gem", codexApiKey: "env-cdx", githubToken: "env-gh" },
+      settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", githubToken: "" },
+      resolved: { julesApiKey: "env-jules", geminiApiKey: "env-gem", codexApiKey: "env-cdx", githubToken: "env-gh" },
     });
 
     const settings = repo.getSettings();
     expect(settings.aiProvider.julesApiKey).toBe("env-jules");
+    expect(settings.aiProvider.providers.gemini.apiKey).toBe("env-gem");
+    expect(settings.aiProvider.providers.codex.apiKey).toBe("env-cdx");
     expect(settings.git.githubToken).toBe("env-gh");
   });
 });

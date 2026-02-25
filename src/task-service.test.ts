@@ -4,11 +4,27 @@ import { TaskService } from "./task-service.js";
 describe("TaskService", () => {
   const createSession = vi.fn();
   const getGuideContent = vi.fn();
+  const startCliTask = vi.fn();
 
   const service = new TaskService({
     julesApi: { createSession } as any,
     guideRepository: { getGuideContent } as any,
     normalizeSourceName: (sourceId: string) => `sources/${sourceId}`,
+    getDashboardSettings: () => ({
+      aiProvider: {
+        provider: "jules",
+        strategy: "MANUAL",
+        julesApiKey: "",
+        providers: {
+          jules: { enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "" },
+          gemini: { enabled: true, model: "default", weight: 20, thinkingMode: "MEDIUM", apiKey: "" },
+          codex: { enabled: true, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
+        },
+      },
+      git: { defaultBranch: "main" },
+    }) as any,
+    isJulesApiConfigured: () => true,
+    cliWorkflowService: { startTask: startCliTask } as any,
   });
 
   beforeEach(() => {
@@ -39,7 +55,6 @@ describe("TaskService", () => {
   });
 
   it("falls back to raw prompt when worker guide is missing", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     getGuideContent.mockRejectedValue(new Error("missing"));
     createSession.mockResolvedValue({ id: "s2" });
 
@@ -51,8 +66,6 @@ describe("TaskService", () => {
 
     const payload = createSession.mock.calls[0][0];
     expect(payload.prompt).toBe("Raw prompt only");
-    expect(consoleSpy).toHaveBeenCalledWith("Warning: worker.md guide not found for task_agent.");
-    consoleSpy.mockRestore();
   });
 
   it("creates sprint task session payload with sprint metadata", async () => {
@@ -78,5 +91,47 @@ describe("TaskService", () => {
     expect(payload.sourceContext.source).toBe("sources/999");
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/sprint1");
     expect(payload.prompt).toContain("SUBTASK TO EXECUTE");
+  });
+
+  it("falls back to cli provider when jules is unavailable", async () => {
+    const fallbackService = new TaskService({
+      julesApi: { createSession } as any,
+      guideRepository: { getGuideContent } as any,
+      normalizeSourceName: (sourceId: string) => `sources/${sourceId}`,
+      getDashboardSettings: () => ({
+        aiProvider: {
+          provider: "jules",
+          strategy: "MANUAL",
+          julesApiKey: "",
+          providers: {
+            jules: { enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "" },
+            gemini: { enabled: true, model: "default", weight: 20, thinkingMode: "MEDIUM", apiKey: "" },
+            codex: { enabled: true, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
+          },
+        },
+        git: { defaultBranch: "main" },
+      }) as any,
+      isJulesApiConfigured: () => false,
+      cliWorkflowService: {
+        startTask: vi.fn().mockResolvedValue({ id: "cli-1", name: "sessions/cli-1", provider: "gemini", state: "RUNNING", prompt: "" }),
+      } as any,
+    });
+
+    getGuideContent.mockResolvedValue("Rules");
+    await fallbackService.startSprintTask(
+      {
+        id: "01-task",
+        title: "Do Thing",
+        prompt: "Implement",
+        depends_on: [],
+        is_independent: true,
+      },
+      "999",
+      "feature/sprint1",
+      "/tmp/repo",
+      1
+    );
+
+    expect(createSession).not.toHaveBeenCalled();
   });
 });

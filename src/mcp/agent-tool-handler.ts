@@ -11,8 +11,6 @@ interface AgentToolHandlerDependencies {
   getConsecutiveFailures: () => number;
   setConsecutiveFailures: (value: number) => void;
   getMaxFailures: () => number;
-  isJulesApiConfigured: () => boolean;
-  getMissingJulesApiKeyInstruction: () => string;
   waitForSessionCompletion: (args: { session_id: string; poll_interval?: number; timeout?: number }) => Promise<any>;
 }
 
@@ -36,10 +34,6 @@ export class AgentToolHandler {
     branch?: string;
     wait?: boolean;
   }) {
-    if (!this.deps.isJulesApiConfigured()) {
-      throw new Error(this.deps.getMissingJulesApiKeyInstruction());
-    }
-
     const maxFails = this.deps.getMaxFailures();
     if (this.deps.getConsecutiveFailures() >= maxFails) {
       throw new Error(

@@ -110,6 +110,27 @@ export const App: FunctionComponent = () => {
         aiProvider: {
           ...prev.aiProvider,
           julesApiKey: prev.aiProvider.julesApiKey.trim().length > 0 ? prev.aiProvider.julesApiKey : hints.resolved.julesApiKey,
+          providers: {
+            ...prev.aiProvider.providers,
+            jules: {
+              ...prev.aiProvider.providers.jules,
+              apiKey: prev.aiProvider.providers.jules.apiKey.trim().length > 0
+                ? prev.aiProvider.providers.jules.apiKey
+                : hints.resolved.julesApiKey,
+            },
+            gemini: {
+              ...prev.aiProvider.providers.gemini,
+              apiKey: prev.aiProvider.providers.gemini.apiKey.trim().length > 0
+                ? prev.aiProvider.providers.gemini.apiKey
+                : hints.resolved.geminiApiKey,
+            },
+            codex: {
+              ...prev.aiProvider.providers.codex,
+              apiKey: prev.aiProvider.providers.codex.apiKey.trim().length > 0
+                ? prev.aiProvider.providers.codex.apiKey
+                : hints.resolved.codexApiKey,
+            },
+          },
         },
         git: {
           ...prev.git,

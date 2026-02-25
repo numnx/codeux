@@ -219,3 +219,84 @@ Files:
 - `dashboard/src/types.ts`
 - `dashboard/src/components/GitStatusPanel.tsx`
 - `src/git-status-service.test.ts`
+
+## Incremental Update: Multi-Provider Task Workflow Parity
+
+### Goal
+
+Bring Gemini CLI and Codex CLI task execution to the same operational pattern used by Jules:
+- task-level branch workflow
+- PR back into sprint feature branch
+- session/status visibility in dashboard
+- live activity feed
+
+### Provider Routing and Settings
+
+Added provider strategy and per-provider runtime settings:
+- Providers: `jules`, `gemini`, `codex`
+- Strategies:
+  - `MANUAL`
+  - `WEIGHTED`
+  - `ORCHESTRATOR`
+- Per-provider controls:
+  - `enabled`
+  - `model`
+  - `weight`
+  - `thinkingMode` (`SMALL|MEDIUM|HIGH`)
+  - `apiKey` (optional)
+
+Files:
+- `src/types.ts`
+- `dashboard/src/types.ts`
+- `src/settings-repository.ts`
+- `dashboard/src/lib/settings.ts`
+- `dashboard/src/components/SettingsPage.tsx`
+- `src/provider-routing.ts`
+
+### Background CLI Workflow
+
+Added `CliWorkflowService` for Gemini/Codex:
+1. Create task child branch from sprint feature branch.
+2. Run CLI command in background.
+3. Capture stdout/stderr as session activities.
+4. Commit/push changes.
+5. Create PR back to sprint feature branch.
+6. Update session state (`RUNNING` -> `COMPLETED|FAILED`).
+
+Files:
+- `src/cli-workflow-service.ts`
+- `src/task-service.ts`
+
+### SQLite Session Tracking for CLI Providers
+
+Added provider session/activity persistence:
+- DB: `~/.jules-subagents/session-tracking.db`
+- Tables:
+  - `provider_sessions`
+  - `provider_activities`
+
+This storage backs:
+- session sync
+- MCP session/activity tool compatibility for tracked CLI sessions
+- dashboard live feed rendering
+
+Files:
+- `src/session-tracking-repository.ts`
+- `src/index.ts`
+- `src/mcp/core-tool-handler.ts`
+
+### Sprint Loop Integration
+
+- Start-ready step now starts provider-specific sessions.
+- Session sync merges Jules API sessions and tracked CLI sessions.
+- Status/protocol text carries provider context.
+- Merge/action-required instruction templates updated to provider-agnostic wording.
+
+Files:
+- `src/sprint-orchestrator.ts`
+- `src/sprint/steps/start-ready-tasks-step.ts`
+- `src/sprint/steps/session-sync-step.ts`
+- `src/sprint/steps/protocol-step.ts`
+- `src/sprint/steps/status-table-step.ts`
+- `src/instructions/catalog.ts`
+- `.jules-subagents/instructions/sprint-main-loop/protocol/*.md`

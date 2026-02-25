@@ -88,12 +88,22 @@ For `status` and `orchestrate`, each cycle can run:
 
 2. Sync sessions and activities
 - `session-sync-step.ts`
+- Sync source is provider-agnostic:
+  - Jules API sessions (when available)
+  - locally tracked CLI sessions (`gemini`/`codex`)
 
 3. Derive effective task status
 - `status-derivation-step.ts`
 
 4. Start ready tasks (orchestrate only)
 - `start-ready-tasks-step.ts`
+- Provider is selected per task using `aiProvider` strategy.
+- For CLI providers the workflow is:
+  - create child task branch from sprint feature branch
+  - run CLI in background
+  - commit/push branch
+  - open PR back to sprint feature branch
+  - track state and activity in sqlite
 
 5. Build protocol instructions
 - `protocol-step.ts`
@@ -136,6 +146,8 @@ If caller requests wait mode but `watchLoop` toggle is disabled:
   - `.jules-subagents/agents/*.md`
 - Instruction templates:
   - `.jules-subagents/instructions/sprint-main-loop/**/*`
+- CLI session tracking DB:
+  - `~/.jules-subagents/session-tracking.db`
 
 ## Operational Advice
 

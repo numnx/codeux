@@ -35,24 +35,34 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
   const parsedSettings = readSettingsJson(projectRoot);
 
   const envJules = getString(process.env.JULES_API_KEY || process.env.JULES_KEY);
+  const envGemini = getString(process.env.GEMINI_API_KEY);
+  const envCodex = getString(process.env.OPENAI_API_KEY);
   const envGithub = getString(process.env.GH_TOKEN || process.env.GITHUB_TOKEN);
 
   const jsonJules = getString(
     parsedSettings.julesApiKey ?? parsedSettings.JULES_API_KEY ?? parsedSettings.julesKey ?? parsedSettings.JULES_KEY
   );
+  const jsonGemini = getString(parsedSettings.geminiApiKey ?? parsedSettings.GEMINI_API_KEY);
+  const jsonCodex = getString(parsedSettings.codexApiKey ?? parsedSettings.OPENAI_API_KEY);
   const jsonGithub = getString(parsedSettings.githubToken ?? parsedSettings.GITHUB_TOKEN ?? parsedSettings.GH_TOKEN);
 
   return {
     env: {
       julesApiKey: envJules,
+      geminiApiKey: envGemini,
+      codexApiKey: envCodex,
       githubToken: envGithub,
     },
     settingsJson: {
       julesApiKey: jsonJules,
+      geminiApiKey: jsonGemini,
+      codexApiKey: jsonCodex,
       githubToken: jsonGithub,
     },
     resolved: {
       julesApiKey: envJules || jsonJules,
+      geminiApiKey: envGemini || jsonGemini,
+      codexApiKey: envCodex || jsonCodex,
       githubToken: envGithub || jsonGithub,
     },
   };
