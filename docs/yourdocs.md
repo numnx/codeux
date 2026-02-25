@@ -423,6 +423,20 @@ Allow background Gemini/Codex runs to execute in isolated containers while prese
 - `docs/settings/configuration-and-storage.md`
 - `docs/operations/runbook.md`
 
+## Incremental Update: Demo Container Bootstrap Script
+
+Added repository demo setup script for Docker execution bootstrap:
+- Path: `.jules-subagents/container/setup.sh`
+- Purpose:
+  - ensure `pnpm` is available
+  - install Gemini CLI (`@google/gemini-cli`)
+  - install Codex CLI (`@openai/codex`)
+  - install Playwright Chromium and OS deps when available
+- Behavior:
+  - idempotent checks for existing Chromium browser cache
+  - uses `playwright install --with-deps chromium` when root + `apt-get` are available
+  - falls back to browser-only install when OS deps cannot be installed
+
 ## Incremental Update: Multi-Provider Task Workflow Parity
 
 ### Goal
