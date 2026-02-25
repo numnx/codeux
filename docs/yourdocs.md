@@ -182,6 +182,7 @@ Validation run:
 - API-backed MCP handlers now preflight key presence and return setup guidance text when missing.
 - `sprint_agent` allows `plan` without key, but `status/orchestrate` return setup guidance until key exists.
 - Saving dashboard settings now refreshes Jules API key in runtime (no restart required).
+- Runtime key resolution now checks live environment variables (`JULES_API_KEY` / `JULES_KEY`) when dashboard key is empty.
 
 Files:
 - `src/index.ts`

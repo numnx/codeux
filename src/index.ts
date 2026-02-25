@@ -220,6 +220,10 @@ class JulesAgentServer {
     if (uiKey && uiKey.length > 0) {
       return uiKey;
     }
+    const liveEnvKey = process.env.JULES_API_KEY?.trim() || process.env.JULES_KEY?.trim();
+    if (liveEnvKey && liveEnvKey.length > 0) {
+      return liveEnvKey;
+    }
     const configKey = appConfig.apiKey?.trim();
     if (configKey && configKey.length > 0) {
       return configKey;

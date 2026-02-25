@@ -107,6 +107,7 @@ Behavior:
 
 Runtime update:
 - Saving a key in dashboard settings updates runtime API usage without restart.
+- Leaving the dashboard key empty is supported; system-wide environment keys are used when present.
 
 ## Security Notes
 

@@ -12,6 +12,7 @@ This runbook covers day-to-day operation and incident handling for the MCP serve
 If started without key:
 - Configure `JULES_API_KEY` in `.env`, or `julesApiKey` in `.jules-subagents/settings.json`, or set it in dashboard settings.
 - Retry API-backed commands after configuration.
+- Dashboard key fields can stay empty when system-wide environment keys are already present.
 
 ## Sprint Execution Procedure
 
