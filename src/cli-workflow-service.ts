@@ -121,7 +121,7 @@ export class CliWorkflowService {
     resumeWorktreePath?: string;
   }): Promise<void> {
     const workspaceSessionId = args.resumeFromFailedSessionId || args.sessionId;
-    const worktreePath = args.resumeWorktreePath || this.buildWorktreePath(args.repoPath, workspaceSessionId);
+    let worktreePath = args.resumeWorktreePath || this.buildWorktreePath(args.repoPath, workspaceSessionId);
     let workflowSucceeded = false;
     let cleanupWorktreeOnSuccess = true;
     let cleanupWorktreeOnFailure = false;
@@ -151,13 +151,15 @@ export class CliWorkflowService {
       await this.withRepoLock(args.repoPath, async () => {
         await fs.mkdir(path.dirname(worktreePath), { recursive: true });
         if (args.resumeFromFailedSessionId) {
-          const canResume = await this.canResumeExistingWorktree(worktreePath, args.workerBranch);
-          if (canResume) {
+          const resumablePath = await this.resolveResumableWorktreePath(args.repoPath, args.workerBranch, worktreePath);
+          if (resumablePath) {
+            worktreePath = resumablePath;
             resumedExistingWorkspace = true;
             return;
           }
         }
         await this.removeWorktree(args.repoPath, worktreePath);
+        await this.runCommand("git", ["worktree", "prune"], args.repoPath);
         await this.runCommand("git", ["fetch", "origin"], args.repoPath);
         await this.runCommand(
           "git",
@@ -340,6 +342,64 @@ export class CliWorkflowService {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  private async resolveResumableWorktreePath(
+    repoPath: string,
+    expectedBranch: string,
+    preferredPath: string
+  ): Promise<string | undefined> {
+    if (await this.canResumeExistingWorktree(preferredPath, expectedBranch)) {
+      return preferredPath;
+    }
+
+    const branchWorktreePath = await this.findWorktreePathForBranch(repoPath, expectedBranch);
+    if (branchWorktreePath && branchWorktreePath !== preferredPath) {
+      if (await this.canResumeExistingWorktree(branchWorktreePath, expectedBranch)) {
+        return branchWorktreePath;
+      }
+      await this.removeStaleWorktreeRegistration(repoPath, branchWorktreePath);
+    }
+
+    return undefined;
+  }
+
+  private async findWorktreePathForBranch(repoPath: string, branch: string): Promise<string | undefined> {
+    const listing = await this.runCommand("git", ["worktree", "list", "--porcelain"], repoPath);
+    const targetRef = `refs/heads/${branch}`;
+    let currentPath: string | undefined;
+
+    for (const rawLine of listing.stdout.split("\n")) {
+      const line = rawLine.trim();
+      if (line.startsWith("worktree ")) {
+        currentPath = line.slice("worktree ".length).trim();
+        continue;
+      }
+      if (line.startsWith("branch ")) {
+        const ref = line.slice("branch ".length).trim();
+        if (ref === targetRef && currentPath) {
+          return currentPath;
+        }
+      }
+      if (line.length === 0) {
+        currentPath = undefined;
+      }
+    }
+
+    return undefined;
+  }
+
+  private async removeStaleWorktreeRegistration(repoPath: string, worktreePath: string): Promise<void> {
+    try {
+      await this.runCommand("git", ["worktree", "remove", "--force", worktreePath], repoPath);
+    } catch {
+      // ignore stale worktree removal failures; prune below handles metadata cleanup.
+    }
+    try {
+      await this.runCommand("git", ["worktree", "prune"], repoPath);
+    } catch {
+      // ignore prune failures; fresh workspace creation will still error explicitly if needed.
     }
   }
 
