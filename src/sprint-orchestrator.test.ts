@@ -27,6 +27,8 @@ const buildDeps = () => {
     getGuideContent,
     updateLastStatus: vi.fn(),
     getDashboardSettings: () => DEFAULT_DASHBOARD_SETTINGS,
+    isJulesApiConfigured: () => true,
+    getMissingJulesApiKeyInstruction: () => "missing key",
     renderInstruction: vi.fn(async (templateId: string, variables: Record<string, unknown>) => {
       if (templateId === "planningMissing" && typeof variables.subtasks_dir === "string") {
         return `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo subtasks found in \`${variables.subtasks_dir}\`.`;
@@ -51,6 +53,24 @@ const buildDeps = () => {
 };
 
 describe("SprintOrchestrator", () => {
+  it("returns setup guidance when API key is missing for status/orchestrate actions", async () => {
+    const { deps } = buildDeps();
+    deps.isJulesApiConfigured = () => false;
+    deps.getMissingJulesApiKeyInstruction = () => "Set key at http://localhost:4444";
+    const orchestrator = new SprintOrchestrator(deps as any);
+
+    const result = await orchestrator.execute({
+      sprint_number: 1,
+      repo_path: "/tmp/repo",
+      source_id: "sources/123",
+      action: "status",
+      wait: false,
+    });
+
+    expect(result.content[0].text).toContain("API Key Setup Required");
+    expect(result.content[0].text).toContain("http://localhost:4444");
+  });
+
   it("returns branch configuration blocker for plan when feature branch is missing", async () => {
     const { deps } = buildDeps();
     const orchestrator = new SprintOrchestrator(deps as any);

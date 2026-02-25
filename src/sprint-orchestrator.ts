@@ -58,6 +58,8 @@ export interface SprintOrchestratorDependencies {
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   updateLastStatus: (status: any) => void;
   getDashboardSettings: () => DashboardSettings;
+  isJulesApiConfigured: () => boolean;
+  getMissingJulesApiKeyInstruction: () => string;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
 }
 
@@ -243,6 +245,17 @@ export class SprintOrchestrator {
     const retryFailed = args.retry_failed !== false;
     const loopSteps = this.getLoopStepSettings();
     const ciIntelligence = this.getCiIntelligenceSettings();
+
+    if (!this.deps.isJulesApiConfigured() && args.action !== "plan") {
+      const text = [
+        "### API Key Setup Required",
+        "",
+        this.deps.getMissingJulesApiKeyInstruction(),
+        "",
+        "Tip: You can still run `sprint_agent(action: \"plan\")` before configuring keys.",
+      ].join("\n");
+      return { content: [{ type: "text", text }] };
+    }
 
     if (loopSteps.branchPreflight && (args.action === "plan" || args.action === "orchestrate")) {
       const { existsLocal, existsRemote } = runBranchPreflightStep(args.repo_path, defaultFeatureBranch);

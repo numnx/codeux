@@ -1,5 +1,12 @@
 import { execFile } from "child_process";
-import type { GitTrackingStatus, GitPullRequestStatus, GitCiRunStatus, GitMergeStatus } from "./types.js";
+import type {
+  GitTrackingScope,
+  GitTrackingStatus,
+  GitPullRequestStatus,
+  GitCiRunStatus,
+  GitMergeStatus,
+  GitTrackingTarget,
+} from "./types.js";
 
 interface CommandResult {
   ok: boolean;
@@ -41,6 +48,56 @@ const parseJson = <T>(value: string): T | null => {
 const toInt = (value: unknown): number | null => (typeof value === "number" ? value : null);
 const toStr = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
+export interface GitTrackingRequest {
+  scope: GitTrackingScope;
+  featureBranch?: string | null;
+  defaultBranch?: string | null;
+  featureBranchPrefix?: string | null;
+}
+
+const normalizeBranch = (value?: string | null): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const buildTrackingTarget = (request?: GitTrackingRequest): GitTrackingTarget => {
+  const scope = request?.scope ?? "REPOSITORY";
+  const featureBranch = normalizeBranch(request?.featureBranch);
+  const defaultBranch = normalizeBranch(request?.defaultBranch);
+
+  switch (scope) {
+    case "FEATURE_PR_CI":
+      return {
+        scope,
+        label: featureBranch ? `Feature PR CI (${featureBranch})` : "Feature PR CI",
+        branch: featureBranch,
+      };
+    case "MAIN_MERGE_PR_CI":
+      return {
+        scope,
+        label: featureBranch && defaultBranch
+          ? `Main Merge PR CI (${featureBranch} -> ${defaultBranch})`
+          : "Main Merge PR CI",
+        branch: defaultBranch,
+      };
+    case "MAIN_BRANCH_CI":
+      return {
+        scope,
+        label: defaultBranch ? `Main Branch CI (${defaultBranch})` : "Main Branch CI",
+        branch: defaultBranch,
+      };
+    default:
+      return {
+        scope: "REPOSITORY",
+        label: "Repository-wide",
+        branch: null,
+      };
+  }
+};
+
 export class GitStatusService {
   constructor(
     private readonly repoPath: string,
@@ -51,10 +108,102 @@ export class GitStatusService {
     return this.runner(command, args, { cwd: this.repoPath, ghToken });
   }
 
-  async getStatus(mode: "REMOTE" | "LOCAL", ghToken?: string): Promise<GitTrackingStatus> {
+  private filterOpenPrs(prs: GitPullRequestStatus[], tracking?: GitTrackingRequest): GitPullRequestStatus[] {
+    if (!tracking) {
+      return prs;
+    }
+
+    const featureBranch = normalizeBranch(tracking.featureBranch);
+    const defaultBranch = normalizeBranch(tracking.defaultBranch);
+
+    switch (tracking.scope) {
+      case "FEATURE_PR_CI":
+        return featureBranch
+          ? prs.filter((pr) => normalizeBranch(pr.baseRefName) === featureBranch)
+          : prs;
+      case "MAIN_MERGE_PR_CI":
+        if (!featureBranch || !defaultBranch) {
+          return prs;
+        }
+        return prs.filter((pr) =>
+          normalizeBranch(pr.baseRefName) === defaultBranch &&
+          normalizeBranch(pr.headRefName) === featureBranch
+        );
+      case "MAIN_BRANCH_CI":
+        return defaultBranch
+          ? prs.filter((pr) => normalizeBranch(pr.baseRefName) === defaultBranch)
+          : prs;
+      default:
+        return prs;
+    }
+  }
+
+  private filterCiRuns(
+    runs: GitCiRunStatus[],
+    trackedPrs: GitPullRequestStatus[],
+    tracking?: GitTrackingRequest
+  ): GitCiRunStatus[] {
+    if (!tracking) {
+      return runs;
+    }
+
+    if (tracking.scope === "MAIN_BRANCH_CI") {
+      const defaultBranch = normalizeBranch(tracking.defaultBranch);
+      return defaultBranch
+        ? runs.filter((run) => normalizeBranch(run.headBranch) === defaultBranch)
+        : runs;
+    }
+
+    if (tracking.scope === "FEATURE_PR_CI" || tracking.scope === "MAIN_MERGE_PR_CI") {
+      const trackedHeads = new Set(
+        trackedPrs
+          .map((pr) => normalizeBranch(pr.headRefName))
+          .filter((value): value is string => value !== null)
+      );
+      if (trackedHeads.size === 0) {
+        return [];
+      }
+      return runs.filter((run) => {
+        const headBranch = normalizeBranch(run.headBranch);
+        return headBranch ? trackedHeads.has(headBranch) : false;
+      });
+    }
+
+    return runs;
+  }
+
+  private filterMergedPrs(merged: GitMergeStatus[], tracking?: GitTrackingRequest): GitMergeStatus[] {
+    if (!tracking) {
+      return merged;
+    }
+
+    const defaultBranch = normalizeBranch(tracking.defaultBranch);
+    const featureBranch = normalizeBranch(tracking.featureBranch);
+    const featurePrefix = normalizeBranch(tracking.featureBranchPrefix);
+    if (!defaultBranch && !featureBranch && !featurePrefix) {
+      return merged;
+    }
+
+    return merged.filter((pr) => {
+      const base = normalizeBranch(pr.baseRefName);
+      if (!base) {
+        return false;
+      }
+      if (defaultBranch && base === defaultBranch) {
+        return true;
+      }
+      if (featureBranch && base === featureBranch) {
+        return true;
+      }
+      return featurePrefix ? base.startsWith(featurePrefix) : false;
+    });
+  }
+
+  async getStatus(mode: "REMOTE" | "LOCAL", ghToken?: string, trackingRequest?: GitTrackingRequest): Promise<GitTrackingStatus> {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
     const warnings: string[] = [];
     const now = new Date().toISOString();
+    const tracking = buildTrackingTarget(trackingRequest);
 
     const gitRepoCheck = await this.run("git", ["rev-parse", "--is-inside-work-tree"], effectiveToken);
     if (!gitRepoCheck.ok || gitRepoCheck.stdout.trim() !== "true") {
@@ -68,6 +217,7 @@ export class GitStatusService {
         openPullRequests: [],
         ciRuns: [],
         mergedPullRequests: [],
+        tracking,
         warnings: ["Current workspace is not a git repository."],
         lastUpdated: now,
       };
@@ -98,6 +248,7 @@ export class GitStatusService {
         openPullRequests: [],
         ciRuns: [],
         mergedPullRequests: [],
+        tracking,
         warnings: hasRemote
           ? ["Local mode active: PR and CI tracking via GitHub is disabled."]
           : ["Local mode active without remote repository."],
@@ -117,6 +268,7 @@ export class GitStatusService {
         openPullRequests: [],
         ciRuns: [],
         mergedPullRequests: [],
+        tracking,
         warnings: ["GitHub CLI (gh) is not available. Remote mode cannot fetch PR/CI status."],
         lastUpdated: now,
       };
@@ -134,11 +286,21 @@ export class GitStatusService {
     const merged = await this.fetchMergedPrs(effectiveToken);
     if (merged.warning) warnings.push(merged.warning);
 
-    if (prs.data.some((pr) => pr.mergeStateStatus === "DIRTY")) {
+    const trackedPrs = this.filterOpenPrs(prs.data, trackingRequest);
+    const trackedCiRuns = this.filterCiRuns(ciRuns.data, trackedPrs, trackingRequest);
+    const trackedMergedPrs = this.filterMergedPrs(merged.data, trackingRequest);
+
+    if (trackedPrs.some((pr) => pr.mergeStateStatus === "DIRTY")) {
       warnings.push("One or more PRs have merge conflicts (DIRTY). If CI checks do not start on main, inspect merge conflicts.");
     }
-    if (ciRuns.data.length === 0 && prs.data.length > 0) {
+    if (trackedCiRuns.length === 0 && trackedPrs.length > 0) {
       warnings.push("No CI runs found for active PRs. Check workflow triggers and potential merge conflicts.");
+    }
+    if (tracking.scope === "FEATURE_PR_CI" && trackedPrs.length === 0) {
+      warnings.push("No open PRs are currently targeting the active feature branch.");
+    }
+    if (tracking.scope === "MAIN_MERGE_PR_CI" && trackedPrs.length === 0) {
+      warnings.push("No open PR found for merging the feature branch into main.");
     }
 
     return {
@@ -148,9 +310,10 @@ export class GitStatusService {
       branch,
       hasRemote,
       dirty,
-      openPullRequests: prs.data,
-      ciRuns: ciRuns.data,
-      mergedPullRequests: merged.data,
+      openPullRequests: trackedPrs,
+      ciRuns: trackedCiRuns,
+      mergedPullRequests: trackedMergedPrs,
+      tracking,
       warnings,
       lastUpdated: now,
     };
@@ -163,9 +326,9 @@ export class GitStatusService {
       "--state",
       "open",
       "--limit",
-      "20",
+      "50",
       "--json",
-      "number,title,url,state,isDraft,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup",
+      "number,title,url,state,isDraft,headRefName,baseRefName,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup",
     ], ghToken);
     if (!result.ok) {
       return { data: [], warning: "Failed to fetch open pull requests via gh CLI." };
@@ -200,6 +363,8 @@ export class GitStatusService {
         url: toStr(item.url) ?? "",
         state: toStr(item.state) ?? "UNKNOWN",
         isDraft: item.isDraft === true,
+        headRefName: toStr(item.headRefName),
+        baseRefName: toStr(item.baseRefName),
         mergeStateStatus: toStr(item.mergeStateStatus),
         reviewDecision: toStr(item.reviewDecision),
         updatedAt: toStr(item.updatedAt),
@@ -216,7 +381,7 @@ export class GitStatusService {
       "run",
       "list",
       "--limit",
-      "20",
+      "50",
       "--json",
       "databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt",
     ], ghToken);
@@ -251,9 +416,9 @@ export class GitStatusService {
       "--state",
       "merged",
       "--limit",
-      "10",
+      "100",
       "--json",
-      "number,title,url,mergedAt,mergedBy",
+      "number,title,url,headRefName,baseRefName,mergedAt,mergedBy",
     ], ghToken);
     if (!result.ok) {
       return { data: [], warning: "Failed to fetch recently merged pull requests via gh CLI." };
@@ -272,6 +437,8 @@ export class GitStatusService {
         number: toInt(item.number) ?? 0,
         title: toStr(item.title) ?? "Merged PR",
         url: toStr(item.url) ?? "",
+        headRefName: toStr(item.headRefName),
+        baseRefName: toStr(item.baseRefName),
         mergedAt: toStr(item.mergedAt),
         mergedBy: mergedByObj ? toStr(mergedByObj.login) : null,
       };

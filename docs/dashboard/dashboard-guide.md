@@ -87,6 +87,27 @@ Use case:
 - In `LOCAL` mode, PR/CI tracking is disabled.
 - In `REMOTE` mode, requires `gh` and auth.
 - Warnings include common conflict/CI trigger issues.
+- Tracking scope is dynamic and shown in panel metadata:
+  - `Feature PR CI` while sprint tasks are actively running and feature CI wait gate is enabled.
+  - `Main Merge PR CI` when sprint tasks are fully merged and waiting for feature->main merge CI gate.
+  - `Main Branch CI` in between these windows.
+- Recent merges list includes all fetched merges into feature-prefixed branches and the default branch.
+
+## No-Key Startup Mode
+
+Server startup no longer exits when Jules API key is missing.
+
+Behavior:
+- MCP server and dashboard still start.
+- API-backed tools return setup guidance until key is configured.
+- Guidance points to:
+  - `.env` (`JULES_API_KEY`)
+  - `.jules-subagents/settings.json` (`julesApiKey`)
+  - Dashboard settings (`http://localhost:4444` by default)
+
+Runtime update:
+- Saving a key in dashboard settings updates runtime API usage without restart.
+- Leaving the dashboard key empty is supported; system-wide environment keys are used when present.
 
 ## Security Notes
 

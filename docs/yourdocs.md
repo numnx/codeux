@@ -169,3 +169,53 @@ Validation run:
 2. CI merge protocol can be tightened/relaxed in dashboard settings without code edits.
 3. Loop behavior can be shaped for debugging or staged rollout by disabling selected steps.
 4. Dot-directory migration is handled safely by default path resolution and legacy DB copy-forward.
+
+## Incremental Update: No-Key Runtime + CI Tracking Context
+
+### No-Key Runtime Mode
+
+- Startup no longer hard-fails when `JULES_API_KEY` is absent.
+- Server logs actionable setup instructions with sources:
+  - `.env`
+  - `.jules-subagents/settings.json`
+  - dashboard settings (`http://localhost:4444` default)
+- API-backed MCP handlers now preflight key presence and return setup guidance text when missing.
+- `sprint_agent` allows `plan` without key, but `status/orchestrate` return setup guidance until key exists.
+- Saving dashboard settings now refreshes Jules API key in runtime (no restart required).
+- Runtime key resolution now checks live environment variables (`JULES_API_KEY` / `JULES_KEY`) when dashboard key is empty.
+
+Files:
+- `src/index.ts`
+- `src/jules-api.ts`
+- `src/mcp/core-tool-handler.ts`
+- `src/mcp/agent-tool-handler.ts`
+- `src/sprint-orchestrator.ts`
+- `src/api-key-guidance.ts`
+
+### Context-Aware GitHub CI Tracking
+
+Git tracking now follows sprint stage + CI gate settings:
+
+1. `FEATURE_PR_CI`
+- Active when tasks are running and feature-merge CI wait gate is enabled.
+- Tracks open PRs targeting the feature branch and CI runs for those PR head branches.
+
+2. `MAIN_MERGE_PR_CI`
+- Active when sprint tasks are completed+merged and main-merge CI wait gate is enabled.
+- Tracks the feature->main PR and CI runs for that PR head branch.
+
+3. `MAIN_BRANCH_CI`
+- Default in-between scope.
+- Tracks main branch CI runs.
+
+Recent merges:
+- Includes all fetched merges into feature-prefixed branches and default branch.
+- Dashboard now renders the full fetched merge list (no UI slice-to-5 truncation).
+
+Files:
+- `src/git-status-service.ts`
+- `src/index.ts`
+- `src/types.ts`
+- `dashboard/src/types.ts`
+- `dashboard/src/components/GitStatusPanel.tsx`
+- `src/git-status-service.test.ts`

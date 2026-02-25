@@ -10,27 +10,39 @@ interface CoreToolHandlerDependencies {
   getConsecutiveFailures: () => number;
   setConsecutiveFailures: (value: number) => void;
   getMaxFailures: () => number;
+  isJulesApiConfigured: () => boolean;
+  getMissingJulesApiKeyInstruction: () => string;
 }
 
 export class CoreToolHandler {
   constructor(private readonly deps: CoreToolHandlerDependencies) {}
 
+  private ensureJulesApiConfigured(): void {
+    if (!this.deps.isJulesApiConfigured()) {
+      throw new Error(this.deps.getMissingJulesApiKeyInstruction());
+    }
+  }
+
   async handleGetSource({ source_id }: { source_id: string }) {
+    this.ensureJulesApiConfigured();
     const source = await this.deps.julesApi.getSource(source_id);
     return { content: [{ type: "text", text: JSON.stringify(source, null, 2) }] };
   }
 
   async handleListSources({ filter, page_size, page_token }: { filter?: string; page_size?: number; page_token?: string }) {
+    this.ensureJulesApiConfigured();
     const sources = await this.deps.julesApi.listSources({ filter, page_size, page_token });
     return { content: [{ type: "text", text: JSON.stringify(sources, null, 2) }] };
   }
 
   async handleListAllSources({ filter }: { filter?: string }) {
+    this.ensureJulesApiConfigured();
     const allSources = await this.deps.julesApi.listAllSources(filter);
     return { content: [{ type: "text", text: JSON.stringify({ sources: allSources }, null, 2) }] };
   }
 
   async handleCreateSession(args: any) {
+    this.ensureJulesApiConfigured();
     const maxFails = this.deps.getMaxFailures();
     if (this.deps.getConsecutiveFailures() >= maxFails) {
       throw new Error(
@@ -58,6 +70,7 @@ export class CoreToolHandler {
   }
 
   async handleGetSession({ session_id }: { session_id: string }) {
+    this.ensureJulesApiConfigured();
     const session = await this.deps.julesApi.getSession(session_id);
 
     try {
@@ -74,16 +87,19 @@ export class CoreToolHandler {
   }
 
   async handleListSessions({ page_size, page_token }: { page_size?: number; page_token?: string }) {
+    this.ensureJulesApiConfigured();
     const sessions = await this.deps.julesApi.listSessions({ page_size, page_token });
     return { content: [{ type: "text", text: JSON.stringify(sessions, null, 2) }] };
   }
 
   async handleApproveSessionPlan({ session_id }: { session_id: string }) {
+    this.ensureJulesApiConfigured();
     const response = await this.deps.julesApi.approveSessionPlan(session_id);
     return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
   }
 
   async handleSendSessionMessage({ session_id, prompt }: { session_id: string; prompt: string }) {
+    this.ensureJulesApiConfigured();
     const response = await this.deps.julesApi.sendSessionMessage(session_id, prompt);
     return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
   }
@@ -97,6 +113,7 @@ export class CoreToolHandler {
     poll_interval?: number;
     timeout?: number;
   }) {
+    this.ensureJulesApiConfigured();
     const startTime = Date.now();
     while (Date.now() - startTime < timeout * 1000) {
       const session = await this.deps.julesApi.getSession(session_id);
@@ -114,16 +131,19 @@ export class CoreToolHandler {
   }
 
   async handleGetActivity({ session_id, activity_id }: { session_id: string; activity_id: string }) {
+    this.ensureJulesApiConfigured();
     const activity = await this.deps.julesApi.getActivity(session_id, activity_id);
     return { content: [{ type: "text", text: JSON.stringify(activity, null, 2) }] };
   }
 
   async handleListActivities({ session_id, page_size, page_token }: { session_id: string; page_size?: number; page_token?: string }) {
+    this.ensureJulesApiConfigured();
     const activities = await this.deps.julesApi.listActivities({ session_id, page_size, page_token });
     return { content: [{ type: "text", text: JSON.stringify(activities, null, 2) }] };
   }
 
   async handleListAllActivities({ session_id }: { session_id: string }) {
+    this.ensureJulesApiConfigured();
     const allActivities = await this.deps.julesApi.listAllActivities(session_id);
     return { content: [{ type: "text", text: JSON.stringify({ activities: allActivities }, null, 2) }] };
   }

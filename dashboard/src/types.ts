@@ -109,6 +109,8 @@ export interface GitPullRequestStatus {
   url: string;
   state: string;
   isDraft: boolean;
+  headRefName: string | null;
+  baseRefName: string | null;
   mergeStateStatus: string | null;
   reviewDecision: string | null;
   updatedAt: string | null;
@@ -132,8 +134,18 @@ export interface GitMergeStatus {
   number: number;
   title: string;
   url: string;
+  headRefName: string | null;
+  baseRefName: string | null;
   mergedAt: string | null;
   mergedBy: string | null;
+}
+
+export type GitTrackingScope = "FEATURE_PR_CI" | "MAIN_MERGE_PR_CI" | "MAIN_BRANCH_CI" | "REPOSITORY";
+
+export interface GitTrackingTarget {
+  scope: GitTrackingScope;
+  label: string;
+  branch: string | null;
 }
 
 export interface GitTrackingStatus {
@@ -146,6 +158,7 @@ export interface GitTrackingStatus {
   openPullRequests: GitPullRequestStatus[];
   ciRuns: GitCiRunStatus[];
   mergedPullRequests: GitMergeStatus[];
+  tracking: GitTrackingTarget;
   warnings: string[];
   lastUpdated: string;
 }
