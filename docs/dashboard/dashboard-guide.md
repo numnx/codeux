@@ -120,8 +120,7 @@ Use case:
 - Warnings include common conflict/CI trigger issues.
 - Tracking scope is dynamic and shown in panel metadata:
   - `Feature PR CI` while sprint tasks are actively running and feature CI wait gate is enabled.
-  - `Main Merge PR CI` when sprint tasks are fully merged and waiting for feature->main merge CI gate.
-  - `Main Branch CI` in between these windows.
+  - `Main Branch CI` outside active running-task windows (including final merge stage).
 - Recent merges list includes all fetched merges into feature-prefixed branches and the default branch.
 
 ## No-Key Startup Mode

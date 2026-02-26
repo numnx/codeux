@@ -154,7 +154,26 @@ export class GitStatusService {
         : runs;
     }
 
-    if (tracking.scope === "FEATURE_PR_CI" || tracking.scope === "MAIN_MERGE_PR_CI") {
+    if (tracking.scope === "FEATURE_PR_CI") {
+      const featureBranch = normalizeBranch(tracking.featureBranch);
+      if (featureBranch) {
+        return runs.filter((run) => normalizeBranch(run.headBranch) === featureBranch);
+      }
+      const trackedHeads = new Set(
+        trackedPrs
+          .map((pr) => normalizeBranch(pr.headRefName))
+          .filter((value): value is string => value !== null)
+      );
+      if (trackedHeads.size === 0) {
+        return [];
+      }
+      return runs.filter((run) => {
+        const headBranch = normalizeBranch(run.headBranch);
+        return headBranch ? trackedHeads.has(headBranch) : false;
+      });
+    }
+
+    if (tracking.scope === "MAIN_MERGE_PR_CI") {
       const trackedHeads = new Set(
         trackedPrs
           .map((pr) => normalizeBranch(pr.headRefName))
