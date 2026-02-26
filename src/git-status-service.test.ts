@@ -137,8 +137,19 @@ describe("GitStatusService", () => {
               status: "completed",
               conclusion: "success",
               event: "pull_request",
-              headBranch: "task/one",
+              headBranch: "feature/sprint1-implementation",
               url: "https://example/run/101",
+              updatedAt: "2026-02-25T00:00:00Z",
+            },
+            {
+              databaseId: 103,
+              name: "ci",
+              workflowName: "CI",
+              status: "completed",
+              conclusion: "success",
+              event: "pull_request",
+              headBranch: "task/one",
+              url: "https://example/run/103",
               updatedAt: "2026-02-25T00:00:00Z",
             },
             {
@@ -171,7 +182,7 @@ describe("GitStatusService", () => {
     expect(result.openPullRequests).toHaveLength(1);
     expect(result.openPullRequests[0].number).toBe(11);
     expect(result.ciRuns).toHaveLength(1);
-    expect(result.ciRuns[0].headBranch).toBe("task/one");
+    expect(result.ciRuns[0].headBranch).toBe("feature/sprint1-implementation");
   });
 
   it("tracks main branch CI between feature merge windows", async () => {

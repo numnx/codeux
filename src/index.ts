@@ -294,22 +294,9 @@ class JulesAgentServer {
     const featureBranchPrefix = this.dashboardSettings.git.featureBranchPrefix?.trim() || "feature/";
 
     const hasRunningTasks = subtasks.some((task) => task.status === "RUNNING");
-    const isReadyForMainMerge = subtasks.length > 0 && subtasks.every(
-      (task) => task.status === "COMPLETED" && task.is_merged
-    );
-
     if (ci.enabled && ci.waitForCiBeforeFeatureMerge && hasRunningTasks && featureBranch) {
       return {
         scope: "FEATURE_PR_CI",
-        featureBranch,
-        defaultBranch,
-        featureBranchPrefix,
-      };
-    }
-
-    if (ci.enabled && ci.waitForCiBeforeMainMerge && isReadyForMainMerge && featureBranch) {
-      return {
-        scope: "MAIN_MERGE_PR_CI",
         featureBranch,
         defaultBranch,
         featureBranchPrefix,
