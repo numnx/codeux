@@ -52,6 +52,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     waitForCiBeforeFeatureMerge: true,
     resolveAllCommentsBeforeFeatureMerge: true,
     waitForJulesCiAutofix: false,
+    autoMergeFeaturePrWhenGreen: false,
   },
   sprintLoopSteps: {
     branchPreflight: true,

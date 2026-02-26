@@ -319,6 +319,18 @@ export class GitStatusService {
     };
   }
 
+  async mergePullRequest(prNumber: number, ghToken?: string): Promise<{ ok: boolean; message?: string }> {
+    const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
+    const result = await this.run("gh", ["pr", "merge", String(prNumber), "--merge", "--delete-branch"], effectiveToken);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.",
+      };
+    }
+    return { ok: true };
+  }
+
   private async fetchOpenPrs(ghToken?: string): Promise<{ data: GitPullRequestStatus[]; warning?: string }> {
     const result = await this.run("gh", [
       "pr",

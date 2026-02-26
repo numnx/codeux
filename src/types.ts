@@ -83,6 +83,7 @@ export interface CiIntelligenceSettings {
   waitForCiBeforeFeatureMerge: boolean;
   resolveAllCommentsBeforeFeatureMerge: boolean;
   waitForJulesCiAutofix: boolean;
+  autoMergeFeaturePrWhenGreen: boolean;
 }
 
 export interface SprintLoopStepSettings {
