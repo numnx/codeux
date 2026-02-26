@@ -42,6 +42,7 @@ const DEFAULT_CI_SETTINGS: CiIntelligenceSettings = {
   waitForCiBeforeFeatureMerge: true,
   resolveAllCommentsBeforeFeatureMerge: true,
   waitForJulesCiAutofix: false,
+  autoMergeFeaturePrWhenGreen: false,
 };
 
 export interface SprintOrchestratorDependencies {
@@ -67,6 +68,7 @@ export interface SprintOrchestratorDependencies {
     defaultBranch: string;
     featureBranchPrefix: string;
   }) => Promise<GitTrackingStatus | null>;
+  autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<{ ok: boolean; message?: string }>;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
 }
 
@@ -224,6 +226,7 @@ export class SprintOrchestrator {
     if (subtasks.length > 0) {
       const ciAutofixResult = await this.applyFeatureBranchCiGate(subtasks, {
         repoPath: args.repoPath,
+        subtasksDir: args.subtasksDir,
         featureBranch: args.defaultFeatureBranch,
         defaultBranch: args.defaultBranch,
         featureBranchPrefix: args.featureBranchPrefix,
@@ -277,6 +280,7 @@ export class SprintOrchestrator {
     subtasks: Subtask[],
     args: {
       repoPath: string;
+      subtasksDir: string;
       featureBranch: string;
       defaultBranch: string;
       featureBranchPrefix: string;
@@ -328,9 +332,23 @@ export class SprintOrchestrator {
       const checks = Array.isArray(pr.checks) ? pr.checks : [];
       const hasFailedChecks = checks.some((check) => this.isCiCheckFailed(check.status, check.conclusion));
       const hasPendingChecks = checks.length === 0 || checks.some((check) => this.isCiCheckPending(check.status, check.conclusion));
-      const hasReviewBlockers = pr.reviewDecision === "CHANGES_REQUESTED" || pr.comments > 0;
+      const hasReviewBlockers = args.ciIntelligence.resolveAllCommentsBeforeFeatureMerge
+        ? pr.reviewDecision === "CHANGES_REQUESTED" || pr.comments > 0
+        : false;
 
       if (!hasFailedChecks && !hasPendingChecks && !hasReviewBlockers) {
+        if (args.ciIntelligence.autoMergeFeaturePrWhenGreen && this.deps.autoMergeFeaturePr) {
+          const mergeResult = await this.deps.autoMergeFeaturePr({ repoPath: args.repoPath, prNumber: pr.number });
+          if (mergeResult.ok) {
+            task.is_merged = true;
+            await this.persistTaskMergedFlag(args.subtasksDir, task.id);
+            reportText += `🤖 **Auto-Merged:** Task \`${task.id}\` wurde automatisch gemerged (PR #${pr.number}).\n`;
+          } else {
+            reportText += `⚠️ **Auto-Merge fehlgeschlagen:** Task \`${task.id}\` (PR #${pr.number}) - ${mergeResult.message || "unknown error"}\n`;
+            reportText += `   - Manuell prüfen: \`gh pr merge ${pr.number} --merge --delete-branch\`\n`;
+          }
+          continue;
+        }
         reportText += `✅ **Feature PR Ready:** Task \`${task.id}\` kann für Merge in \`${args.featureBranch}\` freigegeben werden (PR #${pr.number}).\n`;
         continue;
       }
@@ -357,6 +375,26 @@ export class SprintOrchestrator {
     }
 
     return { subtasks, reportText };
+  }
+
+  private async persistTaskMergedFlag(subtasksDir: string, taskId: string): Promise<void> {
+    const filePath = path.join(subtasksDir, `${taskId}.md`);
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      let updated = content;
+      if (/^\s*merged:\s*(true|false)\s*$/m.test(content)) {
+        updated = content.replace(/^\s*merged:\s*(true|false)\s*$/m, "merged: true");
+      } else if (/^\s*prompt:\s*/m.test(content)) {
+        updated = content.replace(/^\s*prompt:\s*/m, "merged: true\nprompt:");
+      } else {
+        updated = `${content.trimEnd()}\nmerged: true\n`;
+      }
+      if (updated !== content) {
+        await fs.writeFile(filePath, updated, "utf-8");
+      }
+    } catch {
+      // Keep runtime status update even if file persistence fails.
+    }
   }
 
   private async renderMainMergeCiFeedback(args: {

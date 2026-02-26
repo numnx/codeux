@@ -104,6 +104,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     waitForCiBeforeFeatureMerge: true,
     resolveAllCommentsBeforeFeatureMerge: true,
     waitForJulesCiAutofix: false,
+    autoMergeFeaturePrWhenGreen: false,
   },
   sprintLoopSteps: {
     branchPreflight: true,
@@ -369,6 +370,10 @@ const sanitizeSettings = (value: unknown, externalHints?: ExternalSettingsHints)
     waitForJulesCiAutofix: readBoolean(
       ciInput.waitForJulesCiAutofix,
       DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.waitForJulesCiAutofix
+    ),
+    autoMergeFeaturePrWhenGreen: readBoolean(
+      ciInput.autoMergeFeaturePrWhenGreen,
+      DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.autoMergeFeaturePrWhenGreen
     ),
   };
 

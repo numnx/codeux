@@ -144,6 +144,7 @@ class JulesAgentServer {
       },
       getDashboardSettings: () => this.dashboardSettings,
       getCiStatusForScope: (args) => this.getCiStatusForScope(args),
+      autoMergeFeaturePr: (args) => this.autoMergeFeaturePr(args),
       renderInstruction: (templateId, variables, repoPath) =>
         this.instructionService.render(templateId, variables, repoPath),
     });
@@ -539,6 +540,17 @@ class JulesAgentServer {
       );
     } catch {
       return null;
+    }
+  }
+
+  private async autoMergeFeaturePr(args: { repoPath: string; prNumber: number }): Promise<{ ok: boolean; message?: string }> {
+    const gitStatusService = new GitStatusService(args.repoPath);
+    try {
+      const result = await gitStatusService.mergePullRequest(args.prNumber, this.getEffectiveGithubToken());
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, message };
     }
   }
 

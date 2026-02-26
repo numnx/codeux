@@ -90,6 +90,7 @@ Frontend contract:
 
 `ciIntelligence` also includes:
 - `waitForJulesCiAutofix` (default `false`): when enabled with feature-branch CI gating, completed tasks stay in work status while feature PR checks are pending/failed so Jules can apply CI autofix before merge.
+- `autoMergeFeaturePrWhenGreen` (default `false`): when enabled, feature PRs are auto-merged by the sprint loop once checks are green and review blockers are cleared.
 
 `mcpTools` contains:
 - `name` (MCP tool name from `src/tools.ts`)

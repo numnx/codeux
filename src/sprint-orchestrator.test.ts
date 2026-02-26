@@ -28,6 +28,7 @@ const buildDeps = () => {
     updateLastStatus: vi.fn(),
     getDashboardSettings: () => DEFAULT_DASHBOARD_SETTINGS,
     getCiStatusForScope: vi.fn().mockResolvedValue(null),
+    autoMergeFeaturePr: vi.fn().mockResolvedValue({ ok: true }),
     renderInstruction: vi.fn(async (templateId: string, variables: Record<string, unknown>) => {
       if (templateId === "planningMissing" && typeof variables.subtasks_dir === "string") {
         return `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo subtasks found in \`${variables.subtasks_dir}\`.`;
@@ -226,6 +227,92 @@ describe("SprintOrchestrator", () => {
     expect(text).toContain("`RUNNING`");
     expect(deps.getCiStatusForScope).toHaveBeenCalled();
 
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  });
+
+  it("auto merges feature PR when checks are green and review blockers are clear", async () => {
+    const { deps, listSessions, loadSubtasks } = buildDeps();
+    deps.getDashboardSettings = () => ({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      ciIntelligence: {
+        ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
+        waitForCiBeforeFeatureMerge: true,
+        resolveAllCommentsBeforeFeatureMerge: true,
+        autoMergeFeaturePrWhenGreen: true,
+      },
+    });
+    deps.getCiStatusForScope = vi.fn().mockResolvedValue({
+      mode: "REMOTE",
+      available: true,
+      repositoryRoot: "/tmp/repo",
+      branch: "feature/sprint1-implementation",
+      hasRemote: true,
+      dirty: false,
+      openPullRequests: [
+        {
+          number: 12,
+          title: "Task PR",
+          url: "https://example.com/pr/12",
+          state: "OPEN",
+          isDraft: false,
+          headRefName: "worker/task-01",
+          baseRefName: "feature/sprint1-implementation",
+          mergeStateStatus: null,
+          reviewDecision: "APPROVED",
+          updatedAt: null,
+          comments: 0,
+          checks: [{ name: "ci", status: "completed", conclusion: "success" }],
+        },
+      ],
+      ciRuns: [],
+      mergedPullRequests: [],
+      tracking: { scope: "FEATURE_PR_CI", label: "Feature PR CI", branch: "feature/sprint1-implementation" },
+      warnings: [],
+      lastUpdated: new Date().toISOString(),
+    });
+
+    const orchestrator = new SprintOrchestrator(deps as any);
+    const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-"));
+    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    await fs.mkdir(subtasksDir, { recursive: true });
+    await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
+
+    loadSubtasks.mockResolvedValue([
+      {
+        id: "01-task",
+        title: "Test task",
+        prompt: "Do it",
+        depends_on: [],
+        is_independent: true,
+      },
+    ]);
+    listSessions.mockResolvedValue({
+      sessions: [
+        {
+          id: "abc123",
+          name: "sessions/abc123",
+          title: "Sprint 1: [01-task] Test task",
+          state: "COMPLETED",
+          prompt: "x",
+          outputs: [{ pullRequest: { url: "https://example.com/pr/12", workerBranch: "worker/task-01" } }],
+        },
+      ],
+    });
+
+    const result = await orchestrator.execute({
+      sprint_number: 1,
+      repo_path: tmpRoot,
+      source_id: "sources/123",
+      action: "status",
+      wait: false,
+    });
+
+    const text = result.content[0].text as string;
+    expect(text).toContain("Auto-Merged");
+    expect(deps.autoMergeFeaturePr).toHaveBeenCalledWith({ repoPath: tmpRoot, prNumber: 12 });
+
+    const persisted = await fs.readFile(path.join(subtasksDir, "01-task.md"), "utf-8");
+    expect(persisted).toContain("merged: true");
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
 });
