@@ -45,6 +45,7 @@ Legacy migration:
 
 Top-level fields:
 - `automationLevel`
+- `automationInterventions`
 - `aiProvider`
 - `git`
 - `ciIntelligence`
@@ -58,6 +59,12 @@ Top-level fields:
 - `strategy` (`MANUAL|WEIGHTED|ORCHESTRATOR`)
 - `providers` map (enabled/model/weight/thinkingMode/apiKey per provider)
 - `julesApiKey` (backward-compatible alias synced with `providers.jules.apiKey`)
+
+`automationInterventions` contains:
+- `autoApprovePlan` (default `true`): auto-approve `AWAITING_PLAN_APPROVAL` sessions in `SEMI_AUTO`
+- `autoAnswerClarification` (default `false`): auto-answer `AWAITING_USER_FEEDBACK` sessions in `SEMI_AUTO`
+- `autoResumePaused` (default `false`): auto-send resume nudge for `PAUSED` sessions in `SEMI_AUTO`
+- `clarificationAnswerTemplate`: default response body used for clarification auto-replies
 
 Backend contract:
 - `src/types.ts`
@@ -92,6 +99,7 @@ Frontend contract:
 `ciIntelligence` also includes:
 - `enableLivePrMonitoring` (default `true`): controls live PR/CI monitoring gates in sprint loop (`REMOTE` mode only; auto-disabled in `LOCAL` mode).
 - `waitForJulesCiAutofix` (default `false`): when enabled with feature-branch CI gating, completed tasks stay in work status while feature PR checks are pending/failed so Jules can apply CI autofix before merge.
+- `julesCiAutofixMaxRetries` (default `3`, clamped to `0..20`): max Jules CI autofix notify attempts before escalation to intervention (`FULL -> AGENT`, `SEMI_AUTO/ALWAYS_ASK -> HUMAN`) with explicit task IDs, PR links, and failed check names.
 - `autoMergeFeaturePrWhenGreen` (default `false`): when enabled, feature PRs are auto-merged by the sprint loop once checks are green and review blockers are cleared.
 
 `mcpTools` contains:
