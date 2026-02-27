@@ -116,6 +116,7 @@ For `status` and `orchestrate`, each cycle can run:
 When `wait` is true and `watchLoop` is enabled:
 - Orchestrator enters continuous loop.
 - Wait interval is 120 seconds between cycles.
+- Output interval defaults to 300 seconds: if tasks are still in progress at that point, the loop returns a status checkpoint and instructs the caller to rerun `sprint_agent(..., wait: true)`.
 - Loop exits when:
   - all tasks terminal (`COMPLETED+merged` or `FAILED`), or
   - no runnable tasks remain, or

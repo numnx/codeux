@@ -33,6 +33,7 @@ const DEFAULT_STEP_SETTINGS: SprintLoopStepSettings = {
   statusTable: true,
   watchLoop: true,
   watchLoopIntervalSeconds: 120,
+  watchLoopOutputIntervalSeconds: 300,
 };
 
 const DEFAULT_CI_SETTINGS: CiIntelligenceSettings = {
@@ -540,9 +541,11 @@ export class SprintOrchestrator {
     const shouldWait = args.wait !== undefined ? args.wait : (args.action === "status" || args.action === "orchestrate");
     const watchEnabled = shouldWait && loopSteps.watchLoop;
     const watchLoopIntervalMs = Math.max(1, loopSteps.watchLoopIntervalSeconds) * 1000;
+    const watchLoopOutputIntervalMs = Math.max(60, loopSteps.watchLoopOutputIntervalSeconds) * 1000;
 
     if (watchEnabled) {
       let allFinished = false;
+      const watchStartedAt = Date.now();
       const dashboardPort = this.deps.settings.dashboardPort || this.deps.dashboardPort;
       let fullReport = await this.renderInstruction(
         "watchHeader",
@@ -596,6 +599,8 @@ export class SprintOrchestrator {
         const needsManualMerge = awaitingMerge.length > 0;
 
         allFinished = allTerminal || noMoreActionPossible || needsManualMerge;
+        const elapsedMs = Date.now() - watchStartedAt;
+        const outputIntervalReached = elapsedMs >= watchLoopOutputIntervalMs;
 
         if (allFinished) {
           fullReport += reportText;
@@ -648,6 +653,27 @@ export class SprintOrchestrator {
           }
 
           fullReport += "\n✅ **Sprint Execution Finished.**\n";
+        } else if (outputIntervalReached) {
+          const pendingTasks = subtasks.filter((task) => task.status === "PENDING");
+          const completedTasks = subtasks.filter((task) => task.status === "COMPLETED");
+          const failedTasks = subtasks.filter((task) => task.status === "FAILED");
+
+          fullReport += reportText;
+          fullReport += statusTable;
+          fullReport += instructions;
+          fullReport += await this.renderInstruction(
+            "watchContinue",
+            {
+              elapsed_seconds: Math.floor(elapsedMs / 1000),
+              action: args.action,
+              running_tasks: runningTasks.length,
+              pending_tasks: pendingTasks.length,
+              completed_tasks: completedTasks.length,
+              failed_tasks: failedTasks.length,
+            },
+            args.repo_path
+          );
+          return { content: [{ type: "text", text: fullReport }] };
         } else {
           await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
         }

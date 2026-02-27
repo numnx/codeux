@@ -399,4 +399,71 @@ describe("SprintOrchestrator", () => {
 
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
+
+  it("returns intermediate watch output when watch loop output interval is reached", async () => {
+    const nowSpy = vi.spyOn(Date, "now");
+    try {
+      nowSpy.mockReturnValueOnce(0).mockReturnValue(61_000);
+      const { deps, loadSubtasks } = buildDeps();
+      deps.getDashboardSettings = () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        sprintLoopSteps: {
+          ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps,
+          sessionSync: false,
+          statusDerivation: false,
+          startReadyTasks: false,
+          watchLoop: true,
+          watchLoopIntervalSeconds: 30,
+          watchLoopOutputIntervalSeconds: 60,
+        },
+      });
+      deps.renderInstruction = vi.fn(async (templateId: string) => {
+        if (templateId === "watchHeader") return "### Sprint Header";
+        if (templateId === "watchContinue") return "WATCH_CONTINUE";
+        return "";
+      });
+
+      const orchestrator = new SprintOrchestrator(deps as any);
+      const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-watch-"));
+      const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+      await fs.mkdir(subtasksDir, { recursive: true });
+      await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
+
+      loadSubtasks.mockResolvedValue([
+        {
+          id: "01-task",
+          title: "Test task",
+          prompt: "Do it",
+          depends_on: [],
+          is_independent: false,
+          status: "RUNNING",
+        },
+      ]);
+
+      const executePromise = orchestrator.execute({
+        sprint_number: 1,
+        repo_path: tmpRoot,
+        source_id: "sources/123",
+        action: "status",
+        wait: true,
+      });
+
+      const result = await executePromise;
+      const text = result.content[0].text as string;
+      expect(text).toContain("WATCH_CONTINUE");
+      expect(text).not.toContain("Sprint Execution Finished");
+      expect(deps.renderInstruction).toHaveBeenCalledWith(
+        "watchContinue",
+        expect.objectContaining({
+          action: "status",
+          running_tasks: 1,
+        }),
+        tmpRoot
+      );
+
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });

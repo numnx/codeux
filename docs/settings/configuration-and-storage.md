@@ -87,6 +87,7 @@ Frontend contract:
 
 `sprintLoopSteps` also includes:
 - `watchLoopIntervalSeconds` (default `120`, clamped to `1..3600`)
+- `watchLoopOutputIntervalSeconds` (default `300`, clamped to `60..3600`): max watch-loop runtime before returning an in-progress status and rerun instruction
 
 `ciIntelligence` also includes:
 - `enableLivePrMonitoring` (default `true`): controls live PR/CI monitoring gates in sprint loop (`REMOTE` mode only; auto-disabled in `LOCAL` mode).

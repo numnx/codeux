@@ -44,6 +44,8 @@ const PROVIDER_STRATEGIES: ProviderStrategy[] = ["MANUAL", "WEIGHTED", "ORCHESTR
 const CLI_EXECUTION_MODES: CliExecutionMode[] = ["HOST", "DOCKER"];
 const MIN_WATCH_LOOP_INTERVAL_SECONDS = 1;
 const MAX_WATCH_LOOP_INTERVAL_SECONDS = 3600;
+const MIN_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS = 60;
+const MAX_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS = 3600;
 
 const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
   jules: {
@@ -119,6 +121,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     statusTable: true,
     watchLoop: true,
     watchLoopIntervalSeconds: 120,
+    watchLoopOutputIntervalSeconds: 300,
   },
   cliWorkflow: {
     cleanupWorktreeOnSuccess: true,
@@ -404,6 +407,16 @@ const sanitizeSettings = (value: unknown, externalHints?: ExternalSettingsHints)
       Math.max(
         MIN_WATCH_LOOP_INTERVAL_SECONDS,
         readInteger(loopInput.watchLoopIntervalSeconds, DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps.watchLoopIntervalSeconds)
+      )
+    ),
+    watchLoopOutputIntervalSeconds: Math.min(
+      MAX_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS,
+      Math.max(
+        MIN_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS,
+        readInteger(
+          loopInput.watchLoopOutputIntervalSeconds,
+          DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps.watchLoopOutputIntervalSeconds
+        )
       )
     ),
   };
