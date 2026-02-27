@@ -126,6 +126,7 @@ export interface DashboardSettings {
     statusTable: boolean;
     watchLoop: boolean;
     watchLoopIntervalSeconds: number;
+    watchLoopOutputIntervalSeconds: number;
   };
   cliWorkflow: {
     cleanupWorktreeOnSuccess: boolean;

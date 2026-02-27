@@ -59,7 +59,10 @@ const claudeCodeModelOptions = [
   "claude-haiku-4-5",
 ] as const;
 
-type SprintLoopToggleKey = Exclude<keyof DashboardSettings["sprintLoopSteps"], "watchLoopIntervalSeconds">;
+type SprintLoopToggleKey = Exclude<
+  keyof DashboardSettings["sprintLoopSteps"],
+  "watchLoopIntervalSeconds" | "watchLoopOutputIntervalSeconds"
+>;
 const loopStepOptions: Array<{ key: SprintLoopToggleKey; label: string; detail: string }> = [
   { key: "branchPreflight", label: "Branch Preflight", detail: "Validate local/remote sprint branch before orchestration." },
   { key: "planningPreflight", label: "Planning Preflight", detail: "Block status/orchestration when no sprint subtasks exist." },
@@ -730,6 +733,28 @@ export const SettingsPage: FunctionComponent<SettingsPageProps> = ({
             />
             <p className="text-[11px] text-slate-500">
               Controls pause duration between watch-loop cycles. Lower values give faster updates but increase background activity.
+            </p>
+          </label>
+          <label className="block space-y-2">
+            <span className="text-xs text-slate-400">Watch Loop Output Interval (seconds)</span>
+            <input
+              type="number"
+              min={60}
+              max={3600}
+              value={settings.sprintLoopSteps.watchLoopOutputIntervalSeconds}
+              onInput={(event) =>
+                onChange({
+                  ...settings,
+                  sprintLoopSteps: {
+                    ...settings.sprintLoopSteps,
+                    watchLoopOutputIntervalSeconds: Number(event.currentTarget.value),
+                  },
+                })
+              }
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+            />
+            <p className="text-[11px] text-slate-500">
+              Forces a periodic status return in wait mode so callers can rerun the loop. Default: 300 seconds (5 minutes).
             </p>
           </label>
           <div className="space-y-2">

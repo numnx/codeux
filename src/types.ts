@@ -101,6 +101,7 @@ export interface SprintLoopStepSettings {
   statusTable: boolean;
   watchLoop: boolean;
   watchLoopIntervalSeconds: number;
+  watchLoopOutputIntervalSeconds: number;
 }
 
 export interface CliWorkflowSettings {

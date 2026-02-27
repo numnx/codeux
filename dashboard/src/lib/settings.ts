@@ -67,6 +67,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     statusTable: true,
     watchLoop: true,
     watchLoopIntervalSeconds: 120,
+    watchLoopOutputIntervalSeconds: 300,
   },
   cliWorkflow: {
     cleanupWorktreeOnSuccess: true,
