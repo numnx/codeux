@@ -734,7 +734,10 @@ export class CliWorkflowService {
     const bootstrapScript = [
       "set -euo pipefail",
       `mkdir -p "${CONTAINER_HOME}" "${CONTAINER_HOME}/.config"`,
-      `export NPM_CONFIG_PREFIX="${CONTAINER_HOME}/.npm-global"`,
+      "export NPM_CONFIG_PREFIX=\"/tmp/jules-npm-global\"",
+      "export NPM_CONFIG_CACHE=\"/tmp/jules-npm-cache\"",
+      "export npm_config_cache=\"$NPM_CONFIG_CACHE\"",
+      "mkdir -p \"$NPM_CONFIG_PREFIX\" \"$NPM_CONFIG_CACHE\"",
       "export PATH=\"$NPM_CONFIG_PREFIX/bin:$PATH\"",
       `if [ -f "${CONTAINER_SETUP_SCRIPT}" ]; then bash "${CONTAINER_SETUP_SCRIPT}"; fi`,
       "if ! command -v \"$1\" >/dev/null 2>&1; then",
