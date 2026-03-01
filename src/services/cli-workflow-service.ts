@@ -754,6 +754,10 @@ export class CliWorkflowService {
       "  echo \"provider-runner: required command '$1' not found in PATH: $PATH\" >&2",
       "  exit 127",
       "fi",
+      "if [ \"$1\" = \"gemini\" ] && [ -z \"${GEMINI_API_KEY:-}\" ] && [ ! -e \"$HOME/.gemini\" ]; then",
+      "  echo \"provider-runner: warning: GEMINI_API_KEY is empty and $HOME/.gemini is not mounted; gemini may wait for auth.\" >&2",
+      "fi",
+      "echo \"provider-runner: launching $1\" >&2",
       "exec \"$@\"",
     ].join("\n");
     dockerArgs.push(
