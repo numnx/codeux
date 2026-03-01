@@ -24,6 +24,8 @@ import {
   sanitizeToken,
 } from "./cli-workflow-utils.js";
 
+const CODEX_CREDENTIALS_MOUNT = "/opt/credentials/codex";
+
 interface CliWorkflowServiceDependencies {
   sessionTracking: SessionTrackingRepository;
   getDashboardSettings: () => DashboardSettings;
@@ -356,6 +358,15 @@ export class CliWorkflowService {
     }
   }
 
+  private async isDirectory(targetPath: string): Promise<boolean> {
+    try {
+      const stats = await fs.stat(targetPath);
+      return stats.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
   private async resolveResumableWorktreePath(
     repoPath: string,
     expectedBranch: string,
@@ -659,6 +670,16 @@ export class CliWorkflowService {
       }
       const sourcePath = resolveConfiguredPath(repoPath, mount.sourcePath);
       if (await this.pathExists(sourcePath)) {
+        if (mount.label === "Codex auth") {
+          mounts.push({
+            source: sourcePath,
+            destination: await this.isDirectory(sourcePath)
+              ? CODEX_CREDENTIALS_MOUNT
+              : `${CODEX_CREDENTIALS_MOUNT}/${path.basename(sourcePath)}`,
+            readonly: true,
+          });
+          continue;
+        }
         mounts.push({
           source: sourcePath,
           destination: mount.targetPath,
@@ -735,6 +756,11 @@ export class CliWorkflowService {
     const bootstrapScript = [
       "set -euo pipefail",
       `mkdir -p "${CONTAINER_HOME}" "${CONTAINER_HOME}/.config"`,
+      `mkdir -p "${CONTAINER_HOME}/.codex"`,
+      `if [ -d "${CODEX_CREDENTIALS_MOUNT}" ]; then`,
+      `  if [ -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" ]; then cp -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" "${CONTAINER_HOME}/.codex/auth.json"; fi`,
+      `  if [ -f "${CODEX_CREDENTIALS_MOUNT}/config.toml" ]; then cp -f "${CODEX_CREDENTIALS_MOUNT}/config.toml" "${CONTAINER_HOME}/.codex/config.toml"; fi`,
+      "fi",
       "export NPM_CONFIG_PREFIX=\"/tmp/jules-npm-global\"",
       "export NPM_CONFIG_CACHE=\"/tmp/jules-npm-cache\"",
       "export npm_config_cache=\"$NPM_CONFIG_CACHE\"",
