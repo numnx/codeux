@@ -1,10 +1,20 @@
 import { createHash, randomUUID } from "crypto";
-import { spawn } from "child_process";
 import * as fs from "fs/promises";
 import os from "os";
 import * as path from "path";
-import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, Subtask, ThinkingMode } from "../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
 import { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
+import { runCommandStrict, runStreamingCommand, type CommandResult } from "./cli-process-runner.js";
+import {
+  getDockerUserSpec,
+  isDockerWorkspaceMountError,
+  mapPathPrefix,
+  pickContainerEnv,
+  resolveConfiguredPath,
+  toDockerMountArg,
+  type ContainerMount,
+} from "./cli-docker-utils.js";
+import { buildReadFileRetryPrompt, extractPathHints, isReadFileNotFoundToolError } from "./cli-workflow-text-utils.js";
 import {
   buildProviderPrompt,
   buildWorkerBranch,
@@ -13,12 +23,6 @@ import {
   DEFAULT_CLI_WORKFLOW_SETTINGS,
   sanitizeToken,
 } from "./cli-workflow-utils.js";
-
-interface CommandResult {
-  ok: boolean;
-  stdout: string;
-  stderr: string;
-}
 
 interface CliWorkflowServiceDependencies {
   sessionTracking: SessionTrackingRepository;
@@ -33,12 +37,6 @@ interface StartCliTaskInput {
   repoPath: string;
   featureBranch: string;
   sprintNumber: number;
-}
-
-interface ContainerMount {
-  source: string;
-  destination: string;
-  readonly: boolean;
 }
 
 export class CliWorkflowService {
@@ -199,12 +197,12 @@ export class CliWorkflowService {
       };
 
       let providerResult = await runProvider(providerPrompt);
-      if (!providerResult.ok && workflowSettings.retryOnReadFileNotFound && this.isReadFileNotFoundToolError(providerResult)) {
+      if (!providerResult.ok && workflowSettings.retryOnReadFileNotFound && isReadFileNotFoundToolError(providerResult)) {
         this.deps.sessionTracking.appendActivity(args.sessionId, {
           originator: "system",
           description: "Provider failed on missing file during tool read. Retrying once with file-discovery guidance.",
         });
-        providerResult = await runProvider(this.buildReadFileRetryPrompt(providerPrompt));
+        providerResult = await runProvider(buildReadFileRetryPrompt(providerPrompt));
       }
 
       if (!providerResult.ok) {
@@ -450,7 +448,7 @@ export class CliWorkflowService {
 
   private async buildWorkspaceGuidance(taskPrompt: string, worktreePath: string): Promise<string> {
     const repoRoot = (await this.runCommand("git", ["rev-parse", "--show-toplevel"], worktreePath)).stdout.trim();
-    const hints = this.extractPathHints(taskPrompt).slice(0, 10);
+    const hints = extractPathHints(taskPrompt).slice(0, 10);
     const hintStatuses = await Promise.all(
       hints.map(async (hint) => {
         const safePath = path.resolve(worktreePath, hint);
@@ -485,49 +483,6 @@ export class CliWorkflowService {
       "- If a hinted path is not found, locate the nearest real file and continue.",
       "",
       hintSection,
-    ].join("\n");
-  }
-
-  private extractPathHints(text: string): string[] {
-    const candidates = new Set<string>();
-    const backtickMatches = text.match(/`[^`\n]+`/g) || [];
-    for (const token of backtickMatches) {
-      const normalized = token.slice(1, -1).trim();
-      if (this.looksLikeRelativePath(normalized)) {
-        candidates.add(normalized);
-      }
-    }
-    const lineMatches = text.match(/(?:^|\n)\s*-\s+([^\n]+)/g) || [];
-    for (const rawLine of lineMatches) {
-      const normalized = rawLine.replace(/^\s*-\s+/, "").trim();
-      if (this.looksLikeRelativePath(normalized)) {
-        candidates.add(normalized);
-      }
-    }
-    return Array.from(candidates);
-  }
-
-  private looksLikeRelativePath(value: string): boolean {
-    if (!value || value.length > 180) return false;
-    if (value.startsWith("/") || value.startsWith("~")) return false;
-    if (value.includes("..")) return false;
-    const cleaned = value.replace(/[.,;:!?]+$/g, "");
-    return /[a-zA-Z0-9_-]+\//.test(cleaned) || /\.[a-zA-Z0-9]{1,6}$/.test(cleaned);
-  }
-
-  private isReadFileNotFoundToolError(result: CommandResult): boolean {
-    const combined = `${result.stdout}\n${result.stderr}`.toLowerCase();
-    return combined.includes("error executing tool read_file: file not found");
-  }
-
-  private buildReadFileRetryPrompt(basePrompt: string): string {
-    return [
-      basePrompt,
-      "",
-      "## Retry Guidance",
-      "Previous attempt failed with a file-not-found read.",
-      "Before any read_file call, first enumerate files in the relevant area and use exact existing paths.",
-      "Do not assume filenames; verify paths then continue implementation.",
     ].join("\n");
   }
 
@@ -609,70 +564,6 @@ export class CliWorkflowService {
     return env;
   }
 
-  private resolveConfiguredPath(repoPath: string, rawValue: string): string {
-    const value = rawValue.trim();
-    if (!value) {
-      return "";
-    }
-    if (value === "~") {
-      return os.homedir();
-    }
-    if (value.startsWith("~/")) {
-      return path.join(os.homedir(), value.slice(2));
-    }
-    if (path.isAbsolute(value)) {
-      return value;
-    }
-    return path.resolve(repoPath, value);
-  }
-
-  private getDockerUserSpec(): string | undefined {
-    const getUid = (process as NodeJS.Process & { getuid?: () => number }).getuid;
-    const getGid = (process as NodeJS.Process & { getgid?: () => number }).getgid;
-    if (!getUid || !getGid) {
-      return undefined;
-    }
-    return `${getUid()}:${getGid()}`;
-  }
-
-  private toDockerMountArg(mount: ContainerMount): string {
-    const parts = [
-      "type=bind",
-      `source=${mount.source}`,
-      `target=${mount.destination}`,
-    ];
-    if (mount.readonly) {
-      parts.push("readonly");
-    }
-    return parts.join(",");
-  }
-
-  private pickContainerEnv(env: NodeJS.ProcessEnv): Array<{ key: string; value: string }> {
-    const allowed = new Set<string>([
-      "GEMINI_MODEL",
-      "GEMINI_API_KEY",
-      "CODEX_MODEL",
-      "OPENAI_API_KEY",
-      "OPENAI_BASE_URL",
-      "OPENAI_ORG_ID",
-      "OPENAI_PROJECT_ID",
-      "ANTHROPIC_API_KEY",
-      "GH_TOKEN",
-      "GITHUB_TOKEN",
-      "HTTP_PROXY",
-      "HTTPS_PROXY",
-      "NO_PROXY",
-    ]);
-    const result: Array<{ key: string; value: string }> = [];
-    for (const [key, value] of Object.entries(env)) {
-      if (!allowed.has(key) || typeof value !== "string" || value.length === 0) {
-        continue;
-      }
-      result.push({ key, value });
-    }
-    return result;
-  }
-
   private async resolveContainerSetupScriptPath(
     workflowSettings: CliWorkflowSettings,
     repoPath: string,
@@ -680,7 +571,7 @@ export class CliWorkflowService {
   ): Promise<string | undefined> {
     const configured = workflowSettings.containerSetupScriptPath.trim();
     if (configured.length > 0) {
-      const configuredPath = this.resolveConfiguredPath(repoPath, configured);
+      const configuredPath = resolveConfiguredPath(repoPath, configured);
       if (await this.pathExists(configuredPath)) {
         return configuredPath;
       }
@@ -714,7 +605,7 @@ export class CliWorkflowService {
 
     const mounts: ContainerMount[] = [];
     if (workflowSettings.containerMountGitConfig) {
-      const gitConfigPath = this.resolveConfiguredPath(repoPath, "~/.gitconfig");
+      const gitConfigPath = resolveConfiguredPath(repoPath, "~/.gitconfig");
       if (await this.pathExists(gitConfigPath)) {
         mounts.push({
           source: gitConfigPath,
@@ -755,7 +646,7 @@ export class CliWorkflowService {
       if (!mount.enabled) {
         continue;
       }
-      const sourcePath = this.resolveConfiguredPath(repoPath, mount.sourcePath);
+      const sourcePath = resolveConfiguredPath(repoPath, mount.sourcePath);
       if (await this.pathExists(sourcePath)) {
         mounts.push({
           source: sourcePath,
@@ -791,7 +682,7 @@ export class CliWorkflowService {
       "--workdir",
       "/workspace",
       "--mount",
-      this.toDockerMountArg({
+      toDockerMountArg({
         source: workspaceSource,
         destination: "/workspace",
         readonly: false,
@@ -799,12 +690,12 @@ export class CliWorkflowService {
       "-e",
       `HOME=${CONTAINER_HOME}`,
     ];
-    const userSpec = this.getDockerUserSpec();
+    const userSpec = getDockerUserSpec();
     if (userSpec) {
       dockerArgs.push("--user", userSpec);
     }
 
-    const passthroughEnv = this.pickContainerEnv(providerEnv);
+    const passthroughEnv = pickContainerEnv(providerEnv);
     for (const variable of passthroughEnv) {
       dockerArgs.push("-e", `${variable.key}=${variable.value}`);
     }
@@ -812,7 +703,7 @@ export class CliWorkflowService {
     const setupScriptPath = await this.resolveContainerSetupScriptPath(workflowSettings, repoPath, sessionId);
     if (setupScriptPath) {
       const setupScriptSource = this.mapDockerSourcePathForDaemon(setupScriptPath, repoPath, sessionId, "setup script");
-      dockerArgs.push("--mount", this.toDockerMountArg({
+      dockerArgs.push("--mount", toDockerMountArg({
         source: setupScriptSource,
         destination: CONTAINER_SETUP_SCRIPT,
         readonly: true,
@@ -822,7 +713,7 @@ export class CliWorkflowService {
     const credentialMounts = await this.buildCredentialMounts(workflowSettings, repoPath, sessionId);
     for (const mount of credentialMounts) {
       const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials");
-      dockerArgs.push("--mount", this.toDockerMountArg({
+      dockerArgs.push("--mount", toDockerMountArg({
         ...mount,
         source,
       }));
@@ -868,23 +759,6 @@ export class CliWorkflowService {
     });
   }
 
-  private isPathWithin(basePath: string, targetPath: string): boolean {
-    const base = path.resolve(basePath);
-    const target = path.resolve(targetPath);
-    return target === base || target.startsWith(`${base}${path.sep}`);
-  }
-
-  private mapPathPrefix(sourcePath: string, fromPrefix: string, toPrefix: string): string {
-    const source = path.resolve(sourcePath);
-    const from = path.resolve(fromPrefix);
-    const to = path.resolve(toPrefix);
-    if (!this.isPathWithin(from, source)) {
-      return source;
-    }
-    const relative = path.relative(from, source);
-    return relative.length === 0 ? to : path.join(to, relative);
-  }
-
   private mapDockerSourcePathForDaemon(
     sourcePath: string,
     repoPath: string,
@@ -897,10 +771,10 @@ export class CliWorkflowService {
 
     let mapped = normalizedSource;
     if (workspaceMapping.length > 0) {
-      mapped = this.mapPathPrefix(mapped, repoPath, workspaceMapping);
+      mapped = mapPathPrefix(mapped, repoPath, workspaceMapping);
     }
     if (homeMapping.length > 0) {
-      mapped = this.mapPathPrefix(mapped, os.homedir(), homeMapping);
+      mapped = mapPathPrefix(mapped, os.homedir(), homeMapping);
     }
 
     if (mapped !== normalizedSource) {
@@ -940,7 +814,7 @@ export class CliWorkflowService {
       return dockerResult;
     }
 
-    if (this.isDockerWorkspaceMountError(dockerResult) && await this.pathExists(cwd)) {
+    if (isDockerWorkspaceMountError(dockerResult) && await this.pathExists(cwd)) {
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
         description: `Docker could not mount workspace path (${cwd}) even though it exists locally. This indicates daemon path visibility mismatch; Docker mode requires daemon-visible worktree paths.`,
@@ -948,14 +822,6 @@ export class CliWorkflowService {
     }
 
     return dockerResult;
-  }
-
-  private isDockerWorkspaceMountError(result: CommandResult): boolean {
-    const combined = `${result.stdout}\n${result.stderr}`.toLowerCase();
-    const bindSourceMissing = combined.includes("invalid mount config for type \"bind\"")
-      && combined.includes("bind source path does not exist");
-    const mountPermission = combined.includes("mounts denied") || combined.includes("permission denied");
-    return bindSourceMissing || mountPermission;
   }
 
   private async runGemini(
@@ -1040,48 +906,19 @@ export class CliWorkflowService {
     sessionId: string,
     providerLabel: "gemini" | "codex" | "claude-code"
   ): Promise<CommandResult> {
-    return new Promise<CommandResult>((resolve) => {
-      const child = spawn(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-
-      child.stdout.on("data", (chunk) => {
-        const text = String(chunk);
-        stdout += text;
-        for (const line of text.split("\n").map((entry) => entry.trim()).filter((entry) => entry.length > 0)) {
-          this.deps.sessionTracking.appendActivity(sessionId, {
-            originator: "agent",
-            description: line.slice(0, 2000),
-          });
-        }
-      });
-
-      child.stderr.on("data", (chunk) => {
-        const text = String(chunk);
-        stderr += text;
-        for (const line of text.split("\n").map((entry) => entry.trim()).filter((entry) => entry.length > 0)) {
-          this.deps.sessionTracking.appendActivity(sessionId, {
-            originator: "provider",
-            description: `[${providerLabel}] ${line}`.slice(0, 2000),
-          });
-        }
-      });
-
-      child.on("error", (error) => {
-        resolve({
-          ok: false,
-          stdout,
-          stderr: `${stderr}\n${error.message}`.trim(),
+    return await runStreamingCommand(command, args, cwd, env, {
+      onStdoutLine: (line) => {
+        this.deps.sessionTracking.appendActivity(sessionId, {
+          originator: "agent",
+          description: line.slice(0, 2000),
         });
-      });
-
-      child.on("close", (code) => {
-        resolve({
-          ok: code === 0,
-          stdout,
-          stderr,
+      },
+      onStderrLine: (line) => {
+        this.deps.sessionTracking.appendActivity(sessionId, {
+          originator: "provider",
+          description: `[${providerLabel}] ${line}`.slice(0, 2000),
         });
-      });
+      },
     });
   }
 
@@ -1091,39 +928,6 @@ export class CliWorkflowService {
     cwd: string,
     env: NodeJS.ProcessEnv = process.env
   ): Promise<CommandResult> {
-    return new Promise<CommandResult>((resolve) => {
-      const child = spawn(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-
-      child.stdout.on("data", (chunk) => {
-        stdout += String(chunk);
-      });
-
-      child.stderr.on("data", (chunk) => {
-        stderr += String(chunk);
-      });
-
-      child.on("error", (error) => {
-        resolve({
-          ok: false,
-          stdout,
-          stderr: `${stderr}\n${error.message}`.trim(),
-        });
-      });
-
-      child.on("close", (code) => {
-        resolve({
-          ok: code === 0,
-          stdout,
-          stderr,
-        });
-      });
-    }).then((result: CommandResult) => {
-      if (!result.ok) {
-        throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
-      }
-      return result;
-    });
+    return await runCommandStrict(command, args, cwd, env);
   }
 }

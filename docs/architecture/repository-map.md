@@ -44,6 +44,10 @@ This map explains where major responsibilities live.
   - `task-service.ts`
   - `git-status-service.ts`
   - `cli-workflow-service.ts`
+  - `cli-process-runner.ts`
+  - `cli-docker-utils.ts`
+  - `cli-workflow-text-utils.ts`
+  - `cli-workflow-utils.ts`
   - `provider-routing.ts`
 - `git/`
   - `sprint-branch-scheme.ts`

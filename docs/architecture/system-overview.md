@@ -50,6 +50,12 @@ This project is a Model Context Protocol (MCP) server for Jules APIs with an int
 - Subtasks: `src/repositories/subtask-repository.ts`
 - Settings DB: `src/repositories/settings-repository.ts`
 
+### 7. CLI workflow execution helpers
+- `src/services/cli-workflow-service.ts`
+- `src/services/cli-process-runner.ts`
+- `src/services/cli-docker-utils.ts`
+- `src/services/cli-workflow-text-utils.ts`
+
 ## Runtime Architecture Diagram
 
 ```mermaid
