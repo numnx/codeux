@@ -571,19 +571,25 @@ export class CliWorkflowService {
   ): Promise<string | undefined> {
     const configured = workflowSettings.containerSetupScriptPath.trim();
     if (configured.length > 0) {
-      const configuredPath = resolveConfiguredPath(repoPath, configured);
-      if (await this.pathExists(configuredPath)) {
-        return configuredPath;
+      const configuredCandidates = [resolveConfiguredPath(repoPath, configured)];
+      if (!path.isAbsolute(configured) && !configured.startsWith("~")) {
+        configuredCandidates.push(path.resolve(process.cwd(), configured));
+      }
+      for (const configuredPath of configuredCandidates) {
+        if (await this.pathExists(configuredPath)) {
+          return configuredPath;
+        }
       }
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
-        description: `Configured container setup script not found: ${configuredPath}`,
+        description: `Configured container setup script not found: ${configuredCandidates.join(", ")}`,
       });
       return undefined;
     }
 
     const candidates = [
       path.join(repoPath, ".jules-subagents", "container", "setup.sh"),
+      path.join(process.cwd(), ".jules-subagents", "container", "setup.sh"),
       path.join(os.homedir(), ".jules-subagents", "container", "setup.sh"),
     ];
     for (const candidate of candidates) {
@@ -591,6 +597,10 @@ export class CliWorkflowService {
         return candidate;
       }
     }
+    this.deps.sessionTracking.appendActivity(sessionId, {
+      originator: "system",
+      description: `No container setup script found. Checked: ${candidates.join(", ")}`,
+    });
     return undefined;
   }
 
@@ -720,11 +730,29 @@ export class CliWorkflowService {
     }
 
     const image = workflowSettings.containerImage.trim() || DEFAULT_CLI_WORKFLOW_SETTINGS.containerImage;
+    const bootstrapScript = [
+      "set -euo pipefail",
+      `mkdir -p "${CONTAINER_HOME}" "${CONTAINER_HOME}/.config"`,
+      `export NPM_CONFIG_PREFIX="${CONTAINER_HOME}/.npm-global"`,
+      "export PATH=\"$NPM_CONFIG_PREFIX/bin:$PATH\"",
+      `if [ -f "${CONTAINER_SETUP_SCRIPT}" ]; then bash "${CONTAINER_SETUP_SCRIPT}"; fi`,
+      "if ! command -v \"$1\" >/dev/null 2>&1; then",
+      "  case \"$1\" in",
+      "    gemini) npm install -g @google/gemini-cli ;;",
+      "    codex) npm install -g @openai/codex ;;",
+      "  esac",
+      "fi",
+      "if ! command -v \"$1\" >/dev/null 2>&1; then",
+      "  echo \"provider-runner: required command '$1' not found in PATH: $PATH\" >&2",
+      "  exit 127",
+      "fi",
+      "exec \"$@\"",
+    ].join("; ");
     dockerArgs.push(
       image,
       "bash",
       "-lc",
-      `set -euo pipefail; mkdir -p "${CONTAINER_HOME}" "${CONTAINER_HOME}/.config"; if [ -f "${CONTAINER_SETUP_SCRIPT}" ]; then bash "${CONTAINER_SETUP_SCRIPT}"; fi; exec "$@"`,
+      bootstrapScript,
       "provider-runner",
       command,
       ...args
