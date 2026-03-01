@@ -710,6 +710,7 @@ export class CliWorkflowService {
     for (const variable of passthroughEnv) {
       dockerArgs.push("-e", `${variable.key}=${variable.value}`);
     }
+    const passthroughEnvKeys = passthroughEnv.map((entry) => entry.key);
 
     const setupScriptPath = await this.resolveContainerSetupScriptPath(workflowSettings, repoPath, sessionId);
     if (setupScriptPath) {
@@ -773,7 +774,23 @@ export class CliWorkflowService {
       originator: "system",
       description: `Running ${providerLabel} in Docker image ${image} (credentials mounted: ${credentialMounts.length > 0 ? "yes" : "no"}).`,
     });
-    return this.runStreamingCommand("docker", dockerArgs, cwd, process.env, sessionId, providerLabel);
+    const mountSummary = [
+      `workspace:${workspaceSource}->/workspace`,
+      setupScriptPath ? `setup:${setupScriptPath}->${CONTAINER_SETUP_SCRIPT}` : "setup:none",
+      ...credentialMounts.map((mount) => `${mount.source}->${mount.destination}${mount.readonly ? ":ro" : ""}`),
+    ];
+    this.deps.sessionTracking.appendActivity(sessionId, {
+      originator: "system",
+      description: `Docker debug: provider=${providerLabel} command=${command} envKeys=${passthroughEnvKeys.length > 0 ? passthroughEnvKeys.join(",") : "none"} mounts=${mountSummary.join(" | ")}`,
+    });
+    const result = await this.runStreamingCommand("docker", dockerArgs, cwd, process.env, sessionId, providerLabel);
+    this.deps.sessionTracking.appendActivity(sessionId, {
+      originator: "system",
+      description: result.ok
+        ? `Docker provider run completed successfully (${providerLabel}).`
+        : `Docker provider run failed (${providerLabel}). stderr=${result.stderr.slice(0, 600).replace(/\s+/g, " ").trim() || "(empty)"}`,
+    });
+    return result;
   }
 
   private async maybeLogDockerPathMappingHint(sessionId: string, repoPath: string): Promise<void> {
