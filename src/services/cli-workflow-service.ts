@@ -358,6 +358,18 @@ export class CliWorkflowService {
     }
   }
 
+  private async resolveDockerUserSpec(workspacePath: string): Promise<string | undefined> {
+    try {
+      const stats = await fs.stat(workspacePath);
+      if (typeof stats.uid === "number" && typeof stats.gid === "number") {
+        return `${stats.uid}:${stats.gid}`;
+      }
+    } catch {
+      // fallback below
+    }
+    return getDockerUserSpec();
+  }
+
   private async isDirectory(targetPath: string): Promise<boolean> {
     try {
       const stats = await fs.stat(targetPath);
@@ -722,7 +734,7 @@ export class CliWorkflowService {
       "-e",
       `HOME=${CONTAINER_HOME}`,
     ];
-    const userSpec = getDockerUserSpec();
+    const userSpec = await this.resolveDockerUserSpec(cwd);
     if (userSpec) {
       dockerArgs.push("--user", userSpec);
     }
@@ -761,11 +773,15 @@ export class CliWorkflowService {
       "  echo \"provider-runner: preferred HOME not writable ($PREFERRED_HOME); falling back to $FALLBACK_HOME\" >&2",
       "  export HOME=\"$FALLBACK_HOME\"",
       "fi",
+      "mkdir -p \"$HOME\" \"$HOME/.config\" \"$HOME/.codex\"",
       "if ! touch \"$HOME/.codex/.write-test\" 2>/dev/null; then",
       "  echo \"provider-runner: HOME codex dir not writable ($HOME/.codex); falling back to $FALLBACK_HOME\" >&2",
       "  export HOME=\"$FALLBACK_HOME\"",
+      "  mkdir -p \"$HOME\" \"$HOME/.config\" \"$HOME/.codex\"",
+      "  if ! touch \"$HOME/.codex/.write-test\" 2>/dev/null; then",
+      "    echo \"provider-runner: warning: codex home remains non-writable ($HOME/.codex)\" >&2",
+      "  fi",
       "fi",
-      "mkdir -p \"$HOME\" \"$HOME/.config\" \"$HOME/.codex\"",
       "rm -f \"$HOME/.codex/.write-test\" 2>/dev/null || true",
       `if [ -d "${CODEX_CREDENTIALS_MOUNT}" ]; then`,
       `  if [ -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" ]; then cp -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" "$HOME/.codex/auth.json" || echo "provider-runner: warning: failed to copy codex auth.json" >&2; fi`,
