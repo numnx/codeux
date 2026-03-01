@@ -31,8 +31,12 @@ echo "[setup] gh: $(gh --version 2>/dev/null | head -n 1 || echo missing)"
 
 # Keep pnpm available even on slim images.
 if command -v corepack >/dev/null 2>&1; then
-  corepack enable
-  corepack prepare pnpm@latest --activate
+  if [ "$(id -u)" -eq 0 ]; then
+    corepack enable || true
+  fi
+  if ! corepack prepare pnpm@latest --activate; then
+    npm install -g pnpm
+  fi
 else
   npm install -g pnpm
 fi
