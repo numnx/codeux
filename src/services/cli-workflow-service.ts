@@ -768,7 +768,7 @@ export class CliWorkflowService {
     const bootstrapScript = [
       "set -euo pipefail",
       "PREFERRED_HOME=\"$HOME\"",
-      "FALLBACK_HOME=\"/tmp/jules-home\"",
+      "FALLBACK_HOME=\"/workspace/.jules-home-runtime\"",
       "if ! mkdir -p \"$PREFERRED_HOME\" \"$PREFERRED_HOME/.config\" \"$PREFERRED_HOME/.codex\" 2>/dev/null; then",
       "  echo \"provider-runner: preferred HOME not writable ($PREFERRED_HOME); falling back to $FALLBACK_HOME\" >&2",
       "  export HOME=\"$FALLBACK_HOME\"",
