@@ -900,6 +900,25 @@ export class CliWorkflowService {
       args.push("--model", model);
     }
     args.push(prompt);
+    const result = await this.runProviderCommand(
+      "codex",
+      args,
+      cwd,
+      this.withGithubToken(this.withProviderEnv("codex", model, apiKey)),
+      sessionId,
+      "codex",
+      workflowSettings,
+      repoPath
+    );
+    if (result.ok || !this.isTransientCodexTransportError(result)) {
+      return result;
+    }
+
+    this.deps.sessionTracking.appendActivity(sessionId, {
+      originator: "system",
+      description: "Codex transport disconnected. Retrying once automatically...",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     return this.runProviderCommand(
       "codex",
       args,
@@ -910,6 +929,13 @@ export class CliWorkflowService {
       workflowSettings,
       repoPath
     );
+  }
+
+  private isTransientCodexTransportError(result: CommandResult): boolean {
+    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
+    return text.includes("stream disconnected before completion")
+      || text.includes("error sending request for url")
+      || text.includes("channel closed");
   }
 
   private async runClaudeCode(
