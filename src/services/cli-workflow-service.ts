@@ -662,7 +662,8 @@ export class CliWorkflowService {
         mounts.push({
           source: sourcePath,
           destination: mount.targetPath,
-          readonly: true,
+          // Codex may need to update local auth/helpers under ~/.codex at runtime.
+          readonly: mount.label === "Codex auth" ? false : true,
         });
       } else {
         this.deps.sessionTracking.appendActivity(sessionId, {
