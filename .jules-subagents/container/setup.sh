@@ -33,8 +33,10 @@ echo "[setup] gh: $(gh --version 2>/dev/null | head -n 1 || echo missing)"
 if command -v corepack >/dev/null 2>&1; then
   if [ "$(id -u)" -eq 0 ]; then
     corepack enable || true
-  fi
-  if ! corepack prepare pnpm@latest --activate; then
+    if ! corepack prepare pnpm@latest --activate; then
+      npm install -g pnpm
+    fi
+  else
     npm install -g pnpm
   fi
 else
