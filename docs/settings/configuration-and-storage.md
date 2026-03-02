@@ -116,6 +116,7 @@ Repository demo script:
   - `claude` fallback uses the official installer: `curl -fsSL https://claude.ai/install.sh | bash`
   - Claude runner uses explicit headless prompt mode (`claude -p "<prompt>"`) with `--dangerously-skip-permissions`.
   - When Claude credential mounts are enabled, runtime mounts `~/.claude` and also `~/.claude.json` when present.
+  - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
 
 ## Default Values
 
