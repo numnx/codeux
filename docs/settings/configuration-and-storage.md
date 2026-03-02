@@ -115,6 +115,7 @@ Repository demo script:
   - `home/` (container `HOME`)
   - `npm-global/` (CLI fallback install prefix)
   - `npm-cache/` (npm cache)
+  - Codex runs use isolated per-session homes (`home-codex-<session-id>`) to avoid stale local state interference between runs.
   - Optional override: `JULES_DOCKER_RUNTIME_ROOT` (absolute path, `~` supported, repo-relative when relative)
 - If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
   - `claude` fallback uses the official installer: `curl -fsSL https://claude.ai/install.sh | bash`

@@ -726,7 +726,9 @@ export class CliWorkflowService {
   ): Promise<CommandResult> {
     await this.maybeLogDockerPathMappingHint(sessionId, repoPath);
     const runtimeRoot = this.resolveDockerRuntimeRoot(repoPath);
-    const runtimeHome = path.join(runtimeRoot, "home");
+    const runtimeHome = providerLabel === "codex"
+      ? path.join(runtimeRoot, `home-codex-${sanitizeToken(sessionId)}`)
+      : path.join(runtimeRoot, "home");
     const runtimeNpmPrefix = path.join(runtimeRoot, "npm-global");
     const runtimeNpmCache = path.join(runtimeRoot, "npm-cache");
     await fs.mkdir(path.join(runtimeHome, ".config"), { recursive: true });
