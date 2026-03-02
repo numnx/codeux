@@ -97,3 +97,16 @@ export const isDockerWorkspaceMountError = (result: CommandResult): boolean => {
     || (combined.includes("permission denied") && combined.includes("mount"));
   return bindSourceMissing || mountPermission;
 };
+
+export const getProviderFallbackInstallCommand = (providerCommand: string): string | undefined => {
+  switch (providerCommand) {
+    case "gemini":
+      return "npm install -g @google/gemini-cli";
+    case "codex":
+      return "npm install -g @openai/codex";
+    case "claude":
+      return "if command -v curl >/dev/null 2>&1; then curl -fsSL https://claude.ai/install.sh | bash && export PATH=\"$HOME/.local/bin:$PATH\"; else echo \"provider-runner: curl not found; cannot install claude\" >&2; fi";
+    default:
+      return undefined;
+  }
+};

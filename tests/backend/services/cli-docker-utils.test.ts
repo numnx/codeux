@@ -1,6 +1,12 @@
 import os from "os";
 import { describe, expect, it } from "vitest";
-import { isDockerWorkspaceMountError, mapPathPrefix, pickContainerEnv, resolveConfiguredPath } from "../../../src/services/cli-docker-utils.js";
+import {
+  getProviderFallbackInstallCommand,
+  isDockerWorkspaceMountError,
+  mapPathPrefix,
+  pickContainerEnv,
+  resolveConfiguredPath,
+} from "../../../src/services/cli-docker-utils.js";
 
 describe("cli-docker-utils", () => {
   it("resolves configured paths", () => {
@@ -28,5 +34,12 @@ describe("cli-docker-utils", () => {
   it("detects mount-specific permission errors only", () => {
     expect(isDockerWorkspaceMountError({ ok: false, stdout: "", stderr: "permission denied while processing mounts" })).toBe(true);
     expect(isDockerWorkspaceMountError({ ok: false, stdout: "", stderr: "cp: cannot create regular file: Permission denied" })).toBe(false);
+  });
+
+  it("returns provider fallback install commands", () => {
+    expect(getProviderFallbackInstallCommand("gemini")).toBe("npm install -g @google/gemini-cli");
+    expect(getProviderFallbackInstallCommand("codex")).toBe("npm install -g @openai/codex");
+    expect(getProviderFallbackInstallCommand("claude")).toContain("https://claude.ai/install.sh");
+    expect(getProviderFallbackInstallCommand("unknown")).toBeUndefined();
   });
 });
