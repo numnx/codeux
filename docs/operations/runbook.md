@@ -73,7 +73,8 @@ Checks:
     - `codex`: `npm install -g @openai/codex`
     - `claude`: `curl -fsSL https://claude.ai/install.sh | bash`
   - Claude runner executes headless using `claude -p "<prompt>" --dangerously-skip-permissions`.
-  - For Claude auth mounts, ensure host has `~/.claude`; if auth still stalls, also verify `~/.claude.json` exists (runtime mounts it automatically when present).
+  - For Claude auth mounts, ensure host has `~/.claude/.credentials.json`; if auth still stalls, also verify `~/.claude.json` exists (runtime mounts it automatically when present).
+  - Runtime now syncs only those Claude auth files before launch, avoiding recursive copy of all `.claude` state.
   - If auth is expected from host login state, is `Mount user credentials into container` enabled and are mount paths valid?
   - Docker mode requires daemon-visible workspace paths. Runtime now prefers repo-scoped worktree paths for Docker sessions.
   - For Docker-in-Docker or remote daemon path mismatches, configure:
