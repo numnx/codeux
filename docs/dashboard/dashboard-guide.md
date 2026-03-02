@@ -27,12 +27,15 @@ Implemented in `src/server/dashboard-server.ts`.
   - External key hints from env/json
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
+- `POST /api/tasks/:taskId/rerun`
+  - Resets a task state and immediately starts a fresh provider session for that task
 
 ## UI Sections
 
 ### Dashboard view
 - Task statistics
 - Task pipeline cards
+- Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel

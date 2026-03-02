@@ -7,6 +7,7 @@ import type { Subtask, SubtaskMergeIndicator } from "../types.js";
 
 interface TaskCardProps {
   task: Subtask;
+  onRerunTask: (taskId: string) => Promise<void>;
 }
 
 const getStatusColor = (status?: string): string => {
@@ -39,9 +40,10 @@ const getIndicatorColor = (indicator?: SubtaskMergeIndicator): string => {
   }
 };
 
-export const TaskCard: FunctionComponent<TaskCardProps> = ({ task }) => {
+export const TaskCard: FunctionComponent<TaskCardProps> = ({ task, onRerunTask }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [isRerunning, setIsRerunning] = useState(false);
   const feedScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,6 +59,25 @@ export const TaskCard: FunctionComponent<TaskCardProps> = ({ task }) => {
   const hasSession = Boolean(task.session_id || task.session_name);
   const sessionLabel = (task.session_id || task.session_name || "").replace(/^sessions\//, "");
   const providerLabel = task.provider ? task.provider.toUpperCase() : "JULES";
+  const handleRerunTask = async (): Promise<void> => {
+    const confirmed = window.confirm(
+      `Rerun task "${task.id}" now?\n\nThis resets the task state and discards current progress/log context for this card.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    setIsRerunning(true);
+    try {
+      await onRerunTask(task.id);
+      setShowLogs(false);
+      setIsExpanded(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to rerun task.";
+      window.alert(message);
+    } finally {
+      setIsRerunning(false);
+    }
+  };
   const getOriginatorClasses = (originator?: string): { border: string; text: string } => {
     const normalized = (originator || "system").toLowerCase();
     if (normalized === "agent") {
@@ -89,6 +110,15 @@ export const TaskCard: FunctionComponent<TaskCardProps> = ({ task }) => {
               </h3>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleRerunTask()}
+                disabled={isRerunning}
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Rerun task and reset its state"
+              >
+                {isRerunning ? "Rerunning..." : "Rerun"}
+              </button>
               {hasSession && (
                 <button
                   type="button"
