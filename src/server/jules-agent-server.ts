@@ -34,6 +34,7 @@ import { SessionTrackingRepository } from "../repositories/session-tracking-repo
 import { CliWorkflowService } from "../services/cli-workflow-service.js";
 import { ActivityCacheService } from "./activity-cache-service.js";
 import { registerMcpRequestHandlers } from "./mcp-request-router.js";
+import { TaskRerunService } from "../services/task-rerun-service.js";
 
 export interface JulesAgentServerOptions {
   projectRoot: string;
@@ -66,6 +67,7 @@ export class JulesAgentServer {
   private coreToolHandler: CoreToolHandler;
   private agentToolHandler: AgentToolHandler;
   private activityCacheService: ActivityCacheService;
+  private taskRerunService: TaskRerunService;
 
   constructor(options: JulesAgentServerOptions) {
     this.projectRoot = options.projectRoot;
@@ -185,6 +187,18 @@ export class JulesAgentServer {
       JulesAgentServer.GIT_STATUS_CACHE_MS,
       JulesAgentServer.DASHBOARD_ACTIVITY_PAGE_SIZE
     );
+    this.taskRerunService = new TaskRerunService({
+      getStatus: () => this.lastStatus,
+      updateStatus: (status) => {
+        this.lastStatus = status;
+        this.activityCacheService.invalidateLiveActivitiesCache();
+      },
+      startTask: ({ task, sourceId, featureBranch, repoPath, sprintNumber }) =>
+        this.taskService.startSprintTask(task, sourceId, featureBranch, repoPath, sprintNumber),
+      resolveSessionName: (session) => this.resolveSessionName(session),
+      extractSessionId: (session) => this.extractSessionId(session),
+      persistMergedFlag: (args) => this.persistTaskMergedFlag(args),
+    });
 
     registerMcpRequestHandlers({
       server: this.server,
@@ -345,7 +359,37 @@ export class JulesAgentServer {
         this.activityCacheService.invalidateGitStatusCache();
         return this.dashboardSettings;
       },
+      rerunTask: async (taskId: string) => {
+        const task = await this.taskRerunService.rerunTask(taskId);
+        this.activityCacheService.invalidateGitStatusCache();
+        return task;
+      },
     });
+  }
+
+  private async persistTaskMergedFlag(args: {
+    repoPath: string;
+    sprintNumber: number;
+    taskId: string;
+    merged: boolean;
+  }): Promise<void> {
+    const subtasksDir = path.join(args.repoPath, ".jules-subagents", "sprints", `sprint${args.sprintNumber}-subtasks`);
+    const filePath = path.join(subtasksDir, `${args.taskId}.md`);
+    const mergedValue = args.merged ? "true" : "false";
+    const content = await fs.readFile(filePath, "utf-8");
+    let updated = content;
+
+    if (/^\s*merged:\s*(true|false)\s*$/m.test(content)) {
+      updated = content.replace(/^\s*merged:\s*(true|false)\s*$/m, `merged: ${mergedValue}`);
+    } else if (/^\s*prompt:\s*/m.test(content)) {
+      updated = content.replace(/^\s*prompt:\s*/m, `merged: ${mergedValue}\nprompt:`);
+    } else {
+      updated = `${content.trimEnd()}\nmerged: ${mergedValue}\n`;
+    }
+
+    if (updated !== content) {
+      await fs.writeFile(filePath, updated, "utf-8");
+    }
   }
 
   private formatError(error: unknown): { content: Array<{ type: string; text: string }>; isError: true } {

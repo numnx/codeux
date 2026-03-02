@@ -3,7 +3,9 @@ import type { DashboardSettings, DashboardStatus, ExternalSettingsHints, GitTrac
 const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, init);
   if (!response.ok) {
-    throw new Error(`Request failed: ${path}`);
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = typeof errorBody?.error === "string" ? errorBody.error : `Request failed: ${path}`;
+    throw new Error(errorMessage);
   }
   return (await response.json()) as T;
 };
@@ -45,4 +47,10 @@ export const saveDashboardSettings = async (settings: DashboardSettings): Promis
 
 export const fetchExternalSettingsHints = async (): Promise<ExternalSettingsHints> => {
   return fetchJson<ExternalSettingsHints>("/api/settings/import-sources");
+};
+
+export const rerunTask = async (taskId: string): Promise<void> => {
+  await fetchJson<{ ok: boolean }>(`/api/tasks/${encodeURIComponent(taskId)}/rerun`, {
+    method: "POST",
+  });
 };

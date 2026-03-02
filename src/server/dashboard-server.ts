@@ -14,10 +14,23 @@ export interface DashboardServerOptions {
   getExternalSettingsHints: () => ExternalSettingsHints;
   getSettings: () => DashboardSettings;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
+  rerunTask: (taskId: string) => Promise<unknown>;
 }
 
 export const setupDashboardServer = async (options: DashboardServerOptions): Promise<void> => {
-  const { app, dashboardDir, port, liveActivityCacheMs, getStatus, getLiveActivities, getGitStatus, getExternalSettingsHints, getSettings, saveSettings } = options;
+  const {
+    app,
+    dashboardDir,
+    port,
+    liveActivityCacheMs,
+    getStatus,
+    getLiveActivities,
+    getGitStatus,
+    getExternalSettingsHints,
+    getSettings,
+    saveSettings,
+    rerunTask,
+  } = options;
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/api/status", (req, res) => {
@@ -63,6 +76,21 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       res.status(400).json({ error: `Failed to save settings: ${message}` });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/rerun", async (req, res) => {
+    try {
+      const taskId = String(req.params.taskId || "").trim();
+      if (!taskId) {
+        res.status(400).json({ error: "Missing task id." });
+        return;
+      }
+      const task = await rerunTask(taskId);
+      res.json({ ok: true, task });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(400).json({ error: `Failed to rerun task: ${message}` });
     }
   });
 

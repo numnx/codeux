@@ -29,6 +29,11 @@ export class ActivityCacheService {
     this.gitStatusCache = { timestamp: 0, data: null, repoPath: null };
   }
 
+  invalidateLiveActivitiesCache(): void {
+    this.liveActivitiesCache = { timestamp: 0, data: {} };
+    this.liveActivitiesFetchPromise = null;
+  }
+
   async getGitStatus(): Promise<GitTrackingStatus> {
     const repoPath = this.deps.resolveGitStatusRepoPath();
     const now = Date.now();

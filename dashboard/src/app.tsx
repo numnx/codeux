@@ -7,10 +7,12 @@ import { StatsGrid } from "./components/StatsGrid.js";
 import { TaskCard } from "./components/TaskCard.js";
 import { useDashboardRuntimeData } from "./hooks/use-dashboard-runtime-data.js";
 import { useDashboardSettings } from "./hooks/use-dashboard-settings.js";
+import { rerunTask } from "./lib/api/dashboard-api.js";
 
 export const App: FunctionComponent = () => {
   const [view, setView] = useState<DashboardView>("dashboard");
-  const { error, gitStatus, gitStatusError, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
+  const { error, gitStatus, gitStatusError, refreshGitStatus, refreshRuntimeStatus, status, stats, tasksWithLiveActivities } =
+    useDashboardRuntimeData();
   const {
     fetchSettings,
     importMissingSettings,
@@ -32,6 +34,12 @@ export const App: FunctionComponent = () => {
     if (saveSucceeded) {
       await refreshGitStatus();
     }
+  };
+
+  const handleRerunTask = async (taskId: string): Promise<void> => {
+    await rerunTask(taskId);
+    await refreshRuntimeStatus();
+    await refreshGitStatus();
   };
 
   if (error) {
@@ -79,7 +87,7 @@ export const App: FunctionComponent = () => {
                       <p className="text-slate-500">Awaiting sprint decomposition...</p>
                     </div>
                   ) : (
-                    tasksWithLiveActivities.map((task) => <TaskCard key={task.id} task={task} />)
+                    tasksWithLiveActivities.map((task) => <TaskCard key={task.id} task={task} onRerunTask={handleRerunTask} />)
                   )}
                 </div>
               </div>

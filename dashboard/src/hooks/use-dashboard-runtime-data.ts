@@ -10,6 +10,7 @@ interface UseDashboardRuntimeDataResult {
   gitStatus: GitTrackingStatus | null;
   gitStatusError: string | null;
   refreshGitStatus: () => Promise<void>;
+  refreshRuntimeStatus: () => Promise<void>;
   status: DashboardStatus;
   stats: ReturnType<typeof computeStats>;
   tasksWithLiveActivities: DashboardStatus["subtasks"];
@@ -67,6 +68,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     gitStatus,
     gitStatusError,
     refreshGitStatus,
+    refreshRuntimeStatus,
     status,
     stats,
     tasksWithLiveActivities,
