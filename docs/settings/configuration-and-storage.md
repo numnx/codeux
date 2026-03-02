@@ -112,7 +112,8 @@ Repository demo script:
 - `.jules-subagents/container/setup.sh` is included as a baseline bootstrap script.
 - It installs/updates `npm`, ensures `git` + `gh`, installs `pnpm`, `@google/gemini-cli`, `@openai/codex`, and Playwright Chromium (+ deps when root/apt is available).
 - Docker provider runner sets `HOME=/workspace/.jules-home` (worktree-local persistent home) and uses writable tmp npm paths for fallback installs in non-root container mode.
-- If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini` or `codex`) before failing.
+- If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
+  - `claude` fallback uses the official installer: `curl -fsSL https://claude.ai/install.sh | bash`
 
 ## Default Values
 

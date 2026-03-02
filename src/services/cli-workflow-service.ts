@@ -7,6 +7,7 @@ import { SessionTrackingRepository } from "../repositories/session-tracking-repo
 import { runCommandStrict, runStreamingCommand, type CommandResult } from "./cli-process-runner.js";
 import {
   getDockerUserSpec,
+  getProviderFallbackInstallCommand,
   isDockerWorkspaceMountError,
   mapPathPrefix,
   pickContainerEnv,
@@ -769,6 +770,10 @@ export class CliWorkflowService {
     }
 
     const image = workflowSettings.containerImage.trim() || DEFAULT_CLI_WORKFLOW_SETTINGS.containerImage;
+    const fallbackInstallCases = ["gemini", "codex", "claude"].flatMap((providerCommand) => {
+      const installCommand = getProviderFallbackInstallCommand(providerCommand);
+      return installCommand ? [`    ${providerCommand}) ${installCommand} ;;`] : [];
+    });
     const bootstrapScript = [
       "set -euo pipefail",
       "mkdir -p \"$HOME/.config\" \"$HOME/.codex\" 2>/dev/null || true",
@@ -799,7 +804,7 @@ export class CliWorkflowService {
       "export npm_config_cache=\"$NPM_CONFIG_CACHE\"",
       "mkdir -p \"$NPM_CONFIG_PREFIX\" \"$NPM_CONFIG_CACHE\"",
       `echo '*' > "${repoPath}/.jules-runner/.gitignore" 2>/dev/null || true`,
-      "export PATH=\"$NPM_CONFIG_PREFIX/bin:$PATH\"",
+      "export PATH=\"$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH\"",
       `if [ -f "${CONTAINER_SETUP_SCRIPT}" ]; then`,
       `  if ! bash "${CONTAINER_SETUP_SCRIPT}"; then`,
       "    echo \"provider-runner: setup script failed; continuing with provider fallback install\" >&2",
@@ -807,8 +812,7 @@ export class CliWorkflowService {
       "fi",
       "if ! command -v \"$1\" >/dev/null 2>&1; then",
       "  case \"$1\" in",
-      "    gemini) npm install -g @google/gemini-cli ;;",
-      "    codex) npm install -g @openai/codex ;;",
+      ...fallbackInstallCases,
       "  esac",
       "fi",
       "if ! command -v \"$1\" >/dev/null 2>&1; then",

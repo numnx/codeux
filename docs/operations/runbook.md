@@ -68,7 +68,10 @@ Checks:
   - Check session activity for setup resolution details:
     - `Configured container setup script not found: ...`
     - `No container setup script found. Checked: ...`
-  - Provider runner now falls back to installing missing `gemini`/`codex` CLI in-container (user-local npm prefix) before failing.
+  - Provider runner now falls back to installing missing provider CLI in-container before failing:
+    - `gemini`: `npm install -g @google/gemini-cli`
+    - `codex`: `npm install -g @openai/codex`
+    - `claude`: `curl -fsSL https://claude.ai/install.sh | bash`
   - If auth is expected from host login state, is `Mount user credentials into container` enabled and are mount paths valid?
   - Docker mode requires daemon-visible workspace paths. Runtime now prefers repo-scoped worktree paths for Docker sessions.
   - For Docker-in-Docker or remote daemon path mismatches, configure:
