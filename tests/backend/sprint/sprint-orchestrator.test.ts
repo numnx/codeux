@@ -5,6 +5,7 @@ import * as os from "os";
 import { SprintOrchestrator } from "../../../src/sprint/sprint-orchestrator.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-repository.js";
+import { buildTaskRunTag } from "../../../src/services/task-run-key.js";
 
 const buildDeps = () => {
   const listSessions = vi.fn();
@@ -127,7 +128,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "AWAITING_USER_FEEDBACK",
           prompt: "x",
         },
@@ -171,7 +172,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "AWAITING_USER_FEEDBACK",
           provider: "jules",
           prompt: "x",
@@ -219,7 +220,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "AWAITING_USER_FEEDBACK",
           provider: "jules",
           prompt: "x",
@@ -325,7 +326,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           prompt: "x",
           outputs: [{ pullRequest: { url: "https://example.com/pr/10", workerBranch: "worker/task-01" } }],
@@ -416,7 +417,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           provider: "jules",
           prompt: "x",
@@ -504,7 +505,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           prompt: "x",
           outputs: [{ pullRequest: { url: "https://example.com/pr/12", workerBranch: "worker/task-01" } }],
@@ -590,7 +591,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           prompt: "x",
           outputs: [{ pullRequest: { url: "https://example.com/pr/22", workerBranch: "worker/task-22" } }],
@@ -677,7 +678,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           prompt: "x",
           outputs: [{ pullRequest: { url: "https://example.com/pr/24", workerBranch: "worker/task-24" } }],
@@ -759,7 +760,7 @@ describe("SprintOrchestrator", () => {
         {
           id: "abc123",
           name: "sessions/abc123",
-          title: "Sprint 1: [01-task] Test task",
+          title: `Sprint 1: ${buildTaskRunTag(tmpRoot, 1, "01-task")} [01-task] Test task`,
           state: "COMPLETED",
           prompt: "x",
           outputs: [{ pullRequest: { url: "https://example.com/pr/20" } }],

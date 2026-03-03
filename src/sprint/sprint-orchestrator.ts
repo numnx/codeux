@@ -203,7 +203,11 @@ export class SprintOrchestrator {
           fetchRecentActivities: this.deps.fetchRecentActivities,
           isActionRequiredState: this.deps.isActionRequiredState,
         },
-        args.retryFailed
+        args.retryFailed,
+        {
+          repoPath: args.repoPath,
+          sprintNumber: args.sprintNumber,
+        }
       );
       subtasks = syncResult.subtasks;
     }

@@ -2,6 +2,7 @@ import type { JulesApiClient } from "../integrations/jules-api-client.js";
 import { chooseProviderForTask } from "./provider-routing.js";
 import type { DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
 import type { CliWorkflowService } from "./cli-workflow-service.js";
+import { buildTaskRunTag } from "./task-run-key.js";
 
 export interface TaskServiceDependencies {
   julesApi: JulesApiClient;
@@ -121,7 +122,7 @@ export class TaskService {
 
     const data = {
       prompt: fullPrompt,
-      title: `Sprint ${sprintNumber}: [${task.id}] ${task.title}`,
+      title: `Sprint ${sprintNumber}: ${buildTaskRunTag(repoPath, sprintNumber, task.id)} [${task.id}] ${task.title}`,
       sourceContext: {
         source: resolvedSourceId,
         githubRepoContext: { startingBranch: baseBranch },

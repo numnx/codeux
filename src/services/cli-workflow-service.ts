@@ -23,6 +23,7 @@ import {
   DEFAULT_CLI_WORKFLOW_SETTINGS,
   sanitizeToken,
 } from "./cli-workflow-utils.js";
+import { buildTaskRunKey, buildTaskRunTag } from "./task-run-key.js";
 
 const CODEX_CREDENTIALS_MOUNT = "/opt/credentials/codex";
 const GITHUB_CREDENTIALS_MOUNT = "/opt/credentials/gh";
@@ -57,10 +58,11 @@ export class CliWorkflowService {
     const workflowSettings = this.resolveWorkflowSettings(settings);
 
     const sessionId = `cli-${input.provider}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+    const taskRunKey = buildTaskRunKey(input.repoPath, input.sprintNumber, input.task.id);
     const resumeTarget = workflowSettings.resumeFailedTaskInSameWorkspace
       ? this.deps.sessionTracking.findLatestFailedCliSessionForTask({
         provider: input.provider,
-        taskId: input.task.id,
+        taskId: taskRunKey,
         featureBranch: input.featureBranch,
         repoPath: input.repoPath,
       })
@@ -69,12 +71,12 @@ export class CliWorkflowService {
     const resumeWorktreePath = resumeTarget
       ? await this.resolveResumeWorktreePath(input.repoPath, resumeTarget.sessionId, workflowSettings.executionMode)
       : undefined;
-    const title = `Sprint ${input.sprintNumber}: [${input.task.id}] ${input.task.title}`;
+    const title = `Sprint ${input.sprintNumber}: ${buildTaskRunTag(input.repoPath, input.sprintNumber, input.task.id)} [${input.task.id}] ${input.task.title}`;
 
     const session = this.deps.sessionTracking.createSession({
       id: sessionId,
       provider: input.provider,
-      taskId: input.task.id,
+      taskId: taskRunKey,
       title,
       prompt: input.task.prompt,
       state: "RUNNING",
