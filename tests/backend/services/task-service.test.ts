@@ -108,7 +108,9 @@ describe("TaskService", () => {
     );
 
     const payload = createSession.mock.calls[0][0];
-    expect(payload.title).toBe("Sprint 1: [01-task] Do Thing");
+    expect(payload.title).toContain("Sprint 1:");
+    expect(payload.title).toContain("[01-task] Do Thing");
+    expect(payload.title).toContain("[run:");
     expect(payload.sourceContext.source).toBe("sources/999");
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/sprint1");
     expect(payload.prompt).toContain("SUBTASK TO EXECUTE");

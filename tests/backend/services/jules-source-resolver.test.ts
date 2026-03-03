@@ -24,8 +24,8 @@ describe("JulesSourceResolver", () => {
   it("auto-resolves source from repository remote", async () => {
     listAllSources.mockResolvedValue([
       {
-        id: "sources/1",
-        name: "sources/1",
+        id: "github/acme/example-repo",
+        name: "sources/github/acme/example-repo",
         githubRepo: {
           owner: "acme",
           repo: "example-repo",
@@ -34,7 +34,7 @@ describe("JulesSourceResolver", () => {
     ]);
 
     const sourceId = await resolver.resolveSourceId({ repoPath: "/tmp/repo" });
-    expect(sourceId).toBe("sources/1");
+    expect(sourceId).toBe("sources/github/acme/example-repo");
     expect(getSource).not.toHaveBeenCalled();
   });
 
@@ -70,7 +70,7 @@ describe("JulesSourceResolver", () => {
   it("matches github owner/repo encoded in source name", async () => {
     listAllSources.mockResolvedValue([
       {
-        id: "sources/github/acme/example-repo",
+        id: "github/acme/example-repo",
         name: "sources/github/acme/example-repo",
       },
     ]);

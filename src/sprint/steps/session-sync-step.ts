@@ -1,10 +1,12 @@
 import type { JulesSession, Subtask } from "../../contracts/app-types.js";
 import type { SessionSyncDependencies } from "../sprint-types.js";
+import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
 
 export const runSessionSyncStep = async (
   subtasks: Subtask[],
   deps: SessionSyncDependencies,
-  retryFailed: boolean
+  retryFailed: boolean,
+  context: { repoPath: string; sprintNumber: number }
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
@@ -15,7 +17,11 @@ export const runSessionSyncStep = async (
   });
 
   for (const task of subtasks) {
-    const match = sessions.find((session) => session.title?.includes(`[${task.id}]`));
+    const expectedRunKey = buildTaskRunKey(context.repoPath, context.sprintNumber, task.id);
+    const match = sessions.find((session) => {
+      const runKey = extractTaskRunKeyFromTitle(session.title);
+      return runKey === expectedRunKey;
+    });
     if (!match) {
       continue;
     }
