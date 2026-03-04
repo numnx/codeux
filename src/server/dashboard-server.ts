@@ -17,6 +17,7 @@ export interface DashboardServerOptions {
   getSettings: () => DashboardSettings;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
   rerunTask: (taskId: string) => Promise<unknown>;
+  isReady?: () => boolean;
 }
 
 export interface DashboardServerHandle {
@@ -61,8 +62,22 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     getSettings,
     saveSettings,
     rerunTask,
+    isReady,
   } = options;
   app.use(express.json({ limit: "1mb" }));
+
+  app.get("/health", (req, res) => {
+    res.json({ status: "UP" });
+  });
+
+  app.get("/ready", (req, res) => {
+    const ready = isReady ? isReady() : true;
+    if (ready) {
+      res.json({ status: "READY" });
+    } else {
+      res.status(503).json({ status: "NOT_READY" });
+    }
+  });
 
   app.get("/api/status", (req, res) => {
     res.json(getStatus());
