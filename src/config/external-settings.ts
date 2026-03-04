@@ -1,20 +1,13 @@
 import * as fs from "fs";
-import os from "os";
 import * as path from "path";
 import type { ExternalSettingsHints } from "../contracts/app-types.js";
-
-const getSearchPaths = (projectRoot: string): string[] => {
-  const settingsRelativePath = path.join(".jules-subagents", "settings.json");
-  const paths = [
-    path.join(process.cwd(), settingsRelativePath),
-    path.join(projectRoot, settingsRelativePath),
-    path.join(os.homedir(), settingsRelativePath),
-  ];
-  return [...new Set(paths)];
-};
+import { buildCandidatePaths } from "../shared/config/search-paths.js";
 
 const readSettingsJson = (projectRoot: string): Record<string, unknown> => {
-  for (const settingsPath of getSearchPaths(projectRoot)) {
+  const settingsRelativePath = path.join(".jules-subagents", "settings.json");
+  const searchPaths = buildCandidatePaths(settingsRelativePath, projectRoot);
+
+  for (const settingsPath of searchPaths) {
     try {
       if (!fs.existsSync(settingsPath)) continue;
       const raw = fs.readFileSync(settingsPath, "utf-8");

@@ -1,6 +1,7 @@
 import * as fs from "fs";
-import os from "os";
 import * as path from "path";
+import os from "os";
+import { buildCandidatePaths } from "../shared/config/search-paths.js";
 
 export interface AppConfig {
   apiKey: string | null;
@@ -26,13 +27,9 @@ export const parseApiKeyArg = (argv: string[]): string | null => {
 
 const loadApiKeyFromSettings = (projectRoot: string): string | null => {
   const settingsRelativePath = path.join(".jules-subagents", "settings.json");
-  const searchPaths = [
-    path.join(process.cwd(), settingsRelativePath),
-    path.join(projectRoot, settingsRelativePath),
-    path.join(os.homedir(), settingsRelativePath),
-  ];
+  const searchPaths = buildCandidatePaths(settingsRelativePath, projectRoot);
 
-  for (const settingsPath of [...new Set(searchPaths)]) {
+  for (const settingsPath of searchPaths) {
     try {
       if (!fs.existsSync(settingsPath)) continue;
       const raw = fs.readFileSync(settingsPath, "utf-8");
@@ -58,12 +55,12 @@ const readPortValue = (value: unknown): number | null => {
 };
 
 const loadDashboardPortFromConfigJson = (projectRoot: string): number | null => {
-  const searchPaths = [
-    path.join(process.cwd(), "config.json"),
-    path.join(projectRoot, "config.json"),
-  ];
+  const homedir = os.homedir();
+  const searchPaths = buildCandidatePaths("config.json", projectRoot).filter(
+    (p) => !p.startsWith(path.resolve(homedir))
+  );
 
-  for (const configPath of [...new Set(searchPaths)]) {
+  for (const configPath of searchPaths) {
     try {
       if (!fs.existsSync(configPath)) continue;
       const raw = fs.readFileSync(configPath, "utf-8");
