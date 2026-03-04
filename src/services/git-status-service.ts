@@ -36,6 +36,20 @@ const FAILED_RUN_DETAILS_LIMIT = 3;
 const FAILED_JOBS_PER_RUN_LIMIT = 3;
 
 export class GitStatusService {
+  private static statusCache = new Map<string, { timestamp: number; promise: Promise<GitTrackingStatus> }>();
+
+  public static invalidateCache(repoPath?: string): void {
+    if (repoPath) {
+      for (const key of GitStatusService.statusCache.keys()) {
+        if (key.includes(`"repoPath":"${repoPath}"`)) {
+          GitStatusService.statusCache.delete(key);
+        }
+      }
+    } else {
+      GitStatusService.statusCache.clear();
+    }
+  }
+
   private queryClient: GitStatusQueryClient;
 
   constructor(
@@ -175,9 +189,19 @@ export class GitStatusService {
     return { runs: enrichedRuns, warnings };
   }
 
-  async getStatus(mode: "REMOTE" | "LOCAL", ghToken?: string, trackingRequest?: GitTrackingRequest): Promise<GitTrackingStatus> {
+  async getStatus(mode: "REMOTE" | "LOCAL", ghToken?: string, trackingRequest?: GitTrackingRequest, cacheTtlMs?: number): Promise<GitTrackingStatus> {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
-    const warnings: string[] = [];
+    const cacheKey = JSON.stringify({ repoPath: this.repoPath, mode, token: effectiveToken, trackingRequest });
+
+    if (cacheTtlMs && cacheTtlMs > 0) {
+      const cached = GitStatusService.statusCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < cacheTtlMs) {
+        return cached.promise;
+      }
+    }
+
+    const fetchPromise = (async () => {
+      const warnings: string[] = [];
     const now = new Date().toISOString();
     const tracking = buildTrackingTarget(trackingRequest);
 
@@ -281,24 +305,31 @@ export class GitStatusService {
     if (tracking.scope === "FEATURE_PR_CI" && trackedPrs.length === 0) {
       warnings.push("No open PRs are currently targeting the active feature branch.");
     }
-    if (tracking.scope === "MAIN_MERGE_PR_CI" && trackedPrs.length === 0) {
-      warnings.push("No open PR found for merging the feature branch into main.");
+      if (tracking.scope === "MAIN_MERGE_PR_CI" && trackedPrs.length === 0) {
+        warnings.push("No open PR found for merging the feature branch into main.");
+      }
+
+      return {
+        mode,
+        available: true,
+        repositoryRoot,
+        branch,
+        hasRemote,
+        dirty,
+        openPullRequests: trackedPrs,
+        ciRuns: enrichedCiRuns.runs,
+        mergedPullRequests: trackedMergedPrs,
+        tracking,
+        warnings,
+        lastUpdated: now,
+      };
+    })();
+
+    if (cacheTtlMs && cacheTtlMs > 0) {
+      GitStatusService.statusCache.set(cacheKey, { timestamp: Date.now(), promise: fetchPromise });
     }
 
-    return {
-      mode,
-      available: true,
-      repositoryRoot,
-      branch,
-      hasRemote,
-      dirty,
-      openPullRequests: trackedPrs,
-      ciRuns: enrichedCiRuns.runs,
-      mergedPullRequests: trackedMergedPrs,
-      tracking,
-      warnings,
-      lastUpdated: now,
-    };
+    return fetchPromise;
   }
 
   async mergePullRequest(prNumber: number, ghToken?: string): Promise<{ ok: boolean; message?: string }> {
@@ -310,6 +341,7 @@ export class GitStatusService {
         message: result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.",
       };
     }
+    GitStatusService.invalidateCache(this.repoPath);
     return { ok: true };
   }
 

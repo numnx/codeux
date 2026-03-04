@@ -38,7 +38,8 @@ export interface ServerContext {
   autoMergeFeaturePr: (args: AutoMergeFeaturePrArgs) => Promise<{ ok: boolean; message?: string }>;
   resolveSessionNameFromTask: (task: Subtask) => string | undefined;
   resolveGitStatusRepoPath: () => string;
-  fetchGitStatusForRepo: (repoPath: string) => Promise<GitTrackingStatus>;
+  fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => Promise<GitTrackingStatus>;
+  invalidateGitStatusCache?: (repoPath: string) => void;
   persistTaskMergedFlag: (args: PersistTaskMergedFlagArgs) => Promise<void>;
   normalizeName: (type: string, id: string) => string;
   isTrackedCliSession: (sessionId: string) => boolean;

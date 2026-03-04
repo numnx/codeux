@@ -27,7 +27,8 @@ export function createDashboardDependencies(
       resolveSessionNameFromTask: (task) => context.resolveSessionNameFromTask(task),
       fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
       resolveGitStatusRepoPath: () => context.resolveGitStatusRepoPath(),
-      fetchGitStatusForRepo: (repoPath) => context.fetchGitStatusForRepo(repoPath),
+      fetchGitStatusForRepo: (repoPath, cacheTtlMs) => context.fetchGitStatusForRepo(repoPath, cacheTtlMs),
+      invalidateGitStatusCache: (repoPath) => context.invalidateGitStatusCache?.(repoPath),
       logger: logger.child({ component: "activity-cache-service" }),
     },
     10_000, // LIVE_ACTIVITY_CACHE_MS
