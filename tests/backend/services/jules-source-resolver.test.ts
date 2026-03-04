@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { execFileSync } from "child_process";
+import { commandRunner } from "../../../src/shared/subprocess/command-runner.js";
 import { JulesSourceResolver } from "../../../src/services/jules-source-resolver.js";
 
-vi.mock("child_process", () => ({
-  execFileSync: vi.fn(),
+vi.mock("../../../src/shared/subprocess/command-runner.js", () => ({
+  commandRunner: {
+    runStrict: vi.fn(),
+  },
 }));
 
 describe("JulesSourceResolver", () => {
-  const execFileSyncMock = vi.mocked(execFileSync);
+  const runStrictMock = vi.mocked(commandRunner.runStrict);
   const listAllSources = vi.fn();
   const getSource = vi.fn();
   let resolver: JulesSourceResolver;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    execFileSyncMock.mockReturnValue("git@github.com:acme/example-repo.git\n" as any);
+    runStrictMock.mockResolvedValue({ stdout: "git@github.com:acme/example-repo.git\n" } as any);
     resolver = new JulesSourceResolver({
       listAllSources,
       getSource,
