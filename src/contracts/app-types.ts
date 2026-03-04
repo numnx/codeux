@@ -330,3 +330,12 @@ export interface PersistTaskMergedFlagArgs {
   taskId: string;
   merged: boolean;
 }
+
+export interface ReadinessProbeStatus {
+  status: "UP" | "READY" | "NOT_READY" | "DOWN";
+  components?: {
+    settingsDb: "UP" | "DOWN";
+    dashboardBind: "UP" | "DOWN";
+    mcpService: "UP" | "DOWN";
+  };
+}

@@ -17,6 +17,7 @@ import type {
   GetCiStatusForScopeArgs,
   AutoMergeFeaturePrArgs,
   PersistTaskMergedFlagArgs,
+  ReadinessProbeStatus,
 } from "../contracts/app-types.js";
 import { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
 import { GuideRepository } from "../repositories/guide-repository.js";
@@ -75,6 +76,7 @@ export class JulesAgentServer {
   private agentToolHandler: AgentToolHandler;
   private activityCacheService: ActivityCacheService;
   private taskRerunService: TaskRerunService;
+  private mcpServiceBound = false;
 
   constructor(options: JulesAgentServerOptions) {
     this.projectRoot = options.projectRoot;
@@ -274,8 +276,38 @@ export class JulesAgentServer {
     return statusRepoPath.length > 0 ? statusRepoPath : this.projectRoot;
   }
 
-  private isReady(): boolean {
-    return !!this.runtimeContext.lastStatus?.timestamp;
+  private isReady(): ReadinessProbeStatus {
+    const settingsDbUp = this.runtimeContext.settings !== undefined;
+    const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
+    const mcpServiceUp = this.mcpServiceBound;
+
+    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.runtimeContext.lastStatus?.timestamp;
+
+    return {
+      status: isReady ? "READY" : "NOT_READY",
+      components: {
+        settingsDb: settingsDbUp ? "UP" : "DOWN",
+        dashboardBind: dashboardBindUp ? "UP" : "DOWN",
+        mcpService: mcpServiceUp ? "UP" : "DOWN",
+      }
+    };
+  }
+
+  private isHealthy(): ReadinessProbeStatus {
+    const settingsDbUp = this.runtimeContext.settings !== undefined;
+    const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
+    const mcpServiceUp = this.mcpServiceBound;
+
+    const isHealthy = settingsDbUp && dashboardBindUp && mcpServiceUp;
+
+    return {
+      status: isHealthy ? "UP" : "DOWN",
+      components: {
+        settingsDb: settingsDbUp ? "UP" : "DOWN",
+        dashboardBind: dashboardBindUp ? "UP" : "DOWN",
+        mcpService: mcpServiceUp ? "UP" : "DOWN",
+      }
+    };
   }
 
   private async persistTaskMergedFlag(args: PersistTaskMergedFlagArgs): Promise<void> {
@@ -459,6 +491,7 @@ export class JulesAgentServer {
       getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
       getGitStatus: () => this.getGitStatus(),
       isReady: () => this.isReady(),
+      isHealthy: () => this.isHealthy(),
       syncGitSettingsFromDashboard: () => syncGitSettingsFromDashboard(this.runtimeContext),
       refreshJulesApiKey: () => this.refreshJulesApiKey(),
       setLogger: (logger) => { this.logger = logger; },
@@ -471,5 +504,6 @@ export class JulesAgentServer {
       isJulesApiConfigured: () => this.isJulesApiConfigured(),
       getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
     });
+    this.mcpServiceBound = true;
   }
 }
