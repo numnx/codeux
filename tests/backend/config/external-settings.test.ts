@@ -59,4 +59,40 @@ describe("external-settings", () => {
 
     expect(hints.resolved.julesApiKey).toBe("env-jules-key");
   });
+
+  it("should resolve multiple aliases for various providers", () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    // Testing Jules aliases
+    process.env.JULES_KEY = "jules-key-alt";
+    
+    // Testing Claude aliases
+    process.env.ANTHROPIC_API_KEY = "anthropic-key";
+
+    // Testing GitHub aliases
+    process.env.GH_TOKEN = "gh-token";
+
+    const hints = loadExternalSettingsHints(MOCK_PROJECT_ROOT);
+
+    expect(hints.resolved.julesApiKey).toBe("jules-key-alt");
+    expect(hints.resolved.claudeCodeApiKey).toBe("anthropic-key");
+    expect(hints.resolved.githubToken).toBe("gh-token");
+  });
+
+  it("should resolve from JSON with different naming conventions", () => {
+    const mockSettings = {
+      JULES_API_KEY: "json-jules-caps",
+      CLAUDE_API_KEY: "json-claude-caps",
+      GITHUB_TOKEN: "json-github-caps"
+    };
+
+    vi.spyOn(fs, "existsSync").mockReturnValue(true);
+    vi.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(mockSettings));
+
+    const hints = loadExternalSettingsHints(MOCK_PROJECT_ROOT);
+
+    expect(hints.resolved.julesApiKey).toBe("json-jules-caps");
+    expect(hints.resolved.claudeCodeApiKey).toBe("json-claude-caps");
+    expect(hints.resolved.githubToken).toBe("json-github-caps");
+  });
 });
