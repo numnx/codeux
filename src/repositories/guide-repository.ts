@@ -1,29 +1,13 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import os from "os";
+import { buildCandidatePaths } from "../shared/config/search-paths.js";
 
 export class GuideRepository {
   constructor(private readonly projectRoot: string) {}
 
-  private getSearchPaths(relativePath: string): string[] {
-    const paths = [
-      path.join(process.cwd(), relativePath),
-      path.join(this.projectRoot, relativePath),
-      path.join(os.homedir(), relativePath),
-    ];
-    return [...new Set(paths)];
-  }
-
   async getGuideContent(guideName: string, repoPath?: string): Promise<string> {
     const relativePath = path.join(".jules-subagents", "agents", guideName);
-    let searchPaths = this.getSearchPaths(relativePath);
-
-    if (repoPath) {
-      const repoScopedPath = path.join(repoPath, relativePath);
-      if (!searchPaths.includes(repoScopedPath)) {
-        searchPaths.unshift(repoScopedPath);
-      }
-    }
+    const searchPaths = buildCandidatePaths(relativePath, this.projectRoot, repoPath);
 
     for (const searchPath of searchPaths) {
       try {
