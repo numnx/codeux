@@ -141,7 +141,8 @@ export class JulesAgentServer {
       autoMergeFeaturePr: (args) => this.autoMergeFeaturePr(args),
       resolveSessionNameFromTask: (task) => this.resolveSessionNameFromTask(task),
       resolveGitStatusRepoPath: () => this.resolveGitStatusRepoPath(),
-      fetchGitStatusForRepo: (repoPath) => this.fetchGitStatusForRepo(repoPath),
+      fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => this.fetchGitStatusForRepo(repoPath, cacheTtlMs),
+      invalidateGitStatusCache: (repoPath: string) => GitStatusService.invalidateCache(repoPath),
       persistTaskMergedFlag: (args) => this.persistTaskMergedFlag(args),
       normalizeName: (type, id) => this.normalizeName(type, id),
       isTrackedCliSession: (sessionId) => this.isTrackedCliSession(sessionId),
@@ -470,13 +471,14 @@ export class JulesAgentServer {
     return this.julesApi.fetchRecentActivities(sessionName, pageSize);
   }
 
-  private async fetchGitStatusForRepo(repoPath: string): Promise<GitTrackingStatus> {
+  private async fetchGitStatusForRepo(repoPath: string, cacheTtlMs?: number): Promise<GitTrackingStatus> {
     const gitStatusService = new GitStatusService(repoPath);
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     return await gitStatusService.getStatus(
       settings.git.githubMode,
       this.getEffectiveGithubToken(),
-      this.resolveGitTrackingRequest()
+      this.resolveGitTrackingRequest(),
+      cacheTtlMs
     );
   }
 
