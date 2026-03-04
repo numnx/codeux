@@ -21,6 +21,45 @@ const buildDeps = () => {
     resolveSessionName: (s: any) => s.name,
     extractSessionId: (s: any) => s.id,
     fetchRecentActivities: vi.fn().mockResolvedValue([]),
+    listSessions,
+    loadSubtasks,
+    startTask: vi.fn(),
+    getGuideContent,
+    updateLastStatus: vi.fn(),
+    getDashboardSettings: () => DEFAULT_DASHBOARD_SETTINGS,
+    isJulesApiConfigured: () => true,
+    approveSessionPlan: vi.fn().mockResolvedValue({}),
+    sendSessionMessage: vi.fn().mockResolvedValue({}),
+    getCiStatusForScope: vi.fn().mockResolvedValue(null),
+    autoMergeFeaturePr: vi.fn().mockResolvedValue({ ok: true }),
+    renderInstruction: vi.fn(async (templateId: string, variables: Record<string, unknown>) => {
+      if (templateId === "planningMissing" && typeof variables.subtasks_dir === "string") {
+        return `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo subtasks found in \`${variables.subtasks_dir}\`.`;
+      }
+      if (templateId === "branchMissing" && typeof variables.feature_branch === "string") {
+        return `### 🛑 ACTION REQUIRED: Branch Configuration Missing\n\nThe feature branch \`${variables.feature_branch}\` is not ready.`;
+      }
+      if (templateId === "actionRequiredAgentHeader") {
+        return "\n### 🤖 AGENT INTERVENTION NEEDED\n";
+      }
+      if (templateId === "actionRequiredAgentTask" || templateId === "actionRequiredHumanTask") {
+        return `- **Task ${variables.task_id}** is \`${variables.session_state}\`.`;
+      }
+      if (templateId === "actionRequiredHumanHeader") {
+        return "\n### ✋ HUMAN INTERVENTION NEEDED\n";
+      }
+      if (templateId === "watchHeader") {
+        return "### Sprint Header";
+      }
+      return "";
+    }),
+    logger: {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    },
   };
 };
 

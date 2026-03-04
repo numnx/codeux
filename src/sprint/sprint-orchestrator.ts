@@ -22,7 +22,7 @@ import type {
 } from "../contracts/app-types.js";
 import { CycleRunner } from "../domain/sprint/orchestrator/cycle-runner.js";
 import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner.js";
-import { MainMergeGateService } from "../domain/sprint/ci/main-merge-gate.js";
+import type { Logger } from "../shared/logging/logger.js";
 
 export interface SprintOrchestratorDependencies {
   settings: Settings;
@@ -53,6 +53,7 @@ export interface SprintOrchestratorDependencies {
   }) => Promise<GitTrackingStatus | null>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<{ ok: boolean; message?: string }>;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
+  logger: Logger;
 }
 
 export class SprintOrchestrator {

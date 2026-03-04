@@ -164,6 +164,7 @@ export function createRuntimeDependencies(
     autoMergeFeaturePr: (args) => context.autoMergeFeaturePr(args),
     renderInstruction: (templateId, variables, repoPath) =>
       instructionService.render(templateId, variables, repoPath),
+    logger: logger.child({ component: "sprint-orchestrator" }),
   });
 
   const coreToolHandler = new CoreToolHandler({

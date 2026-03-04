@@ -64,8 +64,11 @@ export class WatchLoopRunner {
     const watchLoopIntervalMs = Math.max(1, loopSteps.watchLoopIntervalSeconds) * 1000;
     const watchLoopOutputIntervalMs = Math.max(60, loopSteps.watchLoopOutputIntervalSeconds) * 1000;
 
-    console.error(`Starting watch loop for Sprint ${args.sprint_number}...`);
-    console.error(`Live dashboard available at http://localhost:${dashboardPort}`);
+    this.deps.logger.info("Starting watch loop", {
+      sprintNumber: args.sprint_number,
+      featureBranch: defaultFeatureBranch,
+    });
+    this.deps.logger.info(`Live dashboard available at http://localhost:${dashboardPort}`);
 
     while (!allFinished) {
       const { subtasks, reportText, statusTable, instructions, awaitingMerge } = await this.cycleRunner.run({
@@ -151,9 +154,11 @@ export class WatchLoopRunner {
               githubMode,
             });
           } catch (cleanupError) {
-            console.error(`Warning: Failed to cleanup subtasks: ${cleanupError}`);
-          }
-        } else if (subtasks.some((task) => task.status === "FAILED")) {
+            this.deps.logger.warn("Failed to cleanup subtasks", {
+              subtasksDir,
+              error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+            });
+          }        } else if (subtasks.some((task) => task.status === "FAILED")) {
           fullReport += await this.deps.renderInstruction("cleanupFailed", { subtasks_dir: subtasksDir }, repoPath);
         } else if (subtasks.some((task) => task.status === "COMPLETED" && !task.is_merged)) {
           fullReport += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);

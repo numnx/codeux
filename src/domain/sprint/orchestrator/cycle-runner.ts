@@ -60,6 +60,7 @@ export class CycleRunner {
           extractSessionId: this.deps.extractSessionId,
           fetchRecentActivities: this.deps.fetchRecentActivities,
           isActionRequiredState: this.deps.isActionRequiredState,
+          logger: this.deps.logger.child({ component: "session-sync-step" }),
         },
         args.retryFailed,
         {
@@ -88,6 +89,7 @@ export class CycleRunner {
           this.deps.startTask(task, args.sourceId, args.defaultFeatureBranch, args.repoPath, args.sprintNumber),
         resolveSessionName: this.deps.resolveSessionName,
         extractSessionId: this.deps.extractSessionId,
+        logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
       });
       subtasks = startResult.subtasks;
       reportText += startResult.reportText;
