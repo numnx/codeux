@@ -13,20 +13,20 @@ describe("createLogger", () => {
   });
 
   it("logs human-readable output in development", () => {
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const logger = createLogger({ environment: "development", level: "debug" });
 
     logger.info("request finished", { method: "GET", statusCode: 200 });
 
-    expect(infoSpy).toHaveBeenCalledTimes(1);
-    const output = String(infoSpy.mock.calls[0][0]);
+    expect(stderrSpy).toHaveBeenCalledTimes(1);
+    const output = String(stderrSpy.mock.calls[0][0]);
     expect(output).toContain("INFO");
     expect(output).toContain("request finished");
     expect(output).toContain("method");
   });
 
   it("logs JSON output with correlation id in production", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const logger = createLogger({
       environment: "production",
       level: "debug",
@@ -37,8 +37,8 @@ describe("createLogger", () => {
       logger.error("failed", { reason: "timeout" });
     });
 
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(String(errorSpy.mock.calls[0][0]));
+    expect(stderrSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(String(stderrSpy.mock.calls[0][0]));
     expect(payload.level).toBe("error");
     expect(payload.message).toBe("failed");
     expect(payload.correlationId).toBe("corr-123");
@@ -46,15 +46,16 @@ describe("createLogger", () => {
   });
 
   it("respects log level filtering", () => {
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const logger = createLogger({ environment: "development", level: "warn" });
 
     logger.info("skip this");
     logger.warn("keep this");
 
-    expect(infoSpy).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(stderrSpy).toHaveBeenCalledTimes(1);
+    const output = String(stderrSpy.mock.calls[0][0]);
+    expect(output).not.toContain("skip this");
+    expect(output).toContain("keep this");
   });
 });
 
