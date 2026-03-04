@@ -219,4 +219,49 @@ describe("CoreToolHandler compact responses", () => {
     expect(messageParsed.message).toBe("ok");
     expect(messageParsed.huge).toBeUndefined();
   });
+
+  it("handles list_sources and list_all_sources", async () => {
+    const { deps } = buildDeps();
+    const handler = new CoreToolHandler(deps as any);
+    deps.julesApi.listSources = vi.fn().mockResolvedValue({
+      sources: [{ id: "s1", name: "sources/s1" }],
+      nextPageToken: "next"
+    });
+    deps.julesApi.listAllSources = vi.fn().mockResolvedValue([
+      { id: "s1", name: "sources/s1" }
+    ]);
+
+    const listRes = await handler.handleListSources({ page_size: 10 });
+    const listAllRes = await handler.handleListAllSources({});
+
+    expect(JSON.parse(listRes.content[0].text).returnedCount).toBe(1);
+    expect(JSON.parse(listAllRes.content[0].text).returnedCount).toBe(1);
+  });
+
+  it("handles wait_for_session_completion", async () => {
+    const { deps } = buildDeps();
+    const handler = new CoreToolHandler(deps as any);
+    deps.julesApi.getSession = vi.fn()
+      .mockResolvedValueOnce({ state: "RUNNING" })
+      .mockResolvedValueOnce({ state: "COMPLETED" });
+
+    const res = await handler.handleWaitForSessionCompletion({ session_id: "abc", poll_interval: 0.01 });
+    expect(JSON.parse(res.content[0].text).state).toBe("COMPLETED");
+  });
+
+  it("handles activities related tools", async () => {
+    const { deps } = buildDeps();
+    const handler = new CoreToolHandler(deps as any);
+    deps.julesApi.getActivity = vi.fn().mockResolvedValue({ id: "a1", originator: "system" });
+    deps.julesApi.listActivities = vi.fn().mockResolvedValue({ activities: [{ id: "a1" }] });
+    deps.julesApi.listAllActivities = vi.fn().mockResolvedValue([{ id: "a1" }]);
+
+    const getRes = await handler.handleGetActivity({ session_id: "s1", activity_id: "a1" });
+    const listRes = await handler.handleListActivities({ session_id: "s1" });
+    const listAllRes = await handler.handleListAllActivities({ session_id: "s1" });
+
+    expect(JSON.parse(getRes.content[0].text).id).toBe("a1");
+    expect(JSON.parse(listRes.content[0].text).returnedCount).toBe(1);
+    expect(JSON.parse(listAllRes.content[0].text).totalActivities).toBe(1);
+  });
 });

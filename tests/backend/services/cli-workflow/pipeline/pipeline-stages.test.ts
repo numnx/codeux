@@ -1,7 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PipelineContext } from "../../../../../src/services/cli-workflow/pipeline/pipeline-context.js";
 import { executeProviderStage } from "../../../../../src/services/cli-workflow/pipeline/execute-provider-stage.js";
 import { executeGitFinalizeStage } from "../../../../../src/services/cli-workflow/pipeline/git-finalize-stage.js";
+import { executePrepareStage } from "../../../../../src/services/cli-workflow/pipeline/prepare-stage.js";
+import { executePrFinalizeStage } from "../../../../../src/services/cli-workflow/pipeline/pr-finalize-stage.js";
+import { executeCleanupStage } from "../../../../../src/services/cli-workflow/pipeline/cleanup-stage.js";
 
 const createMockContext = (): PipelineContext => {
   return {
@@ -40,15 +43,15 @@ const createMockContext = (): PipelineContext => {
       prepareWorktree: vi.fn(),
       removeWorktree: vi.fn(),
       buildWorkspaceGuidance: vi.fn(),
-    },
+    } as any,
     prService: {
       hasUnpushedCommits: vi.fn(),
       hasWorkerBranchCommitsAgainstFeature: vi.fn(),
       resolveOrCreateFeaturePr: vi.fn(),
-    },
+    } as any,
     providerRunner: {
       runProvider: vi.fn(),
-    },
+    } as any,
     deps: {
       sessionTracking: { appendActivity: vi.fn(), updateSession: vi.fn() } as any,
       getDashboardSettings: vi.fn(),
@@ -59,6 +62,39 @@ const createMockContext = (): PipelineContext => {
     runCommand: vi.fn(),
   };
 };
+
+describe("executePrepareStage", () => {
+  it("prepares the worktree and resolves provider prompt", async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
+    vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
+    vi.mocked(ctx.deps.getGuideContent).mockResolvedValue("worker guide content");
+
+    const result = await executePrepareStage(ctx);
+
+    expect(result.worktreePath).toBe("/repo/worktree");
+    expect(result.initialHead).toBe("head-sha");
+    expect(result.providerPrompt).toContain("worker guide content");
+    expect(result.providerPrompt).toContain("test prompt");
+    expect(result.providerPrompt).toContain("guidance");
+    expect(ctx.workspaceManager.prepareWorktree).toHaveBeenCalledWith("/repo", "/repo/worktree", "worker-branch", "feature-branch", undefined);
+  });
+
+  it("handles FF-merge during resume properly", async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: true });
+    vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
+    vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
+
+    await executePrepareStage(ctx, "old-session");
+
+    expect(ctx.runCommand).toHaveBeenCalledWith("git", ["merge", "--ff-only", "origin/feature-branch"], "/repo/worktree");
+    expect(ctx.deps.sessionTracking.appendActivity).toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
+      description: expect.stringContaining("Resumed failed workspace")
+    }));
+  });
+});
 
 describe("executeProviderStage", () => {
   it("throws an error if provider run fails without retry conditions", async () => {
@@ -137,3 +173,54 @@ describe("executeGitFinalizeStage", () => {
     expect(ctx.runCommand).toHaveBeenCalledWith("git", ["push", "-u", "origin", ctx.workerBranch], ctx.worktreePath);
   });
 });
+
+describe("executePrFinalizeStage", () => {
+  it("resolves PR and updates session state to COMPLETED", async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.prService.resolveOrCreateFeaturePr).mockResolvedValue("https://github.com/pr/1");
+
+    await executePrFinalizeStage(ctx);
+
+    expect(ctx.workflowSucceeded).toBe(true);
+    expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED", prUrl: "https://github.com/pr/1" });
+    expect(ctx.deps.sessionTracking.appendActivity).toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
+      description: "Workflow completed. PR: https://github.com/pr/1"
+    }));
+  });
+
+  it("skips PR creation if autoCreatePr is false", async () => {
+    const ctx = createMockContext();
+    ctx.settings.git.autoCreatePr = false;
+
+    await executePrFinalizeStage(ctx);
+
+    expect(ctx.prService.resolveOrCreateFeaturePr).not.toHaveBeenCalled();
+    expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED", prUrl: undefined });
+  });
+});
+
+describe("executeCleanupStage", () => {
+  it("removes the worktree if cleanupWorktreeOnSuccess is true and workflow succeeded", async () => {
+    const ctx = createMockContext();
+    ctx.workflowSucceeded = true;
+    ctx.workflowSettings.cleanupWorktreeOnSuccess = true;
+
+    await executeCleanupStage(ctx);
+
+    expect(ctx.workspaceManager.removeWorktree).toHaveBeenCalledWith("/repo", "/repo/worktree");
+  });
+
+  it("preserves the worktree if cleanupWorktreeOnSuccess is false and workflow succeeded", async () => {
+    const ctx = createMockContext();
+    ctx.workflowSucceeded = true;
+    ctx.workflowSettings.cleanupWorktreeOnSuccess = false;
+
+    await executeCleanupStage(ctx);
+
+    expect(ctx.workspaceManager.removeWorktree).not.toHaveBeenCalled();
+    expect(ctx.deps.sessionTracking.appendActivity).toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
+      description: expect.stringContaining("Preserving worktree")
+    }));
+  });
+});
+
