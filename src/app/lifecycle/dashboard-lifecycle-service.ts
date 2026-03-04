@@ -11,7 +11,8 @@ import type {
   GitTrackingStatus,
   JulesActivity,
   DashboardStatus,
-  Subtask
+  Subtask,
+  ReadinessProbeStatus
 } from "../../contracts/app-types.js";
 import type { SettingsRepository } from "../../repositories/settings-repository.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
@@ -29,7 +30,8 @@ export interface BootDashboardDeps {
   logger: Logger;
   getLiveActivitiesForActiveTasks: () => Promise<Record<string, JulesActivity[]>>;
   getGitStatus: () => Promise<GitTrackingStatus>;
-  isReady: () => boolean;
+  isReady: () => ReadinessProbeStatus;
+  isHealthy: () => ReadinessProbeStatus;
   syncGitSettingsFromDashboard: () => void;
   refreshJulesApiKey: () => void;
   setLogger: (logger: Logger) => void;
@@ -82,6 +84,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     },
     logger: deps.logger.child({ component: "dashboard-server" }),
     isReady: deps.isReady,
+    isHealthy: deps.isHealthy,
   });
 
   deps.runtimeContext.dashboardRuntimePort = handle.port;
