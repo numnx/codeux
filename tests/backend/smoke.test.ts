@@ -9,7 +9,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 describe("Smoke Test", () => {
-  it("should initialize JulesAgentServer and return tools", async () => {
+  it("should initialize JulesAgentServer and return tools without console errors", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     // Use the actual project root
     const projectRoot = path.resolve(__dirname, "../../");
     
@@ -22,6 +25,11 @@ describe("Smoke Test", () => {
     const server = new JulesAgentServer({ projectRoot, appConfig });
     
     expect(server).toBeDefined();
+
+    // The SQLite warning is expected and emitted by Node, not console.warn in our code usually,
+    // but we can check our own calls.
+    // If we want to be strict about NO errors:
+    expect(errorSpy).not.toHaveBeenCalled();
 
     // Verify tools are registered and can be listed
     // We access the private mcp server via cast to any for smoke testing
@@ -41,5 +49,8 @@ describe("Smoke Test", () => {
     const toolNames = result.tools.map((t: any) => t.name);
     expect(toolNames).toContain("sprint_agent");
     expect(toolNames).toContain("task_agent");
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });
