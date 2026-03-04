@@ -60,6 +60,9 @@ This map explains where major responsibilities live.
   - `cli-workflow-text-utils.ts`
   - `cli-workflow-utils.ts`
   - `provider-routing.ts`
+- `shared/logging/`
+  - `logger.ts`
+  - `correlation-id.ts`
 - `git/`
   - `sprint-branch-scheme.ts`
 - `sprint/sprint-orchestrator.ts`

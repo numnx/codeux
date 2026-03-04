@@ -3,6 +3,7 @@ import { chooseProviderForTask } from "./provider-routing.js";
 import type { DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
 import type { CliWorkflowService } from "./cli-workflow-service.js";
 import { buildTaskRunTag } from "./task-run-key.js";
+import type { Logger } from "../shared/logging/logger.js";
 
 export interface TaskServiceDependencies {
   julesApi: JulesApiClient;
@@ -13,6 +14,7 @@ export interface TaskServiceDependencies {
   getDashboardSettings: () => DashboardSettings;
   isJulesApiConfigured: () => boolean;
   cliWorkflowService: CliWorkflowService;
+  logger?: Logger;
 }
 
 export interface TaskAgentSessionArgs {

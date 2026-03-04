@@ -24,6 +24,7 @@ import {
   sanitizeToken,
 } from "./cli-workflow-utils.js";
 import { buildTaskRunKey, buildTaskRunTag } from "./task-run-key.js";
+import type { Logger } from "../shared/logging/logger.js";
 
 const CODEX_CREDENTIALS_MOUNT = "/opt/credentials/codex";
 const GITHUB_CREDENTIALS_MOUNT = "/opt/credentials/gh";
@@ -37,6 +38,7 @@ interface CliWorkflowServiceDependencies {
   getDashboardSettings: () => DashboardSettings;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   getGithubToken: () => string | undefined;
+  logger?: Logger;
 }
 
 interface StartCliTaskInput {
@@ -320,7 +322,11 @@ export class CliWorkflowService {
         originator: "system",
         description: `Workflow failed: ${message}`,
       });
-      console.error(`[CLI Workflow] ${args.sessionId} failed: ${message}`);
+      this.deps.logger?.error("CLI workflow failed", {
+        sessionId: args.sessionId,
+        provider: args.provider,
+        message,
+      });
     } finally {
       const shouldCleanupWorktree = workflowSucceeded ? cleanupWorktreeOnSuccess : cleanupWorktreeOnFailure;
       if (shouldCleanupWorktree) {

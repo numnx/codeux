@@ -29,6 +29,17 @@ Returns enabled tool definitions from `src/contracts/mcp-tool-definitions.ts`, f
 - Wraps unknown tool as MCP `MethodNotFound`.
 - Normalizes runtime/API errors into `isError` response.
 
+## Correlation Context
+
+MCP tool calls are wrapped in a correlation scope before dispatch.
+
+- `src/server/jules-agent-server.ts` derives a correlation ID from request metadata when available.
+- If no correlation ID is provided, one is generated.
+- `src/shared/logging/correlation-id.ts` stores the ID in `AsyncLocalStorage`.
+- `src/server/mcp-request-router.ts` logs request lifecycle events with the shared logger.
+
+This allows all log lines emitted during a tool call to share a single `correlationId`.
+
 ## Dispatch Layers
 
 - Core dispatch target: `CoreToolHandler`

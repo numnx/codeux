@@ -1,5 +1,6 @@
 import type { JulesApiClient } from "../integrations/jules-api-client.js";
 import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-types.js";
+import type { Logger } from "../shared/logging/logger.js";
 
 interface CoreToolHandlerDependencies {
   julesApi: JulesApiClient;
@@ -17,6 +18,7 @@ interface CoreToolHandlerDependencies {
   listTrackedSessions: (limit?: number) => { sessions: JulesSession[] };
   listTrackedActivities: (args: { session_id: string; page_size?: number; page_token?: string }) => { activities: JulesActivity[]; nextPageToken?: string };
   listAllTrackedActivities: (sessionId: string) => JulesActivity[];
+  logger?: Logger;
 }
 
 export class CoreToolHandler {
@@ -321,7 +323,7 @@ export class CoreToolHandler {
         lastActivity = activities[activities.length - 1];
       }
     } catch {
-      console.error(`Warning: Could not fetch activities for session ${session_id}`);
+      this.deps.logger?.warn("Could not fetch activities for session", { sessionId: session_id });
     }
 
     return { content: [{ type: "text", text: JSON.stringify(this.toSessionSummary(session, lastActivity), null, 2) }] };

@@ -25,9 +25,11 @@ import {
 } from "../contracts/app-types.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { formatSprintBranch } from "../git/sprint-branch-scheme.js";
+import { createLogger, type Logger } from "../shared/logging/logger.js";
 
 export interface RuntimeDependencies {
   server: Server;
+  logger: Logger;
   julesApi: JulesApiClient;
   guideRepository: GuideRepository;
   subtaskRepository: SubtaskRepository;
@@ -80,6 +82,7 @@ export function createRuntimeDependencies(
   options: { projectRoot: string; appConfig: AppConfig },
   context: ServerContext
 ): RuntimeDependencies {
+  const logger = createLogger({ bindings: { service: "jules-subagents" } });
   const externalSettingsHints = loadExternalSettingsHints(options.projectRoot);
   const settingsRepository = new SettingsRepository(undefined, externalSettingsHints);
   const dashboardSettings = settingsRepository.getSettings();
@@ -112,6 +115,7 @@ export function createRuntimeDependencies(
     getDashboardSettings: () => context.getDashboardSettings(),
     getGuideContent: (guideName: string, repoPath?: string) => context.getGuideContentIfEnabled(guideName, repoPath),
     getGithubToken: () => context.getEffectiveGithubToken(),
+    logger: logger.child({ component: "cli-workflow-service" }),
   });
 
   const taskService = new TaskService({
@@ -127,6 +131,7 @@ export function createRuntimeDependencies(
     getDashboardSettings: () => context.getDashboardSettings(),
     isJulesApiConfigured: () => context.isJulesApiConfigured(),
     cliWorkflowService,
+    logger: logger.child({ component: "task-service" }),
   });
 
   const sprintOrchestrator = new SprintOrchestrator({
@@ -177,6 +182,7 @@ export function createRuntimeDependencies(
     listTrackedSessions: (limit) => sessionTracking.listSessions(limit),
     listTrackedActivities: (args) => sessionTracking.listActivities(args),
     listAllTrackedActivities: (sessionId) => sessionTracking.listAllActivities(sessionId),
+    logger: logger.child({ component: "core-tool-handler" }),
   });
 
   const agentToolHandler = new AgentToolHandler({
@@ -200,6 +206,7 @@ export function createRuntimeDependencies(
       fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
       resolveGitStatusRepoPath: () => context.resolveGitStatusRepoPath(),
       fetchGitStatusForRepo: (repoPath) => context.fetchGitStatusForRepo(repoPath),
+      logger: logger.child({ component: "activity-cache-service" }),
     },
     10_000, // LIVE_ACTIVITY_CACHE_MS
     10_000, // GIT_STATUS_CACHE_MS
@@ -217,10 +224,12 @@ export function createRuntimeDependencies(
     resolveSessionName: (session) => context.resolveSessionName(session),
     extractSessionId: (session) => context.extractSessionId(session),
     persistMergedFlag: (args) => context.persistTaskMergedFlag(args),
+    logger: logger.child({ component: "task-rerun-service" }),
   });
 
   return {
     server,
+    logger,
     julesApi,
     guideRepository,
     subtaskRepository,
