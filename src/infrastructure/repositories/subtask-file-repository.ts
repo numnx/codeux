@@ -1,17 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { Subtask } from "../../contracts/app-types.js";
-
-const parseDependsOn = (content: string): string[] => {
-  const lineMatch = content.match(/^\s*depends_on:\s*\[([^\]]*)\]\s*$/m);
-  if (!lineMatch) return [];
-  return lineMatch[1]
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .map((item) => item.replace(/^["'](.+)["']$/, "$1").trim())
-    .filter((item) => item.length > 0);
-};
+import { SubtaskParser } from "./subtask-parser.js";
 
 export class SubtaskFileRepository {
   /**
@@ -21,20 +11,7 @@ export class SubtaskFileRepository {
     const filePath = path.join(dir, `${taskId}.md`);
     const content = await fs.readFile(filePath, "utf-8");
     
-    const titleMatch = content.match(/^\s*title:\s*(.*)\s*$/m);
-    const independentMatch = content.match(/^\s*is_independent:\s*(true|false)\s*$/m);
-    const mergedMatch = content.match(/^\s*merged:\s*(true|false)\s*$/m);
-    const promptMatch = content.match(/^\s*prompt:\s*([\s\S]*)$/m);
-
-    return {
-      id: taskId,
-      title: titleMatch ? titleMatch[1].trim() : taskId,
-      prompt: promptMatch ? promptMatch[1].trim() : content,
-      depends_on: parseDependsOn(content),
-      is_independent: independentMatch ? independentMatch[1] === "true" : true,
-      is_merged: mergedMatch ? mergedMatch[1] === "true" : false,
-      status: "PENDING",
-    };
+    return SubtaskParser.parse(taskId, content);
   }
 
   /**
@@ -61,27 +38,16 @@ export class SubtaskFileRepository {
 
   /**
    * Atomically updates the 'merged: true/false' flag in the markdown file.
-   * If the flag doesn't exist, it is inserted above the 'prompt:' section.
    */
   async setMerged(dir: string, taskId: string, merged: boolean): Promise<void> {
     const filePath = path.join(dir, `${taskId}.md`);
     const content = await fs.readFile(filePath, "utf-8");
-    const mergedValue = merged ? "true" : "false";
+    const subtask = SubtaskParser.parse(taskId, content);
     
-    let updated = content;
-    const mergedRegex = /^\s*merged:\s*(true|false)\s*$/m;
-    const promptRegex = /^\s*prompt:\s*/m;
+    if (subtask.is_merged === merged) return;
 
-    if (mergedRegex.test(content)) {
-      updated = content.replace(mergedRegex, `merged: ${mergedValue}`);
-    } else if (promptRegex.test(content)) {
-      updated = content.replace(promptRegex, `merged: ${mergedValue}\nprompt:`);
-    } else {
-      updated = `${content.trimEnd()}\nmerged: ${mergedValue}\n`;
-    }
-
-    if (updated !== content) {
-      await fs.writeFile(filePath, updated, "utf-8");
-    }
+    subtask.is_merged = merged;
+    const updated = SubtaskParser.stringify(subtask);
+    await fs.writeFile(filePath, updated, "utf-8");
   }
 }
