@@ -9,10 +9,10 @@ export default defineConfig({
         provider: "v8",
         reporter: ["text", "json", "html"],
         thresholds: {
-            lines: 74,
+            lines: 80,
             functions: 69,
-            branches: 63,
-            statements: 74,
+            branches: 64,
+            statements: 80,
             // Specifically enforce 80% on activity-cache-service.ts as per task requirement
             "src/server/activity-cache-service.ts": {
                 lines: 80,
