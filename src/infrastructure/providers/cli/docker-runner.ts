@@ -6,7 +6,6 @@ import { CliWorkflowSettings, ProviderId } from "../../../contracts/app-types.js
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import {
   getDockerUserSpec,
-  getProviderFallbackInstallCommand,
   mapPathPrefix,
   pickContainerEnv,
   resolveConfiguredPath,
@@ -14,13 +13,15 @@ import {
   ContainerMount,
 } from "../../../services/cli-docker-utils.js";
 import { CONTAINER_SETUP_SCRIPT } from "../../../services/cli-workflow-utils.js";
-
-const CODEX_CREDENTIALS_MOUNT = "/opt/credentials/codex";
-const GITHUB_CREDENTIALS_MOUNT = "/opt/credentials/gh";
-const GEMINI_CREDENTIALS_MOUNT = "/opt/credentials/gemini";
-const CLAUDE_CODE_CREDENTIALS_MOUNT = "/opt/credentials/claude-code";
-const CLAUDE_CODE_AUTH_JSON_MOUNT = "/opt/credentials/claude-code-auth.json";
-const GITCONFIG_CREDENTIALS_MOUNT = "/opt/credentials/gitconfig";
+import {
+  DockerBootstrapBuilder,
+  CODEX_CREDENTIALS_MOUNT,
+  GITHUB_CREDENTIALS_MOUNT,
+  GEMINI_CREDENTIALS_MOUNT,
+  CLAUDE_CODE_CREDENTIALS_MOUNT,
+  GITCONFIG_CREDENTIALS_MOUNT,
+  CLAUDE_CODE_AUTH_JSON_MOUNT,
+} from "./docker-bootstrap-builder.js";
 
 export interface IDockerRunner {
   runProviderInDocker(args: {
@@ -96,7 +97,10 @@ export class DockerRunner implements IDockerRunner {
     }
 
     const image = workflowSettings.containerImage.trim() || "node:18"; // Default fallback
-    const bootstrapScript = this.buildBootstrapScript(runtimeNpmPrefix, runtimeNpmCache);
+    const bootstrapScript = new DockerBootstrapBuilder().build({
+      runtimeNpmPrefix,
+      runtimeNpmCache,
+    });
 
     dockerArgs.push(image, "bash", "-c", bootstrapScript, "provider-runner", command, ...args);
 
@@ -106,32 +110,6 @@ export class DockerRunner implements IDockerRunner {
       onStdoutLine: (line) => onActivity(line, "agent"),
       onStderrLine: (line) => onActivity(`[${providerLabel}] ${line}`, "provider"),
     });
-  }
-
-  private buildBootstrapScript(runtimeNpmPrefix: string, runtimeNpmCache: string): string {
-    const fallbackInstallCases = ["gemini", "codex", "claude"].flatMap((providerCommand) => {
-      const installCommand = getProviderFallbackInstallCommand(providerCommand);
-      return installCommand ? [`    ${providerCommand}) ${installCommand} ;;`] : [];
-    });
-
-    return [
-      "set -euo pipefail",
-      "mkdir -p \"$HOME/.config\" \"$HOME/.codex\" \"$HOME/.claude\" \"$HOME/.gemini\"",
-      "sync_dir_contents() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; mkdir -p \"$destination\"; if ! cp -r \"$source/.\" \"$destination/\"; then echo \"provider-runner: warning: failed to copy $label credentials\" >&2; fi; }",
-      `if [ -e "${GITCONFIG_CREDENTIALS_MOUNT}" ]; then cp -f "${GITCONFIG_CREDENTIALS_MOUNT}" "$HOME/.gitconfig" || echo "provider-runner: warning: failed to copy .gitconfig" >&2; fi`,
-      `if [ -d "${CODEX_CREDENTIALS_MOUNT}" ]; then [ -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" ] && cp -f "${CODEX_CREDENTIALS_MOUNT}/auth.json" "$HOME/.codex/auth.json"; [ -f "${CODEX_CREDENTIALS_MOUNT}/config.toml" ] && cp -f "${CODEX_CREDENTIALS_MOUNT}/config.toml" "$HOME/.codex/config.toml"; fi`,
-      `if [ -d "${GITHUB_CREDENTIALS_MOUNT}" ]; then sync_dir_contents "${GITHUB_CREDENTIALS_MOUNT}" "$HOME/.config/gh" "gh"; fi`,
-      `if [ -d "${GEMINI_CREDENTIALS_MOUNT}" ]; then sync_dir_contents "${GEMINI_CREDENTIALS_MOUNT}" "$HOME/.gemini" "gemini"; fi`,
-      `export NPM_CONFIG_PREFIX="${runtimeNpmPrefix}"`,
-      `export NPM_CONFIG_CACHE="${runtimeNpmCache}"`,
-      "export npm_config_cache=\"$NPM_CONFIG_CACHE\"",
-      "mkdir -p \"$NPM_CONFIG_PREFIX\" \"$NPM_CONFIG_CACHE\"",
-      "export PATH=\"$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH\"",
-      `if [ -f "${CONTAINER_SETUP_SCRIPT}" ]; then bash "${CONTAINER_SETUP_SCRIPT}" || echo "provider-runner: setup script failed" >&2; fi`,
-      "if ! command -v \"$1\" >/dev/null 2>&1; then case \"$1\" in " + fallbackInstallCases.join(" ") + " esac; fi",
-      "if [ \"$1\" = \"claude\" ]; then if [ -f \"${CLAUDE_CODE_CREDENTIALS_MOUNT}/.credentials.json\" ]; then cp -f \"${CLAUDE_CODE_CREDENTIALS_MOUNT}/.credentials.json\" \"$HOME/.claude/.credentials.json\"; fi; if [ -f \"${CLAUDE_CODE_AUTH_JSON_MOUNT}\" ]; then cp -f \"${CLAUDE_CODE_AUTH_JSON_MOUNT}\" \"$HOME/.claude.json\"; fi; fi",
-      "exec \"$@\"",
-    ].join("\n");
   }
 
   private resolveDockerRuntimeRoot(repoPath: string): string {
