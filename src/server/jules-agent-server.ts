@@ -1,13 +1,9 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import axios from "axios";
 import type { AxiosError } from "axios";
-import * as fs from "fs/promises";
 import * as path from "path";
 import express from "express";
-import os from "os";
 import type { AppConfig } from "../config/app-config.js";
-import { setupDashboardServer } from "./dashboard-server.js";
 import { JulesApiClient } from "../integrations/jules-api-client.js";
 import type {
   DashboardSettings,
@@ -44,6 +40,9 @@ import { generateCorrelationId, runWithCorrelationId } from "../shared/logging/c
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../repositories/settings-defaults.js";
 import { DefaultRuntimeContext, RuntimeContext } from "../app/runtime-context.js";
+import { bootSettings, syncGitSettingsFromDashboard } from "../app/lifecycle/settings-lifecycle-service.js";
+import { bootDashboard } from "../app/lifecycle/dashboard-lifecycle-service.js";
+import { bootMcpTransport } from "../app/lifecycle/mcp-lifecycle-service.js";
 
 export interface JulesAgentServerOptions {
   projectRoot: string;
@@ -188,49 +187,6 @@ export class JulesAgentServer {
     return undefined;
   }
 
-  private async loadSettings() {
-    // 1. Lowest priority: Environment variable
-    if (process.env.JULES_API_MAX_FAILS) {
-      this.runtimeContext.settings.maxFailures = parseInt(process.env.JULES_API_MAX_FAILS);
-    }
-
-    // 2. Higher priorities: settings.json files (Reverse order for correct override: HOME -> PROJECT -> CWD)
-    const searchPaths = this.getSearchPaths(".jules-subagents/settings.json").reverse();
-    for (const settingsPath of searchPaths) {
-      try {
-        await fs.access(settingsPath);
-        const content = await fs.readFile(settingsPath, "utf-8");
-        const loadedSettings = JSON.parse(content);
-
-        // Handle both camelCase and UPPER_SNAKE_CASE for backward compatibility if needed,
-        // but prefer camelCase for the final settings.
-        if (loadedSettings.JULES_API_MAX_FAILS !== undefined) {
-          loadedSettings.maxFailures = parseInt(loadedSettings.JULES_API_MAX_FAILS as string);
-        }
-
-        Object.assign(this.runtimeContext.settings, loadedSettings);
-        this.logger.info("Loaded settings", { settingsPath });
-      } catch (error) {
-        // Skip if not found or invalid
-      }
-    }
-  }
-
-  private getSearchPaths(relativePath: string): string[] {
-    const paths = [
-      path.join(process.cwd(), relativePath),
-      path.join(this.projectRoot, relativePath),
-      path.join(os.homedir(), relativePath),
-    ];
-    return [...new Set(paths)]; // Unique paths, highest priority first
-  }
-
-  private syncGitSettingsFromDashboard(): void {
-    const git = (this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS).git;
-    this.runtimeContext.settings.defaultBranch = git.defaultBranch;
-    this.runtimeContext.settings.githubMode = git.githubMode;
-  }
-
   private getEffectiveJulesApiKey(): string | undefined {
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     const uiProviderKey = settings.aiProvider?.providers?.jules?.apiKey?.trim();
@@ -320,50 +276,6 @@ export class JulesAgentServer {
 
   private isReady(): boolean {
     return !!this.runtimeContext.lastStatus?.timestamp;
-  }
-
-  private async setupDashboard() {
-    const dashboardDir = path.join(this.projectRoot, "dashboard");
-    const port = this.getDashboardPort();
-
-    const handle = await setupDashboardServer({
-      app: this.app,
-      dashboardDir,
-      port,
-      liveActivityCacheMs: JulesAgentServer.LIVE_ACTIVITY_CACHE_MS,
-      getStatus: () => this.runtimeContext.lastStatus,
-      getLiveActivities: () => this.getLiveActivitiesForActiveTasks(),
-      getGitStatus: () => this.getGitStatus(),
-      getExternalSettingsHints: () => this.externalSettingsHints,
-      getSettings: () => this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
-      saveSettings: (settings: DashboardSettings) => {
-        this.runtimeContext.dashboardSettings = this.settingsRepository.saveSettings(settings);
-        this.syncGitSettingsFromDashboard();
-        this.refreshJulesApiKey();
-        this.reinitializeLogger();
-        this.activityCacheService.invalidateGitStatusCache();
-        return this.runtimeContext.dashboardSettings;
-      },
-      rerunTask: async (taskId: string) => {
-        const task = await this.taskRerunService.rerunTask(taskId);
-        this.activityCacheService.invalidateGitStatusCache();
-        return task;
-      },
-      logger: this.logger.child({ component: "dashboard-server" }),
-      isReady: () => this.isReady(),
-    });
-    this.runtimeContext.dashboardRuntimePort = handle.port;
-  }
-
-  private reinitializeLogger(): void {
-    const logFilePath = this.runtimeContext.dashboardSettings?.enableDebugLogFile
-      ? path.join(this.projectRoot, ".jules-subagents", "debug.log")
-      : undefined;
-
-    this.logger = createLogger({
-      bindings: { service: "jules-subagents" },
-      logFilePath,
-    });
   }
 
   private async persistTaskMergedFlag(args: PersistTaskMergedFlagArgs): Promise<void> {
@@ -518,8 +430,11 @@ export class JulesAgentServer {
   }
 
   async run() {
-    await this.loadSettings();
-    this.syncGitSettingsFromDashboard();
+    await bootSettings({
+      runtimeContext: this.runtimeContext,
+      projectRoot: this.projectRoot,
+      logger: this.logger,
+    });
     this.refreshJulesApiKey();
     const recovery = this.sessionTracking.recoverInterruptedCliSessions();
     if (recovery.recoveredCount > 0) {
@@ -530,15 +445,31 @@ export class JulesAgentServer {
         additionalRecoveredCount: Math.max(recovery.recoveredCount - 5, 0),
       });
     }
-    await this.setupDashboard();
 
-    if (!this.isJulesApiConfigured()) {
-      this.logger.warn("Jules API key is not set. Jules-native tools are disabled; Gemini/Codex CLI providers can still run.");
-      this.logger.warn(this.getMissingJulesApiKeyInstruction());
-    }
+    await bootDashboard({
+      app: this.app,
+      projectRoot: this.projectRoot,
+      getDashboardPort: () => this.getDashboardPort(),
+      runtimeContext: this.runtimeContext,
+      externalSettingsHints: this.externalSettingsHints,
+      settingsRepository: this.settingsRepository,
+      activityCacheService: this.activityCacheService,
+      taskRerunService: this.taskRerunService,
+      logger: this.logger,
+      getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
+      getGitStatus: () => this.getGitStatus(),
+      isReady: () => this.isReady(),
+      syncGitSettingsFromDashboard: () => syncGitSettingsFromDashboard(this.runtimeContext),
+      refreshJulesApiKey: () => this.refreshJulesApiKey(),
+      setLogger: (logger) => { this.logger = logger; },
+      LIVE_ACTIVITY_CACHE_MS: JulesAgentServer.LIVE_ACTIVITY_CACHE_MS,
+    });
 
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    this.logger.info("Jules Subagents MCP server running on stdio", { version: "1.2.0" });
+    await bootMcpTransport({
+      server: this.server,
+      logger: this.logger,
+      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
+    });
   }
 }
