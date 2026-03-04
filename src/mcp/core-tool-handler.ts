@@ -1,4 +1,5 @@
-import type { JulesApiClient } from "../integrations/jules-api-client.js";
+import type { CreateSessionArgs } from "../api/mcp/tool-registry.js";
+import type { JulesApiClient, JulesCreateSessionRequest } from "../integrations/jules-api-client.js";
 import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 
@@ -275,7 +276,7 @@ export class CoreToolHandler {
     };
   }
 
-  async handleCreateSession(args: any) {
+  async handleCreateSession(args: CreateSessionArgs) {
     this.ensureJulesApiConfigured();
     const maxFails = this.deps.getMaxFailures();
     if (this.deps.getConsecutiveFailures() >= maxFails) {
@@ -284,7 +285,7 @@ export class CoreToolHandler {
       );
     }
 
-    const data: any = {
+    const data: JulesCreateSessionRequest = {
       prompt: args.prompt,
       sourceContext: { source: this.deps.normalizeName("sources", args.source) },
     };
@@ -297,7 +298,7 @@ export class CoreToolHandler {
       const response = await this.deps.julesApi.createSession(data);
       this.deps.setConsecutiveFailures(0);
       return { content: [{ type: "text", text: JSON.stringify(this.toSessionSummary(response), null, 2) }] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.deps.setConsecutiveFailures(this.deps.getConsecutiveFailures() + 1);
       throw error;
     }

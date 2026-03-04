@@ -1,4 +1,4 @@
-import type { JulesApiClient } from "../integrations/jules-api-client.js";
+import type { JulesApiClient, JulesCreateSessionRequest } from "../integrations/jules-api-client.js";
 import { chooseProviderForTask } from "./provider-routing.js";
 import type { DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
 import type { CliWorkflowService } from "./cli-workflow-service.js";
@@ -82,7 +82,7 @@ export class TaskService {
     });
     const fullPrompt = await this.buildPrompt(args.repo_path, "TASK TO EXECUTE", args.prompt);
 
-    const data: any = {
+    const data: JulesCreateSessionRequest = {
       prompt: fullPrompt,
       sourceContext: {
         source: sourceId,
@@ -122,7 +122,7 @@ export class TaskService {
     });
     const fullPrompt = await this.buildPrompt(repoPath, "SUBTASK TO EXECUTE", task.prompt);
 
-    const data = {
+    const data: JulesCreateSessionRequest = {
       prompt: fullPrompt,
       title: `Sprint ${sprintNumber}: ${buildTaskRunTag(repoPath, sprintNumber, task.id)} [${task.id}] ${task.title}`,
       sourceContext: {
