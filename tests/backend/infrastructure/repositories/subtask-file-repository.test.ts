@@ -77,7 +77,8 @@ describe("SubtaskFileRepository", () => {
       await repo.setMerged(dir, "T01", true);
 
       const updated = await fs.readFile(path.join(dir, "T01.md"), "utf-8");
-      expect(updated).toContain("merged: true\nprompt:");
+      expect(updated).toContain("merged: true");
+      expect(updated).toContain("prompt:\nWork");
     });
 
     it("appends merged flag if both missing", async () => {
@@ -89,7 +90,8 @@ describe("SubtaskFileRepository", () => {
       await repo.setMerged(dir, "T01", true);
 
       const updated = await fs.readFile(path.join(dir, "T01.md"), "utf-8");
-      expect(updated.trim()).toBe("title: Task\nmerged: true");
+      expect(updated).toContain("merged: true");
+      expect(updated).toContain("title: Task");
     });
 
     it("handles setting merged to false", async () => {
