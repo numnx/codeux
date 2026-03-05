@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS pm_sprints (
   start_date TEXT,
   end_date TEXT,
   created_at TEXT NOT NULL,
+  order_index INTEGER NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY(project_id) REFERENCES pm_projects(id)
 );
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS pm_usage_samples (
 
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_pm_sprints_project_id ON pm_sprints(project_id);
+CREATE INDEX IF NOT EXISTS idx_pm_sprints_order_index ON pm_sprints(order_index);
 CREATE INDEX IF NOT EXISTS idx_pm_tasks_sprint_id ON pm_tasks(sprint_id);
 CREATE INDEX IF NOT EXISTS idx_pm_dependencies_task_id ON pm_dependencies(task_id);
 CREATE INDEX IF NOT EXISTS idx_pm_dependencies_depends_on ON pm_dependencies(depends_on_task_id);
