@@ -66,7 +66,12 @@ export function createSprintDependencies(
     startTask: (task, sourceId, baseBranch, repoPath, sprintNumber) =>
       taskService.startSprintTask(task, sourceId, baseBranch, repoPath, sprintNumber),
     getGuideContent: (guideName, repoPath) => context.getGuideContentIfEnabled(guideName, repoPath),
-    updateLastStatus: (status) => { context.runtimeContext.lastStatus = status; },
+    updateLastStatus: (projectId: string, sprintId: string, status) => {
+      context.runtimeContext.setLastStatus(projectId, sprintId, status);
+    },
+    setActiveProjectScope: (projectId: string, sprintId: string) => {
+      context.runtimeContext.setActiveProjectScope({ projectId, sprintId });
+    },
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     isJulesApiConfigured: () => context.isJulesApiConfigured(),
     approveSessionPlan: (sessionId) => julesApi.approveSessionPlan(sessionId),

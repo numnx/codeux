@@ -19,7 +19,8 @@ describe("dashboard-lifecycle-service", () => {
       projectRoot: "/project-root",
       getDashboardPort: vi.fn().mockReturnValue(3000),
       runtimeContext: {
-        lastStatus: "idle",
+        getLastStatus: vi.fn().mockReturnValue("idle"),
+        getActiveProjectScope: vi.fn().mockReturnValue({ projectId: "proj1", sprintId: "sprint1" }),
         dashboardSettings: { ...DEFAULT_DASHBOARD_SETTINGS },
         dashboardRuntimePort: undefined,
       } as any,
@@ -120,9 +121,9 @@ describe("dashboard-lifecycle-service", () => {
 
       const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
 
-      const result = await setupArgs.rerunTask!("task-1");
+      const result = await setupArgs.rerunTask!("task-1", "proj1", "sprint1");
 
-      expect(mockDeps.taskRerunService.rerunTask).toHaveBeenCalledWith("task-1");
+      expect(mockDeps.taskRerunService.rerunTask).toHaveBeenCalledWith("task-1", "proj1", "sprint1");
       expect(mockDeps.activityCacheService.invalidateGitStatusCache).toHaveBeenCalled();
       expect(result).toEqual({ id: "123" });
     });
@@ -131,8 +132,8 @@ describe("dashboard-lifecycle-service", () => {
       await bootDashboard(mockDeps);
       const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
 
-      setupArgs.getStatus();
-      expect(mockDeps.runtimeContext.lastStatus).toBe("idle");
+      expect(setupArgs.getStatus("proj1", "sprint1")).toBe("idle");
+      expect(mockDeps.runtimeContext.getLastStatus).toHaveBeenCalledWith("proj1", "sprint1");
 
       expect(setupArgs.getLiveActivities).toBe(mockDeps.getLiveActivitiesForActiveTasks);
       expect(setupArgs.getGitStatus).toBe(mockDeps.getGitStatus);

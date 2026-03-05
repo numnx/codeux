@@ -27,7 +27,8 @@ describe("Dashboard Factory", () => {
 
     mockContext = {
       runtimeContext: {
-        lastStatus: { subtasks: ["mock-subtask"] },
+        getLastStatus: vi.fn().mockReturnValue({ subtasks: ["mock-subtask"] }),
+        setLastStatus: vi.fn(),
       },
       resolveSessionNameFromTask: vi.fn(),
       fetchRecentActivities: vi.fn(),
@@ -71,7 +72,7 @@ describe("Dashboard Factory", () => {
     const activityCacheArgs = vi.mocked(ActivityCacheService).mock.calls[0][0];
 
     // Verify getSubtasks
-    const subtasks = activityCacheArgs.getSubtasks();
+    const subtasks = activityCacheArgs.getSubtasks("default", "default");
     expect(subtasks).toEqual(["mock-subtask"]);
 
     // Test resolveSessionNameFromTask
@@ -83,8 +84,8 @@ describe("Dashboard Factory", () => {
     expect(mockContext.fetchRecentActivities).toHaveBeenCalledWith("session1", 10);
 
     // Test resolveGitStatusRepoPath
-    activityCacheArgs.resolveGitStatusRepoPath();
-    expect(mockContext.resolveGitStatusRepoPath).toHaveBeenCalled();
+    activityCacheArgs.resolveGitStatusRepoPath("default", "default");
+    expect(mockContext.resolveGitStatusRepoPath).toHaveBeenCalledWith("default", "default");
 
     // Test fetchGitStatusForRepo
     activityCacheArgs.fetchGitStatusForRepo("/repo", 1000);
@@ -98,12 +99,12 @@ describe("Dashboard Factory", () => {
     const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
 
     // Test getStatus
-    const status = taskRerunArgs.getStatus();
+    const status = taskRerunArgs.getStatus("default", "default");
     expect(status).toEqual({ subtasks: ["mock-subtask"] });
 
     // Test updateStatus
-    taskRerunArgs.updateStatus({ updated: true });
-    expect(mockContext.runtimeContext.lastStatus).toEqual({ updated: true });
+    taskRerunArgs.updateStatus("default", "default", { updated: true });
+    expect(mockContext.runtimeContext.setLastStatus).toHaveBeenCalledWith("default", "default", { updated: true });
 
     // Test startTask
     taskRerunArgs.startTask({ task: "t1", sourceId: "s1", featureBranch: "f1", repoPath: "r1", sprintNumber: 1 });
@@ -127,7 +128,7 @@ describe("Dashboard Factory", () => {
   });
 
   it("getSubtasks handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockContext.runtimeContext.getLastStatus.mockReturnValue(null);
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -135,11 +136,11 @@ describe("Dashboard Factory", () => {
     );
 
     const activityCacheArgs = vi.mocked(ActivityCacheService).mock.calls[0][0];
-    expect(activityCacheArgs.getSubtasks()).toEqual([]);
+    expect(activityCacheArgs.getSubtasks("default", "default")).toEqual([]);
   });
 
   it("getStatus handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockContext.runtimeContext.getLastStatus.mockReturnValue(null);
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -147,6 +148,6 @@ describe("Dashboard Factory", () => {
     );
 
     const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
-    expect(taskRerunArgs.getStatus()).toEqual({});
+    expect(taskRerunArgs.getStatus("default", "default")).toEqual({});
   });
 });

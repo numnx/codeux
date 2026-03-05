@@ -1,3 +1,4 @@
+import * as path from "path";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { CycleRunner } from "./cycle-runner.js";
 import type { WatchLoopRunner } from "./watch-loop-runner.js";
@@ -160,7 +161,10 @@ export class SprintActionRunner {
       // Guide is optional.
     }
 
-    this.deps.updateLastStatus({
+    const projectId = path.basename(path.resolve(repoPath));
+    const sprintId = String(args.sprint_number);
+
+    this.deps.updateLastStatus(projectId, sprintId, {
       sprint_number: args.sprint_number,
       source_id: args.source_id,
       repo_path: repoPath,

@@ -80,8 +80,8 @@ describe("TaskRerunService", () => {
       sprintNumber: 7,
     });
     expect(updateStatus).toHaveBeenCalledTimes(2);
-    expect(updateStatus.mock.calls[0][0].subtasks[0].status).toBe("PENDING");
-    expect(updateStatus.mock.calls[1][0].subtasks[0].status).toBe("RUNNING");
+    expect(updateStatus.mock.calls[0][2].subtasks[0].status).toBe("PENDING");
+    expect(updateStatus.mock.calls[1][2].subtasks[0].status).toBe("RUNNING");
     expect(rerunTask.session_id).toBe("new-session");
     expect(rerunTask.session_name).toBe("sessions/new-session");
     expect(rerunTask.provider).toBe("claude-code");
@@ -92,8 +92,8 @@ describe("TaskRerunService", () => {
 
     await expect(service.rerunTask("01-task")).rejects.toThrow("provider unavailable");
     expect(updateStatus).toHaveBeenCalledTimes(2);
-    expect(updateStatus.mock.calls[0][0].subtasks[0].status).toBe("PENDING");
-    expect(updateStatus.mock.calls[1][0].subtasks[0].status).toBe("FAILED");
+    expect(updateStatus.mock.calls[0][2].subtasks[0].status).toBe("PENDING");
+    expect(updateStatus.mock.calls[1][2].subtasks[0].status).toBe("FAILED");
   });
 
   it("still reruns when merged-flag persistence fails", async () => {

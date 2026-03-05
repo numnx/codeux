@@ -12,13 +12,13 @@ export interface DashboardServerOptions {
   dashboardDir: string;
   port: number;
   liveActivityCacheMs: number;
-  getStatus: () => unknown;
-  getLiveActivities: () => Promise<Record<string, JulesActivity[]>>;
-  getGitStatus: () => Promise<GitTrackingStatus>;
+  getStatus: (projectId: string, sprintId: string) => unknown;
+  getLiveActivities: (projectId: string, sprintId: string) => Promise<Record<string, JulesActivity[]>>;
+  getGitStatus: (projectId: string, sprintId: string) => Promise<GitTrackingStatus>;
   getExternalSettingsHints: () => ExternalSettingsHints;
   getSettings: () => DashboardSettings;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
-  rerunTask: (taskId: string) => Promise<unknown>;
+  rerunTask: (taskId: string, projectId: string, sprintId: string) => Promise<unknown>;
   logger?: Logger;
   isReady?: () => ReadinessProbeStatus;
   isHealthy?: () => ReadinessProbeStatus;
@@ -113,13 +113,35 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
   });
 
-  app.get("/api/status", (req, res) => {
-    res.json(getStatus());
+  app.get("/api/projects/:projectId/sprints/:sprintId/status", (req, res) => {
+    const { projectId, sprintId } = req.params;
+    res.json(getStatus(projectId, sprintId));
   });
 
+  // Legacy fallback for tests/dashboard (might not be needed but safe to keep)
+  app.get("/api/status", (req, res) => {
+    res.json(getStatus("default", "default"));
+  });
+
+  app.get("/api/projects/:projectId/sprints/:sprintId/live-activities", async (req, res) => {
+    try {
+      const { projectId, sprintId } = req.params;
+      const activitiesBySession = await getLiveActivities(projectId, sprintId);
+      res.json({
+        activitiesBySession,
+        polledAt: new Date().toISOString(),
+        cacheTtlMs: liveActivityCacheMs,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: `Failed to fetch live activities: ${message}` });
+    }
+  });
+
+  // Legacy fallback for tests/dashboard
   app.get("/api/live-activities", async (req, res) => {
     try {
-      const activitiesBySession = await getLiveActivities();
+      const activitiesBySession = await getLiveActivities("default", "default");
       res.json({
         activitiesBySession,
         polledAt: new Date().toISOString(),
@@ -139,9 +161,21 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     res.json(getExternalSettingsHints());
   });
 
+  app.get("/api/projects/:projectId/sprints/:sprintId/git-status", async (req, res) => {
+    try {
+      const { projectId, sprintId } = req.params;
+      const status = await getGitStatus(projectId, sprintId);
+      res.json(status);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: `Failed to fetch git status: ${message}` });
+    }
+  });
+
+  // Legacy fallback for tests/dashboard
   app.get("/api/git-status", async (req, res) => {
     try {
-      const status = await getGitStatus();
+      const status = await getGitStatus("default", "default");
       res.json(status);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -159,14 +193,15 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
   });
 
-  app.post("/api/tasks/:taskId/rerun", async (req, res) => {
+  app.post("/api/projects/:projectId/sprints/:sprintId/tasks/:taskId/rerun", async (req, res) => {
     try {
+      const { projectId, sprintId } = req.params;
       const taskId = String(req.params.taskId || "").trim();
       if (!taskId) {
         res.status(400).json({ error: "Missing task id." });
         return;
       }
-      const task = await rerunTask(taskId);
+      const task = await rerunTask(taskId, projectId, sprintId);
       res.json({ ok: true, task });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

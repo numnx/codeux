@@ -20,13 +20,13 @@ export function createDashboardDependencies(
 
   const activityCacheService = new ActivityCacheService(
     {
-      getSubtasks: () => {
-        const lastStatus = context.runtimeContext.lastStatus;
+      getSubtasks: (projectId: string, sprintId: string) => {
+        const lastStatus = context.runtimeContext.getLastStatus(projectId, sprintId);
         return Array.isArray(lastStatus?.subtasks) ? lastStatus.subtasks : [];
       },
       resolveSessionNameFromTask: (task) => context.resolveSessionNameFromTask(task),
       fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
-      resolveGitStatusRepoPath: () => context.resolveGitStatusRepoPath(),
+      resolveGitStatusRepoPath: (projectId?: string, sprintId?: string) => context.resolveGitStatusRepoPath(projectId, sprintId),
       fetchGitStatusForRepo: (repoPath, cacheTtlMs) => context.fetchGitStatusForRepo(repoPath, cacheTtlMs),
       invalidateGitStatusCache: (repoPath) => context.invalidateGitStatusCache?.(repoPath),
       logger: logger.child({ component: "activity-cache-service" }),
@@ -37,10 +37,10 @@ export function createDashboardDependencies(
   );
 
   const taskRerunService = new TaskRerunService({
-    getStatus: () => context.runtimeContext.lastStatus || {},
-    updateStatus: (status) => {
-      context.runtimeContext.lastStatus = status;
-      activityCacheService.invalidateLiveActivitiesCache();
+    getStatus: (projectId: string, sprintId: string) => context.runtimeContext.getLastStatus(projectId, sprintId) || {},
+    updateStatus: (projectId: string, sprintId: string, status) => {
+      context.runtimeContext.setLastStatus(projectId, sprintId, status);
+      activityCacheService.invalidateLiveActivitiesCache(projectId, sprintId);
     },
     startTask: ({ task, sourceId, featureBranch, repoPath, sprintNumber }) =>
       taskService.startSprintTask(task, sourceId, featureBranch, repoPath, sprintNumber),

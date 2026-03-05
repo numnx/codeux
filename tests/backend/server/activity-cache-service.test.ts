@@ -191,7 +191,7 @@ describe('ActivityCacheService', () => {
       const result = await service.getGitStatus();
 
       expect(mockDeps.resolveGitStatusRepoPath).toHaveBeenCalledTimes(1);
-      expect(mockDeps.fetchGitStatusForRepo).toHaveBeenCalledWith('/test/repo', GIT_CACHE_MS);
+      expect(mockDeps.fetchGitStatusForRepo).toHaveBeenCalledWith("/test/repo", 5000, undefined, undefined);
       expect(result).toEqual(mockGitStatus);
     });
 

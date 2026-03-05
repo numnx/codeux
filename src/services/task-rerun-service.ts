@@ -15,8 +15,8 @@ export interface TaskRerunContext {
 }
 
 export interface TaskRerunServiceDependencies {
-  getStatus: () => TaskRerunContext;
-  updateStatus: (status: TaskRerunContext) => void;
+  getStatus: (projectId: string, sprintId: string) => TaskRerunContext;
+  updateStatus: (projectId: string, sprintId: string, status: TaskRerunContext) => void;
   startTask: (args: {
     task: Subtask;
     sourceId?: string;
@@ -48,8 +48,8 @@ const resetTaskState = (task: Subtask): Subtask => ({
 export class TaskRerunService {
   constructor(private readonly deps: TaskRerunServiceDependencies) {}
 
-  async rerunTask(taskId: string): Promise<Subtask> {
-    const status = this.deps.getStatus();
+  async rerunTask(taskId: string, projectId: string = "default", sprintId: string = "default"): Promise<Subtask> {
+    const status = this.deps.getStatus(projectId, sprintId);
     const sprintNumber = typeof status.sprint_number === "number" ? status.sprint_number : null;
     const sourceId = typeof status.source_id === "string" && status.source_id.trim().length > 0 ? status.source_id.trim() : undefined;
     const repoPath = typeof status.repo_path === "string" && status.repo_path.trim().length > 0 ? status.repo_path.trim() : null;
@@ -68,7 +68,7 @@ export class TaskRerunService {
 
     const resetTask = resetTaskState(subtasks[taskIndex]);
     const resetSubtasks = subtasks.map((task, index) => (index === taskIndex ? resetTask : task));
-    this.deps.updateStatus({
+    this.deps.updateStatus(projectId, sprintId, {
       ...status,
       subtasks: resetSubtasks,
       timestamp: new Date().toLocaleTimeString(),
@@ -105,7 +105,7 @@ export class TaskRerunService {
         provider: session.provider,
       };
       const restartedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? restartedTask : task));
-      this.deps.updateStatus({
+      this.deps.updateStatus(projectId, sprintId, {
         ...status,
         subtasks: restartedSubtasks,
         timestamp: new Date().toLocaleTimeString(),
@@ -117,7 +117,7 @@ export class TaskRerunService {
         status: TaskStatus.FAILED,
       };
       const failedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? failedTask : task));
-      this.deps.updateStatus({
+      this.deps.updateStatus(projectId, sprintId, {
         ...status,
         subtasks: failedSubtasks,
         timestamp: new Date().toLocaleTimeString(),

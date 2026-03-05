@@ -28,8 +28,8 @@ export interface BootDashboardDeps {
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
   logger: Logger;
-  getLiveActivitiesForActiveTasks: () => Promise<Record<string, JulesActivity[]>>;
-  getGitStatus: () => Promise<GitTrackingStatus>;
+  getLiveActivitiesForActiveTasks: (projectId: string, sprintId: string) => Promise<Record<string, JulesActivity[]>>;
+  getGitStatus: (projectId: string, sprintId: string) => Promise<GitTrackingStatus>;
   isReady: () => ReadinessProbeStatus;
   isHealthy: () => ReadinessProbeStatus;
   syncGitSettingsFromDashboard: () => void;
@@ -58,7 +58,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     dashboardDir,
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
-    getStatus: () => deps.runtimeContext.lastStatus,
+    getStatus: (projectId: string, sprintId: string) => deps.runtimeContext.getLastStatus(projectId, sprintId),
     getLiveActivities: deps.getLiveActivitiesForActiveTasks,
     getGitStatus: deps.getGitStatus,
     getExternalSettingsHints: () => deps.externalSettingsHints,
@@ -74,12 +74,13 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
       });
       deps.setLogger(newLogger);
 
-      deps.activityCacheService.invalidateGitStatusCache();
+      const activeScope = deps.runtimeContext.getActiveProjectScope();
+      deps.activityCacheService.invalidateGitStatusCache(activeScope?.projectId, activeScope?.sprintId);
       return deps.runtimeContext.dashboardSettings;
     },
-    rerunTask: async (taskId: string) => {
-      const task = await deps.taskRerunService.rerunTask(taskId);
-      deps.activityCacheService.invalidateGitStatusCache();
+    rerunTask: async (taskId: string, projectId: string, sprintId: string) => {
+      const task = await deps.taskRerunService.rerunTask(taskId, projectId, sprintId);
+      deps.activityCacheService.invalidateGitStatusCache(projectId, sprintId);
       return task;
     },
     logger: deps.logger.child({ component: "dashboard-server" }),

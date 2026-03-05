@@ -2,18 +2,18 @@ import type { GitTrackingStatus, JulesActivity, Subtask } from "../contracts/app
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface ActivityCacheServiceDependencies {
-  getSubtasks: () => Subtask[];
+  getSubtasks: (projectId: string, sprintId: string) => Subtask[];
   resolveSessionNameFromTask: (task: Subtask) => string | undefined;
   fetchRecentActivities: (sessionName: string, pageSize?: number) => Promise<JulesActivity[]>;
-  resolveGitStatusRepoPath: () => string;
-  fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => Promise<GitTrackingStatus>;
+  resolveGitStatusRepoPath: (projectId?: string, sprintId?: string) => string;
+  fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number, projectId?: string, sprintId?: string) => Promise<GitTrackingStatus>;
   invalidateGitStatusCache?: (repoPath: string) => void;
   logger?: Logger;
 }
 
 export class ActivityCacheService {
-  private liveActivitiesCache: { timestamp: number; data: Record<string, JulesActivity[]> } = { timestamp: 0, data: {} };
-  private liveActivitiesFetchPromise: Promise<Record<string, JulesActivity[]>> | null = null;
+  private liveActivitiesCache = new Map<string, { timestamp: number; data: Record<string, JulesActivity[]> }>();
+  private liveActivitiesFetchPromise = new Map<string, Promise<Record<string, JulesActivity[]>> | null>();
 
   constructor(
     private readonly deps: ActivityCacheServiceDependencies,
@@ -22,31 +22,36 @@ export class ActivityCacheService {
     private readonly activityPageSize: number
   ) {}
 
-  invalidateGitStatusCache(): void {
-    this.deps.invalidateGitStatusCache?.(this.deps.resolveGitStatusRepoPath());
+  invalidateGitStatusCache(projectId: string = "default", sprintId: string = "default"): void {
+    this.deps.invalidateGitStatusCache?.(this.deps.resolveGitStatusRepoPath(projectId, sprintId));
   }
 
-  invalidateLiveActivitiesCache(): void {
-    this.liveActivitiesCache = { timestamp: 0, data: {} };
-    this.liveActivitiesFetchPromise = null;
+  invalidateLiveActivitiesCache(projectId: string = "default", sprintId: string = "default"): void {
+    const key = `${projectId}:${sprintId}`;
+    this.liveActivitiesCache.delete(key);
+    this.liveActivitiesFetchPromise.delete(key);
   }
 
-  async getGitStatus(): Promise<GitTrackingStatus> {
-    return this.deps.fetchGitStatusForRepo(this.deps.resolveGitStatusRepoPath(), this.gitStatusCacheMs);
+  async getGitStatus(projectId?: string, sprintId?: string): Promise<GitTrackingStatus> {
+    return this.deps.fetchGitStatusForRepo(this.deps.resolveGitStatusRepoPath(projectId, sprintId), this.gitStatusCacheMs, projectId, sprintId);
   }
 
-  async getLiveActivitiesForActiveTasks(): Promise<Record<string, JulesActivity[]>> {
+  async getLiveActivitiesForActiveTasks(projectId: string = "default", sprintId: string = "default"): Promise<Record<string, JulesActivity[]>> {
+    const key = `${projectId}:${sprintId}`;
     const now = Date.now();
-    if (now - this.liveActivitiesCache.timestamp < this.liveActivityCacheMs) {
-      return this.liveActivitiesCache.data;
+    const cacheEntry = this.liveActivitiesCache.get(key);
+
+    if (cacheEntry && now - cacheEntry.timestamp < this.liveActivityCacheMs) {
+      return cacheEntry.data;
     }
 
-    if (this.liveActivitiesFetchPromise) {
-      return this.liveActivitiesFetchPromise;
+    const fetchPromise = this.liveActivitiesFetchPromise.get(key);
+    if (fetchPromise) {
+      return fetchPromise;
     }
 
-    this.liveActivitiesFetchPromise = (async () => {
-      const subtasks = this.deps.getSubtasks();
+    const newFetchPromise = (async () => {
+      const subtasks = this.deps.getSubtasks(projectId, sprintId);
       const activeSessionNames = Array.from(
         new Set(
           subtasks
@@ -58,7 +63,7 @@ export class ActivityCacheService {
 
       if (activeSessionNames.length === 0) {
         const empty: Record<string, JulesActivity[]> = {};
-        this.liveActivitiesCache = { timestamp: Date.now(), data: empty };
+        this.liveActivitiesCache.set(key, { timestamp: Date.now(), data: empty });
         return empty;
       }
 
@@ -75,12 +80,13 @@ export class ActivityCacheService {
       );
 
       const data = Object.fromEntries(results);
-      this.liveActivitiesCache = { timestamp: Date.now(), data };
+      this.liveActivitiesCache.set(key, { timestamp: Date.now(), data });
       return data;
     })().finally(() => {
-      this.liveActivitiesFetchPromise = null;
+      this.liveActivitiesFetchPromise.delete(key);
     });
 
-    return this.liveActivitiesFetchPromise;
+    this.liveActivitiesFetchPromise.set(key, newFetchPromise);
+    return newFetchPromise;
   }
 }

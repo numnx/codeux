@@ -141,8 +141,8 @@ export class JulesAgentServer {
       getCiStatusForScope: (args) => this.getCiStatusForScope(args),
       autoMergeFeaturePr: (args) => this.autoMergeFeaturePr(args),
       resolveSessionNameFromTask: (task) => this.resolveSessionNameFromTask(task),
-      resolveGitStatusRepoPath: () => this.resolveGitStatusRepoPath(),
-      fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => this.fetchGitStatusForRepo(repoPath, cacheTtlMs),
+      resolveGitStatusRepoPath: (projectId?: string, sprintId?: string) => this.resolveGitStatusRepoPath(projectId, sprintId),
+      fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number, projectId?: string, sprintId?: string) => this.fetchGitStatusForRepo(repoPath, cacheTtlMs, projectId, sprintId),
       invalidateGitStatusCache: (repoPath: string) => GitStatusService.invalidateCache(repoPath),
       persistTaskMergedFlag: (args) => this.persistTaskMergedFlag(args),
       normalizeName: (type, id) => this.normalizeName(type, id),
@@ -244,12 +244,22 @@ export class JulesAgentServer {
     return (fallback && fallback.length > 0) ? fallback : undefined;
   }
 
-  private resolveGitTrackingRequest(): GitTrackingRequest {
+  private resolveGitTrackingRequest(projectId?: string, sprintId?: string): GitTrackingRequest {
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     const ci = settings.ciIntelligence;
-    const subtasks: Subtask[] = Array.isArray(this.runtimeContext.lastStatus?.subtasks) ? this.runtimeContext.lastStatus.subtasks : [];
-    const featureBranch = typeof this.runtimeContext.lastStatus?.feature_branch === "string" && this.runtimeContext.lastStatus.feature_branch.trim().length > 0
-      ? this.runtimeContext.lastStatus.feature_branch.trim()
+
+    let resolvedProjectId = projectId;
+    let resolvedSprintId = sprintId;
+    if (!resolvedProjectId || !resolvedSprintId) {
+      const activeScope = this.runtimeContext.getActiveProjectScope();
+      resolvedProjectId = activeScope?.projectId || "default";
+      resolvedSprintId = activeScope?.sprintId || "default";
+    }
+
+    const lastStatus = this.runtimeContext.getLastStatus(resolvedProjectId, resolvedSprintId);
+    const subtasks: Subtask[] = Array.isArray(lastStatus?.subtasks) ? lastStatus.subtasks : [];
+    const featureBranch = typeof lastStatus?.feature_branch === "string" && lastStatus.feature_branch.trim().length > 0
+      ? lastStatus.feature_branch.trim()
       : null;
     const defaultBranch = settings.git.defaultBranch?.trim() || "main";
     const featureBranchPrefix = settings.git.featureBranchPrefix?.trim() || "feature/";
@@ -272,8 +282,17 @@ export class JulesAgentServer {
     };
   }
 
-  private resolveGitStatusRepoPath(): string {
-    const statusRepoPath = typeof this.runtimeContext.lastStatus?.repo_path === "string" ? this.runtimeContext.lastStatus.repo_path.trim() : "";
+  private resolveGitStatusRepoPath(projectId?: string, sprintId?: string): string {
+    let resolvedProjectId = projectId;
+    let resolvedSprintId = sprintId;
+    if (!resolvedProjectId || !resolvedSprintId) {
+      const activeScope = this.runtimeContext.getActiveProjectScope();
+      resolvedProjectId = activeScope?.projectId || "default";
+      resolvedSprintId = activeScope?.sprintId || "default";
+    }
+
+    const lastStatus = this.runtimeContext.getLastStatus(resolvedProjectId, resolvedSprintId);
+    const statusRepoPath = typeof lastStatus?.repo_path === "string" ? lastStatus.repo_path.trim() : "";
     return statusRepoPath.length > 0 ? statusRepoPath : this.projectRoot;
   }
 
@@ -282,7 +301,9 @@ export class JulesAgentServer {
     const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
     const mcpServiceUp = this.mcpServiceBound;
 
-    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.runtimeContext.lastStatus?.timestamp;
+    // For readiness, we assume it's up if it's bound. The specific lastStatus is now scoped,
+    // so we can't reliably check a single "lastStatus" timestamp.
+    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp;
 
     return {
       status: isReady ? "READY" : "NOT_READY",
@@ -415,19 +436,19 @@ export class JulesAgentServer {
     return this.julesApi.fetchRecentActivities(sessionName, pageSize);
   }
 
-  private async fetchGitStatusForRepo(repoPath: string, cacheTtlMs?: number): Promise<GitTrackingStatus> {
+  private async fetchGitStatusForRepo(repoPath: string, cacheTtlMs?: number, projectId?: string, sprintId?: string): Promise<GitTrackingStatus> {
     const gitStatusService = new GitStatusService(repoPath);
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     return await gitStatusService.getStatus(
       settings.git.githubMode,
       this.getEffectiveGithubToken(),
-      this.resolveGitTrackingRequest(),
+      this.resolveGitTrackingRequest(projectId, sprintId),
       cacheTtlMs
     );
   }
 
-  private async getGitStatus(): Promise<GitTrackingStatus> {
-    return await this.activityCacheService.getGitStatus();
+  private async getGitStatus(projectId: string = "default", sprintId: string = "default"): Promise<GitTrackingStatus> {
+    return await this.activityCacheService.getGitStatus(projectId, sprintId);
   }
 
   private async getCiStatusForScope(args: GetCiStatusForScopeArgs): Promise<GitTrackingStatus | null> {
@@ -459,8 +480,8 @@ export class JulesAgentServer {
     }
   }
 
-  private async getLiveActivitiesForActiveTasks(): Promise<Record<string, JulesActivity[]>> {
-    return await this.activityCacheService.getLiveActivitiesForActiveTasks();
+  private async getLiveActivitiesForActiveTasks(projectId: string = "default", sprintId: string = "default"): Promise<Record<string, JulesActivity[]>> {
+    return await this.activityCacheService.getLiveActivitiesForActiveTasks(projectId, sprintId);
   }
 
   async run() {
@@ -490,8 +511,8 @@ export class JulesAgentServer {
       activityCacheService: this.activityCacheService,
       taskRerunService: this.taskRerunService,
       logger: this.logger,
-      getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
-      getGitStatus: () => this.getGitStatus(),
+      getLiveActivitiesForActiveTasks: (projectId: string, sprintId: string) => this.getLiveActivitiesForActiveTasks(projectId, sprintId),
+      getGitStatus: (projectId: string, sprintId: string) => this.getGitStatus(projectId, sprintId),
       isReady: () => this.isReady(),
       isHealthy: () => this.isHealthy(),
       syncGitSettingsFromDashboard: () => syncGitSettingsFromDashboard(this.runtimeContext),

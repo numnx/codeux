@@ -42,7 +42,8 @@ export interface SprintOrchestratorDependencies {
   subtaskRepository: SubtaskFileRepository;
   startTask: (task: Subtask, sourceId: string | undefined, baseBranch: string, repoPath: string, sprintNumber: number) => Promise<JulesSession>;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
-  updateLastStatus: (status: any) => void;
+  updateLastStatus: (projectId: string, sprintId: string, status: any) => void;
+  setActiveProjectScope: (projectId: string, sprintId: string) => void;
   getDashboardSettings: () => DashboardSettings;
   isJulesApiConfigured: () => boolean;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;
@@ -204,9 +205,16 @@ export class SprintOrchestrator {
   }
 
   async execute(args: SprintAgentArgs): Promise<any> {
+    const pathModule = await import("path");
     const repoPath = typeof args.repo_path === "string" && args.repo_path.trim().length > 0 ? args.repo_path : process.cwd();
-    const sprintsDir = path.join(repoPath, ".jules-subagents", "sprints");
-    const subtasksDir = path.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
+    const sprintsDir = pathModule.join(repoPath, ".jules-subagents", "sprints");
+    const subtasksDir = pathModule.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
+
+    if (this.deps.setActiveProjectScope) {
+      const projectId = pathModule.basename(pathModule.resolve(repoPath));
+      const sprintId = String(args.sprint_number);
+      this.deps.setActiveProjectScope(projectId, sprintId);
+    }
     const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
     const defaultBranch = typeof this.deps.settings.defaultBranch === "string" && this.deps.settings.defaultBranch.trim().length > 0
       ? this.deps.settings.defaultBranch

@@ -20,11 +20,11 @@ describe("TaskRepository", () => {
 
     // Setup initial project and sprint needed for foreign key constraints
     db.db.exec(`
-      INSERT INTO pm_projects (id, name, status, created_at, updated_at)
-      VALUES ('proj-1', 'Test Project', 'ACTIVE', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+      INSERT INTO pm_projects (id, source_id, normalized_base_dir, name, status, created_at, updated_at)
+      VALUES ('proj-1', 'dummy-source', '/dummy/dir', 'Test Project', 'ACTIVE', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
-      INSERT INTO pm_sprints (id, project_id, name, status, created_at, updated_at)
-      VALUES ('sprint-1', 'proj-1', 'Sprint 1', 'ACTIVE', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+      INSERT INTO pm_sprints (id, project_id, order_index, name, status, created_at, updated_at)
+      VALUES ('sprint-1', 'proj-1', 1, 'Sprint 1', 'ACTIVE', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
     `);
   });
 

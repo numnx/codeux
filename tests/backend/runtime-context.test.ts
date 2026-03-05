@@ -8,7 +8,7 @@ describe("DefaultRuntimeContext", () => {
     expect(context.settings).toEqual({ maxFailures: 5 });
     expect(context.dashboardSettings).toBeUndefined();
     expect(context.consecutiveFailures).toBe(0);
-    expect(context.lastStatus).toEqual({ subtasks: [], timestamp: null });
+    expect(context.getLastStatus("default", "default")).toEqual({ subtasks: [], timestamp: null });
     expect(context.dashboardRuntimePort).toBeNull();
   });
 
@@ -37,8 +37,20 @@ describe("DefaultRuntimeContext", () => {
   it("should update lastStatus", () => {
     const context = new DefaultRuntimeContext();
     const newStatus: Partial<DashboardStatus> = { timestamp: "2023-01-01" };
-    context.lastStatus = newStatus;
-    expect(context.lastStatus).toEqual(newStatus);
+    context.setLastStatus("default", "default", newStatus);
+    expect(context.getLastStatus("default", "default")).toEqual(newStatus);
+  });
+
+  it("should update lastStatus with active project scope", () => {
+    const context = new DefaultRuntimeContext();
+    const globalStatus: Partial<DashboardStatus> = { timestamp: "2023-01-01" };
+    context.setLastStatus("default", "default", globalStatus);
+
+    const scopedStatus: Partial<DashboardStatus> = { timestamp: "2023-12-01" };
+    context.setLastStatus("proj1", "sprint1", scopedStatus);
+    expect(context.getLastStatus("proj1", "sprint1")).toEqual(scopedStatus);
+
+    expect(context.getLastStatus("default", "default")).toEqual(globalStatus);
   });
 
   it("should update dashboardRuntimePort", () => {

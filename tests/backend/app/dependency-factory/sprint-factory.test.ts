@@ -40,6 +40,7 @@ describe("Sprint Factory", () => {
         settings: {},
         dashboardSettings: { setting1: true },
         consecutiveFailures: 1,
+        setLastStatus: vi.fn(),
       },
       getGuideContentIfEnabled: vi.fn(),
       getEffectiveGithubToken: vi.fn(),
@@ -147,8 +148,8 @@ describe("Sprint Factory", () => {
     sprintArgs.getGuideContent("guide3", "repo3");
     expect(mockContext.getGuideContentIfEnabled).toHaveBeenCalledWith("guide3", "repo3");
 
-    sprintArgs.updateLastStatus({ test: 1 });
-    expect(mockContext.runtimeContext.lastStatus).toEqual({ test: 1 });
+    sprintArgs.updateLastStatus("proj1", "sprint1", { test: 1 });
+    expect(mockContext.runtimeContext.setLastStatus).toHaveBeenCalledWith("proj1", "sprint1", { test: 1 });
 
     expect(sprintArgs.getDashboardSettings()).toEqual({ setting1: true });
 

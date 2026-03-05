@@ -37,8 +37,8 @@ export interface ServerContext {
   getCiStatusForScope: (args: GetCiStatusForScopeArgs) => Promise<GitTrackingStatus | null>;
   autoMergeFeaturePr: (args: AutoMergeFeaturePrArgs) => Promise<{ ok: boolean; message?: string }>;
   resolveSessionNameFromTask: (task: Subtask) => string | undefined;
-  resolveGitStatusRepoPath: () => string;
-  fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => Promise<GitTrackingStatus>;
+  resolveGitStatusRepoPath: (projectId?: string, sprintId?: string) => string;
+  fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number, projectId?: string, sprintId?: string) => Promise<GitTrackingStatus>;
   invalidateGitStatusCache?: (repoPath: string) => void;
   persistTaskMergedFlag: (args: PersistTaskMergedFlagArgs) => Promise<void>;
   normalizeName: (type: string, id: string) => string;

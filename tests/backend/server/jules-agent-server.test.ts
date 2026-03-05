@@ -133,19 +133,19 @@ describe("JulesAgentServer", () => {
         ...DEFAULT_DASHBOARD_SETTINGS,
         ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, enabled: true, waitForCiBeforeFeatureMerge: true }
       };
-      runtimeContext.lastStatus = {
+      runtimeContext.setLastStatus("default", "default", {
         subtasks: [{ id: "T1", status: "RUNNING" } as any],
         feature_branch: "feat/test"
-      };
-      const request = (server as any).resolveGitTrackingRequest();
+      });
+      const request = (server as any).resolveGitTrackingRequest("default", "default");
       expect(request.scope).toBe("FEATURE_PR_CI");
       expect(request.featureBranch).toBe("feat/test");
     });
 
     it("should return MAIN_BRANCH_CI otherwise", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { subtasks: [], feature_branch: null };
-      const request = (server as any).resolveGitTrackingRequest();
+      runtimeContext.setLastStatus("default", "default", { subtasks: [], feature_branch: null });
+      const request = (server as any).resolveGitTrackingRequest("default", "default");
       expect(request.scope).toBe("MAIN_BRANCH_CI");
     });
   });
@@ -153,14 +153,14 @@ describe("JulesAgentServer", () => {
   describe("resolveGitStatusRepoPath", () => {
     it("should return repo_path from lastStatus if available", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { repo_path: "/custom/path" };
-      expect((server as any).resolveGitStatusRepoPath()).toBe("/custom/path");
+      runtimeContext.setLastStatus("default", "default", { repo_path: "/custom/path" });
+      expect((server as any).resolveGitStatusRepoPath("default", "default")).toBe("/custom/path");
     });
 
     it("should fallback to projectRoot", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = null;
-      expect((server as any).resolveGitStatusRepoPath()).toBe(projectRoot);
+      runtimeContext.setLastStatus("default", "default", null);
+      expect((server as any).resolveGitStatusRepoPath("default", "default")).toBe(projectRoot);
     });
   });
 

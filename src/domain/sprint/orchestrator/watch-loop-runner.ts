@@ -1,4 +1,5 @@
 import * as fs from "fs/promises";
+import * as path from "path";
 import { runCompletionStep } from "../../../sprint/steps/completion-step.js";
 import type { SprintAgentArgs } from "../../../sprint/sprint-types.js";
 import { determineNextState, WatchLoopState } from "./watch-loop-state-machine.js";
@@ -90,7 +91,10 @@ export class WatchLoopRunner {
       });
 
       const timestamp = new Date().toLocaleTimeString();
-      this.deps.updateLastStatus({
+      const projectId = path.basename(path.resolve(repoPath));
+      const sprintId = String(args.sprint_number);
+
+      this.deps.updateLastStatus(projectId, sprintId, {
         sprint_number: args.sprint_number,
         source_id: args.source_id,
         repo_path: repoPath,
