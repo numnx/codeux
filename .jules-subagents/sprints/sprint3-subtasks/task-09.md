@@ -1,7 +1,7 @@
 title: Improve ActionRequiredAutomation and BranchPreflightStep Coverage
 depends_on: []
 is_independent: true
-merged: true
+merged: false
 prompt:
 # Task Specification: T09 - Sprint 3
 
