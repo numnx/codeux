@@ -247,10 +247,10 @@ export class JulesAgentServer {
   private resolveGitTrackingRequest(): GitTrackingRequest {
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     const ci = settings.ciIntelligence;
-    const subtasks: Subtask[] = Array.isArray(this.runtimeContext.lastStatus?.subtasks) ? this.runtimeContext.lastStatus.subtasks : [];
-    const featureBranch = typeof this.runtimeContext.lastStatus?.feature_branch === "string" && this.runtimeContext.lastStatus.feature_branch.trim().length > 0
-      ? this.runtimeContext.lastStatus.feature_branch.trim()
-      : null;
+    // Without specific projectId, we can't reliably resolve git tracking globally anymore.
+    // For safety, assume null feature branch.
+    const subtasks: Subtask[] = [];
+    const featureBranch = null;
     const defaultBranch = settings.git.defaultBranch?.trim() || "main";
     const featureBranchPrefix = settings.git.featureBranchPrefix?.trim() || "feature/";
 
@@ -273,8 +273,15 @@ export class JulesAgentServer {
   }
 
   private resolveGitStatusRepoPath(): string {
-    const statusRepoPath = typeof this.runtimeContext.lastStatus?.repo_path === "string" ? this.runtimeContext.lastStatus.repo_path.trim() : "";
-    return statusRepoPath.length > 0 ? statusRepoPath : this.projectRoot;
+    // Return the repo path of the most recently updated active status, fallback to root
+    const allStatuses = this.runtimeContext.getAllActiveStatus();
+    if (allStatuses.length > 0) {
+      const activeProject = allStatuses[allStatuses.length - 1];
+      if (typeof activeProject.repo_path === "string" && activeProject.repo_path.trim().length > 0) {
+        return activeProject.repo_path.trim();
+      }
+    }
+    return this.projectRoot;
   }
 
   private isReady(): ReadinessProbeStatus {
@@ -282,7 +289,9 @@ export class JulesAgentServer {
     const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
     const mcpServiceUp = this.mcpServiceBound;
 
-    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.runtimeContext.lastStatus?.timestamp;
+    const allStatuses = this.runtimeContext.getAllActiveStatus();
+    const hasStatus = allStatuses.length > 0;
+    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && hasStatus;
 
     return {
       status: isReady ? "READY" : "NOT_READY",

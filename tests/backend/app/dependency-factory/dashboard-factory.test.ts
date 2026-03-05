@@ -26,8 +26,9 @@ describe("Dashboard Factory", () => {
     vi.clearAllMocks();
 
     mockContext = {
-      runtimeContext: {
-        lastStatus: { subtasks: ["mock-subtask"] },
+      getProjectRoot: vi.fn(),
+      runtimeContext: { updateLastStatus: vi.fn(), getLastStatus: vi.fn(), getAllActiveStatus: vi.fn().mockReturnValue([{ subtasks: ["mock-subtask"] }]),
+        getLastStatus: vi.fn().mockReturnValue({ subtasks: ["mock-subtask"] }),
       },
       resolveSessionNameFromTask: vi.fn(),
       fetchRecentActivities: vi.fn(),
@@ -99,11 +100,11 @@ describe("Dashboard Factory", () => {
 
     // Test getStatus
     const status = taskRerunArgs.getStatus();
-    expect(status).toEqual({ subtasks: ["mock-subtask"] });
+    expect(status).toEqual([{ subtasks: ["mock-subtask"] }]);
 
     // Test updateStatus
-    taskRerunArgs.updateStatus({ updated: true });
-    expect(mockContext.runtimeContext.lastStatus).toEqual({ updated: true });
+    taskRerunArgs.updateStatus({ updated: true, repo_path: "mock", sprint_number: 1 } as any);
+    expect(mockContext.runtimeContext.updateLastStatus).toHaveBeenCalled();
 
     // Test startTask
     taskRerunArgs.startTask({ task: "t1", sourceId: "s1", featureBranch: "f1", repoPath: "r1", sprintNumber: 1 });
@@ -127,7 +128,9 @@ describe("Dashboard Factory", () => {
   });
 
   it("getSubtasks handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockContext.runtimeContext.getLastStatus = vi.fn().mockReturnValue(undefined);
+    mockContext.runtimeContext.getAllActiveStatus = vi.fn().mockReturnValue([]);
+    mockContext.runtimeContext.getAllActiveStatus = vi.fn().mockReturnValue([]);
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -139,7 +142,8 @@ describe("Dashboard Factory", () => {
   });
 
   it("getStatus handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockContext.runtimeContext.getLastStatus = vi.fn().mockReturnValue(undefined);
+    mockContext.runtimeContext.getAllActiveStatus = vi.fn().mockReturnValue([]);
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,

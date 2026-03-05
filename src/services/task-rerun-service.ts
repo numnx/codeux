@@ -15,7 +15,7 @@ export interface TaskRerunContext {
 }
 
 export interface TaskRerunServiceDependencies {
-  getStatus: () => TaskRerunContext;
+  getStatus: () => TaskRerunContext | TaskRerunContext[];
   updateStatus: (status: TaskRerunContext) => void;
   startTask: (args: {
     task: Subtask;
@@ -49,7 +49,12 @@ export class TaskRerunService {
   constructor(private readonly deps: TaskRerunServiceDependencies) {}
 
   async rerunTask(taskId: string): Promise<Subtask> {
-    const status = this.deps.getStatus();
+    const rawStatus = this.deps.getStatus();
+    const allStatuses = Array.isArray(rawStatus) ? rawStatus : [rawStatus];
+
+    // Find the status that actually contains the task to rerun
+    const status = allStatuses.find(s => Array.isArray(s.subtasks) && s.subtasks.some(t => t.id === taskId)) || allStatuses[allStatuses.length - 1] || {};
+
     const sprintNumber = typeof status.sprint_number === "number" ? status.sprint_number : null;
     const sourceId = typeof status.source_id === "string" && status.source_id.trim().length > 0 ? status.source_id.trim() : undefined;
     const repoPath = typeof status.repo_path === "string" && status.repo_path.trim().length > 0 ? status.repo_path.trim() : null;

@@ -20,9 +20,14 @@ export function createDashboardDependencies(
 
   const activityCacheService = new ActivityCacheService(
     {
-      getSubtasks: () => {
-        const lastStatus = context.runtimeContext.lastStatus;
-        return Array.isArray(lastStatus?.subtasks) ? lastStatus.subtasks : [];
+      getSubtasks: (projectId?: string, sprintId?: string) => {
+        if (projectId && sprintId) {
+          const status = context.runtimeContext.getLastStatus(projectId, sprintId);
+          return Array.isArray(status?.subtasks) ? status.subtasks : [];
+        }
+        // If no ID is provided, return all running subtasks across all projects
+        const allStatuses = context.runtimeContext.getAllActiveStatus();
+        return allStatuses.flatMap(s => Array.isArray(s.subtasks) ? s.subtasks : []);
       },
       resolveSessionNameFromTask: (task) => context.resolveSessionNameFromTask(task),
       fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
@@ -37,9 +42,15 @@ export function createDashboardDependencies(
   );
 
   const taskRerunService = new TaskRerunService({
-    getStatus: () => context.runtimeContext.lastStatus || {},
+    getStatus: () => {
+      // Return all active statuses so TaskRerunService can find the right one containing the taskId
+      const all = context.runtimeContext.getAllActiveStatus();
+      return all.length > 0 ? all : {};
+    },
     updateStatus: (status) => {
-      context.runtimeContext.lastStatus = status;
+      if (status && status.repo_path) {
+        context.runtimeContext.updateLastStatus(status.repo_path, String(status.sprint_number), status);
+      }
       activityCacheService.invalidateLiveActivitiesCache();
     },
     startTask: ({ task, sourceId, featureBranch, repoPath, sprintNumber }) =>

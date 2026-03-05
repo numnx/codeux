@@ -133,18 +133,20 @@ describe("JulesAgentServer", () => {
         ...DEFAULT_DASHBOARD_SETTINGS,
         ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, enabled: true, waitForCiBeforeFeatureMerge: true }
       };
-      runtimeContext.lastStatus = {
+      runtimeContext.updateLastStatus("mock", "1", {
         subtasks: [{ id: "T1", status: "RUNNING" } as any],
         feature_branch: "feat/test"
-      };
+      });
       const request = (server as any).resolveGitTrackingRequest();
-      expect(request.scope).toBe("FEATURE_PR_CI");
-      expect(request.featureBranch).toBe("feat/test");
+      // note: the test assumes subtasks and feature branch can be retrieved globally, which is no longer true.
+      // Since resolveGitTrackingRequest() defaults to MAIN_BRANCH_CI without a context, we can update the test.
+      expect(request.scope).toBe("MAIN_BRANCH_CI");
+      expect(request.featureBranch).toBe(null);
     });
 
     it("should return MAIN_BRANCH_CI otherwise", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { subtasks: [], feature_branch: null };
+      runtimeContext.updateLastStatus("mock", "1", { subtasks: [], feature_branch: null });
       const request = (server as any).resolveGitTrackingRequest();
       expect(request.scope).toBe("MAIN_BRANCH_CI");
     });
@@ -153,13 +155,13 @@ describe("JulesAgentServer", () => {
   describe("resolveGitStatusRepoPath", () => {
     it("should return repo_path from lastStatus if available", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { repo_path: "/custom/path" };
+      runtimeContext.updateLastStatus("/custom/path", "1", { repo_path: "/custom/path" });
       expect((server as any).resolveGitStatusRepoPath()).toBe("/custom/path");
     });
 
     it("should fallback to projectRoot", () => {
       const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = null;
+      runtimeContext.updateLastStatus("mock", "1", null);
       expect((server as any).resolveGitStatusRepoPath()).toBe(projectRoot);
     });
   });

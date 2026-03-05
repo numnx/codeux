@@ -12,7 +12,7 @@ export interface DashboardServerOptions {
   dashboardDir: string;
   port: number;
   liveActivityCacheMs: number;
-  getStatus: () => unknown;
+  getStatus: (projectId?: string, sprintId?: string) => unknown;
   getLiveActivities: () => Promise<Record<string, JulesActivity[]>>;
   getGitStatus: () => Promise<GitTrackingStatus>;
   getExternalSettingsHints: () => ExternalSettingsHints;
@@ -114,7 +114,9 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
   });
 
   app.get("/api/status", (req, res) => {
-    res.json(getStatus());
+    const projectId = req.query.projectId as string | undefined;
+    const sprintId = req.query.sprintId as string | undefined;
+    res.json(getStatus(projectId, sprintId));
   });
 
   app.get("/api/live-activities", async (req, res) => {

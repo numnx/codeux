@@ -19,7 +19,7 @@ describe("dashboard-lifecycle-service", () => {
       projectRoot: "/project-root",
       getDashboardPort: vi.fn().mockReturnValue(3000),
       runtimeContext: {
-        lastStatus: "idle",
+        getLastStatus: vi.fn().mockReturnValue("idle"),
         dashboardSettings: { ...DEFAULT_DASHBOARD_SETTINGS },
         dashboardRuntimePort: undefined,
       } as any,
@@ -132,7 +132,7 @@ describe("dashboard-lifecycle-service", () => {
       const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
 
       setupArgs.getStatus();
-      expect(mockDeps.runtimeContext.lastStatus).toBe("idle");
+      expect(mockDeps.runtimeContext.getLastStatus).toHaveBeenCalled();
 
       expect(setupArgs.getLiveActivities).toBe(mockDeps.getLiveActivitiesForActiveTasks);
       expect(setupArgs.getGitStatus).toBe(mockDeps.getGitStatus);

@@ -36,7 +36,8 @@ describe("Sprint Factory", () => {
     };
 
     mockContext = {
-      runtimeContext: {
+      getProjectRoot: vi.fn(),
+      runtimeContext: { updateLastStatus: vi.fn(), getLastStatus: vi.fn(),
         settings: {},
         dashboardSettings: { setting1: true },
         consecutiveFailures: 1,
@@ -147,8 +148,8 @@ describe("Sprint Factory", () => {
     sprintArgs.getGuideContent("guide3", "repo3");
     expect(mockContext.getGuideContentIfEnabled).toHaveBeenCalledWith("guide3", "repo3");
 
-    sprintArgs.updateLastStatus({ test: 1 });
-    expect(mockContext.runtimeContext.lastStatus).toEqual({ test: 1 });
+    sprintArgs.updateLastStatus({ test: 1, repo_path: "mock", sprint_number: 1 });
+    expect(mockContext.runtimeContext.updateLastStatus).toHaveBeenCalled();
 
     expect(sprintArgs.getDashboardSettings()).toEqual({ setting1: true });
 

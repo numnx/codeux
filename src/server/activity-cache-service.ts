@@ -2,7 +2,7 @@ import type { GitTrackingStatus, JulesActivity, Subtask } from "../contracts/app
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface ActivityCacheServiceDependencies {
-  getSubtasks: () => Subtask[];
+  getSubtasks: (projectId?: string, sprintId?: string) => Subtask[];
   resolveSessionNameFromTask: (task: Subtask) => string | undefined;
   fetchRecentActivities: (sessionName: string, pageSize?: number) => Promise<JulesActivity[]>;
   resolveGitStatusRepoPath: () => string;

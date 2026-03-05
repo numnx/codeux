@@ -58,7 +58,9 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     dashboardDir,
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
-    getStatus: () => deps.runtimeContext.lastStatus,
+    getStatus: (projectId, sprintId) => {
+      return deps.runtimeContext.getLastStatus(projectId, sprintId);
+    },
     getLiveActivities: deps.getLiveActivitiesForActiveTasks,
     getGitStatus: deps.getGitStatus,
     getExternalSettingsHints: () => deps.externalSettingsHints,
