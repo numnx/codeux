@@ -62,14 +62,12 @@ describe("SubtaskFileRepository", () => {
     await fs.writeFile(path.join(dir, "T02.md"), "title: T2\nprompt: P2");
     await fs.writeFile(path.join(dir, "T03.md"), "title: T3\nprompt: P3");
 
-    // Since we cannot easily mock fs in ESM with Vitest without setup changes,
-    // we'll subclass SubtaskFileRepository to override loadSubtask for the test.
     class TestRepo extends SubtaskFileRepository {
       async loadSubtask(dirParam: string, taskId: string) {
         let delay = 0;
-        if (taskId === "T01") delay = 100; // T01 is slow
-        else if (taskId === "T02") delay = 10; // T02 is fast
-        else if (taskId === "T03") delay = 50; // T03 is medium
+        if (taskId === "T01") delay = 100;
+        else if (taskId === "T02") delay = 10;
+        else if (taskId === "T03") delay = 50;
 
         await new Promise(resolve => setTimeout(resolve, delay));
         return super.loadSubtask(dirParam, taskId);
@@ -80,7 +78,6 @@ describe("SubtaskFileRepository", () => {
 
     const subtasks = await repo.loadSubtasks(dir);
     expect(subtasks).toHaveLength(3);
-    // Ensure the output is sorted by ID alphabetically despite variable load times
     expect(subtasks[0].id).toBe("T01");
     expect(subtasks[1].id).toBe("T02");
     expect(subtasks[2].id).toBe("T03");
@@ -88,10 +85,7 @@ describe("SubtaskFileRepository", () => {
 
   it("logs parse warnings if logger is provided", async () => {
     const dir = await createTempDir();
-
-    // Valid subtask
     await fs.writeFile(path.join(dir, "T01.md"), "title: T1\nprompt: P1");
-    // Simulate invalid subtask logic
     await fs.writeFile(path.join(dir, "T02.md"), "title: T2\nprompt: P2");
 
     const mockLogger: Logger = {
@@ -112,20 +106,36 @@ describe("SubtaskFileRepository", () => {
     }
 
     const repo = new TestRepo(mockLogger);
-
     const subtasks = await repo.loadSubtasks(dir);
 
-    // Should have successfully loaded T01
     expect(subtasks).toHaveLength(1);
     expect(subtasks[0].id).toBe("T01");
 
-    // Should have logged a warning for T02
     expect(mockLogger.warn).toHaveBeenCalledWith(
       "Failed to load subtask T02",
-      expect.objectContaining({
-        error: expect.any(Error)
-      })
+      expect.objectContaining({ error: expect.any(Error) })
     );
+  });
+
+  it("ignores parse warnings if logger is NOT provided", async () => {
+    const dir = await createTempDir();
+    await fs.writeFile(path.join(dir, "T01.md"), "title: T1\nprompt: P1");
+    await fs.writeFile(path.join(dir, "T02.md"), "title: T2\nprompt: P2");
+
+    class TestRepo extends SubtaskFileRepository {
+      async loadSubtask(dirParam: string, taskId: string) {
+        if (taskId === "T02") {
+          throw new Error("Simulated read error");
+        }
+        return super.loadSubtask(dirParam, taskId);
+      }
+    }
+
+    const repo = new TestRepo();
+    const subtasks = await repo.loadSubtasks(dir);
+
+    expect(subtasks).toHaveLength(1);
+    expect(subtasks[0].id).toBe("T01");
   });
 
   describe("setMerged", () => {
@@ -140,6 +150,20 @@ describe("SubtaskFileRepository", () => {
       const updated = await fs.readFile(path.join(dir, "T01.md"), "utf-8");
       expect(updated).toContain("merged: true");
       expect(updated).not.toContain("merged: false");
+    });
+
+    it("returns early if merged is already correct", async () => {
+      const dir = await createTempDir();
+      const content = "title: Task\nmerged: true\nprompt:\nWork";
+      await fs.writeFile(path.join(dir, "T01.md"), content);
+
+      const repo = new SubtaskFileRepository();
+      // Use fs.stat to check modify time to verify it was skipped
+      const before = await fs.stat(path.join(dir, "T01.md"));
+      await new Promise(r => setTimeout(r, 10)); // wait a bit
+      await repo.setMerged(dir, "T01", true);
+      const after = await fs.stat(path.join(dir, "T01.md"));
+      expect(after.mtimeMs).toBe(before.mtimeMs);
     });
 
     it("inserts merged flag before prompt if missing", async () => {
