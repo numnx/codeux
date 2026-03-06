@@ -1,86 +1,151 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity } from "lucide-preact";
+import { mockSources } from "../lib/mockData.js";
 
 interface TopNavProps {
     isDark: boolean;
     toggleTheme: () => void;
 }
 
+const statusDot: Record<string, string> = {
+    running:      "bg-status-green shadow-[0_0_8px_rgba(0,171,132,0.6)]",
+    failed:       "bg-status-red shadow-[0_0_8px_rgba(227,0,15,0.5)]",
+    intervention: "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+    idle:         "bg-slate-400 dark:bg-slate-600",
+};
+
 export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) => {
     const navRef = useRef<HTMLElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [selectedSource, setSelectedSource] = useState(mockSources[3]); // jules-cli as default
 
     useEffect(() => {
         if (navRef.current) {
-            gsap.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 1, ease: "power3.out" });
+            gsap.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" });
         }
+    }, []);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
     }, []);
 
     return (
         <header
             ref={navRef}
-            className="sticky top-0 z-50 flex items-center justify-between w-full h-20 px-8 md:px-12 bg-white/40 dark:bg-obsidian-900/60 backdrop-blur-3xl border-b border-slate-200/50 dark:border-white/[0.02]"
+            className="sticky top-0 z-50 flex items-center justify-between w-full h-[60px] px-8 md:px-12 bg-[#F9F8F4]/70 dark:bg-void-900/70 backdrop-blur-3xl border-b border-black/[0.05] dark:border-white/[0.04]"
         >
-            <div className="flex items-center gap-12 flex-1">
-                {/* Sprint OS Animated Logo */}
-                <div className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative w-8 h-8 flex items-center justify-center bg-obsidian-900 dark:bg-white rounded-xl overflow-hidden shadow-[0_0_20px_rgba(255,51,102,0.3)] dark:shadow-[0_0_20px_rgba(0,229,255,0.2)]">
-                        <div className="absolute inset-0 bg-gradient-to-br from-aura-500 to-aura-600 opacity-50 group-hover:opacity-100 transition-opacity duration-500 blur-md" />
-                        <Activity className="w-5 h-5 text-white dark:text-obsidian-900 relative z-10 group-hover:scale-110 transition-transform duration-500" strokeWidth={2.5} />
+            <div className="flex items-center gap-10 flex-1">
+                {/* Logo */}
+                <div className="flex items-center gap-3 cursor-pointer group shrink-0">
+                    <div className="relative w-8 h-8 flex items-center justify-center bg-void-900 dark:bg-white rounded-xl overflow-hidden shadow-[0_0_20px_rgba(0,224,160,0.25)]">
+                        <div className="absolute inset-0 bg-signal-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
+                        <Activity className="w-4 h-4 text-signal-500 dark:text-void-900 relative z-10 group-hover:scale-110 transition-transform duration-500" strokeWidth={2.5} />
                     </div>
-                    <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white flex items-center gap-1">
-                        Sprint<span className="text-transparent bg-clip-text bg-gradient-to-r from-aura-500 to-aura-600">OS</span>
+                    <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5">
+                        Jules<span className="text-signal-500">OS</span>
                     </span>
                 </div>
 
-                {/* Search Bar - Premium Edge */}
-                <div className="relative group w-full max-w-sm">
+                {/* Search Bar */}
+                <div className="relative group w-full max-w-xs">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" strokeWidth={2} />
+                        <Search className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-signal-500 transition-colors" strokeWidth={2} />
                     </div>
                     <input
                         type="text"
-                        placeholder="Search commands, sources, sprints..."
-                        className="w-full h-11 pl-11 pr-14 bg-slate-100/50 dark:bg-white/[0.03] border border-transparent hover:border-slate-200 dark:hover:border-white/10 focus:border-indigo-500/50 dark:focus:border-indigo-500/50 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                        placeholder="Search projects, sprints, tasks..."
+                        className="w-full h-9 pl-10 pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                        <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-medium text-slate-400 border border-slate-200 dark:border-white/10 rounded-lg">
-                            <Command className="w-3 h-3" /> K
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
+                            <Command className="w-2.5 h-2.5" /> K
                         </kbd>
                     </div>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
                 {/* Project Selector */}
-                <div className="relative group cursor-pointer hidden md:flex items-center gap-3 px-4 py-2 bg-slate-100/50 dark:bg-white/[0.02] border border-transparent hover:border-slate-200 dark:hover:border-white/10 rounded-2xl transition-all">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Production App</span>
-                    <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors" />
+                <div className="relative hidden md:block" ref={dropdownRef}>
+                    <button
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group"
+                    >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[selectedSource.status] || statusDot.idle}`} />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{selectedSource.name}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Dropdown */}
+                    {dropdownOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                            <div className="px-3 pt-3 pb-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Projects</span>
+                            </div>
+                            {mockSources.map((source) => (
+                                <button
+                                    key={source.id}
+                                    onClick={() => { setSelectedSource(source); setDropdownOpen(false); }}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-signal-500/5 transition-colors group ${selectedSource.id === source.id ? 'bg-signal-500/8' : ''}`}
+                                >
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[source.status] || statusDot.idle}`} />
+                                    <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSource.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {source.name}
+                                    </span>
+                                    {selectedSource.id === source.id && (
+                                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
+                                    )}
+                                </button>
+                            ))}
+                            <div className="p-2 border-t border-black/[0.04] dark:border-white/[0.04] mt-1">
+                                <button className="w-full text-center text-xs font-semibold text-signal-600 dark:text-signal-400 py-1.5 hover:bg-signal-500/5 rounded-xl transition-colors">
+                                    + Add Project
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-2 hidden md:block" />
+                <div className="w-px h-5 bg-black/10 dark:bg-white/10 hidden md:block" />
 
-                <button className="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-transparent dark:border-white/[0.02] group">
-                    <Bell className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
-                    <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-aura-500 shadow-[0_0_10px_#FF3366] ring-2 ring-white dark:ring-obsidian-900" />
+                {/* Notifications */}
+                <button className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group">
+                    <Bell className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
+                    <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
                 </button>
 
+                {/* Theme Toggle */}
                 <button
                     onClick={toggleTheme}
-                    className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-transparent dark:border-white/[0.02]"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors"
                 >
-                    {isDark ? <Sun className="w-5 h-5 text-slate-500 dark:text-slate-400" strokeWidth={1.5} /> : <Moon className="w-5 h-5 text-slate-500 dark:text-slate-400" strokeWidth={1.5} />}
+                    {isDark
+                        ? <Sun className="w-4 h-4 text-slate-400 hover:text-white transition-colors" strokeWidth={1.5} />
+                        : <Moon className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" strokeWidth={1.5} />
+                    }
                 </button>
 
-                <div className="w-px h-6 bg-slate-200 dark:bg-white/10 mx-2" />
+                <div className="w-px h-5 bg-black/10 dark:bg-white/10" />
 
                 {/* Avatar */}
-                <div className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-aura-500 to-aura-600 p-[2px] shadow-[0_0_20px_rgba(255,51,102,0.2)]">
-                        <div className="w-full h-full rounded-full bg-white dark:bg-obsidian-900 flex items-center justify-center overflow-hidden border border-white/10">
-                            <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=transparent" alt="Avatar" className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500" />
+                <div className="flex items-center gap-2.5 cursor-pointer group">
+                    <div className="w-8 h-8 rounded-full bg-signal-500/20 dark:bg-signal-500/15 p-[1.5px] shadow-[0_0_12px_rgba(0,224,160,0.15)] group-hover:shadow-[0_0_16px_rgba(0,224,160,0.25)] transition-shadow">
+                        <div className="w-full h-full rounded-full bg-white dark:bg-void-800 flex items-center justify-center overflow-hidden">
+                            <img
+                                src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=transparent"
+                                alt="Avatar"
+                                className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500"
+                            />
                         </div>
                     </div>
                 </div>
