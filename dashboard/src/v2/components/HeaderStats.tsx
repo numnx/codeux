@@ -84,10 +84,16 @@ export const HeaderStats: FunctionComponent = () => {
                             {formatTokens(mockStats.dailyTokens)}
                         </span>
                     </div>
-                    <span className="text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center gap-1 group-hover:drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] transition-all">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-                        12% vs yesterday
-                    </span>
+                    <div className="flex flex-col gap-1 mt-4 border-t border-slate-200 dark:border-white/10 pt-4">
+                        <div className="flex justify-between items-center text-xs font-mono font-medium">
+                            <span className="text-slate-400">IN</span>
+                            <span className="text-slate-900 dark:text-white">{formatTokens(mockStats.dailyTokens * 0.4)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-mono font-medium">
+                            <span className="text-slate-400">OUT</span>
+                            <span className="text-slate-900 dark:text-white">{formatTokens(mockStats.dailyTokens * 0.6)}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -105,49 +111,54 @@ export const HeaderStats: FunctionComponent = () => {
                             {formatTokens(mockStats.weeklyTokens)}
                         </span>
                     </div>
-                    <span className="text-purple-600 dark:text-purple-400 text-sm font-medium group-hover:drop-shadow-[0_0_8px_rgba(168,85,247,0.5)] transition-all">
-                        Stable throughput
+                    <div className="flex flex-col gap-1 mt-4 border-t border-slate-200 dark:border-white/10 pt-4">
+                        <div className="flex justify-between items-center text-xs font-mono font-medium">
+                            <span className="text-slate-400">IN</span>
+                            <span className="text-slate-900 dark:text-white">{formatTokens(mockStats.weeklyTokens * 0.42)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-mono font-medium">
+                            <span className="text-slate-400">OUT</span>
+                            <span className="text-slate-900 dark:text-white">{formatTokens(mockStats.weeklyTokens * 0.58)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Avant-Garde Metric Card: Succeeded Jobs */}
+            <div className="relative overflow-hidden bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col justify-between group">
+                <div className="absolute inset-0 bg-transparent group-hover:bg-[#00AB84]/5 transition-colors duration-500 pointer-events-none" />
+                <Sparkline points={[60, 75, 80, 85, 95, 90, 110]} color="#00AB84" />
+                <div className="flex items-center justify-between mb-8 relative z-10">
+                    <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm tracking-wide group-hover:text-pantone-green transition-colors">Succeeded Jobs</h3>
+                    <div className="w-2 h-2 rounded-full bg-[#00AB84] shadow-[0_0_12px_#00AB84] animate-pulse" />
+                </div>
+                <div className="flex items-end justify-between relative z-10">
+                    <span className="text-4xl font-semibold font-mono text-slate-900 dark:text-white tracking-tighter group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] transition-all">
+                        6,842
+                    </span>
+                    <span className="text-[#00AB84] text-sm font-bold flex items-center gap-1 group-hover:drop-shadow-[0_0_8px_rgba(0,171,132,0.5)] transition-all font-mono">
+                        {mockStats.successRate}% <span className="text-[10px] text-slate-400 uppercase ml-1">Success</span>
                     </span>
                 </div>
             </div>
 
-            {/* Elegant Metric Card: Success Rate */}
-            <div className="relative overflow-hidden bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col justify-between group">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            {/* Avant-Garde Metric Card: Failed Jobs */}
+            <div className="relative overflow-hidden bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col justify-between group cursor-pointer border-[#E3000F]/10 dark:border-[#E3000F]/20">
+                <div className="absolute inset-0 bg-transparent group-hover:bg-[#E3000F]/5 transition-colors duration-500 pointer-events-none" />
+                <Sparkline points={[5, 2, 8, 4, 12, 10, 15]} color="#E3000F" />
                 <div className="flex items-center justify-between mb-8 relative z-10">
-                    <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm tracking-wide group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Success Rate</h3>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981] animate-pulse" />
-                </div>
-                <div className="relative z-10">
-                    <div className="flex items-baseline gap-3 mb-1">
-                        <span className="text-4xl font-semibold font-mono text-slate-900 dark:text-white tracking-tighter group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] transition-all">
-                            {mockStats.successRate}%
-                        </span>
-                    </div>
-                    {/* Pulsing GSAP style line */}
-                    <div className="w-full h-1.5 mt-5 bg-slate-100 dark:bg-white/[0.05] rounded-full overflow-hidden shadow-inner relative">
-                        <div className="absolute top-0 left-0 h-full bg-emerald-500 rounded-full w-0 group-hover:shadow-[0_0_8px_rgba(16,185,129,0.8)] transition-all" style={{ width: `${mockStats.successRate}%`, transition: 'width 2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s' }} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Elegant Metric Card: Failed Jobs */}
-            <div className="relative overflow-hidden bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col justify-between group cursor-pointer border-rose-100 dark:border-rose-900/30">
-                <div className="absolute inset-0 bg-transparent group-hover:bg-rose-50/30 dark:group-hover:bg-rose-500/[0.02] transition-colors duration-500 pointer-events-none" />
-                <Sparkline points={[5, 2, 8, 4, 12, 10, 15]} color="#f43f5e" />
-                <div className="flex items-center justify-between mb-8 relative z-10">
-                    <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm tracking-wide group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">Failed Jobs</h3>
+                    <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm tracking-wide group-hover:text-pantone-red transition-colors">Failed Jobs</h3>
                     <div className="relative">
-                        <div className="w-2 h-2 rounded-full bg-rose-500 relative z-10 shadow-[0_0_12px_#f43f5e]" />
-                        <div className="absolute inset-0 bg-rose-500 rounded-full animate-ping opacity-75" />
+                        <div className="w-2 h-2 rounded-full bg-[#E3000F] relative z-10 shadow-[0_0_12px_#E3000F]" />
+                        <div className="absolute inset-0 bg-[#E3000F] rounded-full animate-ping opacity-75" />
                     </div>
                 </div>
                 <div className="flex items-end justify-between relative z-10">
                     <span className="text-4xl font-semibold font-mono text-slate-900 dark:text-white tracking-tighter group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] transition-all">
                         {mockStats.failedJobs}
                     </span>
-                    <span className="text-rose-600 dark:text-rose-400 text-sm font-medium flex items-center gap-1 mb-1 group-hover:drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] transition-all">
-                        Review required
+                    <span className="text-[#E3000F] text-sm font-bold flex items-center gap-1 group-hover:drop-shadow-[0_0_8px_rgba(227,0,15,0.5)] transition-all font-mono">
+                        {(100 - mockStats.successRate).toFixed(1)}% <span className="text-[10px] text-slate-400 uppercase ml-1">Fail</span>
                     </span>
                 </div>
             </div>

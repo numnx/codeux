@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { Search, Filter, MoreHorizontal, Clock, CheckCircle2, Circle, ArrowRight, PlayCircle, FolderGit2 } from "lucide-preact";
+import { FolderGit2, CheckCircle2, Circle, PlayCircle, Clock, Play, Square, Settings, Maximize2 } from "lucide-preact";
 import { mockTasks } from "../lib/mockData.js";
 
 type TaskFilter = "All Tasks" | "Running" | "Queued";
@@ -14,18 +14,19 @@ export const TasksList: FunctionComponent = () => {
         if (listRef.current) {
             gsap.fromTo(
                 listRef.current.children,
-                { y: 20, opacity: 0 },
+                { y: 40, opacity: 0, scale: 0.98 },
                 {
                     y: 0,
                     opacity: 1,
+                    scale: 1,
                     duration: 0.8,
                     stagger: 0.05,
-                    ease: "power2.out",
-                    delay: 0.5
+                    ease: "power3.out",
+                    delay: 0.2
                 }
             );
         }
-    }, [activeFilter]); // Re-animate on filter change
+    }, [activeFilter]);
 
     const filteredTasks = mockTasks.filter(task => {
         if (activeFilter === "All Tasks") return true;
@@ -35,113 +36,110 @@ export const TasksList: FunctionComponent = () => {
     });
 
     return (
-        <div className="w-full flex flex-col h-full font-outfit">
-            {/* Header / Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
-                <div className="flex gap-2 p-1.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 rounded-2xl w-fit">
-                    {(["All Tasks", "Running", "Queued"] as TaskFilter[]).map((filter) => (
-                        <button
-                            key={filter}
-                            onClick={() => setActiveFilter(filter)}
-                            className={`relative px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-300 ${activeFilter === filter
-                                ? 'text-slate-900 dark:text-white shadow-sm'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.02]'
-                                }`}
-                        >
-                            {activeFilter === filter && (
-                                <div className="absolute inset-0 bg-white dark:bg-white/[0.06] rounded-xl border border-slate-200/50 dark:border-white/5 -z-10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.12)]" />
-                            )}
-                            {filter}
-                        </button>
-                    ))}
-                </div>
+        <div className="w-full relative z-10 px-4">
+            {/* Minimal Cinematic Header */}
+            <div className="flex items-center justify-between mb-16">
+                <div className="flex items-center gap-12">
+                    <h2 className="text-4xl font-bold tracking-tighter text-slate-900 dark:text-white">Active Streams</h2>
 
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 group">
-                        <Filter className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" strokeWidth={2} />
-                        Filter
-                    </button>
-                    <div className="relative group max-w-[240px]">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" strokeWidth={2} />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search tasks..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all duration-300"
-                        />
+                    <div className="flex gap-4">
+                        {(["All Tasks", "Running", "Queued"] as TaskFilter[]).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setActiveFilter(filter)}
+                                className={`text-lg font-medium transition-all duration-300 relative px-2 py-1 ${activeFilter === filter
+                                    ? 'text-indigo-600 dark:text-indigo-400'
+                                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                {filter}
+                                {activeFilter === filter && (
+                                    <div className="absolute -bottom-2 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
+                                )}
+                            </button>
+                        ))}
                     </div>
+                </div>
+                <div className="text-sm font-semibold text-slate-400 dark:text-slate-500 font-mono">
+                    {filteredTasks.length} Streams Active
                 </div>
             </div>
 
-            {/* Premium Editorial Table Area */}
-            <div className="flex-1 overflow-hidden relative">
-                {/* Headers */}
-                <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-200/60 dark:border-white/10 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest sticky top-0 bg-white/80 dark:bg-transparent backdrop-blur-xl z-10 transition-colors">
-                    <div className="col-span-1">ID</div>
-                    <div className="col-span-4">Task Ref</div>
-                    <div className="col-span-2">Source</div>
-                    <div className="col-span-2">Status</div>
-                    <div className="col-span-2">Time</div>
-                    <div className="col-span-1 text-right">Action</div>
-                </div>
+            {/* Cinematic Borderless Liquid Rows */}
+            <div ref={listRef} className="flex flex-col w-full relative">
+                {filteredTasks.map((task) => (
+                    <div
+                        key={task.id}
+                        className="group relative flex items-center justify-between py-6 cursor-pointer border-b border-white/5 dark:border-white/[0.02] last:border-0"
+                    >
+                        {/* The Liquid Hover Backdrop */}
+                        <div className="absolute inset-y-0 -inset-x-6 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-indigo-500/0 dark:from-indigo-500/0 dark:via-indigo-500/10 dark:to-indigo-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 rounded-2xl blur-md" />
+                        <div className="absolute inset-y-1 -inset-x-4 bg-white/40 dark:bg-white/[0.03] opacity-0 group-hover:opacity-100 transition-all duration-300 -z-10 rounded-[1.5rem] transform scale-y-50 group-hover:scale-y-100" />
 
-                <div ref={listRef} className="overflow-y-auto max-h-[500px] dashboard-scrollbar pt-2 pb-4 pr-2">
-                    {filteredTasks.map((task) => (
-                        <div
-                            key={task.id}
-                            className="group grid grid-cols-12 gap-4 px-6 py-5 items-center bg-white/40 dark:bg-transparent hover:bg-indigo-50/40 dark:hover:bg-white/[0.02] border border-transparent hover:border-indigo-100 dark:hover:border-white/[0.05] rounded-2xl transition-all duration-300 mb-2 hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] cursor-pointer"
-                        >
+                        {/* Content Grid */}
+                        <div className="flex-1 grid grid-cols-12 gap-6 items-center">
                             {/* ID */}
-                            <div className="col-span-1 font-mono text-xs font-semibold text-slate-400 dark:text-slate-500">
-                                {task.id.split('-')[0].substring(0, 6)}
+                            <div className="col-span-2 md:col-span-1 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 opacity-60 group-hover:opacity-100 transition-opacity">
+                                #{task.id.split('-')[0].substring(0, 4)}
                             </div>
 
-                            {/* Task Title */}
-                            <div className="col-span-4 flex items-center gap-3">
-                                <div className={`w-2 h-2 rounded-full ${task.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : task.status === 'in_progress' ? 'bg-indigo-500 shadow-[0_0_8px_#6366f1] animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                                <span className="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">
+                            {/* Task Title - Massive Typography */}
+                            <div className="col-span-5 flex items-center gap-4">
+                                <span className={`text-2xl font-bold tracking-tight text-slate-900 dark:text-white truncate group-hover:translate-x-2 transition-transform duration-300 ease-out ${task.status === 'completed' ? 'opacity-50' : ''
+                                    }`}>
                                     {task.title}
                                 </span>
                             </div>
 
                             {/* Source */}
-                            <div className="col-span-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                                <FolderGit2 className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
-                                <span className="truncate">{task.source}</span>
+                            <div className="col-span-2 flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                <FolderGit2 className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors" strokeWidth={2} />
+                                <span className="truncate group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">{task.source}</span>
                             </div>
 
-                            {/* Status Badge */}
-                            <div className="col-span-2">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${task.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
-                                    task.status === 'in_progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 shadow-[0_0_12px_rgba(99,102,241,0.15)]' :
-                                        'bg-slate-50 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10'
-                                    } transition-colors duration-300`}>
-                                    {task.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.5} />}
-                                    {task.status === 'in_progress' && <PlayCircle className="w-3.5 h-3.5" strokeWidth={2.5} />}
-                                    {task.status === 'pending' && <Circle className="w-3.5 h-3.5" strokeWidth={2.5} />}
+                            {/* Status Indicator (Cinematic) */}
+                            <div className="col-span-2 flex items-center gap-2">
+                                {task.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />}
+                                {task.status === 'in_progress' && (
+                                    <div className="relative flex items-center justify-center w-5 h-5">
+                                        <div className="absolute inset-0 rounded-full bg-aura-500 animate-[spin_3s_linear_infinite] opacity-30 shadow-[0_0_15px_#FF3366] pointer-events-none" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%', clipPath: 'inset(-2px)' }} />
+                                        <PlayCircle className="w-5 h-5 text-aura-500 relative z-10 drop-shadow-[0_0_5px_rgba(255,51,102,0.8)]" strokeWidth={2} />
+                                    </div>
+                                )}
+                                {task.status === 'pending' && <Circle className="w-5 h-5 text-slate-400" strokeWidth={2} />}
+
+                                <span className={`text-sm font-bold uppercase tracking-widest ${task.status === 'completed' ? 'text-emerald-500' :
+                                    task.status === 'in_progress' ? 'text-aura-500' :
+                                        'text-slate-400'
+                                    }`}>
                                     {task.status.replace('_', ' ')}
                                 </span>
                             </div>
 
-                            {/* Time / Metrics */}
-                            <div className="col-span-2 flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                                <Clock className="w-3.5 h-3.5 opacity-70" strokeWidth={2} />
-                                <span className="font-mono">{task.time}</span>
-                            </div>
+                            {/* Quick Actions (Hover Reveal) & Time */}
+                            <div className="col-span-2 md:col-span-2 flex items-center justify-end gap-2 text-sm font-mono text-slate-400 dark:text-slate-500 h-full relative overflow-hidden">
+                                {/* Time display (fades out on hover) */}
+                                <div className="flex items-center gap-3 absolute right-0 transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-4">
+                                    <Clock className="w-4 h-4 opacity-50" strokeWidth={2} />
+                                    {task.time}
+                                </div>
 
-                            {/* Action Request */}
-                            <div className="col-span-1 flex justify-end">
-                                <button className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-[#0c0c0c] dark:hover:text-indigo-400 transition-all duration-300 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10">
-                                    <ArrowRight className="w-4 h-4" strokeWidth={2} />
-                                </button>
+                                {/* AAA Quick Actions Bar (slides from right on hover) */}
+                                <div className="flex items-center gap-1.5 p-1 bg-white/80 dark:bg-obsidian-900/90 backdrop-blur-md rounded-full shadow-[0_0_15px_rgba(0,0,0,0.05)] dark:shadow-[0_0_15px_rgba(0,0,0,0.4)] border border-slate-200/50 dark:border-white/10 absolute right-0 translate-x-[110%] opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-400 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] pr-2">
+                                    <button className="p-2 text-slate-600 dark:text-slate-300 hover:text-aura-600 dark:hover:text-aura-500 rounded-full transition-colors" title="Play/Stop Stream">
+                                        {task.status === 'in_progress' ? <Square className="w-3.5 h-3.5" fill="currentColor" /> : <Play className="w-3.5 h-3.5" fill="currentColor" />}
+                                    </button>
+                                    <button className="p-2 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-full transition-colors" title="Configure Stream">
+                                        <Settings className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-full transition-colors" title="Expand View">
+                                        <Maximize2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-
-                {/* Bottom Fade Gradient for Scroll Area */}
-                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/80 dark:from-[#050505]/80 to-transparent pointer-events-none" />
+                    </div>
+                ))}
             </div>
         </div>
     );
