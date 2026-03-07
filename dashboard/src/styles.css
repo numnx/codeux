@@ -97,4 +97,12 @@
   .animate-organic-reverse {
     animation: organic-morph-reverse 15s ease-in-out infinite;
   }
+
+  /* Wave fluid — stat card hover
+     Uses a 2-cycle SVG at 200% container width.
+     translateX(-50%) = exactly one cycle width → mathematically seamless loop. */
+  @keyframes wave-drift {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
 }
