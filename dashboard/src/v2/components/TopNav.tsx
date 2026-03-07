@@ -3,18 +3,12 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity } from "lucide-preact";
 import { mockSources } from "../lib/mockData.js";
+import { StatusDot } from "./ui/StatusDot.js";
 
 interface TopNavProps {
     isDark: boolean;
     toggleTheme: () => void;
 }
-
-const statusDot: Record<string, string> = {
-    running:      "bg-status-green shadow-[0_0_8px_rgba(0,171,132,0.6)]",
-    failed:       "bg-status-red shadow-[0_0_8px_rgba(227,0,15,0.5)]",
-    intervention: "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)]",
-    idle:         "bg-slate-400 dark:bg-slate-600",
-};
 
 export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) => {
     const navRef = useRef<HTMLElement>(null);
@@ -81,7 +75,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                         onClick={() => setDropdownOpen(!dropdownOpen)}
                         className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group"
                     >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[selectedSource.status] || statusDot.idle}`} />
+                        <StatusDot status={selectedSource.status} />
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{selectedSource.name}</span>
                         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -98,7 +92,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                     onClick={() => { setSelectedSource(source); setDropdownOpen(false); }}
                                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-signal-500/5 transition-colors group ${selectedSource.id === source.id ? 'bg-signal-500/8' : ''}`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[source.status] || statusDot.idle}`} />
+                                    <StatusDot status={source.status} />
                                     <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSource.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {source.name}
                                     </span>
