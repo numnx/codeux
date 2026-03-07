@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 
 /**
@@ -28,8 +28,8 @@ export const Sparkline: FunctionComponent<{ points: number[]; color: string }> =
 
     const gradId = `sg-${color.replace('#', '')}`;
 
-    // Mount: draw the line
-    useEffect(() => {
+    // Mount: set initial dash state before paint, then animate
+    useLayoutEffect(() => {
         if (!pathRef.current) return;
         const len = pathRef.current.getTotalLength();
         gsap.set(pathRef.current, { strokeDasharray: len, strokeDashoffset: len });

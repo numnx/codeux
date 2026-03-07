@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { X, Plus, Target, CalendarDays, Sparkles, Loader2, FileText } from "lucide-preact";
 import type { Sprint } from "../../types.js";
@@ -24,8 +24,8 @@ export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({ nextId,
     const [description, setDescription] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Entrance
-    useEffect(() => {
+    // Entrance — useLayoutEffect so initial from-state is set before first paint
+    useLayoutEffect(() => {
         gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
         gsap.fromTo(cardRef.current,
             { y: 48, opacity: 0, scale: 0.94 },

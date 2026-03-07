@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Target, Plus } from "lucide-preact";
 import { mockSprints } from "./lib/mockData.js";
@@ -15,7 +15,7 @@ export const SprintsPage: FunctionComponent = () => {
     const [showModal, setShowModal] = useState(false);
     const [sprints, setSprints]     = useState<Sprint[]>(mockSprints);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (mainRef.current) {
             gsap.fromTo(mainRef.current.children,
                 { opacity: 0, y: 40 },

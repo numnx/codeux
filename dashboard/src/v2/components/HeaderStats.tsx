@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { mockStats } from "../lib/mockData.js";
 import { MetricCard } from "./ui/MetricCard.js";
@@ -8,7 +8,7 @@ import { Sparkline } from "./ui/Sparkline.js";
 export const HeaderStats: FunctionComponent = () => {
     const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (containerRef.current) {
             gsap.fromTo(
                 containerRef.current.children,

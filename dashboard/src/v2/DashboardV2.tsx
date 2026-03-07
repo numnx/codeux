@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { HeaderStats } from "./components/HeaderStats.js";
 import { SourcesGrid } from "./components/SourcesGrid.js";
@@ -8,7 +8,7 @@ import { TasksList } from "./components/TasksList.js";
 export const DashboardV2: FunctionComponent = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (mainContentRef.current) {
             gsap.fromTo(
                 mainContentRef.current.children,

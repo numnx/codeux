@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { Activity } from "lucide-preact";
 import { mockSources } from "../lib/mockData.js";
@@ -9,7 +9,7 @@ import { SourceCell } from "./ui/SourceCell.js";
 export const SourcesGrid: FunctionComponent = () => {
     const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (containerRef.current) {
             gsap.fromTo(
                 containerRef.current.children,

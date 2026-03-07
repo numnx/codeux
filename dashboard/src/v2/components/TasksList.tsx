@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { mockTasks } from "../lib/mockData.js";
 import { TaskRow } from "./ui/TaskRow.js";
@@ -13,7 +13,7 @@ export const TasksList: FunctionComponent = () => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (listRef.current) {
             gsap.fromTo(
                 listRef.current.children,

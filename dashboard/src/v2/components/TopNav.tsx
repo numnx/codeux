@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity } from "lucide-preact";
 import { mockSources } from "../lib/mockData.js";
@@ -16,7 +16,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [selectedSource, setSelectedSource] = useState(mockSources[3]); // jules-cli as default
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (navRef.current) {
             gsap.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" });
         }
