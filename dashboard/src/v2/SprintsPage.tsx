@@ -45,7 +45,6 @@ export const SprintsPage: FunctionComponent = () => {
                         sprint={sprint}
                         isEven={index % 2 === 0}
                         accentColor={ACCENT_CYCLE[index % 3]}
-                        playing={index % 2 === 0}
                     />
                 ))}
             </div>

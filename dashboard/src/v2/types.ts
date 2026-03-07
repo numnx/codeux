@@ -1,5 +1,7 @@
 export type SourceStatus = 'running' | 'failed' | 'intervention' | 'idle';
 
+export type SprintStatus = 'running' | 'completed' | 'failed' | 'idle';
+
 export type TaskStatus = 'in_progress' | 'pending' | 'completed';
 
 export interface Source {
@@ -28,4 +30,5 @@ export interface Sprint {
     date: string;
     tasksCount: number;
     completion: number;
+    status: SprintStatus;
 }

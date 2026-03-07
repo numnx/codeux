@@ -27,10 +27,10 @@ export const mockSources: Source[] = [
 ];
 
 export const mockSprints: Sprint[] = [
-    { id: "spr-42", name: "Authentication Refactor",  date: "Oct 12 - Oct 26", tasksCount: 24, completion: 100 },
-    { id: "spr-43", name: "Dashboard V2 Canvas",      date: "Oct 27 - Nov 10", tasksCount: 38, completion: 65  },
-    { id: "spr-44", name: "Payment Gateway Core",     date: "Nov 11 - Nov 25", tasksCount: 15, completion: 12  },
-    { id: "spr-45", name: "Agentic Orchestration",    date: "Nov 26 - Dec 10", tasksCount: 42, completion: 0   },
+    { id: "spr-42", name: "Authentication Refactor",  date: "Oct 12 - Oct 26", tasksCount: 24, completion: 100, status: "completed" },
+    { id: "spr-43", name: "Dashboard V2 Canvas",      date: "Oct 27 - Nov 10", tasksCount: 38, completion: 65,  status: "running"   },
+    { id: "spr-44", name: "Payment Gateway Core",     date: "Nov 11 - Nov 25", tasksCount: 15, completion: 12,  status: "running"   },
+    { id: "spr-45", name: "Agentic Orchestration",    date: "Nov 26 - Dec 10", tasksCount: 42, completion: 0,   status: "idle"      },
 ];
 
 export const mockTasks: Task[] = [

@@ -5,9 +5,9 @@ import { mockTasks } from "../lib/mockData.js";
 import { TaskRow } from "./ui/TaskRow.js";
 import { FilterStrip } from "./ui/FilterStrip.js";
 
-type TaskFilter = "All Tasks" | "Running" | "Queued";
+type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
 
-const FILTER_OPTIONS = ["All Tasks", "Running", "Queued"] as const;
+const FILTER_OPTIONS = ["All Tasks", "Running", "Queued", "Completed"] as const;
 
 export const TasksList: FunctionComponent = () => {
     const listRef = useRef<HTMLDivElement>(null);
@@ -27,6 +27,7 @@ export const TasksList: FunctionComponent = () => {
         if (activeFilter === "All Tasks") return true;
         if (activeFilter === "Running") return task.status === "in_progress";
         if (activeFilter === "Queued") return task.status === "pending";
+        if (activeFilter === "Completed") return task.status === "completed";
         return true;
     });
 

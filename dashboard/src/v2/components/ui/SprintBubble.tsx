@@ -1,24 +1,37 @@
 import type { FunctionComponent } from "preact";
 import { useRef } from "preact/hooks";
 import gsap from "gsap";
-import { CalendarDays, Play, Square, Settings, Maximize2 } from "lucide-preact";
-import type { Sprint } from "../../types.js";
+import { Activity, CheckCircle2, Clock, XCircle, CalendarDays } from "lucide-preact";
+import type { Sprint, SprintStatus } from "../../types.js";
+import { CellActions } from "./CellActions.js";
+
+const statusMap: Record<SprintStatus, {
+    ring: string;
+    text: string;
+    icon: any;
+    label: string;
+}> = {
+    running:   { ring: 'border-status-green/50 shadow-[0_0_28px_rgba(0,171,132,0.35)]',  text: 'text-status-green', icon: Activity,     label: "Running"   },
+    completed: { ring: 'border-signal-500/50 shadow-[0_0_28px_rgba(0,224,160,0.35)]',    text: 'text-signal-500',   icon: CheckCircle2, label: "Completed" },
+    failed:    { ring: 'border-status-red/60 shadow-[0_0_28px_rgba(227,0,15,0.35)]',     text: 'text-status-red',   icon: XCircle,      label: "Failed"    },
+    idle:      { ring: '',                                                                 text: 'text-slate-400 dark:text-slate-500', icon: Clock, label: "Queued" },
+};
 
 interface SprintBubbleProps {
     sprint: Sprint;
     isEven: boolean;
     accentColor: string;
-    playing?: boolean;
 }
 
 export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
     sprint,
     isEven,
     accentColor,
-    playing = false,
 }) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const anim = isEven ? 'animate-organic' : 'animate-organic-reverse';
+    const state = statusMap[sprint.status];
+    const StatusIcon = state.icon;
 
     const handleHoverEnter = () => {
         if (!bubbleRef.current) return;
@@ -58,11 +71,25 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
                 style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', backfaceVisibility: 'hidden' }}
             >
                 <div className={`absolute inset-0 pointer-events-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${anim}`} />
+                {/* Status ring — matches SourceCell pattern */}
+                {state.ring && (
+                    <div
+                        className={`absolute inset-0 rounded-[50%] bg-transparent border-2 animate-[spin_5s_linear_infinite] scale-105 pointer-events-none mix-blend-screen ${state.ring}`}
+                        style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%', clipPath: 'inset(-10px)' }}
+                    />
+                )}
             </div>
 
             {/* Content */}
             <div className="relative z-20 flex flex-col items-center justify-center text-center p-8 w-full h-full">
-                <div className={`font-mono font-bold text-xs tracking-[0.15em] mb-3 opacity-70 group-hover:opacity-100 transition-opacity ${accentColor}`}>
+                {/* Status label — shows on hover, same position as SourceCell */}
+                <div className={`absolute top-5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${state.text}`}>
+                    <StatusIcon className={`w-3.5 h-3.5 ${sprint.status === 'running' ? 'animate-pulse' : ''}`} strokeWidth={2.5} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{state.label}</span>
+                </div>
+
+                {/* Sprint ID — hides on hover */}
+                <div className={`font-mono font-bold text-xs tracking-[0.15em] mb-3 group-hover:opacity-0 transition-opacity duration-300 ${accentColor}`}>
                     {sprint.id.toUpperCase()}
                 </div>
 
@@ -87,18 +114,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1.5 bg-void-900/85 dark:bg-white/90 backdrop-blur-md rounded-full opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-400 delay-100 shadow-xl scale-95 group-hover:scale-100">
-                    <button className="p-2 text-white dark:text-void-900 hover:bg-white/20 dark:hover:bg-black/10 rounded-full transition-colors" title="Play/Stop">
-                        {playing ? <Square className="w-3 h-3" fill="currentColor" /> : <Play className="w-3 h-3" fill="currentColor" />}
-                    </button>
-                    <button className="p-2 text-white dark:text-void-900 hover:bg-white/20 dark:hover:bg-black/10 rounded-full transition-colors" title="Configure">
-                        <Settings className="w-3.5 h-3.5" />
-                    </button>
-                    <button className="pr-3 pl-1.5 text-[10px] font-bold text-white dark:text-void-900 hover:text-signal-400 dark:hover:text-signal-600 transition-colors flex items-center gap-1 uppercase tracking-widest" title="Open">
-                        Open <Maximize2 className="w-2.5 h-2.5" />
-                    </button>
-                </div>
+                <CellActions isRunning={sprint.status === 'running'} />
             </div>
         </div>
     );
