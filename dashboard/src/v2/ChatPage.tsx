@@ -384,7 +384,8 @@ export const ChatPage: FunctionComponent = () => {
             </div>
 
             {/* ── Messages ──────────────────────────────────────────── */}
-            <div className="flex-1 px-8 md:px-20 py-8 z-10">
+            {/* pb accounts for fixed input bar height (~80px) + dock clearance (~128px) */}
+            <div className="flex-1 px-8 md:px-20 py-8 pb-[220px] z-10">
                 <div
                     ref={messagesRef}
                     className="max-w-[900px] mx-auto w-full flex flex-col gap-7"
@@ -398,13 +399,10 @@ export const ChatPage: FunctionComponent = () => {
                 </div>
             </div>
 
-            {/* ── Sticky Input Bar ──────────────────────────────────── */}
-            <div className="sticky bottom-0 z-20
-                            bg-gradient-to-t
-                            from-[#F9F8F4] dark:from-void-900
-                            via-[#F9F8F4]/95 dark:via-void-900/95
-                            to-transparent
-                            px-8 md:px-20 pt-6 pb-36">
+            {/* ── Fixed Input Bar — sits right above the KineticDock ── */}
+            {/* Dock: fixed bottom-7 (28px), pill ~70px tall → clears at ~100px.  */}
+            {/* We sit at bottom-[108px] to give a tight 8px gap above the dock.  */}
+            <div className="fixed bottom-[108px] left-0 right-0 z-30 px-8 md:px-20">
                 <div className="max-w-[900px] mx-auto w-full">
 
                     {/* Suggestions — only when no user messages */}
