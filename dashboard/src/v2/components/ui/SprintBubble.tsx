@@ -1,7 +1,8 @@
 import type { FunctionComponent } from "preact";
 import { useRef } from "preact/hooks";
 import gsap from "gsap";
-import { Activity, CheckCircle2, Clock, XCircle, CalendarDays } from "lucide-preact";
+import { Activity, CheckCircle2, Clock, XCircle, CalendarDays, ArrowUpRight } from "lucide-preact";
+import { Link } from "@tanstack/react-router";
 import type { Sprint, SprintStatus } from "../../types.js";
 import { CellActions } from "./CellActions.js";
 
@@ -115,6 +116,21 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
                 </div>
 
                 <CellActions isRunning={sprint.status === 'running'} />
+
+                {/* View Tasks link — appears on hover */}
+                <Link
+                    to={`/tasks?sprint=${sprint.id}`}
+                    className="absolute bottom-5 flex items-center gap-1.5
+                               opacity-0 group-hover:opacity-100
+                               translate-y-2 group-hover:translate-y-0
+                               transition-all duration-300 ease-out
+                               text-[10px] font-bold uppercase tracking-[0.12em]
+                               text-slate-400 hover:text-signal-500 group/tasks"
+                    onClick={(e: Event) => e.stopPropagation()}
+                >
+                    <ArrowUpRight className="w-3 h-3" strokeWidth={2.5} />
+                    View Tasks
+                </Link>
             </div>
         </div>
     );
