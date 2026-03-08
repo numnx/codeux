@@ -20,6 +20,7 @@ const ChatPage      = lazy(() => import("./v2/ChatPage.js").then(m => ({ default
 const AgentsPage    = lazy(() => import("./v2/AgentsPage.js").then(m => ({ default: m.AgentsPage })));
 const SettingsPage  = lazy(() => import("./v2/SettingsPage.js").then(m => ({ default: m.SettingsPage })));
 const MemoryPage    = lazy(() => import("./v2/MemoryPage.js").then(m => ({ default: m.MemoryPage })));
+const LiveSessionPage = lazy(() => import("./v2/LiveSessionPage.js").then(m => ({ default: m.LiveSessionPage })));
 const LegacyApp     = lazy(() => import("./legacy-app.js").then(m => ({ default: m.App })));
 
 // 1. Root layout route
@@ -94,6 +95,12 @@ const agentsRoute = createRoute({
 const liveRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/live",
+  component: LiveSessionPage,
+});
+
+const legacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/legacy",
   component: LegacyApp,
 });
 
@@ -110,7 +117,7 @@ const memoryRoute = createRoute({
   component: MemoryPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, sprintsRoute, projectsRoute, chatRoute, agentsRoute, configRoute, memoryRoute, liveRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, sprintsRoute, projectsRoute, chatRoute, agentsRoute, configRoute, memoryRoute, liveRoute, legacyRoute]);
 const router = createRouter({ routeTree });
 
 // 4. Entry — legacy hash fallback preserved
