@@ -18,6 +18,8 @@ It includes:
 - first listen-loop MCP connection and conversation contracts
 
 It does not yet include:
+- DB-native sprint execution
+- sprint runs and task dispatch records
 - multi-MCP scheduling
 - worker task pickup
 - autonomous task assignment across multiple MCPs
@@ -130,4 +132,5 @@ That means:
 - task status is managed in the DB for CRUD and planning workflows
 - live execution state is mirrored from the legacy orchestrator into `task_runs` and project runtime context
 - live activity messages are still fetched directly from provider sessions at request time
-- future work should attach MCP connection roles and chat/listen workflows to these same runtime entities instead of creating a second model
+- the next execution refactor must replace the legacy file-based sprint loop instead of layering another compatibility bridge on top of it
+- future work should attach MCP connection roles, dispatch state, and executor selection to these same runtime entities instead of creating a second model

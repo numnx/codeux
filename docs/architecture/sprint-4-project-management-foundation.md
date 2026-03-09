@@ -15,6 +15,8 @@ Product direction now requires a project-management-first model:
 - database as source of truth,
 - project identity linked to `(source_id + base_dir)`,
 - agent-driven CRUD for sprints and tasks,
+- DB-native execution scoped by project and sprint,
+- executor abstraction across Docker/worktrees, Jules, and MCP workers,
 - onboarding/listen execution entrypoints,
 - and persistent telemetry (tokens, durations, outcomes).
 
@@ -22,7 +24,7 @@ Product direction now requires a project-management-first model:
 Sprint 4 will establish a foundation-first architecture:
 
 1. Introduce normalized project/sprint/task/run/telemetry schema in sqlite.
-2. Migrate orchestration state reads/writes from markdown files to repositories.
+2. Migrate orchestration state reads/writes from markdown files to repositories and DB-backed run/dispatch state.
 3. Keep markdown as import/export compatibility path only.
 4. Ship MCP Tool Catalog v2 focused on project management:
    - `create_source` (`init_source` alias)
@@ -37,7 +39,7 @@ Sprint 4 will establish a foundation-first architecture:
    - `read_docs`
    - `get_help`
 5. Deprecate direct Jules source/session/activity tools from default external tool discovery.
-6. Enforce a single active execution lane in Sprint 4 (safety-first), while building data/runtime contracts that allow future concurrent multi-project execution.
+6. Replace the single active execution-lane assumption with DB-backed execution scopes and leases that support multiple projects and multiple sprints safely.
 
 ## Boundaries
 
@@ -60,21 +62,22 @@ Sprint 4 will establish a foundation-first architecture:
    - integration test.
 3. Telemetry writes must happen during run execution, not only post-hoc.
 4. Backward compatibility is required for transition period:
-   - `sprint_agent` / `task_agent` remain as wrappers,
+   - `sprint_agent` / `task_agent` may remain as tool names during migration,
+   - but execution semantics must be transformed onto the new DB-native model rather than wrapping the legacy file-based loop,
    - old Jules tools hidden by default, internal toggle only.
 5. Documentation updates are mandatory with each tool or schema contract change.
 
 ## Non-Goals (Sprint 4)
 
-- Full concurrent orchestration across multiple projects.
+- Final autonomous multi-project scheduling heuristics.
 - Final comprehensive analytics UI (backend contracts and base surfaces only).
-- Immediate full removal of compatibility wrappers before migration window closes.
+- Reintroducing file-based execution compatibility as a permanent bridge layer.
 
 ## Sequencing
 
 - Phase 1: data schema + repositories + importer.
-- Phase 2: runtime context and orchestrator migration.
-- Phase 3: MCP Tool Catalog v2 and execution tools.
+- Phase 2: runtime context, sprint run, task dispatch, and orchestrator migration.
+- Phase 3: executor abstraction and MCP Tool Catalog v2 execution tools.
 - Phase 4: telemetry aggregation + dashboard foundation + hardening.
 
 ## Drivers

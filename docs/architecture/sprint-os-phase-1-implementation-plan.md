@@ -4,43 +4,110 @@
 Accepted implementation plan
 
 ## Purpose
-This document converts the Sprint 4 direction into an execution-ready plan for the first implementation phase of the Sprint OS refactor.
 
-The goal of phase 1 is to establish a stable project management foundation:
+This document defines the first implementation phase of the Sprint OS refactor after the v2 dashboard direction was finalized.
 
-- rename runtime/config ownership from `.jules-subagents` to `.sprint-os`
-- move project, sprint, and task state into sqlite
-- keep markdown as import/export compatibility only
-- wire the v2 dashboard to real project-scoped data
-- reserve the correct contracts for future multi-MCP connection roles and listen mode
+The goal is not to preserve the old prototype workflow.
 
-This phase does not attempt to ship the full worker model, live chat routing, or concurrent multi-project execution.
+The goal is to replace it with a DB-native execution foundation that matches the v2 product model:
 
-## Current Constraints
-The current codebase still has several hard blockers that make direct v2 integration unsafe:
+- projects
+- sprints per project
+- tasks per sprint
+- live execution scoped to project and sprint
+- multiple active projects and multiple active sprints
+- multiple executor types on one runtime model
 
-- runtime status is a single in-memory `lastStatus` object
-- dashboard APIs are global rather than project-scoped
-- sprint/task persistence is markdown-first under repo-local `.jules-subagents/sprints`
-- rerun and merge flows still write back to markdown files
-- sqlite only stores dashboard settings and provider session tracking
-- the v2 dashboard entity model is mock-based and not connected to the backend
+Markdown remains import/export only.
+
+## Product Goal
+
+Sprint OS must become a true project operating system, not a dashboard on top of a file-based sprint loop.
+
+That means:
+
+- the v2 dashboard is the operational control plane
+- sqlite is the only authoritative runtime store
+- `sprint_agent` is transformed into a project/sprint execution command on top of DB state
+- Docker/worktree execution remains first-class
+- connected MCP workers become another executor option on the same execution model
+- no execution-critical behavior depends on repo-local markdown task files
+
+## Non-Negotiable Architecture Rules
+
+### 1. DB-native execution only
+
+The system must not reconstruct execution state from repo-local markdown directories.
+
+Planning, orchestration, CI state, merge state, interventions, task runs, and dispatch state must all be stored in sqlite.
+
+Markdown files are allowed only for:
+
+- import
+- export
+- human-readable external interchange
+
+### 2. No compatibility workspace bridge
+
+The system must not materialize temporary task markdown just to run the old orchestrator.
+
+That would preserve the wrong execution model:
+
+- file-centric sprint state
+- wrong cleanup semantics
+- fragile concurrency
+- two sources of truth
+
+### 3. Multi-project and multi-sprint support are foundation concerns
+
+This is not a later optimization.
+
+The phase-1 execution model must assume that:
+
+- more than one project can be active
+- more than one sprint can be active
+- each active sprint can have its own run state
+- live views must be derived from DB scope, not one global process-local object
+
+### 4. Executors are pluggable, not separate systems
+
+Sprint OS will support multiple executor types on one orchestration contract:
+
+- local/CLI provider execution with Docker and git worktrees
+- Jules remote execution
+- connected MCP worker execution
+
+These must share the same task dispatch and run model.
+
+## Current Problems To Eliminate
+
+The old prototype still assumes:
+
+- one global runtime status object
+- one active sprint loop
+- repo-local subtask markdown as execution input
+- merge and rerun behavior writing directly to markdown files
+- orchestration identity derived from `repo_path + sprint_number`
+
+Those assumptions block the v2 architecture.
 
 ## Phase 1 Outcome
-At the end of phase 1, the application must support:
 
-1. Managing projects in the v2 dashboard.
-2. Managing sprints per project.
-3. Managing tasks per sprint, including dependency metadata.
-4. Importing sprint/task markdown into the database.
-5. Exporting database-backed sprint/task state back to markdown.
-6. Keeping the selected project as the scope driver for the dashboard.
-7. Preserving compatibility wrappers for legacy `sprint_agent` and `task_agent` flows.
+At the end of phase 1, Sprint OS must support:
+
+1. DB-backed management of projects, sprints, and tasks in the v2 dashboard.
+2. DB-backed execution state for each active sprint.
+3. A transformed `sprint_agent` that executes a selected project/sprint from DB state.
+4. Executor selection per task or per sprint run without changing the orchestration model.
+5. Docker/worktree and Jules execution still working through the new DB-native dispatch layer.
+6. The data model required for connected MCP workers to claim and run tasks later without another schema rewrite.
+7. Markdown import/export as an explicit transport path only.
 
 ## Required Design Decisions
 
 ### 1. Sprint OS directory migration
-The new runtime/config root is:
+
+Runtime/config ownership is:
 
 - repo-scoped: `<repo>/.sprint-os/`
 - home-scoped: `~/.sprint-os/`
@@ -50,103 +117,145 @@ This replaces:
 - `<repo>/.jules-subagents/`
 - `~/.jules-subagents/`
 
-Phase 1 assumes a clean break for runtime databases. Existing databases can be discarded. Markdown content may still be imported if needed.
+This migration is already in progress and remains required.
 
-### 2. Database as source of truth
-Projects, sprints, tasks, dependencies, and runs must live in sqlite. Markdown is no longer the authoritative store.
+### 2. Projects and sprints are execution scopes
 
-### 3. Multi-MCP compatibility now, full worker model later
-Phase 1 remains single-lane for execution safety, but the schema must not assume a single MCP connection forever.
+Execution is no longer scoped by a markdown directory.
 
-This means phase 1 must include:
+Execution scope is:
 
-- MCP connection records
-- connection role metadata
-- project selection or project assignment metadata
-- conversation thread/message storage for future dashboard chat and listen mode
+- `project_id`
+- `sprint_id`
+- one or more `sprint_runs`
 
-This does not mean phase 1 must implement:
+### 3. `sprint_agent` is transformed, not wrapped
 
-- multi-worker scheduling
-- task pickup queues
-- full agent dispatch between multiple live MCPs
+For the migration window, the tool name may remain `sprint_agent`, but its behavior must become:
 
-### 4. Listen mode must be pull-friendly
-The current MCP transport is stdio-based. Because of that, future listen mode must be designed around an explicit loop entrypoint such as `start_listen`, where a connected AI repeatedly polls for dashboard-directed work and re-enters the loop after replying.
+- load sprint context from DB
+- derive ready tasks from DB
+- dispatch tasks through executor abstractions
+- persist run state and events to DB
+
+It must not be a wrapper around the legacy file-based sprint loop.
+
+### 4. Executor abstraction is mandatory
+
+The orchestration core must target an executor interface, not Docker/Jules/worker-specific code paths.
+
+Minimum executor targets:
+
+- `docker_cli`
+- `jules`
+- `mcp_worker`
+
+### 5. Concurrency is controlled by leases, not globals
+
+Project and sprint execution coordination must use DB-backed ownership or lease records.
+
+The system must not depend on a single process-local “active sprint” concept.
 
 ## Proposed Database Foundation
 
-### Core tables
+### Management tables
+
 - `projects`
 - `project_sources`
 - `sprints`
 - `tasks`
 - `task_dependencies`
+- `app_settings`
+
+### Execution tables
+
+- `sprint_runs`
 - `task_runs`
 - `task_run_events`
+- `task_dispatches`
+- `execution_leases`
+
+### Multi-MCP / control plane tables
+
 - `mcp_connections`
 - `connection_project_bindings`
 - `conversation_threads`
 - `conversation_messages`
-- `app_settings`
 
-### Recommended minimum columns
+## Recommended Minimum Columns
 
-#### `projects`
-- `id`
-- `slug`
-- `name`
-- `base_dir`
-- `repo_url`
-- `source_id`
-- `default_branch`
-- `feature_branch_prefix`
-- `status`
-- `created_at`
-- `updated_at`
+### `sprint_runs`
 
-#### `sprints`
-- `id`
-- `project_id`
-- `number`
-- `slug`
-- `name`
-- `goal`
-- `status`
-- `start_date`
-- `end_date`
-- `feature_branch`
-- `created_at`
-- `updated_at`
-
-#### `tasks`
 - `id`
 - `project_id`
 - `sprint_id`
-- `task_key`
-- `title`
-- `prompt_markdown`
-- `description`
+- `status`
+- `trigger_type`
+- `triggered_by`
+- `executor_mode`
+- `started_at`
+- `finished_at`
+- `last_heartbeat_at`
+- `created_at`
+- `updated_at`
+
+`status` should support at least:
+
+- `queued`
+- `running`
+- `paused`
+- `completed`
+- `failed`
+- `cancelled`
+
+### `task_dispatches`
+
+- `id`
+- `project_id`
+- `sprint_id`
+- `task_id`
+- `sprint_run_id`
+- `executor_type`
+- `connection_id`
 - `status`
 - `priority`
-- `sort_order`
-- `is_independent`
-- `is_merged`
-- `merge_indicator`
-- `source_type`
-- `source_path`
+- `queued_at`
+- `claimed_at`
+- `started_at`
+- `finished_at`
+- `last_heartbeat_at`
+- `error_message`
 - `created_at`
 - `updated_at`
 
-#### `task_dependencies`
-- `task_id`
-- `depends_on_task_id`
+`executor_type` should support:
 
-#### `task_runs`
+- `docker_cli`
+- `jules`
+- `mcp_worker`
+
+`status` should support:
+
+- `queued`
+- `claimed`
+- `running`
+- `completed`
+- `failed`
+- `cancelled`
+- `blocked`
+
+### `task_runs`
+
+Treat `task_runs` as execution history, not planning state.
+
+Minimum columns:
+
 - `id`
 - `project_id`
 - `sprint_id`
 - `task_id`
+- `sprint_run_id`
+- `dispatch_id`
 - `connection_id`
 - `provider`
 - `mode`
@@ -159,159 +268,159 @@ The current MCP transport is stdio-based. Because of that, future listen mode mu
 - `finished_at`
 - `duration_ms`
 
-#### `task_run_events`
-- `id`
-- `task_run_id`
-- `event_type`
-- `originator`
-- `payload_json`
-- `created_at`
+### `execution_leases`
 
-#### `mcp_connections`
 - `id`
-- `connection_key`
-- `display_name`
-- `role`
-- `transport`
-- `status`
-- `capabilities_json`
+- `scope_type`
+- `scope_id`
+- `owner_key`
+- `lease_token`
+- `acquired_at`
+- `expires_at`
 - `last_heartbeat_at`
-- `created_at`
-- `updated_at`
 
-`role` should support at least:
+This is the concurrency foundation for:
 
-- `PROJECT_MANAGER`
-- `WORKER`
-- `LISTENER`
+- active sprint ownership
+- worker claims
+- future scheduler safety
 
-#### `connection_project_bindings`
-- `connection_id`
-- `project_id`
-- `is_active`
-- `created_at`
+## Execution Model
 
-#### `conversation_threads`
-- `id`
-- `project_id`
-- `connection_id`
-- `scope`
-- `title`
-- `status`
-- `created_at`
-- `updated_at`
+### Orchestration input
 
-#### `conversation_messages`
-- `id`
-- `thread_id`
-- `direction`
-- `author_type`
-- `author_connection_id`
-- `body_markdown`
-- `delivery_status`
-- `created_at`
+The orchestrator loads:
 
-## API Shape for Phase 1
+- project metadata from `projects`
+- sprint metadata from `sprints`
+- task graph from `tasks` and `task_dependencies`
+- latest execution state from `sprint_runs`, `task_dispatches`, and `task_runs`
 
-### Required HTTP endpoints
+### Orchestration output
+
+Each cycle writes:
+
+- sprint-level state to `sprint_runs`
+- queued/routed work to `task_dispatches`
+- concrete execution history to `task_runs`
+- detailed transitions to `task_run_events`
+
+### Task readiness
+
+Ready-task calculation must depend on:
+
+- dependency completion in DB
+- active dispatch status
+- active run status
+- merge/CI gates stored in DB state
+
+### CI and merge logic
+
+CI status and merge gates remain part of orchestration, but they must update DB records directly:
+
+- task merge indicator
+- intervention owner/hint
+- PR URL
+- dispatch/run state
+
+No direct markdown persistence is allowed in execution paths.
+
+## API Shape For Phase 1
+
+### Existing project-management endpoints stay
+
 - `GET /api/projects`
 - `POST /api/projects`
 - `GET /api/projects/:projectId`
 - `PATCH /api/projects/:projectId`
 - `DELETE /api/projects/:projectId`
+- `PUT /api/projects/:projectId/select`
 - `GET /api/projects/:projectId/sprints`
 - `POST /api/projects/:projectId/sprints`
+- `POST /api/projects/:projectId/sprints/import`
+- `GET /api/projects/:projectId/sprints/:sprintId/export`
 - `GET /api/projects/:projectId/tasks`
-- `GET /api/projects/:projectId/sprints/:sprintId/tasks`
-- `POST /api/projects/:projectId/sprints/:sprintId/tasks`
-- `PATCH /api/projects/:projectId/tasks/:taskId`
-- `DELETE /api/projects/:projectId/tasks/:taskId`
-- `POST /api/projects/:projectId/import/markdown`
-- `POST /api/projects/:projectId/export/markdown`
+- `POST /api/projects/:projectId/tasks`
+- `PATCH /api/tasks/:taskId`
+- `DELETE /api/tasks/:taskId`
 
-### Required dashboard behavior
-- The top nav project selector must use real projects.
-- Projects page must create and list persisted projects.
-- Sprints page must list and create sprints for the selected project.
-- Tasks page must list and mutate tasks for the selected project and sprint.
-- Agents, Chat, and Live pages may remain partially mocked in phase 1, but they must become project-scoped and align with the new backend contracts.
+### New execution endpoints
 
-## Legacy Compatibility Rules
-- `sprint_agent` and `task_agent` remain available during transition.
-- Any touched mutation path must write through repositories first.
-- Markdown file writes are limited to explicit export flows or temporary compatibility wrappers.
-- Direct writes to `.jules-subagents` paths must be removed from active phase-1 paths.
+- `GET /api/projects/:projectId/sprints/:sprintId/runs`
+- `POST /api/projects/:projectId/sprints/:sprintId/runs`
+- `GET /api/sprint-runs/:runId`
+- `POST /api/sprint-runs/:runId/pause`
+- `POST /api/sprint-runs/:runId/resume`
+- `POST /api/sprint-runs/:runId/cancel`
+- `GET /api/projects/:projectId/sprints/:sprintId/dispatches`
+- `GET /api/projects/:projectId/sprints/:sprintId/task-runs`
+
+## Dashboard Requirements
+
+The v2 dashboard must become the native execution UI.
+
+Required behavior:
+
+- selected project scopes all execution views
+- sprint pages show active and historical sprint runs
+- task pages show dispatch state, executor type, current owner, PR/branch state, and latest run
+- live views resolve from DB execution records, not one global runtime object
+- agents/chat pages attach to the same project-scoped execution model
 
 ## Phase 1 Backlog
 
 ### Track 0: Rebrand and path migration
-- Introduce a centralized Sprint OS path helper.
-- Replace `.jules-subagents` path resolution with `.sprint-os`.
-- Rebrand visible product strings from Jules OS / Jules Subagents to Sprint OS where appropriate.
-- Keep compatibility search fallback only where migration risk requires it.
 
-### Track 1: Database and migrations
-- Add a dedicated Sprint OS app database.
-- Create initial schema and migration runner.
-- Add repository test coverage for every new table family.
+- Complete `.sprint-os` migration.
+- Remove active `.jules-subagents` execution dependencies.
 
-### Track 2: Domain repositories
-- Implement `ProjectRepository`.
-- Implement `SprintRepository`.
-- Implement `TaskRepository`.
-- Implement `TaskDependencyRepository`.
-- Implement `TaskRunRepository`.
-- Implement `McpConnectionRepository`.
-- Implement conversation repositories for future listen mode support.
+### Track 1: DB-native execution schema
 
-### Track 3: Markdown import/export
-- Define canonical markdown import format for sprint and task records.
-- Build importer with deterministic task dependency resolution.
-- Build exporter with stable ordering and frontmatter serialization.
-- Add round-trip tests.
+- Add `sprint_runs`
+- Add `task_dispatches`
+- Add `execution_leases`
+- extend `task_runs` and `task_run_events` where needed
 
-### Track 4: Dashboard API
-- Add project-scoped CRUD routes.
-- Add validation and integration tests.
-- Replace global task status assumptions in API handlers.
+### Track 2: Repository-backed execution context
 
-### Track 5: V2 dashboard integration
-- Replace mock project selector data.
-- Replace mock Projects page data.
-- Replace mock Sprints page data.
-- Replace mock Tasks page data.
-- Add selected-project state to the frontend runtime.
+- Implement sprint run repository
+- Implement task dispatch repository
+- Implement execution lease repository
+- Implement repository-backed ready-task and status projection services
 
-### Track 6: Legacy orchestration bridge
-- Route sprint/task reads through repositories.
-- Route rerun and merged-flag writes through repositories.
-- Keep markdown export available for legacy workflows that still need files.
+### Track 3: Orchestrator refactor
 
-## Explicit Non-Goals for Phase 1
-- No full task pickup flow for worker MCPs.
-- No full dashboard chat delivery loop to connected MCPs.
-- No final telemetry analytics UI.
-- No concurrent orchestration across multiple projects.
-- No hard removal of legacy compatibility wrappers yet.
+- Refactor `CycleRunner` to read from DB repositories
+- Refactor start-ready logic to create dispatch records
+- Refactor status derivation to use DB execution state
+- Refactor CI/merge gates to write DB state directly
+- remove direct markdown execution dependencies
 
-## Risks
-- Path migration is broad and touches docs, code, tests, and user-facing instructions.
-- The current dashboard runtime assumes a single global status model.
-- Legacy orchestration code has many direct assumptions about sprint-number-based filesystem layout.
-- Introducing DB truth without project-scoped APIs will create an awkward hybrid state.
-- Listen mode will be blocked later if conversation storage is not reserved now.
+### Track 4: Executor abstraction
 
-## Definition of Done
-- `.sprint-os` is the active runtime/config directory in changed paths.
-- The application persists projects, sprints, and tasks in sqlite.
-- The v2 Projects, Sprints, and Tasks pages use real backend data.
-- Markdown import/export works for sprint/task records.
-- Legacy orchestration paths touched in phase 1 write through repositories.
-- Schema includes future-compatible MCP connection and conversation tables.
+- Introduce executor interface
+- adapt Docker/worktree CLI flow to DB task payloads
+- adapt Jules flow to DB task payloads
+- define worker executor contract on the same dispatch model
 
-## Next Implementation Pass
-The next execution pass should start with:
+### Track 5: Dashboard execution surfaces
 
-1. Sprint OS path abstraction and `.sprint-os` migration.
-2. Initial sqlite schema and migration runner.
-3. Repository scaffolding and tests for projects, sprints, tasks, dependencies, connections, and conversations.
+- add sprint run controls
+- add task dispatch visibility
+- add DB-backed live execution timelines
+
+## Explicit Non-Goals For This Phase
+
+- final analytics UI
+- autonomous multi-project scheduling heuristics
+- complete replacement of the MCP tool catalog in one step
+
+## Definition Of Done
+
+Phase 1 is complete when:
+
+- the selected project and sprint in the v2 model can be executed from DB state
+- orchestration does not require repo-local task markdown as execution input
+- Docker/worktree execution still works through the new DB-native execution model
+- the same execution model is capable of later routing tasks to connected MCP workers
+- sprint and task runtime views in the dashboard are derived from DB-backed execution records
