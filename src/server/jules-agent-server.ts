@@ -25,6 +25,7 @@ import { SubtaskFileRepository } from "../infrastructure/repositories/subtask-fi
 import { TaskService } from "../services/task-service.js";
 import { SettingsRepository } from "../repositories/settings-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
+import { ProjectRuntimeRepository } from "../repositories/project-runtime-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { InstructionService } from "../instructions/instruction-template-service.js";
@@ -72,6 +73,7 @@ export class JulesAgentServer {
   private sprintOrchestrator: SprintOrchestrator;
   private settingsRepository: SettingsRepository;
   private projectManagementRepository: ProjectManagementRepository;
+  private projectRuntimeRepository: ProjectRuntimeRepository;
   private sprintMarkdownService: SprintMarkdownService;
   private externalSettingsHints: ExternalSettingsHints;
   private instructionService: InstructionService;
@@ -99,6 +101,7 @@ export class JulesAgentServer {
     this.sprintOrchestrator = deps.sprintOrchestrator;
     this.settingsRepository = deps.settingsRepository;
     this.projectManagementRepository = deps.projectManagementRepository;
+    this.projectRuntimeRepository = deps.projectRuntimeRepository;
     this.sprintMarkdownService = deps.sprintMarkdownService;
     this.externalSettingsHints = deps.externalSettingsHints;
     this.instructionService = deps.instructionService;
@@ -254,9 +257,10 @@ export class JulesAgentServer {
   private resolveGitTrackingRequest(): GitTrackingRequest {
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     const ci = settings.ciIntelligence;
-    const subtasks: Subtask[] = Array.isArray(this.runtimeContext.lastStatus?.subtasks) ? this.runtimeContext.lastStatus.subtasks : [];
-    const featureBranch = typeof this.runtimeContext.lastStatus?.feature_branch === "string" && this.runtimeContext.lastStatus.feature_branch.trim().length > 0
-      ? this.runtimeContext.lastStatus.feature_branch.trim()
+    const runtimeStatus = this.projectRuntimeRepository.getSelectedProjectStatus();
+    const subtasks: Subtask[] = Array.isArray(runtimeStatus.subtasks) ? runtimeStatus.subtasks : [];
+    const featureBranch = typeof runtimeStatus.feature_branch === "string" && runtimeStatus.feature_branch.trim().length > 0
+      ? runtimeStatus.feature_branch.trim()
       : null;
     const defaultBranch = settings.git.defaultBranch?.trim() || "main";
     const featureBranchPrefix = settings.git.featureBranchPrefix?.trim() || "feature/";
@@ -280,8 +284,7 @@ export class JulesAgentServer {
   }
 
   private resolveGitStatusRepoPath(): string {
-    const statusRepoPath = typeof this.runtimeContext.lastStatus?.repo_path === "string" ? this.runtimeContext.lastStatus.repo_path.trim() : "";
-    return statusRepoPath.length > 0 ? statusRepoPath : this.projectRoot;
+    return this.projectRuntimeRepository.getSelectedProjectRepoPath(this.projectRoot);
   }
 
   private isReady(): ReadinessProbeStatus {
@@ -289,7 +292,7 @@ export class JulesAgentServer {
     const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
     const mcpServiceUp = this.mcpServiceBound;
 
-    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.runtimeContext.lastStatus?.timestamp;
+    const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.projectRuntimeRepository.getSelectedProjectStatus().timestamp;
 
     return {
       status: isReady ? "READY" : "NOT_READY",
@@ -495,6 +498,7 @@ export class JulesAgentServer {
       externalSettingsHints: this.externalSettingsHints,
       settingsRepository: this.settingsRepository,
       projectManagementRepository: this.projectManagementRepository,
+      projectRuntimeRepository: this.projectRuntimeRepository,
       sprintMarkdownService: this.sprintMarkdownService,
       activityCacheService: this.activityCacheService,
       taskRerunService: this.taskRerunService,

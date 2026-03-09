@@ -53,9 +53,9 @@ Project management:
 
 Legacy runtime:
 - `GET /api/status`
-  - Current orchestrator status payload (`sprint_number`, `subtasks`, `instructions`, etc.)
+  - Selected-project runtime payload (`sprint_number`, `subtasks`, `instructions`, etc.) projected from sqlite
 - `GET /api/live-activities`
-  - Session activity stream for running tasks
+  - Session activity stream for running tasks in the selected project
 - `GET /api/settings`
   - Persisted dashboard settings
 - `PUT /api/settings`
@@ -65,7 +65,7 @@ Legacy runtime:
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
-  - Resets a task state and immediately starts a fresh provider session for that task
+  - Resets a selected-project runtime task and immediately starts a fresh provider session for that task
 
 ## UI Sections
 
@@ -83,6 +83,10 @@ Legacy runtime:
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel
+
+Runtime scoping:
+- the selected project in the v2 top navigation now also scopes live session status, reruns, live activities, and git tracking
+- dashboard runtime state is projected through sqlite task-run records instead of being served only from one in-memory global payload
 
 ### Settings view
 - Basic settings

@@ -13,12 +13,13 @@ It includes:
 - project-scoped dashboard HTTP endpoints
 - v2 dashboard wiring for Projects, Sprints, Tasks, top-nav selection, and overview widgets
 - markdown import/export for sprints and tasks
+- selected-project runtime projection for live dashboard status
 
 It does not yet include:
 - multi-MCP scheduling
 - worker task pickup
 - dashboard chat/listen mode execution loops
-- DB-backed replacement for legacy runtime status/live activity flows
+- persisted provider activity transcripts in `task_run_events`
 
 ## Source Of Truth
 
@@ -83,6 +84,8 @@ Legacy runtime endpoints still exist for the old live runtime/status surfaces:
 - `GET /api/git-status`
 - `POST /api/tasks/:taskId/rerun`
 
+Those endpoints are now selected-project scoped through sqlite-backed runtime projection rather than directly reading `runtimeContext.lastStatus`.
+
 ## Dashboard Behavior
 
 The v2 dashboard now uses the selected project as the scope driver.
@@ -114,5 +117,6 @@ Current task records are management records, not yet full execution records.
 
 That means:
 - task status is managed in the DB for CRUD and planning workflows
-- live execution state still depends on the legacy orchestration/runtime path
-- future work should bridge task runs and MCP connection roles into these entities instead of creating a second model
+- live execution state is mirrored from the legacy orchestrator into `task_runs` and project runtime context
+- live activity messages are still fetched directly from provider sessions at request time
+- future work should attach MCP connection roles and chat/listen workflows to these same runtime entities instead of creating a second model

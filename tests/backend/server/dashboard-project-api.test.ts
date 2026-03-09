@@ -8,6 +8,7 @@ import { setupDashboardServer } from "../../../src/server/dashboard-server.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
 
 const serversToClose: Server[] = [];
@@ -32,11 +33,17 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
-async function createServerHandle(): Promise<{ port: number; repository: ProjectManagementRepository; markdownService: SprintMarkdownService }> {
+async function createServerHandle(): Promise<{
+  port: number;
+  repository: ProjectManagementRepository;
+  runtimeRepository: ProjectRuntimeRepository;
+  markdownService: SprintMarkdownService;
+}> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-dashboard-api-"));
   tempDirs.push(dir);
   const storage = new AppDbStorage(path.join(dir, "app.db"));
   const repository = new ProjectManagementRepository(storage);
+  const runtimeRepository = new ProjectRuntimeRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
 
   const app = express();
@@ -45,7 +52,7 @@ async function createServerHandle(): Promise<{ port: number; repository: Project
     dashboardDir: "dashboard",
     port: 39100,
     liveActivityCacheMs: 1000,
-    getStatus: () => ({ subtasks: [], timestamp: null }),
+    getStatus: () => runtimeRepository.getSelectedProjectStatus(),
     getLiveActivities: async () => ({}),
     getGitStatus: async () => ({
       mode: "LOCAL",
@@ -91,13 +98,14 @@ async function createServerHandle(): Promise<{ port: number; repository: Project
   return {
     port: handle.port,
     repository,
+    runtimeRepository,
     markdownService,
   };
 }
 
 describe("dashboard project management API", () => {
   it("creates and queries DB-backed projects, sprints, tasks, and markdown export", async () => {
-    const { port } = await createServerHandle();
+    const { port, runtimeRepository } = await createServerHandle();
     const baseUrl = `http://127.0.0.1:${port}`;
 
     const projectResponse = await fetch(`${baseUrl}/api/projects`, {
@@ -148,6 +156,43 @@ describe("dashboard project management API", () => {
       name: "Dashboard API Project",
       sprintsCount: 1,
       openTasks: 1,
+    });
+
+    runtimeRepository.syncDashboardStatus({
+      sprint_number: 1,
+      repo_path: "/workspace/dashboard-api-project",
+      feature_branch: "feature/api-sprint",
+      subtasks: [
+        {
+          id: "T01",
+          title: "Wire selected project state",
+          prompt: "Connect the top nav to the DB-backed project selector.",
+          depends_on: [],
+          is_independent: true,
+          status: "RUNNING",
+          session_id: "session-api",
+          session_name: "sessions/session-api",
+          provider: "codex",
+        },
+      ],
+      timestamp: "2026-03-09T18:00:00.000Z",
+    });
+
+    const runtimeStatus = await fetch(`${baseUrl}/api/status`).then(async (response) => response.json()) as {
+      repo_path?: string;
+      feature_branch?: string;
+      timestamp: string | null;
+      subtasks: Array<{ id: string; record_id?: string; status?: string; session_id?: string }>;
+    };
+    expect(runtimeStatus).toMatchObject({
+      repo_path: "/workspace/dashboard-api-project",
+      feature_branch: "feature/api-sprint",
+      timestamp: "2026-03-09T18:00:00.000Z",
+    });
+    expect(runtimeStatus.subtasks[0]).toMatchObject({
+      id: "T01",
+      status: "RUNNING",
+      session_id: "session-api",
     });
 
     const exported = await fetch(`${baseUrl}/api/projects/${project.id}/sprints/${sprint.id}/export`)

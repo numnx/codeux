@@ -171,7 +171,7 @@ const LiveTaskCard: FunctionComponent<{
 
     const handleRerun = () => {
         const confirmed = window.confirm(`Rerun task "${task.id}"?\n\nThis resets the task state and discards current progress.`);
-        if (confirmed) onRerun(task.id);
+        if (confirmed) onRerun(task.record_id || task.id);
     };
 
     return (

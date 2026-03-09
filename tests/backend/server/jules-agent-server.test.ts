@@ -133,18 +133,22 @@ describe("JulesAgentServer", () => {
         ...DEFAULT_DASHBOARD_SETTINGS,
         ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, enabled: true, waitForCiBeforeFeatureMerge: true }
       };
-      runtimeContext.lastStatus = {
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectStatus").mockReturnValue({
         subtasks: [{ id: "T1", status: "RUNNING" } as any],
-        feature_branch: "feat/test"
-      };
+        feature_branch: "feat/test",
+        timestamp: "2026-03-09T00:00:00.000Z",
+      });
       const request = (server as any).resolveGitTrackingRequest();
       expect(request.scope).toBe("FEATURE_PR_CI");
       expect(request.featureBranch).toBe("feat/test");
     });
 
     it("should return MAIN_BRANCH_CI otherwise", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { subtasks: [], feature_branch: null };
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectStatus").mockReturnValue({
+        subtasks: [],
+        feature_branch: undefined,
+        timestamp: null,
+      });
       const request = (server as any).resolveGitTrackingRequest();
       expect(request.scope).toBe("MAIN_BRANCH_CI");
     });
@@ -152,14 +156,12 @@ describe("JulesAgentServer", () => {
 
   describe("resolveGitStatusRepoPath", () => {
     it("should return repo_path from lastStatus if available", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { repo_path: "/custom/path" };
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectRepoPath").mockReturnValue("/custom/path");
       expect((server as any).resolveGitStatusRepoPath()).toBe("/custom/path");
     });
 
     it("should fallback to projectRoot", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = null;
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectRepoPath").mockReturnValue(projectRoot);
       expect((server as any).resolveGitStatusRepoPath()).toBe(projectRoot);
     });
   });

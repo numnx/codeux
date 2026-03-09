@@ -39,6 +39,7 @@ Storage:
 - dashboard settings DB at `~/.sprint-os/settings.db`
 - provider session DB at `~/.sprint-os/session-tracking.db`
 - Sprint OS app DB at `~/.sprint-os/app.db`
+  - includes project planning tables plus selected-project runtime projection in `app_settings`, `task_runs`, and `task_run_events`
 
 ## Persisted Dashboard Settings Model
 

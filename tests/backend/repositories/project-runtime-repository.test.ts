@@ -1,0 +1,179 @@
+import { afterEach, describe, expect, it } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
+import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
+import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
+
+const tempDirs: string[] = [];
+
+async function createRepositories(): Promise<{
+  storage: AppDbStorage;
+  projectRepository: ProjectManagementRepository;
+  runtimeRepository: ProjectRuntimeRepository;
+}> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-runtime-repo-"));
+  tempDirs.push(dir);
+  const storage = new AppDbStorage(path.join(dir, "app.db"));
+  return {
+    storage,
+    projectRepository: new ProjectManagementRepository(storage),
+    runtimeRepository: new ProjectRuntimeRepository(storage),
+  };
+}
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
+describe("ProjectRuntimeRepository", () => {
+  it("persists orchestration context and task runs for the selected project", async () => {
+    const { storage, projectRepository, runtimeRepository } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Runtime Project",
+      sourceType: "local",
+      sourceRef: "/workspace/runtime-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Execution Sprint",
+      number: 7,
+      featureBranch: "feature/sprint7-implementation",
+      status: "running",
+    });
+    const taskA = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T01",
+      title: "Start worker",
+      promptMarkdown: "Launch the first worker session.",
+      status: "pending",
+    });
+    projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T02",
+      title: "Handle blocker",
+      promptMarkdown: "Track the failed execution path.",
+      status: "pending",
+      dependsOnTaskIds: [taskA.id],
+    });
+
+    runtimeRepository.syncDashboardStatus({
+      sprint_number: 7,
+      source_id: "source-001",
+      repo_path: "/workspace/runtime-project",
+      feature_branch: "feature/sprint7-implementation",
+      subtasks: [
+        {
+          id: "T01",
+          title: "Start worker",
+          prompt: "Launch the first worker session.",
+          depends_on: [],
+          is_independent: true,
+          status: "RUNNING",
+          session_id: "session-1",
+          session_name: "sessions/session-1",
+          provider: "codex",
+          worker_branch: "worker/T01",
+        },
+        {
+          id: "T02",
+          title: "Handle blocker",
+          prompt: "Track the failed execution path.",
+          depends_on: ["T01"],
+          is_independent: false,
+          status: "FAILED",
+        },
+      ],
+      reportText: "Runtime report",
+      statusTable: "Status table",
+      instructions: "Next actions",
+      timestamp: "2026-03-09T12:00:00.000Z",
+    });
+
+    const runtimeStatus = runtimeRepository.getSelectedProjectStatus();
+    expect(runtimeStatus).toMatchObject({
+      sprint_number: 7,
+      source_id: "source-001",
+      repo_path: "/workspace/runtime-project",
+      feature_branch: "feature/sprint7-implementation",
+      reportText: "Runtime report",
+      statusTable: "Status table",
+      instructions: "Next actions",
+      timestamp: "2026-03-09T12:00:00.000Z",
+    });
+    expect(runtimeStatus.subtasks).toHaveLength(2);
+    expect(runtimeStatus.subtasks[0]).toMatchObject({
+      record_id: taskA.id,
+      id: "T01",
+      status: "RUNNING",
+      session_id: "session-1",
+      session_name: "sessions/session-1",
+      provider: "codex",
+      worker_branch: "worker/T01",
+    });
+    expect(runtimeStatus.subtasks[1]).toMatchObject({
+      id: "T02",
+      status: "FAILED",
+      depends_on: ["T01"],
+    });
+
+    const db = storage.getDatabase();
+    const runRows = db.prepare(`
+      SELECT task_id, state, session_id, session_name
+      FROM task_runs
+      ORDER BY task_id ASC
+    `).all() as Array<{ task_id: string; state: string; session_id: string | null; session_name: string | null }>;
+    expect(runRows).toHaveLength(2);
+    const runningRow = runRows.find((row) => row.task_id === taskA.id);
+    expect(runningRow).toMatchObject({
+      task_id: taskA.id,
+      state: "RUNNING",
+      session_id: "session-1",
+      session_name: "sessions/session-1",
+    });
+
+    const storedProject = projectRepository.getProject(project.id);
+    expect(storedProject?.status).toBe("running");
+  });
+
+  it("returns the selected project's planned tasks even without runtime context", async () => {
+    const { projectRepository, runtimeRepository } = await createRepositories();
+
+    const projectA = projectRepository.createProject({
+      name: "Alpha",
+      sourceType: "local",
+      sourceRef: "/workspace/alpha",
+    });
+    const projectB = projectRepository.createProject({
+      name: "Beta",
+      sourceType: "local",
+      sourceRef: "/workspace/beta",
+    });
+    const sprintB = projectRepository.createSprint(projectB.id, {
+      name: "Beta Sprint",
+      number: 3,
+    });
+    projectRepository.createTask(projectB.id, {
+      sprintId: sprintB.id,
+      taskKey: "B01",
+      title: "Plan the work",
+      promptMarkdown: "Stay pending until orchestration starts.",
+      status: "pending",
+    });
+
+    projectRepository.setSelectedProjectId(projectB.id);
+    const status = runtimeRepository.getSelectedProjectStatus();
+
+    expect(projectA.id).not.toBe(projectB.id);
+    expect(status.subtasks).toHaveLength(1);
+    expect(status.subtasks[0]).toMatchObject({
+      id: "B01",
+      status: "PENDING",
+      project_id: projectB.id,
+      sprint_id: sprintB.id,
+    });
+    expect(status.repo_path).toBeUndefined();
+    expect(status.timestamp).toBeNull();
+  });
+});

@@ -15,15 +15,12 @@ export function createDashboardDependencies(
   coreDeps: CoreDependencies,
   sprintDeps: SprintDependencies
 ): DashboardDependencies {
-  const { logger, subtaskRepository } = coreDeps;
+  const { logger, projectRuntimeRepository, subtaskRepository } = coreDeps;
   const { taskService } = sprintDeps;
 
   const activityCacheService = new ActivityCacheService(
     {
-      getSubtasks: () => {
-        const lastStatus = context.runtimeContext.lastStatus;
-        return Array.isArray(lastStatus?.subtasks) ? lastStatus.subtasks : [];
-      },
+      getSubtasks: () => projectRuntimeRepository.getSelectedProjectStatus().subtasks,
       resolveSessionNameFromTask: (task) => context.resolveSessionNameFromTask(task),
       fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
       resolveGitStatusRepoPath: () => context.resolveGitStatusRepoPath(),
@@ -37,8 +34,9 @@ export function createDashboardDependencies(
   );
 
   const taskRerunService = new TaskRerunService({
-    getStatus: () => context.runtimeContext.lastStatus || {},
+    getStatus: () => projectRuntimeRepository.getSelectedProjectStatus(),
     updateStatus: (status) => {
+      projectRuntimeRepository.syncDashboardStatus(status);
       context.runtimeContext.lastStatus = status;
       activityCacheService.invalidateLiveActivitiesCache();
     },

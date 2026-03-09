@@ -42,6 +42,10 @@ describe("Dashboard Factory", () => {
       logger: {
         child: vi.fn().mockReturnValue({}),
       },
+      projectRuntimeRepository: {
+        getSelectedProjectStatus: vi.fn().mockReturnValue({ subtasks: ["mock-subtask"] }),
+        syncDashboardStatus: vi.fn(),
+      },
       subtaskRepository: {
         setMerged: vi.fn(),
       },
@@ -103,6 +107,7 @@ describe("Dashboard Factory", () => {
 
     // Test updateStatus
     taskRerunArgs.updateStatus({ updated: true });
+    expect(mockCoreDeps.projectRuntimeRepository.syncDashboardStatus).toHaveBeenCalledWith({ updated: true });
     expect(mockContext.runtimeContext.lastStatus).toEqual({ updated: true });
 
     // Test startTask
@@ -127,7 +132,7 @@ describe("Dashboard Factory", () => {
   });
 
   it("getSubtasks handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockCoreDeps.projectRuntimeRepository.getSelectedProjectStatus.mockReturnValue({ subtasks: [] });
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -139,7 +144,7 @@ describe("Dashboard Factory", () => {
   });
 
   it("getStatus handles missing lastStatus", () => {
-    mockContext.runtimeContext.lastStatus = undefined;
+    mockCoreDeps.projectRuntimeRepository.getSelectedProjectStatus.mockReturnValue({ subtasks: [] });
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -147,6 +152,6 @@ describe("Dashboard Factory", () => {
     );
 
     const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
-    expect(taskRerunArgs.getStatus()).toEqual({});
+    expect(taskRerunArgs.getStatus()).toEqual({ subtasks: [] });
   });
 });

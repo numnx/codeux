@@ -27,6 +27,9 @@ describe("dashboard-lifecycle-service", () => {
       settingsRepository: {
         saveSettings: vi.fn().mockImplementation((s) => s),
       } as any,
+      projectRuntimeRepository: {
+        getSelectedProjectStatus: vi.fn().mockReturnValue("runtime-status"),
+      } as any,
       activityCacheService: {
         invalidateGitStatusCache: vi.fn(),
       } as any,
@@ -132,7 +135,7 @@ describe("dashboard-lifecycle-service", () => {
       const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
 
       setupArgs.getStatus();
-      expect(mockDeps.runtimeContext.lastStatus).toBe("idle");
+      expect(mockDeps.projectRuntimeRepository.getSelectedProjectStatus).toHaveBeenCalled();
 
       expect(setupArgs.getLiveActivities).toBe(mockDeps.getLiveActivitiesForActiveTasks);
       expect(setupArgs.getGitStatus).toBe(mockDeps.getGitStatus);

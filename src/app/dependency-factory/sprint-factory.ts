@@ -23,6 +23,7 @@ export function createSprintDependencies(
     sessionTracking,
     julesSourceResolver,
     instructionService,
+    projectRuntimeRepository,
     subtaskRepository,
   } = coreDeps;
 
@@ -66,7 +67,10 @@ export function createSprintDependencies(
     startTask: (task, sourceId, baseBranch, repoPath, sprintNumber) =>
       taskService.startSprintTask(task, sourceId, baseBranch, repoPath, sprintNumber),
     getGuideContent: (guideName, repoPath) => context.getGuideContentIfEnabled(guideName, repoPath),
-    updateLastStatus: (status) => { context.runtimeContext.lastStatus = status; },
+    updateLastStatus: (status) => {
+      projectRuntimeRepository.syncDashboardStatus(status);
+      context.runtimeContext.lastStatus = status;
+    },
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     isJulesApiConfigured: () => context.isJulesApiConfigured(),
     approveSessionPlan: (sessionId) => julesApi.approveSessionPlan(sessionId),

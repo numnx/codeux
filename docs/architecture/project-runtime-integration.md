@@ -1,0 +1,69 @@
+# Project Runtime Integration
+
+This page describes the current runtime bridge between the legacy sprint orchestrator and the Sprint OS database model.
+
+## Goal
+
+Project planning is already DB-backed through `projects`, `sprints`, and `tasks`.
+
+This integration extends that model so live execution state is also projected into sqlite for the currently selected project instead of being served only from the process-local `runtimeContext.lastStatus`.
+
+## What Changed
+
+Primary implementation files:
+- `src/repositories/project-runtime-repository.ts`
+- `src/app/dependency-factory/sprint-factory.ts`
+- `src/app/dependency-factory/dashboard-factory.ts`
+- `src/app/lifecycle/dashboard-lifecycle-service.ts`
+- `src/server/jules-agent-server.ts`
+
+Key behavior:
+- orchestrator status updates are now mirrored into sqlite
+- selected-project live dashboard data is read back from sqlite
+- rerun actions can target DB task ids while still resetting markdown task state by task key
+- git/CI tracking now resolves repo path and active branch from the selected project's stored runtime context
+
+## Runtime Source Of Truth
+
+The orchestrator still emits the same `DashboardStatus` payload shape during execution.
+
+That payload is now written into the app database as:
+- `app_settings`
+  - `runtime_context:<projectId>` stores project-scoped runtime context such as sprint number, repo path, feature branch, report text, instructions, and timestamp
+- `task_runs`
+  - stores the latest known run/session state per task
+- `task_run_events`
+  - stores status-sync change events for future timeline and audit views
+
+The dashboard `GET /api/status` endpoint now returns the selected project's runtime projection from sqlite.
+
+## Projection Rules
+
+Project matching:
+- `repo_path` is matched against the project's `base_dir` or source reference
+- selected project is used as fallback when needed
+
+Sprint matching:
+- prefers `sprint_number`
+- falls back to `feature_branch`
+- falls back to the previously stored runtime context for the same project
+
+Task matching:
+- prefers DB task record id when present
+- otherwise matches by `task_key`
+
+## Current Boundaries
+
+This is still a bridge layer, not the final runtime architecture.
+
+Current limitations:
+- the orchestrator still keeps a process-local `lastStatus` copy for readiness and compatibility
+- live activity messages are fetched on demand from provider sessions, not yet persisted into `task_run_events`
+- worker MCP assignment, multi-MCP scheduling, and listen-mode chat loops are not implemented yet
+
+## Why This Matters
+
+This closes the biggest phase-1 gap:
+- v2 project selection now scopes live runtime views
+- live dashboard pages no longer depend on one global, unscoped status object
+- the app can move toward multi-MCP runtime coordination without replacing the project/sprint/task model again

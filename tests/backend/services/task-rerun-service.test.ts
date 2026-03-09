@@ -20,6 +20,7 @@ describe("TaskRerunService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const task: Subtask = {
+      record_id: "task-record-1",
       id: "01-task",
       title: "Test task",
       prompt: "Do work",
@@ -54,7 +55,7 @@ describe("TaskRerunService", () => {
       provider: "claude-code",
     });
 
-    const rerunTask = await service.rerunTask("01-task");
+    const rerunTask = await service.rerunTask("task-record-1");
 
     expect(persistMergedFlag).toHaveBeenCalledWith({
       repoPath: "/tmp/repo",

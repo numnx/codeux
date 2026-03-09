@@ -69,6 +69,9 @@ describe("Sprint Factory", () => {
       instructionService: {
         render: vi.fn(),
       },
+      projectRuntimeRepository: {
+        syncDashboardStatus: vi.fn(),
+      },
       subtaskRepository: {},
     };
   });
@@ -148,6 +151,7 @@ describe("Sprint Factory", () => {
     expect(mockContext.getGuideContentIfEnabled).toHaveBeenCalledWith("guide3", "repo3");
 
     sprintArgs.updateLastStatus({ test: 1 });
+    expect(mockCoreDeps.projectRuntimeRepository.syncDashboardStatus).toHaveBeenCalledWith({ test: 1 });
     expect(mockContext.runtimeContext.lastStatus).toEqual({ test: 1 });
 
     expect(sprintArgs.getDashboardSettings()).toEqual({ setting1: true });

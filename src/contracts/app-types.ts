@@ -51,6 +51,9 @@ export type CliExecutionMode = "HOST" | "DOCKER";
 export type FeaturePrAutoMergeMode = "OFF" | "WHEN_GREEN" | "ALWAYS";
 
 export interface Subtask {
+  record_id?: string;
+  project_id?: string;
+  sprint_id?: string;
   id: string;
   title: string;
   prompt: string;

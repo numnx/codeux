@@ -11,7 +11,6 @@ export interface TaskRerunContext {
   statusTable?: string;
   instructions?: string;
   timestamp?: string | null;
-  [key: string]: unknown;
 }
 
 export interface TaskRerunServiceDependencies {
@@ -61,7 +60,7 @@ export class TaskRerunService {
       throw new Error("Cannot rerun task: sprint context is incomplete. Run orchestration/status first.");
     }
 
-    const taskIndex = subtasks.findIndex((task) => task.id === taskId);
+    const taskIndex = subtasks.findIndex((task) => task.record_id === taskId || task.id === taskId);
     if (taskIndex < 0) {
       throw new Error(`Cannot rerun task: task '${taskId}' was not found in current sprint status.`);
     }
@@ -78,7 +77,7 @@ export class TaskRerunService {
       await this.deps.persistMergedFlag({
         repoPath,
         sprintNumber,
-        taskId,
+        taskId: resetTask.id,
         merged: false,
       });
     } catch (error) {

@@ -15,6 +15,7 @@ import type {
 } from "../../contracts/app-types.js";
 import type { SettingsRepository } from "../../repositories/settings-repository.js";
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
+import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
@@ -28,6 +29,7 @@ export interface BootDashboardDeps {
   externalSettingsHints: ExternalSettingsHints;
   settingsRepository: SettingsRepository;
   projectManagementRepository: ProjectManagementRepository;
+  projectRuntimeRepository: ProjectRuntimeRepository;
   sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
@@ -62,7 +64,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     dashboardDir,
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
-    getStatus: () => deps.runtimeContext.lastStatus,
+    getStatus: () => deps.projectRuntimeRepository.getSelectedProjectStatus(),
     getLiveActivities: deps.getLiveActivitiesForActiveTasks,
     getGitStatus: deps.getGitStatus,
     getExternalSettingsHints: () => deps.externalSettingsHints,
