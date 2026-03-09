@@ -3,7 +3,6 @@ import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { ActivityCacheService } from "../../server/activity-cache-service.js";
 import { TaskRerunService } from "../../services/task-rerun-service.js";
-import { getSprintSubtasksDir } from "../../shared/config/sprint-os-paths.js";
 
 export interface DashboardDependencies {
   activityCacheService: ActivityCacheService;
@@ -15,8 +14,8 @@ export function createDashboardDependencies(
   coreDeps: CoreDependencies,
   sprintDeps: SprintDependencies
 ): DashboardDependencies {
-  const { logger, projectRuntimeRepository, subtaskRepository } = coreDeps;
-  const { taskService } = sprintDeps;
+  const { logger, projectRuntimeRepository, projectManagementRepository, executionRepository } = coreDeps;
+  const { sprintTaskDispatchService } = sprintDeps;
 
   const activityCacheService = new ActivityCacheService(
     {
@@ -40,15 +39,46 @@ export function createDashboardDependencies(
       context.runtimeContext.lastStatus = status;
       activityCacheService.invalidateLiveActivitiesCache();
     },
-    startTask: ({ task, sourceId, featureBranch, repoPath, sprintNumber }) =>
-      taskService.startSprintTask(task, sourceId, featureBranch, repoPath, sprintNumber),
+    resolveSprintRunId: async ({ projectId, sprintId }) => {
+      const existing = executionRepository.findActiveSprintRun(projectId, sprintId);
+      if (existing) {
+        return existing.id;
+      }
+
+      const created = executionRepository.createSprintRun({
+        projectId,
+        sprintId,
+        triggerType: "dashboard",
+        triggeredBy: "task_rerun",
+        executorMode: "mixed",
+        status: "running",
+      });
+      executionRepository.updateSprintRun(created.id, {
+        status: "running",
+        startedAt: new Date().toISOString(),
+        lastHeartbeatAt: new Date().toISOString(),
+      });
+      return created.id;
+    },
+    startTask: ({ task, projectId, sprintId, sprintRunId, sourceId, featureBranch, repoPath, sprintNumber }) =>
+      sprintTaskDispatchService.startTask({
+        task,
+        projectId,
+        sprintId,
+        sprintRunId,
+        sourceId,
+        featureBranch,
+        repoPath,
+        sprintNumber,
+      }),
     resolveSessionName: (session) => context.resolveSessionName(session),
     extractSessionId: (session) => context.extractSessionId(session),
-    persistMergedFlag: (args) => subtaskRepository.setMerged(
-      getSprintSubtasksDir(args.repoPath, args.sprintNumber),
-      args.taskId,
-      args.merged
-    ),
+    persistMergedFlag: async (args) => {
+      projectManagementRepository.updateTask(args.taskId, {
+        isMerged: args.merged,
+        mergeIndicator: args.merged ? "MERGED" : null,
+      });
+    },
     logger: logger.child({ component: "task-rerun-service" }),
   });
 

@@ -6,7 +6,7 @@ export type TaskDispatchExecutorType = "docker_cli" | "jules" | "mcp_worker";
 export type TaskDispatchStatus = "queued" | "claimed" | "running" | "completed" | "failed" | "cancelled" | "blocked";
 export type TaskRunState = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
 
-export type ExecutionLeaseScopeType = "project" | "sprint_run" | "task_dispatch";
+export type ExecutionLeaseScopeType = "project" | "sprint" | "sprint_run" | "task_dispatch";
 
 export interface SprintRunRecord {
   id: string;

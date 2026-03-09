@@ -77,7 +77,17 @@ describe("SprintOrchestrator core execution", () => {
   it("returns intermediate watch output when watch loop output interval is reached", async () => {
     const nowSpy = vi.spyOn(Date, "now");
     try {
-      nowSpy.mockReturnValueOnce(0).mockReturnValue(61_000);
+      let nowCallCount = 0;
+      nowSpy.mockImplementation(() => {
+        nowCallCount += 1;
+        if (nowCallCount === 1) {
+          return 61_000;
+        }
+        if (nowCallCount === 2) {
+          return 0;
+        }
+        return 61_000;
+      });
       const { deps, subtaskRepository } = buildDeps();
       deps.getDashboardSettings = () => ({
         ...DEFAULT_DASHBOARD_SETTINGS,

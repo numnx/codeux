@@ -25,6 +25,7 @@ export interface WatchLoopRunnerArgs {
   automationInterventions: AutomationInterventionsSettings;
   dashboardPort: number;
   sprintRunId: string;
+  leaseToken?: string;
 }
 
 export class WatchLoopRunner {
@@ -49,6 +50,7 @@ export class WatchLoopRunner {
       automationInterventions,
       dashboardPort,
       sprintRunId,
+      leaseToken,
     } = params;
     const scopedExecutionContext = executionContext || {
       project: { id: "unknown-project", name: "Selected Project" },
@@ -237,10 +239,19 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.RUNNING: {
+          const now = new Date().toISOString();
           this.deps.executionRepository.updateSprintRun(sprintRunId, {
             status: "running",
-            lastHeartbeatAt: new Date().toISOString(),
+            lastHeartbeatAt: now,
           });
+          if (leaseToken) {
+            this.deps.executionRepository.renewLease({
+              scopeType: "sprint",
+              scopeId: scopedExecutionContext.sprint.id,
+              leaseToken,
+              expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            });
+          }
           await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
           break;
         }

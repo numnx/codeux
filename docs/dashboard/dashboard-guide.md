@@ -77,7 +77,7 @@ Legacy runtime:
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
-  - Resets a selected-project runtime task and immediately starts a fresh provider session for that task
+  - Resets a selected-project runtime task and creates a fresh DB-backed task dispatch/task run for that task
 
 ## UI Sections
 
@@ -94,6 +94,7 @@ Legacy runtime:
 - Task statistics
 - Task pipeline cards
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
+- Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type { InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
 import {
   DEFAULT_AUTOMATION_INTERVENTIONS_SETTINGS,
@@ -291,6 +292,31 @@ export class SprintOrchestrator {
         });
       case "orchestrate":
       default: {
+        const leaseToken = randomUUID();
+        try {
+          this.deps.executionRepository.acquireLease({
+            scopeType: "sprint",
+            scopeId: executionContext.sprint.id,
+            ownerKey: "sprint_agent",
+            leaseToken,
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          });
+        } catch {
+          const activeRun = this.deps.executionRepository.findActiveSprintRun(
+            executionContext.project.id,
+            executionContext.sprint.id,
+          );
+          const activeRunText = activeRun
+            ? ` Active sprint run: \`${activeRun.id}\` (${activeRun.status}).`
+            : "";
+          return {
+            content: [{
+              type: "text",
+              text: `Sprint ${executionContext.sprintNumber} is already being orchestrated for project ${executionContext.project.name}.${activeRunText}`,
+            }],
+          };
+        }
+
         const sprintRun = this.deps.executionRepository.createSprintRun({
           projectId: executionContext.project.id,
           sprintId: executionContext.sprint.id,
@@ -305,23 +331,28 @@ export class SprintOrchestrator {
           lastHeartbeatAt: new Date().toISOString(),
         });
 
-        return await this.actionRunner.runOrchestrate({
-          args,
-          executionContext,
-          repoPath,
-          defaultFeatureBranch,
-          defaultBranch,
-          githubMode,
-          retryFailed,
-          loopSteps,
-          ciIntelligence,
-          automationLevel,
-          automationInterventions,
-          dashboardPort,
-          shouldWait,
-          watchLoopEnabled,
-          sprintRunId: sprintRun.id,
-        });
+        try {
+          return await this.actionRunner.runOrchestrate({
+            args,
+            executionContext,
+            repoPath,
+            defaultFeatureBranch,
+            defaultBranch,
+            githubMode,
+            retryFailed,
+            loopSteps,
+            ciIntelligence,
+            automationLevel,
+            automationInterventions,
+            dashboardPort,
+            shouldWait,
+            watchLoopEnabled,
+            sprintRunId: sprintRun.id,
+            leaseToken,
+          });
+        } finally {
+          this.deps.executionRepository.releaseLease("sprint", executionContext.sprint.id, leaseToken);
+        }
       }
     }
   }

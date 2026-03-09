@@ -2,6 +2,8 @@ import type { JulesSession, Subtask } from "../contracts/app-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface TaskRerunContext {
+  project_id?: string;
+  sprint_id?: string;
   sprint_number?: number;
   source_id?: string;
   repo_path?: string;
@@ -16,8 +18,17 @@ export interface TaskRerunContext {
 export interface TaskRerunServiceDependencies {
   getStatus: () => TaskRerunContext;
   updateStatus: (status: TaskRerunContext) => void;
+  resolveSprintRunId: (args: {
+    projectId: string;
+    sprintId: string;
+    sprintNumber: number;
+    featureBranch: string;
+  }) => Promise<string>;
   startTask: (args: {
     task: Subtask;
+    projectId: string;
+    sprintId: string;
+    sprintRunId: string;
     sourceId?: string;
     featureBranch: string;
     repoPath: string;
@@ -25,7 +36,7 @@ export interface TaskRerunServiceDependencies {
   }) => Promise<JulesSession>;
   resolveSessionName: (session: Partial<JulesSession>) => string | undefined;
   extractSessionId: (session: Partial<JulesSession>) => string | undefined;
-  persistMergedFlag: (args: { repoPath: string; sprintNumber: number; taskId: string; merged: boolean }) => Promise<void>;
+  persistMergedFlag: (args: { taskId: string; merged: boolean }) => Promise<void>;
   logger?: Logger;
 }
 
@@ -49,6 +60,8 @@ export class TaskRerunService {
 
   async rerunTask(taskId: string): Promise<Subtask> {
     const status = this.deps.getStatus();
+    const projectId = typeof status.project_id === "string" && status.project_id.trim().length > 0 ? status.project_id.trim() : null;
+    const sprintId = typeof status.sprint_id === "string" && status.sprint_id.trim().length > 0 ? status.sprint_id.trim() : null;
     const sprintNumber = typeof status.sprint_number === "number" ? status.sprint_number : null;
     const sourceId = typeof status.source_id === "string" && status.source_id.trim().length > 0 ? status.source_id.trim() : undefined;
     const repoPath = typeof status.repo_path === "string" && status.repo_path.trim().length > 0 ? status.repo_path.trim() : null;
@@ -56,7 +69,7 @@ export class TaskRerunService {
       typeof status.feature_branch === "string" && status.feature_branch.trim().length > 0 ? status.feature_branch.trim() : null;
     const subtasks = Array.isArray(status.subtasks) ? status.subtasks : [];
 
-    if (sprintNumber === null || repoPath === null || featureBranch === null) {
+    if (projectId === null || sprintId === null || sprintNumber === null || repoPath === null || featureBranch === null) {
       throw new Error("Cannot rerun task: sprint context is incomplete. Run orchestration/status first.");
     }
 
@@ -75,9 +88,7 @@ export class TaskRerunService {
 
     try {
       await this.deps.persistMergedFlag({
-        repoPath,
-        sprintNumber,
-        taskId: resetTask.id,
+        taskId: resetTask.record_id || resetTask.id,
         merged: false,
       });
     } catch (error) {
@@ -89,8 +100,17 @@ export class TaskRerunService {
     }
 
     try {
+      const sprintRunId = await this.deps.resolveSprintRunId({
+        projectId,
+        sprintId,
+        sprintNumber,
+        featureBranch,
+      });
       const session = await this.deps.startTask({
         task: resetTask,
+        projectId,
+        sprintId,
+        sprintRunId,
         sourceId,
         featureBranch,
         repoPath,

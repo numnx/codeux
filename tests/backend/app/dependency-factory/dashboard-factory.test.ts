@@ -43,17 +43,22 @@ describe("Dashboard Factory", () => {
         child: vi.fn().mockReturnValue({}),
       },
       projectRuntimeRepository: {
-        getSelectedProjectStatus: vi.fn().mockReturnValue({ subtasks: ["mock-subtask"] }),
+        getSelectedProjectStatus: vi.fn().mockReturnValue({ project_id: "project-1", sprint_id: "sprint-1", sprint_number: 3, feature_branch: "feature/sprint3", repo_path: "/repo", subtasks: ["mock-subtask"] }),
         syncDashboardStatus: vi.fn(),
       },
-      subtaskRepository: {
-        setMerged: vi.fn(),
+      projectManagementRepository: {
+        updateTask: vi.fn(),
+      },
+      executionRepository: {
+        findActiveSprintRun: vi.fn().mockReturnValue({ id: "run-1" }),
+        createSprintRun: vi.fn(),
+        updateSprintRun: vi.fn(),
       },
     };
 
     mockSprintDeps = {
-      taskService: {
-        startSprintTask: vi.fn(),
+      sprintTaskDispatchService: {
+        startTask: vi.fn(),
       },
     };
   });
@@ -103,7 +108,7 @@ describe("Dashboard Factory", () => {
 
     // Test getStatus
     const status = taskRerunArgs.getStatus();
-    expect(status).toEqual({ subtasks: ["mock-subtask"] });
+    expect(status).toEqual({ project_id: "project-1", sprint_id: "sprint-1", sprint_number: 3, feature_branch: "feature/sprint3", repo_path: "/repo", subtasks: ["mock-subtask"] });
 
     // Test updateStatus
     taskRerunArgs.updateStatus({ updated: true });
@@ -111,8 +116,20 @@ describe("Dashboard Factory", () => {
     expect(mockContext.runtimeContext.lastStatus).toEqual({ updated: true });
 
     // Test startTask
-    taskRerunArgs.startTask({ task: "t1", sourceId: "s1", featureBranch: "f1", repoPath: "r1", sprintNumber: 1 });
-    expect(mockSprintDeps.taskService.startSprintTask).toHaveBeenCalledWith("t1", "s1", "f1", "r1", 1);
+    taskRerunArgs.resolveSprintRunId({ projectId: "project-1", sprintId: "sprint-1", sprintNumber: 3, featureBranch: "feature/sprint3" });
+    expect(mockCoreDeps.executionRepository.findActiveSprintRun).toHaveBeenCalledWith("project-1", "sprint-1");
+
+    taskRerunArgs.startTask({ task: "t1", projectId: "project-1", sprintId: "sprint-1", sprintRunId: "run-1", sourceId: "s1", featureBranch: "f1", repoPath: "r1", sprintNumber: 1 });
+    expect(mockSprintDeps.sprintTaskDispatchService.startTask).toHaveBeenCalledWith({
+      task: "t1",
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      sprintRunId: "run-1",
+      sourceId: "s1",
+      featureBranch: "f1",
+      repoPath: "r1",
+      sprintNumber: 1,
+    });
 
     // Test resolveSessionName
     taskRerunArgs.resolveSessionName("s1");
@@ -123,11 +140,10 @@ describe("Dashboard Factory", () => {
     expect(mockContext.extractSessionId).toHaveBeenCalledWith("s2");
 
     // Test persistMergedFlag
-    taskRerunArgs.persistMergedFlag({ repoPath: "/repo", sprintNumber: 1, taskId: "task1", merged: true });
-    expect(mockCoreDeps.subtaskRepository.setMerged).toHaveBeenCalledWith(
-      expect.stringContaining("sprint1-subtasks"),
+    taskRerunArgs.persistMergedFlag({ taskId: "task1", merged: true });
+    expect(mockCoreDeps.projectManagementRepository.updateTask).toHaveBeenCalledWith(
       "task1",
-      true
+      { isMerged: true, mergeIndicator: "MERGED" }
     );
   });
 

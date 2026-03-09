@@ -11,13 +11,13 @@ It now:
 - loads sprint tasks from sqlite instead of `.sprint-os/sprints/...`
 - creates `sprint_runs` for orchestrate executions
 - creates `task_dispatches` and `task_runs` when ready tasks start
+- acquires a sprint-scoped execution lease while the orchestrator owns the loop
 - keeps Docker or CLI-backed execution and Jules execution under the same dispatch flow
 - persists auto-merge updates back into DB task records instead of markdown
+- routes dashboard task reruns through the same dispatch service
 
 It does not yet:
 - remove all legacy wording from every instruction template
-- move dashboard rerun flows onto the new dispatch service
-- use `execution_leases` for active run ownership
 - route connected MCP workers through the dispatch queue
 
 ## Primary Files
@@ -110,6 +110,17 @@ Watch-loop execution now updates `sprint_runs` directly:
 
 The old subtask-directory cleanup behavior is removed from the execution path.
 
+## Active Ownership
+
+`orchestrate` now acquires an `execution_lease` on:
+
+- `scope_type = "sprint"`
+- `scope_id = sprint_id`
+
+The lease is acquired before the sprint run starts, renewed while the watch loop is active, and released when the orchestrator call exits.
+
+If another orchestrator already owns the sprint lease, Sprint OS returns an active-run message instead of starting a duplicate loop.
+
 ## Merge Persistence
 
 Feature PR auto-merge no longer writes `merged: true` into task markdown.
@@ -121,14 +132,22 @@ Instead it persists:
 
 through the project repository.
 
+## Dashboard Reruns
+
+The dashboard rerun endpoint now uses the same DB-native dispatch path:
+
+1. reset the selected-project runtime task state
+2. persist `is_merged = false` on the DB task record
+3. reuse an active sprint run or create a dashboard-triggered sprint run
+4. create a fresh dispatch and task run through `SprintTaskDispatchService`
+
+Reruns no longer bypass the execution model.
+
 ## Remaining Gaps
 
 The execution model is now DB-native at the entry, load, dispatch, and merge-persistence layers, but not fully end-to-end yet.
 
 Still pending:
-
-- rerun should create a new dispatch/task-run instead of calling `TaskService` directly
 - CI/protocol wording should stop referencing any subtask-file semantics
 - live provider activity should be attached more directly to `task_runs` / `task_run_events`
-- `execution_leases` should prevent overlapping active sprint orchestration
 - `mcp_worker` should claim from `task_dispatches`

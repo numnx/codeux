@@ -295,6 +295,8 @@ export class ProjectRuntimeRepository {
     });
 
     return {
+      project_id: projectId,
+      sprint_id: context?.sprintId ?? undefined,
       sprint_number: context?.sprintNumber ?? undefined,
       source_id: context?.sourceId ?? undefined,
       repo_path: context?.repoPath ?? undefined,
