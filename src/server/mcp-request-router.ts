@@ -35,6 +35,9 @@ export const registerMcpRequestHandlers = (args: McpRequestRouterArgs): void => 
     .register("get_activity", (input) => args.coreToolHandler.handleGetActivity(input))
     .register("list_activities", (input) => args.coreToolHandler.handleListActivities(input))
     .register("list_all_activities", (input) => args.coreToolHandler.handleListAllActivities(input))
+    .register("start_listen", (input) => args.coreToolHandler.handleStartListen(input))
+    .register("pull_inbox", (input) => args.coreToolHandler.handlePullInbox(input))
+    .register("post_listen_reply", (input) => args.coreToolHandler.handlePostListenReply(input))
     .register("sprint_agent", async (input) => (await args.agentToolHandler.handleSprintAgent(input)) as McpToolResponse)
     .register("task_agent", async (input) => (await args.agentToolHandler.handleTaskAgent(input)) as McpToolResponse);
 

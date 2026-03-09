@@ -13,6 +13,7 @@ These cover:
 - Session APIs
 - Activity APIs
 - Session wait/polling logic
+- listen-mode connection registration and inbox/reply flow
 
 ### Agent tools
 Implemented in:
@@ -45,6 +46,11 @@ Typed tool argument contracts and registry dispatch are defined in `src/api/mcp/
 - `get_activity`
 - `list_activities`
 - `list_all_activities`
+
+### Listen mode
+- `start_listen`
+- `pull_inbox`
+- `post_listen_reply`
 
 ### Output minimization
 - `get_source` returns a compact source summary (`id`, `name`).
@@ -118,6 +124,12 @@ Unknown tool names raise MCP `MethodNotFound`.
 - Executes atomic loop pipeline and emits markdown protocol instructions.
 - `status` is always single-cycle (instant output); wait-loop mode is only used by `orchestrate`.
 - In automation modes, action-required Jules tasks can be auto-handled (plan approval, clarification replies, paused-session resume) or explicitly routed as `AGENT` vs `HUMAN` intervention in protocol output.
+
+### Listen-mode behavior
+- `start_listen` registers or refreshes an MCP connection in sqlite and returns pending dashboard messages for the active project.
+- `pull_inbox` is the pull-based inbox endpoint for listening MCPs.
+- `post_listen_reply` writes a connection reply back into the project conversation thread and marks the handled dashboard message as processed.
+- The listen loop is intentionally pull-based because current MCP transport is stdio, not server-push.
 
 ## Stability Expectations
 

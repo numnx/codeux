@@ -1,4 +1,5 @@
 import type { ToolName as ContractToolName } from "../../contracts/mcp-tool-definitions.js";
+import type { McpConnectionCapabilities, McpConnectionRole } from "../../contracts/connection-chat-types.js";
 import type { SprintAgentArgs } from "../../sprint/sprint-types.js";
 
 export interface GetSourceArgs {
@@ -71,6 +72,29 @@ export interface TaskAgentArgs {
   wait?: boolean;
 }
 
+export interface StartListenArgs {
+  connection_key: string;
+  display_name?: string;
+  role?: McpConnectionRole;
+  project_id?: string;
+  transport?: string;
+  capabilities?: McpConnectionCapabilities;
+  max_messages?: number;
+}
+
+export interface PullInboxArgs {
+  connection_key: string;
+  project_id?: string;
+  max_messages?: number;
+}
+
+export interface PostListenReplyArgs {
+  connection_key: string;
+  thread_id: string;
+  body_markdown: string;
+  reply_to_message_id?: string;
+}
+
 export interface McpToolArgsByName {
   get_source: GetSourceArgs;
   list_sources: ListSourcesArgs;
@@ -86,6 +110,9 @@ export interface McpToolArgsByName {
   list_all_activities: ListAllActivitiesArgs;
   sprint_agent: SprintAgentArgs;
   task_agent: TaskAgentArgs;
+  start_listen: StartListenArgs;
+  pull_inbox: PullInboxArgs;
+  post_listen_reply: PostListenReplyArgs;
 }
 
 export type McpToolName = keyof McpToolArgsByName;

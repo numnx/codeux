@@ -1,7 +1,13 @@
 import { waitUntil } from "../shared/polling/wait-until.js";
-import type { CreateSessionArgs } from "../api/mcp/tool-registry.js";
+import type {
+  CreateSessionArgs,
+  PostListenReplyArgs,
+  PullInboxArgs,
+  StartListenArgs,
+} from "../api/mcp/tool-registry.js";
 import type { JulesApiClient, JulesCreateSessionRequest } from "../integrations/jules-api-client.js";
 import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-types.js";
+import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ActivitySummaryService } from "../domain/sessions/activity-summary.js";
 
@@ -22,6 +28,7 @@ interface CoreToolHandlerDependencies {
   listTrackedSessions: (limit?: number) => { sessions: JulesSession[] };
   listTrackedActivities: (args: { session_id: string; page_size?: number; page_token?: string }) => { activities: JulesActivity[]; nextPageToken?: string };
   listAllTrackedActivities: (sessionId: string) => JulesActivity[];
+  connectionChatRepository: ConnectionChatRepository;
   logger?: Logger;
 }
 
@@ -282,5 +289,55 @@ export class CoreToolHandler {
     this.ensureJulesApiConfigured();
     const allActivities = await this.deps.julesApi.listAllActivities(session_id);
     return { content: [{ type: "text", text: JSON.stringify(this.deps.activitySummary.toActivityCollectionSummary(session_id, allActivities), null, 2) }] };
+  }
+
+  async handleStartListen(args: StartListenArgs) {
+    const response = this.deps.connectionChatRepository.startListen({
+      connectionKey: args.connection_key,
+      displayName: args.display_name,
+      role: args.role,
+      projectId: args.project_id,
+      transport: args.transport,
+      capabilities: args.capabilities,
+      maxMessages: args.max_messages,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(response, null, 2),
+      }],
+    };
+  }
+
+  async handlePullInbox(args: PullInboxArgs) {
+    const inbox = this.deps.connectionChatRepository.pullInbox({
+      connectionKey: args.connection_key,
+      projectId: args.project_id,
+      maxMessages: args.max_messages,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ returnedCount: inbox.length, inbox }, null, 2),
+      }],
+    };
+  }
+
+  async handlePostListenReply(args: PostListenReplyArgs) {
+    const message = this.deps.connectionChatRepository.postListenReply({
+      connectionKey: args.connection_key,
+      threadId: args.thread_id,
+      bodyMarkdown: args.body_markdown,
+      replyToMessageId: args.reply_to_message_id,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(message, null, 2),
+      }],
+    };
   }
 }

@@ -14,11 +14,13 @@ It includes:
 - v2 dashboard wiring for Projects, Sprints, Tasks, top-nav selection, and overview widgets
 - markdown import/export for sprints and tasks
 - selected-project runtime projection for live dashboard status
+- DB-backed project-scoped Agents and Chat pages
+- first listen-loop MCP connection and conversation contracts
 
 It does not yet include:
 - multi-MCP scheduling
 - worker task pickup
-- dashboard chat/listen mode execution loops
+- autonomous task assignment across multiple MCPs
 - persisted provider activity transcripts in `task_run_events`
 
 ## Source Of Truth
@@ -77,6 +79,12 @@ The dashboard now has project-scoped CRUD endpoints:
 - `POST /api/projects/:projectId/tasks`
 - `PATCH /api/tasks/:taskId`
 - `DELETE /api/tasks/:taskId`
+- `GET /api/projects/:projectId/connections`
+- `PATCH /api/connections/:connectionId`
+- `GET /api/projects/:projectId/conversations/threads`
+- `POST /api/projects/:projectId/conversations/threads`
+- `GET /api/conversations/threads/:threadId/messages`
+- `POST /api/projects/:projectId/conversations/messages`
 
 Legacy runtime endpoints still exist for the old live runtime/status surfaces:
 - `GET /api/status`
@@ -98,6 +106,9 @@ Current behavior:
 - Tasks page creates, edits, deletes, filters, and groups tasks for the selected project
 - Task dependencies are edited in the task modal and stored in `task_dependencies`
 - Dashboard overview project/task widgets and header stats read from the same DB-backed state
+- Agents page lists sqlite-backed MCP connections bound to the selected project
+- Chat page lists sqlite-backed conversation threads/messages for the selected project
+- Dashboard messages are queued for listeners through the same sqlite model
 
 ## Markdown Round-Trip
 

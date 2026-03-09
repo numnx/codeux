@@ -9,6 +9,7 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-d
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
+import { ConnectionChatRepository } from "../../../src/repositories/connection-chat-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
 
 const serversToClose: Server[] = [];
@@ -44,6 +45,7 @@ async function createServerHandle(): Promise<{
   const storage = new AppDbStorage(path.join(dir, "app.db"));
   const repository = new ProjectManagementRepository(storage);
   const runtimeRepository = new ProjectRuntimeRepository(storage);
+  const connectionRepository = new ConnectionChatRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
 
   const app = express();
@@ -90,6 +92,12 @@ async function createServerHandle(): Promise<{
     createTask: (projectId, input) => repository.createTask(projectId, input),
     updateTask: (taskId, input) => repository.updateTask(taskId, input),
     deleteTask: (taskId) => repository.deleteTask(taskId),
+    listConnections: (projectId) => connectionRepository.listConnections(projectId),
+    updateConnection: (connectionId, input) => connectionRepository.updateConnection(connectionId, input),
+    listConversationThreads: (projectId) => connectionRepository.listThreads(projectId),
+    createConversationThread: (projectId, input) => connectionRepository.createThread(projectId, input),
+    listConversationMessages: (threadId) => connectionRepository.listMessages(threadId),
+    postConversationMessage: (projectId, input) => connectionRepository.postDashboardMessage(projectId, input),
     saveSettings: (settings) => settings,
     rerunTask: async () => ({ ok: true }),
   });
@@ -194,6 +202,38 @@ describe("dashboard project management API", () => {
       status: "RUNNING",
       session_id: "session-api",
     });
+
+    const startListenResponse = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/threads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Inbox Thread",
+      }),
+    });
+    const thread = await startListenResponse.json() as { id: string };
+    expect(startListenResponse.status).toBe(201);
+
+    const messageResponse = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: thread.id,
+        bodyMarkdown: "Route this to the active listener.",
+      }),
+    });
+    expect(messageResponse.status).toBe(201);
+
+    const threads = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/threads`)
+      .then(async (response) => response.json()) as Array<{ id: string; pendingMessageCount: number; messageCount: number }>;
+    expect(threads[0]).toMatchObject({
+      id: thread.id,
+      pendingMessageCount: 1,
+      messageCount: 1,
+    });
+
+    const messages = await fetch(`${baseUrl}/api/conversations/threads/${thread.id}/messages`)
+      .then(async (response) => response.json()) as Array<{ bodyMarkdown: string }>;
+    expect(messages[0]?.bodyMarkdown).toContain("Route this to the active listener");
 
     const exported = await fetch(`${baseUrl}/api/projects/${project.id}/sprints/${sprint.id}/export`)
       .then(async (response) => response.json()) as {

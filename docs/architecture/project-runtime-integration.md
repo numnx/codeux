@@ -59,7 +59,8 @@ This is still a bridge layer, not the final runtime architecture.
 Current limitations:
 - the orchestrator still keeps a process-local `lastStatus` copy for readiness and compatibility
 - live activity messages are fetched on demand from provider sessions, not yet persisted into `task_run_events`
-- worker MCP assignment, multi-MCP scheduling, and listen-mode chat loops are not implemented yet
+- worker MCP assignment and multi-MCP scheduling are not implemented yet
+- listen mode now has project-scoped connection/thread/message storage and a pull-based MCP tool loop, but not autonomous server-side dispatch
 
 ## Why This Matters
 

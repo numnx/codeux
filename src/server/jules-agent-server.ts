@@ -26,6 +26,7 @@ import { TaskService } from "../services/task-service.js";
 import { SettingsRepository } from "../repositories/settings-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { ProjectRuntimeRepository } from "../repositories/project-runtime-repository.js";
+import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { InstructionService } from "../instructions/instruction-template-service.js";
@@ -74,6 +75,7 @@ export class JulesAgentServer {
   private settingsRepository: SettingsRepository;
   private projectManagementRepository: ProjectManagementRepository;
   private projectRuntimeRepository: ProjectRuntimeRepository;
+  private connectionChatRepository: ConnectionChatRepository;
   private sprintMarkdownService: SprintMarkdownService;
   private externalSettingsHints: ExternalSettingsHints;
   private instructionService: InstructionService;
@@ -102,6 +104,7 @@ export class JulesAgentServer {
     this.settingsRepository = deps.settingsRepository;
     this.projectManagementRepository = deps.projectManagementRepository;
     this.projectRuntimeRepository = deps.projectRuntimeRepository;
+    this.connectionChatRepository = deps.connectionChatRepository;
     this.sprintMarkdownService = deps.sprintMarkdownService;
     this.externalSettingsHints = deps.externalSettingsHints;
     this.instructionService = deps.instructionService;
@@ -343,6 +346,27 @@ export class JulesAgentServer {
     return this.julesApi.normalizeName(type, id);
   }
 
+  private getLocalConnectionKey(): string {
+    return `local-project-manager:${this.projectRoot}`;
+  }
+
+  private registerLocalConnection(): void {
+    const selectedProjectId = this.projectRuntimeRepository.getSelectedProjectId();
+    this.connectionChatRepository.upsertConnection({
+      connectionKey: this.getLocalConnectionKey(),
+      displayName: "Sprint OS Project Manager",
+      role: "project_manager",
+      transport: "stdio",
+      status: "connected",
+      capabilities: {
+        instruction: "Coordinates the legacy orchestration lane and dashboard control plane.",
+        listenMode: false,
+      },
+      projectIds: selectedProjectId ? [selectedProjectId] : [],
+      activeProjectIds: selectedProjectId ? [selectedProjectId] : [],
+    });
+  }
+
   private isActionRequiredState(state?: string): boolean {
     return state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED";
   }
@@ -490,6 +514,8 @@ export class JulesAgentServer {
       });
     }
 
+    this.registerLocalConnection();
+
     await bootDashboard({
       app: this.app,
       projectRoot: this.projectRoot,
@@ -499,6 +525,7 @@ export class JulesAgentServer {
       settingsRepository: this.settingsRepository,
       projectManagementRepository: this.projectManagementRepository,
       projectRuntimeRepository: this.projectRuntimeRepository,
+      connectionChatRepository: this.connectionChatRepository,
       sprintMarkdownService: this.sprintMarkdownService,
       activityCacheService: this.activityCacheService,
       taskRerunService: this.taskRerunService,

@@ -177,6 +177,50 @@ export const TOOL_DEFINITIONS = [
       required: ["prompt"],
     },
   },
+  {
+    name: "start_listen",
+    description: "Register an MCP connection as a dashboard listener for a project and return any pending dashboard messages.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        connection_key: { type: "string", description: "Stable unique key for the connected MCP client." },
+        display_name: { type: "string", description: "Human-readable name for the connected MCP client." },
+        role: { type: "string", enum: ["project_manager", "worker", "listener"] },
+        project_id: { type: "string", description: "Optional project id to bind as the active listening project." },
+        transport: { type: "string", description: "Transport type used by the MCP connection." },
+        capabilities: { type: "object", additionalProperties: true },
+        max_messages: { type: "number", default: 10 },
+      },
+      required: ["connection_key"],
+    },
+  },
+  {
+    name: "pull_inbox",
+    description: "Poll the dashboard inbox for pending messages for a registered MCP connection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        connection_key: { type: "string" },
+        project_id: { type: "string" },
+        max_messages: { type: "number", default: 10 },
+      },
+      required: ["connection_key"],
+    },
+  },
+  {
+    name: "post_listen_reply",
+    description: "Post a listener reply back to the dashboard conversation thread and mark the message as handled.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        connection_key: { type: "string" },
+        thread_id: { type: "string" },
+        body_markdown: { type: "string" },
+        reply_to_message_id: { type: "string" },
+      },
+      required: ["connection_key", "thread_id", "body_markdown"],
+    },
+  },
 ] as const;
 
 export type ToolName = (typeof TOOL_DEFINITIONS)[number]["name"];

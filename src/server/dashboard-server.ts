@@ -5,6 +5,14 @@ import type { Server } from "http";
 import { createServer } from "http";
 import type { DashboardSettings, ExternalSettingsHints, GitTrackingStatus, JulesActivity, ReadinessProbeStatus } from "../contracts/app-types.js";
 import type {
+  ConversationMessageRecord,
+  ConversationThreadRecord,
+  CreateConversationThreadInput,
+  CreateDashboardConversationMessageInput,
+  McpConnectionRecord,
+  UpdateMcpConnectionInput,
+} from "../contracts/connection-chat-types.js";
+import type {
   CreateProjectInput,
   CreateSprintInput,
   CreateTaskInput,
@@ -47,6 +55,12 @@ export interface DashboardServerOptions {
   createTask: (projectId: string, input: CreateTaskInput) => TaskRecord;
   updateTask: (taskId: string, input: UpdateTaskInput) => TaskRecord;
   deleteTask: (taskId: string) => void;
+  listConnections: (projectId: string) => McpConnectionRecord[];
+  updateConnection: (connectionId: string, input: UpdateMcpConnectionInput) => McpConnectionRecord;
+  listConversationThreads: (projectId: string) => ConversationThreadRecord[];
+  createConversationThread: (projectId: string, input: CreateConversationThreadInput) => ConversationThreadRecord;
+  listConversationMessages: (threadId: string) => ConversationMessageRecord[];
+  postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
   rerunTask: (taskId: string) => Promise<unknown>;
   logger?: Logger;
@@ -298,6 +312,58 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to delete task") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/connections", (req, res) => {
+    try {
+      res.json(options.listConnections(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list connections") });
+    }
+  });
+
+  app.patch("/api/connections/:connectionId", (req, res) => {
+    try {
+      res.json(options.updateConnection(String(req.params.connectionId || "").trim(), req.body as UpdateMcpConnectionInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update connection") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/conversations/threads", (req, res) => {
+    try {
+      res.json(options.listConversationThreads(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list conversation threads") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/conversations/threads", (req, res) => {
+    try {
+      res.status(201).json(
+        options.createConversationThread(String(req.params.projectId || "").trim(), req.body as CreateConversationThreadInput)
+      );
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to create conversation thread") });
+    }
+  });
+
+  app.get("/api/conversations/threads/:threadId/messages", (req, res) => {
+    try {
+      res.json(options.listConversationMessages(String(req.params.threadId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list conversation messages") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/conversations/messages", (req, res) => {
+    try {
+      res.status(201).json(
+        options.postConversationMessage(String(req.params.projectId || "").trim(), req.body as CreateDashboardConversationMessageInput)
+      );
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to post conversation message") });
     }
   });
 

@@ -9,6 +9,7 @@ import { SessionTrackingRepository } from "../../repositories/session-tracking-r
 import { AppDbStorage } from "../../repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
+import { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
 import { ActivitySummaryService } from "../../domain/sessions/activity-summary.js";
 import { JulesSourceResolver } from "../../services/jules-source-resolver.js";
 import { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
@@ -32,6 +33,7 @@ export interface CoreDependencies {
   appDbStorage: AppDbStorage;
   projectManagementRepository: ProjectManagementRepository;
   projectRuntimeRepository: ProjectRuntimeRepository;
+  connectionChatRepository: ConnectionChatRepository;
   sprintMarkdownService: SprintMarkdownService;
   externalSettingsHints: ExternalSettingsHints;
   dashboardSettings: DashboardSettings;
@@ -81,6 +83,7 @@ export function createCoreDependencies(
   const appDbStorage = new AppDbStorage();
   const projectManagementRepository = new ProjectManagementRepository(appDbStorage);
   const projectRuntimeRepository = new ProjectRuntimeRepository(appDbStorage);
+  const connectionChatRepository = new ConnectionChatRepository(appDbStorage);
   const sprintMarkdownService = new SprintMarkdownService(projectManagementRepository);
   const julesSourceResolver = new JulesSourceResolver(julesApi);
   const activitySummary = new ActivitySummaryService();
@@ -99,6 +102,7 @@ export function createCoreDependencies(
     appDbStorage,
     projectManagementRepository,
     projectRuntimeRepository,
+    connectionChatRepository,
     sprintMarkdownService,
     externalSettingsHints,
     dashboardSettings,

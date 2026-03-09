@@ -50,6 +50,18 @@ Project management:
   - Updates task metadata and dependency ids
 - `DELETE /api/tasks/:taskId`
   - Deletes a task
+- `GET /api/projects/:projectId/connections`
+  - Lists MCP connections visible to the selected project
+- `PATCH /api/connections/:connectionId`
+  - Updates connection metadata such as role/status/instruction payload
+- `GET /api/projects/:projectId/conversations/threads`
+  - Lists project conversation threads
+- `POST /api/projects/:projectId/conversations/threads`
+  - Creates a new project conversation thread
+- `GET /api/conversations/threads/:threadId/messages`
+  - Lists stored messages for one thread
+- `POST /api/projects/:projectId/conversations/messages`
+  - Stores a dashboard-authored message and queues it for a listener
 
 Legacy runtime:
 - `GET /api/status`
@@ -75,6 +87,8 @@ Legacy runtime:
 - Sprints page is project-scoped, creates sprint records in sqlite, and exposes markdown import/export controls
 - Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface
+- Agents page is DB-backed and lists registered MCP connections for the selected project
+- Chat page is DB-backed and stores project conversation threads/messages in sqlite
 
 ### Dashboard view
 - Task statistics
@@ -86,6 +100,7 @@ Legacy runtime:
 
 Runtime scoping:
 - the selected project in the v2 top navigation now also scopes live session status, reruns, live activities, and git tracking
+- the selected project also scopes Agents and Chat data
 - dashboard runtime state is projected through sqlite task-run records instead of being served only from one in-memory global payload
 
 ### Settings view
@@ -110,6 +125,7 @@ Settings are loaded from `dashboard/src/hooks/use-dashboard-settings.ts` and sav
 Project management requests are centralized in:
 - `dashboard/src/v2/lib/project-api.ts`
 - `dashboard/src/v2/context/project-data.tsx`
+- `dashboard/src/v2/lib/connection-api.ts`
 
 ## Multi-Provider Settings
 

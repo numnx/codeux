@@ -1,4 +1,20 @@
 import type {
+  ConnectionInboxMessage,
+  ConversationMessageRecord,
+  ConversationThreadRecord,
+  CreateConversationThreadInput,
+  CreateDashboardConversationMessageInput,
+  McpConnectionCapabilities,
+  McpConnectionRecord,
+  McpConnectionRole,
+  McpConnectionStatus,
+  PostListenReplyInput,
+  PullInboxInput,
+  StartListenInput,
+  StartListenResponse,
+  UpdateMcpConnectionInput,
+} from "../../../src/contracts/connection-chat-types.js";
+import type {
   CreateProjectInput,
   CreateSprintInput,
   CreateTaskInput,
@@ -20,6 +36,9 @@ import type {
 
 export type SourceStatus = ProjectStatus;
 export type Source = ProjectSummary;
+export type AgentConnection = McpConnectionRecord;
+export type ChatThread = ConversationThreadRecord;
+export type ChatMessageRecord = ConversationMessageRecord;
 
 export interface Sprint extends SprintRecord {
   date: string;
@@ -47,8 +66,19 @@ export interface Task {
 
 export type {
   CreateProjectInput,
+  CreateConversationThreadInput,
+  CreateDashboardConversationMessageInput,
   CreateSprintInput,
   CreateTaskInput,
+  ConnectionInboxMessage,
+  ConversationMessageRecord,
+  ConversationThreadRecord,
+  McpConnectionCapabilities,
+  McpConnectionRecord,
+  McpConnectionRole,
+  McpConnectionStatus,
+  PostListenReplyInput,
+  PullInboxInput,
   ProjectCollectionResponse,
   ProjectStatus,
   ProjectSummary,
@@ -57,9 +87,12 @@ export type {
   SprintMarkdownImportTask,
   SprintRecord,
   SprintStatus,
+  StartListenInput,
+  StartListenResponse,
   TaskPriority,
   TaskRecord,
   TaskStatus,
+  UpdateMcpConnectionInput,
   UpdateProjectInput,
   UpdateSprintInput,
   UpdateTaskInput,

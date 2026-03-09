@@ -16,6 +16,7 @@ import type {
 import type { SettingsRepository } from "../../repositories/settings-repository.js";
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
+import type { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
@@ -30,6 +31,7 @@ export interface BootDashboardDeps {
   settingsRepository: SettingsRepository;
   projectManagementRepository: ProjectManagementRepository;
   projectRuntimeRepository: ProjectRuntimeRepository;
+  connectionChatRepository: ConnectionChatRepository;
   sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
@@ -85,6 +87,12 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     createTask: (projectId, input) => deps.projectManagementRepository.createTask(projectId, input),
     updateTask: (taskId, input) => deps.projectManagementRepository.updateTask(taskId, input),
     deleteTask: (taskId) => deps.projectManagementRepository.deleteTask(taskId),
+    listConnections: (projectId) => deps.connectionChatRepository.listConnections(projectId),
+    updateConnection: (connectionId, input) => deps.connectionChatRepository.updateConnection(connectionId, input),
+    listConversationThreads: (projectId) => deps.connectionChatRepository.listThreads(projectId),
+    createConversationThread: (projectId, input) => deps.connectionChatRepository.createThread(projectId, input),
+    listConversationMessages: (threadId) => deps.connectionChatRepository.listMessages(threadId),
+    postConversationMessage: (projectId, input) => deps.connectionChatRepository.postDashboardMessage(projectId, input),
     saveSettings: (settings: DashboardSettings) => {
       deps.runtimeContext.dashboardSettings = deps.settingsRepository.saveSettings(settings);
       deps.syncGitSettingsFromDashboard();

@@ -20,6 +20,7 @@ export function createMcpDependencies(
     logger,
     julesApi,
     activitySummary,
+    connectionChatRepository,
     sessionTracking,
   } = coreDeps;
   const { sprintOrchestrator, taskService } = sprintDeps;
@@ -44,6 +45,7 @@ export function createMcpDependencies(
     listTrackedSessions: (limit) => sessionTracking.listSessions(limit),
     listTrackedActivities: (args) => sessionTracking.listActivities(args),
     listAllTrackedActivities: (sessionId) => sessionTracking.listAllActivities(sessionId),
+    connectionChatRepository,
     logger: logger.child({ component: "core-tool-handler" }),
   });
 

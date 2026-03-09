@@ -40,6 +40,11 @@ describe("CoreToolHandler coverage", () => {
             listTrackedSessions: vi.fn().mockReturnValue({ sessions: [] }),
             listAllTrackedActivities: vi.fn(),
             listTrackedActivities: vi.fn(),
+            connectionChatRepository: {
+                startListen: vi.fn().mockReturnValue({ connection: { id: "conn-1" }, inbox: [] }),
+                pullInbox: vi.fn().mockReturnValue([{ id: "msg-1" }]),
+                postListenReply: vi.fn().mockReturnValue({ id: "reply-1" }),
+            },
             resolveSessionName: vi.fn(),
             fetchRecentActivities: vi.fn().mockResolvedValue([]),
             isActionRequiredState: vi.fn().mockReturnValue(false),
@@ -187,5 +192,45 @@ describe("CoreToolHandler coverage", () => {
         const handler = new CoreToolHandler(defaultDeps);
         await handler.handleListAllActivities({ session_id: "1" });
         expect(defaultDeps.julesApi.listAllActivities).toHaveBeenCalled();
+    });
+
+    it("handleStartListen", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handleStartListen({ connection_key: "listener-1", project_id: "project-1" });
+        expect(defaultDeps.connectionChatRepository.startListen).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            displayName: undefined,
+            role: undefined,
+            projectId: "project-1",
+            transport: undefined,
+            capabilities: undefined,
+            maxMessages: undefined,
+        });
+    });
+
+    it("handlePullInbox", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handlePullInbox({ connection_key: "listener-1", max_messages: 5 });
+        expect(defaultDeps.connectionChatRepository.pullInbox).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            projectId: undefined,
+            maxMessages: 5,
+        });
+    });
+
+    it("handlePostListenReply", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handlePostListenReply({
+            connection_key: "listener-1",
+            thread_id: "thread-1",
+            body_markdown: "reply",
+            reply_to_message_id: "message-1",
+        });
+        expect(defaultDeps.connectionChatRepository.postListenReply).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            threadId: "thread-1",
+            bodyMarkdown: "reply",
+            replyToMessageId: "message-1",
+        });
     });
 });
