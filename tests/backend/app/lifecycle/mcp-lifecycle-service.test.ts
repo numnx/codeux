@@ -41,7 +41,7 @@ describe("mcp-lifecycle-service", () => {
       expect(mockDeps.server.connect).toHaveBeenCalled();
 
       expect(mockDeps.logger.info).toHaveBeenCalledWith(
-        "Jules Subagents MCP server running on stdio",
+        "Sprint OS MCP server running on stdio",
         { version: "1.2.0" }
       );
     });

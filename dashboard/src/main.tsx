@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { KineticDock } from "./v2/components/KineticDock.js";
 import { TopNav } from "./v2/components/TopNav.js";
+import { ProjectDataProvider } from "./v2/context/project-data.js";
 import "./styles.css";
 
 // Route components — each dynamic import becomes its own chunk in the build
@@ -38,26 +39,27 @@ const rootRoute = createRootRoute({
     const toggleTheme = () => setIsDark(!isDark);
 
     return (
-      <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
-        {/* Warm ambient glows */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_-10%_-10%,_rgba(0,224,160,0.04)_0%,_transparent_60%)] dark:bg-[radial-gradient(ellipse_80%_50%_at_-10%_-10%,_rgba(0,224,160,0.06)_0%,_transparent_60%)] transition-colors duration-1000" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_110%_110%,_rgba(255,184,0,0.03)_0%,_transparent_60%)] dark:bg-[radial-gradient(ellipse_60%_40%_at_110%_110%,_rgba(255,184,0,0.05)_0%,_transparent_60%)] transition-colors duration-1000" />
-        </div>
-
-        <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
-          <TopNav isDark={isDark} toggleTheme={toggleTheme} />
-
-          <div className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
-            {/* Suspense boundary: shows nothing while the route chunk loads */}
-            <Suspense fallback={<div className="flex-1" />}>
-              <Outlet />
-            </Suspense>
+      <ProjectDataProvider>
+        <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
+          {/* Warm ambient glows */}
+          <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_-10%_-10%,_rgba(0,224,160,0.04)_0%,_transparent_60%)] dark:bg-[radial-gradient(ellipse_80%_50%_at_-10%_-10%,_rgba(0,224,160,0.06)_0%,_transparent_60%)] transition-colors duration-1000" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_110%_110%,_rgba(255,184,0,0.03)_0%,_transparent_60%)] dark:bg-[radial-gradient(ellipse_60%_40%_at_110%_110%,_rgba(255,184,0,0.05)_0%,_transparent_60%)] transition-colors duration-1000" />
           </div>
-        </div>
 
-        <KineticDock />
-      </div>
+          <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
+            <TopNav isDark={isDark} toggleTheme={toggleTheme} />
+
+            <div className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
+              <Suspense fallback={<div className="flex-1" />}>
+                <Outlet />
+              </Suspense>
+            </div>
+          </div>
+
+          <KineticDock />
+        </div>
+      </ProjectDataProvider>
     );
   },
 });

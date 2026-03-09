@@ -1,4 +1,3 @@
-import * as path from "path";
 import { setupDashboardServer } from "../../server/dashboard-server.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { createLogger } from "../../shared/logging/logger.js";
@@ -15,8 +14,11 @@ import type {
   ReadinessProbeStatus
 } from "../../contracts/app-types.js";
 import type { SettingsRepository } from "../../repositories/settings-repository.js";
+import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
+import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
+import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config/sprint-os-paths.js";
 
 export interface BootDashboardDeps {
   app: Express;
@@ -25,6 +27,8 @@ export interface BootDashboardDeps {
   runtimeContext: RuntimeContext;
   externalSettingsHints: ExternalSettingsHints;
   settingsRepository: SettingsRepository;
+  projectManagementRepository: ProjectManagementRepository;
+  sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
   logger: Logger;
@@ -40,17 +44,17 @@ export interface BootDashboardDeps {
 
 export function reinitializeLogger(deps: { projectRoot: string, runtimeContext: RuntimeContext }): Logger {
   const logFilePath = deps.runtimeContext.dashboardSettings?.enableDebugLogFile
-    ? path.join(deps.projectRoot, ".jules-subagents", "debug.log")
+    ? getRepoDebugLogPath(deps.projectRoot)
     : undefined;
 
   return createLogger({
-    bindings: { service: "jules-subagents" },
+    bindings: { service: SPRINT_OS_SERVICE_NAME },
     logFilePath,
   });
 }
 
 export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
-  const dashboardDir = path.join(deps.projectRoot, "dashboard");
+  const dashboardDir = `${deps.projectRoot}/dashboard`;
   const port = deps.getDashboardPort();
 
   const handle = await setupDashboardServer({
@@ -63,6 +67,22 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     getGitStatus: deps.getGitStatus,
     getExternalSettingsHints: () => deps.externalSettingsHints,
     getSettings: () => deps.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
+    listProjects: () => deps.projectManagementRepository.listProjects(),
+    createProject: (input) => deps.projectManagementRepository.createProject(input),
+    getProject: (projectId) => deps.projectManagementRepository.getProject(projectId),
+    updateProject: (projectId, input) => deps.projectManagementRepository.updateProject(projectId, input),
+    deleteProject: (projectId) => deps.projectManagementRepository.deleteProject(projectId),
+    selectProject: (projectId) => deps.projectManagementRepository.setSelectedProjectId(projectId),
+    listSprints: (projectId) => deps.projectManagementRepository.listSprints(projectId),
+    createSprint: (projectId, input) => deps.projectManagementRepository.createSprint(projectId, input),
+    updateSprint: (sprintId, input) => deps.projectManagementRepository.updateSprint(sprintId, input),
+    deleteSprint: (sprintId) => deps.projectManagementRepository.deleteSprint(sprintId),
+    importSprintFromMarkdown: (projectId, input) => deps.sprintMarkdownService.importSprint(projectId, input),
+    exportSprintToMarkdown: (projectId, sprintId) => deps.sprintMarkdownService.exportSprint(projectId, sprintId),
+    listTasks: (projectId, sprintId) => deps.projectManagementRepository.listTasks(projectId, sprintId),
+    createTask: (projectId, input) => deps.projectManagementRepository.createTask(projectId, input),
+    updateTask: (taskId, input) => deps.projectManagementRepository.updateTask(taskId, input),
+    deleteTask: (taskId) => deps.projectManagementRepository.deleteTask(taskId),
     saveSettings: (settings: DashboardSettings) => {
       deps.runtimeContext.dashboardSettings = deps.settingsRepository.saveSettings(settings);
       deps.syncGitSettingsFromDashboard();

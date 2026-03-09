@@ -59,7 +59,7 @@ describe("dashboard-lifecycle-service", () => {
       });
 
       expect(createLogger).toHaveBeenCalledWith({
-        bindings: { service: "jules-subagents" },
+        bindings: { service: "sprint-os" },
         logFilePath: undefined,
       });
     });
@@ -73,8 +73,8 @@ describe("dashboard-lifecycle-service", () => {
       });
 
       expect(createLogger).toHaveBeenCalledWith({
-        bindings: { service: "jules-subagents" },
-        logFilePath: path.join("/project-root", ".jules-subagents", "debug.log"),
+        bindings: { service: "sprint-os" },
+        logFilePath: path.join("/project-root", ".sprint-os", "debug.log"),
       });
     });
   });

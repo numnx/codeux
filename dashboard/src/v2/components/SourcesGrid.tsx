@@ -2,12 +2,13 @@ import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { Activity } from "lucide-preact";
-import { mockSources } from "../lib/mockData.js";
 import { SectionHeader } from "./ui/SectionHeader.js";
 import { SourceCell } from "./ui/SourceCell.js";
+import { useProjectData } from "../context/project-data.js";
 
 export const SourcesGrid: FunctionComponent = () => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const { projects } = useProjectData();
 
     useLayoutEffect(() => {
         if (containerRef.current) {
@@ -27,7 +28,7 @@ export const SourcesGrid: FunctionComponent = () => {
         }
     }, []);
 
-    const recentSources = [...mockSources].sort((a, b) =>
+    const recentSources = [...projects].sort((a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     ).slice(0, 6);
 

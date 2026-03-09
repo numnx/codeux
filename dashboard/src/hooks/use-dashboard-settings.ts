@@ -56,7 +56,7 @@ export const useDashboardSettings = (): UseDashboardSettingsResult => {
     try {
       const hints = await fetchExternalSettingsHints();
       setSettings((prev) => applyExternalSettingsHints(prev, hints));
-      setSaveMessage("Imported missing values from .env/.jules-subagents/settings.json.");
+      setSaveMessage("Imported missing values from .env/.sprint-os/settings.json.");
       setSettingsError(null);
     } catch {
       setSettingsError("Unable to import settings from .env/.json");

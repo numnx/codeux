@@ -72,7 +72,7 @@ describe("SprintOrchestrator CI logic", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-autofix-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
@@ -170,7 +170,7 @@ describe("SprintOrchestrator CI logic", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-ci-escalation-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
@@ -252,7 +252,7 @@ describe("SprintOrchestrator CI logic", () => {
 
     const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
 
@@ -338,7 +338,7 @@ describe("SprintOrchestrator CI logic", () => {
 
     const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-always-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
 
@@ -425,7 +425,7 @@ describe("SprintOrchestrator CI logic", () => {
 
     const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-no-ci-wait-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
 
@@ -506,7 +506,7 @@ describe("SprintOrchestrator CI logic", () => {
 
     const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-pr-url-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 

@@ -1,9 +1,9 @@
 import * as fs from "fs/promises";
-import * as path from "path";
-import os from "os";
 import type { Logger } from "../../shared/logging/logger.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import type { RuntimeContext } from "../runtime-context.js";
+import { buildCandidatePaths } from "../../shared/config/search-paths.js";
+import { getRelativeSprintOsPath } from "../../shared/config/sprint-os-paths.js";
 
 export interface BootSettingsDeps {
   runtimeContext: RuntimeContext;
@@ -12,12 +12,7 @@ export interface BootSettingsDeps {
 }
 
 function getSearchPaths(projectRoot: string, relativePath: string): string[] {
-  const paths = [
-    path.join(process.cwd(), relativePath),
-    path.join(projectRoot, relativePath),
-    path.join(os.homedir(), relativePath),
-  ];
-  return [...new Set(paths)]; // Unique paths, highest priority first
+  return buildCandidatePaths(relativePath, projectRoot);
 }
 
 async function loadSettings(runtimeContext: RuntimeContext, projectRoot: string, logger: Logger) {
@@ -27,7 +22,7 @@ async function loadSettings(runtimeContext: RuntimeContext, projectRoot: string,
   }
 
   // 2. Higher priorities: settings.json files (Reverse order for correct override: HOME -> PROJECT -> CWD)
-  const searchPaths = getSearchPaths(projectRoot, ".jules-subagents/settings.json").reverse();
+  const searchPaths = getSearchPaths(projectRoot, getRelativeSprintOsPath("settings.json")).reverse();
   for (const settingsPath of searchPaths) {
     try {
       await fs.access(settingsPath);

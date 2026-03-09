@@ -26,6 +26,7 @@ import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-
 import { SubtaskFileRepository } from "../infrastructure/repositories/subtask-file-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { MainMergeGateService } from "../domain/sprint/ci/main-merge-gate.js";
+import { getRepoSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 export interface SprintOrchestratorDependencies {
   settings: Settings;
@@ -205,7 +206,7 @@ export class SprintOrchestrator {
 
   async execute(args: SprintAgentArgs): Promise<any> {
     const repoPath = typeof args.repo_path === "string" && args.repo_path.trim().length > 0 ? args.repo_path : process.cwd();
-    const sprintsDir = path.join(repoPath, ".jules-subagents", "sprints");
+    const sprintsDir = getRepoSprintOsPath(repoPath, "sprints");
     const subtasksDir = path.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
     const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
     const defaultBranch = typeof this.deps.settings.defaultBranch === "string" && this.deps.settings.defaultBranch.trim().length > 0

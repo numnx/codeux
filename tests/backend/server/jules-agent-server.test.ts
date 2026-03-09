@@ -216,7 +216,7 @@ describe("JulesAgentServer", () => {
     it("should call subtaskRepository.setMerged", async () => {
       const spy = vi.spyOn((server as any).subtaskRepository, "setMerged").mockResolvedValue(undefined);
       await (server as any).persistTaskMergedFlag({ repoPath: "/repo", sprintNumber: 1, taskId: "T1", merged: true });
-      expect(spy).toHaveBeenCalledWith(path.join("/repo", ".jules-subagents", "sprints", "sprint1-subtasks"), "T1", true);
+      expect(spy).toHaveBeenCalledWith(path.join("/repo", ".sprint-os", "sprints", "sprint1-subtasks"), "T1", true);
     });
   });
 

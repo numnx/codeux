@@ -39,7 +39,7 @@ describe("FileTemplateRepository", () => {
     const projectRoot = path.join(sandbox, "project");
     const homeRoot = path.join(sandbox, "home");
 
-    const relativeDirectory = path.join(".jules-subagents", "agents");
+    const relativeDirectory = path.join(".sprint-os", "agents");
     const fileName = "worker.md";
 
     await writeFixture(homeRoot, relativeDirectory, fileName, "home");
@@ -74,14 +74,14 @@ describe("FileTemplateRepository", () => {
     vi.spyOn(process, "cwd").mockReturnValue(cwdRoot);
 
     const repository = new FileTemplateRepository(projectRoot, [
-      path.join(".jules-subagents", "instructions"),
-      path.join(".jules-subagents", "intructions"),
+      path.join(".sprint-os", "instructions"),
+      path.join(".sprint-os", "intructions"),
     ]);
 
-    await writeFixture(cwdRoot, path.join(".jules-subagents", "intructions"), relativeInstructionPath, "legacy typo");
+    await writeFixture(cwdRoot, path.join(".sprint-os", "intructions"), relativeInstructionPath, "legacy typo");
     await expect(repository.loadFile(relativeInstructionPath, repoRoot)).resolves.toBe("legacy typo");
 
-    await writeFixture(cwdRoot, path.join(".jules-subagents", "instructions"), relativeInstructionPath, "canonical");
+    await writeFixture(cwdRoot, path.join(".sprint-os", "instructions"), relativeInstructionPath, "canonical");
     await expect(repository.loadFile(relativeInstructionPath, repoRoot)).resolves.toBe("canonical");
   });
 });
@@ -93,7 +93,7 @@ describe("Repository adapters", () => {
     const projectRoot = path.join(sandbox, "project");
     const guideName = "worker.md";
 
-    await writeFixture(repoRoot, path.join(".jules-subagents", "agents"), guideName, "Guide Content");
+    await writeFixture(repoRoot, path.join(".sprint-os", "agents"), guideName, "Guide Content");
 
     const repository = new GuideRepository(projectRoot);
     await expect(repository.getGuideContent(guideName, repoRoot)).resolves.toBe("Guide Content");
@@ -105,7 +105,7 @@ describe("Repository adapters", () => {
     const projectRoot = path.join(sandbox, "project");
     const instructionPath = path.join("sprint-main-loop", "guards", "planning-missing.md");
 
-    await writeFixture(repoRoot, path.join(".jules-subagents", "intructions"), instructionPath, "Typo fallback");
+    await writeFixture(repoRoot, path.join(".sprint-os", "intructions"), instructionPath, "Typo fallback");
 
     const repository = new InstructionRepository(projectRoot);
     await expect(repository.loadInstruction(instructionPath, repoRoot)).resolves.toBe("Typo fallback");

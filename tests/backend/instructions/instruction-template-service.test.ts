@@ -11,11 +11,11 @@ afterEach(async () => {
 });
 
 describe("InstructionService", () => {
-  it("loads templates from .jules-subagents/instructions", async () => {
+  it("loads templates from .sprint-os/instructions", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "instruction-service-"));
     tempDirs.push(root);
 
-    const templatePath = path.join(root, ".jules-subagents", "instructions", "sprint-main-loop", "guards", "branch-missing.md");
+    const templatePath = path.join(root, ".sprint-os", "instructions", "sprint-main-loop", "guards", "branch-missing.md");
     await fs.mkdir(path.dirname(templatePath), { recursive: true });
     await fs.writeFile(templatePath, "Custom {{feature_branch}}", "utf-8");
 

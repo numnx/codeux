@@ -2,16 +2,18 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { X, Plus, Target, CalendarDays, Sparkles, Loader2, FileText } from "lucide-preact";
-import type { Sprint } from "../../types.js";
 
 interface AddSprintModalProps {
     nextId: string;
     onClose: () => void;
-    onAdd: (sprint: Sprint) => void;
+    onAdd: (sprint: {
+        name: string;
+        goal: string;
+        startDate: string;
+        endDate: string;
+        status: "idle";
+    }) => void;
 }
-
-const formatDateLabel = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({ nextId, onClose, onAdd }) => {
     const backdropRef = useRef<HTMLDivElement>(null);
@@ -58,11 +60,10 @@ export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({ nextId,
         e.preventDefault();
         if (!name.trim() || !startDate || !endDate) return;
         onAdd({
-            id: nextId.toLowerCase(),
             name: name.trim(),
-            date: `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`,
-            tasksCount: 0,
-            completion: 0,
+            goal: description.trim(),
+            startDate,
+            endDate,
             status: 'idle',
         });
         handleClose();
@@ -206,7 +207,7 @@ export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({ nextId,
                                     <textarea
                                         value={description}
                                         onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-                                        placeholder={isGenerating ? '' : "Describe your sprint goals, paste a brief idea, or write a rough scope — AI will shape it into a full sprint description."}
+                                        placeholder={isGenerating ? '' : "Describe your sprint goals, paste a brief idea, or write a rough scope."}
                                         className={`w-full h-full min-h-[128px] bg-black/[0.025] dark:bg-white/[0.03] border rounded-2xl p-4 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none resize-none leading-relaxed transition-all duration-300 ${
                                             isGenerating
                                                 ? 'border-signal-500/40 dark:border-signal-500/30'

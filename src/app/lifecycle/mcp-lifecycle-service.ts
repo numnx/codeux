@@ -1,6 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Logger } from "../../shared/logging/logger.js";
+import { SPRINT_OS_DISPLAY_NAME } from "../../shared/config/sprint-os-paths.js";
 
 export interface BootMcpTransportDeps {
   server: Server;
@@ -17,5 +18,5 @@ export async function bootMcpTransport(deps: BootMcpTransportDeps): Promise<void
 
   const transport = new StdioServerTransport();
   await deps.server.connect(transport);
-  deps.logger.info("Jules Subagents MCP server running on stdio", { version: "1.2.0" });
+  deps.logger.info(`${SPRINT_OS_DISPLAY_NAME} MCP server running on stdio`, { version: "1.2.0" });
 }

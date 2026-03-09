@@ -7,7 +7,8 @@ describe("sprint-orchestrator", () => {
             logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             settings: { dashboardPort: 3000 },
             completedSprints: new Set(),
-            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: {}, ciIntelligence: {}, aiProvider: { providers: {} } }),
+            renderInstruction: vi.fn().mockResolvedValue(""),
+            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: {} } }),
         };
         const orch = new SprintOrchestrator(deps as any);
 
@@ -20,7 +21,8 @@ describe("sprint-orchestrator", () => {
             logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             settings: { dashboardPort: 3000 },
             completedSprints: new Set([1]),
-            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: {}, ciIntelligence: {}, aiProvider: { providers: { gemini: { enabled: true } } } }),
+            renderInstruction: vi.fn().mockResolvedValue(""),
+            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: { gemini: { enabled: true } } } }),
         };
         const orch = new SprintOrchestrator(deps as any);
 

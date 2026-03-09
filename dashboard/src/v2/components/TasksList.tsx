@@ -1,9 +1,11 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { mockTasks } from "../lib/mockData.js";
 import { TaskRow } from "./ui/TaskRow.js";
 import { FilterStrip } from "./ui/FilterStrip.js";
+import { useProjectData } from "../context/project-data.js";
+import { useProjectSprints } from "../hooks/use-project-sprints.js";
+import { useProjectTasks } from "../hooks/use-project-tasks.js";
 
 type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
 
@@ -12,6 +14,9 @@ const FILTER_OPTIONS = ["All Tasks", "Running", "Queued", "Completed"] as const;
 export const TasksList: FunctionComponent = () => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
+    const { projects, selectedProject } = useProjectData();
+    const { sprints } = useProjectSprints(selectedProject?.id || null);
+    const { tasks } = useProjectTasks(selectedProject?.id || null, projects, sprints);
 
     useLayoutEffect(() => {
         if (listRef.current) {
@@ -23,7 +28,7 @@ export const TasksList: FunctionComponent = () => {
         }
     }, [activeFilter]);
 
-    const filteredTasks = mockTasks.filter(task => {
+    const filteredTasks = tasks.filter(task => {
         if (activeFilter === "All Tasks") return true;
         if (activeFilter === "Running") return task.status === "in_progress";
         if (activeFilter === "Queued") return task.status === "pending";

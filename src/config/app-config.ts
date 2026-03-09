@@ -3,6 +3,7 @@ import * as path from "path";
 import os from "os";
 import { buildCandidatePaths } from "../shared/config/search-paths.js";
 import { readPort, readString } from "../shared/config/value-readers.js";
+import { getRelativeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 export interface AppConfig {
   apiKey: string | null;
@@ -32,7 +33,7 @@ export const parseApiKeyArg = (argv: string[]): string | null => {
 
 /**
  * Resolves the API key from environment variables or settings files.
- * Precedence: Env > .jules-subagents/settings.json
+ * Precedence: Env > .sprint-os/settings.json
  */
 export const apiKeyLoader = (projectRoot: string): string | null => {
   // 1. Environment variables
@@ -40,7 +41,7 @@ export const apiKeyLoader = (projectRoot: string): string | null => {
   if (envKey) return envKey.trim();
 
   // 2. Settings files
-  const settingsRelativePath = path.join(".jules-subagents", "settings.json");
+  const settingsRelativePath = getRelativeSprintOsPath("settings.json");
   const searchPaths = buildCandidatePaths(settingsRelativePath, projectRoot);
 
   for (const settingsPath of searchPaths) {

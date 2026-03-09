@@ -19,6 +19,39 @@ If the requested port is busy, startup automatically retries the next port (`+1`
 
 Implemented in `src/server/dashboard-server.ts`.
 
+Project management:
+- `GET /api/projects`
+  - Lists projects plus selected project id and aggregate counts
+- `POST /api/projects`
+  - Creates a project (`local` or `git`)
+- `PATCH /api/projects/:projectId`
+  - Updates project metadata
+- `DELETE /api/projects/:projectId`
+  - Deletes a project and cascades its sprints/tasks
+- `PUT /api/projects/:projectId/select`
+  - Persists the active dashboard project
+- `GET /api/projects/:projectId/sprints`
+  - Lists sprints for the selected project
+- `POST /api/projects/:projectId/sprints`
+  - Creates a sprint
+- `POST /api/projects/:projectId/sprints/import`
+  - Imports sprint/task markdown into sqlite
+- `GET /api/projects/:projectId/sprints/:sprintId/export`
+  - Exports one sprint plus its tasks back to markdown
+- `PATCH /api/sprints/:sprintId`
+  - Updates sprint metadata
+- `DELETE /api/sprints/:sprintId`
+  - Deletes a sprint and cascades its tasks
+- `GET /api/projects/:projectId/tasks`
+  - Lists tasks for a project, optionally filtered by `sprintId`
+- `POST /api/projects/:projectId/tasks`
+  - Creates a task
+- `PATCH /api/tasks/:taskId`
+  - Updates task metadata and dependency ids
+- `DELETE /api/tasks/:taskId`
+  - Deletes a task
+
+Legacy runtime:
 - `GET /api/status`
   - Current orchestrator status payload (`sprint_number`, `subtasks`, `instructions`, etc.)
 - `GET /api/live-activities`
@@ -35,6 +68,13 @@ Implemented in `src/server/dashboard-server.ts`.
   - Resets a task state and immediately starts a fresh provider session for that task
 
 ## UI Sections
+
+### V2 project management
+- Top-nav project selector persists the active project in sqlite
+- Projects page is DB-backed and can create/select/delete projects
+- Sprints page is project-scoped and creates sprint records in sqlite
+- Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
+- Overview widgets now read project/task data from the same project-management API surface
 
 ### Dashboard view
 - Task statistics
@@ -62,6 +102,10 @@ From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
 
 Settings are loaded from `dashboard/src/hooks/use-dashboard-settings.ts` and saved through
 `dashboard/src/lib/api/dashboard-api.ts` request helpers.
+
+Project management requests are centralized in:
+- `dashboard/src/v2/lib/project-api.ts`
+- `dashboard/src/v2/context/project-data.tsx`
 
 ## Multi-Provider Settings
 
@@ -179,6 +223,7 @@ For Gemini/Codex runs, sessions are tracked locally and surfaced with the same d
 - Runtime status polling, live activity merge, and stat derivation are encapsulated in `use-dashboard-runtime-data`.
 - Settings load/save/import flows are encapsulated in `use-dashboard-settings`.
 - HTTP calls are centralized in `dashboard/src/lib/api/dashboard-api.ts` for consistent error handling and easier testability.
+- V2 project CRUD and selected-project state are centralized in `dashboard/src/v2/lib/project-api.ts` and `dashboard/src/v2/context/project-data.tsx`.
 - `dashboard/src/components/SettingsPage.tsx` now acts as a container and delegates each settings domain to focused section components under `dashboard/src/components/settings/`.
 - Shared settings UI primitives now live in `dashboard/src/components/settings/primitives.tsx` (`SettingsCard`, `ToggleRow`, `FieldLabel`) to reduce duplicate form markup and keep section components consistent.
 - `dashboard/src/components/ui/` now contains focused presentation subcomponents for large cards/sections:

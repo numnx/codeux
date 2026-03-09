@@ -1,11 +1,11 @@
-import * as path from "path";
 import { FileTemplateRepository } from "../infrastructure/repositories/file-template-repository.js";
+import { getRelativeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 export class GuideRepository {
   private readonly repository: FileTemplateRepository;
 
   constructor(projectRoot: string) {
-    this.repository = new FileTemplateRepository(projectRoot, [path.join(".jules-subagents", "agents")]);
+    this.repository = new FileTemplateRepository(projectRoot, [getRelativeSprintOsPath("agents")]);
   }
 
   async getGuideContent(guideName: string, repoPath?: string): Promise<string> {

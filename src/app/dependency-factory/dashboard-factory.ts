@@ -1,9 +1,9 @@
-import * as path from "path";
 import { ServerContext } from "../dependency-factory.js";
 import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { ActivityCacheService } from "../../server/activity-cache-service.js";
 import { TaskRerunService } from "../../services/task-rerun-service.js";
+import { getSprintSubtasksDir } from "../../shared/config/sprint-os-paths.js";
 
 export interface DashboardDependencies {
   activityCacheService: ActivityCacheService;
@@ -47,7 +47,7 @@ export function createDashboardDependencies(
     resolveSessionName: (session) => context.resolveSessionName(session),
     extractSessionId: (session) => context.extractSessionId(session),
     persistMergedFlag: (args) => subtaskRepository.setMerged(
-      path.join(args.repoPath, ".jules-subagents", "sprints", `sprint${args.sprintNumber}-subtasks`),
+      getSprintSubtasksDir(args.repoPath, args.sprintNumber),
       args.taskId,
       args.merged
     ),

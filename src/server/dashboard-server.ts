@@ -4,6 +4,20 @@ import * as path from "path";
 import type { Server } from "http";
 import { createServer } from "http";
 import type { DashboardSettings, ExternalSettingsHints, GitTrackingStatus, JulesActivity, ReadinessProbeStatus } from "../contracts/app-types.js";
+import type {
+  CreateProjectInput,
+  CreateSprintInput,
+  CreateTaskInput,
+  ProjectCollectionResponse,
+  ProjectSummary,
+  SprintMarkdownExportBundle,
+  SprintMarkdownImportInput,
+  SprintRecord,
+  TaskRecord,
+  UpdateProjectInput,
+  UpdateSprintInput,
+  UpdateTaskInput,
+} from "../contracts/project-management-types.js";
 import { correlationIdMiddleware } from "../shared/logging/correlation-id.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 
@@ -17,6 +31,22 @@ export interface DashboardServerOptions {
   getGitStatus: () => Promise<GitTrackingStatus>;
   getExternalSettingsHints: () => ExternalSettingsHints;
   getSettings: () => DashboardSettings;
+  listProjects: () => ProjectCollectionResponse;
+  createProject: (input: CreateProjectInput) => ProjectSummary;
+  getProject: (projectId: string) => ProjectSummary | null;
+  updateProject: (projectId: string, input: UpdateProjectInput) => ProjectSummary;
+  deleteProject: (projectId: string) => void;
+  selectProject: (projectId: string | null) => string | null;
+  listSprints: (projectId: string) => SprintRecord[];
+  createSprint: (projectId: string, input: CreateSprintInput) => SprintRecord;
+  updateSprint: (sprintId: string, input: UpdateSprintInput) => SprintRecord;
+  deleteSprint: (sprintId: string) => void;
+  importSprintFromMarkdown: (projectId: string, input: SprintMarkdownImportInput) => SprintRecord;
+  exportSprintToMarkdown: (projectId: string, sprintId: string) => SprintMarkdownExportBundle;
+  listTasks: (projectId: string, sprintId?: string) => TaskRecord[];
+  createTask: (projectId: string, input: CreateTaskInput) => TaskRecord;
+  updateTask: (taskId: string, input: UpdateTaskInput) => TaskRecord;
+  deleteTask: (taskId: string) => void;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
   rerunTask: (taskId: string) => Promise<unknown>;
   logger?: Logger;
@@ -135,6 +165,142 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     res.json(getSettings());
   });
 
+  app.get("/api/projects", (req, res) => {
+    res.json(options.listProjects());
+  });
+
+  app.post("/api/projects", (req, res) => {
+    try {
+      res.status(201).json(options.createProject(req.body as CreateProjectInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to create project") });
+    }
+  });
+
+  app.get("/api/projects/:projectId", (req, res) => {
+    const projectId = String(req.params.projectId || "").trim();
+    const project = options.getProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: `Project not found: ${projectId}` });
+      return;
+    }
+    res.json(project);
+  });
+
+  app.patch("/api/projects/:projectId", (req, res) => {
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      res.json(options.updateProject(projectId, req.body as UpdateProjectInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update project") });
+    }
+  });
+
+  app.delete("/api/projects/:projectId", (req, res) => {
+    try {
+      options.deleteProject(String(req.params.projectId || "").trim());
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to delete project") });
+    }
+  });
+
+  app.put("/api/projects/:projectId/select", (req, res) => {
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      res.json({ selectedProjectId: options.selectProject(projectId || null) });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to select project") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/sprints", (req, res) => {
+    try {
+      res.json(options.listSprints(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list sprints") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sprints", (req, res) => {
+    try {
+      res.status(201).json(options.createSprint(String(req.params.projectId || "").trim(), req.body as CreateSprintInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to create sprint") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sprints/import", (req, res) => {
+    try {
+      res.status(201).json(
+        options.importSprintFromMarkdown(String(req.params.projectId || "").trim(), req.body as SprintMarkdownImportInput)
+      );
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to import sprint markdown") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/sprints/:sprintId/export", (req, res) => {
+    try {
+      res.json(options.exportSprintToMarkdown(String(req.params.projectId || "").trim(), String(req.params.sprintId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to export sprint markdown") });
+    }
+  });
+
+  app.patch("/api/sprints/:sprintId", (req, res) => {
+    try {
+      res.json(options.updateSprint(String(req.params.sprintId || "").trim(), req.body as UpdateSprintInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update sprint") });
+    }
+  });
+
+  app.delete("/api/sprints/:sprintId", (req, res) => {
+    try {
+      options.deleteSprint(String(req.params.sprintId || "").trim());
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to delete sprint") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/tasks", (req, res) => {
+    try {
+      const sprintId = typeof req.query.sprintId === "string" && req.query.sprintId.trim()
+        ? req.query.sprintId.trim()
+        : undefined;
+      res.json(options.listTasks(String(req.params.projectId || "").trim(), sprintId));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list tasks") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/tasks", (req, res) => {
+    try {
+      res.status(201).json(options.createTask(String(req.params.projectId || "").trim(), req.body as CreateTaskInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to create task") });
+    }
+  });
+
+  app.patch("/api/tasks/:taskId", (req, res) => {
+    try {
+      res.json(options.updateTask(String(req.params.taskId || "").trim(), req.body as UpdateTaskInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update task") });
+    }
+  });
+
+  app.delete("/api/tasks/:taskId", (req, res) => {
+    try {
+      options.deleteTask(String(req.params.taskId || "").trim());
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to delete task") });
+    }
+  });
+
   app.get("/api/settings/import-sources", (req, res) => {
     res.json(getExternalSettingsHints());
   });
@@ -205,3 +371,8 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 
   return handle;
 };
+
+function toErrorMessage(error: unknown, prefix: string): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `${prefix}: ${message}`;
+}

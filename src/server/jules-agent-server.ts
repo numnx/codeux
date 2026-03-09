@@ -24,6 +24,7 @@ import { GuideRepository } from "../repositories/guide-repository.js";
 import { SubtaskFileRepository } from "../infrastructure/repositories/subtask-file-repository.js";
 import { TaskService } from "../services/task-service.js";
 import { SettingsRepository } from "../repositories/settings-repository.js";
+import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { InstructionService } from "../instructions/instruction-template-service.js";
@@ -44,6 +45,8 @@ import { DefaultRuntimeContext, RuntimeContext } from "../app/runtime-context.js
 import { bootSettings, syncGitSettingsFromDashboard } from "../app/lifecycle/settings-lifecycle-service.js";
 import { bootDashboard } from "../app/lifecycle/dashboard-lifecycle-service.js";
 import { bootMcpTransport } from "../app/lifecycle/mcp-lifecycle-service.js";
+import { getSprintSubtasksDir } from "../shared/config/sprint-os-paths.js";
+import { SprintMarkdownService } from "../services/sprint-markdown-service.js";
 
 export interface JulesAgentServerOptions {
   projectRoot: string;
@@ -68,6 +71,8 @@ export class JulesAgentServer {
   private julesSourceResolver: JulesSourceResolver;
   private sprintOrchestrator: SprintOrchestrator;
   private settingsRepository: SettingsRepository;
+  private projectManagementRepository: ProjectManagementRepository;
+  private sprintMarkdownService: SprintMarkdownService;
   private externalSettingsHints: ExternalSettingsHints;
   private instructionService: InstructionService;
   private sessionTracking: SessionTrackingRepository;
@@ -93,6 +98,8 @@ export class JulesAgentServer {
     this.julesSourceResolver = deps.julesSourceResolver;
     this.sprintOrchestrator = deps.sprintOrchestrator;
     this.settingsRepository = deps.settingsRepository;
+    this.projectManagementRepository = deps.projectManagementRepository;
+    this.sprintMarkdownService = deps.sprintMarkdownService;
     this.externalSettingsHints = deps.externalSettingsHints;
     this.instructionService = deps.instructionService;
     this.sessionTracking = deps.sessionTracking;
@@ -312,7 +319,7 @@ export class JulesAgentServer {
   }
 
   private async persistTaskMergedFlag(args: PersistTaskMergedFlagArgs): Promise<void> {
-    const subtasksDir = path.join(args.repoPath, ".jules-subagents", "sprints", `sprint${args.sprintNumber}-subtasks`);
+    const subtasksDir = getSprintSubtasksDir(args.repoPath, args.sprintNumber);
     await this.subtaskRepository.setMerged(subtasksDir, args.taskId, args.merged);
   }
 
@@ -487,6 +494,8 @@ export class JulesAgentServer {
       runtimeContext: this.runtimeContext,
       externalSettingsHints: this.externalSettingsHints,
       settingsRepository: this.settingsRepository,
+      projectManagementRepository: this.projectManagementRepository,
+      sprintMarkdownService: this.sprintMarkdownService,
       activityCacheService: this.activityCacheService,
       taskRerunService: this.taskRerunService,
       logger: this.logger,

@@ -3,9 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, ArrowRight } from "lucide-preact";
 import { Link } from "@tanstack/react-router";
-import { mockSources } from "../lib/mockData.js";
 import { StatusDot } from "./ui/StatusDot.js";
 import { AddProjectModal } from "./ui/AddProjectModal.js";
+import { useProjectData } from "../context/project-data.js";
 
 interface TopNavProps {
     isDark: boolean;
@@ -16,8 +16,14 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    const [selectedSource, setSelectedSource] = useState(mockSources[3]); // jules-cli as default
     const [showAddProject, setShowAddProject] = useState(false);
+    const {
+        projects,
+        selectedProject,
+        createProject,
+        selectProject,
+        loading,
+    } = useProjectData();
 
     useLayoutEffect(() => {
         if (navRef.current) {
@@ -36,6 +42,15 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
+    const handleCreateProject = async (project: { name: string; type: 'local' | 'git'; path: string; cloneDir?: string }) => {
+        await createProject({
+            name: project.name,
+            sourceType: project.type,
+            sourceRef: project.path,
+            cloneDir: project.cloneDir,
+        });
+    };
+
     return (
         <>
         <header
@@ -50,7 +65,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                         <Activity className="w-4 h-4 text-signal-500 dark:text-void-900 relative z-10 group-hover:scale-110 transition-transform duration-500" strokeWidth={2.5} />
                     </div>
                     <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5">
-                        Jules<span className="text-signal-500">OS</span>
+                        Sprint<span className="text-signal-500">OS</span>
                     </span>
                 </div>
 
@@ -79,8 +94,10 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                         onClick={() => setDropdownOpen(!dropdownOpen)}
                         className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group"
                     >
-                        <StatusDot status={selectedSource.status} />
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{selectedSource.name}</span>
+                        <StatusDot status={selectedProject?.status || "idle"} />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
+                            {selectedProject?.name || (loading ? "Loading..." : "Select Project")}
+                        </span>
                         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
@@ -90,21 +107,29 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                             <div className="px-3 pt-3 pb-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Projects</span>
                             </div>
-                            {mockSources.map((source) => (
+                            {projects.map((source) => (
                                 <button
                                     key={source.id}
-                                    onClick={() => { setSelectedSource(source); setDropdownOpen(false); }}
-                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-signal-500/5 transition-colors group ${selectedSource.id === source.id ? 'bg-signal-500/8' : ''}`}
+                                    onClick={() => {
+                                        void selectProject(source.id);
+                                        setDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-signal-500/5 transition-colors group ${selectedProject?.id === source.id ? 'bg-signal-500/8' : ''}`}
                                 >
                                     <StatusDot status={source.status} />
-                                    <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSource.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedProject?.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {source.name}
                                     </span>
-                                    {selectedSource.id === source.id && (
+                                    {selectedProject?.id === source.id && (
                                         <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                     )}
                                 </button>
                             ))}
+                            {!loading && projects.length === 0 && (
+                                <div className="px-3 py-4 text-xs text-slate-400 font-medium">
+                                    No projects connected yet.
+                                </div>
+                            )}
                             <div className="p-2 border-t border-black/[0.04] dark:border-white/[0.04] mt-1 flex flex-col gap-1">
                                 <button
                                     onClick={() => { setDropdownOpen(false); setShowAddProject(true); }}
@@ -165,7 +190,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
             {showAddProject && (
                 <AddProjectModal
                     onClose={() => setShowAddProject(false)}
-                    onAdd={() => {/* projects managed in ProjectsPage */}}
+                    onAdd={(project) => { void handleCreateProject(project); }}
                 />
             )}
         </>

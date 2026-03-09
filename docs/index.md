@@ -1,4 +1,4 @@
-# Jules Subagents Documentation Index
+# Sprint OS Documentation Index
 
 This documentation is the canonical project reference for the MCP server, sprint orchestration engine, instruction template system, and dashboard.
 
@@ -16,9 +16,10 @@ Use this page as the main entrypoint.
 1. [System Overview](./architecture/system-overview.md)
 2. [Sprint 4 Project Management Foundation and Tool Surface Migration](./architecture/sprint-4-project-management-foundation.md)
 3. [Sprint OS Phase 1 Implementation Plan](./architecture/sprint-os-phase-1-implementation-plan.md)
-4. [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
-5. [Instruction Template System](./instructions/markdown-template-system.md)
-6. [Configuration and Storage](./settings/configuration-and-storage.md)
+4. [Project Management Implementation](./architecture/project-management-implementation.md)
+5. [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
+6. [Instruction Template System](./instructions/markdown-template-system.md)
+7. [Configuration and Storage](./settings/configuration-and-storage.md)
 
 ### Path 3: MCP integrator (tool contracts and runtime expectations)
 1. [Quickstart](./getting-started/quickstart.md)
@@ -35,6 +36,7 @@ Use this page as the main entrypoint.
 - [Sprint 2 Gap Closure and Migration Contract](./architecture/sprint-2-gap-closure.md)
 - [Sprint 4 Project Management Foundation and Tool Surface Migration](./architecture/sprint-4-project-management-foundation.md)
 - [Sprint OS Phase 1 Implementation Plan](./architecture/sprint-os-phase-1-implementation-plan.md)
+- [Project Management Implementation](./architecture/project-management-implementation.md)
 - [MCP Tools and Contracts](./mcp/tools-and-contracts.md)
 - [MCP Runtime and Dispatch](./mcp/runtime-and-dispatch.md)
 - [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)

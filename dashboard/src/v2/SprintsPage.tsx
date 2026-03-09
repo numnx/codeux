@@ -2,10 +2,11 @@ import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Target, Plus } from "lucide-preact";
-import { mockSprints } from "./lib/mockData.js";
-import type { Sprint } from "./types.js";
 import { SprintBubble } from "./components/ui/SprintBubble.js";
 import { AddSprintModal } from "./components/ui/AddSprintModal.js";
+import { useProjectData } from "./context/project-data.js";
+import { useProjectSprints } from "./hooks/use-project-sprints.js";
+import { createSprint } from "./lib/project-api.js";
 
 const ACCENT_CYCLE = ['text-signal-500', 'text-ember-500', 'text-status-green'] as const;
 
@@ -13,7 +14,8 @@ export const SprintsPage: FunctionComponent = () => {
     const mainRef      = useRef<HTMLDivElement>(null);
     const bubblesRef   = useRef<HTMLDivElement>(null);
     const [showModal, setShowModal] = useState(false);
-    const [sprints, setSprints]     = useState<Sprint[]>(mockSprints);
+    const { selectedProject } = useProjectData();
+    const { sprints, refresh } = useProjectSprints(selectedProject?.id || null);
 
     useLayoutEffect(() => {
         if (mainRef.current) {
@@ -24,10 +26,24 @@ export const SprintsPage: FunctionComponent = () => {
         }
     }, []);
 
-    const nextId = `spr-${String(parseInt(sprints[sprints.length - 1]?.id.split('-')[1] ?? '45') + 1).padStart(2, '0')}`;
+    const nextId = `SPR-${String((sprints.at(-1)?.number ?? sprints.length) + 1).padStart(2, '0')}`;
 
-    const handleAddSprint = (sprint: Sprint) => {
-        setSprints(prev => [...prev, sprint]);
+    const handleAddSprint = async (sprint: {
+        name: string;
+        goal: string;
+        startDate: string;
+        endDate: string;
+        status: "idle";
+    }) => {
+        if (!selectedProject) return;
+        await createSprint(selectedProject.id, {
+            name: sprint.name,
+            startDate: sprint.startDate,
+            endDate: sprint.endDate,
+            goal: sprint.goal,
+            status: sprint.status,
+        });
+        await refresh();
         // Animate the new cell in
         requestAnimationFrame(() => {
             if (!bubblesRef.current) return;
@@ -58,13 +74,16 @@ export const SprintsPage: FunctionComponent = () => {
                             <span className="text-signal-500">Sprints.</span>
                         </h1>
                         <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-2 leading-relaxed">
-                            Liquid execution streams mapping your source integrations in real-time.
+                            {selectedProject
+                                ? `Iteration cycles for ${selectedProject.name}.`
+                                : "Select a project to manage sprint structure."}
                         </p>
                     </div>
 
                     {/* New Sprint button */}
                     <button
                         onClick={() => setShowModal(true)}
+                        disabled={!selectedProject}
                         className="group flex items-center gap-2.5 px-6 py-3.5 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.45)] hover:-translate-y-px shrink-0"
                     >
                         <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
@@ -86,6 +105,7 @@ export const SprintsPage: FunctionComponent = () => {
                     {/* Ghost "Add Sprint" cell */}
                     <button
                         onClick={() => setShowModal(true)}
+                        disabled={!selectedProject}
                         className="group relative cursor-pointer perspective-1000 flex items-center justify-center shrink-0 w-72 h-72 lg:w-80 lg:h-80"
                     >
                         {/* Morphing dashed border */}
@@ -115,6 +135,12 @@ export const SprintsPage: FunctionComponent = () => {
                         </div>
                     </button>
                 </div>
+
+                {!selectedProject && (
+                    <div className="px-6 py-8 rounded-[1.75rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/55 dark:bg-void-800/55 text-slate-500 dark:text-slate-400 text-sm max-w-xl">
+                        Projects now scope the whole dashboard. Create or select a project in the top navigation before adding sprints.
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
@@ -122,7 +148,7 @@ export const SprintsPage: FunctionComponent = () => {
                 <AddSprintModal
                     nextId={nextId}
                     onClose={() => setShowModal(false)}
-                    onAdd={handleAddSprint}
+                    onAdd={(sprint) => { void handleAddSprint(sprint); }}
                 />
             )}
         </>

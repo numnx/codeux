@@ -1,9 +1,9 @@
 import * as fs from "fs";
-import os from "os";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { DatabaseSync } from "node:sqlite";
 import type { JulesActivity, JulesSession, ProviderId } from "../contracts/app-types.js";
+import { getHomeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 interface SessionRow {
   id: string;
@@ -57,14 +57,13 @@ export interface UpdateTrackedSessionInput {
   title?: string;
 }
 
-const SESSIONS_DIR = path.join(os.homedir(), ".jules-subagents");
-const SESSION_DB_PATH = path.join(SESSIONS_DIR, "session-tracking.db");
+const SESSION_DB_PATH = getHomeSprintOsPath("session-tracking.db");
 
 const resolveDbPath = (dbPath?: string): string => {
   if (dbPath && dbPath.trim().length > 0) {
     return dbPath;
   }
-  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+  fs.mkdirSync(path.dirname(SESSION_DB_PATH), { recursive: true });
   return SESSION_DB_PATH;
 };
 
