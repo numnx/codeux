@@ -3,6 +3,8 @@ import { createSprintDependencies } from "../../../../src/app/dependency-factory
 import { ServerContext } from "../../../../src/app/dependency-factory.js";
 import { CoreDependencies } from "../../../../src/app/dependency-factory/core-factory.js";
 import { CliWorkflowService } from "../../../../src/services/cli-workflow-service.js";
+import { SprintExecutionStateService } from "../../../../src/services/sprint-execution-state-service.js";
+import { SprintTaskDispatchService } from "../../../../src/services/sprint-task-dispatch-service.js";
 import { TaskService } from "../../../../src/services/task-service.js";
 import { SprintOrchestrator } from "../../../../src/sprint/sprint-orchestrator.js";
 
@@ -14,7 +16,19 @@ vi.mock("../../../../src/services/cli-workflow-service.js", () => {
 vi.mock("../../../../src/services/task-service.js", () => {
   const TaskService = vi.fn();
   TaskService.prototype.startSprintTask = vi.fn();
+  TaskService.prototype.selectProviderForTask = vi.fn();
   return { TaskService };
+});
+
+vi.mock("../../../../src/services/sprint-execution-state-service.js", () => {
+  const SprintExecutionStateService = vi.fn();
+  return { SprintExecutionStateService };
+});
+
+vi.mock("../../../../src/services/sprint-task-dispatch-service.js", () => {
+  const SprintTaskDispatchService = vi.fn();
+  SprintTaskDispatchService.prototype.startTask = vi.fn();
+  return { SprintTaskDispatchService };
 });
 
 vi.mock("../../../../src/sprint/sprint-orchestrator.js", () => {
@@ -72,7 +86,8 @@ describe("Sprint Factory", () => {
       projectRuntimeRepository: {
         syncDashboardStatus: vi.fn(),
       },
-      subtaskRepository: {},
+      projectManagementRepository: {},
+      executionRepository: {},
     };
   });
 
@@ -89,6 +104,8 @@ describe("Sprint Factory", () => {
 
     expect(CliWorkflowService).toHaveBeenCalledTimes(1);
     expect(TaskService).toHaveBeenCalledTimes(1);
+    expect(SprintExecutionStateService).toHaveBeenCalledTimes(1);
+    expect(SprintTaskDispatchService).toHaveBeenCalledTimes(1);
     expect(SprintOrchestrator).toHaveBeenCalledTimes(1);
 
     // Get the arguments passed to CliWorkflowService constructor
@@ -143,9 +160,18 @@ describe("Sprint Factory", () => {
     sprintArgs.listSessions();
     expect(mockContext.listSessionsForSync).toHaveBeenCalled();
 
-    sprintArgs.startTask("task1", "source1", "branch1", "repo1", 1);
-    const taskServiceInstance = (TaskService as any).mock.instances[0];
-    expect(taskServiceInstance.startSprintTask).toHaveBeenCalledWith("task1", "source1", "branch1", "repo1", 1);
+    sprintArgs.startTask("task1", { projectId: "p1", sprintId: "s1", sprintRunId: "r1", sourceId: "source1", featureBranch: "branch1", repoPath: "repo1", sprintNumber: 1 });
+    const dispatchServiceInstance = (SprintTaskDispatchService as any).mock.instances[0];
+    expect(dispatchServiceInstance.startTask).toHaveBeenCalledWith({
+      task: "task1",
+      projectId: "p1",
+      sprintId: "s1",
+      sprintRunId: "r1",
+      sourceId: "source1",
+      featureBranch: "branch1",
+      repoPath: "repo1",
+      sprintNumber: 1,
+    });
 
     sprintArgs.getGuideContent("guide3", "repo3");
     expect(mockContext.getGuideContentIfEnabled).toHaveBeenCalledWith("guide3", "repo3");

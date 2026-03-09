@@ -4,9 +4,9 @@ This page describes the first shipped DB-native execution foundation for Sprint 
 
 ## Scope
 
-This slice does not yet refactor the orchestrator.
+This page describes the persistence layer that the DB-native orchestrator now uses.
 
-It does establish the persistence layer the orchestrator refactor will land on:
+It established:
 
 - `sprint_runs`
 - `task_dispatches`
@@ -86,8 +86,15 @@ Current fields include:
 - claim next queued dispatch for an executor type
 - acquire / renew / release leases
 
-## Current Boundary
+## Follow-Up
 
-This is persistence only.
+The next shipped slice that actually wires these records into `sprint_agent` is documented in:
 
-The orchestrator, CI gate logic, and watch loop still need to be migrated to read and write these records directly.
+- `docs/architecture/db-native-orchestrator-integration.md`
+
+Remaining work after that slice:
+
+- lease-backed active run ownership
+- worker claims from `task_dispatches`
+- rerun dispatches
+- richer `task_run_events` and activity history

@@ -148,7 +148,9 @@ export const TOOL_DEFINITIONS = [
     inputSchema: {
       type: "object",
       properties: {
-        sprint_number: { type: "number", description: "The sprint number (e.g., 34)." },
+        project_id: { type: "string", description: "Optional Sprint OS project id. When omitted, the selected dashboard project is used." },
+        sprint_id: { type: "string", description: "Optional Sprint OS sprint id. Prefer this for precise project-scoped execution." },
+        sprint_number: { type: "number", description: "Optional sprint number within the resolved project scope." },
         source_id: { type: "string", description: "Optional Jules source ID override. If omitted, it is auto-resolved from repo git remote when Jules is used." },
         feature_branch: { type: "string", description: "The main feature branch for this sprint." },
         action: {
@@ -159,7 +161,7 @@ export const TOOL_DEFINITIONS = [
         wait: { type: "boolean", description: "Whether to wait and watch for all tasks to complete (poll interval is configurable in dashboard settings, default 120s). Defaults to true for 'status' and 'orchestrate'.", default: true },
         retry_failed: { type: "boolean", description: "Whether to automatically retry failed tasks. Defaults to true.", default: true },
       },
-      required: ["sprint_number", "action"],
+      required: ["action"],
     },
   },
   {

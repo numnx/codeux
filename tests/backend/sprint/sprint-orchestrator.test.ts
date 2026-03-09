@@ -8,6 +8,18 @@ describe("sprint-orchestrator", () => {
             settings: { dashboardPort: 3000 },
             completedSprints: new Set(),
             renderInstruction: vi.fn().mockResolvedValue(""),
+            sprintExecutionStateService: {
+                resolveContext: vi.fn().mockReturnValue({
+                    project: { id: "project-1", name: "Test Project" },
+                    sprint: { id: "sprint-1", name: "Sprint 1" },
+                    sprintNumber: 1,
+                    repoPath: "/tmp/repo",
+                    featureBranch: "feature/sprint1-implementation",
+                    defaultBranch: "main",
+                }),
+                hasPlannedTasks: vi.fn().mockReturnValue(true),
+                loadSubtasks: vi.fn().mockResolvedValue([]),
+            },
             getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: {} } }),
         };
         const orch = new SprintOrchestrator(deps as any);
@@ -22,6 +34,18 @@ describe("sprint-orchestrator", () => {
             settings: { dashboardPort: 3000 },
             completedSprints: new Set([1]),
             renderInstruction: vi.fn().mockResolvedValue(""),
+            sprintExecutionStateService: {
+                resolveContext: vi.fn().mockReturnValue({
+                    project: { id: "project-1", name: "Test Project" },
+                    sprint: { id: "sprint-1", name: "Sprint 1" },
+                    sprintNumber: 1,
+                    repoPath: "/tmp/repo",
+                    featureBranch: "feature/sprint1-implementation",
+                    defaultBranch: "main",
+                }),
+                hasPlannedTasks: vi.fn().mockReturnValue(true),
+                loadSubtasks: vi.fn().mockResolvedValue([]),
+            },
             getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: { gemini: { enabled: true } } } }),
         };
         const orch = new SprintOrchestrator(deps as any);

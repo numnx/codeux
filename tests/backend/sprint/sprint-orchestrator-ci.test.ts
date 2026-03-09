@@ -78,6 +78,7 @@ describe("SprintOrchestrator CI logic", () => {
 
     subtaskRepository.loadSubtasks.mockResolvedValue([
       {
+        record_id: "task-record-1",
         id: "01-task",
         title: "Test task",
         prompt: "Do it",
@@ -250,14 +251,20 @@ describe("SprintOrchestrator CI logic", () => {
       lastUpdated: new Date().toISOString(),
     });
 
-    const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-"));
     const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
+    deps.projectManagementRepository.updateTask = vi.fn(async (_taskId: string, input: any) => {
+      if (input.isMerged === true) {
+        await subtaskRepository.setMerged(subtasksDir, "01-task", true);
+      }
+    });
+    const orchestrator = new SprintOrchestrator(deps as any);
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
 
     subtaskRepository.loadSubtasks.mockResolvedValue([
       {
+        record_id: "task-record-1",
         id: "01-task",
         title: "Test task",
         prompt: "Do it",
@@ -289,9 +296,10 @@ describe("SprintOrchestrator CI logic", () => {
     const text = result.content[0].text as string;
     expect(text).toContain("Auto-Merged");
     expect(deps.autoMergeFeaturePr).toHaveBeenCalledWith({ repoPath: tmpRoot, prNumber: 12 });
-
-    const persisted = await fs.readFile(path.join(subtasksDir, "01-task.md"), "utf-8");
-    expect(persisted).toContain("merged: true");
+    expect(deps.projectManagementRepository.updateTask).toHaveBeenCalledWith(
+      "task-record-1",
+      expect.objectContaining({ isMerged: true, mergeIndicator: "AUTOMERGE" }),
+    );
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
 
@@ -336,14 +344,20 @@ describe("SprintOrchestrator CI logic", () => {
       lastUpdated: new Date().toISOString(),
     });
 
-    const orchestrator = new SprintOrchestrator(deps as any);
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-automerge-always-"));
     const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
+    deps.projectManagementRepository.updateTask = vi.fn(async (_taskId: string, input: any) => {
+      if (input.isMerged === true) {
+        await subtaskRepository.setMerged(subtasksDir, "01-task", true);
+      }
+    });
+    const orchestrator = new SprintOrchestrator(deps as any);
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDo it\n", "utf-8");
 
     subtaskRepository.loadSubtasks.mockResolvedValue([
       {
+        record_id: "task-record-1",
         id: "01-task",
         title: "Test task",
         prompt: "Do it",
@@ -376,9 +390,10 @@ describe("SprintOrchestrator CI logic", () => {
     expect(text).toContain("Auto-Merged");
     expect(text).toContain("mode: always");
     expect(deps.autoMergeFeaturePr).toHaveBeenCalledWith({ repoPath: tmpRoot, prNumber: 22 });
-
-    const persisted = await fs.readFile(path.join(subtasksDir, "01-task.md"), "utf-8");
-    expect(persisted).toContain("merged: true");
+    expect(deps.projectManagementRepository.updateTask).toHaveBeenCalledWith(
+      "task-record-1",
+      expect.objectContaining({ isMerged: true, mergeIndicator: "AUTOMERGE" }),
+    );
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
 

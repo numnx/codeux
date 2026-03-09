@@ -2,7 +2,9 @@ import type { JulesActivity, JulesSession, Subtask } from "../contracts/app-type
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface SprintAgentArgs {
-  sprint_number: number;
+  sprint_number?: number;
+  sprint_id?: string;
+  project_id?: string;
   repo_path?: string;
   source_id?: string;
   feature_branch?: string;

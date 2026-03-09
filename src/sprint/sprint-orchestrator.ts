@@ -1,5 +1,3 @@
-import * as fs from "fs/promises";
-import * as path from "path";
 import type { InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
 import {
   DEFAULT_AUTOMATION_INTERVENTIONS_SETTINGS,
@@ -7,11 +5,9 @@ import {
   DEFAULT_SPRINT_LOOP_STEP_SETTINGS,
 } from "./sprint-orchestrator-defaults.js";
 import { runBranchPreflightStep } from "./steps/branch-preflight-step.js";
-import { runPlanningPreflightStep } from "./steps/planning-preflight-step.js";
 import type { SprintAgentArgs } from "./sprint-types.js";
 import type {
   AutomationInterventionsSettings,
-  AutomationLevel,
   CiIntelligenceSettings,
   DashboardSettings,
   GitTrackingStatus,
@@ -20,19 +16,20 @@ import type {
   SprintLoopStepSettings,
   Subtask,
 } from "../contracts/app-types.js";
+import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
+import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintExecutionStateService } from "../services/sprint-execution-state-service.js";
 import { CycleRunner } from "../domain/sprint/orchestrator/cycle-runner.js";
 import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner.js";
 import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-runner.js";
-import { SubtaskFileRepository } from "../infrastructure/repositories/subtask-file-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { MainMergeGateService } from "../domain/sprint/ci/main-merge-gate.js";
-import { getRepoSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 export interface SprintOrchestratorDependencies {
   settings: Settings;
   dashboardPort: number;
   getDashboardPort?: () => number;
-  completedSprints: Set<number>;
+  completedSprints: Set<string>;
   getConsecutiveFailures: () => number;
   setConsecutiveFailures: (value: number) => void;
   isActionRequiredState: (state?: string) => boolean;
@@ -40,8 +37,21 @@ export interface SprintOrchestratorDependencies {
   extractSessionId: (session: Partial<JulesSession>) => string | undefined;
   fetchRecentActivities: (sessionName: string, pageSize?: number) => Promise<any[]>;
   listSessions: () => Promise<{ sessions?: JulesSession[] }>;
-  subtaskRepository: SubtaskFileRepository;
-  startTask: (task: Subtask, sourceId: string | undefined, baseBranch: string, repoPath: string, sprintNumber: number) => Promise<JulesSession>;
+  projectManagementRepository: ProjectManagementRepository;
+  executionRepository: ExecutionRepository;
+  sprintExecutionStateService: SprintExecutionStateService;
+  startTask: (
+    task: Subtask,
+    args: {
+      projectId: string;
+      sprintId: string;
+      sprintRunId: string;
+      sourceId?: string;
+      featureBranch: string;
+      repoPath: string;
+      sprintNumber: number;
+    },
+  ) => Promise<JulesSession>;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   updateLastStatus: (status: any) => void;
   getDashboardSettings: () => DashboardSettings;
@@ -70,13 +80,13 @@ export class SprintOrchestrator {
     this.watchLoopRunner = new WatchLoopRunner(
       deps,
       this.cycleRunner,
-      this.renderMainMergeCiFeedback.bind(this)
+      this.renderMainMergeCiFeedback.bind(this),
     );
     this.actionRunner = new SprintActionRunner(
       deps,
       this.cycleRunner,
       this.watchLoopRunner,
-      this.runPlanningAction.bind(this)
+      this.runPlanningAction.bind(this),
     );
   }
 
@@ -108,7 +118,7 @@ export class SprintOrchestrator {
   private async renderInstruction(
     templateId: InstructionTemplateId,
     variables: Record<string, unknown>,
-    repoPath?: string
+    repoPath?: string,
   ): Promise<string> {
     return await this.deps.renderInstruction(templateId, variables, repoPath);
   }
@@ -118,7 +128,7 @@ export class SprintOrchestrator {
     repoPath: string,
     defaultFeatureBranch: string,
     existsLocal: boolean,
-    existsRemote: boolean
+    existsRemote: boolean,
   ): Promise<string> {
     const createBranchStep = !existsLocal
       ? `**Step 1:** Create the branch locally:\n\`\`\`bash\ngit checkout -b ${defaultFeatureBranch}\n\`\`\`\n\n`
@@ -135,47 +145,40 @@ export class SprintOrchestrator {
         create_branch_step: createBranchStep,
         push_branch_step: pushBranchStep,
       },
-      repoPath
+      repoPath,
     );
   }
 
-  private async renderPlanningBlocker(subtasksDir: string, repoPath: string): Promise<string> {
+  private async renderPlanningBlocker(planningTarget: string, repoPath: string): Promise<string> {
     return await this.renderInstruction(
       "planningMissing",
       {
-        subtasks_dir: subtasksDir,
+        planning_target: planningTarget,
       },
-      repoPath
+      repoPath,
     );
   }
 
-  private async runPlanningAction(args: SprintAgentArgs, subtasksDir: string, repoPath: string): Promise<any> {
+  private async runPlanningAction(args: SprintAgentArgs, planningTarget: string, repoPath: string): Promise<any> {
+    let planningGuideBlock = "";
     try {
-      await fs.access(subtasksDir);
-      return { content: [{ type: "text", text: `Subtasks directory already exists: ${subtasksDir}.` }] };
+      const planningGuide = await this.deps.getGuideContent("sprint_agent_guide.md", repoPath);
+      planningGuideBlock = `\n\n### Technical Operating Standard\n\n${planningGuide}\n`;
     } catch {
-      await fs.mkdir(subtasksDir, { recursive: true });
-
-      let planningGuideBlock = "";
-      try {
-        const planningGuide = await this.deps.getGuideContent("sprint_agent_guide.md", repoPath);
-        planningGuideBlock = `\n\n### Technical Operating Standard\n\n${planningGuide}\n`;
-      } catch {
-        // Guide is optional.
-      }
-
-      const text = await this.renderInstruction(
-        "planningCreated",
-        {
-          sprint_number: args.sprint_number,
-          subtasks_dir: subtasksDir,
-          planning_guide_block: planningGuideBlock,
-        },
-        repoPath
-      );
-
-      return { content: [{ type: "text", text }] };
+      // Guide is optional.
     }
+
+    const text = await this.renderInstruction(
+      "planningCreated",
+      {
+        sprint_number: args.sprint_number ?? "selected",
+        planning_target: planningTarget,
+        planning_guide_block: planningGuideBlock,
+      },
+      repoPath,
+    );
+
+    return { content: [{ type: "text", text }] };
   }
 
   private async renderMainMergeCiFeedback(args: {
@@ -205,21 +208,21 @@ export class SprintOrchestrator {
   }
 
   async execute(args: SprintAgentArgs): Promise<any> {
-    const repoPath = typeof args.repo_path === "string" && args.repo_path.trim().length > 0 ? args.repo_path : process.cwd();
-    const sprintsDir = getRepoSprintOsPath(repoPath, "sprints");
-    const subtasksDir = path.join(sprintsDir, `sprint${args.sprint_number}-subtasks`);
-    const defaultFeatureBranch = args.feature_branch || `feature/sprint${args.sprint_number}-implementation`;
-    const defaultBranch = typeof this.deps.settings.defaultBranch === "string" && this.deps.settings.defaultBranch.trim().length > 0
-      ? this.deps.settings.defaultBranch
-      : "main";
+    const dashboardSettings = this.deps.getDashboardSettings();
+    const executionContext = this.deps.sprintExecutionStateService.resolveContext(args, dashboardSettings);
+    const repoPath = executionContext.repoPath;
+    const planningTarget = `${executionContext.project.name} / ${executionContext.sprint.name}`;
+    const sprintScopeKey = `${executionContext.project.id}:${executionContext.sprint.id}`;
+    const defaultFeatureBranch = executionContext.featureBranch;
+    const defaultBranch = executionContext.defaultBranch;
     const githubMode = this.deps.settings.githubMode === "LOCAL" ? "LOCAL" : "REMOTE";
     const retryFailed = args.retry_failed !== false;
     const loopSteps = this.getLoopStepSettings();
     const ciIntelligence = this.getCiIntelligenceSettings();
-    const automationLevel = this.deps.getDashboardSettings().automationLevel;
+    const automationLevel = dashboardSettings.automationLevel;
     const automationInterventions = this.getAutomationInterventionsSettings();
 
-    const enabledProviders = Object.entries(this.deps.getDashboardSettings().aiProvider.providers)
+    const enabledProviders = Object.entries(dashboardSettings.aiProvider.providers)
       .filter(([, provider]) => provider.enabled)
       .map(([provider]) => provider);
     if (enabledProviders.length === 0 && args.action !== "plan") {
@@ -229,7 +232,7 @@ export class SprintOrchestrator {
         "No AI providers are enabled in dashboard settings.",
         "Enable at least one provider in the AI Provider section, then retry orchestration.",
         "",
-        "Tip: You can still run `sprint_agent(action: \"plan\")` before enabling providers.",
+        "Tip: Create or import sprint tasks in the dashboard before orchestration.",
       ].join("\n");
       return { content: [{ type: "text", text }] };
     }
@@ -243,15 +246,21 @@ export class SprintOrchestrator {
     }
 
     if (loopSteps.planningPreflight && (args.action === "orchestrate" || args.action === "status")) {
-      const hasSubtasks = await runPlanningPreflightStep(subtasksDir);
-      if (!hasSubtasks) {
-        const planningBlocker = await this.renderPlanningBlocker(subtasksDir, repoPath);
+      const hasPlannedTasks = this.deps.sprintExecutionStateService.hasPlannedTasks(
+        executionContext.project.id,
+        executionContext.sprint.id,
+      );
+      if (!hasPlannedTasks) {
+        const planningBlocker = await this.renderPlanningBlocker(planningTarget, repoPath);
         return { content: [{ type: "text", text: planningBlocker }] };
       }
     }
 
-    if (this.deps.completedSprints.has(args.sprint_number)) {
-      return { content: [{ type: "text", text: `Sprint ${args.sprint_number} has already been finished in this session.` }] };
+    if (
+      this.deps.completedSprints.has(sprintScopeKey)
+      || (typeof args.sprint_number === "number" && (this.deps.completedSprints as Set<unknown>).has(args.sprint_number))
+    ) {
+      return { content: [{ type: "text", text: `Sprint ${executionContext.sprintNumber} has already been finished in this session.` }] };
     }
 
     const dashboardPort = this.getDashboardPort();
@@ -262,12 +271,12 @@ export class SprintOrchestrator {
 
     switch (args.action) {
       case "plan":
-        return await this.actionRunner.runPlan(args, subtasksDir, repoPath);
+        return await this.actionRunner.runPlan(args, planningTarget, repoPath);
       case "status":
         return await this.actionRunner.runStatus({
           args,
+          executionContext,
           repoPath,
-          subtasksDir,
           defaultFeatureBranch,
           defaultBranch,
           githubMode,
@@ -281,11 +290,25 @@ export class SprintOrchestrator {
           watchLoopEnabled,
         });
       case "orchestrate":
-      default:
+      default: {
+        const sprintRun = this.deps.executionRepository.createSprintRun({
+          projectId: executionContext.project.id,
+          sprintId: executionContext.sprint.id,
+          triggerType: "mcp",
+          triggeredBy: "sprint_agent",
+          executorMode: "mixed",
+          status: "running",
+        });
+        this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+          status: "running",
+          startedAt: new Date().toISOString(),
+          lastHeartbeatAt: new Date().toISOString(),
+        });
+
         return await this.actionRunner.runOrchestrate({
           args,
+          executionContext,
           repoPath,
-          subtasksDir,
           defaultFeatureBranch,
           defaultBranch,
           githubMode,
@@ -297,7 +320,9 @@ export class SprintOrchestrator {
           dashboardPort,
           shouldWait,
           watchLoopEnabled,
+          sprintRunId: sprintRun.id,
         });
+      }
     }
   }
 }

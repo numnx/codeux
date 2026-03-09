@@ -1,5 +1,3 @@
-import * as fs from "fs/promises";
-import * as path from "path";
 import { evaluateMergeReadiness } from "./feature-pr/merge-readiness-policy.js";
 import { getCiAutofixRetryKey } from "./feature-pr/ci-autofix-policy.js";
 import { matchPrForTask } from "./feature-pr/pr-matcher.js";
@@ -9,16 +7,13 @@ import { buildNoPrFoundText, buildMergeReadyText } from "./feature-pr/ci-notific
 import type {
   AutomationLevel,
   CiIntelligenceSettings,
-  GitCiRunStatus,
   GitTrackingStatus,
   Subtask,
 } from "../../../contracts/app-types.js";
-import type { SubtaskFileRepository } from "../../../infrastructure/repositories/subtask-file-repository.js";
 
 export interface CiGateContext {
   automationLevel: AutomationLevel;
   repoPath: string;
-  subtasksDir: string;
   featureBranch: string;
   defaultBranch: string;
   featureBranchPrefix: string;
@@ -29,7 +24,7 @@ export interface CiGateContext {
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<{ ok: boolean; message?: string }>;
-  subtaskFileRepository: SubtaskFileRepository;
+  persistMergedTask: (task: Subtask) => Promise<void>;
 }
 
 export interface CiGateResult {
@@ -100,10 +95,9 @@ export class FeaturePrGateService {
           task,
           prNumber: pr.number,
           repoPath: context.repoPath,
-          subtasksDir: context.subtasksDir,
           mode: "always",
           autoMergeFeaturePr: context.autoMergeFeaturePr,
-          subtaskFileRepository: context.subtaskFileRepository,
+          persistMergedTask: context.persistMergedTask,
         });
         if (task.is_merged) continue;
       }
@@ -117,10 +111,9 @@ export class FeaturePrGateService {
             task,
             prNumber: pr.number,
             repoPath: context.repoPath,
-            subtasksDir: context.subtasksDir,
             mode: "when_green",
             autoMergeFeaturePr: context.autoMergeFeaturePr,
-            subtaskFileRepository: context.subtaskFileRepository,
+            persistMergedTask: context.persistMergedTask,
           });
           continue;
         }

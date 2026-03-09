@@ -1,9 +1,7 @@
-import * as path from "path";
 import type { CiIntelligenceSettings, Subtask } from "../../contracts/app-types.js";
 import type { InstructionTemplateId } from "../../instructions/instruction-template-catalog.js";
 
 interface ProtocolStepOptions {
-  subtasksDir: string;
   featureBranch: string;
   githubMode: "REMOTE" | "LOCAL";
   ciIntelligence: CiIntelligenceSettings;
@@ -54,7 +52,7 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
         git_manager_skill: options.githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`",
         feature_branch: options.featureBranch,
         provider: task.provider || "jules",
-        subtask_file: path.join(options.subtasksDir, `${task.id}.md`),
+        task_reference: typeof task.record_id === "string" ? `Sprint OS task ${task.record_id}` : `Sprint OS task ${task.id}`,
         feature_ci_wait_line: buildFeatureCiWaitLine(options.ciIntelligence),
         feature_comments_line: buildFeatureCommentsLine(options.ciIntelligence),
       });

@@ -8,6 +8,10 @@ const buildDeps = () => ({
   updateLastStatus: vi.fn(),
   getDashboardSettings: () => buildMockSettings(),
   getGuideContent: vi.fn().mockResolvedValue("guide"),
+  completedSprints: new Set<string>(),
+  executionRepository: {
+    updateSprintRun: vi.fn(),
+  },
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
@@ -49,8 +53,15 @@ describe("WatchLoopRunner", () => {
     
     const result = await runner.run({
       args: { sprint_number: 1, action: "orchestrate" } as any,
+      executionContext: {
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
       repoPath: "/tmp",
-      subtasksDir: "/tmp/subtasks",
       defaultFeatureBranch: "feat",
       defaultBranch: "main",
       githubMode: "LOCAL",
@@ -60,6 +71,7 @@ describe("WatchLoopRunner", () => {
       automationLevel: "SEMI_AUTO",
       automationInterventions: {} as any,
       dashboardPort: 4444,
+      sprintRunId: "run-1",
     });
 
     expect(result).toContain("WATCH_CONTINUE");
@@ -94,8 +106,15 @@ describe("WatchLoopRunner", () => {
 
     const result = await runner.run({
       args: { sprint_number: 1, action: "orchestrate" } as any,
+      executionContext: {
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
       repoPath: "/tmp",
-      subtasksDir: "/tmp/subtasks",
       defaultFeatureBranch: "feat",
       defaultBranch: "main",
       githubMode: "LOCAL",
@@ -105,6 +124,7 @@ describe("WatchLoopRunner", () => {
       automationLevel: "SEMI_AUTO",
       automationInterventions: {} as any,
       dashboardPort: 4444,
+      sprintRunId: "run-1",
     });
 
     expect(result).toContain("Sprint Execution Finished");
@@ -138,8 +158,15 @@ describe("WatchLoopRunner", () => {
 
     const runPromise = runner.run({
       args: { sprint_number: 1, action: "orchestrate" } as any,
+      executionContext: {
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
       repoPath: "/tmp",
-      subtasksDir: "/tmp/subtasks",
       defaultFeatureBranch: "feat",
       defaultBranch: "main",
       githubMode: "LOCAL",
@@ -149,6 +176,7 @@ describe("WatchLoopRunner", () => {
       automationLevel: "SEMI_AUTO",
       automationInterventions: {} as any,
       dashboardPort: 4444,
+      sprintRunId: "run-1",
     });
 
     const result = await runPromise;

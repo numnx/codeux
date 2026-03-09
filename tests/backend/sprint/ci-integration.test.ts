@@ -9,23 +9,40 @@ import { buildMockSession } from "../../builders/session-builder.js";
 import { buildTaskRunTag } from "../../../src/services/task-run-key.js";
 
 const buildDeps = () => {
+  const subtaskRepository = {
+    loadSubtasks: vi.fn(),
+    setMerged: vi.fn().mockResolvedValue(undefined),
+  };
+
   return {
     settings: { maxFailures: 5 },
     getDashboardSettings: () => buildMockSettings(),
     renderInstruction: vi.fn().mockResolvedValue(""),
     isJulesApiConfigured: () => true,
     isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
-    subtaskRepository: {
-      loadSubtasks: vi.fn(),
-      setMerged: vi.fn().mockResolvedValue(undefined),
-    },
+    subtaskRepository,
     listSessions: vi.fn(),
     sendSessionMessage: vi.fn().mockResolvedValue({}),
     updateLastStatus: vi.fn(),
     getCiStatusForScope: vi.fn(),
     resolveSessionName: (s: any) => s.name,
     extractSessionId: (s: any) => s.id,
-    completedSprints: new Set<number>(),
+    completedSprints: new Set<string>(),
+    projectManagementRepository: { updateTask: vi.fn() },
+    executionRepository: { updateSprintRun: vi.fn() },
+    sprintExecutionStateService: {
+      resolveContext: vi.fn((args: any) => ({
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: args.sprint_number ?? 1,
+        repoPath: args.repo_path,
+        featureBranch: args.feature_branch || "feature/sprint1-implementation",
+        defaultBranch: "main",
+        sourceId: args.source_id,
+      })),
+      hasPlannedTasks: vi.fn().mockReturnValue(true),
+      loadSubtasks: vi.fn(async () => subtaskRepository.loadSubtasks()),
+    },
     logger: {
       debug: vi.fn(),
       info: vi.fn(),

@@ -144,6 +144,37 @@ export class ProjectManagementRepository {
     return row ? this.mapProjectRow(row) : null;
   }
 
+  findProjectByBaseDir(repoPath: string): ProjectSummary | null {
+    const normalizedRepoPath = path.resolve(repoPath);
+    const row = this.db.prepare(`
+      SELECT
+        p.id,
+        p.slug,
+        p.name,
+        p.base_dir,
+        p.repo_url,
+        p.default_branch,
+        p.feature_branch_prefix,
+        p.status,
+        p.created_at,
+        p.updated_at,
+        ps.source_type,
+        ps.source_ref,
+        (SELECT COUNT(*) FROM sprints s WHERE s.project_id = p.id) AS sprints_count,
+        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status = 'completed') AS completed_tasks,
+        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status != 'completed') AS open_tasks,
+        (SELECT MAX(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) FROM tasks t WHERE t.project_id = p.id) AS has_running_tasks
+      FROM projects p
+      LEFT JOIN project_sources ps ON ps.project_id = p.id
+      WHERE p.base_dir = ?
+         OR ps.source_ref = ?
+      ORDER BY p.updated_at DESC
+      LIMIT 1
+    `).get(normalizedRepoPath, normalizedRepoPath) as ProjectRow | undefined;
+
+    return row ? this.mapProjectRow(row) : null;
+  }
+
   createProject(input: CreateProjectInput): ProjectSummary {
     const id = randomUUID();
     const now = new Date().toISOString();
@@ -491,6 +522,34 @@ export class ProjectManagementRepository {
     } catch {
       return null;
     }
+  }
+
+  findSprintByProjectAndNumber(projectId: string, sprintNumber: number): SprintRecord | null {
+    this.requireProject(projectId);
+    const row = this.db.prepare(`
+      SELECT
+        s.id,
+        s.project_id,
+        s.number,
+        s.slug,
+        s.name,
+        s.goal,
+        s.status,
+        s.start_date,
+        s.end_date,
+        s.feature_branch,
+        s.created_at,
+        s.updated_at,
+        COUNT(t.id) AS tasks_count,
+        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks
+      FROM sprints s
+      LEFT JOIN tasks t ON t.sprint_id = s.id
+      WHERE s.project_id = ? AND s.number = ?
+      GROUP BY s.id
+      LIMIT 1
+    `).get(projectId, sprintNumber) as SprintRow | undefined;
+
+    return row ? this.mapSprintRow(row) : null;
   }
 
   getTask(taskId: string): TaskRecord | null {

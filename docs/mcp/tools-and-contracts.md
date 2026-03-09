@@ -119,9 +119,11 @@ Unknown tool names raise MCP `MethodNotFound`.
 
 ### `sprint_agent` behavior
 - Supports `plan`, `status`, `orchestrate`.
-- Resolves feature branch from dashboard branch scheme when not explicitly passed.
+- Resolves execution scope from `project_id`, `sprint_id`, `sprint_number`, `repo_path`, and selected dashboard project state.
+- Resolves feature branch from sprint DB state or the dashboard branch scheme when not explicitly passed.
 - `source_id` is optional for orchestration; Jules source resolution only occurs when a Jules task is actually started.
-- Executes atomic loop pipeline and emits markdown protocol instructions.
+- Loads tasks from sqlite and starts work through `sprint_runs`, `task_dispatches`, and `task_runs`.
+- Markdown is no longer used as orchestration input; it remains import/export only.
 - `status` is always single-cycle (instant output); wait-loop mode is only used by `orchestrate`.
 - In automation modes, action-required Jules tasks can be auto-handled (plan approval, clarification replies, paused-session resume) or explicitly routed as `AGENT` vs `HUMAN` intervention in protocol output.
 

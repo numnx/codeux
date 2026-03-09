@@ -3,12 +3,15 @@ import type { DatabaseSync } from "node:sqlite";
 import { AppDbStorage } from "./app-db-storage.js";
 import type {
   AcquireExecutionLeaseInput,
+  CreateTaskRunInput,
   CreateSprintRunInput,
   CreateTaskDispatchInput,
   ExecutionLeaseRecord,
   RenewExecutionLeaseInput,
   SprintRunRecord,
+  TaskRunRecord,
   TaskDispatchRecord,
+  UpdateTaskRunInput,
   UpdateSprintRunInput,
   UpdateTaskDispatchInput,
 } from "../contracts/execution-types.js";
@@ -57,6 +60,26 @@ interface ExecutionLeaseRow {
   acquired_at: string;
   expires_at: string;
   last_heartbeat_at: string | null;
+}
+
+interface TaskRunRow {
+  id: string;
+  project_id: string;
+  sprint_id: string;
+  task_id: string;
+  sprint_run_id: string | null;
+  dispatch_id: string | null;
+  connection_id: string | null;
+  provider: string | null;
+  mode: string | null;
+  session_id: string | null;
+  session_name: string | null;
+  state: string;
+  worker_branch: string | null;
+  pr_url: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | string | null;
 }
 
 function toNumber(value: number | string): number {
@@ -123,6 +146,19 @@ export class ExecutionRepository {
       FROM sprint_runs
       WHERE id = ?
     `).get(runId) as SprintRunRow | undefined;
+    return row ? this.mapSprintRunRow(row) : null;
+  }
+
+  findActiveSprintRun(projectId: string, sprintId: string): SprintRunRecord | null {
+    this.requireProject(projectId);
+    this.requireSprint(sprintId, projectId);
+    const row = this.db.prepare(`
+      SELECT *
+      FROM sprint_runs
+      WHERE project_id = ? AND sprint_id = ? AND status IN ('queued', 'running', 'paused')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(projectId, sprintId) as SprintRunRow | undefined;
     return row ? this.mapSprintRunRow(row) : null;
   }
 
@@ -234,6 +270,126 @@ export class ExecutionRepository {
       dispatchId
     );
     return this.requireTaskDispatch(dispatchId);
+  }
+
+  createTaskRun(input: CreateTaskRunInput): TaskRunRecord {
+    this.requireProject(input.projectId);
+    this.requireSprint(input.sprintId, input.projectId);
+    this.requireTask(input.taskId, input.projectId, input.sprintId);
+    if (input.sprintRunId) {
+      this.requireSprintRunScoped(input.sprintRunId, input.projectId, input.sprintId);
+    }
+    if (input.dispatchId) {
+      this.requireTaskDispatch(input.dispatchId);
+    }
+    if (input.connectionId) {
+      this.requireConnection(input.connectionId);
+    }
+
+    const id = randomUUID();
+    this.db.prepare(`
+      INSERT INTO task_runs (
+        id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, connection_id, provider, mode,
+        session_id, session_name, state, worker_branch, pr_url, started_at, finished_at, duration_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      input.projectId,
+      input.sprintId,
+      input.taskId,
+      input.sprintRunId ?? null,
+      input.dispatchId ?? null,
+      input.connectionId ?? null,
+      input.provider ?? null,
+      input.mode ?? null,
+      input.sessionId ?? null,
+      input.sessionName ?? null,
+      input.state,
+      input.workerBranch ?? null,
+      input.prUrl ?? null,
+      input.startedAt ?? null,
+      input.finishedAt ?? null,
+      input.durationMs ?? null
+    );
+
+    return this.requireTaskRun(id);
+  }
+
+  getTaskRun(taskRunId: string): TaskRunRecord | null {
+    const row = this.db.prepare(`
+      SELECT *
+      FROM task_runs
+      WHERE id = ?
+    `).get(taskRunId) as TaskRunRow | undefined;
+    return row ? this.mapTaskRunRow(row) : null;
+  }
+
+  updateTaskRun(taskRunId: string, input: UpdateTaskRunInput): TaskRunRecord {
+    const current = this.requireTaskRun(taskRunId);
+    this.db.prepare(`
+      UPDATE task_runs
+      SET connection_id = ?, provider = ?, mode = ?, session_id = ?, session_name = ?, state = ?, worker_branch = ?,
+          pr_url = ?, started_at = ?, finished_at = ?, duration_ms = ?
+      WHERE id = ?
+    `).run(
+      input.connectionId === undefined ? current.connectionId : input.connectionId,
+      input.provider === undefined ? current.provider : input.provider,
+      input.mode === undefined ? current.mode : input.mode,
+      input.sessionId === undefined ? current.sessionId : input.sessionId,
+      input.sessionName === undefined ? current.sessionName : input.sessionName,
+      input.state === undefined ? current.state : input.state,
+      input.workerBranch === undefined ? current.workerBranch : input.workerBranch,
+      input.prUrl === undefined ? current.prUrl : input.prUrl,
+      input.startedAt === undefined ? current.startedAt : input.startedAt,
+      input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
+      input.durationMs === undefined ? current.durationMs : input.durationMs,
+      taskRunId
+    );
+    return this.requireTaskRun(taskRunId);
+  }
+
+  listLatestTaskRuns(taskIds: string[], sprintRunId?: string): Map<string, TaskRunRecord> {
+    const uniqueTaskIds = [...new Set(taskIds.map((taskId) => taskId.trim()).filter(Boolean))];
+    if (uniqueTaskIds.length === 0) {
+      return new Map();
+    }
+
+    const runClause = sprintRunId ? "AND sprint_run_id = ?" : "";
+    const rows = this.db.prepare(`
+      SELECT tr.*
+      FROM task_runs tr
+      INNER JOIN (
+        SELECT task_id, MAX(rowid) AS latest_rowid
+        FROM task_runs
+        WHERE task_id IN (${uniqueTaskIds.map(() => "?").join(", ")})
+        ${runClause}
+        GROUP BY task_id
+      ) latest ON latest.latest_rowid = tr.rowid
+      ORDER BY tr.rowid DESC
+    `).all(...uniqueTaskIds, ...(sprintRunId ? [sprintRunId] : [])) as unknown as TaskRunRow[];
+
+    const map = new Map<string, TaskRunRecord>();
+    for (const row of rows) {
+      if (!map.has(row.task_id)) {
+        map.set(row.task_id, this.mapTaskRunRow(row));
+      }
+    }
+    return map;
+  }
+
+  appendTaskRunEvent(taskRunId: string, eventType: string, originator: string, payload: Record<string, unknown>): void {
+    this.requireTaskRun(taskRunId);
+    this.db.prepare(`
+      INSERT INTO task_run_events (id, task_run_id, event_type, originator, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(),
+      taskRunId,
+      eventType,
+      originator,
+      JSON.stringify(payload),
+      new Date().toISOString()
+    );
   }
 
   claimNextTaskDispatch(args: {
@@ -363,6 +519,14 @@ export class ExecutionRepository {
     return this.mapTaskDispatchRow(row);
   }
 
+  private requireTaskRun(taskRunId: string): TaskRunRecord {
+    const taskRun = this.getTaskRun(taskRunId);
+    if (!taskRun) {
+      throw new Error(`Task run not found: ${taskRunId}`);
+    }
+    return taskRun;
+  }
+
   private requireLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): ExecutionLeaseRecord {
     const lease = this.getLease(scopeType, scopeId);
     if (!lease) {
@@ -472,6 +636,28 @@ export class ExecutionRepository {
       acquiredAt: row.acquired_at,
       expiresAt: row.expires_at,
       lastHeartbeatAt: row.last_heartbeat_at,
+    };
+  }
+
+  private mapTaskRunRow(row: TaskRunRow): TaskRunRecord {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      sprintId: row.sprint_id,
+      taskId: row.task_id,
+      sprintRunId: row.sprint_run_id,
+      dispatchId: row.dispatch_id,
+      connectionId: row.connection_id,
+      provider: row.provider,
+      mode: row.mode,
+      sessionId: row.session_id,
+      sessionName: row.session_name,
+      state: row.state as TaskRunRecord["state"],
+      workerBranch: row.worker_branch,
+      prUrl: row.pr_url,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      durationMs: row.duration_ms === null ? null : toNumber(row.duration_ms),
     };
   }
 }

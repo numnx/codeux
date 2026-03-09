@@ -4,6 +4,7 @@ export type SprintRunExecutorMode = "mixed" | "docker_cli" | "jules" | "mcp_work
 
 export type TaskDispatchExecutorType = "docker_cli" | "jules" | "mcp_worker";
 export type TaskDispatchStatus = "queued" | "claimed" | "running" | "completed" | "failed" | "cancelled" | "blocked";
+export type TaskRunState = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
 
 export type ExecutionLeaseScopeType = "project" | "sprint_run" | "task_dispatch";
 
@@ -40,6 +41,26 @@ export interface TaskDispatchRecord {
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskRunRecord {
+  id: string;
+  projectId: string;
+  sprintId: string;
+  taskId: string;
+  sprintRunId: string | null;
+  dispatchId: string | null;
+  connectionId: string | null;
+  provider: string | null;
+  mode: string | null;
+  sessionId: string | null;
+  sessionName: string | null;
+  state: TaskRunState;
+  workerBranch: string | null;
+  prUrl: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationMs: number | null;
 }
 
 export interface ExecutionLeaseRecord {
@@ -90,6 +111,39 @@ export interface UpdateTaskDispatchInput {
   finishedAt?: string | null;
   lastHeartbeatAt?: string | null;
   errorMessage?: string | null;
+}
+
+export interface CreateTaskRunInput {
+  projectId: string;
+  sprintId: string;
+  taskId: string;
+  sprintRunId?: string | null;
+  dispatchId?: string | null;
+  connectionId?: string | null;
+  provider?: string | null;
+  mode?: string | null;
+  sessionId?: string | null;
+  sessionName?: string | null;
+  state: TaskRunState;
+  workerBranch?: string | null;
+  prUrl?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+}
+
+export interface UpdateTaskRunInput {
+  connectionId?: string | null;
+  provider?: string | null;
+  mode?: string | null;
+  sessionId?: string | null;
+  sessionName?: string | null;
+  state?: TaskRunState;
+  workerBranch?: string | null;
+  prUrl?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
 }
 
 export interface AcquireExecutionLeaseInput {

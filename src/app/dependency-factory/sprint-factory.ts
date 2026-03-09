@@ -3,12 +3,16 @@ import { ServerContext } from "../dependency-factory.js";
 import { CoreDependencies } from "./core-factory.js";
 import { CliWorkflowService } from "../../services/cli-workflow-service.js";
 import { TaskService } from "../../services/task-service.js";
+import { SprintExecutionStateService } from "../../services/sprint-execution-state-service.js";
+import { SprintTaskDispatchService } from "../../services/sprint-task-dispatch-service.js";
 import { SprintOrchestrator } from "../../sprint/sprint-orchestrator.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 
 export interface SprintDependencies {
   cliWorkflowService: CliWorkflowService;
   taskService: TaskService;
+  sprintExecutionStateService: SprintExecutionStateService;
+  sprintTaskDispatchService: SprintTaskDispatchService;
   sprintOrchestrator: SprintOrchestrator;
 }
 
@@ -24,7 +28,8 @@ export function createSprintDependencies(
     julesSourceResolver,
     instructionService,
     projectRuntimeRepository,
-    subtaskRepository,
+    projectManagementRepository,
+    executionRepository,
   } = coreDeps;
 
   const cliWorkflowService = new CliWorkflowService({
@@ -51,6 +56,18 @@ export function createSprintDependencies(
     logger: logger.child({ component: "task-service" }),
   });
 
+  const sprintExecutionStateService = new SprintExecutionStateService(
+    projectManagementRepository,
+    executionRepository,
+  );
+
+  const sprintTaskDispatchService = new SprintTaskDispatchService(
+    executionRepository,
+    projectManagementRepository,
+    taskService,
+    logger.child({ component: "sprint-task-dispatch-service" }),
+  );
+
   const sprintOrchestrator = new SprintOrchestrator({
     settings: context.runtimeContext.settings,
     dashboardPort: options.appConfig.dashboardPort,
@@ -63,9 +80,14 @@ export function createSprintDependencies(
     extractSessionId: (session) => context.extractSessionId(session),
     fetchRecentActivities: (sessionName, pageSize) => context.fetchRecentActivities(sessionName, pageSize),
     listSessions: () => context.listSessionsForSync(),
-    subtaskRepository,
-    startTask: (task, sourceId, baseBranch, repoPath, sprintNumber) =>
-      taskService.startSprintTask(task, sourceId, baseBranch, repoPath, sprintNumber),
+    projectManagementRepository,
+    executionRepository,
+    sprintExecutionStateService,
+    startTask: (task, executionArgs) =>
+      sprintTaskDispatchService.startTask({
+        task,
+        ...executionArgs,
+      }),
     getGuideContent: (guideName, repoPath) => context.getGuideContentIfEnabled(guideName, repoPath),
     updateLastStatus: (status) => {
       projectRuntimeRepository.syncDashboardStatus(status);
@@ -85,6 +107,8 @@ export function createSprintDependencies(
   return {
     cliWorkflowService,
     taskService,
+    sprintExecutionStateService,
+    sprintTaskDispatchService,
     sprintOrchestrator,
   };
 }

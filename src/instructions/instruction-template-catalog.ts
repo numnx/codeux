@@ -23,10 +23,10 @@ export type InstructionTemplateId = keyof typeof INSTRUCTION_TEMPLATE_PATHS;
 
 export const DEFAULT_INSTRUCTION_TEMPLATES: Record<InstructionTemplateId, string> = {
   branchMissing: `### 🛑 ACTION REQUIRED: Branch Configuration Missing\n\nThe feature branch \`{{feature_branch}}\` is not ready. Jules agents require this branch to exist on the remote repository to begin work.\n\n{{create_branch_step}}{{push_branch_step}}**Important:** Once these steps are completed, run this tool again to proceed with the \`{{action}}\` phase.`,
-  planningMissing: `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo subtasks found in \`{{subtasks_dir}}\`. You must plan the sprint before orchestration can begin.\n\n**Instruction:** Run the \`sprint_agent\` with \`action: "plan"\` to initialize the subtasks and define the work items.`,
-  planningCreated: `### Planning Phase for Sprint {{sprint_number}}\n\nCreated directory: \`{{subtasks_dir}}\`.\n\n{{planning_guide_block}}**Instructions for the calling Agent:**\n1. Read \`sprints/sprint-{{sprint_number}}.md\`.\n2. Break the sprint into small, well-planned tasks.\n3. For each task, create a \`.md\` file in the subtasks directory with this format:\n\n\`\`\`markdown\ntitle: Task Title\ndepends_on: [task_id_1, task_id_2]\nis_independent: true\nmerged: false\nprompt:\nDetailed instructions for Jules.\n\`\`\``,
+  planningMissing: `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo tasks were found for \`{{planning_target}}{{subtasks_dir}}\`. You must create or import sprint tasks before orchestration can begin.\n\n**Instruction:** Use the v2 dashboard Projects/Sprints/Tasks flow or markdown import to populate the sprint, then rerun \`sprint_agent\`.`,
+  planningCreated: `### Planning Phase for Sprint {{sprint_number}}\n\nTarget sprint: \`{{planning_target}}{{subtasks_dir}}\`.\n\n{{planning_guide_block}}**Instructions for the calling Agent:**\n1. Open the v2 dashboard sprint and define the task breakdown there, or use markdown import.\n2. Keep dependencies explicit so Sprint OS can derive task readiness from the database.\n3. Use markdown only as import/export transport, not as runtime state.`,
   mergeHeader: `\n### 📥 MERGE INSTRUCTIONS\n`,
-  mergeTask: `- **Task {{task_id}}** ({{provider}}): Use \`git_manager\` ({{git_manager_skill}}) to merge the task PR/branch into \`{{feature_branch}}\`.\n{{feature_ci_wait_line}}{{feature_comments_line}}- Update \`{{subtask_file}}\` with \`merged: true\`.\n- Rerun \`sprint_agent(action: "orchestrate", wait: true)\`.`,
+  mergeTask: `- **Task {{task_id}}** ({{provider}}): Use \`git_manager\` ({{git_manager_skill}}) to merge the task PR/branch into \`{{feature_branch}}\`.\n{{feature_ci_wait_line}}{{feature_comments_line}}- Mark \`{{task_reference}}\` as merged in Sprint OS if it was not auto-updated.\n- Rerun \`sprint_agent(action: "orchestrate", wait: true)\`.`,
   actionRequiredAgentHeader: `\n### 🤖 AGENT INTERVENTION NEEDED\n`,
   actionRequiredAgentTask: `- **Task {{task_id}}** ({{provider}}) is \`{{session_state}}\`.\n{{intervention_hint_line}}- Agent should resolve this in-session, then rerun orchestration.`,
   actionRequiredHumanHeader: `\n### ✋ HUMAN INTERVENTION NEEDED\n`,
@@ -36,8 +36,8 @@ export const DEFAULT_INSTRUCTION_TEMPLATES: Record<InstructionTemplateId, string
   watchMergeRequired: `\n🛑 **Action Required: Merge Detected**\nOne or more tasks have finished. Please follow the **MERGE INSTRUCTIONS** below, then run \`orchestrate\` again to continue.\n`,
   watchNoMoreActions: `\n🛑 **Action Required:** Orchestration paused. No tasks are running and no pending tasks can be started.\n`,
   completionSteps: `\n## 🏁 SPRINT COMPLETION STEPS\n1. **Final Merge via Git Manager**: Use \`git_manager\` ({{git_manager_skill}}) to merge \`{{feature_branch}}\` into \`{{default_branch}}\`.\n{{main_ci_wait_line}}{{main_comments_line}}2. **Next Sprint**: Proceed with Sprint {{next_sprint}} once \`{{default_branch}}\` is green.\n`,
-  cleanupAllMerged: `\n🧹 **Cleanup:** All tasks completed and merged successfully. Deleted subtasks in \`{{subtasks_dir}}\`.\n`,
-  cleanupFailed: `\n⚠️ **Cleanup Skipped:** Some tasks failed. Subtasks in \`{{subtasks_dir}}\` are preserved for debugging.\n`,
+  cleanupAllMerged: `\n🧹 **Cleanup:** All tasks completed and merged successfully for \`{{planning_target}}\`.\n`,
+  cleanupFailed: `\n⚠️ **Cleanup Skipped:** Some tasks failed in \`{{planning_target}}\`. Review the Sprint OS live view and task run history.\n`,
   cleanupDeferred: `\n⏸️ **Cleanup Deferred:** Awaiting merges for completed tasks.\n`,
   cleanupEmpty: `\n⚠️ **Sprint Empty:** No subtasks found. The sprint has not been planned yet.\n`,
 };

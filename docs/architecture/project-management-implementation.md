@@ -16,10 +16,9 @@ It includes:
 - selected-project runtime projection for live dashboard status
 - DB-backed project-scoped Agents and Chat pages
 - first listen-loop MCP connection and conversation contracts
+- first DB-native `sprint_agent` execution slice for project/sprint scope
 
 It does not yet include:
-- DB-native sprint execution
-- sprint runs and task dispatch records
 - multi-MCP scheduling
 - worker task pickup
 - autonomous task assignment across multiple MCPs
@@ -33,6 +32,8 @@ Primary implementation files:
 - `src/repositories/app-db-storage.ts`
 - `src/repositories/project-management-repository.ts`
 - `src/services/sprint-markdown-service.ts`
+- `src/services/sprint-execution-state-service.ts`
+- `src/services/sprint-task-dispatch-service.ts`
 - `src/server/dashboard-server.ts`
 - `dashboard/src/v2/context/project-data.tsx`
 - `dashboard/src/v2/lib/project-api.ts`
@@ -114,6 +115,8 @@ Current behavior:
 - Agents page lists sqlite-backed MCP connections bound to the selected project
 - Chat page lists sqlite-backed conversation threads/messages for the selected project
 - Dashboard messages are queued for listeners through the same sqlite model
+- `sprint_agent(status|orchestrate)` resolves project/sprint scope from sqlite instead of markdown task directories
+- orchestrate executions now create `sprint_runs`, `task_dispatches`, and `task_runs`
 
 ## Markdown Round-Trip
 
@@ -129,11 +132,11 @@ Sprint export:
 
 ## Known Boundaries
 
-Current task records are management records, not yet full execution records.
+Current task records are now both management records and the source planning graph for execution.
 
-That means:
-- task status is managed in the DB for CRUD and planning workflows
-- live execution state is mirrored from the legacy orchestrator into `task_runs` and project runtime context
+Current boundary:
+- task readiness is derived from DB tasks and dependencies
+- ready-task launches create dispatch and run rows in sqlite
+- CI/protocol logic still operates on the projected `Subtask` runtime shape
 - live activity messages are still fetched directly from provider sessions at request time
-- the next execution refactor must replace the legacy file-based sprint loop instead of layering another compatibility bridge on top of it
-- future work should attach MCP connection roles, dispatch state, and executor selection to these same runtime entities instead of creating a second model
+- reruns and worker pickup still need to move onto the dispatch model

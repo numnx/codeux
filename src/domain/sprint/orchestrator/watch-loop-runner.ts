@@ -1,4 +1,3 @@
-import * as fs from "fs/promises";
 import { runCompletionStep } from "../../../sprint/steps/completion-step.js";
 import type { SprintAgentArgs } from "../../../sprint/sprint-types.js";
 import { determineNextState, WatchLoopState } from "./watch-loop-state-machine.js";
@@ -10,11 +9,12 @@ import type {
 } from "../../../contracts/app-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { CycleRunner } from "./cycle-runner.js";
+import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 
 export interface WatchLoopRunnerArgs {
   args: SprintAgentArgs;
+  executionContext: SprintExecutionContext;
   repoPath: string;
-  subtasksDir: string;
   defaultFeatureBranch: string;
   defaultBranch: string;
   githubMode: "REMOTE" | "LOCAL";
@@ -24,6 +24,7 @@ export interface WatchLoopRunnerArgs {
   automationLevel: AutomationLevel;
   automationInterventions: AutomationInterventionsSettings;
   dashboardPort: number;
+  sprintRunId: string;
 }
 
 export class WatchLoopRunner {
@@ -36,8 +37,8 @@ export class WatchLoopRunner {
   async run(params: WatchLoopRunnerArgs): Promise<string> {
     const {
       args,
+      executionContext,
       repoPath,
-      subtasksDir,
       defaultFeatureBranch,
       defaultBranch,
       githubMode,
@@ -47,14 +48,24 @@ export class WatchLoopRunner {
       automationLevel,
       automationInterventions,
       dashboardPort,
+      sprintRunId,
     } = params;
+    const scopedExecutionContext = executionContext || {
+      project: { id: "unknown-project", name: "Selected Project" },
+      sprint: { id: "unknown-sprint", name: "Selected Sprint" },
+      sprintNumber: args.sprint_number ?? 0,
+      repoPath,
+      featureBranch: defaultFeatureBranch,
+      defaultBranch,
+      sourceId: args.source_id,
+    };
 
     let allFinished = false;
     const watchStartedAt = Date.now();
     let fullReport = await this.deps.renderInstruction(
       "watchHeader",
       {
-        sprint_number: args.sprint_number,
+        sprint_number: scopedExecutionContext.sprintNumber,
         feature_branch: defaultFeatureBranch,
         dashboard_port: dashboardPort,
       },
@@ -66,7 +77,7 @@ export class WatchLoopRunner {
     const watchLoopOutputIntervalMs = Math.max(60, loopSteps.watchLoopOutputIntervalSeconds) * 1000;
 
     this.deps.logger.info("Starting watch loop", {
-      sprintNumber: args.sprint_number,
+      sprintNumber: scopedExecutionContext.sprintNumber,
       featureBranch: defaultFeatureBranch,
     });
     this.deps.logger.info(`Live dashboard available at http://localhost:${dashboardPort}`);
@@ -76,22 +87,23 @@ export class WatchLoopRunner {
         action: args.action as "status" | "orchestrate",
         automationLevel,
         automationInterventions,
-        sprintNumber: args.sprint_number,
+        executionContext: scopedExecutionContext,
         repoPath,
-        sourceId: args.source_id,
         defaultFeatureBranch,
-        subtasksDir,
         retryFailed,
         loopSteps,
         ciIntelligence,
         githubMode,
         defaultBranch,
         featureBranchPrefix: this.deps.getDashboardSettings().git.featureBranchPrefix,
+        sprintRunId,
       });
 
       const timestamp = new Date().toLocaleTimeString();
       this.deps.updateLastStatus({
-        sprint_number: args.sprint_number,
+        project_id: scopedExecutionContext.project.id,
+        sprint_id: scopedExecutionContext.sprint.id,
+        sprint_number: scopedExecutionContext.sprintNumber,
         source_id: args.source_id,
         repo_path: repoPath,
         feature_branch: defaultFeatureBranch,
@@ -141,13 +153,17 @@ export class WatchLoopRunner {
 
           if (subtasks.length > 0 && subtasks.every((task) => task.status === "COMPLETED" && task.is_merged)) {
             try {
-              this.deps.completedSprints.add(args.sprint_number);
-              await fs.rm(subtasksDir, { recursive: true, force: true });
-              fullReport += await this.deps.renderInstruction("cleanupAllMerged", { subtasks_dir: subtasksDir }, repoPath);
+              this.deps.completedSprints.add(`${scopedExecutionContext.project.id}:${scopedExecutionContext.sprint.id}`);
+              this.deps.executionRepository.updateSprintRun(sprintRunId, {
+                status: "completed",
+                finishedAt: new Date().toISOString(),
+                lastHeartbeatAt: new Date().toISOString(),
+              });
+              fullReport += await this.deps.renderInstruction("cleanupAllMerged", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
               fullReport += await runCompletionStep({
                 defaultBranch,
                 featureBranch: defaultFeatureBranch,
-                sprintNumber: args.sprint_number,
+                sprintNumber: scopedExecutionContext.sprintNumber,
                 githubMode,
                 ciIntelligence,
                 renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, repoPath),
@@ -161,17 +177,36 @@ export class WatchLoopRunner {
                 githubMode,
               });
             } catch (cleanupError) {
-              this.deps.logger.warn("Failed to cleanup subtasks", {
-                subtasksDir,
+              this.deps.logger.warn("Failed to finalize sprint run", {
+                sprintRunId,
                 error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
               });
             }
           } else if (subtasks.some((task) => task.status === "FAILED")) {
-            fullReport += await this.deps.renderInstruction("cleanupFailed", { subtasks_dir: subtasksDir }, repoPath);
+            this.deps.executionRepository.updateSprintRun(sprintRunId, {
+              status: "failed",
+              finishedAt: new Date().toISOString(),
+              lastHeartbeatAt: new Date().toISOString(),
+            });
+            fullReport += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
           } else if (subtasks.some((task) => task.status === "COMPLETED" && !task.is_merged)) {
+            this.deps.executionRepository.updateSprintRun(sprintRunId, {
+              status: "paused",
+              lastHeartbeatAt: new Date().toISOString(),
+            });
             fullReport += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
           } else if (subtasks.length === 0) {
+            this.deps.executionRepository.updateSprintRun(sprintRunId, {
+              status: "cancelled",
+              finishedAt: new Date().toISOString(),
+              lastHeartbeatAt: new Date().toISOString(),
+            });
             fullReport += await this.renderInstruction("cleanupEmpty", {}, repoPath);
+          } else {
+            this.deps.executionRepository.updateSprintRun(sprintRunId, {
+              status: "paused",
+              lastHeartbeatAt: new Date().toISOString(),
+            });
           }
 
           fullReport += "\n✅ **Sprint Execution Finished.**\n";
@@ -202,6 +237,10 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.RUNNING: {
+          this.deps.executionRepository.updateSprintRun(sprintRunId, {
+            status: "running",
+            lastHeartbeatAt: new Date().toISOString(),
+          });
           await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
           break;
         }

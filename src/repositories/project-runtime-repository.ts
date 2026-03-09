@@ -333,6 +333,19 @@ export class ProjectRuntimeRepository {
   }
 
   private resolveProjectForStatus(status: Partial<DashboardStatus>): ProjectRow | null {
+    if (typeof status.project_id === "string" && status.project_id.trim().length > 0) {
+      const direct = this.db.prepare(`
+        SELECT p.id, p.base_dir, ps.source_ref
+        FROM projects p
+        LEFT JOIN project_sources ps ON ps.project_id = p.id
+        WHERE p.id = ?
+        LIMIT 1
+      `).get(status.project_id.trim()) as ProjectRow | undefined;
+      if (direct) {
+        return direct;
+      }
+    }
+
     const repoPath = normalizePath(typeof status.repo_path === "string" ? status.repo_path : null);
     const selectedProjectId = this.getSelectedProjectId();
     const rows = this.db.prepare(`
@@ -361,6 +374,18 @@ export class ProjectRuntimeRepository {
   }
 
   private resolveSprintForStatus(projectId: string, status: Partial<DashboardStatus>): SprintRow | null {
+    if (typeof status.sprint_id === "string" && status.sprint_id.trim().length > 0) {
+      const direct = this.db.prepare(`
+        SELECT id, number
+        FROM sprints
+        WHERE id = ? AND project_id = ?
+        LIMIT 1
+      `).get(status.sprint_id.trim(), projectId) as SprintRow | undefined;
+      if (direct) {
+        return direct;
+      }
+    }
+
     if (typeof status.sprint_number === "number") {
       const row = this.db.prepare(`
         SELECT id, number

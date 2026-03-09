@@ -28,7 +28,7 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
-  private resolveProvider(task: Subtask): ProviderId {
+  selectProviderForTask(task: Subtask): ProviderId {
     const settings = this.deps.getDashboardSettings();
     const chosen = chooseProviderForTask(settings, task);
     if (chosen === "jules" && !this.deps.isJulesApiConfigured()) {
@@ -62,7 +62,7 @@ export class TaskService {
       is_independent: true,
       status: "PENDING",
     };
-    const provider = this.resolveProvider(pseudoTask);
+    const provider = this.selectProviderForTask(pseudoTask);
 
     if (provider !== "jules") {
       return await this.deps.cliWorkflowService.startTask({
@@ -103,7 +103,7 @@ export class TaskService {
   }
 
   async startSprintTask(task: Subtask, sourceId: string | undefined, baseBranch: string, repoPath: string, sprintNumber: number): Promise<JulesSession> {
-    const provider = this.resolveProvider(task);
+    const provider = this.selectProviderForTask(task);
 
     if (provider !== "jules") {
       const session = await this.deps.cliWorkflowService.startTask({

@@ -48,7 +48,10 @@ export class AgentToolHandler {
     const settings = this.deps.getDashboardSettings();
     const resolvedArgs: SprintAgentArgs = {
       ...args,
-      feature_branch: args.feature_branch || this.deps.formatSprintBranch(settings.git.sprintBranchScheme, args.sprint_number),
+      feature_branch: args.feature_branch
+        || (typeof args.sprint_number === "number"
+          ? this.deps.formatSprintBranch(settings.git.sprintBranchScheme, args.sprint_number)
+          : undefined),
     };
     return await this.deps.sprintOrchestrator.execute(resolvedArgs);
   }
