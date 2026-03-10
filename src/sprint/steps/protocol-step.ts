@@ -1,9 +1,7 @@
-import * as path from "path";
 import type { CiIntelligenceSettings, Subtask } from "../../contracts/app-types.js";
 import type { InstructionTemplateId } from "../../instructions/instruction-template-catalog.js";
 
 interface ProtocolStepOptions {
-  subtasksDir: string;
   featureBranch: string;
   githubMode: "REMOTE" | "LOCAL";
   ciIntelligence: CiIntelligenceSettings;
@@ -11,6 +9,12 @@ interface ProtocolStepOptions {
   enableActionRequiredProtocol: boolean;
   isActionRequiredState: (state?: string) => boolean;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>) => Promise<string>;
+  onTaskEvent?: (args: {
+    task: Subtask;
+    eventType: string;
+    sourceEventKey?: string;
+    payload: Record<string, unknown>;
+  }) => void;
 }
 
 export interface ProtocolStepResult {
@@ -49,12 +53,22 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("mergeHeader", {});
 
     for (const task of awaitingMerge) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_merge_required",
+        sourceEventKey: `protocol:merge-required:${task.id}:${task.merge_indicator || "pending"}`,
+        payload: {
+          featureBranch: options.featureBranch,
+          provider: task.provider || "jules",
+          mergeIndicator: task.merge_indicator || null,
+        },
+      });
       instructions += await options.renderInstruction("mergeTask", {
         task_id: task.id,
         git_manager_skill: options.githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`",
         feature_branch: options.featureBranch,
         provider: task.provider || "jules",
-        subtask_file: path.join(options.subtasksDir, `${task.id}.md`),
+        task_reference: typeof task.record_id === "string" ? `Sprint OS task ${task.record_id}` : `Sprint OS task ${task.id}`,
         feature_ci_wait_line: buildFeatureCiWaitLine(options.ciIntelligence),
         feature_comments_line: buildFeatureCommentsLine(options.ciIntelligence),
       });
@@ -66,6 +80,17 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("actionRequiredAgentHeader", {});
 
     for (const task of agentInterventionTasks) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_action_required",
+        sourceEventKey: `protocol:action-required:${task.id}:agent:${task.session_state || "unknown"}`,
+        payload: {
+          owner: "AGENT",
+          sessionState: task.session_state || "UNKNOWN",
+          provider: task.provider || "jules",
+          interventionHint: task.intervention_hint || null,
+        },
+      });
       const interventionHintLine = typeof task.intervention_hint === "string" && task.intervention_hint.trim().length > 0
         ? `- Context: ${task.intervention_hint.trim()}\n`
         : "";
@@ -83,6 +108,17 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("actionRequiredHumanHeader", {});
 
     for (const task of humanInterventionTasks) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_action_required",
+        sourceEventKey: `protocol:action-required:${task.id}:human:${task.session_state || "unknown"}`,
+        payload: {
+          owner: task.intervention_owner || "HUMAN",
+          sessionState: task.session_state || "UNKNOWN",
+          provider: task.provider || "jules",
+          interventionHint: task.intervention_hint || null,
+        },
+      });
       const interventionHintLine = typeof task.intervention_hint === "string" && task.intervention_hint.trim().length > 0
         ? `- Context: ${task.intervention_hint.trim()}\n`
         : "";

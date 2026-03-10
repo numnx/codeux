@@ -1,0 +1,164 @@
+export type ProjectStatus = "running" | "failed" | "intervention" | "idle";
+export type ProjectSourceType = "local" | "git";
+export type SprintStatus = "running" | "paused" | "completed" | "failed" | "cancelled" | "idle";
+export type TaskStatus = "pending" | "in_progress" | "completed";
+export type TaskPriority = "critical" | "high" | "medium" | "low";
+export type TaskExecutorType = "auto" | "docker_cli" | "jules" | "mcp_worker";
+
+export interface ProjectSummary {
+  id: string;
+  slug: string;
+  name: string;
+  baseDir: string;
+  repoUrl: string | null;
+  sourceType: ProjectSourceType;
+  sourceRef: string;
+  defaultBranch: string | null;
+  featureBranchPrefix: string | null;
+  status: ProjectStatus;
+  sprintsCount: number;
+  openTasks: number;
+  completedTasks: number;
+  isRunning: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SprintRecord {
+  id: string;
+  projectId: string;
+  number: number | null;
+  slug: string;
+  name: string;
+  goal: string;
+  status: SprintStatus;
+  startDate: string | null;
+  endDate: string | null;
+  featureBranch: string | null;
+  tasksCount: number;
+  completion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskRecord {
+  id: string;
+  projectId: string;
+  sprintId: string;
+  taskKey: string;
+  title: string;
+  promptMarkdown: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  executorType: TaskExecutorType;
+  sortOrder: number;
+  dependsOnTaskIds: string[];
+  isIndependent: boolean;
+  isMerged: boolean;
+  mergeIndicator: string | null;
+  sourceType: string | null;
+  sourcePath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectCollectionResponse {
+  projects: ProjectSummary[];
+  selectedProjectId: string | null;
+}
+
+export interface CreateProjectInput {
+  name: string;
+  sourceType: ProjectSourceType;
+  sourceRef: string;
+  cloneDir?: string;
+  defaultBranch?: string;
+  featureBranchPrefix?: string;
+  status?: ProjectStatus;
+}
+
+export interface UpdateProjectInput {
+  name?: string;
+  sourceType?: ProjectSourceType;
+  sourceRef?: string;
+  baseDir?: string;
+  defaultBranch?: string | null;
+  featureBranchPrefix?: string | null;
+  status?: ProjectStatus;
+}
+
+export interface CreateSprintInput {
+  name: string;
+  goal?: string;
+  number?: number;
+  status?: SprintStatus;
+  startDate?: string | null;
+  endDate?: string | null;
+  featureBranch?: string | null;
+}
+
+export interface UpdateSprintInput {
+  name?: string;
+  goal?: string;
+  number?: number | null;
+  status?: SprintStatus;
+  startDate?: string | null;
+  endDate?: string | null;
+  featureBranch?: string | null;
+}
+
+export interface CreateTaskInput {
+  sprintId: string;
+  taskKey?: string;
+  title: string;
+  promptMarkdown?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  executorType?: TaskExecutorType;
+  sortOrder?: number;
+  dependsOnTaskIds?: string[];
+  isIndependent?: boolean;
+  isMerged?: boolean;
+  mergeIndicator?: string | null;
+  sourceType?: string | null;
+  sourcePath?: string | null;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  promptMarkdown?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  executorType?: TaskExecutorType;
+  sortOrder?: number;
+  dependsOnTaskIds?: string[];
+  isIndependent?: boolean;
+  isMerged?: boolean;
+  mergeIndicator?: string | null;
+  sourceType?: string | null;
+  sourcePath?: string | null;
+}
+
+export interface SprintMarkdownImportTask {
+  taskKey?: string;
+  markdown: string;
+}
+
+export interface SprintMarkdownImportInput {
+  sprintMarkdown: string;
+  tasks: SprintMarkdownImportTask[];
+}
+
+export interface SprintMarkdownExportBundle {
+  sprint: {
+    fileName: string;
+    markdown: string;
+  };
+  tasks: Array<{
+    fileName: string;
+    markdown: string;
+  }>;
+}

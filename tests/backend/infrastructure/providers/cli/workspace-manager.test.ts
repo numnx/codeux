@@ -27,13 +27,13 @@ describe("WorkspaceManager", () => {
   describe("buildWorktreePath", () => {
     it("should build path for DOCKER mode", () => {
       const p = manager.buildWorktreePath("/repo", "session-1", "DOCKER");
-      expect(p).toBe(path.join("/repo", ".jules-subagents", "worktrees", "session-1"));
+      expect(p).toBe(path.join("/repo", ".sprint-os", "worktrees", "session-1"));
     });
 
     it("should build path for HOST mode using homedir", () => {
       const p = manager.buildWorktreePath("/repo", "session-1", "HOST");
       expect(p).toContain(os.homedir());
-      expect(p).toContain(".jules-subagents");
+      expect(p).toContain(".sprint-os");
       expect(p).toContain("session-1");
     });
   });
@@ -46,12 +46,10 @@ describe("WorkspaceManager", () => {
       expect(res).toBe(manager.buildWorktreePath("/repo", "session-1", "DOCKER"));
     });
 
-    it("should return legacy path if primary fails and mode is HOST", async () => {
-      vi.mocked(fs.access)
-        .mockRejectedValueOnce(new Error("primary not found"))
-        .mockResolvedValueOnce(undefined);
+    it("should return primary path if primary is missing and mode is HOST", async () => {
+      vi.mocked(fs.access).mockRejectedValueOnce(new Error("primary not found"));
       const res = await manager.resolveResumeWorktreePath("/repo", "session-1", "HOST");
-      expect(res).toBe(path.join("/repo", ".jules-subagents", "worktrees", "session-1"));
+      expect(res).toBe(manager.buildWorktreePath("/repo", "session-1", "HOST"));
     });
 
     it("should return undefined if primary fails and mode is DOCKER", async () => {

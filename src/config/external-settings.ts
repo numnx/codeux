@@ -1,8 +1,8 @@
 import * as fs from "fs";
-import * as path from "path";
 import type { ExternalSettingsHints } from "../contracts/app-types.js";
 import { buildCandidatePaths } from "../shared/config/search-paths.js";
 import { readString } from "../shared/config/value-readers.js";
+import { getRelativeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 /**
  * Normalization map for setting keys across different sources (Env, JSON).
@@ -18,7 +18,7 @@ const PROVIDER_KEY_MAP = {
 type ProviderKey = keyof typeof PROVIDER_KEY_MAP;
 
 const readSettingsJson = (projectRoot: string): Record<string, unknown> => {
-  const settingsRelativePath = path.join(".jules-subagents", "settings.json");
+  const settingsRelativePath = getRelativeSprintOsPath("settings.json");
   const searchPaths = buildCandidatePaths(settingsRelativePath, projectRoot);
 
   for (const settingsPath of searchPaths) {

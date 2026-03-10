@@ -15,6 +15,7 @@ import {
 import { CONTAINER_SETUP_SCRIPT } from "../../../services/cli-workflow-utils.js";
 import { DockerBootstrapBuilder } from "./docker-bootstrap-builder.js";
 import { DockerCredentialMountBuilder } from "./docker-credential-mount-builder.js";
+import { getHomeSprintOsPath, getRepoSprintOsPath } from "../../../shared/config/sprint-os-paths.js";
 
 export interface IDockerRunner {
   runProviderInDocker(args: {
@@ -26,6 +27,7 @@ export interface IDockerRunner {
     providerLabel: "gemini" | "codex" | "claude-code";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
+    signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
   }): Promise<CommandResult>;
 }
@@ -42,9 +44,10 @@ export class DockerRunner implements IDockerRunner {
     providerLabel: "gemini" | "codex" | "claude-code";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
+    signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
   }): Promise<CommandResult> {
-    const { command, args, cwd, providerEnv, sessionId, providerLabel, workflowSettings, repoPath, onActivity } = input;
+    const { command, args, cwd, providerEnv, sessionId, providerLabel, workflowSettings, repoPath, signal, onActivity } = input;
 
     await this.maybeLogDockerPathMappingHint(sessionId, repoPath, onActivity);
     const runtimeRoot = this.resolveDockerRuntimeRoot(repoPath);
@@ -100,6 +103,7 @@ export class DockerRunner implements IDockerRunner {
     onActivity(`Running ${providerLabel} in Docker image ${image} (credentials mounted: ${credentialMounts.length > 0 ? "yes" : "no"}).`);
 
     return await runStreamingCommand("docker", dockerArgs, cwd, process.env, {
+      signal,
       onStdoutLine: (line) => onActivity(line, "agent"),
       onStderrLine: (line) => onActivity(`[${providerLabel}] ${line}`, "provider"),
     });
@@ -109,7 +113,7 @@ export class DockerRunner implements IDockerRunner {
     const configured = (process.env.JULES_DOCKER_RUNTIME_ROOT || "").trim();
     if (configured.length > 0) return resolveConfiguredPath(repoPath, configured);
     const repoHash = createHash("sha1").update(path.resolve(repoPath)).digest("hex").slice(0, 12);
-    return path.join(os.homedir(), ".jules-subagents", "runtime", "docker", repoHash);
+    return getHomeSprintOsPath("runtime", "docker", repoHash);
   }
 
   private async maybeLogDockerPathMappingHint(sessionId: string, repoPath: string, onActivity: (desc: string) => void): Promise<void> {
@@ -146,7 +150,10 @@ export class DockerRunner implements IDockerRunner {
       const p = resolveConfiguredPath(repoPath, configured);
       try { await fs.access(p); return p; } catch { onActivity(`Configured container setup script not found: ${p}`); return undefined; }
     }
-    const candidates = [path.join(repoPath, ".jules-subagents", "container", "setup.sh"), path.join(os.homedir(), ".jules-subagents", "container", "setup.sh")];
+    const candidates = [
+      getRepoSprintOsPath(repoPath, "container", "setup.sh"),
+      getHomeSprintOsPath("container", "setup.sh"),
+    ];
     for (const c of candidates) { try { await fs.access(c); return c; } catch { /* next */ } }
     return undefined;
   }

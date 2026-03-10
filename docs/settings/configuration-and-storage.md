@@ -8,7 +8,7 @@ This guide explains runtime config sources, precedence, and persistence.
 
 1. CLI `--api-key`
 2. `JULES_API_KEY` or `JULES_KEY`
-3. `.jules-subagents/settings.json` key fields
+3. `.sprint-os/settings.json` key fields
 
 Additional startup config:
 - `JULES_API_BASE_URL` (default: `https://jules.googleapis.com/v1alpha`)
@@ -25,7 +25,7 @@ External hint env keys used for dashboard import:
 
 ## Settings JSON Search Paths
 
-For `.jules-subagents/settings.json`, search roots include:
+For `.sprint-os/settings.json`, search roots include:
 - current working directory
 - project root
 - home directory
@@ -36,11 +36,10 @@ Backend file:
 - `src/repositories/settings-repository.ts`
 
 Storage:
-- sqlite DB at `~/.jules-subagents/settings.db`
-- provider session DB at `~/.jules-subagents/session-tracking.db`
-
-Legacy migration:
-- If new DB missing and `~/jules-subagents/settings.db` exists, it is copied to dot-dir.
+- dashboard settings DB at `~/.sprint-os/settings.db`
+- provider session DB at `~/.sprint-os/session-tracking.db`
+- Sprint OS app DB at `~/.sprint-os/app.db`
+  - includes project planning tables plus selected-project runtime projection in `app_settings`, `task_runs`, and `task_run_events`
 
 ## Persisted Dashboard Settings Model
 
@@ -85,7 +84,7 @@ Frontend contract:
 - Docker runtime config:
   - `containerImage`
   - `containerSetupScriptPath` (optional; when set to a relative path, runtime checks both sprint repo root and current server working directory)
-    - if empty, falls back to `.jules-subagents/container/setup.sh` in repo root, server working directory, then home directory
+    - if empty, falls back to `.sprint-os/container/setup.sh` in repo root and home directory
   - `containerMountCredentials` (master toggle)
   - `containerMountGitConfig`
   - `containerMountGithubAuth`
@@ -114,9 +113,9 @@ Frontend contract:
 - `isInternal` (reserved/internal metadata; currently all built-in tools are internal)
 
 Repository demo script:
-- `.jules-subagents/container/setup.sh` is included as a baseline bootstrap script.
+- `.sprint-os/container/setup.sh` is included as a baseline bootstrap script.
 - It installs/updates `npm`, ensures `git` + `gh`, installs `pnpm`, `@google/gemini-cli`, `@openai/codex`, and Playwright Chromium (+ deps when root/apt is available).
-- Docker provider runner stores runtime state outside the project under `~/.jules-subagents/runtime/docker/<repo-hash>/` by default:
+- Docker provider runner stores runtime state outside the project under `~/.sprint-os/runtime/docker/<repo-hash>/` by default:
   - `home/` (container `HOME`)
   - `npm-global/` (CLI fallback install prefix)
   - `npm-cache/` (npm cache)
@@ -165,7 +164,7 @@ Git manager skill toggles are mode-aware:
 Runtime precedence for dashboard port is:
 1. Bound runtime port (actual listening port; may differ when fallback increments)
 2. Dashboard settings (`dashboardPort`) in sqlite settings
-3. `.jules-subagents/settings.json` (`dashboardPort`)
+3. `.sprint-os/settings.json` (`dashboardPort`)
 4. `.env` (`DASHBOARD_PORT`)
 5. `config.json`
 6. Default `4444`

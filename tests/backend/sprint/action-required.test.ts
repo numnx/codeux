@@ -9,6 +9,11 @@ import { buildMockSession } from "../../builders/session-builder.js";
 import { buildTaskRunTag } from "../../../src/services/task-run-key.js";
 
 const buildDeps = () => {
+  const subtaskRepository = {
+    loadSubtasks: vi.fn(),
+    setMerged: vi.fn().mockResolvedValue(undefined),
+  };
+
   return {
     settings: { maxFailures: 5 },
     getDashboardSettings: () => buildMockSettings(),
@@ -19,10 +24,7 @@ const buildDeps = () => {
     }),
     isJulesApiConfigured: () => true,
     isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
-    subtaskRepository: {
-      loadSubtasks: vi.fn(),
-      setMerged: vi.fn().mockResolvedValue(undefined),
-    },
+    subtaskRepository,
     listSessions: vi.fn(),
     sendSessionMessage: vi.fn().mockResolvedValue({}),
     updateLastStatus: vi.fn(),
@@ -30,7 +32,22 @@ const buildDeps = () => {
     extractSessionId: (s: any) => s.id,
     fetchRecentActivities: vi.fn().mockResolvedValue([]),
     getCiStatusForScope: vi.fn().mockResolvedValue(null),
-    completedSprints: new Set<number>(),
+    completedSprints: new Set<string>(),
+    projectManagementRepository: { updateTask: vi.fn() },
+    executionRepository: { updateSprintRun: vi.fn() },
+    sprintExecutionStateService: {
+      resolveContext: vi.fn((args: any) => ({
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: args.sprint_number ?? 1,
+        repoPath: args.repo_path,
+        featureBranch: args.feature_branch || "feature/sprint1-implementation",
+        defaultBranch: "main",
+        sourceId: args.source_id,
+      })),
+      hasPlannedTasks: vi.fn().mockReturnValue(true),
+      loadSubtasks: vi.fn(async () => subtaskRepository.loadSubtasks()),
+    },
     logger: {
       debug: vi.fn(),
       info: vi.fn(),
@@ -47,7 +64,7 @@ describe("SprintOrchestrator - Action Required Protocol", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-action-req-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
@@ -83,7 +100,7 @@ describe("SprintOrchestrator - Action Required Protocol", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-auto-answer-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
@@ -122,7 +139,7 @@ describe("SprintOrchestrator - Action Required Protocol", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-agent-fail-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 

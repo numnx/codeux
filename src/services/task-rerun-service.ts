@@ -1,32 +1,39 @@
-import type { JulesSession, Subtask } from "../contracts/app-types.js";
+import type { Subtask } from "../contracts/app-types.js";
+import type { StartSprintDispatchResult } from "./sprint-task-dispatch-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface TaskRerunContext {
-  sprint_number?: number;
-  source_id?: string;
-  repo_path?: string;
-  feature_branch?: string;
-  subtasks?: Subtask[];
-  reportText?: string;
-  statusTable?: string;
-  instructions?: string;
-  timestamp?: string | null;
-  [key: string]: unknown;
+  task: Subtask;
+  projectId: string;
+  sprintId: string;
+  sprintNumber: number;
+  sourceId?: string;
+  repoPath: string;
+  featureBranch: string;
 }
 
 export interface TaskRerunServiceDependencies {
-  getStatus: () => TaskRerunContext;
-  updateStatus: (status: TaskRerunContext) => void;
+  resolveTaskContext: (taskId: string) => TaskRerunContext | null;
+  updateTaskPlanningStatus: (taskId: string, status: "pending" | "in_progress" | "completed") => void;
+  resolveSprintRunId: (args: {
+    projectId: string;
+    sprintId: string;
+    sprintNumber: number;
+    featureBranch: string;
+  }) => Promise<string>;
   startTask: (args: {
     task: Subtask;
+    projectId: string;
+    sprintId: string;
+    sprintRunId: string;
     sourceId?: string;
     featureBranch: string;
     repoPath: string;
     sprintNumber: number;
-  }) => Promise<JulesSession>;
-  resolveSessionName: (session: Partial<JulesSession>) => string | undefined;
-  extractSessionId: (session: Partial<JulesSession>) => string | undefined;
-  persistMergedFlag: (args: { repoPath: string; sprintNumber: number; taskId: string; merged: boolean }) => Promise<void>;
+  }) => Promise<StartSprintDispatchResult>;
+  resolveSessionName: (session: { id?: string; name?: string }) => string | undefined;
+  extractSessionId: (session: { id?: string; name?: string }) => string | undefined;
+  persistMergedFlag: (args: { taskId: string; merged: boolean }) => Promise<void>;
   logger?: Logger;
 }
 
@@ -49,36 +56,17 @@ export class TaskRerunService {
   constructor(private readonly deps: TaskRerunServiceDependencies) {}
 
   async rerunTask(taskId: string): Promise<Subtask> {
-    const status = this.deps.getStatus();
-    const sprintNumber = typeof status.sprint_number === "number" ? status.sprint_number : null;
-    const sourceId = typeof status.source_id === "string" && status.source_id.trim().length > 0 ? status.source_id.trim() : undefined;
-    const repoPath = typeof status.repo_path === "string" && status.repo_path.trim().length > 0 ? status.repo_path.trim() : null;
-    const featureBranch =
-      typeof status.feature_branch === "string" && status.feature_branch.trim().length > 0 ? status.feature_branch.trim() : null;
-    const subtasks = Array.isArray(status.subtasks) ? status.subtasks : [];
-
-    if (sprintNumber === null || repoPath === null || featureBranch === null) {
+    const context = this.deps.resolveTaskContext(taskId);
+    if (!context) {
       throw new Error("Cannot rerun task: sprint context is incomplete. Run orchestration/status first.");
     }
 
-    const taskIndex = subtasks.findIndex((task) => task.id === taskId);
-    if (taskIndex < 0) {
-      throw new Error(`Cannot rerun task: task '${taskId}' was not found in current sprint status.`);
-    }
-
-    const resetTask = resetTaskState(subtasks[taskIndex]);
-    const resetSubtasks = subtasks.map((task, index) => (index === taskIndex ? resetTask : task));
-    this.deps.updateStatus({
-      ...status,
-      subtasks: resetSubtasks,
-      timestamp: new Date().toLocaleTimeString(),
-    });
+    const resetTask = resetTaskState(context.task);
+    this.deps.updateTaskPlanningStatus(resetTask.record_id || taskId, "pending");
 
     try {
       await this.deps.persistMergedFlag({
-        repoPath,
-        sprintNumber,
-        taskId,
+        taskId: resetTask.record_id || resetTask.id,
         merged: false,
       });
     } catch (error) {
@@ -90,38 +78,34 @@ export class TaskRerunService {
     }
 
     try {
+      const sprintRunId = await this.deps.resolveSprintRunId({
+        projectId: context.projectId,
+        sprintId: context.sprintId,
+        sprintNumber: context.sprintNumber,
+        featureBranch: context.featureBranch,
+      });
       const session = await this.deps.startTask({
         task: resetTask,
-        sourceId,
-        featureBranch,
-        repoPath,
-        sprintNumber,
+        projectId: context.projectId,
+        sprintId: context.sprintId,
+        sprintRunId,
+        sourceId: context.sourceId,
+        featureBranch: context.featureBranch,
+        repoPath: context.repoPath,
+        sprintNumber: context.sprintNumber,
       });
       const restartedTask: Subtask = {
         ...resetTask,
         status: "RUNNING",
         session_name: this.deps.resolveSessionName(session),
         session_id: this.deps.extractSessionId(session),
-        provider: session.provider,
+        provider:
+          session.provider === "jules" || session.provider === "gemini" || session.provider === "codex" || session.provider === "claude-code"
+            ? session.provider
+            : undefined,
       };
-      const restartedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? restartedTask : task));
-      this.deps.updateStatus({
-        ...status,
-        subtasks: restartedSubtasks,
-        timestamp: new Date().toLocaleTimeString(),
-      });
       return restartedTask;
     } catch (error) {
-      const failedTask: Subtask = {
-        ...resetTask,
-        status: "FAILED",
-      };
-      const failedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? failedTask : task));
-      this.deps.updateStatus({
-        ...status,
-        subtasks: failedSubtasks,
-        timestamp: new Date().toLocaleTimeString(),
-      });
       throw error;
     }
   }

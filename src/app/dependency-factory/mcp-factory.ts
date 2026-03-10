@@ -5,6 +5,9 @@ import { CoreToolHandler } from "../../mcp/core-tool-handler.js";
 import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
 import { formatSprintBranch } from "../../git/sprint-branch-scheme.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
+import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
+import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
+import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -20,9 +23,20 @@ export function createMcpDependencies(
     logger,
     julesApi,
     activitySummary,
+    connectionChatRepository,
     sessionTracking,
+    executionRepository,
+    projectManagementRepository,
+    activeDispatchRegistry,
   } = coreDeps;
   const { sprintOrchestrator, taskService } = sprintDeps;
+  const workerTaskDispatchService = new WorkerTaskDispatchService(
+    executionRepository,
+    projectManagementRepository,
+    connectionChatRepository,
+    () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
+    logger.child({ component: "worker-task-dispatch-service" }),
+  );
 
   const coreToolHandler = new CoreToolHandler({
     julesApi,
@@ -44,12 +58,31 @@ export function createMcpDependencies(
     listTrackedSessions: (limit) => sessionTracking.listSessions(limit),
     listTrackedActivities: (args) => sessionTracking.listActivities(args),
     listAllTrackedActivities: (sessionId) => sessionTracking.listAllActivities(sessionId),
+    getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
+    connectionChatRepository,
+    workerTaskDispatchService,
     logger: logger.child({ component: "core-tool-handler" }),
   });
 
   const agentToolHandler = new AgentToolHandler({
     sprintOrchestrator,
     taskService,
+    workerDispatchExecutionService: new WorkerDispatchExecutionService(
+      executionRepository,
+      projectManagementRepository,
+      taskService,
+      activeDispatchRegistry,
+      julesApi,
+      logger.child({ component: "worker-dispatch-execution-service" }),
+    ),
+    workerInboxReplyService: new WorkerInboxReplyService({
+      projectManagementRepository,
+      taskService,
+      getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
+      getGuideContent: (guideName, repoPath) => context.getGuideContentIfEnabled(guideName, repoPath),
+      getGithubToken: () => context.getEffectiveGithubToken(),
+      logger: logger.child({ component: "worker-inbox-reply-service" }),
+    }),
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     formatSprintBranch,
     getConsecutiveFailures: () => context.runtimeContext.consecutiveFailures,

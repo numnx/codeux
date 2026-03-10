@@ -13,8 +13,10 @@ const statusMap: Record<SprintStatus, {
     label: string;
 }> = {
     running:   { ring: 'border-status-green/50 shadow-[0_0_28px_rgba(0,171,132,0.35)]',  text: 'text-status-green', icon: Activity,     label: "Running"   },
+    paused:    { ring: 'border-status-amber/55 shadow-[0_0_28px_rgba(245,158,11,0.28)]', text: 'text-status-amber', icon: Clock,        label: "Paused"    },
     completed: { ring: 'border-signal-500/50 shadow-[0_0_28px_rgba(0,224,160,0.35)]',    text: 'text-signal-500',   icon: CheckCircle2, label: "Completed" },
     failed:    { ring: 'border-status-red/60 shadow-[0_0_28px_rgba(227,0,15,0.35)]',     text: 'text-status-red',   icon: XCircle,      label: "Failed"    },
+    cancelled: { ring: 'border-slate-400/40 shadow-[0_0_22px_rgba(100,116,139,0.22)]',   text: 'text-slate-400 dark:text-slate-500', icon: XCircle, label: "Cancelled" },
     idle:      { ring: '',                                                                 text: 'text-slate-400 dark:text-slate-500', icon: Clock, label: "Queued" },
 };
 
@@ -22,12 +24,16 @@ interface SprintBubbleProps {
     sprint: Sprint;
     isEven: boolean;
     accentColor: string;
+    primaryBusy?: boolean;
+    onPrimaryAction?: () => void;
 }
 
 export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
     sprint,
     isEven,
     accentColor,
+    primaryBusy = false,
+    onPrimaryAction,
 }) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const anim = isEven ? 'animate-organic' : 'animate-organic-reverse';
@@ -117,6 +123,8 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
 
                 <CellActions 
                     isRunning={sprint.status === 'running'} 
+                    primaryBusy={primaryBusy}
+                    onPrimaryAction={onPrimaryAction}
                     label="View Tasks" 
                     to={`/tasks?sprint=${sprint.id}`} 
                 />

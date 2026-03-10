@@ -7,7 +7,8 @@ vi.mock("../../../src/app/lifecycle/dashboard-lifecycle-service.js", () => ({
   bootDashboard: vi.fn().mockResolvedValue(undefined)
 }));
 vi.mock("../../../src/app/lifecycle/mcp-lifecycle-service.js", () => ({
-  bootMcpTransport: vi.fn().mockResolvedValue(undefined)
+  bootMcpTransport: vi.fn().mockResolvedValue(undefined),
+  bootMcpHttpTransport: vi.fn().mockResolvedValue(null)
 }));
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -133,18 +134,22 @@ describe("JulesAgentServer", () => {
         ...DEFAULT_DASHBOARD_SETTINGS,
         ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, enabled: true, waitForCiBeforeFeatureMerge: true }
       };
-      runtimeContext.lastStatus = {
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectStatus").mockReturnValue({
         subtasks: [{ id: "T1", status: "RUNNING" } as any],
-        feature_branch: "feat/test"
-      };
+        feature_branch: "feat/test",
+        timestamp: "2026-03-09T00:00:00.000Z",
+      });
       const request = (server as any).resolveGitTrackingRequest();
       expect(request.scope).toBe("FEATURE_PR_CI");
       expect(request.featureBranch).toBe("feat/test");
     });
 
     it("should return MAIN_BRANCH_CI otherwise", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { subtasks: [], feature_branch: null };
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectStatus").mockReturnValue({
+        subtasks: [],
+        feature_branch: undefined,
+        timestamp: null,
+      });
       const request = (server as any).resolveGitTrackingRequest();
       expect(request.scope).toBe("MAIN_BRANCH_CI");
     });
@@ -152,14 +157,12 @@ describe("JulesAgentServer", () => {
 
   describe("resolveGitStatusRepoPath", () => {
     it("should return repo_path from lastStatus if available", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = { repo_path: "/custom/path" };
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectRepoPath").mockReturnValue("/custom/path");
       expect((server as any).resolveGitStatusRepoPath()).toBe("/custom/path");
     });
 
     it("should fallback to projectRoot", () => {
-      const runtimeContext = (server as any).runtimeContext;
-      runtimeContext.lastStatus = null;
+      vi.spyOn((server as any).projectRuntimeRepository, "getSelectedProjectRepoPath").mockReturnValue(projectRoot);
       expect((server as any).resolveGitStatusRepoPath()).toBe(projectRoot);
     });
   });
@@ -216,7 +219,7 @@ describe("JulesAgentServer", () => {
     it("should call subtaskRepository.setMerged", async () => {
       const spy = vi.spyOn((server as any).subtaskRepository, "setMerged").mockResolvedValue(undefined);
       await (server as any).persistTaskMergedFlag({ repoPath: "/repo", sprintNumber: 1, taskId: "T1", merged: true });
-      expect(spy).toHaveBeenCalledWith(path.join("/repo", ".jules-subagents", "sprints", "sprint1-subtasks"), "T1", true);
+      expect(spy).toHaveBeenCalledWith(path.join("/repo", ".sprint-os", "sprints", "sprint1-subtasks"), "T1", true);
     });
   });
 
@@ -558,7 +561,7 @@ describe("JulesAgentServer", () => {
     it("should initialize lifecycle services and perform recovery", async () => {
       const { bootSettings } = await import("../../../src/app/lifecycle/settings-lifecycle-service.js");
       const { bootDashboard } = await import("../../../src/app/lifecycle/dashboard-lifecycle-service.js");
-      const { bootMcpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
+      const { bootMcpTransport, bootMcpHttpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
 
       (server as any).sessionTracking = {
         recoverInterruptedCliSessions: vi.fn().mockReturnValue({ recoveredCount: 6, sessionIds: ["1", "2", "3", "4", "5", "6"] })
@@ -571,6 +574,7 @@ describe("JulesAgentServer", () => {
       expect(bootSettings).toHaveBeenCalled();
       expect(bootDashboard).toHaveBeenCalled();
       expect(bootMcpTransport).toHaveBeenCalled();
+      expect(bootMcpHttpTransport).toHaveBeenCalled();
       expect(refreshJulesApiKeySpy).toHaveBeenCalled();
       expect((server as any).sessionTracking.recoverInterruptedCliSessions).toHaveBeenCalled();
 
@@ -580,7 +584,7 @@ describe("JulesAgentServer", () => {
     it("should perform recovery with 0 sessions", async () => {
       const { bootSettings } = await import("../../../src/app/lifecycle/settings-lifecycle-service.js");
       const { bootDashboard } = await import("../../../src/app/lifecycle/dashboard-lifecycle-service.js");
-      const { bootMcpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
+      const { bootMcpTransport, bootMcpHttpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
 
       (server as any).sessionTracking = {
         recoverInterruptedCliSessions: vi.fn().mockReturnValue({ recoveredCount: 0, sessionIds: [] })
@@ -593,6 +597,7 @@ describe("JulesAgentServer", () => {
       expect(bootSettings).toHaveBeenCalled();
       expect(bootDashboard).toHaveBeenCalled();
       expect(bootMcpTransport).toHaveBeenCalled();
+      expect(bootMcpHttpTransport).toHaveBeenCalled();
       expect(refreshJulesApiKeySpy).toHaveBeenCalled();
       expect((server as any).sessionTracking.recoverInterruptedCliSessions).toHaveBeenCalled();
 
@@ -609,7 +614,7 @@ describe("JulesAgentServer", () => {
     it("should pass callbacks to bootDashboard correctly", async () => {
       const { bootSettings } = await import("../../../src/app/lifecycle/settings-lifecycle-service.js");
       const { bootDashboard } = await import("../../../src/app/lifecycle/dashboard-lifecycle-service.js");
-      const { bootMcpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
+      const { bootMcpTransport, bootMcpHttpTransport } = await import("../../../src/app/lifecycle/mcp-lifecycle-service.js");
 
       (server as any).sessionTracking = {
         recoverInterruptedCliSessions: vi.fn().mockReturnValue({ recoveredCount: 0, sessionIds: [] })
@@ -643,6 +648,7 @@ describe("JulesAgentServer", () => {
       // expect removed
 
       expect(bootMcpTransport).toHaveBeenCalled();
+      expect(bootMcpHttpTransport).toHaveBeenCalled();
       const bootMcpArgs = (bootMcpTransport as any).mock.calls[0][0];
       expect(bootMcpArgs.isJulesApiConfigured()).toBeDefined();
       expect(bootMcpArgs.getMissingJulesApiKeyInstruction()).toBeDefined();

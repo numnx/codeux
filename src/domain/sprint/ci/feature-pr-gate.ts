@@ -1,5 +1,3 @@
-import * as fs from "fs/promises";
-import * as path from "path";
 import { evaluateMergeReadiness } from "./feature-pr/merge-readiness-policy.js";
 import { getCiAutofixRetryKey } from "./feature-pr/ci-autofix-policy.js";
 import { matchPrForTask } from "./feature-pr/pr-matcher.js";
@@ -9,16 +7,14 @@ import { buildNoPrFoundText, buildMergeReadyText } from "./feature-pr/ci-notific
 import type {
   AutomationLevel,
   CiIntelligenceSettings,
-  GitCiRunStatus,
   GitTrackingStatus,
   Subtask,
 } from "../../../contracts/app-types.js";
-import type { SubtaskFileRepository } from "../../../infrastructure/repositories/subtask-file-repository.js";
+import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 
 export interface CiGateContext {
   automationLevel: AutomationLevel;
   repoPath: string;
-  subtasksDir: string;
   featureBranch: string;
   defaultBranch: string;
   featureBranchPrefix: string;
@@ -29,7 +25,9 @@ export interface CiGateContext {
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<{ ok: boolean; message?: string }>;
-  subtaskFileRepository: SubtaskFileRepository;
+  persistMergedTask: (task: Subtask) => Promise<void>;
+  executionRepository?: ExecutionRepository;
+  sprintRunId?: string;
 }
 
 export interface CiGateResult {
@@ -75,6 +73,9 @@ export class FeaturePrGateService {
       if (!pr) {
         task.status = "RUNNING";
         task.merge_indicator = "CI";
+        this.appendCiGateEvent(task, context, "waiting_for_pr", {
+          featureBranch: context.featureBranch,
+        });
         reportText += buildNoPrFoundText(task.id, context.featureBranch);
         continue;
       }
@@ -100,10 +101,14 @@ export class FeaturePrGateService {
           task,
           prNumber: pr.number,
           repoPath: context.repoPath,
-          subtasksDir: context.subtasksDir,
           mode: "always",
           autoMergeFeaturePr: context.autoMergeFeaturePr,
-          subtaskFileRepository: context.subtaskFileRepository,
+          persistMergedTask: context.persistMergedTask,
+        });
+        this.appendCiGateEvent(task, context, task.is_merged ? "automerge_succeeded" : "automerge_failed", {
+          prNumber: pr.number,
+          prUrl: pr.url,
+          mode: "always",
         });
         if (task.is_merged) continue;
       }
@@ -117,15 +122,23 @@ export class FeaturePrGateService {
             task,
             prNumber: pr.number,
             repoPath: context.repoPath,
-            subtasksDir: context.subtasksDir,
             mode: "when_green",
             autoMergeFeaturePr: context.autoMergeFeaturePr,
-            subtaskFileRepository: context.subtaskFileRepository,
+            persistMergedTask: context.persistMergedTask,
+          });
+          this.appendCiGateEvent(task, context, task.is_merged ? "automerge_succeeded" : "automerge_failed", {
+            prNumber: pr.number,
+            prUrl: pr.url,
+            mode: "when_green",
           });
           continue;
         }
 
         task.merge_indicator = task.is_merged ? "MERGED" : undefined;
+        this.appendCiGateEvent(task, context, "ready_for_merge", {
+          prNumber: pr.number,
+          prUrl: pr.url,
+        });
         reportText += buildMergeReadyText(task.id, pr.number, context.featureBranch);
         continue;
       }
@@ -146,9 +159,53 @@ export class FeaturePrGateService {
         isJulesApiConfigured: context.isJulesApiConfigured,
         sendSessionMessage: context.sendSessionMessage,
       });
+      this.appendCiGateEvent(task, context, task.status === "BLOCKED" ? "blocked" : "waiting_checks", {
+        prNumber: pr.number,
+        prUrl: pr.url,
+        hasFailedChecks,
+        hasPendingChecks,
+        hasReviewBlockers,
+        mergeIndicator: task.merge_indicator || null,
+        interventionOwner: task.intervention_owner || null,
+      });
       if ((task.status as string) === "BLOCKED") continue;
     }
 
     return { subtasks: updatedSubtasks, reportText };
+  }
+
+  private appendCiGateEvent(
+    task: Subtask,
+    context: CiGateContext,
+    state: string,
+    payload: Record<string, unknown>,
+  ): void {
+    if (!context.executionRepository || !context.sprintRunId || !task.record_id) {
+      return;
+    }
+
+    const taskRun = context.executionRepository.getLatestTaskRun(task.record_id, context.sprintRunId);
+    if (!taskRun) {
+      return;
+    }
+
+    const sourceEventKey = [
+      "ci-gate",
+      state,
+      String(payload.prNumber || "none"),
+      payload.hasFailedChecks ? "failed" : "ok",
+      payload.hasPendingChecks ? "pending" : "settled",
+      payload.hasReviewBlockers ? "review" : "clear",
+      String(payload.mode || "manual"),
+      String(payload.mergeIndicator || task.merge_indicator || ""),
+    ].join(":");
+
+    context.executionRepository.appendTaskRunEvent(taskRun.id, "ci_gate_status", "system", {
+      state,
+      taskId: task.id,
+      ...payload,
+    }, {
+      sourceEventKey,
+    });
   }
 }

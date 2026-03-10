@@ -77,7 +77,17 @@ describe("SprintOrchestrator core execution", () => {
   it("returns intermediate watch output when watch loop output interval is reached", async () => {
     const nowSpy = vi.spyOn(Date, "now");
     try {
-      nowSpy.mockReturnValueOnce(0).mockReturnValue(61_000);
+      let nowCallCount = 0;
+      nowSpy.mockImplementation(() => {
+        nowCallCount += 1;
+        if (nowCallCount === 1) {
+          return 61_000;
+        }
+        if (nowCallCount === 2) {
+          return 0;
+        }
+        return 61_000;
+      });
       const { deps, subtaskRepository } = buildDeps();
       deps.getDashboardSettings = () => ({
         ...DEFAULT_DASHBOARD_SETTINGS,
@@ -101,7 +111,7 @@ describe("SprintOrchestrator core execution", () => {
 
       const orchestrator = new SprintOrchestrator(deps as any);
       const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-watch-"));
-      const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+      const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
       await fs.mkdir(subtasksDir, { recursive: true });
       await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
@@ -157,7 +167,7 @@ describe("SprintOrchestrator core execution", () => {
     const orchestrator = new SprintOrchestrator(deps as any);
 
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-status-core-"));
-    const subtasksDir = path.join(tmpRoot, ".jules-subagents", "sprints", "sprint1-subtasks");
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt: x\n", "utf-8");
 

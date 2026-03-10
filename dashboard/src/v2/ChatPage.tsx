@@ -1,498 +1,440 @@
 import type { FunctionComponent } from "preact";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import {
-    MessageCircle, Sparkles, ArrowUp, Paperclip, Plus,
-    RotateCcw, Copy, ThumbsUp, ThumbsDown, Cpu, ChevronDown,
+  ArrowUp,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  UserCircle2,
 } from "lucide-preact";
+import type { AgentConnection, ChatMessageRecord, ChatThread } from "./types.js";
+import { useProjectData } from "./context/project-data.js";
+import {
+  createConversationThread,
+  fetchConversationMessages,
+  fetchConversationThreads,
+  fetchProjectConnections,
+  postConversationMessage,
+  updateConversationThread,
+} from "./lib/connection-api.js";
+import { renderMarkdown } from "../lib/markdown.js";
 
-/* ─── Types ─────────────────────────────────────────────────────────────── */
+const formatTime = (iso: string): string => (
+  new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+);
 
-type Role = 'assistant' | 'user';
-
-interface Message {
-    id: string;
-    role: Role;
-    content: string;
-    time: string;
-    tokens?: number;
-}
-
-/* ─── Mock data ──────────────────────────────────────────────────────────── */
-
-const INITIAL_MESSAGES: Message[] = [
-    {
-        id: 'm1',
-        role: 'assistant',
-        content: "Hello. I'm Jules — your AI engineering partner with full context over your active projects, sprint history, and task backlog.\n\nWhat would you like to work on today?",
-        time: '09:41',
-    },
-    {
-        id: 'm2',
-        role: 'user',
-        content: "Give me a quick status summary of auth-service.",
-        time: '09:42',
-    },
-    {
-        id: 'm3',
-        role: 'assistant',
-        content: "**auth-service** is live and running.\n\n- **Open tasks:** 5 — 3 in progress, 2 queued\n- **Completed:** 12 tasks across 2 active sprints\n- **Last activity:** 5 minutes ago\n- **Velocity:** On track — 85% sprint completion rate\n\nThe most recent task is *\"OAuth2 token refresh flow\"* — currently in progress. Want me to draft the next sprint, assign a task, or dive deeper into a specific issue?",
-        time: '09:42',
-        tokens: 312,
-    },
-    {
-        id: 'm4',
-        role: 'user',
-        content: "Draft a new sprint focusing on the payment-gateway stability issues.",
-        time: '09:44',
-    },
-    {
-        id: 'm5',
-        role: 'assistant',
-        content: "Here's a draft sprint for **payment-gateway** stability:\n\n**Sprint: Gateway Hardening — Dec 11 – Dec 25**\n\n1. Retry logic for failed Stripe webhook deliveries\n2. Idempotency key enforcement on charge endpoints\n3. Circuit breaker implementation for downstream timeout cascades\n4. Add p95 latency alerting via Datadog\n5. Comprehensive integration test suite for edge-case flows\n\nEstimated scope: 18–22 tasks. Should I create this sprint, adjust the scope, or add it to the backlog for review?",
-        time: '09:44',
-        tokens: 487,
-    },
-];
-
-const SUGGESTIONS = [
-    "Summarize open tasks across all projects",
-    "What sprints are running right now?",
-    "Draft a retrospective for the last sprint",
-    "Show me the highest-priority blockers",
-];
-
-/* ─── Helpers ────────────────────────────────────────────────────────────── */
-
-/** Renders content with basic **bold** and \n→<br> support */
-const RichText: FunctionComponent<{ text: string }> = ({ text }) => {
-    const lines = text.split('\n');
-    return (
-        <div className="flex flex-col gap-1.5">
-            {lines.map((line, i) => {
-                const parts = line.split(/\*\*(.*?)\*\*/g);
-                return (
-                    <p key={i} className={line.startsWith('-') || line.startsWith('•') ? 'flex gap-2' : ''}>
-                        {parts.map((part, j) =>
-                            j % 2 === 1
-                                ? <strong key={j} className="font-semibold text-slate-900 dark:text-white">{part}</strong>
-                                : <span key={j}>{part}</span>
-                        )}
-                    </p>
-                );
-            })}
-        </div>
-    );
+const relativeTime = (iso: string | null): string => {
+  if (!iso) return "No messages";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.max(0, Math.floor(diffMs / 60000));
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 };
 
-/* ─── Typing Indicator ───────────────────────────────────────────────────── */
-
-const TypingIndicator: FunctionComponent = () => (
-    <div className="flex items-start gap-4">
-        <div className="w-8 h-8 rounded-[0.875rem] bg-signal-500/[0.1] dark:bg-signal-500/[0.12]
-                        border border-signal-500/20 flex items-center justify-center shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-signal-500 animate-pulse" strokeWidth={1.5} />
-        </div>
-        <div className="bg-white/70 dark:bg-void-800/60 backdrop-blur-xl
-                        border border-black/[0.06] dark:border-white/[0.06]
-                        rounded-[1.5rem] rounded-tl-sm px-5 py-4
-                        shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)]
-                        flex items-center gap-2">
-            {[0, 1, 2].map(i => (
-                <div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500"
-                    style={{ animation: 'typing-dot 1.4s ease-in-out infinite', animationDelay: `${i * 0.18}s` }}
-                />
-            ))}
-        </div>
-    </div>
+const statusTone = (pendingCount: number): string => (
+  pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
 );
 
-/* ─── Message Bubble ─────────────────────────────────────────────────────── */
-
-const AssistantBubble: FunctionComponent<{ msg: Message }> = ({ msg }) => (
-    <div className="flex items-start gap-4 group/msg">
-        {/* Avatar */}
-        <div className="w-8 h-8 rounded-[0.875rem] bg-signal-500/[0.1] dark:bg-signal-500/[0.12]
-                        border border-signal-500/20 dark:border-signal-500/25
-                        flex items-center justify-center shrink-0 mt-0.5
-                        shadow-[0_0_16px_rgba(0,224,160,0.08)]">
-            <Sparkles className="w-3.5 h-3.5 text-signal-500" strokeWidth={1.5} />
-        </div>
-
-        <div className="flex-1 max-w-[720px] min-w-0">
-            {/* Bubble */}
-            <div className="relative overflow-hidden
-                            bg-white/70 dark:bg-void-800/60 backdrop-blur-xl
-                            border border-black/[0.06] dark:border-white/[0.06]
-                            rounded-[1.5rem] rounded-tl-sm
-                            px-6 pt-5 pb-4
-                            shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.18)]">
-                {/* Signal accent line */}
-                <div className="absolute left-0 top-5 bottom-5 w-[2px]
-                                bg-gradient-to-b from-signal-500/0 via-signal-500/35 to-signal-500/0
-                                rounded-full pointer-events-none" />
-                <div className="pl-2 text-[14.5px] text-slate-600 dark:text-slate-300 leading-[1.7] font-sans">
-                    <RichText text={msg.content} />
-                </div>
-            </div>
-
-            {/* Meta + actions */}
-            <div className="flex items-center gap-4 mt-2 pl-2">
-                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{msg.time}</span>
-                {msg.tokens && (
-                    <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">
-                        {msg.tokens} tokens
-                    </span>
-                )}
-                {/* Hover actions */}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200">
-                    {[
-                        { icon: Copy,      label: 'Copy'       },
-                        { icon: ThumbsUp,  label: 'Good'       },
-                        { icon: ThumbsDown,label: 'Bad'        },
-                        { icon: RotateCcw, label: 'Regenerate' },
-                    ].map(({ icon: Icon, label }) => (
-                        <button
-                            key={label}
-                            title={label}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg
-                                       text-slate-400 hover:text-slate-700 dark:hover:text-slate-200
-                                       hover:bg-black/[0.05] dark:hover:bg-white/[0.05]
-                                       transition-colors duration-150"
-                        >
-                            <Icon className="w-3 h-3" strokeWidth={1.75} />
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </div>
+const EmptyChat: FunctionComponent<{ message: string }> = ({ message }) => (
+  <div className="flex h-full min-h-[360px] items-center justify-center rounded-[1.9rem] border border-dashed border-signal-500/20 bg-white/70 p-8 text-center shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-signal-500/20 dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+    <div className="space-y-3">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.2rem] bg-signal-500/10 text-signal-500">
+        <MessageCircle className="h-6 w-6" strokeWidth={1.6} />
+      </div>
+      <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">No Chat Thread Yet</h3>
+      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
     </div>
+  </div>
 );
 
-const UserBubble: FunctionComponent<{ msg: Message }> = ({ msg }) => (
-    <div className="flex items-start gap-4 flex-row-reverse group/msg">
-        {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-white dark:bg-void-700 border border-black/[0.06] dark:border-white/[0.06]
-                        flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
-            <img
-                src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=transparent"
-                alt="You"
-                className="w-full h-full object-cover"
+const ThreadList: FunctionComponent<{
+  threads: ChatThread[];
+  selectedThreadId: string | null;
+  onSelect: (threadId: string) => void;
+}> = ({ threads, selectedThreadId, onSelect }) => (
+  <div className="space-y-3">
+    {threads.map((thread) => (
+      <button
+        key={thread.id}
+        type="button"
+        onClick={() => onSelect(thread.id)}
+        className={`w-full rounded-[1.25rem] border px-4 py-3 text-left transition-colors ${
+          selectedThreadId === thread.id
+            ? "border-signal-500/30 bg-signal-500/10"
+            : "border-black/[0.05] bg-black/[0.03] hover:border-slate-300 hover:bg-black/[0.05] dark:border-white/[0.05] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{thread.title}</div>
+            <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              {thread.lastMessagePreview || "No messages yet."}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
+              {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
+            </div>
+            <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
+          </div>
+        </div>
+      </button>
+    ))}
+  </div>
+);
+
+const MessageBubble: FunctionComponent<{ message: ChatMessageRecord }> = ({ message }) => {
+  const fromDashboard = message.direction === "dashboard_to_connection";
+  return (
+    <div className={`flex ${fromDashboard ? "justify-end" : "justify-start"}`}>
+      <div className={`flex max-w-[760px] items-start gap-3 ${fromDashboard ? "flex-row-reverse" : "flex-row"}`}>
+        <div className={`mt-1 flex h-9 w-9 items-center justify-center rounded-[0.9rem] ${
+          fromDashboard
+            ? "border border-black/[0.06] bg-white text-slate-500 dark:border-white/[0.06] dark:bg-void-700 dark:text-slate-300"
+            : "border border-signal-500/20 bg-signal-500/10 text-signal-500"
+        }`}>
+          {fromDashboard ? <UserCircle2 className="h-4 w-4" strokeWidth={1.6} /> : <Sparkles className="h-4 w-4" strokeWidth={1.6} />}
+        </div>
+        <div className="space-y-2">
+          <div className={`rounded-[1.5rem] px-5 py-4 shadow-[0_2px_16px_rgba(0,0,0,0.04)] ${
+            fromDashboard
+              ? "rounded-tr-sm border border-signal-500/20 bg-signal-500/10 text-slate-900 dark:text-white"
+              : "rounded-tl-sm border border-black/[0.06] bg-white/75 text-slate-700 dark:border-white/[0.06] dark:bg-void-800/70 dark:text-slate-200"
+          }`}>
+            <div
+              className="prose prose-sm max-w-none text-[14px] leading-7 text-inherit prose-headings:text-inherit prose-p:text-inherit prose-strong:text-inherit prose-code:text-inherit"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(message.bodyMarkdown) }}
             />
+          </div>
+          <div className="flex items-center gap-3 px-1 text-[10px] font-mono text-slate-400">
+            <span>{formatTime(message.createdAt)}</span>
+            <span>{message.deliveryStatus}</span>
+          </div>
         </div>
-
-        <div className="flex flex-col items-end max-w-[680px] min-w-0">
-            {/* Bubble */}
-            <div className="bg-signal-500/[0.08] dark:bg-signal-500/[0.1]
-                            border border-signal-500/[0.15] dark:border-signal-500/[0.18]
-                            rounded-[1.5rem] rounded-tr-sm
-                            px-6 pt-5 pb-4
-                            backdrop-blur-md">
-                <p className="text-[14.5px] text-slate-900 dark:text-white leading-[1.7] font-sans">
-                    {msg.content}
-                </p>
-            </div>
-            <div className="flex items-center gap-3 mt-2 pr-1">
-                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{msg.time}</span>
-            </div>
-        </div>
+      </div>
     </div>
-);
-
-/* ─── Chat Page ──────────────────────────────────────────────────────────── */
+  );
+};
 
 export const ChatPage: FunctionComponent = () => {
-    const headerRef   = useRef<HTMLDivElement>(null);
-    const messagesRef = useRef<HTMLDivElement>(null);
-    const inputRef    = useRef<HTMLTextAreaElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const { selectedProject } = useProjectData();
 
-    const [messages, setMessages]   = useState<Message[]>(INITIAL_MESSAGES);
-    const [input, setInput]         = useState('');
-    const [isTyping, setIsTyping]   = useState(false);
-    const [showModel, setShowModel] = useState(false);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [connections, setConnections] = useState<AgentConnection[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    /* Entrance animation */
-    useLayoutEffect(() => {
-        const targets = [headerRef.current, messagesRef.current].filter(Boolean);
-        gsap.fromTo(targets,
-            { opacity: 0, y: 30 },
-            { opacity: 1, y: 0, stagger: 0.1, duration: 0.9, ease: "power4.out", delay: 0.05 },
-        );
-        if (messagesRef.current) {
-            gsap.fromTo(
-                Array.from(messagesRef.current.children),
-                { opacity: 0, y: 20 },
-                { opacity: 1, y: 0, stagger: 0.07, duration: 0.7, ease: "power3.out", delay: 0.2 },
-            );
-        }
-    }, []);
+  const selectedThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) || null,
+    [threads, selectedThreadId]
+  );
 
-    const handleSend = () => {
-        const text = input.trim();
-        if (!text) return;
+  const refreshThreads = async (): Promise<void> => {
+    if (!selectedProject) {
+      setThreads([]);
+      setConnections([]);
+      setMessages([]);
+      setSelectedThreadId(null);
+      setError(null);
+      return;
+    }
 
-        const userMsg: Message = {
-            id: `m${Date.now()}`,
-            role: 'user',
-            content: text,
-            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        };
-        setMessages(prev => [...prev, userMsg]);
-        setInput('');
-        if (inputRef.current) { inputRef.current.style.height = 'auto'; }
+    setLoading(true);
+    try {
+      const [nextThreads, nextConnections] = await Promise.all([
+        fetchConversationThreads(selectedProject.id),
+        fetchProjectConnections(selectedProject.id),
+      ]);
+      setThreads(nextThreads);
+      setConnections(nextConnections);
+      const nextSelectedId = selectedThreadId && nextThreads.some((thread) => thread.id === selectedThreadId)
+        ? selectedThreadId
+        : nextThreads[0]?.id || null;
+      setSelectedThreadId(nextSelectedId);
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        // Simulate AI response
-        setIsTyping(true);
-        setTimeout(() => {
-            const aiMsg: Message = {
-                id: `m${Date.now() + 1}`,
-                role: 'assistant',
-                content: "I'm processing your request with full project context. This is a prototype — in production I'd respond with live data from your connected repositories and sprint backlog.",
-                time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                tokens: Math.floor(Math.random() * 300) + 100,
-            };
-            setIsTyping(false);
-            setMessages(prev => [...prev, aiMsg]);
-        }, 1800);
-    };
+  const refreshMessages = async (threadId: string | null): Promise<void> => {
+    if (!threadId) {
+      setMessages([]);
+      return;
+    }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            handleSend();
-        }
-    };
+    try {
+      const nextMessages = await fetchConversationMessages(threadId);
+      setMessages(nextMessages);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+    }
+  };
 
-    return (
-        <div className="flex flex-col min-h-[calc(100vh-60px)] relative">
+  useEffect(() => {
+    void refreshThreads();
+  }, [selectedProject?.id]);
 
-            {/* ── Ambient glows ─────────────────────────────────────── */}
-            <div aria-hidden className="fixed inset-0 pointer-events-none -z-10">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_-5%_20%,rgba(0,224,160,0.05)_0%,transparent_60%)]
-                               dark:bg-[radial-gradient(ellipse_60%_50%_at_-5%_20%,rgba(0,224,160,0.07)_0%,transparent_60%)]" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_110%_80%,rgba(255,184,0,0.03)_0%,transparent_60%)]
-                               dark:bg-[radial-gradient(ellipse_50%_40%_at_110%_80%,rgba(255,184,0,0.04)_0%,transparent_60%)]" />
-            </div>
+  useEffect(() => {
+    void refreshMessages(selectedThreadId);
+  }, [selectedThreadId]);
 
-            {/* ── Header ────────────────────────────────────────────── */}
-            <div ref={headerRef} className="px-8 md:px-20 pt-14 pb-0 z-10">
-                <div className="max-w-[900px] mx-auto w-full">
-                    <div className="relative overflow-hidden">
-                        {/* Ghost watermark */}
-                        <h2
-                            aria-hidden
-                            className="absolute -top-8 -left-3 text-[7rem] font-black tracking-tighter
-                                       text-black/[0.04] dark:text-white/[0.03]
-                                       pointer-events-none select-none font-display leading-none"
-                        >
-                            CHAT
-                        </h2>
+  useEffect(() => {
+    if (!messagesRef.current) return;
+    messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [messages]);
 
-                        <div className="flex items-end justify-between gap-6 relative z-10">
-                            <div>
-                                {/* Eyebrow */}
-                                <div className="flex items-center gap-2 text-signal-500 font-mono text-[10px] font-bold uppercase tracking-[0.2em] mb-4">
-                                    <MessageCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                    AI Assistant
-                                </div>
-                                <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 dark:text-white font-display leading-[0.92]">
-                                    Jules <span className="text-signal-500">Chat.</span>
-                                </h1>
-                            </div>
-
-                            {/* Chips */}
-                            <div className="flex items-center gap-2.5 shrink-0 mb-1">
-                                {/* Model selector */}
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setShowModel(!showModel)}
-                                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                                                   bg-black/[0.04] dark:bg-white/[0.04]
-                                                   border border-black/[0.06] dark:border-white/[0.06]
-                                                   text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400
-                                                   hover:border-black/[0.1] dark:hover:border-white/[0.1]
-                                                   transition-colors duration-200 group"
-                                    >
-                                        <Cpu className="w-3 h-3" strokeWidth={1.75} />
-                                        claude-sonnet-4-6
-                                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showModel ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    {showModel && (
-                                        <div className="absolute right-0 top-full mt-2 w-52
-                                                        bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl
-                                                        border border-black/[0.06] dark:border-white/[0.08]
-                                                        rounded-2xl
-                                                        shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)]
-                                                        overflow-hidden z-50 p-1.5">
-                                            {[
-                                                { id: 'claude-opus-4-6',    label: 'Claude Opus 4.6',    note: 'Most capable' },
-                                                { id: 'claude-sonnet-4-6',  label: 'Claude Sonnet 4.6',  note: 'Balanced ·  active' },
-                                                { id: 'claude-haiku-4-5',   label: 'Claude Haiku 4.5',   note: 'Fastest' },
-                                            ].map(m => (
-                                                <button
-                                                    key={m.id}
-                                                    onClick={() => setShowModel(false)}
-                                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors duration-150
-                                                        ${m.id === 'claude-sonnet-4-6'
-                                                            ? 'bg-signal-500/[0.07] text-signal-600 dark:text-signal-400'
-                                                            : 'text-slate-700 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
-                                                        }`}
-                                                >
-                                                    <span className="text-xs font-semibold font-mono">{m.label}</span>
-                                                    <span className="text-[9px] font-mono text-slate-400">{m.note}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Context chip */}
-                                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                                               bg-signal-500/[0.08] dark:bg-signal-500/[0.1]
-                                               border border-signal-500/20 dark:border-signal-500/25
-                                               text-[10px] font-mono font-bold text-signal-600 dark:text-signal-400
-                                               shadow-[0_0_16px_rgba(0,224,160,0.08)]">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-signal-500 animate-pulse" />
-                                    jules-cli
-                                </div>
-
-                                {/* New thread */}
-                                <button
-                                    onClick={() => setMessages(INITIAL_MESSAGES)}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full
-                                               bg-black/[0.04] dark:bg-white/[0.04]
-                                               border border-black/[0.06] dark:border-white/[0.06]
-                                               text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400
-                                               hover:text-slate-900 dark:hover:text-white
-                                               hover:border-black/[0.1] dark:hover:border-white/[0.1]
-                                               transition-colors duration-200"
-                                >
-                                    <Plus className="w-3 h-3" strokeWidth={2.5} />
-                                    New thread
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="w-full flex items-center mt-8 mb-0 overflow-hidden">
-                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-black/[0.06] dark:via-white/[0.06] to-transparent" />
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Messages ──────────────────────────────────────────── */}
-            {/* pb accounts for fixed input bar height (~80px) + dock clearance (~128px) */}
-            <div className="flex-1 px-8 md:px-20 py-8 pb-[220px] z-10">
-                <div
-                    ref={messagesRef}
-                    className="max-w-[900px] mx-auto w-full flex flex-col gap-7"
-                >
-                    {messages.map(msg =>
-                        msg.role === 'assistant'
-                            ? <AssistantBubble key={msg.id} msg={msg} />
-                            : <UserBubble key={msg.id} msg={msg} />
-                    )}
-                    {isTyping && <TypingIndicator />}
-                </div>
-            </div>
-
-            {/* ── Fixed Input Bar — sits right above the KineticDock ── */}
-            {/* Dock: fixed bottom-7 (28px), pill ~70px tall → clears at ~100px.  */}
-            {/* We sit at bottom-[108px] to give a tight 8px gap above the dock.  */}
-            <div className="fixed bottom-[108px] left-0 right-0 z-30 px-8 md:px-20">
-                <div className="max-w-[900px] mx-auto w-full">
-
-                    {/* Suggestions — only when no user messages */}
-                    {messages.filter(m => m.role === 'user').length === 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {SUGGESTIONS.map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => setInput(s)}
-                                    className="px-4 py-2 rounded-full
-                                               bg-white/60 dark:bg-void-800/60 backdrop-blur-md
-                                               border border-black/[0.06] dark:border-white/[0.06]
-                                               text-xs font-medium text-slate-600 dark:text-slate-400
-                                               hover:border-signal-500/30 hover:text-signal-600 dark:hover:text-signal-400
-                                               transition-colors duration-200"
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Input card */}
-                    <div className="relative flex items-end gap-3
-                                    bg-white/75 dark:bg-void-800/65 backdrop-blur-2xl
-                                    border border-black/[0.06] dark:border-white/[0.07]
-                                    rounded-[1.5rem] p-3 pl-5
-                                    shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.28)]
-                                    focus-within:border-signal-500/30 dark:focus-within:border-signal-500/25
-                                    focus-within:shadow-[0_4px_32px_rgba(0,224,160,0.07)] dark:focus-within:shadow-[0_8px_40px_rgba(0,224,160,0.1)]
-                                    transition-[border-color,box-shadow] duration-300">
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            placeholder="Ask Jules anything about your projects…"
-                            className="flex-1 bg-transparent text-[15px] text-slate-900 dark:text-white
-                                       placeholder-slate-400 dark:placeholder-slate-600
-                                       resize-none outline-none min-h-[28px] max-h-[180px]
-                                       leading-relaxed py-2 font-sans"
-                            rows={1}
-                            onInput={(e) => {
-                                const el = e.currentTarget;
-                                el.style.height = 'auto';
-                                el.style.height = `${el.scrollHeight}px`;
-                                setInput(el.value);
-                            }}
-                            onKeyDown={handleKeyDown}
-                        />
-                        <div className="flex items-center gap-1.5 shrink-0 pb-0.5">
-                            <button
-                                title="Attach file"
-                                className="w-9 h-9 flex items-center justify-center rounded-xl
-                                           text-slate-400 hover:text-slate-700 dark:hover:text-slate-200
-                                           hover:bg-black/[0.05] dark:hover:bg-white/[0.05]
-                                           transition-colors duration-200"
-                            >
-                                <Paperclip className="w-4 h-4" strokeWidth={1.5} />
-                            </button>
-                            <button
-                                onClick={handleSend}
-                                disabled={!input.trim()}
-                                className="w-10 h-10 flex items-center justify-center rounded-[0.875rem]
-                                           bg-signal-500 hover:bg-signal-400
-                                           disabled:bg-black/[0.06] dark:disabled:bg-white/[0.06]
-                                           disabled:cursor-not-allowed
-                                           text-void-900 disabled:text-slate-400
-                                           shadow-[0_0_20px_rgba(0,224,160,0.3)] hover:shadow-[0_0_28px_rgba(0,224,160,0.5)]
-                                           disabled:shadow-none
-                                           transition-[background-color,box-shadow] duration-200
-                                           group"
-                            >
-                                <ArrowUp
-                                    className="w-4 h-4 group-hover:-translate-y-0.5 group-disabled:translate-y-0 transition-transform duration-200"
-                                    strokeWidth={2.5}
-                                />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Bottom hint */}
-                    <div className="flex items-center justify-between mt-2.5 px-1">
-                        <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">
-                            claude-sonnet-4-6 · jules-cli context active
-                        </span>
-                        <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">
-                            ⌘ + Enter to send
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
+  useLayoutEffect(() => {
+    if (!headerRef.current) return;
+    gsap.fromTo(
+      Array.from(headerRef.current.children),
+      { opacity: 0, y: 28 },
+      { opacity: 1, y: 0, duration: 0.8, stagger: 0.08, ease: "power4.out" }
     );
+  }, []);
+
+  const activeConnection = useMemo(() => {
+    if (!selectedThread?.connectionId) {
+      return null;
+    }
+    return connections.find((connection) => connection.id === selectedThread.connectionId) || null;
+  }, [connections, selectedThread]);
+
+  const createThreadForCompose = async (): Promise<ChatThread> => {
+    if (!selectedProject) {
+      throw new Error("Select a project before starting a chat thread.");
+    }
+    const thread = await createConversationThread(selectedProject.id, {
+      title: `Project Chat ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    });
+    setThreads((current) => [thread, ...current]);
+    setSelectedThreadId(thread.id);
+    return thread;
+  };
+
+  const handleAssignThread = async (connectionId: string): Promise<void> => {
+    if (!selectedThread) {
+      return;
+    }
+
+    try {
+      const updated = await updateConversationThread(selectedThread.id, {
+        connectionId: connectionId || null,
+      });
+      setThreads((current) => current.map((thread) => thread.id === updated.id ? updated : thread));
+      await refreshMessages(updated.id);
+      setError(null);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : String(updateError));
+    }
+  };
+
+  const handleSend = async (): Promise<void> => {
+    const bodyMarkdown = input.trim();
+    if (!bodyMarkdown || !selectedProject) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      const thread = selectedThread || await createThreadForCompose();
+      const created = await postConversationMessage(selectedProject.id, {
+        threadId: thread.id,
+        bodyMarkdown,
+      });
+      setInput("");
+      if (composerRef.current) {
+        composerRef.current.style.height = "auto";
+      }
+      setMessages((current) => [...current, created]);
+      await refreshThreads();
+      await refreshMessages(thread.id);
+      setError(null);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : String(sendError));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const pendingDashboardMessages = messages.filter((message) => (
+    message.direction === "dashboard_to_connection" && message.deliveryStatus !== "processed"
+  )).length;
+
+  return (
+    <div className="relative z-10 mx-auto flex min-h-[calc(100vh-70px)] max-w-[1900px] flex-col gap-10 px-8 py-16 md:px-20">
+      <div ref={headerRef} className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
+            <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.2} />
+            Dashboard Chat
+          </div>
+          <div className="relative overflow-hidden">
+            <div className="pointer-events-none absolute -left-2 -top-8 font-display text-[6rem] font-black leading-none tracking-tighter text-black/[0.04] dark:text-white/[0.03]">
+              CHAT
+            </div>
+            <h1 className="relative z-10 font-display text-5xl font-black tracking-tighter text-slate-900 dark:text-white md:text-7xl">
+              Project <span className="text-signal-500">Conversations.</span>
+            </h1>
+          </div>
+          <p className="max-w-2xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+            {selectedProject
+              ? `Messages sent here are stored in Sprint OS and routed toward listening MCP connections for ${selectedProject.name}.`
+              : "Select a project to inspect its conversation threads and route dashboard messages to connected listeners."}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+            {activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : "Unassigned"}
+          </span>
+          <span className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] ${
+            pendingDashboardMessages > 0
+              ? "border-status-amber/30 bg-status-amber/10 text-status-amber"
+              : "border-signal-500/20 bg-signal-500/10 text-signal-500"
+          }`}>
+            {pendingDashboardMessages > 0 ? `${pendingDashboardMessages} pending` : "Inbox clear"}
+          </span>
+          <button
+            type="button"
+            onClick={() => void refreshThreads()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={2.1} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => void createThreadForCompose()}
+            disabled={!selectedProject}
+            className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-void-900 transition-colors hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+            New Thread
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-[1.4rem] border border-status-red/20 bg-status-red/10 px-5 py-4 text-sm text-status-red">
+          {error}
+        </div>
+      )}
+
+      {!selectedProject ? (
+        <EmptyChat message="Choose a project from the top navigation to load its stored chat threads and messages." />
+      ) : (
+        <div className="grid min-h-[720px] grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="rounded-[1.9rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Threads</div>
+                <div className="mt-1 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{threads.length}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Listeners</div>
+                <div className="mt-1 font-mono text-sm text-slate-600 dark:text-slate-300">{connections.length}</div>
+              </div>
+            </div>
+
+            {threads.length === 0 ? (
+              <EmptyChat message="Create the first project thread or post a message to queue work for an incoming listener." />
+            ) : (
+              <ThreadList threads={threads} selectedThreadId={selectedThreadId} onSelect={setSelectedThreadId} />
+            )}
+          </aside>
+
+          <section className="flex min-h-[720px] flex-col rounded-[1.9rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+            <div className="border-b border-black/[0.05] px-6 py-5 dark:border-white/[0.05]">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500">Active Thread</div>
+                  <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                    {selectedThread?.title || "No Thread Selected"}
+                  </h2>
+                </div>
+                <div className="text-right text-[10px] font-mono text-slate-400">
+                  <div className="mb-2">{selectedThread ? `${selectedThread.messageCount} messages` : "0 messages"}</div>
+                  <select
+                    value={selectedThread?.connectionId || ""}
+                    onChange={(event) => void handleAssignThread(event.currentTarget.value)}
+                    disabled={!selectedThread}
+                    className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
+                  >
+                    <option value="">Unassigned</option>
+                    {connections.map((connection) => (
+                      <option key={connection.id} value={connection.id}>
+                        {connection.displayName} · {connection.status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div ref={messagesRef} className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+              {!selectedThread ? (
+                <EmptyChat message="Select an existing thread or create a new one to start routing dashboard chat through the selected project." />
+              ) : messages.length === 0 ? (
+                <EmptyChat message="This thread is ready. The next dashboard message will be stored in Sprint OS and queued for a listening MCP connection." />
+              ) : (
+                messages.map((message) => <MessageBubble key={message.id} message={message} />)
+              )}
+            </div>
+
+            <div className="border-t border-black/[0.05] p-5 dark:border-white/[0.05]">
+              <div className="rounded-[1.5rem] border border-black/[0.06] bg-black/[0.03] p-3 focus-within:border-signal-500/30 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <textarea
+                  ref={composerRef}
+                  value={input}
+                  rows={1}
+                  placeholder={activeConnection ? "Send a dashboard message to the active listener…" : "Write a project note or queue a message for a future listener…"}
+                  className="max-h-[180px] min-h-[38px] w-full resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-600"
+                  onInput={(event) => {
+                    const element = event.currentTarget;
+                    element.style.height = "auto";
+                    element.style.height = `${element.scrollHeight}px`;
+                    setInput(element.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                      event.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                />
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="text-[10px] font-mono text-slate-400">
+                    {activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : "Messages will stay queued until a listener claims or is assigned to this thread"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleSend()}
+                    disabled={!selectedProject || !input.trim() || sending}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] bg-signal-500 text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:bg-signal-400 disabled:cursor-not-allowed disabled:bg-black/[0.06] disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-white/[0.06]"
+                  >
+                    {sending ? <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={2.2} /> : <ArrowUp className="h-4 w-4" strokeWidth={2.5} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
 };

@@ -1,4 +1,11 @@
-import type { DashboardSettings, DashboardStatus, ExternalSettingsHints, GitTrackingStatus, LiveActivitiesResponse } from "../../types.js";
+import type {
+  DashboardSettings,
+  DashboardStatus,
+  ExecutionDashboardSnapshot,
+  ExternalSettingsHints,
+  GitTrackingStatus,
+  OverviewTelemetrySnapshot,
+} from "../../types.js";
 
 const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, init);
@@ -12,19 +19,23 @@ const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
 export interface RuntimeDashboardPayload {
   status: DashboardStatus;
-  liveActivities: LiveActivitiesResponse["activitiesBySession"];
+  execution: ExecutionDashboardSnapshot;
 }
 
 export const fetchRuntimeDashboardPayload = async (): Promise<RuntimeDashboardPayload> => {
-  const [status, liveActivitiesResponse] = await Promise.all([
+  const [status, execution] = await Promise.all([
     fetchJson<DashboardStatus>("/api/status"),
-    fetchJson<LiveActivitiesResponse>("/api/live-activities"),
+    fetchJson<ExecutionDashboardSnapshot>("/api/execution"),
   ]);
 
   return {
     status,
-    liveActivities: liveActivitiesResponse.activitiesBySession || {},
+    execution,
   };
+};
+
+export const fetchOverviewTelemetry = async (): Promise<OverviewTelemetrySnapshot> => {
+  return fetchJson<OverviewTelemetrySnapshot>("/api/telemetry/overview");
 };
 
 export const fetchGitTrackingStatus = async (): Promise<GitTrackingStatus> => {
@@ -51,6 +62,49 @@ export const fetchExternalSettingsHints = async (): Promise<ExternalSettingsHint
 
 export const rerunTask = async (taskId: string): Promise<void> => {
   await fetchJson<{ ok: boolean }>(`/api/tasks/${encodeURIComponent(taskId)}/rerun`, {
+    method: "POST",
+  });
+};
+
+export const orchestrateSprint = async (projectId: string, sprintId: string): Promise<void> => {
+  await fetchJson<{ ok: boolean }>(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/orchestrate`,
+    { method: "POST" },
+  );
+};
+
+export const pauseSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/pause`, {
+    method: "POST",
+  });
+};
+
+export const cancelSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/cancel`, {
+    method: "POST",
+  });
+};
+
+export const forceCancelSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/force-cancel`, {
+    method: "POST",
+  });
+};
+
+export const cancelTaskDispatch = async (dispatchId: string): Promise<void> => {
+  await fetchJson(`/api/task-dispatches/${encodeURIComponent(dispatchId)}/cancel`, {
+    method: "POST",
+  });
+};
+
+export const forceCancelTaskDispatch = async (dispatchId: string): Promise<void> => {
+  await fetchJson(`/api/task-dispatches/${encodeURIComponent(dispatchId)}/force-cancel`, {
+    method: "POST",
+  });
+};
+
+export const retryTaskDispatch = async (dispatchId: string): Promise<void> => {
+  await fetchJson(`/api/task-dispatches/${encodeURIComponent(dispatchId)}/retry`, {
     method: "POST",
   });
 };

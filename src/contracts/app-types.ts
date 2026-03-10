@@ -51,6 +51,9 @@ export type CliExecutionMode = "HOST" | "DOCKER";
 export type FeaturePrAutoMergeMode = "OFF" | "WHEN_GREEN" | "ALWAYS";
 
 export interface Subtask {
+  record_id?: string;
+  project_id?: string;
+  sprint_id?: string;
   id: string;
   title: string;
   prompt: string;
@@ -71,6 +74,8 @@ export interface Subtask {
 }
 
 export interface DashboardStatus {
+  project_id?: string;
+  sprint_id?: string;
   sprint_number?: number;
   source_id?: string;
   repo_path?: string;
@@ -86,6 +91,143 @@ export interface LiveActivitiesResponse {
   activitiesBySession: Record<string, JulesActivity[]>;
   polledAt: string;
   cacheTtlMs: number;
+}
+
+export interface ExecutionSprintRunSummary {
+  id: string;
+  projectId: string;
+  sprintId: string;
+  sprintName: string;
+  sprintNumber: number | null;
+  status: string;
+  triggerType: string;
+  triggeredBy: string | null;
+  executorMode: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastHeartbeatAt: string | null;
+  createdAt: string;
+  activeLeaseOwnerKey: string | null;
+  activeLeaseExpiresAt: string | null;
+}
+
+export interface ExecutionTaskDispatchSummary {
+  id: string;
+  projectId: string;
+  sprintId: string;
+  sprintRunId: string;
+  sprintName: string;
+  sprintNumber: number | null;
+  taskId: string;
+  taskKey: string;
+  taskTitle: string;
+  status: string;
+  executorType: string;
+  priority: number;
+  connectionId: string | null;
+  connectionDisplayName: string | null;
+  connectionRole: string | null;
+  taskRunId: string | null;
+  taskRunState: string | null;
+  provider: string | null;
+  sessionId: string | null;
+  sessionName: string | null;
+  workerBranch: string | null;
+  prUrl: string | null;
+  queuedAt: string;
+  claimedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastHeartbeatAt: string | null;
+  errorMessage: string | null;
+  activeLeaseOwnerKey: string | null;
+  activeLeaseExpiresAt: string | null;
+}
+
+export interface ExecutionRuntimeEventSummary {
+  id: string;
+  scopeType: "task_run" | "sprint_run";
+  taskRunId: string | null;
+  sprintRunId: string | null;
+  dispatchId: string | null;
+  projectId: string;
+  sprintId: string;
+  sprintName: string;
+  sprintNumber: number | null;
+  sprintRunStatus: string | null;
+  taskId: string | null;
+  taskKey: string | null;
+  taskTitle: string | null;
+  taskRunState: string | null;
+  eventType: string;
+  originator: string | null;
+  sourceEventKey: string | null;
+  provider: string | null;
+  sessionId: string | null;
+  sessionName: string | null;
+  workerBranch: string | null;
+  prUrl: string | null;
+  connectionId: string | null;
+  connectionDisplayName: string | null;
+  connectionRole: string | null;
+  createdAt: string;
+  payload: Record<string, unknown> | null;
+}
+
+export type ExecutionTaskRunEventSummary = ExecutionRuntimeEventSummary;
+
+export interface ExecutionConnectionSummary {
+  id: string;
+  connectionKey: string;
+  displayName: string;
+  role: string;
+  transport: string;
+  status: string;
+  model: string | null;
+  instruction: string | null;
+  labels: string[];
+  listenMode: boolean;
+  machineName: string | null;
+  platform: string | null;
+  arch: string | null;
+  localExecutionRuntime: string | null;
+  lastHeartbeatAt: string | null;
+  projectIds: string[];
+  activeProjectIds: string[];
+  tasksRunCount: number;
+  threadCount: number;
+  messageCount: number;
+  pendingInboxCount: number;
+  activeDispatchCount: number;
+}
+
+export interface ExecutionDashboardSnapshot {
+  projectId: string | null;
+  projectName: string | null;
+  sprintRuns: ExecutionSprintRunSummary[];
+  taskDispatches: ExecutionTaskDispatchSummary[];
+  connections: ExecutionConnectionSummary[];
+  recentEvents: ExecutionRuntimeEventSummary[];
+  updatedAt: string | null;
+}
+
+export interface OverviewTelemetryProjectSummary {
+  projectId: string;
+  projectName: string;
+  sprintId: string;
+  sprintName: string;
+  sprintNumber: number | null;
+  sprintRunId: string;
+  sprintRunStatus: string;
+  activeDispatchCount: number;
+  runningDispatchCount: number;
+  updatedAt: string | null;
+}
+
+export interface OverviewTelemetrySnapshot {
+  activeProjects: OverviewTelemetryProjectSummary[];
+  recentEvents: ExecutionRuntimeEventSummary[];
+  updatedAt: string | null;
 }
 
 export interface DashboardStats {

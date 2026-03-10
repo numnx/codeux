@@ -16,6 +16,7 @@ vi.mock("../../../src/services/cli-workflow/pipeline/cleanup-stage.js");
 const buildService = (): any => {
   return new CliWorkflowService({
     sessionTracking: {} as any,
+    executionRepository: undefined,
     getDashboardSettings: () => { throw new Error("not used"); },
     getGuideContent: async () => "",
     getGithubToken: () => undefined,
@@ -26,6 +27,19 @@ describe("CliWorkflowService unpushed commit detection", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it("runs task workflow pipeline and handles error", async () => {
+    const executionRepository = {
+      getTaskRun: vi.fn().mockReturnValue({
+        id: "run-1",
+        dispatchId: "dispatch-1",
+        startedAt: "2026-03-10T00:00:00.000Z",
+        prUrl: null,
+        workerBranch: null,
+      }),
+      getLatestTaskRunBySessionId: vi.fn(),
+      appendTaskRunEvent: vi.fn(),
+      updateTaskRun: vi.fn(),
+      updateTaskDispatch: vi.fn(),
+    };
     const deps = {
       sessionTracking: {
         findLatestFailedCliSessionForTask: vi.fn().mockReturnValue(null),
@@ -36,6 +50,7 @@ describe("CliWorkflowService unpushed commit detection", () => {
       getDashboardSettings: vi.fn().mockReturnValue({ cliWorkflow: { containerImage: "  " } }),
       getGuideContent: vi.fn().mockResolvedValue("guide"),
       getGithubToken: vi.fn().mockReturnValue("token"),
+      executionRepository,
       logger: { error: vi.fn() },
     };
     const service = new CliWorkflowService(deps as any);
@@ -44,7 +59,7 @@ describe("CliWorkflowService unpushed commit detection", () => {
     const { executeCleanupStage } = await import("../../../src/services/cli-workflow/pipeline/cleanup-stage.js");
 
     vi.mocked(executePrepareStage).mockRejectedValue(new Error("Stage failed"));
-    vi.mocked(executeCleanupStage).mockResolvedValue(undefined);
+    vi.mocked(executeCleanupStage).mockResolvedValue({ cleanedUp: false });
 
     await (service as any).runTaskWorkflow({
       provider: "gemini",
@@ -53,6 +68,7 @@ describe("CliWorkflowService unpushed commit detection", () => {
       featureBranch: "main",
       sprintNumber: 1,
       sessionId: "sess-1",
+      taskRunId: "run-1",
       workerBranch: "worker-1",
       title: "Title",
     });
@@ -62,11 +78,40 @@ describe("CliWorkflowService unpushed commit detection", () => {
       originator: "system",
       description: "Workflow failed: Stage failed",
     });
+    expect(executionRepository.appendTaskRunEvent).toHaveBeenNthCalledWith(
+      2,
+      "run-1",
+      "cli_workflow_failed",
+      "system",
+      expect.objectContaining({ errorMessage: "Stage failed", provider: "gemini" }),
+      expect.objectContaining({ sourceEventKey: undefined }),
+    );
+    expect(executionRepository.updateTaskRun).toHaveBeenCalledWith(
+      "run-1",
+      expect.objectContaining({ state: "FAILED" }),
+    );
+    expect(executionRepository.updateTaskDispatch).toHaveBeenCalledWith(
+      "dispatch-1",
+      expect.objectContaining({ status: "failed", errorMessage: "Stage failed" }),
+    );
     expect(deps.logger.error).toHaveBeenCalled();
   });
 
 
   it("runs task workflow pipeline successfully", async () => {
+    const executionRepository = {
+      getTaskRun: vi.fn().mockReturnValue({
+        id: "run-1",
+        dispatchId: "dispatch-1",
+        startedAt: "2026-03-10T00:00:00.000Z",
+        prUrl: null,
+        workerBranch: null,
+      }),
+      getLatestTaskRunBySessionId: vi.fn(),
+      appendTaskRunEvent: vi.fn(),
+      updateTaskRun: vi.fn(),
+      updateTaskDispatch: vi.fn(),
+    };
     const deps = {
       sessionTracking: {
         findLatestFailedCliSessionForTask: vi.fn().mockReturnValue(null),
@@ -77,6 +122,7 @@ describe("CliWorkflowService unpushed commit detection", () => {
       getDashboardSettings: vi.fn().mockReturnValue({ cliWorkflow: { containerImage: "  " } }),
       getGuideContent: vi.fn().mockResolvedValue("guide"),
       getGithubToken: vi.fn().mockReturnValue("token"),
+      executionRepository,
       logger: { error: vi.fn() },
     };
     const service = new CliWorkflowService(deps as any);
@@ -90,9 +136,9 @@ describe("CliWorkflowService unpushed commit detection", () => {
 
     vi.mocked(executePrepareStage).mockResolvedValue({ providerPrompt: "mock prompt" });
     vi.mocked(executeProviderStage).mockResolvedValue(undefined);
-    vi.mocked(executeGitFinalizeStage).mockResolvedValue({ hasChanges: true });
-    vi.mocked(executePrFinalizeStage).mockResolvedValue(undefined);
-    vi.mocked(executeCleanupStage).mockResolvedValue(undefined);
+    vi.mocked(executeGitFinalizeStage).mockResolvedValue({ hasChanges: true, committedChanges: true, pushedBranch: "worker-1" });
+    vi.mocked(executePrFinalizeStage).mockResolvedValue({ prUrl: "https://example.com/pr/1" });
+    vi.mocked(executeCleanupStage).mockResolvedValue({ cleanedUp: true });
 
     await (service as any).runTaskWorkflow({
       provider: "gemini",
@@ -101,6 +147,7 @@ describe("CliWorkflowService unpushed commit detection", () => {
       featureBranch: "main",
       sprintNumber: 1,
       sessionId: "sess-1",
+      taskRunId: "run-1",
       workerBranch: "worker-1",
       title: "Title",
     });
@@ -110,6 +157,28 @@ describe("CliWorkflowService unpushed commit detection", () => {
     expect(executeGitFinalizeStage).toHaveBeenCalled();
     expect(executePrFinalizeStage).toHaveBeenCalled();
     expect(executeCleanupStage).toHaveBeenCalled();
+    expect(executionRepository.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "cli_prepare_started",
+      "system",
+      expect.any(Object),
+      expect.objectContaining({ sourceEventKey: "cli:prepare:started" }),
+    );
+    expect(executionRepository.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "cli_workflow_completed",
+      "system",
+      expect.objectContaining({ outcome: "pushed", prUrl: "https://example.com/pr/1" }),
+      expect.any(Object),
+    );
+    expect(executionRepository.updateTaskRun).toHaveBeenCalledWith(
+      "run-1",
+      expect.objectContaining({ state: "COMPLETED", prUrl: "https://example.com/pr/1" }),
+    );
+    expect(executionRepository.updateTaskDispatch).toHaveBeenCalledWith(
+      "dispatch-1",
+      expect.objectContaining({ status: "completed" }),
+    );
   });
 
   it("runs task workflow pipeline and stops when no changes", async () => {
@@ -133,7 +202,8 @@ describe("CliWorkflowService unpushed commit detection", () => {
     const { executeCleanupStage } = await import("../../../src/services/cli-workflow/pipeline/cleanup-stage.js");
 
     vi.mocked(executePrepareStage).mockResolvedValue({ providerPrompt: "mock prompt" });
-    vi.mocked(executeGitFinalizeStage).mockResolvedValue({ hasChanges: false });
+    vi.mocked(executeGitFinalizeStage).mockResolvedValue({ hasChanges: false, committedChanges: false });
+    vi.mocked(executeCleanupStage).mockResolvedValue({ cleanedUp: false });
 
     await (service as any).runTaskWorkflow({
       provider: "gemini",
@@ -146,9 +216,8 @@ describe("CliWorkflowService unpushed commit detection", () => {
       title: "Title",
     });
 
-    // executePrFinalizeStage should not be called since hasChanges is false.
-    // However, since mock is global, we need to clear it or expect it wasn't called from this specific invocation
-    // Actually the safest way is vi.clearAllMocks() at the beginning of each test, but we can just use toHaveBeenCalledTimes if we clear it.
+    expect(executePrFinalizeStage).not.toHaveBeenCalled();
+    expect(executeCleanupStage).toHaveBeenCalled();
   });
 
 

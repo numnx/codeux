@@ -1,40 +1,35 @@
-import type { InstructionTemplateId } from "../../../instructions/instruction-template-catalog.js";
-import { applyActionRequiredAutomation, isJulesManagedTask, resolveTaskSessionId } from "../../../sprint/action-required-automation.js";
-import { runLoadSubtasksStep } from "../../../sprint/steps/load-subtasks-step.js";
+import { applyActionRequiredAutomation } from "../../../sprint/action-required-automation.js";
 import { runSessionSyncStep } from "../../../sprint/steps/session-sync-step.js";
 import { runStatusDerivationStep } from "../../../sprint/steps/status-derivation-step.js";
 import { runStartReadyTasksStep } from "../../../sprint/steps/start-ready-tasks-step.js";
 import { runStatusTableStep } from "../../../sprint/steps/status-table-step.js";
 import { runProtocolStep } from "../../../sprint/steps/protocol-step.js";
-import { isCiFailure, isCiPending, selectFailedCiRuns, getFailedJobLabels, summarizeFailedRuns, getFailedLogSnippets } from "../../../sprint/ci-status-utils.js";
 import type { SprintCycleResult } from "../../../sprint/sprint-types.js";
 import type {
   AutomationInterventionsSettings,
   AutomationLevel,
   CiIntelligenceSettings,
-  GitCiRunStatus,
-  GitTrackingStatus,
   SprintLoopStepSettings,
   Subtask,
 } from "../../../contracts/app-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
+import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 
 export interface CycleRunnerArgs {
   action: "status" | "orchestrate";
   automationLevel: AutomationLevel;
   automationInterventions: AutomationInterventionsSettings;
-  sprintNumber: number;
+  executionContext: SprintExecutionContext;
   repoPath: string;
-  sourceId?: string;
   defaultFeatureBranch: string;
-  subtasksDir: string;
   retryFailed: boolean;
   loopSteps: SprintLoopStepSettings;
   ciIntelligence: CiIntelligenceSettings;
   githubMode: "REMOTE" | "LOCAL";
   defaultBranch: string;
   featureBranchPrefix: string;
+  sprintRunId?: string;
 }
 
 export class CycleRunner {
@@ -44,15 +39,30 @@ export class CycleRunner {
   constructor(private readonly deps: SprintOrchestratorDependencies) {}
 
   async run(args: CycleRunnerArgs): Promise<SprintCycleResult & { awaitingMerge: Subtask[] }> {
-    let subtasks: Subtask[] = [];
-
-    if (args.loopSteps.loadSubtasks) {
-      try {
-        subtasks = await runLoadSubtasksStep((dir) => this.deps.subtaskRepository.loadSubtasks(dir), args.subtasksDir);
-      } catch {
-        throw new Error(`Error loading subtasks from ${args.subtasksDir}.`);
+    let subtasks: Subtask[] = args.loopSteps.loadSubtasks
+      ? await this.deps.sprintExecutionStateService.loadSubtasks(
+          args.executionContext.project.id,
+          args.executionContext.sprint.id,
+          args.sprintRunId,
+        )
+      : [];
+    const appendTaskEvent = (
+      task: Subtask,
+      eventType: string,
+      payload: Record<string, unknown>,
+      sourceEventKey?: string,
+    ): void => {
+      if (!args.sprintRunId || typeof task.record_id !== "string" || task.record_id.trim().length === 0) {
+        return;
       }
-    }
+      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, args.sprintRunId);
+      if (!taskRun) {
+        return;
+      }
+      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
+        sourceEventKey,
+      });
+    };
 
     if (args.loopSteps.sessionSync && subtasks.length > 0) {
       const syncResult = await runSessionSyncStep(
@@ -63,12 +73,15 @@ export class CycleRunner {
           extractSessionId: this.deps.extractSessionId,
           fetchRecentActivities: this.deps.fetchRecentActivities,
           isActionRequiredState: this.deps.isActionRequiredState,
+          projectManagementRepository: this.deps.projectManagementRepository,
+          executionRepository: this.deps.executionRepository,
+          sprintRunId: args.sprintRunId,
           logger: this.deps.logger.child({ component: "session-sync-step" }),
         },
         args.retryFailed,
         {
           repoPath: args.repoPath,
-          sprintNumber: args.sprintNumber,
+          sprintNumber: args.executionContext.sprintNumber,
         }
       );
       subtasks = syncResult.subtasks;
@@ -88,8 +101,20 @@ export class CycleRunner {
         maxFailures: this.deps.settings.maxFailures || 5,
         getConsecutiveFailures: this.deps.getConsecutiveFailures,
         setConsecutiveFailures: this.deps.setConsecutiveFailures,
-        startTask: (task) =>
-          this.deps.startTask(task, args.sourceId, args.defaultFeatureBranch, args.repoPath, args.sprintNumber),
+        startTask: (task) => {
+          if (!args.sprintRunId) {
+            throw new Error("Missing sprint run id for orchestrate action.");
+          }
+          return this.deps.startTask(task, {
+            projectId: args.executionContext.project.id,
+            sprintId: args.executionContext.sprint.id,
+            sprintRunId: args.sprintRunId,
+            sourceId: args.executionContext.sourceId,
+            featureBranch: args.defaultFeatureBranch,
+            repoPath: args.repoPath,
+            sprintNumber: args.executionContext.sprintNumber,
+          });
+        },
         resolveSessionName: this.deps.resolveSessionName,
         extractSessionId: this.deps.extractSessionId,
         logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
@@ -106,6 +131,9 @@ export class CycleRunner {
         isJulesApiConfigured: this.deps.isJulesApiConfigured,
         approveSessionPlan: this.deps.approveSessionPlan,
         sendSessionMessage: this.deps.sendSessionMessage,
+        onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
+          appendTaskEvent(task, eventType, payload, sourceEventKey);
+        },
       });
       subtasks = interventionResult.subtasks;
       reportText += interventionResult.reportText;
@@ -125,7 +153,6 @@ export class CycleRunner {
       const ciAutofixResult = await this.featurePrGate.evaluateCiGate(subtasks, {
         automationLevel: args.automationLevel,
         repoPath: args.repoPath,
-        subtasksDir: args.subtasksDir,
         featureBranch: args.defaultFeatureBranch,
         defaultBranch: args.defaultBranch,
         featureBranchPrefix: args.featureBranchPrefix,
@@ -138,14 +165,24 @@ export class CycleRunner {
           await this.deps.sendSessionMessage(sessionId, message);
         },
         autoMergeFeaturePr: this.deps.autoMergeFeaturePr,
-        subtaskFileRepository: this.deps.subtaskRepository,
+        persistMergedTask: async (task) => {
+          if (typeof task.record_id !== "string" || task.record_id.trim().length === 0) {
+            return;
+          }
+          this.deps.projectManagementRepository.updateTask(task.record_id, {
+            isMerged: Boolean(task.is_merged),
+            mergeIndicator: task.merge_indicator || null,
+            status: task.status === "COMPLETED" ? "completed" : undefined,
+          });
+        },
+        executionRepository: this.deps.executionRepository,
+        sprintRunId: args.sprintRunId,
       });
       subtasks = ciAutofixResult.subtasks;
       reportText += ciAutofixResult.reportText;
     }
 
     const protocolResult = await runProtocolStep(subtasks, {
-      subtasksDir: args.subtasksDir,
       featureBranch: args.defaultFeatureBranch,
       githubMode: args.githubMode,
       ciIntelligence: args.ciIntelligence,
@@ -153,6 +190,9 @@ export class CycleRunner {
       enableActionRequiredProtocol: args.loopSteps.actionRequiredProtocol,
       isActionRequiredState: this.deps.isActionRequiredState,
       renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, args.repoPath),
+      onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
+        appendTaskEvent(task, eventType, payload, sourceEventKey);
+      },
     });
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
@@ -165,5 +205,4 @@ export class CycleRunner {
       awaitingMerge: protocolResult.awaitingMerge,
     };
   }
-
 }

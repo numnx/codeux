@@ -77,9 +77,15 @@ describe("MainMergeGateService", () => {
       },
     };
     const result = await MainMergeGateService.renderMergeFeedback(context);
+    const structured = MainMergeGateService.evaluateMergeFeedback(context);
     expect(result).toContain("Check Status: `FAILED`\n");
     expect(result).toContain("Failed checks: test");
     expect(result).toContain("Only approve merge into `main` after checks are green.");
+    expect(structured).toMatchObject({
+      state: "failed_checks",
+      prNumber: 101,
+      failedChecks: ["test"],
+    });
   });
 
   it("reports pending checks", async () => {

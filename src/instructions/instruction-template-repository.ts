@@ -1,9 +1,9 @@
-import * as path from "path";
 import { FileTemplateRepository } from "../infrastructure/repositories/file-template-repository.js";
+import { getRelativeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 const INSTRUCTION_DIR_CANDIDATES = [
-  path.join(".jules-subagents", "instructions"),
-  path.join(".jules-subagents", "intructions"),
+  getRelativeSprintOsPath("instructions"),
+  getRelativeSprintOsPath("intructions"),
 ];
 
 export class InstructionRepository {

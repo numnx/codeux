@@ -3,14 +3,17 @@ import type { Subtask } from "../../../src/contracts/app-types.js";
 import { TaskRerunService } from "../../../src/services/task-rerun-service.js";
 
 describe("TaskRerunService", () => {
-  const updateStatus = vi.fn();
+  const resolveTaskContext = vi.fn();
+  const updateTaskPlanningStatus = vi.fn();
+  const resolveSprintRunId = vi.fn();
   const startTask = vi.fn();
   const persistMergedFlag = vi.fn();
-  let status: any;
+  let context: any;
 
   const service = new TaskRerunService({
-    getStatus: () => status,
-    updateStatus,
+    resolveTaskContext,
+    updateTaskPlanningStatus,
+    resolveSprintRunId,
     startTask,
     resolveSessionName: (session) => session.name,
     extractSessionId: (session) => session.id,
@@ -20,6 +23,7 @@ describe("TaskRerunService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const task: Subtask = {
+      record_id: "task-record-1",
       id: "01-task",
       title: "Test task",
       prompt: "Do work",
@@ -36,17 +40,22 @@ describe("TaskRerunService", () => {
       activities: [{ id: "1", name: "a", createTime: "2025-01-01T00:00:00.000Z" }],
     };
 
-    status = {
-      sprint_number: 7,
-      source_id: "source-123",
-      repo_path: "/tmp/repo",
-      feature_branch: "feature/sprint7-implementation",
-      subtasks: [task],
-      timestamp: null,
+    context = {
+      task,
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      sprintNumber: 7,
+      sourceId: "source-123",
+      repoPath: "/tmp/repo",
+      featureBranch: "feature/sprint7-implementation",
     };
+    resolveTaskContext.mockImplementation((taskId: string) => (
+      taskId === "task-record-1" || taskId === "01-task" ? context : null
+    ));
   });
 
   it("resets task state and starts a fresh session", async () => {
+    resolveSprintRunId.mockResolvedValue("run-1");
     startTask.mockResolvedValue({
       id: "new-session",
       name: "sessions/new-session",
@@ -54,13 +63,18 @@ describe("TaskRerunService", () => {
       provider: "claude-code",
     });
 
-    const rerunTask = await service.rerunTask("01-task");
+    const rerunTask = await service.rerunTask("task-record-1");
 
     expect(persistMergedFlag).toHaveBeenCalledWith({
-      repoPath: "/tmp/repo",
-      sprintNumber: 7,
-      taskId: "01-task",
+      taskId: "task-record-1",
       merged: false,
+    });
+    expect(updateTaskPlanningStatus).toHaveBeenCalledWith("task-record-1", "pending");
+    expect(resolveSprintRunId).toHaveBeenCalledWith({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      sprintNumber: 7,
+      featureBranch: "feature/sprint7-implementation",
     });
     expect(startTask).toHaveBeenCalledWith({
       task: expect.objectContaining({
@@ -74,30 +88,30 @@ describe("TaskRerunService", () => {
         is_merged: false,
         merge_indicator: undefined,
       }),
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      sprintRunId: "run-1",
       sourceId: "source-123",
       featureBranch: "feature/sprint7-implementation",
       repoPath: "/tmp/repo",
       sprintNumber: 7,
     });
-    expect(updateStatus).toHaveBeenCalledTimes(2);
-    expect(updateStatus.mock.calls[0][0].subtasks[0].status).toBe("PENDING");
-    expect(updateStatus.mock.calls[1][0].subtasks[0].status).toBe("RUNNING");
     expect(rerunTask.session_id).toBe("new-session");
     expect(rerunTask.session_name).toBe("sessions/new-session");
     expect(rerunTask.provider).toBe("claude-code");
   });
 
   it("marks the task failed when fresh session start fails", async () => {
+    resolveSprintRunId.mockResolvedValue("run-1");
     startTask.mockRejectedValue(new Error("provider unavailable"));
 
     await expect(service.rerunTask("01-task")).rejects.toThrow("provider unavailable");
-    expect(updateStatus).toHaveBeenCalledTimes(2);
-    expect(updateStatus.mock.calls[0][0].subtasks[0].status).toBe("PENDING");
-    expect(updateStatus.mock.calls[1][0].subtasks[0].status).toBe("FAILED");
+    expect(updateTaskPlanningStatus).toHaveBeenCalledWith("task-record-1", "pending");
   });
 
   it("still reruns when merged-flag persistence fails", async () => {
     persistMergedFlag.mockRejectedValue(new Error("disk error"));
+    resolveSprintRunId.mockResolvedValue("run-1");
     startTask.mockResolvedValue({
       id: "new-session",
       name: "sessions/new-session",
@@ -115,10 +129,11 @@ describe("TaskRerunService", () => {
   });
 
   it("rejects rerun when sprint context is incomplete", async () => {
-    status.repo_path = undefined;
+    resolveTaskContext.mockReturnValue(null);
 
     await expect(service.rerunTask("01-task")).rejects.toThrow("sprint context is incomplete");
+    expect(resolveSprintRunId).not.toHaveBeenCalled();
     expect(startTask).not.toHaveBeenCalled();
-    expect(updateStatus).not.toHaveBeenCalled();
+    expect(updateTaskPlanningStatus).not.toHaveBeenCalled();
   });
 });

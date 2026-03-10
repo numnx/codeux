@@ -36,7 +36,7 @@ describe("external-settings", () => {
     };
 
     vi.spyOn(fs, "existsSync").mockImplementation((p: string) => {
-        return p.includes(".jules-subagents/settings.json");
+        return p.includes(".sprint-os/settings.json");
     });
     vi.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(mockSettings));
 

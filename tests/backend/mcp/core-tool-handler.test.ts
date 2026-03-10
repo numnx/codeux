@@ -40,6 +40,17 @@ describe("CoreToolHandler coverage", () => {
             listTrackedSessions: vi.fn().mockReturnValue({ sessions: [] }),
             listAllTrackedActivities: vi.fn(),
             listTrackedActivities: vi.fn(),
+            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { watchLoopOutputIntervalSeconds: 300 } }),
+            connectionChatRepository: {
+                startListen: vi.fn().mockReturnValue({ connection: { id: "conn-1", connectionKey: "listener-1" }, inbox: [] }),
+                pullInbox: vi.fn().mockReturnValue([{ id: "msg-1" }]),
+                getConnectionByKey: vi.fn().mockReturnValue({ id: "conn-1", connectionKey: "listener-1" }),
+                postListenReply: vi.fn().mockReturnValue({ id: "reply-1" }),
+            },
+            workerTaskDispatchService: {
+                pullNextDispatch: vi.fn().mockReturnValue({ dispatch: { id: "dispatch-1" }, leaseToken: "lease-1" }),
+                updateDispatch: vi.fn().mockReturnValue({ id: "dispatch-1", status: "completed" }),
+            },
             resolveSessionName: vi.fn(),
             fetchRecentActivities: vi.fn().mockResolvedValue([]),
             isActionRequiredState: vi.fn().mockReturnValue(false),
@@ -187,5 +198,178 @@ describe("CoreToolHandler coverage", () => {
         const handler = new CoreToolHandler(defaultDeps);
         await handler.handleListAllActivities({ session_id: "1" });
         expect(defaultDeps.julesApi.listAllActivities).toHaveBeenCalled();
+    });
+
+    it("handleStartListen", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handleStartListen({ connection_key: "listener-1", project_id: "project-1" });
+        expect(defaultDeps.connectionChatRepository.startListen).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            displayName: undefined,
+            role: undefined,
+            projectId: "project-1",
+            transport: undefined,
+            capabilities: undefined,
+            maxMessages: undefined,
+        });
+    });
+
+    it("handleListen returns a dashboard message event", async () => {
+        defaultDeps.connectionChatRepository.startListen.mockReturnValue({
+            connection: { id: "conn-1", connectionKey: "listener-1" },
+            inbox: [{
+                id: "message-1",
+                threadId: "thread-1",
+                threadTitle: "Inbox",
+                projectId: "project-1",
+                bodyMarkdown: "Hello from dashboard",
+                createdAt: "2026-03-10T00:00:00.000Z",
+                deliveryStatus: "delivered",
+            }],
+        });
+
+        const handler = new CoreToolHandler(defaultDeps);
+        const response = await handler.handleListen({ connection_key: "listener-1", project_id: "project-1" });
+        const parsed = JSON.parse(response.content[0].text as string);
+
+        expect(parsed.kind).toBe("dashboard_message");
+        expect(parsed.message.bodyMarkdown).toBe("Hello from dashboard");
+        expect(parsed.continuation.nextTool).toBe("listen");
+    });
+
+    it("handleListen returns a task dispatch event for worker listeners", async () => {
+        defaultDeps.connectionChatRepository.pullInbox.mockReturnValue([]);
+        defaultDeps.workerTaskDispatchService.pullNextDispatch.mockReturnValue({
+            dispatch: { id: "dispatch-1" },
+            leaseToken: "lease-1",
+            project: { id: "project-1" },
+            sprint: { id: "sprint-1" },
+            task: { id: "task-1" },
+            executionContext: { repoPath: "/repo", defaultBranch: "main", featureBranch: "feature/test" },
+        });
+
+        const handler = new CoreToolHandler(defaultDeps);
+        const response = await handler.handleListen({
+            connection_key: "worker-1",
+            project_id: "project-1",
+            role: "worker",
+            include_task_dispatch: true,
+        });
+        const parsed = JSON.parse(response.content[0].text as string);
+
+        expect(parsed.kind).toBe("task_dispatch");
+        expect(parsed.dispatch.dispatch.id).toBe("dispatch-1");
+        expect(parsed.continuation.nextTool).toBe("listen");
+    });
+
+    it("handleListen returns noop timeout when no work arrives", async () => {
+        defaultDeps.connectionChatRepository.pullInbox.mockReturnValue([]);
+        defaultDeps.workerTaskDispatchService.pullNextDispatch.mockReturnValue(null);
+
+        const handler = new CoreToolHandler(defaultDeps);
+        const response = await handler.handleListen({
+            connection_key: "listener-1",
+            project_id: "project-1",
+            timeout_seconds: 0.01,
+            poll_interval_ms: 1,
+        });
+        const parsed = JSON.parse(response.content[0].text as string);
+
+        expect(parsed.kind).toBe("noop_timeout");
+        expect(parsed.continuation.nextTool).toBe("listen");
+    });
+
+    it("handlePullInbox", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handlePullInbox({ connection_key: "listener-1", max_messages: 5 });
+        expect(defaultDeps.connectionChatRepository.pullInbox).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            projectId: undefined,
+            maxMessages: 5,
+        });
+    });
+
+    it("handleListenForRuntime forces worker identity on worker gateway", async () => {
+        defaultDeps.connectionChatRepository.startListen.mockReturnValue({
+            connection: {
+                id: "conn-1",
+                connectionKey: "worker-1",
+                activeProjectIds: ["project-1"],
+                projectIds: ["project-1"],
+            },
+            inbox: [],
+        });
+        defaultDeps.connectionChatRepository.pullInbox.mockReturnValue([]);
+        defaultDeps.workerTaskDispatchService.pullNextDispatch.mockReturnValue(null);
+
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handleListenForRuntime({
+            connection_key: "worker-1",
+            project_id: "project-1",
+            role: "listener",
+            transport: "stdio",
+            timeout_seconds: 0.01,
+            poll_interval_ms: 1,
+        }, "worker_gateway");
+
+        expect(defaultDeps.connectionChatRepository.startListen).toHaveBeenCalledWith(expect.objectContaining({
+            connectionKey: "worker-1",
+            role: "worker",
+            transport: "streamable_http",
+        }));
+    });
+
+    it("handlePostListenReply", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handlePostListenReply({
+            connection_key: "listener-1",
+            thread_id: "thread-1",
+            body_markdown: "reply",
+            reply_to_message_id: "message-1",
+        });
+        expect(defaultDeps.connectionChatRepository.postListenReply).toHaveBeenCalledWith({
+            connectionKey: "listener-1",
+            threadId: "thread-1",
+            bodyMarkdown: "reply",
+            replyToMessageId: "message-1",
+        });
+    });
+
+    it("handlePullTaskDispatch", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handlePullTaskDispatch({
+            connection_key: "worker-1",
+            project_id: "project-1",
+            sprint_id: "sprint-1",
+        });
+        expect(defaultDeps.workerTaskDispatchService.pullNextDispatch).toHaveBeenCalledWith({
+            connectionKey: "worker-1",
+            projectId: "project-1",
+            sprintId: "sprint-1",
+        });
+    });
+
+    it("handleUpdateTaskDispatch", async () => {
+        const handler = new CoreToolHandler(defaultDeps);
+        await handler.handleUpdateTaskDispatch({
+            connection_key: "worker-1",
+            dispatch_id: "dispatch-1",
+            lease_token: "lease-1",
+            state: "COMPLETED",
+            summary_markdown: "done",
+        });
+        expect(defaultDeps.workerTaskDispatchService.updateDispatch).toHaveBeenCalledWith({
+            connectionKey: "worker-1",
+            dispatchId: "dispatch-1",
+            leaseToken: "lease-1",
+            state: "COMPLETED",
+            provider: undefined,
+            sessionId: undefined,
+            sessionName: undefined,
+            workerBranch: undefined,
+            prUrl: undefined,
+            summaryMarkdown: "done",
+            errorMessage: undefined,
+        });
     });
 });

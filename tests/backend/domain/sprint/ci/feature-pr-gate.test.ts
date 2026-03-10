@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FeaturePrGateService, CiGateContext } from "../../../../../src/domain/sprint/ci/feature-pr-gate.js";
 import type { Subtask, GitTrackingStatus } from "../../../../../src/contracts/app-types.js";
-import type { SubtaskFileRepository } from "../../../../../src/infrastructure/repositories/subtask-file-repository.js";
 
 describe("FeaturePrGateService", () => {
   let service: FeaturePrGateService;
@@ -15,6 +14,7 @@ describe("FeaturePrGateService", () => {
     subtasks = [
       {
         id: "T1",
+        record_id: "task-record-1",
         title: "Task 1",
         prompt: "Prompt 1",
         depends_on: [],
@@ -28,7 +28,6 @@ describe("FeaturePrGateService", () => {
     context = {
       automationLevel: "FULL",
       repoPath: "/repo",
-      subtasksDir: "/repo/subtasks",
       featureBranch: "feature/sprint1",
       defaultBranch: "main",
       featureBranchPrefix: "feature/",
@@ -68,9 +67,12 @@ describe("FeaturePrGateService", () => {
       isJulesApiConfigured: vi.fn().mockReturnValue(true),
       sendSessionMessage: vi.fn().mockResolvedValue(undefined),
       autoMergeFeaturePr: vi.fn().mockResolvedValue({ ok: true }),
-      subtaskFileRepository: {
-        setMerged: vi.fn().mockResolvedValue(undefined),
-      } as unknown as SubtaskFileRepository,
+      persistMergedTask: vi.fn().mockResolvedValue(undefined),
+      executionRepository: {
+        getLatestTaskRun: vi.fn().mockReturnValue({ id: "run-1" }),
+        appendTaskRunEvent: vi.fn(),
+      } as any,
+      sprintRunId: "sprint-run-1",
     };
   });
 
@@ -82,7 +84,14 @@ describe("FeaturePrGateService", () => {
     expect(result.subtasks[0].is_merged).toBe(true);
     expect(result.subtasks[0].merge_indicator).toBe("AUTOMERGE");
     expect(context.autoMergeFeaturePr).toHaveBeenCalledWith({ repoPath: "/repo", prNumber: 101 });
-    expect(context.subtaskFileRepository.setMerged).toHaveBeenCalledWith("/repo/subtasks", "T1", true);
+    expect(context.persistMergedTask).toHaveBeenCalledWith(expect.objectContaining({ id: "T1", is_merged: true }));
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "automerge_succeeded", prNumber: 101 }),
+      expect.any(Object),
+    );
   });
 
   it("keeps task in RUNNING with CI indicator if checks are pending", async () => {
@@ -96,6 +105,13 @@ describe("FeaturePrGateService", () => {
     expect(result.subtasks[0].merge_indicator).toBe("CI");
     expect(result.reportText).toContain("stays in progress");
     expect(result.reportText).toContain("CI Status: `PENDING`バランス".replace("バランス", ""));
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "waiting_checks", prNumber: 101, hasPendingChecks: true }),
+      expect.any(Object),
+    );
   });
 
   it("triggers CI autofix when checks fail", async () => {
@@ -133,6 +149,13 @@ describe("FeaturePrGateService", () => {
     expect(result.subtasks[0].status).toBe("BLOCKED");
     expect(result.subtasks[0].intervention_owner).toBe("AGENT");
     expect(result.reportText).toContain("CI autofix retries exhausted");
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "blocked", prNumber: 101, hasFailedChecks: true }),
+      expect.any(Object),
+    );
   });
 
   it("stays in RUNNING if no matching PR is found", async () => {
@@ -143,5 +166,12 @@ describe("FeaturePrGateService", () => {
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(result.subtasks[0].merge_indicator).toBe("CI");
     expect(result.reportText).toContain("no open feature PR could be matched");
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "waiting_for_pr", featureBranch: "feature/sprint1" }),
+      expect.any(Object),
+    );
   });
 });

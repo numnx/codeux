@@ -99,6 +99,12 @@ export interface ApplyActionRequiredAutomationArgs {
   isJulesApiConfigured: () => boolean;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
+  onTaskEvent?: (args: {
+    task: Subtask;
+    eventType: string;
+    sourceEventKey?: string;
+    payload: Record<string, unknown>;
+  }) => void;
 }
 
 export const applyActionRequiredAutomation = async (
@@ -106,6 +112,14 @@ export const applyActionRequiredAutomation = async (
   args: ApplyActionRequiredAutomationArgs
 ): Promise<{ subtasks: Subtask[]; reportText: string }> => {
   let reportText = "";
+  const emitTaskEvent = (task: Subtask, eventType: string, payload: Record<string, unknown>, sourceSuffix?: string): void => {
+    args.onTaskEvent?.({
+      task,
+      eventType,
+      sourceEventKey: `action-required:${task.id}:${sourceSuffix || eventType}`,
+      payload,
+    });
+  };
 
   for (const task of subtasks) {
     task.intervention_owner = undefined;
@@ -118,12 +132,22 @@ export const applyActionRequiredAutomation = async (
     if (!isJulesManagedTask(task)) {
       task.intervention_owner = "AGENT";
       task.intervention_hint = "Task is not Jules-managed; resolve manually in provider-specific workflow.";
+      emitTaskEvent(task, "action_required_manual_intervention", {
+        owner: task.intervention_owner,
+        reason: task.intervention_hint,
+        sessionState: task.session_state || null,
+      }, `manual:${task.session_state || "unknown"}:${task.intervention_owner}`);
       continue;
     }
 
     if (!args.isJulesApiConfigured()) {
       task.intervention_owner = "HUMAN";
       task.intervention_hint = "Jules API key is not configured; automatic intervention is unavailable.";
+      emitTaskEvent(task, "action_required_manual_intervention", {
+        owner: task.intervention_owner,
+        reason: task.intervention_hint,
+        sessionState: task.session_state || null,
+      }, `manual:${task.session_state || "unknown"}:${task.intervention_owner}`);
       continue;
     }
 
@@ -133,6 +157,11 @@ export const applyActionRequiredAutomation = async (
       task.intervention_hint = args.automationLevel === "ALWAYS_ASK"
         ? "Automation level is ALWAYS_ASK."
         : getSemiAutoDisabledReason(task.session_state, args.settings);
+      emitTaskEvent(task, "action_required_manual_intervention", {
+        owner: task.intervention_owner,
+        reason: task.intervention_hint,
+        sessionState: task.session_state || null,
+      }, `manual:${task.session_state || "unknown"}:${task.intervention_owner}`);
       continue;
     }
 
@@ -140,6 +169,11 @@ export const applyActionRequiredAutomation = async (
     if (!sessionId) {
       task.intervention_owner = "AGENT";
       task.intervention_hint = "No session id available for automatic intervention.";
+      emitTaskEvent(task, "action_required_manual_intervention", {
+        owner: task.intervention_owner,
+        reason: task.intervention_hint,
+        sessionState: task.session_state || null,
+      }, `manual:${task.session_state || "unknown"}:${task.intervention_owner}`);
       continue;
     }
 
@@ -147,6 +181,10 @@ export const applyActionRequiredAutomation = async (
       if (task.session_state === "AWAITING_PLAN_APPROVAL") {
         await args.approveSessionPlan(sessionId);
         task.status = "RUNNING";
+        emitTaskEvent(task, "action_required_auto_approved", {
+          sessionId,
+          sessionState: task.session_state,
+        }, `auto-approved:${sessionId}`);
         reportText += `🤖 **Auto-Approved Plan:** Task \`${task.id}\` session \`${sessionId}\` moved back to in-progress.\n`;
         continue;
       }
@@ -155,6 +193,11 @@ export const applyActionRequiredAutomation = async (
         const reply = buildClarificationAutoReply(task, args.settings.clarificationAnswerTemplate);
         await args.sendSessionMessage(sessionId, reply);
         task.status = "RUNNING";
+        emitTaskEvent(task, "action_required_auto_replied", {
+          sessionId,
+          sessionState: task.session_state,
+          replyPreview: reply.slice(0, 200),
+        }, `auto-replied:${sessionId}`);
         reportText += `🤖 **Auto-Answered Clarification:** Task \`${task.id}\` session \`${sessionId}\` received an automated response and stays in progress.\n`;
         continue;
       }
@@ -165,12 +208,22 @@ export const applyActionRequiredAutomation = async (
           "Continue execution using the current plan and repository conventions. Resume work and report progress."
         );
         task.status = "RUNNING";
+        emitTaskEvent(task, "action_required_auto_resumed", {
+          sessionId,
+          sessionState: task.session_state,
+        }, `auto-resumed:${sessionId}`);
         reportText += `🤖 **Auto-Resumed Session:** Task \`${task.id}\` session \`${sessionId}\` was nudged to continue.\n`;
         continue;
       }
     } catch (error) {
       task.intervention_owner = "AGENT";
       task.intervention_hint = `Auto-intervention failed: ${error instanceof Error ? error.message : String(error)}`;
+      emitTaskEvent(task, "action_required_auto_failed", {
+        owner: task.intervention_owner,
+        reason: task.intervention_hint,
+        sessionId,
+        sessionState: task.session_state || null,
+      }, `auto-failed:${sessionId}:${task.session_state || "unknown"}`);
       reportText += `⚠️ **Auto-Intervention Failed:** Task \`${task.id}\` could not be unblocked automatically.\n`;
     }
   }

@@ -3,11 +3,32 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-r
 import { getEnabledToolDefinitions, isToolEnabled, sanitizeMcpToolToggles } from "../../../src/mcp/mcp-tool-availability.js";
 
 describe("tool availability", () => {
-  it("enables all MCP tools by default", () => {
-    const enabled = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS);
-    expect(enabled.length).toBe(DEFAULT_DASHBOARD_SETTINGS.mcpTools.length);
-    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session")).toBe(true);
-    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "list_all_activities")).toBe(true);
+  it("filters tools by runtime role", () => {
+    const projectManagerTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "project_manager");
+    const workerHostTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_host");
+    const workerGatewayTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_gateway");
+
+    expect(projectManagerTools.some((tool) => tool.name === "sprint_agent")).toBe(true);
+    expect(projectManagerTools.some((tool) => tool.name === "listen")).toBe(true);
+    expect(projectManagerTools.some((tool) => tool.name === "start_listen")).toBe(false);
+    expect(projectManagerTools.some((tool) => tool.name === "pull_inbox")).toBe(false);
+    expect(projectManagerTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(false);
+    expect(workerHostTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(true);
+    expect(workerHostTools.some((tool) => tool.name === "listen")).toBe(true);
+    expect(workerHostTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
+    expect(workerGatewayTools.some((tool) => tool.name === "listen")).toBe(true);
+    expect(workerGatewayTools.some((tool) => tool.name === "update_task_dispatch")).toBe(true);
+    expect(workerGatewayTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(false);
+    expect(workerGatewayTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "project_manager")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "worker_host")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "listen", "project_manager")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "listen", "worker_gateway")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "update_task_dispatch", "worker_gateway")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "start_listen", "project_manager")).toBe(false);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "project_manager")).toBe(false);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "worker_host")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "worker_gateway")).toBe(false);
   });
 
   it("respects disabled tools for listing and dispatch checks", () => {
@@ -20,11 +41,11 @@ describe("tool availability", () => {
       ),
     };
 
-    const names = getEnabledToolDefinitions(settings).map((tool) => tool.name);
+    const names = getEnabledToolDefinitions(settings, "project_manager").map((tool) => tool.name);
     expect(names).not.toContain("get_session");
     expect(names).not.toContain("list_all_activities");
-    expect(isToolEnabled(settings, "get_session")).toBe(false);
-    expect(isToolEnabled(settings, "list_all_activities")).toBe(false);
+    expect(isToolEnabled(settings, "get_session", "project_manager")).toBe(false);
+    expect(isToolEnabled(settings, "list_all_activities", "project_manager")).toBe(false);
   });
 
   it("sanitizes toggles and ignores unknown tool names", () => {

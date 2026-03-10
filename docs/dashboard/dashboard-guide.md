@@ -19,10 +19,65 @@ If the requested port is busy, startup automatically retries the next port (`+1`
 
 Implemented in `src/server/dashboard-server.ts`.
 
+Project management:
+- `GET /api/projects`
+  - Lists projects plus selected project id and aggregate counts
+- `POST /api/projects`
+  - Creates a project (`local` or `git`)
+- `PATCH /api/projects/:projectId`
+  - Updates project metadata
+- `DELETE /api/projects/:projectId`
+  - Deletes a project and cascades its sprints/tasks
+- `PUT /api/projects/:projectId/select`
+  - Persists the active dashboard project
+- `GET /api/projects/:projectId/sprints`
+  - Lists sprints for the selected project
+- `POST /api/projects/:projectId/sprints`
+  - Creates a sprint
+- `POST /api/projects/:projectId/sprints/import`
+  - Imports sprint/task markdown into sqlite
+- `GET /api/projects/:projectId/sprints/:sprintId/export`
+  - Exports one sprint plus its tasks back to markdown
+- `PATCH /api/sprints/:sprintId`
+  - Updates sprint metadata
+- `DELETE /api/sprints/:sprintId`
+  - Deletes a sprint and cascades its tasks
+- `GET /api/projects/:projectId/tasks`
+  - Lists tasks for a project, optionally filtered by `sprintId`
+- `POST /api/projects/:projectId/tasks`
+  - Creates a task
+- `PATCH /api/tasks/:taskId`
+  - Updates task metadata and dependency ids
+- `DELETE /api/tasks/:taskId`
+  - Deletes a task
+- `GET /api/projects/:projectId/connections`
+  - Lists MCP connections visible to the selected project
+- `PATCH /api/connections/:connectionId`
+  - Updates connection metadata such as role/status/instruction payload
+- `GET /api/projects/:projectId/conversations/threads`
+  - Lists project conversation threads
+- `POST /api/projects/:projectId/conversations/threads`
+  - Creates a new project conversation thread
+- `GET /api/conversations/threads/:threadId/messages`
+  - Lists stored messages for one thread
+- `POST /api/projects/:projectId/conversations/messages`
+- Stores a dashboard-authored message and queues it for a listener
+- Threads now remain explicitly `unassigned` until the dashboard targets a connection or a real listener claims them
+- The active thread header now supports explicit assignment and reassignment to a project-bound connection
+- Reassigning a thread re-queues any unprocessed dashboard messages so the newly assigned listener can receive them
+- Connection badges now reflect heartbeat-derived `stale` and `offline` states instead of keeping dead listeners permanently `connected`
+
+Legacy runtime:
 - `GET /api/status`
-  - Current orchestrator status payload (`sprint_number`, `subtasks`, `instructions`, etc.)
+  - Selected-project runtime payload (`sprint_number`, `subtasks`, `instructions`, etc.) projected from sqlite
+- `GET /api/execution`
+  - Selected-project execution control-plane snapshot (`sprintRuns`, `taskDispatches`, `recentEvents`, lease ownership)
+- `GET /api/telemetry/overview`
+  - Cross-project overview telemetry snapshot for all currently active project runs
+- `GET /api/projects/:projectId/execution`
+  - Project-scoped execution control-plane snapshot for the v2 runtime
 - `GET /api/live-activities`
-  - Session activity stream for running tasks
+  - Session activity stream for running tasks in the selected project
 - `GET /api/settings`
   - Persisted dashboard settings
 - `PUT /api/settings`
@@ -32,17 +87,50 @@ Implemented in `src/server/dashboard-server.ts`.
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
-  - Resets a task state and immediately starts a fresh provider session for that task
+  - Resets a selected-project runtime task and creates a fresh DB-backed task dispatch/task run for that task
 
 ## UI Sections
 
+### V2 project management
+- Top-nav project selector persists the active project in sqlite
+- Projects page is DB-backed and can create/select/delete projects
+- Sprints page is project-scoped, creates sprint records in sqlite, and exposes markdown import/export controls
+- Sprints page now also starts and stops sprint orchestration directly from sprint cards, with optimistic visual state updates tied to project-scoped execution data
+- The organic sprint bubble cells use the same live start/stop control path as the registry list, so the hover play/stop action is now functional instead of decorative
+- Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
+- Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
+- Overview widgets and headline stat cards now read project/task data from the same project-management API surface
+- Agents page is DB-backed and manages project-scoped agent presets (`name`, `labels`, `instruction markdown`)
+- Chat page is DB-backed and stores project conversation threads/messages in sqlite
+- Worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or queued for a connected worker
+
 ### Dashboard view
 - Task statistics
+- Execution runtime panel for sprint runs, dispatch queue state, live project connections, worker assignment, lease ownership, and recent runtime events
+- Live runtime visuals are only considered active when the selected project has a `running` or `queued` sprint run; cancelled, paused, and completed runs fall back to a waiting state
 - Task pipeline cards
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
+- Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
+- Task cards now open a DB-backed runtime feed sourced from `task_run_events`
+- The runtime feed now includes direct CLI stage events, action-required and protocol events, sprint-run lifecycle events, and CI/merge-gate state changes in addition to provider session activity
+- `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`
+- The execution runtime panel can now start or resume sprint orchestration, pause or cancel sprint runs, cancel queued dispatches, and retry terminal dispatches
+- The execution runtime panel now also shows live project connections with transport, role, listening metadata, inbox load, dispatch load, and heartbeat-derived status
+- The Overview page telemetry now renders a consolidated runtime timeline across all currently active projects instead of a static placeholder
+- Running dispatch cancel is now request-based instead of instant-terminal:
+  - local CLI runs move to `cancel_requested` and abort through the process runner
+  - worker runs move to `cancel_requested` and surface a stop request through the worker heartbeat response
+  - Jules runs move to `cancel_requested` and get a best-effort in-session stop message
+- Sprint runs also use `cancel_requested` while active work is shutting down, then finalize to `cancelled` once no active dispatches remain
+- Dashboard rerun and cancel actions now rely on DB task/task-run/dispatch records instead of patching the selected-project runtime snapshot directly
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel
+
+Runtime scoping:
+- the selected project in the v2 top navigation now also scopes live session status, reruns, live activities, and git tracking
+- the selected project also scopes Agents and Chat data
+- dashboard runtime state is projected through sqlite task-run records instead of being served only from one in-memory global payload
 
 ### Settings view
 - Basic settings
@@ -57,11 +145,16 @@ Implemented in `src/server/dashboard-server.ts`.
 ## Polling Behavior
 
 From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
-- Status and live activities poll every 10 seconds.
+- Status and execution snapshot poll every 10 seconds.
 - Git status polls every 10 seconds.
 
 Settings are loaded from `dashboard/src/hooks/use-dashboard-settings.ts` and saved through
 `dashboard/src/lib/api/dashboard-api.ts` request helpers.
+
+Project management requests are centralized in:
+- `dashboard/src/v2/lib/project-api.ts`
+- `dashboard/src/v2/context/project-data.tsx`
+- `dashboard/src/v2/lib/connection-api.ts`
 
 ## Multi-Provider Settings
 
@@ -159,9 +252,9 @@ Runtime update:
 
 ## Session Tracking and Live Feed
 
-For Gemini/Codex runs, sessions are tracked locally and surfaced with the same dashboard flow:
+For provider-backed runs, session polling is now used to ingest durable runtime events into sqlite:
 - Session IDs and states appear in task cards.
-- Live activity feed displays streamed CLI output.
+- Provider activity is mirrored into `task_run_events` and shown through the runtime feed.
 - PR URL is shown once the workflow creates the PR.
 
 ## Security Notes
@@ -179,6 +272,7 @@ For Gemini/Codex runs, sessions are tracked locally and surfaced with the same d
 - Runtime status polling, live activity merge, and stat derivation are encapsulated in `use-dashboard-runtime-data`.
 - Settings load/save/import flows are encapsulated in `use-dashboard-settings`.
 - HTTP calls are centralized in `dashboard/src/lib/api/dashboard-api.ts` for consistent error handling and easier testability.
+- V2 project CRUD and selected-project state are centralized in `dashboard/src/v2/lib/project-api.ts` and `dashboard/src/v2/context/project-data.tsx`.
 - `dashboard/src/components/SettingsPage.tsx` now acts as a container and delegates each settings domain to focused section components under `dashboard/src/components/settings/`.
 - Shared settings UI primitives now live in `dashboard/src/components/settings/primitives.tsx` (`SettingsCard`, `ToggleRow`, `FieldLabel`) to reduce duplicate form markup and keep section components consistent.
 - `dashboard/src/components/ui/` now contains focused presentation subcomponents for large cards/sections:

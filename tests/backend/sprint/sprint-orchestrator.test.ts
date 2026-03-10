@@ -7,12 +7,29 @@ describe("sprint-orchestrator", () => {
             logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             settings: { dashboardPort: 3000 },
             completedSprints: new Set(),
-            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: {}, ciIntelligence: {}, aiProvider: { providers: {} } }),
+            renderInstruction: vi.fn().mockResolvedValue(""),
+            sprintExecutionStateService: {
+                resolveContext: vi.fn().mockReturnValue({
+                    project: { id: "project-1", name: "Test Project" },
+                    sprint: { id: "sprint-1", name: "Sprint 1" },
+                    sprintNumber: 1,
+                    repoPath: "/tmp/repo",
+                    featureBranch: "feature/sprint1-implementation",
+                    defaultBranch: "main",
+                }),
+                hasPlannedTasks: vi.fn().mockReturnValue(true),
+                loadSubtasks: vi.fn().mockResolvedValue([]),
+            },
+            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: {} } }),
         };
         const orch = new SprintOrchestrator(deps as any);
 
         const feedback = await (orch as any).renderMainMergeCiFeedback({ repoPath: "path", featureBranch: "a", defaultBranch: "b", featureBranchPrefix: "c" });
-        expect(feedback).toBe("");
+        expect(feedback).toMatchObject({
+            text: "",
+            state: "unavailable",
+            prNumber: null,
+        });
     });
 
     it("returns message if sprint already completed", async () => {
@@ -20,7 +37,20 @@ describe("sprint-orchestrator", () => {
             logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             settings: { dashboardPort: 3000 },
             completedSprints: new Set([1]),
-            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: {}, ciIntelligence: {}, aiProvider: { providers: { gemini: { enabled: true } } } }),
+            renderInstruction: vi.fn().mockResolvedValue(""),
+            sprintExecutionStateService: {
+                resolveContext: vi.fn().mockReturnValue({
+                    project: { id: "project-1", name: "Test Project" },
+                    sprint: { id: "sprint-1", name: "Sprint 1" },
+                    sprintNumber: 1,
+                    repoPath: "/tmp/repo",
+                    featureBranch: "feature/sprint1-implementation",
+                    defaultBranch: "main",
+                }),
+                hasPlannedTasks: vi.fn().mockReturnValue(true),
+                loadSubtasks: vi.fn().mockResolvedValue([]),
+            },
+            getDashboardSettings: vi.fn().mockReturnValue({ sprintLoopSteps: { planningPreflight: false }, ciIntelligence: {}, aiProvider: { providers: { gemini: { enabled: true } } } }),
         };
         const orch = new SprintOrchestrator(deps as any);
 

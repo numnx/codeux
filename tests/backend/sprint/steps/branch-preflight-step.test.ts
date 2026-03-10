@@ -14,7 +14,22 @@ const buildDeps = () => {
     loadSubtasks: vi.fn().mockResolvedValue([]),
     listSessions: vi.fn().mockResolvedValue({ sessions: [] }),
     updateLastStatus: vi.fn(),
-    completedSprints: new Set<number>(),
+    completedSprints: new Set<string>(),
+    projectManagementRepository: { updateTask: vi.fn() },
+    executionRepository: { updateSprintRun: vi.fn() },
+    sprintExecutionStateService: {
+      resolveContext: vi.fn((args: any) => ({
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: args.sprint_number ?? 1,
+        repoPath: args.repo_path,
+        featureBranch: args.feature_branch || "feature/sprint1-implementation",
+        defaultBranch: "main",
+        sourceId: args.source_id,
+      })),
+      hasPlannedTasks: vi.fn().mockReturnValue(true),
+      loadSubtasks: vi.fn().mockResolvedValue([]),
+    },
   };
   return deps;
 };

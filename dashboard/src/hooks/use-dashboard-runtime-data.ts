@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "preact/hooks";
-import { computeStats, mergeLiveActivities } from "../lib/status.js";
+import { computeStats } from "../lib/status.js";
 import { fetchGitTrackingStatus, fetchRuntimeDashboardPayload } from "../lib/api/dashboard-api.js";
-import type { DashboardStatus, GitTrackingStatus, LiveActivitiesResponse } from "../types.js";
+import type { DashboardStatus, ExecutionDashboardSnapshot, GitTrackingStatus } from "../types.js";
 import { useDashboardPollManager } from "./use-dashboard-poll-manager.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 10000;
@@ -13,14 +13,23 @@ interface UseDashboardRuntimeDataResult {
   refreshGitStatus: () => Promise<void>;
   refreshRuntimeStatus: () => Promise<void>;
   status: DashboardStatus;
+  execution: ExecutionDashboardSnapshot;
   stats: ReturnType<typeof computeStats>;
   tasksWithLiveActivities: DashboardStatus["subtasks"];
 }
 
 export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
   const [status, setStatus] = useState<DashboardStatus>({ subtasks: [], timestamp: null });
+  const [execution, setExecution] = useState<ExecutionDashboardSnapshot>({
+    projectId: null,
+    projectName: null,
+    sprintRuns: [],
+    taskDispatches: [],
+    connections: [],
+    recentEvents: [],
+    updatedAt: null,
+  });
   const [error, setError] = useState<string | null>(null);
-  const [liveActivities, setLiveActivities] = useState<Record<string, LiveActivitiesResponse["activitiesBySession"][string]>>({});
   const [gitStatus, setGitStatus] = useState<GitTrackingStatus | null>(null);
   const [gitStatusError, setGitStatusError] = useState<string | null>(null);
 
@@ -28,7 +37,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     try {
       const data = await fetchRuntimeDashboardPayload();
       setStatus(data.status);
-      setLiveActivities((prev) => ({ ...prev, ...data.liveActivities }));
+      setExecution(data.execution);
       setError(null);
     } catch (err) {
       setError("Unable to connect to Orchestrator API");
@@ -52,9 +61,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     onPoll: [refreshRuntimeStatusAction, refreshGitStatusAction],
   });
 
-  const tasksWithLiveActivities = useMemo(() => {
-    return mergeLiveActivities(status.subtasks || [], liveActivities);
-  }, [status.subtasks, liveActivities]);
+  const tasksWithLiveActivities = useMemo(() => status.subtasks || [], [status.subtasks]);
 
   const stats = useMemo(() => computeStats(tasksWithLiveActivities), [tasksWithLiveActivities]);
 
@@ -65,6 +72,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     refreshGitStatus: refreshGitStatusAction,
     refreshRuntimeStatus: refreshRuntimeStatusAction,
     status,
+    execution,
     stats,
     tasksWithLiveActivities,
   };

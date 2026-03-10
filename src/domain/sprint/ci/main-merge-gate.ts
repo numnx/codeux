@@ -17,14 +17,29 @@ export interface MergeFeedbackContext {
   gitStatus: GitTrackingStatus | null;
 }
 
+export interface MergeFeedbackResult {
+  text: string;
+  state:
+    | "disabled"
+    | "unavailable"
+    | "missing_pr"
+    | "failed_checks"
+    | "pending_checks"
+    | "review_blocked"
+    | "ready_for_merge";
+  prNumber: number | null;
+  prUrl: string | null;
+  hasFailedChecks: boolean;
+  hasPendingChecks: boolean;
+  hasReviewBlockers: boolean;
+  failedChecks: string[];
+}
+
 /**
  * Service for rendering feedback about the main merge CI gate.
  */
 export class MainMergeGateService {
-  /**
-   * Renders a feedback report for the main merge PR status.
-   */
-  public static async renderMergeFeedback(context: MergeFeedbackContext): Promise<string> {
+  public static evaluateMergeFeedback(context: MergeFeedbackContext): MergeFeedbackResult {
     const {
       featureBranch,
       defaultBranch,
@@ -34,17 +49,34 @@ export class MainMergeGateService {
     } = context;
 
     if (
-      !ciIntelligence.enabled ||
-      !ciIntelligence.enableLivePrMonitoring ||
-      !ciIntelligence.waitForCiBeforeMainMerge ||
-      githubMode !== "REMOTE" ||
-      !gitStatus
+      !ciIntelligence.enabled
+      || !ciIntelligence.enableLivePrMonitoring
+      || !ciIntelligence.waitForCiBeforeMainMerge
+      || githubMode !== "REMOTE"
     ) {
-      return "";
+      return {
+        text: "",
+        state: "disabled",
+        prNumber: null,
+        prUrl: null,
+        hasFailedChecks: false,
+        hasPendingChecks: false,
+        hasReviewBlockers: false,
+        failedChecks: [],
+      };
     }
 
-    if (!gitStatus.available) {
-      return "";
+    if (!gitStatus || !gitStatus.available) {
+      return {
+        text: "",
+        state: "unavailable",
+        prNumber: null,
+        prUrl: null,
+        hasFailedChecks: false,
+        hasPendingChecks: false,
+        hasReviewBlockers: false,
+        failedChecks: [],
+      };
     }
 
     const mainMergePr = gitStatus.openPullRequests.find(
@@ -52,11 +84,23 @@ export class MainMergeGateService {
     );
 
     if (!mainMergePr) {
-      return `\nℹ️ **Main CI Gate:** No open PR \`${featureBranch} -> ${defaultBranch}\` found. Create the PR and wait for CI.\n`;
+      return {
+        text: `\nℹ️ **Main CI Gate:** No open PR \`${featureBranch} -> ${defaultBranch}\` found. Create the PR and wait for CI.\n`,
+        state: "missing_pr",
+        prNumber: null,
+        prUrl: null,
+        hasFailedChecks: false,
+        hasPendingChecks: false,
+        hasReviewBlockers: false,
+        failedChecks: [],
+      };
     }
 
     const checks = Array.isArray(mainMergePr.checks) ? mainMergePr.checks : [];
-    const hasFailedChecks = checks.some((check) => isCiFailure(check.status, check.conclusion));
+    const failedChecks = checks
+      .filter((check) => isCiFailure(check.status, check.conclusion))
+      .map((check) => check.name);
+    const hasFailedChecks = failedChecks.length > 0;
     const hasPendingChecks = checks.length === 0 || checks.some((check) => isCiPending(check.status, check.conclusion));
     const hasReviewBlockers = mainMergePr.reviewDecision === "CHANGES_REQUESTED" || mainMergePr.comments > 0;
 
@@ -66,17 +110,18 @@ export class MainMergeGateService {
     text += `- Review Status: \`reviewDecision=${mainMergePr.reviewDecision || "NONE"}\`, comments=${mainMergePr.comments}\n`;
     text += `- Check live: \`gh pr checks ${mainMergePr.number} --watch\`\n`;
 
+    let state: MergeFeedbackResult["state"] = "ready_for_merge";
     if (hasFailedChecks) {
-      const failedChecks = checks
-        .filter((check) => isCiFailure(check.status, check.conclusion))
-        .map((check) => check.name);
       text += `- Failed checks: ${failedChecks.join(", ")}\n`;
       text += `- Logs: \`gh run list --branch ${featureBranch} --event pull_request --limit 5\` and \`gh run view <run-id> --log-failed\`\n`;
       text += `- Only approve merge into \`${defaultBranch}\` after checks are green.\n`;
+      state = "failed_checks";
     } else if (hasPendingChecks) {
       text += `- Only approve merge into \`${defaultBranch}\` once all required checks are green.\n`;
+      state = "pending_checks";
     } else if (hasReviewBlockers) {
       text += `- Merge into \`${defaultBranch}\` is blocked until open reviews/comments are resolved.\n`;
+      state = "review_blocked";
     } else {
       text += `- ✅ Required checks are green. Main merge can be approved (verify reviews/comments).\n`;
     }
@@ -86,6 +131,22 @@ export class MainMergeGateService {
       text += `- Inline reviews: \`gh api repos/{owner}/{repo}/pulls/${mainMergePr.number}/comments\`\n`;
     }
 
-    return `${text}\n`;
+    return {
+      text: `${text}\n`,
+      state,
+      prNumber: mainMergePr.number,
+      prUrl: mainMergePr.url,
+      hasFailedChecks,
+      hasPendingChecks,
+      hasReviewBlockers,
+      failedChecks,
+    };
+  }
+
+  /**
+   * Renders a feedback report for the main merge PR status.
+   */
+  public static async renderMergeFeedback(context: MergeFeedbackContext): Promise<string> {
+    return this.evaluateMergeFeedback(context).text;
   }
 }

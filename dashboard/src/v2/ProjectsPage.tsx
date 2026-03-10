@@ -2,12 +2,12 @@ import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { FolderOpen, Plus, ExternalLink, Settings, Trash2 } from "lucide-preact";
-import { mockSources } from "./lib/mockData.js";
 import type { Source, SourceStatus } from "./types.js";
 import { AddProjectModal } from "./components/ui/AddProjectModal.js";
 import { StatusDot } from "./components/ui/StatusDot.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
+import { useProjectData } from "./context/project-data.js";
 
 const EMBER_HEX = '#FFB800';
 
@@ -38,7 +38,12 @@ const timeAgo = (iso: string) => {
 
 /* ─── Project Card ──────────────────────────────────────────────────────── */
 
-const ProjectCard: FunctionComponent<{ source: Source }> = ({ source }) => {
+const ProjectCard: FunctionComponent<{
+    source: Source;
+    isSelected: boolean;
+    onSelect: () => void;
+    onDelete: () => void;
+}> = ({ source, isSelected, onSelect, onDelete }) => {
     const cardRef  = useRef<HTMLDivElement>(null);
     const label    = statusLabel[source.status];
     const color    = statusColor[source.status];
@@ -71,16 +76,21 @@ const ProjectCard: FunctionComponent<{ source: Source }> = ({ source }) => {
     return (
         <div
             ref={cardRef}
+            onClick={onSelect}
             onMouseEnter={onEnter}
             onMouseLeave={onLeave}
             className="group relative flex flex-col
                        bg-white/70 dark:bg-void-800/60
                        backdrop-blur-2xl
-                       border border-black/[0.06] dark:border-white/[0.06]
+                       border dark:border-white/[0.06]
                        rounded-[1.75rem]
                        p-7
                        shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
                        overflow-hidden cursor-pointer"
+            style={{
+                borderColor: isSelected ? "rgba(255,184,0,0.45)" : undefined,
+                boxShadow: isSelected ? "0 0 0 1px rgba(255,184,0,0.18), 0 8px 30px rgba(255,184,0,0.08)" : undefined,
+            }}
         >
             {/* Ghost watermark */}
             <div
@@ -178,21 +188,33 @@ const ProjectCard: FunctionComponent<{ source: Source }> = ({ source }) => {
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                                        text-slate-400 hover:text-slate-900 dark:hover:text-white
-                                       transition-colors duration-200">
+                                       transition-colors duration-200"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onSelect();
+                            }}>
                         <ExternalLink className="w-3 h-3" strokeWidth={2} />
                     </button>
                     <button className="w-7 h-7 flex items-center justify-center rounded-xl
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                                        text-slate-400 hover:text-slate-900 dark:hover:text-white
-                                       transition-colors duration-200">
+                                       transition-colors duration-200"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onSelect();
+                            }}>
                         <Settings className="w-3 h-3" strokeWidth={2} />
                     </button>
                     <button className="w-7 h-7 flex items-center justify-center rounded-xl
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-status-red/[0.1]
                                        text-slate-400 hover:text-status-red
-                                       transition-colors duration-200">
+                                       transition-colors duration-200"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onDelete();
+                            }}>
                         <Trash2 className="w-3 h-3" strokeWidth={2} />
                     </button>
                 </div>
@@ -249,8 +271,14 @@ const AddCard: FunctionComponent<{ onClick: () => void }> = ({ onClick }) => (
 export const ProjectsPage: FunctionComponent = () => {
     const mainRef      = useRef<HTMLDivElement>(null);
     const [showModal, setShowModal]   = useState(false);
-    const [sources, setSources]       = useState<Source[]>(mockSources);
     const [activeFilter, setActiveFilter] = useState<Filter>('All');
+    const {
+        projects: sources,
+        selectedProjectId,
+        createProject,
+        deleteProject,
+        selectProject,
+    } = useProjectData();
 
     useLayoutEffect(() => {
         if (mainRef.current) {
@@ -262,18 +290,13 @@ export const ProjectsPage: FunctionComponent = () => {
         }
     }, []);
 
-    const handleAddProject = (project: { name: string; type: 'local' | 'git'; path: string; cloneDir?: string }) => {
-        const newSource: Source = {
-            id:             `src-${sources.length + 1}`,
-            name:           project.name,
-            sprintsCount:   0,
-            openTasks:      0,
-            completedTasks: 0,
-            isRunning:      false,
-            status:         'idle',
-            updatedAt:      new Date().toISOString(),
-        };
-        setSources(prev => [...prev, newSource]);
+    const handleAddProject = async (project: { name: string; type: 'local' | 'git'; path: string; cloneDir?: string }) => {
+        await createProject({
+            name: project.name,
+            sourceType: project.type,
+            sourceRef: project.path,
+            cloneDir: project.cloneDir,
+        });
     };
 
     const filterMap: Record<Filter, SourceStatus | null> = {
@@ -414,7 +437,13 @@ export const ProjectsPage: FunctionComponent = () => {
                 {/* ── Cards Grid ──────────────────────────────────────── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {filtered.map(source => (
-                        <ProjectCard key={source.id} source={source} />
+                        <ProjectCard
+                            key={source.id}
+                            source={source}
+                            isSelected={selectedProjectId === source.id}
+                            onSelect={() => { void selectProject(source.id); }}
+                            onDelete={() => { void deleteProject(source.id); }}
+                        />
                     ))}
                     <AddCard onClick={() => setShowModal(true)} />
                 </div>
@@ -423,7 +452,7 @@ export const ProjectsPage: FunctionComponent = () => {
             {showModal && (
                 <AddProjectModal
                     onClose={() => setShowModal(false)}
-                    onAdd={handleAddProject}
+                    onAdd={(project) => { void handleAddProject(project); }}
                 />
             )}
         </>

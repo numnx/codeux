@@ -13,6 +13,8 @@ These cover:
 - Session APIs
 - Activity APIs
 - Session wait/polling logic
+- listen-mode connection registration and inbox/reply flow
+- worker dispatch claim and completion flow
 
 ### Agent tools
 Implemented in:
@@ -21,6 +23,9 @@ Implemented in:
 These cover:
 - `sprint_agent`
 - `task_agent`
+- `execute_worker_dispatch`
+- `cancel_local_dispatch`
+- `generate_dashboard_reply`
 
 ## Registered Tools
 
@@ -45,6 +50,19 @@ Typed tool argument contracts and registry dispatch are defined in `src/api/mcp/
 - `get_activity`
 - `list_activities`
 - `list_all_activities`
+
+### Listen mode
+- `listen`
+- `start_listen`
+- `pull_inbox`
+- `post_listen_reply`
+
+### Worker execution
+- `pull_task_dispatch`
+- `update_task_dispatch`
+- `execute_worker_dispatch`
+- `cancel_local_dispatch`
+- `generate_dashboard_reply`
 
 ### Output minimization
 - `get_source` returns a compact source summary (`id`, `name`).
@@ -109,15 +127,47 @@ Unknown tool names raise MCP `MethodNotFound`.
 - Creates session with `AUTO_CREATE_PR`.
 - `source_id` is optional; when provider is Jules and `source_id` is omitted, source is auto-resolved from the repo's `remote.origin.url`.
 - For Jules sessions, explicit `source_id` values are validated against the repo remote and rejected on mismatch.
+- `repo_path` is now optional and overrides `process.cwd()` when the task must run against an explicit project repository.
 - Optional `wait: true` delegates to session completion wait flow.
 
 ### `sprint_agent` behavior
 - Supports `plan`, `status`, `orchestrate`.
-- Resolves feature branch from dashboard branch scheme when not explicitly passed.
+- Resolves execution scope from `project_id`, `sprint_id`, `sprint_number`, `repo_path`, and selected dashboard project state.
+- Resolves feature branch from sprint DB state or the dashboard branch scheme when not explicitly passed.
 - `source_id` is optional for orchestration; Jules source resolution only occurs when a Jules task is actually started.
-- Executes atomic loop pipeline and emits markdown protocol instructions.
+- Loads tasks from sqlite and starts work through `sprint_runs`, `task_dispatches`, and `task_runs`.
+- Acquires a sprint-scoped lease during `orchestrate` so duplicate sprint loops do not run concurrently.
+- Markdown is no longer used as orchestration input; it remains import/export only.
 - `status` is always single-cycle (instant output); wait-loop mode is only used by `orchestrate`.
 - In automation modes, action-required Jules tasks can be auto-handled (plan approval, clarification replies, paused-session resume) or explicitly routed as `AGENT` vs `HUMAN` intervention in protocol output.
+
+### Listen-mode behavior
+- `listen` is now the primary listening contract for both normal stdio MCP clients and workers.
+- `listen` registers or refreshes the connection, then blocks until one actionable event is available or timeout expires.
+- `listen` returns exactly one event at a time: a dashboard message, a worker dispatch, or a timeout result with explicit "call listen again" continuation guidance.
+- The default `listen` timeout is derived from dashboard settings `sprintLoopSteps.watchLoopOutputIntervalSeconds` and currently defaults to `300`.
+- Workers may set `include_task_dispatch = true` so the same blocking listener call can also claim and return the next queued worker dispatch.
+- `listen` is exposed on both the normal stdio `project_manager` runtime and the remote Streamable HTTP `worker_gateway` runtime.
+- `start_listen` registers or refreshes an MCP connection in sqlite and returns pending dashboard messages for the active project.
+- `pull_inbox` is the pull-based inbox endpoint for listening MCPs.
+- `post_listen_reply` writes a connection reply back into the project conversation thread and marks the handled dashboard message as processed.
+- `start_listen` and `pull_inbox` now remain as low-level compatibility primitives and should not be the first-choice listener workflow for normal human-driven MCP clients.
+- New dashboard threads should remain unassigned by default until explicitly targeted or claimed by a real listener.
+
+### Worker-dispatch behavior
+- Worker MCPs register through `start_listen` with `role = worker`.
+- `pull_task_dispatch` claims the next queued `mcp_worker` dispatch for one of the worker's active projects.
+- Claiming a dispatch acquires a DB-backed lease on that dispatch and returns the full task payload plus project/sprint branch context.
+- `execute_worker_dispatch` starts the claimed dispatch on a headless worker-host Sprint OS server using the existing provider execution path.
+- `generate_dashboard_reply` generates a reply-only markdown response for a dashboard inbox message using a local CLI-capable provider and the project repo context.
+- `update_task_dispatch` is used for heartbeats and terminal worker outcomes (`RUNNING`, `COMPLETED`, `FAILED`, `BLOCKED`).
+- `update_task_dispatch` now returns both the persisted dispatch state and an optional `controlAction`.
+- When the dashboard cancels a running worker dispatch, the next worker heartbeat receives `controlAction = "cancel"` while the dispatch remains `cancel_requested`.
+- `cancel_local_dispatch` is the worker-host side stop hook for active local execution and Jules soft-stop requests.
+- Workers are expected to stop promptly and send a terminal `update_task_dispatch` result to close the dispatch cleanly.
+- Worker execution writes back into the same `task_dispatches`, `task_runs`, and `task_run_events` records used by the rest of Sprint OS.
+- The external `sprint-os-worker` client now uses the same blocking `listen` contract for both inbox and dispatch work.
+- In remote mode, the worker uses Streamable HTTP for the control plane and a local stdio `worker_host` runtime for execution hooks.
 
 ## Stability Expectations
 
@@ -145,3 +195,23 @@ Behavior:
 - Disabled tools are omitted from `ListToolsRequestSchema` responses.
 - Calls to disabled tools return MCP `MethodNotFound`.
 - Toggle state is persisted in settings storage and applied without server restart.
+
+## Runtime Role Gating
+
+Sprint OS now also filters tools by runtime role before applying dashboard toggles.
+
+Current roles:
+
+- `project_manager`
+- `worker_host`
+- `worker_gateway`
+
+Behavior:
+
+- normal Sprint OS server processes expose the project-manager/listener tool surface
+- headless worker-host processes expose only the worker-local execution tool surface they actually need
+- the Streamable HTTP worker gateway exposes the remote worker control-plane tool surface
+- worker-only tools such as `execute_worker_dispatch`, `cancel_local_dispatch`, and `generate_dashboard_reply` are no longer visible on normal human-driven MCP connections
+- project-manager-only tools such as `sprint_agent` are not exposed on the worker gateway
+
+This keeps Gemini CLI and other regular MCP clients compatible without cluttering them with worker-local controls.

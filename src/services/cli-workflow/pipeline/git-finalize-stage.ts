@@ -1,6 +1,10 @@
 import type { PipelineContext } from "./pipeline-context.js";
 
-export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{ hasChanges: boolean }> {
+export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{
+  hasChanges: boolean;
+  committedChanges: boolean;
+  pushedBranch?: string;
+}> {
   // Ensure we are on the right branch
   const currentBranch = (await ctx.runCommand("git", ["rev-parse", "--abbrev-ref", "HEAD"], ctx.worktreePath)).stdout.trim();
   if (currentBranch !== ctx.workerBranch) {
@@ -17,7 +21,7 @@ export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{ h
     ctx.deps.sessionTracking.appendActivity(ctx.sessionId, { originator: "system", description: `No file changes produced.` });
     ctx.deps.sessionTracking.updateSession(ctx.sessionId, { state: "COMPLETED" });
     ctx.workflowSucceeded = true;
-    return { hasChanges: false };
+    return { hasChanges: false, committedChanges: false };
   }
 
   if (hasWorkingTreeChanges) {
@@ -27,5 +31,9 @@ export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{ h
 
   await ctx.runCommand("git", ["push", "-u", "origin", ctx.workerBranch], ctx.worktreePath);
 
-  return { hasChanges: true };
+  return {
+    hasChanges: true,
+    committedChanges: hasWorkingTreeChanges || hasCommittedChanges,
+    pushedBranch: ctx.workerBranch,
+  };
 }

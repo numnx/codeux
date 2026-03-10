@@ -26,7 +26,7 @@ const basicDescriptors: FieldDescriptor<DashboardSettings>[] = [
     id: "enableDebugLogFile",
     type: "toggle",
     label: "Enable Internal Debug Log File",
-    description: "When enabled, internal server errors are logged to `.jules-subagents/debug.log` without polluting MCP stdout.",
+    description: "When enabled, internal server errors are logged to `.sprint-os/debug.log` without polluting MCP stdout.",
     getValue: (settings) => settings.enableDebugLogFile,
     onToggle: (settings, checked) => ({ ...settings, enableDebugLogFile: checked }),
   },

@@ -1,31 +1,20 @@
 import * as fs from "fs";
-import os from "os";
 import * as path from "path";
 import { DatabaseSync } from "node:sqlite";
+import { getHomeSprintOsPath } from "../shared/config/sprint-os-paths.js";
 
 interface RowResult {
   payload: string;
 }
 
-const SETTINGS_DIR = path.join(os.homedir(), ".jules-subagents");
-const SETTINGS_DB_PATH = path.join(SETTINGS_DIR, "settings.db");
-const LEGACY_SETTINGS_DB_PATH = path.join(os.homedir(), "jules-subagents", "settings.db");
+const SETTINGS_DB_PATH = getHomeSprintOsPath("settings.db");
 
 const resolveSettingsDbPath = (dbPath?: string): string => {
   if (dbPath && dbPath.trim().length > 0) {
     return dbPath;
   }
 
-  fs.mkdirSync(SETTINGS_DIR, { recursive: true });
-
-  if (!fs.existsSync(SETTINGS_DB_PATH) && fs.existsSync(LEGACY_SETTINGS_DB_PATH)) {
-    try {
-      fs.copyFileSync(LEGACY_SETTINGS_DB_PATH, SETTINGS_DB_PATH);
-    } catch {
-      // Continue with clean db if migration copy fails.
-    }
-  }
-
+  fs.mkdirSync(path.dirname(SETTINGS_DB_PATH), { recursive: true });
   return SETTINGS_DB_PATH;
 };
 

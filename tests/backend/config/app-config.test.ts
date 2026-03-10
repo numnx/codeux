@@ -6,7 +6,9 @@ import {
   loadAppConfig, 
   apiKeyLoader, 
   dashboardPortLoader, 
-  parseApiKeyArg 
+  hasHeadlessArg,
+  parseApiKeyArg,
+  parseRuntimeRoleArg,
 } from "../../../src/config/app-config.js";
 
 const originalEnv = { ...process.env };
@@ -18,6 +20,11 @@ beforeEach(async () => {
   delete process.env.DASHBOARD_PORT;
   delete process.env.JULES_API_KEY;
   delete process.env.JULES_KEY;
+  delete process.env.MCP_HTTP_ENABLED;
+  delete process.env.MCP_HTTP_PORT;
+  delete process.env.MCP_HTTP_HOST;
+  delete process.env.MCP_HTTP_PATH;
+  delete process.env.MCP_HTTP_AUTH_TOKEN;
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "jules-app-config-"));
   process.chdir(tempDir);
 });
@@ -48,6 +55,23 @@ describe("parseApiKeyArg", () => {
   });
 });
 
+describe("runtime flags", () => {
+  it("parses worker-host runtime role", () => {
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role", "worker-host"])).toBe("worker_host");
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role=worker_host"])).toBe("worker_host");
+  });
+
+  it("defaults runtime role to project_manager", () => {
+    expect(parseRuntimeRoleArg(["node", "index.js"])).toBe("project_manager");
+  });
+
+  it("detects headless flags", () => {
+    expect(hasHeadlessArg(["node", "index.js", "--headless"])).toBe(true);
+    expect(hasHeadlessArg(["node", "index.js", "--no-dashboard"])).toBe(true);
+    expect(hasHeadlessArg(["node", "index.js"])).toBe(false);
+  });
+});
+
 describe("apiKeyLoader", () => {
   it("uses JULES_API_KEY from env", () => {
     process.env.JULES_API_KEY = "env-key";
@@ -59,8 +83,8 @@ describe("apiKeyLoader", () => {
     expect(apiKeyLoader(tempDir)).toBe("legacy-env-key");
   });
 
-  it("loads from .jules-subagents/settings.json", async () => {
-    const settingsDir = path.join(tempDir, ".jules-subagents");
+  it("loads from .sprint-os/settings.json", async () => {
+    const settingsDir = path.join(tempDir, ".sprint-os");
     await fs.mkdir(settingsDir);
     await fs.writeFile(
       path.join(settingsDir, "settings.json"), 
@@ -71,7 +95,7 @@ describe("apiKeyLoader", () => {
 
   it("prioritizes env over file", async () => {
     process.env.JULES_API_KEY = "env-key";
-    const settingsDir = path.join(tempDir, ".jules-subagents");
+    const settingsDir = path.join(tempDir, ".sprint-os");
     await fs.mkdir(settingsDir);
     await fs.writeFile(
       path.join(settingsDir, "settings.json"), 
@@ -115,6 +139,11 @@ describe("loadAppConfig", () => {
     expect(config.apiKey).toBe("cli-key");
     expect(config.apiKeyArg).toBe("cli-key");
     expect(config.dashboardPort).toBe(4444);
+    expect(config.runtimeRole).toBe("project_manager");
+    expect(config.dashboardEnabled).toBe(true);
+    expect(config.mcpHttpEnabled).toBe(false);
+    expect(config.mcpHttpPort).toBeNull();
+    expect(config.mcpHttpPath).toBe("/mcp");
   });
 
   it("assembles full config from env when CLI arg is missing", () => {
@@ -123,5 +152,65 @@ describe("loadAppConfig", () => {
     const config = loadAppConfig(["node", "index.js"], tempDir);
     expect(config.apiKey).toBe("env-key");
     expect(config.dashboardPort).toBe(8888);
+  });
+
+  it("disables dashboard and local project-manager registration in worker-host mode", () => {
+    const config = loadAppConfig(["node", "index.js", "--runtime-role", "worker-host"], tempDir);
+    expect(config.runtimeRole).toBe("worker_host");
+    expect(config.dashboardEnabled).toBe(false);
+    expect(config.mcpHttpEnabled).toBe(false);
+  });
+
+  it("supports explicit headless project-manager mode", () => {
+    const config = loadAppConfig(["node", "index.js", "--headless"], tempDir);
+    expect(config.runtimeRole).toBe("project_manager");
+    expect(config.dashboardEnabled).toBe(false);
+  });
+
+  it("enables MCP HTTP worker gateway from CLI flags", () => {
+    const config = loadAppConfig([
+      "node",
+      "index.js",
+      "--mcp-http",
+      "--mcp-http-port",
+      "5555",
+      "--mcp-http-host",
+      "127.0.0.1",
+      "--mcp-http-path",
+      "remote-mcp",
+      "--mcp-http-auth-token",
+      "secret-token",
+    ], tempDir);
+
+    expect(config.mcpHttpEnabled).toBe(true);
+    expect(config.mcpHttpPort).toBe(5555);
+    expect(config.mcpHttpHost).toBe("127.0.0.1");
+    expect(config.mcpHttpPath).toBe("/remote-mcp");
+    expect(config.mcpHttpAuthToken).toBe("secret-token");
+  });
+
+  it("enables MCP HTTP worker gateway from env", () => {
+    process.env.MCP_HTTP_ENABLED = "true";
+    process.env.MCP_HTTP_PORT = "7777";
+    process.env.MCP_HTTP_HOST = "localhost";
+    process.env.MCP_HTTP_PATH = "/workers";
+    process.env.MCP_HTTP_AUTH_TOKEN = "env-token";
+
+    const config = loadAppConfig(["node", "index.js"], tempDir);
+    expect(config.mcpHttpEnabled).toBe(true);
+    expect(config.mcpHttpPort).toBe(7777);
+    expect(config.mcpHttpHost).toBe("localhost");
+    expect(config.mcpHttpPath).toBe("/workers");
+    expect(config.mcpHttpAuthToken).toBe("env-token");
+  });
+
+  it("requires MCP HTTP auth token for non-loopback binding", () => {
+    expect(() => loadAppConfig([
+      "node",
+      "index.js",
+      "--mcp-http",
+      "--mcp-http-host",
+      "0.0.0.0",
+    ], tempDir)).toThrow("MCP HTTP auth token is required");
   });
 });

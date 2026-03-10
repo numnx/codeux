@@ -27,11 +27,38 @@ describe("dashboard-lifecycle-service", () => {
       settingsRepository: {
         saveSettings: vi.fn().mockImplementation((s) => s),
       } as any,
+      projectManagementRepository: {
+        getSelectedProjectId: vi.fn().mockReturnValue("project-1"),
+      } as any,
+      projectRuntimeRepository: {
+        getSelectedProjectStatus: vi.fn().mockReturnValue("runtime-status"),
+      } as any,
+      connectionChatRepository: {
+        listConnections: vi.fn().mockReturnValue([]),
+      } as any,
+      executionRepository: {
+        getProjectExecutionSnapshot: vi.fn().mockReturnValue({
+          projectId: "project-1",
+          projectName: "Project 1",
+          sprintRuns: [],
+          taskDispatches: [],
+          connections: [],
+          recentEvents: [],
+          updatedAt: "2026-03-09T00:00:00.000Z",
+        }),
+      } as any,
       activityCacheService: {
         invalidateGitStatusCache: vi.fn(),
       } as any,
       taskRerunService: {
         rerunTask: vi.fn().mockResolvedValue({ id: "123" }),
+      } as any,
+      executionControlService: {
+        orchestrateSprint: vi.fn().mockResolvedValue({ ok: true }),
+        pauseSprintRun: vi.fn().mockResolvedValue({ id: "run-1" }),
+        cancelSprintRun: vi.fn().mockResolvedValue({ id: "run-1" }),
+        cancelTaskDispatch: vi.fn().mockResolvedValue({ id: "dispatch-1" }),
+        retryTaskDispatch: vi.fn().mockResolvedValue({ id: "task-1" }),
       } as any,
       logger: {
         child: vi.fn().mockReturnValue({}),
@@ -59,7 +86,7 @@ describe("dashboard-lifecycle-service", () => {
       });
 
       expect(createLogger).toHaveBeenCalledWith({
-        bindings: { service: "jules-subagents" },
+        bindings: { service: "sprint-os" },
         logFilePath: undefined,
       });
     });
@@ -73,8 +100,8 @@ describe("dashboard-lifecycle-service", () => {
       });
 
       expect(createLogger).toHaveBeenCalledWith({
-        bindings: { service: "jules-subagents" },
-        logFilePath: path.join("/project-root", ".jules-subagents", "debug.log"),
+        bindings: { service: "sprint-os" },
+        logFilePath: path.join("/project-root", ".sprint-os", "debug.log"),
       });
     });
   });
@@ -127,12 +154,64 @@ describe("dashboard-lifecycle-service", () => {
       expect(result).toEqual({ id: "123" });
     });
 
+    it("handles execution control callbacks correctly", async () => {
+      await bootDashboard(mockDeps);
+
+      const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
+
+      await setupArgs.orchestrateSprint!("project-1", "sprint-1");
+      await setupArgs.pauseSprintRun!("run-1");
+      await setupArgs.cancelSprintRun!("run-1");
+      await setupArgs.cancelTaskDispatch!("dispatch-1");
+      await setupArgs.retryTaskDispatch!("dispatch-1");
+
+      expect(mockDeps.executionControlService.orchestrateSprint).toHaveBeenCalledWith("project-1", "sprint-1");
+      expect(mockDeps.executionControlService.pauseSprintRun).toHaveBeenCalledWith("run-1");
+      expect(mockDeps.executionControlService.cancelSprintRun).toHaveBeenCalledWith("run-1");
+      expect(mockDeps.executionControlService.cancelTaskDispatch).toHaveBeenCalledWith("dispatch-1");
+      expect(mockDeps.executionControlService.retryTaskDispatch).toHaveBeenCalledWith("dispatch-1");
+    });
+
     it("handles other callbacks correctly", async () => {
+      mockDeps.connectionChatRepository.listConnections = vi.fn().mockReturnValue([{
+        id: "connection-1",
+        connectionKey: "worker-1",
+        displayName: "Worker 1",
+        role: "worker",
+        transport: "streamable_http",
+        status: "listening",
+        capabilities: {
+          listenMode: true,
+          machineName: "builder-01",
+          platform: "linux",
+          arch: "x64",
+          localExecutionRuntime: "worker_host",
+        },
+        lastHeartbeatAt: "2026-03-09T00:00:00.000Z",
+        createdAt: "2026-03-09T00:00:00.000Z",
+        updatedAt: "2026-03-09T00:00:00.000Z",
+        projectIds: ["project-1"],
+        activeProjectIds: ["project-1"],
+        tasksRunCount: 2,
+        threadCount: 1,
+        messageCount: 3,
+        pendingInboxCount: 0,
+        activeDispatchCount: 1,
+      }]);
+
       await bootDashboard(mockDeps);
       const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
 
       setupArgs.getStatus();
-      expect(mockDeps.runtimeContext.lastStatus).toBe("idle");
+      expect(mockDeps.projectRuntimeRepository.getSelectedProjectStatus).toHaveBeenCalled();
+      expect(setupArgs.getExecutionSnapshot()).toMatchObject({ projectId: "project-1" });
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledWith("project-1");
+      expect(setupArgs.getExecutionSnapshot().connections[0]).toMatchObject({
+        machineName: "builder-01",
+        platform: "linux",
+        arch: "x64",
+        localExecutionRuntime: "worker_host",
+      });
 
       expect(setupArgs.getLiveActivities).toBe(mockDeps.getLiveActivitiesForActiveTasks);
       expect(setupArgs.getGitStatus).toBe(mockDeps.getGitStatus);

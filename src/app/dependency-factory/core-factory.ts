@@ -1,5 +1,4 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import * as path from "path";
 import { AppConfig } from "../../config/app-config.js";
 import { JulesApiClient } from "../../integrations/jules-api-client.js";
 import { GuideRepository } from "../../repositories/guide-repository.js";
@@ -7,12 +6,22 @@ import { SubtaskFileRepository } from "../../infrastructure/repositories/subtask
 import { SettingsRepository } from "../../repositories/settings-repository.js";
 import { InstructionService } from "../../instructions/instruction-template-service.js";
 import { SessionTrackingRepository } from "../../repositories/session-tracking-repository.js";
+import { AppDbStorage } from "../../repositories/app-db-storage.js";
+import { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
+import { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
+import { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
+import { ExecutionRepository } from "../../repositories/execution-repository.js";
+import { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import { ActivitySummaryService } from "../../domain/sessions/activity-summary.js";
 import { JulesSourceResolver } from "../../services/jules-source-resolver.js";
+import { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
+import { ActiveDispatchRegistry } from "../../services/active-dispatch-registry.js";
+import { RuntimeCleanupService } from "../../services/runtime-cleanup-service.js";
 import { DashboardSettings, ExternalSettingsHints } from "../../contracts/app-types.js";
 import { loadExternalSettingsHints } from "../../config/external-settings.js";
 import { createLogger, type Logger } from "../../shared/logging/logger.js";
 import { ServerContext } from "../dependency-factory.js";
+import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config/sprint-os-paths.js";
 
 export interface CoreDependencies {
   logger: Logger;
@@ -25,6 +34,15 @@ export interface CoreDependencies {
   julesSourceResolver: JulesSourceResolver;
   activitySummary: ActivitySummaryService;
   settingsRepository: SettingsRepository;
+  appDbStorage: AppDbStorage;
+  projectManagementRepository: ProjectManagementRepository;
+  projectRuntimeRepository: ProjectRuntimeRepository;
+  connectionChatRepository: ConnectionChatRepository;
+  agentPresetRepository: AgentPresetRepository;
+  executionRepository: ExecutionRepository;
+  sprintMarkdownService: SprintMarkdownService;
+  activeDispatchRegistry: ActiveDispatchRegistry;
+  runtimeCleanupService: RuntimeCleanupService;
   externalSettingsHints: ExternalSettingsHints;
   dashboardSettings: DashboardSettings;
 }
@@ -39,17 +57,17 @@ export function createCoreDependencies(
   context.runtimeContext.dashboardSettings = dashboardSettings;
 
   const logFilePath = dashboardSettings.enableDebugLogFile
-    ? path.join(options.projectRoot, ".jules-subagents", "debug.log")
+    ? getRepoDebugLogPath(options.projectRoot)
     : undefined;
 
   const logger = createLogger({
-    bindings: { service: "jules-subagents" },
+    bindings: { service: SPRINT_OS_SERVICE_NAME },
     logFilePath,
   });
 
   const server = new Server(
     {
-      name: "jules-subagents",
+      name: SPRINT_OS_SERVICE_NAME,
       version: "1.2.0",
     },
     {
@@ -70,6 +88,20 @@ export function createCoreDependencies(
   const subtaskRepository = new SubtaskFileRepository();
   const instructionService = new InstructionService(options.projectRoot);
   const sessionTracking = new SessionTrackingRepository();
+  const appDbStorage = new AppDbStorage();
+  const projectManagementRepository = new ProjectManagementRepository(appDbStorage);
+  const projectRuntimeRepository = new ProjectRuntimeRepository(appDbStorage);
+  const connectionChatRepository = new ConnectionChatRepository(appDbStorage);
+  const agentPresetRepository = new AgentPresetRepository(appDbStorage);
+  const executionRepository = new ExecutionRepository(appDbStorage);
+  const sprintMarkdownService = new SprintMarkdownService(projectManagementRepository);
+  const activeDispatchRegistry = new ActiveDispatchRegistry();
+  const runtimeCleanupService = new RuntimeCleanupService(
+    connectionChatRepository,
+    executionRepository,
+    projectManagementRepository,
+    logger.child({ component: "runtime-cleanup-service" }),
+  );
   const julesSourceResolver = new JulesSourceResolver(julesApi);
   const activitySummary = new ActivitySummaryService();
 
@@ -84,6 +116,15 @@ export function createCoreDependencies(
     julesSourceResolver,
     activitySummary,
     settingsRepository,
+    appDbStorage,
+    projectManagementRepository,
+    projectRuntimeRepository,
+    connectionChatRepository,
+    agentPresetRepository,
+    executionRepository,
+    sprintMarkdownService,
+    activeDispatchRegistry,
+    runtimeCleanupService,
     externalSettingsHints,
     dashboardSettings,
   };

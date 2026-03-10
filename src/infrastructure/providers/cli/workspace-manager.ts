@@ -1,11 +1,11 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import os from "os";
 import { createHash } from "crypto";
 import { sanitizeToken } from "../../../services/cli-workflow-utils.js";
 import { CliWorkflowSettings } from "../../../contracts/app-types.js";
 import { runCommandStrict } from "../../../services/cli-process-runner.js";
 import { extractPathHints } from "../../../services/cli-workflow-text-utils.js";
+import { getHomeSprintOsPath, getRepoSprintOsPath } from "../../../shared/config/sprint-os-paths.js";
 
 export interface IWorkspaceManager {
   buildWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): string;
@@ -20,18 +20,12 @@ export class WorkspaceManager implements IWorkspaceManager {
 
   buildWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): string {
     if (executionMode === "DOCKER") {
-      return path.join(repoPath, ".jules-subagents", "worktrees", sanitizeToken(sessionId));
+      return getRepoSprintOsPath(repoPath, "worktrees", sanitizeToken(sessionId));
     }
     const normalizedRepoPath = path.resolve(repoPath);
     const repoName = sanitizeToken(path.basename(normalizedRepoPath)) || "repo";
     const repoHash = createHash("sha256").update(normalizedRepoPath).digest("hex").slice(0, 12);
-    return path.join(
-      os.homedir(),
-      ".jules-subagents",
-      "worktrees",
-      `${repoName}-${repoHash}`,
-      sanitizeToken(sessionId)
-    );
+    return getHomeSprintOsPath("worktrees", `${repoName}-${repoHash}`, sanitizeToken(sessionId));
   }
 
   async resolveResumeWorktreePath(
@@ -43,14 +37,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     if (await this.pathExists(primary)) {
       return primary;
     }
-    if (executionMode !== "DOCKER") {
-      const legacy = path.join(repoPath, ".jules-subagents", "worktrees", sanitizeToken(sessionId));
-      if (await this.pathExists(legacy)) {
-        return legacy;
-      }
-      return primary;
-    }
-    return undefined;
+    return executionMode !== "DOCKER" ? primary : undefined;
   }
 
   async prepareWorktree(

@@ -1,8 +1,12 @@
 import type { JulesActivity, JulesSession, Subtask } from "../contracts/app-types.js";
+import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface SprintAgentArgs {
-  sprint_number: number;
+  sprint_number?: number;
+  sprint_id?: string;
+  project_id?: string;
   repo_path?: string;
   source_id?: string;
   feature_branch?: string;
@@ -24,5 +28,8 @@ export interface SessionSyncDependencies {
   extractSessionId: (session: Partial<JulesSession>) => string | undefined;
   fetchRecentActivities: (sessionName: string, pageSize?: number) => Promise<JulesActivity[]>;
   isActionRequiredState: (state?: string) => boolean;
+  projectManagementRepository?: ProjectManagementRepository;
+  executionRepository?: ExecutionRepository;
+  sprintRunId?: string;
   logger: Logger;
 }

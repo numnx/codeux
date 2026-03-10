@@ -28,7 +28,7 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
-  private resolveProvider(task: Subtask): ProviderId {
+  selectProviderForTask(task: Subtask): ProviderId {
     const settings = this.deps.getDashboardSettings();
     const chosen = chooseProviderForTask(settings, task);
     if (chosen === "jules" && !this.deps.isJulesApiConfigured()) {
@@ -38,6 +38,17 @@ export class TaskService {
       }
     }
     return chosen;
+  }
+
+  selectCliProviderForTask(task: Subtask): Exclude<ProviderId, "jules"> {
+    const selected = this.selectProviderForTask(task);
+    if (selected !== "jules") {
+      return selected;
+    }
+
+    const settings = this.deps.getDashboardSettings();
+    const fallback = (["gemini", "codex", "claude-code"] as const).find((provider) => settings.aiProvider.providers[provider].enabled);
+    return fallback || "codex";
   }
 
   private async buildPrompt(repoPath: string, sectionTitle: string, taskPrompt: string): Promise<string> {
@@ -62,7 +73,7 @@ export class TaskService {
       is_independent: true,
       status: "PENDING",
     };
-    const provider = this.resolveProvider(pseudoTask);
+    const provider = this.selectProviderForTask(pseudoTask);
 
     if (provider !== "jules") {
       return await this.deps.cliWorkflowService.startTask({
@@ -102,8 +113,16 @@ export class TaskService {
     return session;
   }
 
-  async startSprintTask(task: Subtask, sourceId: string | undefined, baseBranch: string, repoPath: string, sprintNumber: number): Promise<JulesSession> {
-    const provider = this.resolveProvider(task);
+  async startSprintTask(
+    task: Subtask,
+    sourceId: string | undefined,
+    baseBranch: string,
+    repoPath: string,
+    sprintNumber: number,
+    dispatchId?: string,
+    taskRunId?: string,
+  ): Promise<JulesSession> {
+    const provider = this.selectProviderForTask(task);
 
     if (provider !== "jules") {
       const session = await this.deps.cliWorkflowService.startTask({
@@ -112,6 +131,8 @@ export class TaskService {
         repoPath,
         featureBranch: baseBranch,
         sprintNumber,
+        dispatchId,
+        taskRunId,
       });
       session.provider = provider;
       return session;

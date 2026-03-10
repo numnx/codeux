@@ -1,5 +1,3 @@
-import type { Source, Task, Sprint } from '../types.js';
-
 export const mockStats = {
     dailyTokens: 1450000,
     weeklyTokens: 8200000,
@@ -17,7 +15,7 @@ export const mockStats = {
     }
 };
 
-export const mockSources: Source[] = [
+export const mockSources = [
     { id: "src-1", name: "auth-service",     sprintsCount: 2, openTasks: 5,  completedTasks: 12, isRunning: true,  status: "running",      updatedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
     { id: "src-2", name: "payment-gateway",  sprintsCount: 0, openTasks: 0,  completedTasks: 8,  isRunning: false, status: "failed",       updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
     { id: "src-3", name: "user-dashboard",   sprintsCount: 1, openTasks: 3,  completedTasks: 4,  isRunning: true,  status: "intervention", updatedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
@@ -26,14 +24,14 @@ export const mockSources: Source[] = [
     { id: "src-6", name: "data-pipeline",    sprintsCount: 1, openTasks: 2,  completedTasks: 9,  isRunning: false, status: "idle",         updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
 ];
 
-export const mockSprints: Sprint[] = [
+export const mockSprints = [
     { id: "spr-42", name: "Authentication Refactor",  date: "Oct 12 - Oct 26", tasksCount: 24, completion: 100, status: "completed" },
     { id: "spr-43", name: "Dashboard V2 Canvas",      date: "Oct 27 - Nov 10", tasksCount: 38, completion: 65,  status: "running"   },
     { id: "spr-44", name: "Payment Gateway Core",     date: "Nov 11 - Nov 25", tasksCount: 15, completion: 12,  status: "running"   },
     { id: "spr-45", name: "Agentic Orchestration",    date: "Nov 26 - Dec 10", tasksCount: 42, completion: 0,   status: "idle"      },
 ];
 
-export const mockTasks: Task[] = [
+export const mockTasks = [
     // spr-42 — Authentication Refactor (completed)
     { id: 'tsk-001', source: 'auth-service',        sprintId: 'spr-42', sprint: 'Authentication Refactor',  title: 'Migrate OAuth2 to PKCE flow',               status: 'completed',   priority: 'critical', assignee: 'Architect',  time: '3h 45m', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString() },
     { id: 'tsk-002', source: 'auth-service',        sprintId: 'spr-42', sprint: 'Authentication Refactor',  title: 'Add refresh token rotation',                status: 'completed',   priority: 'high',     assignee: 'Debugger',   time: '2h 10m', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 13).toISOString() },
