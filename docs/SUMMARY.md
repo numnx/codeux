@@ -19,6 +19,7 @@
 - [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
 - [Live Connections Runtime Surface](./architecture/live-connections-runtime-surface.md)
 - [Connection And Listener Foundation Reset](./architecture/connection-and-listener-foundation-reset.md)
+- [Streamable HTTP Worker Gateway](./architecture/streamable-http-worker-gateway.md)
 - [MCP Connections And Listen Mode](./architecture/mcp-connections-and-listen-mode.md)
 - [MCP Worker Dispatch Executor](./architecture/mcp-worker-dispatch-executor.md)
 - [External MCP Worker Client](./architecture/external-mcp-worker-client.md)

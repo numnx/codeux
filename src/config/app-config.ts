@@ -12,6 +12,11 @@ export interface AppConfig {
   apiKeyArg: string | null;
   runtimeRole: "project_manager" | "worker_host";
   dashboardEnabled: boolean;
+  mcpHttpEnabled: boolean;
+  mcpHttpHost: string;
+  mcpHttpPort: number | null;
+  mcpHttpPath: string;
+  mcpHttpAuthToken: string | null;
 }
 
 /**
@@ -46,6 +51,41 @@ const parseStringFlag = (argv: string[], flagName: string): string | null => {
   }
 
   return null;
+};
+
+const hasFlag = (argv: string[], flagName: string): boolean => {
+  const args = argv.slice(2);
+  return args.includes(flagName);
+};
+
+const parseBooleanEnv = (value: string | undefined): boolean | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return null;
+};
+
+const normalizePathValue = (value: string | null | undefined, fallback: string): string => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+};
+
+const isLoopbackHost = (host: string): boolean => {
+  const normalized = host.trim().toLowerCase();
+  return normalized === "127.0.0.1"
+    || normalized === "localhost"
+    || normalized === "::1";
 };
 
 export const parseRuntimeRoleArg = (argv: string[]): AppConfig["runtimeRole"] => {
@@ -129,6 +169,44 @@ export const dashboardPortLoader = (projectRoot: string): number => {
   return 4444;
 };
 
+const mcpHttpPortLoader = (argv: string[], projectRoot: string, dashboardPort: number): number | null => {
+  const cliPort = readPort(parseStringFlag(argv, "--mcp-http-port"), -1);
+  if (cliPort !== -1) {
+    return cliPort;
+  }
+
+  const envPort = readPort(process.env.MCP_HTTP_PORT, -1);
+  if (envPort !== -1) {
+    return envPort;
+  }
+
+  const searchPaths = buildCandidatePaths("config.json", projectRoot).filter(
+    (p) => !p.startsWith(path.resolve(os.homedir()))
+  );
+
+  for (const configPath of searchPaths) {
+    try {
+      if (!fs.existsSync(configPath)) continue;
+      const raw = fs.readFileSync(configPath, "utf-8");
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const candidates: unknown[] = [
+        parsed.mcpHttpPort,
+        parsed.MCP_HTTP_PORT,
+        (parsed.mcpHttp as Record<string, unknown> | undefined)?.port,
+      ];
+      for (const candidate of candidates) {
+        const port = readPort(candidate, -1);
+        if (port !== -1) return port;
+      }
+    } catch {
+      // Ignore invalid config file while loading startup config.
+    }
+  }
+
+  const explicitEnable = hasFlag(argv, "--mcp-http") || parseBooleanEnv(process.env.MCP_HTTP_ENABLED) === true;
+  return explicitEnable ? dashboardPort + 1 : null;
+};
+
 /**
  * Loads the complete application configuration.
  */
@@ -139,6 +217,24 @@ export const loadAppConfig = (argv: string[], projectRoot: string): AppConfig =>
   const dashboardPort = dashboardPortLoader(projectRoot);
   const runtimeRole = parseRuntimeRoleArg(argv);
   const dashboardEnabled = runtimeRole === "worker_host" ? false : !hasHeadlessArg(argv);
+  const mcpHttpHost = (parseStringFlag(argv, "--mcp-http-host")?.trim()
+    || process.env.MCP_HTTP_HOST?.trim()
+    || "127.0.0.1");
+  const mcpHttpPort = runtimeRole === "worker_host"
+    ? null
+    : mcpHttpPortLoader(argv, projectRoot, dashboardPort);
+  const mcpHttpEnabled = runtimeRole !== "worker_host" && mcpHttpPort !== null && mcpHttpPort > 0;
+  const mcpHttpPath = normalizePathValue(
+    parseStringFlag(argv, "--mcp-http-path")?.trim() || process.env.MCP_HTTP_PATH?.trim(),
+    "/mcp",
+  );
+  const mcpHttpAuthToken = parseStringFlag(argv, "--mcp-http-auth-token")?.trim()
+    || process.env.MCP_HTTP_AUTH_TOKEN?.trim()
+    || null;
+
+  if (mcpHttpEnabled && !isLoopbackHost(mcpHttpHost) && !mcpHttpAuthToken) {
+    throw new Error("MCP HTTP auth token is required when binding the MCP HTTP server to a non-loopback host.");
+  }
 
   return {
     apiKey,
@@ -147,5 +243,10 @@ export const loadAppConfig = (argv: string[], projectRoot: string): AppConfig =>
     apiKeyArg,
     runtimeRole,
     dashboardEnabled,
+    mcpHttpEnabled,
+    mcpHttpHost,
+    mcpHttpPort,
+    mcpHttpPath,
+    mcpHttpAuthToken,
   };
 };

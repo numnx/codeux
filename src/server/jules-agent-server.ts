@@ -50,8 +50,8 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../repositories/settings-defaults.js
 import { DefaultRuntimeContext, RuntimeContext } from "../app/runtime-context.js";
 import { bootSettings, syncGitSettingsFromDashboard } from "../app/lifecycle/settings-lifecycle-service.js";
 import { bootDashboard } from "../app/lifecycle/dashboard-lifecycle-service.js";
-import { bootMcpTransport } from "../app/lifecycle/mcp-lifecycle-service.js";
-import { getSprintSubtasksDir } from "../shared/config/sprint-os-paths.js";
+import { bootMcpHttpTransport, bootMcpTransport, type McpHttpTransportHandle } from "../app/lifecycle/mcp-lifecycle-service.js";
+import { getSprintSubtasksDir, SPRINT_OS_SERVICE_NAME } from "../shared/config/sprint-os-paths.js";
 import { SprintMarkdownService } from "../services/sprint-markdown-service.js";
 
 export interface JulesAgentServerOptions {
@@ -95,6 +95,7 @@ export class JulesAgentServer {
   private executionControlService: ExecutionControlService;
   private runtimeCleanupService: RuntimeCleanupService;
   private runtimeCleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private mcpHttpHandle: McpHttpTransportHandle | null = null;
   private mcpServiceBound = false;
 
   constructor(options: JulesAgentServerOptions) {
@@ -129,29 +130,55 @@ export class JulesAgentServer {
     this.executionControlService = deps.executionControlService;
     this.runtimeCleanupService = deps.runtimeCleanupService;
 
-    registerMcpRequestHandlers({
-      server: this.server,
-      coreToolHandler: this.coreToolHandler,
-      agentToolHandler: this.agentToolHandler,
-      getDashboardSettings: () => this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
-      getRuntimeRole: () => this.appConfig.runtimeRole,
-      formatError: (error: unknown) => this.formatError(error),
-      logger: this.logger.child({ component: "mcp-request-router" }),
-      withCorrelationContext: (request, operation) => this.runWithMcpCorrelationContext(request, operation),
-    });
-
-    this.server.onerror = (error) => {
-      this.logger.error("MCP server error", { error });
-    };
+    this.configureMcpServer(this.server, this.appConfig.runtimeRole);
 
     process.on("SIGINT", async () => {
       if (this.runtimeCleanupInterval) {
         clearInterval(this.runtimeCleanupInterval);
         this.runtimeCleanupInterval = null;
       }
+      if (this.mcpHttpHandle) {
+        await this.mcpHttpHandle.close().catch(() => undefined);
+        this.mcpHttpHandle = null;
+      }
       await this.server.close();
       process.exit(0);
     });
+  }
+
+  private configureMcpServer(server: Server, runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): void {
+    registerMcpRequestHandlers({
+      server,
+      coreToolHandler: this.coreToolHandler,
+      agentToolHandler: this.agentToolHandler,
+      getDashboardSettings: () => this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
+      getRuntimeRole: () => runtimeRole,
+      formatError: (error: unknown) => this.formatError(error),
+      logger: this.logger.child({ component: "mcp-request-router", runtimeRole }),
+      withCorrelationContext: (request, operation) => this.runWithMcpCorrelationContext(request, operation),
+    });
+
+    server.onerror = (error) => {
+      this.logger.error("MCP server error", { error, runtimeRole });
+    };
+  }
+
+  private createMcpServerInstance(runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): Server {
+    const server = new Server(
+      {
+        name: SPRINT_OS_SERVICE_NAME,
+        version: "1.2.0",
+      },
+      {
+        capabilities: {
+          tools: {},
+          resources: {},
+          prompts: {},
+        },
+      },
+    );
+    this.configureMcpServer(server, runtimeRole);
+    return server;
   }
 
   private startRuntimeCleanupLoop(): void {
@@ -572,6 +599,15 @@ export class JulesAgentServer {
       logger: this.logger,
       isJulesApiConfigured: () => this.isJulesApiConfigured(),
       getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
+    });
+    this.mcpHttpHandle = await bootMcpHttpTransport({
+      enabled: this.appConfig.mcpHttpEnabled,
+      host: this.appConfig.mcpHttpHost,
+      port: this.appConfig.mcpHttpPort,
+      path: this.appConfig.mcpHttpPath,
+      authToken: this.appConfig.mcpHttpAuthToken,
+      logger: this.logger.child({ component: "mcp-http-transport" }),
+      createServer: () => this.createMcpServerInstance("worker_gateway"),
     });
     this.mcpServiceBound = true;
     this.startRuntimeCleanupLoop();

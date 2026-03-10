@@ -6,6 +6,7 @@ describe("tool availability", () => {
   it("filters tools by runtime role", () => {
     const projectManagerTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "project_manager");
     const workerHostTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_host");
+    const workerGatewayTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_gateway");
 
     expect(projectManagerTools.some((tool) => tool.name === "sprint_agent")).toBe(true);
     expect(projectManagerTools.some((tool) => tool.name === "listen")).toBe(true);
@@ -15,12 +16,19 @@ describe("tool availability", () => {
     expect(workerHostTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(true);
     expect(workerHostTools.some((tool) => tool.name === "listen")).toBe(true);
     expect(workerHostTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
+    expect(workerGatewayTools.some((tool) => tool.name === "listen")).toBe(true);
+    expect(workerGatewayTools.some((tool) => tool.name === "update_task_dispatch")).toBe(true);
+    expect(workerGatewayTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(false);
+    expect(workerGatewayTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "project_manager")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "worker_host")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "listen", "project_manager")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "listen", "worker_gateway")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "update_task_dispatch", "worker_gateway")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "start_listen", "project_manager")).toBe(false);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "project_manager")).toBe(false);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "worker_host")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "worker_gateway")).toBe(false);
   });
 
   it("respects disabled tools for listing and dispatch checks", () => {

@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { WorkerTaskDispatchClaim } from "../contracts/execution-types.js";
 import type { JulesSession } from "../contracts/app-types.js";
@@ -68,24 +69,11 @@ export class SprintOsWorker {
 
   async run(signal?: AbortSignal): Promise<void> {
     while (!signal?.aborted) {
-      let transport: StdioClientTransport | null = null;
+      let closeClients: (() => Promise<void>) | null = null;
       try {
-        transport = new StdioClientTransport({
-          command: this.config.serverCommand,
-          args: this.config.serverArgs,
-          cwd: this.config.serverCwd,
-          stderr: "inherit",
-        });
-        const client = new Client({
-          name: "sprint-os-worker",
-          version: "1.2.0",
-        });
-        client.onerror = (error) => {
-          console.error("[sprint-os-worker] MCP client error", error);
-        };
-
-        await client.connect(transport);
-        await this.runListenLoop(client, signal);
+        const clients = await this.connectClients();
+        closeClients = clients.close;
+        await this.runListenLoop(clients.controlPlaneClient, clients.localExecutorClient, signal);
       } catch (error) {
         if (signal?.aborted) {
           break;
@@ -93,36 +81,101 @@ export class SprintOsWorker {
         console.error("[sprint-os-worker] Worker loop error", error);
         await delay(3_000, signal).catch(() => undefined);
       } finally {
-        if (transport) {
-          await transport.close().catch(() => undefined);
+        if (closeClients) {
+          await closeClients().catch(() => undefined);
         }
       }
     }
   }
 
-  private async runListenLoop(client: Client, signal?: AbortSignal): Promise<void> {
+  private async connectClients(): Promise<{
+    controlPlaneClient: Client;
+    localExecutorClient: Client;
+    close: () => Promise<void>;
+  }> {
+    const localTransport = new StdioClientTransport({
+      command: this.config.serverCommand,
+      args: this.config.serverArgs,
+      cwd: this.config.serverCwd,
+      stderr: "inherit",
+    });
+    const localExecutorClient = this.createClient("sprint-os-worker-local-executor");
+    await localExecutorClient.connect(localTransport);
+
+    if (!this.config.controlPlaneUrl) {
+      return {
+        controlPlaneClient: localExecutorClient,
+        localExecutorClient,
+        close: async () => {
+          await localTransport.close().catch(() => undefined);
+        },
+      };
+    }
+
+    const headers: Record<string, string> = {};
+    if (this.config.controlPlaneAuthToken) {
+      headers.Authorization = `Bearer ${this.config.controlPlaneAuthToken}`;
+    }
+
+    const controlPlaneTransport = new StreamableHTTPClientTransport(
+      new URL(this.config.controlPlaneUrl),
+      {
+        requestInit: {
+          headers,
+        },
+      },
+    );
+    const controlPlaneClient = this.createClient("sprint-os-worker-control-plane");
+    await controlPlaneClient.connect(controlPlaneTransport);
+
+    return {
+      controlPlaneClient,
+      localExecutorClient,
+      close: async () => {
+        await Promise.all([
+          controlPlaneTransport.close().catch(() => undefined),
+          localTransport.close().catch(() => undefined),
+        ]);
+      },
+    };
+  }
+
+  private createClient(name: string): Client {
+    const client = new Client({
+      name,
+      version: "1.2.0",
+    });
+    client.onerror = (error) => {
+      console.error("[sprint-os-worker] MCP client error", error);
+    };
+    return client;
+  }
+
+  private async runListenLoop(controlPlaneClient: Client, localExecutorClient: Client, signal?: AbortSignal): Promise<void> {
     while (!signal?.aborted) {
-      const response = await this.callJsonTool<ListenResponse>(client, "listen", {
+      const response = await this.callJsonTool<ListenResponse>(controlPlaneClient, "listen", {
         connection_key: this.config.connectionKey,
         display_name: this.config.displayName,
         role: "worker",
         project_id: this.config.projectId,
-        transport: "stdio",
+        transport: this.config.controlPlaneUrl ? "streamable_http" : "stdio",
         include_task_dispatch: true,
         capabilities: {
-          instruction: "Claims Sprint OS worker dispatches and executes them locally through the worker-host runtime.",
+          instruction: this.config.controlPlaneUrl
+            ? "Claims Sprint OS worker dispatches from the remote control plane and executes them on the local worker host."
+            : "Claims Sprint OS worker dispatches and executes them locally through the worker-host runtime.",
           listenMode: true,
           labels: ["worker"],
         },
       });
 
       if (response.kind === "dashboard_message") {
-        await this.processInboxMessage(client, response);
+        await this.processInboxMessage(controlPlaneClient, localExecutorClient, response);
         continue;
       }
 
       if (response.kind === "task_dispatch") {
-        await this.processDispatch(client, response.dispatch, signal);
+        await this.processDispatch(controlPlaneClient, localExecutorClient, response.dispatch, signal);
         continue;
       }
 
@@ -134,7 +187,8 @@ export class SprintOsWorker {
   }
 
   private async processDispatch(
-    client: Client,
+    controlPlaneClient: Client,
+    localExecutorClient: Client,
     claim: WorkerTaskDispatchClaim,
     signal?: AbortSignal,
   ): Promise<void> {
@@ -142,15 +196,15 @@ export class SprintOsWorker {
     let cancelRequested = false;
 
     try {
-      execution = await this.callJsonTool<ExecuteWorkerDispatchResponse>(client, "execute_worker_dispatch", {
+      execution = await this.callJsonTool<ExecuteWorkerDispatchResponse>(localExecutorClient, "execute_worker_dispatch", {
         dispatch_id: claim.dispatch.id,
       });
 
-      let session = await this.getSession(client, execution.session.id);
+      let session = await this.getSession(localExecutorClient, execution.session.id);
       while (!signal?.aborted) {
         const pullRequest = this.extractPullRequest(session);
         const terminalState = this.resolveTerminalTaskState(session);
-        const update = await this.callJsonTool<UpdateWorkerDispatchResponse>(client, "update_task_dispatch", {
+        const update = await this.callJsonTool<UpdateWorkerDispatchResponse>(controlPlaneClient, "update_task_dispatch", {
           connection_key: this.config.connectionKey,
           dispatch_id: claim.dispatch.id,
           lease_token: claim.leaseToken,
@@ -166,7 +220,7 @@ export class SprintOsWorker {
 
         if (update.controlAction === "cancel" && !cancelRequested) {
           cancelRequested = true;
-          await this.callJsonTool(client, "cancel_local_dispatch", {
+          await this.callJsonTool(localExecutorClient, "cancel_local_dispatch", {
             dispatch_id: claim.dispatch.id,
             reason: "Dashboard requested cancellation for the active worker dispatch.",
           }).catch((error) => {
@@ -179,11 +233,11 @@ export class SprintOsWorker {
         }
 
         await delay(this.config.sessionPollIntervalMs, signal).catch(() => undefined);
-        session = await this.getSession(client, execution.session.id);
+        session = await this.getSession(localExecutorClient, execution.session.id);
       }
     } catch (error) {
       if (!execution) {
-        await this.failDispatch(client, claim, error);
+        await this.failDispatch(controlPlaneClient, claim, error);
         return;
       }
       throw error;
@@ -209,15 +263,19 @@ export class SprintOsWorker {
     });
   }
 
-  private async processInboxMessage(client: Client, event: ListenDashboardMessageEvent): Promise<void> {
+  private async processInboxMessage(
+    controlPlaneClient: Client,
+    localExecutorClient: Client,
+    event: ListenDashboardMessageEvent,
+  ): Promise<void> {
     try {
-      const reply = await this.callJsonTool<GenerateDashboardReplyResponse>(client, "generate_dashboard_reply", {
+      const reply = await this.callJsonTool<GenerateDashboardReplyResponse>(localExecutorClient, "generate_dashboard_reply", {
         project_id: event.message.projectId,
         thread_id: event.message.threadId,
         thread_title: event.message.threadTitle,
         body_markdown: event.message.bodyMarkdown,
       });
-      await this.callJsonTool(client, "post_listen_reply", {
+      await this.callJsonTool(controlPlaneClient, "post_listen_reply", {
         connection_key: this.config.connectionKey,
         thread_id: event.message.threadId,
         body_markdown: reply.bodyMarkdown,

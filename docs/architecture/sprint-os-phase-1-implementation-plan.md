@@ -22,6 +22,8 @@ Markdown remains import/export only.
 
 The connection and listener model also needs a corrective reset before more multi-MCP features land. That plan is defined in [Connection And Listener Foundation Reset](./connection-and-listener-foundation-reset.md).
 
+The first remote-capable transport foundation for workers is now in place through the dedicated Streamable HTTP worker gateway documented in [Streamable HTTP Worker Gateway](./streamable-http-worker-gateway.md).
+
 ## Product Goal
 
 Sprint OS must become a true project operating system, not a dashboard on top of a file-based sprint loop.

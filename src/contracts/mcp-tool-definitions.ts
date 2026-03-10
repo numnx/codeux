@@ -1,4 +1,4 @@
-export type McpRuntimeRole = "project_manager" | "worker_host";
+export type McpRuntimeRole = "project_manager" | "worker_host" | "worker_gateway";
 
 export const TOOL_DEFINITIONS = [
   {
@@ -238,7 +238,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "listen",
-    runtimeRoles: ["project_manager", "worker_host"],
+    runtimeRoles: ["project_manager", "worker_host", "worker_gateway"],
     description: "Enter Sprint OS listening mode. This call blocks until one actionable dashboard message or worker dispatch is available, or until timeout expires.",
     inputSchema: {
       type: "object",
@@ -290,7 +290,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "post_listen_reply",
-    runtimeRoles: ["project_manager", "worker_host"],
+    runtimeRoles: ["project_manager", "worker_host", "worker_gateway"],
     description: "Post a listener reply back to the dashboard conversation thread and mark the message as handled.",
     inputSchema: {
       type: "object",
@@ -319,7 +319,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "update_task_dispatch",
-    runtimeRoles: ["worker_host"],
+    runtimeRoles: ["worker_host", "worker_gateway"],
     description: "Heartbeat, complete, fail, or block a claimed worker task dispatch and persist the result back into Sprint OS.",
     inputSchema: {
       type: "object",

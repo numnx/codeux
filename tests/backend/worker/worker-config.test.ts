@@ -10,6 +10,8 @@ describe("loadWorkerConfig", () => {
     expect(config.serverCommand).toBe(process.execPath);
     expect(config.serverArgs).toContain("--runtime-role");
     expect(config.serverArgs).toContain("worker-host");
+    expect(config.controlPlaneUrl).toBeUndefined();
+    expect(config.controlPlaneAuthToken).toBeUndefined();
   });
 
   it("parses explicit worker flags", () => {
@@ -47,5 +49,22 @@ describe("loadWorkerConfig", () => {
     expect(config.serverCommand).toBe("node");
     expect(config.serverArgs).toEqual(["dist/index.js", "--runtime-role", "worker-host"]);
     expect(config.serverCwd).toBe("/tmp/sprint-os");
+  });
+
+  it("parses remote control-plane flags without changing local executor defaults", () => {
+    const config = loadWorkerConfig([
+      "node",
+      "worker.js",
+      "--server-url",
+      "http://10.0.0.12:5555/mcp",
+      "--auth-token",
+      "remote-secret",
+    ]);
+
+    expect(config.controlPlaneUrl).toBe("http://10.0.0.12:5555/mcp");
+    expect(config.controlPlaneAuthToken).toBe("remote-secret");
+    expect(config.serverCommand).toBe(process.execPath);
+    expect(config.serverArgs).toContain("--runtime-role");
+    expect(config.serverArgs).toContain("worker-host");
   });
 });

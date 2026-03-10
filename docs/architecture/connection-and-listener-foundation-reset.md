@@ -125,6 +125,8 @@ The target transport model is:
 - stdio for local human-driven MCP clients
 - Streamable HTTP MCP for remote long-lived listeners and workers
 
+Sprint OS now has the first implementation of that transport split through the Streamable HTTP worker gateway. The current shipped behavior is documented in [Streamable HTTP Worker Gateway](./streamable-http-worker-gateway.md).
+
 ## Correct Listener Model
 
 ## Core design

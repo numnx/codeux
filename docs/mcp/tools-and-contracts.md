@@ -147,6 +147,7 @@ Unknown tool names raise MCP `MethodNotFound`.
 - `listen` returns exactly one event at a time: a dashboard message, a worker dispatch, or a timeout result with explicit "call listen again" continuation guidance.
 - The default `listen` timeout is derived from dashboard settings `sprintLoopSteps.watchLoopOutputIntervalSeconds` and currently defaults to `300`.
 - Workers may set `include_task_dispatch = true` so the same blocking listener call can also claim and return the next queued worker dispatch.
+- `listen` is exposed on both the normal stdio `project_manager` runtime and the remote Streamable HTTP `worker_gateway` runtime.
 - `start_listen` registers or refreshes an MCP connection in sqlite and returns pending dashboard messages for the active project.
 - `pull_inbox` is the pull-based inbox endpoint for listening MCPs.
 - `post_listen_reply` writes a connection reply back into the project conversation thread and marks the handled dashboard message as processed.
@@ -165,7 +166,8 @@ Unknown tool names raise MCP `MethodNotFound`.
 - `cancel_local_dispatch` is the worker-host side stop hook for active local execution and Jules soft-stop requests.
 - Workers are expected to stop promptly and send a terminal `update_task_dispatch` result to close the dispatch cleanly.
 - Worker execution writes back into the same `task_dispatches`, `task_runs`, and `task_run_events` records used by the rest of Sprint OS.
-- The external `sprint-os-worker` client also polls `pull_inbox` and posts generated replies with `post_listen_reply`, so chat and dispatch execution now share the same worker connection identity.
+- The external `sprint-os-worker` client now uses the same blocking `listen` contract for both inbox and dispatch work.
+- In remote mode, the worker uses Streamable HTTP for the control plane and a local stdio `worker_host` runtime for execution hooks.
 
 ## Stability Expectations
 
@@ -202,11 +204,14 @@ Current roles:
 
 - `project_manager`
 - `worker_host`
+- `worker_gateway`
 
 Behavior:
 
 - normal Sprint OS server processes expose the project-manager/listener tool surface
-- headless worker-host processes expose only the worker-loop tool surface they actually need
-- worker-only tools such as `execute_worker_dispatch`, `cancel_local_dispatch`, `generate_dashboard_reply`, `pull_task_dispatch`, and `update_task_dispatch` are no longer visible on normal human-driven MCP connections
+- headless worker-host processes expose only the worker-local execution tool surface they actually need
+- the Streamable HTTP worker gateway exposes the remote worker control-plane tool surface
+- worker-only tools such as `execute_worker_dispatch`, `cancel_local_dispatch`, and `generate_dashboard_reply` are no longer visible on normal human-driven MCP connections
+- project-manager-only tools such as `sprint_agent` are not exposed on the worker gateway
 
 This keeps Gemini CLI and other regular MCP clients compatible without cluttering them with worker-local controls.

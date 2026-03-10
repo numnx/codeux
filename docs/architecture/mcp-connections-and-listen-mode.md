@@ -20,10 +20,11 @@ It does not yet add:
 - persisted provider activity transcripts in `task_run_events`
 - autonomous looping inside the server process itself
 
-That limitation is now partly removed by the in-repo external worker client:
+That limitation is now partly removed by the in-repo external worker client and worker gateway:
 
 - workers can consume inbox messages on the same connection record
 - workers can generate reply-only dashboard responses locally
+- remote workers can now attach to the main Sprint OS control plane over Streamable HTTP
 
 ## Primary Files
 
@@ -93,6 +94,12 @@ The blocking long-poll `listen` contract is now the preferred listener UX for bo
 
 Workers now use the same listen loop in addition to dispatch polling, so a single connected worker can both answer chat and pick up `mcp_worker` tasks.
 
+Transport notes:
+
+- normal human-driven MCP clients continue to use stdio
+- remote workers can now use the dedicated Streamable HTTP worker gateway on the main Sprint OS server
+- local worker-host stdio still exists for worker-machine execution hooks
+
 ## Current Routing Rules
 
 When a dashboard message is posted:
@@ -125,4 +132,4 @@ What still needs correction:
 
 - the `Agents` product surface must be separated from live connections
 - connection lifecycle is now heartbeat-derived for `stale` and `offline`, but background cleanup and archival still need to follow
-- remote worker transport must stop being local-stdio-only
+- remote worker auth and lifecycle management still need to mature beyond the initial bearer-token gateway
