@@ -103,7 +103,9 @@ Legacy runtime:
 - The organic sprint bubble cells use the same live start/stop control path as the registry list, so the hover play/stop action is now functional instead of decorative
 - Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
+- Tasks and sprints now refresh silently on background realtime invalidation, so opening the Tasks page no longer repeatedly flashes loading state when project metadata or structure updates arrive
 - Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
+- The Tasks board entrance animation now replays only for project/view/filter changes instead of every background task refresh
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface
 - Agents page is DB-backed and manages project-scoped agent presets (`name`, `labels`, `instruction markdown`)
 - Chat page is DB-backed and stores project conversation threads/messages in sqlite

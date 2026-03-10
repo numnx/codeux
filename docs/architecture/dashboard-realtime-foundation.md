@@ -81,6 +81,7 @@ Behavior:
 - websocket updates replace stale wait time for execution and overview telemetry
 - project collection and selected-project context now refresh over websocket too
 - sprint and task pages now react to project-structure invalidation events
+- sprint and task hooks now treat realtime invalidation as silent background refresh, which avoids foreground loading flicker while the browser is already showing current data
 - polling remains as recovery fallback, now on a slower `30s` default cadence for websocket-backed dashboard surfaces
 
 ## Current Backend Integration Points
