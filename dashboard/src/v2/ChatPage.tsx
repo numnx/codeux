@@ -26,6 +26,11 @@ import {
   postConversationMessage,
   updateConversationThread,
 } from "./lib/connection-api.js";
+import {
+  isThreadListLoading,
+  isThreadMessagesLoading,
+  resolveSelectedThreadId,
+} from "./lib/chat-page-state-utils.js";
 import { upsertChatThread } from "./lib/chat-thread-utils.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
@@ -118,6 +123,22 @@ const EmptyChat: FunctionComponent<{ message: string }> = ({ message }) => (
       </div>
       <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">No Chat Thread Yet</h3>
       <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
+    </div>
+  </div>
+);
+
+const LoadingChat: FunctionComponent<{ label: string }> = ({ label }) => (
+  <div className="flex h-full min-h-[360px] items-center justify-center rounded-[1.9rem] border border-dashed border-black/[0.06] bg-white/70 p-8 text-center shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+    <div className="space-y-4">
+      <div className="mx-auto flex items-center justify-center gap-1.5">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500" />
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500 [animation-delay:140ms]" />
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500 [animation-delay:280ms]" />
+      </div>
+      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-signal-500">{label}</div>
+      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Sprint OS is loading the latest stored conversation state.
+      </p>
     </div>
   </div>
 );
@@ -235,6 +256,7 @@ export const ChatPage: FunctionComponent = () => {
   const headerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const selectedThreadIdRef = useRef<string | null>(null);
   const { selectedProject } = useProjectData();
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -243,6 +265,9 @@ export const ChatPage: FunctionComponent = () => {
   const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [loadedThreadId, setLoadedThreadId] = useState<string | null>(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -253,12 +278,19 @@ export const ChatPage: FunctionComponent = () => {
     [threads, selectedThreadId]
   );
 
+  useEffect(() => {
+    selectedThreadIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
   const refreshThreads = useCallback(async (options?: { manual?: boolean }): Promise<void> => {
     if (!selectedProject) {
       setThreads([]);
       setConnections([]);
       setMessages([]);
       setSelectedThreadId(null);
+      setLoadedProjectId(null);
+      setLoadedThreadId(null);
+      setMessagesLoading(false);
       setError(null);
       return;
     }
@@ -275,9 +307,8 @@ export const ChatPage: FunctionComponent = () => {
       ]);
       setThreads(nextThreads);
       setConnections(nextConnections);
-      const nextSelectedId = selectedThreadId && nextThreads.some((thread) => thread.id === selectedThreadId)
-        ? selectedThreadId
-        : nextThreads[0]?.id || null;
+      setLoadedProjectId(selectedProject.id);
+      const nextSelectedId = resolveSelectedThreadId(nextThreads, selectedThreadIdRef.current);
       setSelectedThreadId(nextSelectedId);
       setError(null);
     } catch (fetchError) {
@@ -289,19 +320,29 @@ export const ChatPage: FunctionComponent = () => {
         setLoading(false);
       }
     }
-  }, [selectedProject, selectedThreadId]);
+  }, [selectedProject]);
 
-  const refreshMessages = useCallback(async (threadId: string | null): Promise<void> => {
+  const refreshMessages = useCallback(async (threadId: string | null, options?: { silent?: boolean }): Promise<void> => {
     if (!threadId) {
       setMessages([]);
+      setLoadedThreadId(null);
+      setMessagesLoading(false);
       return;
     }
 
     try {
+      if (!options?.silent) {
+        setMessagesLoading(true);
+      }
       const nextMessages = await fetchConversationMessages(threadId);
       setMessages(nextMessages);
+      setLoadedThreadId(threadId);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+    } finally {
+      if (!options?.silent) {
+        setMessagesLoading(false);
+      }
     }
   }, []);
 
@@ -348,6 +389,7 @@ export const ChatPage: FunctionComponent = () => {
           return;
         }
         setThreads((current) => upsertChatThread(current, thread));
+        setLoadedProjectId(selectedProject.id);
         if (!selectedThreadId) {
           setSelectedThreadId(thread.id);
         }
@@ -373,6 +415,7 @@ export const ChatPage: FunctionComponent = () => {
           return;
         }
         setMessages((current) => upsertMessage(current, realtimeMessage));
+        setLoadedThreadId(realtimeMessage.threadId);
       }
     });
   }, [refreshMessages, selectedProject, selectedThreadId]);
@@ -420,7 +463,7 @@ export const ChatPage: FunctionComponent = () => {
         connectionId: connectionId || null,
       });
       setThreads((current) => current.map((thread) => thread.id === updated.id ? updated : thread));
-      await refreshMessages(updated.id);
+      await refreshMessages(updated.id, { silent: true });
       setError(null);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : String(updateError));
@@ -459,6 +502,8 @@ export const ChatPage: FunctionComponent = () => {
   )).length;
 
   const hasWorkingReply = useMemo(() => messages.some((message) => isWorkingMessage(message, messages)), [messages]);
+  const threadsLoading = isThreadListLoading(selectedProject?.id || null, loadedProjectId, loading);
+  const threadMessagesLoading = isThreadMessagesLoading(selectedThreadId, loadedThreadId, messagesLoading);
 
   const handleDeleteThread = useCallback(async (threadId: string): Promise<void> => {
     const nextSelection = threads.find((thread) => thread.id !== threadId)?.id || null;
@@ -474,7 +519,7 @@ export const ChatPage: FunctionComponent = () => {
     try {
       await deleteConversationThread(threadId);
       if (nextSelection) {
-        await refreshMessages(nextSelection);
+        await refreshMessages(nextSelection, { silent: true });
       }
       setError(null);
     } catch (deleteError) {
@@ -565,7 +610,9 @@ export const ChatPage: FunctionComponent = () => {
               </div>
             </div>
 
-            {threads.length === 0 ? (
+            {threadsLoading ? (
+              <LoadingChat label="Loading threads" />
+            ) : threads.length === 0 ? (
               <EmptyChat message="Create the first project thread or post a message to queue work for an incoming listener." />
             ) : (
               <ThreadList
@@ -610,8 +657,12 @@ export const ChatPage: FunctionComponent = () => {
             </div>
 
             <div ref={messagesRef} className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-              {!selectedThread ? (
+              {threadsLoading ? (
+                <LoadingChat label="Loading conversation" />
+              ) : !selectedThread ? (
                 <EmptyChat message="Select an existing thread or create a new one to start routing dashboard chat through the selected project." />
+              ) : threadMessagesLoading ? (
+                <LoadingChat label="Loading conversation" />
               ) : messages.length === 0 ? (
                 <EmptyChat message="This thread is ready. The next dashboard message will be stored in Sprint OS and queued for a listening MCP connection." />
               ) : (
