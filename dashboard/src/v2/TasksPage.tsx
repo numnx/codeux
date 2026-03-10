@@ -377,7 +377,7 @@ export const TasksPage: FunctionComponent = () => {
         delay: 0.2,
       });
     }
-  }, [selectedSprint, statusFilter, priorityFilter, tasks]);
+  }, [selectedProject?.id, selectedSprint, statusFilter, priorityFilter]);
 
   useEffect(() => {
     if (selectedSprint && !sprints.some((sprint) => sprint.id === selectedSprint)) {
