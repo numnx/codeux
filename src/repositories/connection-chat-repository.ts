@@ -76,6 +76,13 @@ interface InboxRow extends MessageRow {
 const SELECTED_PROJECT_KEY = "selected_project_id";
 const STALE_CONNECTION_THRESHOLD_MS = 10 * 60 * 1000;
 const OFFLINE_CONNECTION_THRESHOLD_MS = 30 * 60 * 1000;
+const PRUNE_CONNECTION_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface ConnectionLifecycleCleanupResult {
+  staleConnectionIds: string[];
+  offlineConnectionIds: string[];
+  prunedConnectionIds: string[];
+}
 
 function toNumber(value: number | string | null | undefined): number {
   if (typeof value === "number") {
@@ -600,6 +607,84 @@ export class ConnectionChatRepository {
     this.requireConnection(connectionId);
     this.touchConnection(connectionId, status);
     return this.requireConnection(connectionId);
+  }
+
+  cleanupConnectionLifecycle(now = new Date()): ConnectionLifecycleCleanupResult {
+    const nowIso = now.toISOString();
+    const staleBeforeIso = new Date(now.getTime() - STALE_CONNECTION_THRESHOLD_MS).toISOString();
+    const offlineBeforeIso = new Date(now.getTime() - OFFLINE_CONNECTION_THRESHOLD_MS).toISOString();
+    const pruneBeforeIso = new Date(now.getTime() - PRUNE_CONNECTION_THRESHOLD_MS).toISOString();
+
+    const staleRows = this.db.prepare(`
+      SELECT id
+      FROM mcp_connections
+      WHERE last_heartbeat_at IS NOT NULL
+        AND last_heartbeat_at <= ?
+        AND last_heartbeat_at > ?
+        AND status NOT IN ('offline', 'stale')
+    `).all(staleBeforeIso, offlineBeforeIso) as Array<{ id: string }>;
+
+    const offlineRows = this.db.prepare(`
+      SELECT id
+      FROM mcp_connections
+      WHERE last_heartbeat_at IS NOT NULL
+        AND last_heartbeat_at <= ?
+        AND status != 'offline'
+    `).all(offlineBeforeIso) as Array<{ id: string }>;
+
+    const prunedRows = this.db.prepare(`
+      SELECT c.id
+      FROM mcp_connections c
+      WHERE c.status = 'offline'
+        AND c.last_heartbeat_at IS NOT NULL
+        AND c.last_heartbeat_at <= ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM task_dispatches td
+          WHERE td.connection_id = c.id
+            AND td.status IN ('claimed', 'running', 'cancel_requested')
+        )
+    `).all(pruneBeforeIso) as Array<{ id: string }>;
+
+    this.runInTransaction(() => {
+      if (staleRows.length > 0) {
+        const statement = this.db.prepare(`
+          UPDATE mcp_connections
+          SET status = 'stale', updated_at = ?
+          WHERE id = ?
+        `);
+        for (const row of staleRows) {
+          statement.run(nowIso, row.id);
+        }
+      }
+
+      if (offlineRows.length > 0) {
+        const statement = this.db.prepare(`
+          UPDATE mcp_connections
+          SET status = 'offline', updated_at = ?
+          WHERE id = ?
+        `);
+        for (const row of offlineRows) {
+          statement.run(nowIso, row.id);
+        }
+      }
+
+      if (prunedRows.length > 0) {
+        const statement = this.db.prepare(`
+          DELETE FROM mcp_connections
+          WHERE id = ?
+        `);
+        for (const row of prunedRows) {
+          statement.run(row.id);
+        }
+      }
+    });
+
+    return {
+      staleConnectionIds: staleRows.map((row) => row.id),
+      offlineConnectionIds: offlineRows.map((row) => row.id),
+      prunedConnectionIds: prunedRows.map((row) => row.id),
+    };
   }
 
   private inflateConnections(rows: ConnectionRow[]): McpConnectionRecord[] {

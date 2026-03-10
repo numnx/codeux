@@ -17,6 +17,7 @@ import type { SettingsRepository } from "../../repositories/settings-repository.
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import type { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
+import type { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
@@ -35,6 +36,7 @@ export interface BootDashboardDeps {
   projectRuntimeRepository: ProjectRuntimeRepository;
   executionRepository: ExecutionRepository;
   connectionChatRepository: ConnectionChatRepository;
+  agentPresetRepository: AgentPresetRepository;
   sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
@@ -100,6 +102,10 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     deleteTask: (taskId) => deps.projectManagementRepository.deleteTask(taskId),
     listConnections: (projectId) => deps.connectionChatRepository.listConnections(projectId),
     updateConnection: (connectionId, input) => deps.connectionChatRepository.updateConnection(connectionId, input),
+    listAgentPresets: (projectId) => deps.agentPresetRepository.listAgentPresets(projectId),
+    createAgentPreset: (projectId, input) => deps.agentPresetRepository.createAgentPreset(projectId, input),
+    updateAgentPreset: (agentPresetId, input) => deps.agentPresetRepository.updateAgentPreset(agentPresetId, input),
+    deleteAgentPreset: (agentPresetId) => deps.agentPresetRepository.deleteAgentPreset(agentPresetId),
     listConversationThreads: (projectId) => deps.connectionChatRepository.listThreads(projectId),
     createConversationThread: (projectId, input) => deps.connectionChatRepository.createThread(projectId, input),
     updateConversationThread: (threadId, input) => deps.connectionChatRepository.updateThread(threadId, input),

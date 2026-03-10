@@ -206,6 +206,17 @@ export class AppDbStorage {
         FOREIGN KEY (author_connection_id) REFERENCES mcp_connections(id) ON DELETE SET NULL
       );
 
+      CREATE TABLE IF NOT EXISTS agent_presets (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        instruction_markdown TEXT NOT NULL DEFAULT '',
+        labels_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS sprint_runs (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,

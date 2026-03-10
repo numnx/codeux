@@ -28,6 +28,7 @@ import { ProjectManagementRepository } from "../repositories/project-management-
 import { ProjectRuntimeRepository } from "../repositories/project-runtime-repository.js";
 import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { InstructionService } from "../instructions/instruction-template-service.js";
@@ -41,6 +42,7 @@ import { registerMcpRequestHandlers } from "./mcp-request-router.js";
 import { TaskRerunService } from "../services/task-rerun-service.js";
 import { ExecutionControlService } from "../services/execution-control-service.js";
 import { JulesSourceResolver } from "../services/jules-source-resolver.js";
+import { RuntimeCleanupService } from "../services/runtime-cleanup-service.js";
 import { createRuntimeDependencies, ServerContext } from "../app/dependency-factory.js";
 import { generateCorrelationId, runWithCorrelationId } from "../shared/logging/correlation-id.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
@@ -61,6 +63,7 @@ export class JulesAgentServer {
   private static readonly DASHBOARD_ACTIVITY_PAGE_SIZE = 20;
   private static readonly LIVE_ACTIVITY_CACHE_MS = 10_000;
   private static readonly GIT_STATUS_CACHE_MS = 10_000;
+  private static readonly RUNTIME_CLEANUP_INTERVAL_MS = 60_000;
   private readonly projectRoot: string;
   private readonly appConfig: AppConfig;
   private server: Server;
@@ -78,6 +81,7 @@ export class JulesAgentServer {
   private projectManagementRepository: ProjectManagementRepository;
   private projectRuntimeRepository: ProjectRuntimeRepository;
   private connectionChatRepository: ConnectionChatRepository;
+  private agentPresetRepository: AgentPresetRepository;
   private executionRepository: ExecutionRepository;
   private sprintMarkdownService: SprintMarkdownService;
   private externalSettingsHints: ExternalSettingsHints;
@@ -89,6 +93,8 @@ export class JulesAgentServer {
   private activityCacheService: ActivityCacheService;
   private taskRerunService: TaskRerunService;
   private executionControlService: ExecutionControlService;
+  private runtimeCleanupService: RuntimeCleanupService;
+  private runtimeCleanupInterval: ReturnType<typeof setInterval> | null = null;
   private mcpServiceBound = false;
 
   constructor(options: JulesAgentServerOptions) {
@@ -109,6 +115,7 @@ export class JulesAgentServer {
     this.projectManagementRepository = deps.projectManagementRepository;
     this.projectRuntimeRepository = deps.projectRuntimeRepository;
     this.connectionChatRepository = deps.connectionChatRepository;
+    this.agentPresetRepository = deps.agentPresetRepository;
     this.executionRepository = deps.executionRepository;
     this.sprintMarkdownService = deps.sprintMarkdownService;
     this.externalSettingsHints = deps.externalSettingsHints;
@@ -120,6 +127,7 @@ export class JulesAgentServer {
     this.activityCacheService = deps.activityCacheService;
     this.taskRerunService = deps.taskRerunService;
     this.executionControlService = deps.executionControlService;
+    this.runtimeCleanupService = deps.runtimeCleanupService;
 
     registerMcpRequestHandlers({
       server: this.server,
@@ -137,9 +145,31 @@ export class JulesAgentServer {
     };
 
     process.on("SIGINT", async () => {
+      if (this.runtimeCleanupInterval) {
+        clearInterval(this.runtimeCleanupInterval);
+        this.runtimeCleanupInterval = null;
+      }
       await this.server.close();
       process.exit(0);
     });
+  }
+
+  private startRuntimeCleanupLoop(): void {
+    if (this.appConfig.runtimeRole !== "project_manager" || this.runtimeCleanupInterval) {
+      return;
+    }
+
+    const runCleanup = (): void => {
+      try {
+        this.runtimeCleanupService.cleanup();
+      } catch (error) {
+        this.logger.error("Runtime cleanup sweep failed", { error });
+      }
+    };
+
+    runCleanup();
+    this.runtimeCleanupInterval = setInterval(runCleanup, JulesAgentServer.RUNTIME_CLEANUP_INTERVAL_MS);
+    this.runtimeCleanupInterval.unref?.();
   }
 
   private createContext(): ServerContext {
@@ -516,6 +546,7 @@ export class JulesAgentServer {
         projectRuntimeRepository: this.projectRuntimeRepository,
         executionRepository: this.executionRepository,
         connectionChatRepository: this.connectionChatRepository,
+        agentPresetRepository: this.agentPresetRepository,
         sprintMarkdownService: this.sprintMarkdownService,
         activityCacheService: this.activityCacheService,
         taskRerunService: this.taskRerunService,
@@ -543,5 +574,6 @@ export class JulesAgentServer {
       getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
     });
     this.mcpServiceBound = true;
+    this.startRuntimeCleanupLoop();
   }
 }

@@ -1,4 +1,9 @@
 import type {
+  AgentPresetRecord,
+  CreateAgentPresetInput,
+  UpdateAgentPresetInput,
+} from "../../../src/contracts/agent-preset-types.js";
+import type {
   ConnectionInboxMessage,
   ConversationMessageRecord,
   ConversationThreadRecord,
@@ -39,6 +44,7 @@ import type {
 export type SourceStatus = ProjectStatus;
 export type Source = ProjectSummary;
 export type AgentConnection = McpConnectionRecord;
+export type AgentPreset = AgentPresetRecord;
 export type ChatThread = ConversationThreadRecord;
 export type ChatMessageRecord = ConversationMessageRecord;
 
@@ -68,7 +74,9 @@ export interface Task {
 }
 
 export type {
+  AgentPresetRecord,
   CreateProjectInput,
+  CreateAgentPresetInput,
   CreateConversationThreadInput,
   CreateDashboardConversationMessageInput,
   CreateSprintInput,
@@ -97,6 +105,7 @@ export type {
   TaskPriority,
   TaskRecord,
   TaskStatus,
+  UpdateAgentPresetInput,
   UpdateMcpConnectionInput,
   UpdateProjectInput,
   UpdateSprintInput,

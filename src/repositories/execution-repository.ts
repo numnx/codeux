@@ -905,6 +905,26 @@ export class ExecutionRepository {
     return row ? this.mapExecutionLeaseRow(row) : null;
   }
 
+  listExpiredLeases(scopeType?: ExecutionLeaseRecord["scopeType"], now = new Date()): ExecutionLeaseRecord[] {
+    const nowIso = now.toISOString();
+    const rows = scopeType
+      ? this.db.prepare(`
+        SELECT *
+        FROM execution_leases
+        WHERE scope_type = ?
+          AND expires_at <= ?
+        ORDER BY expires_at ASC
+      `).all(scopeType, nowIso)
+      : this.db.prepare(`
+        SELECT *
+        FROM execution_leases
+        WHERE expires_at <= ?
+        ORDER BY expires_at ASC
+      `).all(nowIso);
+
+    return (rows as unknown as ExecutionLeaseRow[]).map((row) => this.mapExecutionLeaseRow(row));
+  }
+
   hasActiveTaskDispatches(sprintRunId: string): boolean {
     const row = this.db.prepare(`
       SELECT COUNT(*) AS total

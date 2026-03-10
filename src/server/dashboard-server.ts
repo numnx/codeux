@@ -12,6 +12,11 @@ import type {
   ReadinessProbeStatus,
 } from "../contracts/app-types.js";
 import type {
+  AgentPresetRecord,
+  CreateAgentPresetInput,
+  UpdateAgentPresetInput,
+} from "../contracts/agent-preset-types.js";
+import type {
   ConversationMessageRecord,
   ConversationThreadRecord,
   CreateConversationThreadInput,
@@ -67,6 +72,10 @@ export interface DashboardServerOptions {
   deleteTask: (taskId: string) => void;
   listConnections: (projectId: string) => McpConnectionRecord[];
   updateConnection: (connectionId: string, input: UpdateMcpConnectionInput) => McpConnectionRecord;
+  listAgentPresets: (projectId: string) => AgentPresetRecord[];
+  createAgentPreset: (projectId: string, input: CreateAgentPresetInput) => AgentPresetRecord;
+  updateAgentPreset: (agentPresetId: string, input: UpdateAgentPresetInput) => AgentPresetRecord;
+  deleteAgentPreset: (agentPresetId: string) => void;
   listConversationThreads: (projectId: string) => ConversationThreadRecord[];
   createConversationThread: (projectId: string, input: CreateConversationThreadInput) => ConversationThreadRecord;
   updateConversationThread: (threadId: string, input: UpdateConversationThreadInput) => ConversationThreadRecord;
@@ -353,6 +362,39 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(options.listConnections(String(req.params.projectId || "").trim()));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to list connections") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/agent-presets", (req, res) => {
+    try {
+      res.json(options.listAgentPresets(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to load agent presets") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/agent-presets", (req, res) => {
+    try {
+      res.status(201).json(options.createAgentPreset(String(req.params.projectId || "").trim(), req.body as CreateAgentPresetInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to create agent preset") });
+    }
+  });
+
+  app.patch("/api/agent-presets/:agentPresetId", (req, res) => {
+    try {
+      res.json(options.updateAgentPreset(String(req.params.agentPresetId || "").trim(), req.body as UpdateAgentPresetInput));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update agent preset") });
+    }
+  });
+
+  app.delete("/api/agent-presets/:agentPresetId", (req, res) => {
+    try {
+      options.deleteAgentPreset(String(req.params.agentPresetId || "").trim());
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to delete agent preset") });
     }
   });
 

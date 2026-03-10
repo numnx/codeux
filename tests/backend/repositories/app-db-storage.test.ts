@@ -38,6 +38,7 @@ describe("AppDbStorage", () => {
     expect(storage.hasTable("execution_leases")).toBe(true);
     expect(storage.hasTable("conversation_threads")).toBe(true);
     expect(storage.hasTable("conversation_messages")).toBe(true);
+    expect(storage.hasTable("agent_presets")).toBe(true);
   });
 
   it("uses the explicit dbPath when provided", async () => {

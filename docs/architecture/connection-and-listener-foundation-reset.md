@@ -286,6 +286,13 @@ Sprint OS should run a cleanup pass that:
 
 This prevents zombie workers and zombie listeners from appearing permanently connected in the dashboard.
 
+Current implementation:
+
+- heartbeat age now derives `stale` after 10 minutes and `offline` after 30 minutes
+- the main `project_manager` runtime runs a background cleanup sweep every 60 seconds
+- offline connections older than 7 days are pruned when they do not own active dispatches
+- expired worker dispatch leases are released and their dispatches are moved to `blocked` recovery state
+
 ## Agents Page Correction
 
 The current `Agents` page implementation is not aligned with the product model.
@@ -398,13 +405,20 @@ Current status:
 - heartbeat-derived `stale` and `offline` lifecycle is now implemented in the connection repository read model
 - dashboard thread assignment and reassignment controls are now implemented
 - reassignment now re-queues unprocessed dashboard messages for the new listener
-- background cleanup and archival of long-dead connections is still pending
+- background cleanup now runs on the main runtime and prunes long-dead offline connections
+- expired worker dispatch leases now fall back to `blocked` and reset task planning state for recovery
 
 ### Phase D: correct the product surfaces
 
 1. rebuild `Agents` as preset CRUD only
 2. move runtime connections into a later dedicated live operations surface
 3. keep chat centered on thread routing, not connection editing
+
+Current status:
+
+- `Agents` is now rebuilt as project-scoped preset CRUD
+- live connection data no longer drives the `Agents` page
+- a dedicated live connections surface is still pending
 
 ### Phase E: add remote transport
 

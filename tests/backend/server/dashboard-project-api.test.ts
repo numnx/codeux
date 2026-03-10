@@ -11,6 +11,7 @@ import { ProjectManagementRepository } from "../../../src/repositories/project-m
 import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
 import { ConnectionChatRepository } from "../../../src/repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
+import { AgentPresetRepository } from "../../../src/repositories/agent-preset-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
 
 const serversToClose: Server[] = [];
@@ -55,6 +56,7 @@ async function createServerHandle(): Promise<{
   const repository = new ProjectManagementRepository(storage);
   const runtimeRepository = new ProjectRuntimeRepository(storage);
   const connectionRepository = new ConnectionChatRepository(storage);
+  const agentPresetRepository = new AgentPresetRepository(storage);
   const executionRepository = new ExecutionRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
   const controlCalls = {
@@ -118,6 +120,10 @@ async function createServerHandle(): Promise<{
     deleteTask: (taskId) => repository.deleteTask(taskId),
     listConnections: (projectId) => connectionRepository.listConnections(projectId),
     updateConnection: (connectionId, input) => connectionRepository.updateConnection(connectionId, input),
+    listAgentPresets: (projectId) => agentPresetRepository.listAgentPresets(projectId),
+    createAgentPreset: (projectId, input) => agentPresetRepository.createAgentPreset(projectId, input),
+    updateAgentPreset: (agentPresetId, input) => agentPresetRepository.updateAgentPreset(agentPresetId, input),
+    deleteAgentPreset: (agentPresetId) => agentPresetRepository.deleteAgentPreset(agentPresetId),
     listConversationThreads: (projectId) => connectionRepository.listThreads(projectId),
     createConversationThread: (projectId, input) => connectionRepository.createThread(projectId, input),
     updateConversationThread: (threadId, input) => connectionRepository.updateThread(threadId, input),
@@ -217,6 +223,39 @@ describe("dashboard project management API", () => {
     const taskRecords = await fetch(`${baseUrl}/api/projects/${project.id}/tasks`)
       .then(async (response) => response.json()) as Array<{ executorType: string }>;
     expect(taskRecords[0]?.executorType).toBe("mcp_worker");
+
+    const agentPresetCreateResponse = await fetch(`${baseUrl}/api/projects/${project.id}/agent-presets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Project Manager",
+        instructionMarkdown: "Coordinate the sprint and answer dashboard chat.",
+        labels: ["planning", "communication"],
+      }),
+    });
+    expect(agentPresetCreateResponse.status).toBe(201);
+    const agentPreset = await agentPresetCreateResponse.json() as { id: string; name: string };
+    expect(agentPreset.name).toBe("Project Manager");
+
+    const agentPresetUpdateResponse = await fetch(`${baseUrl}/api/agent-presets/${agentPreset.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Worker",
+        labels: ["execution"],
+      }),
+    });
+    expect(agentPresetUpdateResponse.status).toBe(200);
+    const updatedAgentPreset = await agentPresetUpdateResponse.json() as { name: string; labels: string[] };
+    expect(updatedAgentPreset).toMatchObject({
+      name: "Worker",
+      labels: ["execution"],
+    });
+
+    const listedAgentPresets = await fetch(`${baseUrl}/api/projects/${project.id}/agent-presets`)
+      .then(async (response) => response.json()) as Array<{ id: string; name: string }>;
+    expect(listedAgentPresets).toHaveLength(1);
+    expect(listedAgentPresets[0]?.id).toBe(agentPreset.id);
 
     runtimeRepository.syncDashboardStatus({
       sprint_number: 1,
@@ -319,6 +358,11 @@ describe("dashboard project management API", () => {
     const messages = await fetch(`${baseUrl}/api/conversations/threads/${thread.id}/messages`)
       .then(async (response) => response.json()) as Array<{ bodyMarkdown: string }>;
     expect(messages[0]?.bodyMarkdown).toContain("Route this to the active listener");
+
+    const agentPresetDeleteResponse = await fetch(`${baseUrl}/api/agent-presets/${agentPreset.id}`, {
+      method: "DELETE",
+    });
+    expect(agentPresetDeleteResponse.status).toBe(200);
 
     const exported = await fetch(`${baseUrl}/api/projects/${project.id}/sprints/${sprint.id}/export`)
       .then(async (response) => response.json()) as {

@@ -151,6 +151,60 @@ describe("ConnectionChatRepository", () => {
     expect(connections.find((connection) => connection.id === offline.connection.id)?.status).toBe("offline");
   });
 
+  it("cleans up stale, offline, and long-dead connections", async () => {
+    const { storage, projectRepository, connectionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Cleanup Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cleanup-project",
+    });
+
+    const stale = connectionRepository.startListen({
+      connectionKey: "listener-cleanup-stale",
+      displayName: "Cleanup Stale",
+      role: "listener",
+      projectId: project.id,
+    });
+    const offline = connectionRepository.startListen({
+      connectionKey: "listener-cleanup-offline",
+      displayName: "Cleanup Offline",
+      role: "listener",
+      projectId: project.id,
+    });
+    const prunable = connectionRepository.startListen({
+      connectionKey: "listener-cleanup-prune",
+      displayName: "Cleanup Prune",
+      role: "listener",
+      projectId: project.id,
+    });
+
+    const now = new Date("2026-03-10T12:00:00.000Z");
+    storage.getDatabase().prepare(`
+      UPDATE mcp_connections
+      SET last_heartbeat_at = ?
+      WHERE id = ?
+    `).run(new Date(now.getTime() - 11 * 60 * 1000).toISOString(), stale.connection.id);
+    storage.getDatabase().prepare(`
+      UPDATE mcp_connections
+      SET last_heartbeat_at = ?
+      WHERE id = ?
+    `).run(new Date(now.getTime() - 31 * 60 * 1000).toISOString(), offline.connection.id);
+    storage.getDatabase().prepare(`
+      UPDATE mcp_connections
+      SET status = 'offline', last_heartbeat_at = ?
+      WHERE id = ?
+    `).run(new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(), prunable.connection.id);
+
+    const result = connectionRepository.cleanupConnectionLifecycle(now);
+    expect(result.staleConnectionIds).toContain(stale.connection.id);
+    expect(result.offlineConnectionIds).toContain(offline.connection.id);
+    expect(result.prunedConnectionIds).toContain(prunable.connection.id);
+
+    expect(connectionRepository.getConnection(stale.connection.id)?.status).toBe("stale");
+    expect(connectionRepository.getConnection(offline.connection.id)?.status).toBe("offline");
+    expect(connectionRepository.getConnection(prunable.connection.id)).toBeNull();
+  });
+
   it("reassigns a thread and requeues pending dashboard messages", async () => {
     const { projectRepository, connectionRepository } = await createRepositories();
     const project = projectRepository.createProject({

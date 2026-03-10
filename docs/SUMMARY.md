@@ -16,6 +16,7 @@
 - [Execution Dashboard Controls](./architecture/execution-dashboard-controls.md)
 - [Project Management Implementation](./architecture/project-management-implementation.md)
 - [Project Runtime Integration](./architecture/project-runtime-integration.md)
+- [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
 - [Connection And Listener Foundation Reset](./architecture/connection-and-listener-foundation-reset.md)
 - [MCP Connections And Listen Mode](./architecture/mcp-connections-and-listen-mode.md)
 - [MCP Worker Dispatch Executor](./architecture/mcp-worker-dispatch-executor.md)
