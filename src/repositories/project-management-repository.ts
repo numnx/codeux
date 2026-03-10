@@ -53,6 +53,7 @@ interface SprintRow {
   updated_at: string;
   tasks_count: number | string | null;
   completed_tasks: number | string | null;
+  latest_run_status: string | null;
 }
 
 interface TaskRow {
@@ -282,7 +283,14 @@ export class ProjectManagementRepository {
         s.created_at,
         s.updated_at,
         COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks
+        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
+        (
+          SELECT sr.status
+          FROM sprint_runs sr
+          WHERE sr.sprint_id = s.id
+          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC
+          LIMIT 1
+        ) AS latest_run_status
       FROM sprints s
       LEFT JOIN tasks t ON t.sprint_id = s.id
       WHERE s.project_id = ?
@@ -544,7 +552,14 @@ export class ProjectManagementRepository {
         s.created_at,
         s.updated_at,
         COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks
+        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
+        (
+          SELECT sr.status
+          FROM sprint_runs sr
+          WHERE sr.sprint_id = s.id
+          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC
+          LIMIT 1
+        ) AS latest_run_status
       FROM sprints s
       LEFT JOIN tasks t ON t.sprint_id = s.id
       WHERE s.project_id = ? AND s.number = ?
@@ -587,7 +602,14 @@ export class ProjectManagementRepository {
         s.created_at,
         s.updated_at,
         COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks
+        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
+        (
+          SELECT sr.status
+          FROM sprint_runs sr
+          WHERE sr.sprint_id = s.id
+          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC
+          LIMIT 1
+        ) AS latest_run_status
       FROM sprints s
       LEFT JOIN tasks t ON t.sprint_id = s.id
       WHERE s.id = ?
@@ -690,7 +712,7 @@ export class ProjectManagementRepository {
       slug: row.slug,
       name: row.name,
       goal: row.goal || "",
-      status: row.status,
+      status: mapEffectiveSprintStatus(row.status, row.latest_run_status),
       startDate: row.start_date,
       endDate: row.end_date,
       featureBranch: row.feature_branch,
@@ -830,6 +852,28 @@ export class ProjectManagementRepository {
       this.db.exec("ROLLBACK");
       throw error;
     }
+  }
+}
+
+function mapEffectiveSprintStatus(
+  storedStatus: SprintRecord["status"],
+  latestRunStatus: string | null,
+): SprintRecord["status"] {
+  switch (latestRunStatus) {
+    case "queued":
+    case "running":
+      return "running";
+    case "paused":
+      return "paused";
+    case "cancel_requested":
+    case "cancelled":
+      return "cancelled";
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    default:
+      return storedStatus;
   }
 }
 

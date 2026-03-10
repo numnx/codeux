@@ -219,8 +219,10 @@ export const SprintsPage: FunctionComponent = () => {
                                             </span>
                                             <span className={`w-2 h-2 rounded-full ${
                                                 sprint.status === "running" ? "bg-status-green" :
+                                                sprint.status === "paused" ? "bg-status-amber" :
                                                 sprint.status === "completed" ? "bg-signal-500" :
                                                 sprint.status === "failed" ? "bg-status-red" :
+                                                sprint.status === "cancelled" ? "bg-slate-400" :
                                                 "bg-slate-400"
                                             }`} />
                                         </div>

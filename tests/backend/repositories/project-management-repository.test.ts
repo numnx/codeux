@@ -4,20 +4,23 @@ import * as os from "os";
 import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
 
 const tempDirs: string[] = [];
 
 async function createRepository(): Promise<{
   repository: ProjectManagementRepository;
+  executionRepository: ExecutionRepository;
   markdownService: SprintMarkdownService;
 }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-project-repo-"));
   tempDirs.push(dir);
   const storage = new AppDbStorage(path.join(dir, "app.db"));
   const repository = new ProjectManagementRepository(storage);
+  const executionRepository = new ExecutionRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
-  return { repository, markdownService };
+  return { repository, executionRepository, markdownService };
 }
 
 afterEach(async () => {
@@ -142,5 +145,38 @@ describe("ProjectManagementRepository", () => {
     expect(tasks[1].dependsOnTaskIds).toEqual([tasks[0].id]);
     expect(exported.sprint.markdown).toContain("name: Import Sprint");
     expect(exported.tasks[1].markdown).toContain('depends_on: ["T01"]');
+  });
+
+  it("derives sprint summary status from the latest sprint run", async () => {
+    const { repository, executionRepository } = await createRepository();
+
+    const project = repository.createProject({
+      name: "Runtime Status Project",
+      sourceType: "local",
+      sourceRef: "/workspace/runtime-status-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Runtime Status Sprint",
+      number: 1,
+      status: "running",
+    });
+
+    executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+    executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "cancelled",
+    });
+
+    expect(repository.getSprint(sprint.id)).toMatchObject({
+      status: "cancelled",
+    });
+    expect(repository.listSprints(project.id)[0]).toMatchObject({
+      status: "cancelled",
+    });
   });
 });

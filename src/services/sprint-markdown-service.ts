@@ -175,7 +175,14 @@ function normalizeImportedTaskStatus(status: string | undefined): "pending" | "i
 }
 
 function normalizeSprintStatus(value: string | undefined): SprintRecord["status"] | undefined {
-  if (value === "running" || value === "completed" || value === "failed" || value === "idle") {
+  if (
+    value === "running"
+    || value === "paused"
+    || value === "completed"
+    || value === "failed"
+    || value === "cancelled"
+    || value === "idle"
+  ) {
     return value;
   }
   return undefined;

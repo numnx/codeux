@@ -252,7 +252,10 @@ const SprintSelector: FunctionComponent<{
               >
                 <div className={`w-2 h-2 rounded-full shrink-0 ${
                   sprint.status === "running" ? "bg-status-green shadow-[0_0_8px_rgba(0,171,132,0.6)] animate-pulse" :
+                  sprint.status === "paused" ? "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.45)]" :
                   sprint.status === "completed" ? "bg-signal-500" :
+                  sprint.status === "failed" ? "bg-status-red" :
+                  sprint.status === "cancelled" ? "bg-slate-400 dark:bg-slate-500" :
                   "bg-slate-400 dark:bg-slate-600"
                 }`} />
                 <div className="flex-1 min-w-0">
