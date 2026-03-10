@@ -154,6 +154,8 @@ export class CycleRunner {
             status: task.status === "COMPLETED" ? "completed" : undefined,
           });
         },
+        executionRepository: this.deps.executionRepository,
+        sprintRunId: args.sprintRunId,
       });
       subtasks = ciAutofixResult.subtasks;
       reportText += ciAutofixResult.reportText;

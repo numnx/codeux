@@ -1,6 +1,6 @@
 import type { PipelineContext } from "./pipeline-context.js";
 
-export async function executePrFinalizeStage(ctx: PipelineContext): Promise<void> {
+export async function executePrFinalizeStage(ctx: PipelineContext): Promise<{ prUrl?: string }> {
   let prUrl: string | undefined;
 
   if (ctx.settings.git.autoCreatePr) {
@@ -24,4 +24,5 @@ export async function executePrFinalizeStage(ctx: PipelineContext): Promise<void
   });
 
   ctx.workflowSucceeded = true;
+  return { prUrl };
 }

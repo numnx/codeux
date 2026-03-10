@@ -103,6 +103,7 @@ Legacy runtime:
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
 - Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
 - Task cards now open a DB-backed runtime feed sourced from `task_run_events`
+- The runtime feed now includes direct CLI stage events and CI/merge-gate state changes in addition to provider session activity
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel

@@ -129,6 +129,30 @@ const getExecutionEventText = (event: ExecutionTaskRunEventSummary): string => {
             return String(payload.preview || payload.description || "Provider activity");
         case "dispatch_failed":
             return String(payload.error || "Dispatch failed");
+        case "cli_prepare_started":
+            return `Preparing ${String(payload.workerBranch || "workspace")}`;
+        case "cli_prepare_completed":
+            return `Workspace ready ${String(payload.worktreePath || "")}`.trim();
+        case "cli_provider_started":
+            return `Running ${String(payload.provider || event.provider || "provider")} in workspace`;
+        case "cli_provider_completed":
+            return `${String(payload.provider || event.provider || "provider")} stage completed`;
+        case "cli_git_no_changes":
+            return "No file changes produced";
+        case "cli_git_pushed":
+            return `Pushed ${String(payload.pushedBranch || event.workerBranch || "worker branch")} to origin`;
+        case "cli_pr_finalized":
+            return payload.prUrl ? `Feature PR ready ${String(payload.prUrl)}` : "Workflow completed without PR";
+        case "cli_workflow_completed":
+            return payload.outcome === "no_changes" ? "Workflow completed with no changes" : "Workflow completed";
+        case "cli_workflow_failed":
+            return String(payload.errorMessage || "CLI workflow failed");
+        case "cli_worktree_cleaned":
+            return `Removed worktree ${String(payload.worktreePath || "")}`.trim();
+        case "cli_worktree_preserved":
+            return `Preserved worktree ${String(payload.worktreePath || "")}`.trim();
+        case "ci_gate_status":
+            return `CI gate ${String(payload.state || "updated").replace(/_/g, " ")}`;
         default:
             return event.eventType.replace(/_/g, " ");
     }

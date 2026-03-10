@@ -28,6 +28,18 @@ Primary event types now written into `task_run_events`:
 - `run_blocked`
 - `session_state_synced`
 - `provider_activity`
+- `cli_prepare_started`
+- `cli_prepare_completed`
+- `cli_provider_started`
+- `cli_provider_completed`
+- `cli_git_no_changes`
+- `cli_git_pushed`
+- `cli_pr_finalized`
+- `cli_workflow_completed`
+- `cli_workflow_failed`
+- `cli_worktree_cleaned`
+- `cli_worktree_preserved`
+- `ci_gate_status`
 - existing `status_sync` projection events from selected-project runtime sync
 
 Each event stores:
@@ -62,6 +74,35 @@ It now also:
 4. writes durable `session_state_synced` and `provider_activity` events
 
 This keeps provider-backed execution on the same runtime contract as worker-backed execution.
+
+## Direct CLI Runtime Events
+
+Docker/CLI-backed execution no longer waits for a later poll to become visible in the runtime timeline.
+
+`CliWorkflowService` now writes stage and outcome events directly against the active `task_run`:
+
+- prepare stage start/complete
+- provider stage start/complete
+- git finalize outcome
+- PR finalize outcome
+- workflow success/failure
+- worktree cleanup or preservation
+
+It also updates the current `task_run` and `task_dispatch` state immediately on terminal success or failure so the execution snapshot reflects the pipeline outcome before the next session-sync pass.
+
+## CI Gate Events
+
+`FeaturePrGateService` now writes `ci_gate_status` events into the current sprint run timeline.
+
+These events cover:
+
+- waiting for a feature PR
+- waiting on checks or reviews
+- blocked after exhausted CI autofix attempts
+- ready for merge
+- automerge success or failure
+
+This means merge gating is now part of the same DB-native runtime history as dispatch, worker execution, and provider activity.
 
 ## Dashboard Projection
 

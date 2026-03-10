@@ -434,6 +434,21 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
+  getLatestTaskRunBySessionId(sessionId: string): TaskRunRecord | null {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) {
+      return null;
+    }
+    const row = this.db.prepare(`
+      SELECT *
+      FROM task_runs
+      WHERE session_id = ?
+      ORDER BY rowid DESC
+      LIMIT 1
+    `).get(normalizedSessionId) as TaskRunRow | undefined;
+    return row ? this.mapTaskRunRow(row) : null;
+  }
+
   getTaskDispatch(dispatchId: string): TaskDispatchRecord | null {
     const row = this.db.prepare(`
       SELECT *

@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
+import type { UpdateTaskDispatchInput, UpdateTaskRunInput } from "../contracts/execution-types.js";
+import { ExecutionRepository } from "../repositories/execution-repository.js";
 import { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import { runCommandStrict, type CommandResult } from "./cli-process-runner.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
@@ -28,6 +30,7 @@ import { executeCleanupStage } from "./cli-workflow/pipeline/cleanup-stage.js";
 
 interface CliWorkflowServiceDependencies {
   sessionTracking: SessionTrackingRepository;
+  executionRepository?: ExecutionRepository;
   getDashboardSettings: () => DashboardSettings;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   getGithubToken: () => string | undefined;
@@ -40,6 +43,7 @@ interface StartCliTaskInput {
   repoPath: string;
   featureBranch: string;
   sprintNumber: number;
+  taskRunId?: string;
 }
 
 export class CliWorkflowService {
@@ -105,6 +109,7 @@ export class CliWorkflowService {
     void this.runTaskWorkflow({
       ...input,
       sessionId,
+      taskRunId: input.taskRunId,
       workerBranch,
       title,
       resumeFromFailedSessionId: resumeTarget?.sessionId,
@@ -116,6 +121,7 @@ export class CliWorkflowService {
 
   private async runTaskWorkflow(args: StartCliTaskInput & {
     sessionId: string;
+    taskRunId?: string;
     workerBranch: string;
     title: string;
     resumeFromFailedSessionId?: string;
@@ -142,17 +148,73 @@ export class CliWorkflowService {
     };
 
     try {
+      this.appendExecutionEvent(args, "cli_prepare_started", {
+        provider: args.provider,
+        workerBranch: args.workerBranch,
+        featureBranch: args.featureBranch,
+      }, "cli:prepare:started");
       const { providerPrompt } = await executePrepareStage(ctx, args.resumeFromFailedSessionId);
+      this.appendExecutionEvent(args, "cli_prepare_completed", {
+        provider: args.provider,
+        worktreePath: ctx.worktreePath,
+        resumedFromFailedSessionId: args.resumeFromFailedSessionId || null,
+      }, `cli:prepare:completed:${ctx.worktreePath}`);
       
+      this.appendExecutionEvent(args, "cli_provider_started", {
+        provider: args.provider,
+        worktreePath: ctx.worktreePath,
+      }, `cli:provider:started:${ctx.worktreePath}`);
       await executeProviderStage(ctx, providerPrompt);
+      this.appendExecutionEvent(args, "cli_provider_completed", {
+        provider: args.provider,
+        worktreePath: ctx.worktreePath,
+      }, `cli:provider:completed:${ctx.worktreePath}`);
       
-      const { hasChanges } = await executeGitFinalizeStage(ctx);
+      const { hasChanges, committedChanges, pushedBranch } = await executeGitFinalizeStage(ctx);
 
       if (!hasChanges) {
+        const finishedAt = new Date().toISOString();
+        this.appendExecutionEvent(args, "cli_git_no_changes", {
+          provider: args.provider,
+          worktreePath: ctx.worktreePath,
+        }, `cli:git:no-changes:${ctx.worktreePath}`);
+        this.updateExecutionState(args, {
+          state: "COMPLETED",
+          finishedAt,
+          dispatchStatus: "completed",
+        });
+        this.appendExecutionEvent(args, "cli_workflow_completed", {
+          provider: args.provider,
+          outcome: "no_changes",
+        }, "cli:workflow:completed:no-changes");
         return;
       }
+
+      this.appendExecutionEvent(args, "cli_git_pushed", {
+        provider: args.provider,
+        committedChanges,
+        pushedBranch: pushedBranch || args.workerBranch,
+      }, `cli:git:pushed:${pushedBranch || args.workerBranch}`);
       
-      await executePrFinalizeStage(ctx);
+      const { prUrl } = await executePrFinalizeStage(ctx);
+      const finishedAt = new Date().toISOString();
+      this.updateExecutionState(args, {
+        state: "COMPLETED",
+        finishedAt,
+        prUrl,
+        workerBranch: args.workerBranch,
+        dispatchStatus: "completed",
+      });
+      this.appendExecutionEvent(args, "cli_pr_finalized", {
+        provider: args.provider,
+        prUrl: prUrl || null,
+        workerBranch: args.workerBranch,
+      }, `cli:pr:${prUrl || "none"}`);
+      this.appendExecutionEvent(args, "cli_workflow_completed", {
+        provider: args.provider,
+        outcome: "pushed",
+        prUrl: prUrl || null,
+      }, `cli:workflow:completed:${prUrl || "none"}`);
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -161,13 +223,28 @@ export class CliWorkflowService {
         originator: "system",
         description: `Workflow failed: ${message}`,
       });
+      const finishedAt = new Date().toISOString();
+      this.updateExecutionState(args, {
+        state: "FAILED",
+        finishedAt,
+        dispatchStatus: "failed",
+        errorMessage: message,
+      });
+      this.appendExecutionEvent(args, "cli_workflow_failed", {
+        provider: args.provider,
+        errorMessage: message,
+      });
       this.deps.logger?.error("CLI workflow failed", {
         sessionId: args.sessionId,
         provider: args.provider,
         message,
       });
     } finally {
-      await executeCleanupStage(ctx);
+      const cleanupResult = await executeCleanupStage(ctx);
+      this.appendExecutionEvent(args, cleanupResult.cleanedUp ? "cli_worktree_cleaned" : "cli_worktree_preserved", {
+        provider: args.provider,
+        worktreePath: ctx.worktreePath,
+      }, `cli:cleanup:${cleanupResult.cleanedUp ? "cleaned" : "preserved"}:${ctx.worktreePath}`);
     }
   }
 
@@ -179,6 +256,66 @@ export class CliWorkflowService {
 
   private async runCommand(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = process.env): Promise<CommandResult> {
     return await runCommandStrict(command, args, cwd, env);
+  }
+
+  private appendExecutionEvent(
+    args: { taskRunId?: string; sessionId: string },
+    eventType: string,
+    payload: Record<string, unknown>,
+    sourceEventKey?: string,
+  ): void {
+    const taskRun = this.resolveTaskRun(args);
+    if (!taskRun) {
+      return;
+    }
+
+    this.deps.executionRepository?.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
+      sourceEventKey,
+    });
+  }
+
+  private updateExecutionState(
+    args: { taskRunId?: string; sessionId: string; workerBranch: string },
+    input: {
+      state: "COMPLETED" | "FAILED";
+      finishedAt: string;
+      prUrl?: string;
+      workerBranch?: string;
+      dispatchStatus: NonNullable<UpdateTaskDispatchInput["status"]>;
+      errorMessage?: string;
+    },
+  ): void {
+    const taskRun = this.resolveTaskRun(args);
+    if (!taskRun || !this.deps.executionRepository) {
+      return;
+    }
+
+    const taskRunUpdate: UpdateTaskRunInput = {
+      state: input.state,
+      finishedAt: input.finishedAt,
+      durationMs: taskRun.startedAt
+        ? Math.max(0, new Date(input.finishedAt).getTime() - new Date(taskRun.startedAt).getTime())
+        : null,
+      prUrl: input.prUrl === undefined ? taskRun.prUrl : input.prUrl,
+      workerBranch: input.workerBranch === undefined ? taskRun.workerBranch || args.workerBranch : input.workerBranch,
+    };
+    this.deps.executionRepository.updateTaskRun(taskRun.id, taskRunUpdate);
+
+    if (taskRun.dispatchId) {
+      this.deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
+        status: input.dispatchStatus,
+        finishedAt: input.finishedAt,
+        lastHeartbeatAt: input.finishedAt,
+        errorMessage: input.errorMessage ?? null,
+      });
+    }
+  }
+
+  private resolveTaskRun(args: { taskRunId?: string; sessionId: string }) {
+    if (args.taskRunId) {
+      return this.deps.executionRepository?.getTaskRun(args.taskRunId) || null;
+    }
+    return this.deps.executionRepository?.getLatestTaskRunBySessionId(args.sessionId) || null;
   }
 
   // Restored for tests

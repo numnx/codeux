@@ -70,6 +70,13 @@ Each event includes:
 - connection metadata when a worker is involved
 - parsed event payload
 
+Current event coverage includes:
+
+- dispatch and worker lifecycle
+- provider session sync and provider activity
+- direct CLI workflow stage transitions
+- CI and merge-gate status changes
+
 ## Repository Source
 
 Projection is built in:

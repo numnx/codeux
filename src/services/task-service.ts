@@ -113,7 +113,14 @@ export class TaskService {
     return session;
   }
 
-  async startSprintTask(task: Subtask, sourceId: string | undefined, baseBranch: string, repoPath: string, sprintNumber: number): Promise<JulesSession> {
+  async startSprintTask(
+    task: Subtask,
+    sourceId: string | undefined,
+    baseBranch: string,
+    repoPath: string,
+    sprintNumber: number,
+    taskRunId?: string,
+  ): Promise<JulesSession> {
     const provider = this.selectProviderForTask(task);
 
     if (provider !== "jules") {
@@ -123,6 +130,7 @@ export class TaskService {
         repoPath,
         featureBranch: baseBranch,
         sprintNumber,
+        taskRunId,
       });
       session.provider = provider;
       return session;

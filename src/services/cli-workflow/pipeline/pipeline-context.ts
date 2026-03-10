@@ -2,12 +2,14 @@ import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask } from
 import type { IWorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
 import type { IPrService } from "../../../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../../../infrastructure/providers/cli/provider-runner.js";
+import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 import type { SessionTrackingRepository } from "../../../repositories/session-tracking-repository.js";
 import type { Logger } from "../../../shared/logging/logger.js";
 import type { CommandResult } from "../../cli-process-runner.js";
 
 export interface PipelineContextDeps {
   sessionTracking: SessionTrackingRepository;
+  executionRepository?: ExecutionRepository;
   getDashboardSettings: () => DashboardSettings;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
   getGithubToken: () => string | undefined;
@@ -16,6 +18,7 @@ export interface PipelineContextDeps {
 
 export interface PipelineContext {
   sessionId: string;
+  taskRunId?: string;
   workerBranch: string;
   featureBranch: string;
   task: Subtask;

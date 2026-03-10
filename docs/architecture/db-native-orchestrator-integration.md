@@ -18,6 +18,7 @@ It now:
 - routes dashboard task reruns through the same dispatch service
 - exposes execution control-plane state through a dedicated dashboard projection
 - persists provider session state and activity into `task_run_events`
+- persists direct CLI pipeline stage events and CI-gate state changes into `task_run_events`
 
 It does not yet:
 - remove all legacy wording from every instruction template
@@ -153,4 +154,4 @@ The execution model is now DB-native at the entry, load, dispatch, and merge-per
 
 Still pending:
 - CI/protocol wording should stop referencing any subtask-file semantics
-- broader executor transcript coverage beyond current session-sync and worker lifecycle events
+- broader executor transcript coverage beyond current session-sync, CLI stage, worker lifecycle, and CI gate events
