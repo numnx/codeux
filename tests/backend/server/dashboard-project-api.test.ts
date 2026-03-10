@@ -13,9 +13,35 @@ import { ConnectionChatRepository } from "../../../src/repositories/connection-c
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { AgentPresetRepository } from "../../../src/repositories/agent-preset-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
+import type { McpConnectionRecord } from "../../../src/contracts/connection-chat-types.js";
 
 const serversToClose: Server[] = [];
 const tempDirs: string[] = [];
+
+const mapExecutionConnections = (connections: McpConnectionRecord[]) => (
+  connections.map((connection) => ({
+    id: connection.id,
+    connectionKey: connection.connectionKey,
+    displayName: connection.displayName,
+    role: connection.role,
+    transport: connection.transport,
+    status: connection.status,
+    model: typeof connection.capabilities.model === "string" ? connection.capabilities.model : null,
+    instruction: typeof connection.capabilities.instruction === "string" ? connection.capabilities.instruction : null,
+    labels: Array.isArray(connection.capabilities.labels)
+      ? connection.capabilities.labels.map((label) => String(label || "").trim()).filter(Boolean)
+      : [],
+    listenMode: connection.capabilities.listenMode === true,
+    lastHeartbeatAt: connection.lastHeartbeatAt,
+    projectIds: connection.projectIds,
+    activeProjectIds: connection.activeProjectIds,
+    tasksRunCount: connection.tasksRunCount,
+    threadCount: connection.threadCount,
+    messageCount: connection.messageCount,
+    pendingInboxCount: connection.pendingInboxCount,
+    activeDispatchCount: connection.activeDispatchCount,
+  }))
+);
 
 const closeServer = async (server: Server): Promise<void> => {
   await new Promise<void>((resolve, reject) => {
@@ -77,10 +103,16 @@ async function createServerHandle(): Promise<{
     getExecutionSnapshot: () => {
       const selectedProjectId = repository.getSelectedProjectId();
       return selectedProjectId
-        ? executionRepository.getProjectExecutionSnapshot(selectedProjectId)
-        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], recentEvents: [], updatedAt: null };
+        ? {
+          ...executionRepository.getProjectExecutionSnapshot(selectedProjectId),
+          connections: mapExecutionConnections(connectionRepository.listConnections(selectedProjectId)),
+        }
+        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], recentEvents: [], updatedAt: null };
     },
-    getProjectExecutionSnapshot: (projectId) => executionRepository.getProjectExecutionSnapshot(projectId),
+    getProjectExecutionSnapshot: (projectId) => ({
+      ...executionRepository.getProjectExecutionSnapshot(projectId),
+      connections: mapExecutionConnections(connectionRepository.listConnections(projectId)),
+    }),
     getLiveActivities: async () => ({}),
     getGitStatus: async () => ({
       mode: "LOCAL",
@@ -298,11 +330,13 @@ describe("dashboard project management API", () => {
       projectId: string | null;
       sprintRuns: Array<{ sprintId: string; status: string }>;
       taskDispatches: Array<{ taskId: string; executorType: string }>;
+      connections: Array<{ id: string; displayName: string; status: string; listenMode: boolean }>;
       recentEvents: Array<unknown>;
     };
     expect(executionSnapshot.projectId).toBe(project.id);
     expect(executionSnapshot.sprintRuns).toEqual([]);
     expect(executionSnapshot.taskDispatches).toEqual([]);
+    expect(executionSnapshot.connections).toEqual([]);
     expect(executionSnapshot.recentEvents[0]).toMatchObject({
       eventType: "status_sync",
       taskKey: "T01",
@@ -354,6 +388,18 @@ describe("dashboard project management API", () => {
     expect(assignThreadResponse.status).toBe(200);
     const updatedThread = await assignThreadResponse.json() as { connectionId: string | null };
     expect(updatedThread.connectionId).toBe(listener.connection.id);
+
+    const executionSnapshotWithConnection = await fetch(`${baseUrl}/api/execution`)
+      .then(async (response) => response.json()) as {
+        connections: Array<{ id: string; displayName: string; status: string; listenMode: boolean; pendingInboxCount: number }>;
+      };
+    expect(executionSnapshotWithConnection.connections[0]).toMatchObject({
+      id: listener.connection.id,
+      displayName: "Listener API",
+      status: "listening",
+      listenMode: true,
+      pendingInboxCount: 0,
+    });
 
     const messages = await fetch(`${baseUrl}/api/conversations/threads/${thread.id}/messages`)
       .then(async (response) => response.json()) as Array<{ bodyMarkdown: string }>;

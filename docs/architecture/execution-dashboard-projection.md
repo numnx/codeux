@@ -10,6 +10,7 @@ Sprint OS now projects execution state directly from sqlite into a dedicated das
 
 - sprint runs
 - task dispatch queue state
+- live MCP connections for the selected project
 - worker assignment
 - active lease ownership
 - recent task-run events
@@ -34,6 +35,7 @@ The payload includes:
 - `updatedAt`
 - `sprintRuns`
 - `taskDispatches`
+- `connections`
 - `recentEvents`
 
 ### `sprintRuns`
@@ -70,6 +72,16 @@ Each event includes:
 - connection metadata when a worker is involved
 - parsed event payload
 
+### `connections`
+
+Each connection summary includes:
+
+- runtime identity and transport
+- project scope
+- heartbeat-derived status
+- listening metadata
+- inbox, thread, dispatch, and task-run counters
+
 Current event coverage includes:
 
 - dispatch and worker lifecycle
@@ -102,6 +114,7 @@ The v2 live page now renders an execution runtime panel showing:
 
 - active sprint runs
 - active dispatch counts
+- live project connections with inbox and dispatch load
 - queued and running worker dispatches
 - current lease owners
 - a DB-backed runtime timeline

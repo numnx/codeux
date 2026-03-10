@@ -176,11 +176,33 @@ export interface ExecutionRuntimeEventSummary {
 
 export type ExecutionTaskRunEventSummary = ExecutionRuntimeEventSummary;
 
+export interface ExecutionConnectionSummary {
+  id: string;
+  connectionKey: string;
+  displayName: string;
+  role: string;
+  transport: string;
+  status: string;
+  model: string | null;
+  instruction: string | null;
+  labels: string[];
+  listenMode: boolean;
+  lastHeartbeatAt: string | null;
+  projectIds: string[];
+  activeProjectIds: string[];
+  tasksRunCount: number;
+  threadCount: number;
+  messageCount: number;
+  pendingInboxCount: number;
+  activeDispatchCount: number;
+}
+
 export interface ExecutionDashboardSnapshot {
   projectId: string | null;
   projectName: string | null;
   sprintRuns: ExecutionSprintRunSummary[];
   taskDispatches: ExecutionTaskDispatchSummary[];
+  connections: ExecutionConnectionSummary[];
   recentEvents: ExecutionRuntimeEventSummary[];
   updatedAt: string | null;
 }

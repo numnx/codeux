@@ -6,6 +6,7 @@ import type { Logger } from "../../shared/logging/logger.js";
 import type { RuntimeContext } from "../runtime-context.js";
 import type {
   DashboardSettings,
+  ExecutionConnectionSummary,
   ExternalSettingsHints,
   GitTrackingStatus,
   JulesActivity,
@@ -13,6 +14,7 @@ import type {
   Subtask,
   ReadinessProbeStatus
 } from "../../contracts/app-types.js";
+import type { McpConnectionRecord } from "../../contracts/connection-chat-types.js";
 import type { SettingsRepository } from "../../repositories/settings-repository.js";
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
@@ -63,6 +65,31 @@ export function reinitializeLogger(deps: { projectRoot: string, runtimeContext: 
   });
 }
 
+function mapExecutionConnections(connections: McpConnectionRecord[]): ExecutionConnectionSummary[] {
+  return connections.map((connection) => ({
+    id: connection.id,
+    connectionKey: connection.connectionKey,
+    displayName: connection.displayName,
+    role: connection.role,
+    transport: connection.transport,
+    status: connection.status,
+    model: typeof connection.capabilities.model === "string" ? connection.capabilities.model : null,
+    instruction: typeof connection.capabilities.instruction === "string" ? connection.capabilities.instruction : null,
+    labels: Array.isArray(connection.capabilities.labels)
+      ? connection.capabilities.labels.map((label) => String(label || "").trim()).filter(Boolean)
+      : [],
+    listenMode: connection.capabilities.listenMode === true,
+    lastHeartbeatAt: connection.lastHeartbeatAt,
+    projectIds: connection.projectIds,
+    activeProjectIds: connection.activeProjectIds,
+    tasksRunCount: connection.tasksRunCount,
+    threadCount: connection.threadCount,
+    messageCount: connection.messageCount,
+    pendingInboxCount: connection.pendingInboxCount,
+    activeDispatchCount: connection.activeDispatchCount,
+  }));
+}
+
 export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
   const dashboardDir = `${deps.projectRoot}/dashboard`;
   const port = deps.getDashboardPort();
@@ -76,10 +103,24 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     getExecutionSnapshot: () => {
       const projectId = deps.projectManagementRepository.getSelectedProjectId();
       return projectId
-        ? deps.executionRepository.getProjectExecutionSnapshot(projectId)
-        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], recentEvents: [], updatedAt: null };
+        ? {
+          ...deps.executionRepository.getProjectExecutionSnapshot(projectId),
+          connections: mapExecutionConnections(deps.connectionChatRepository.listConnections(projectId)),
+        }
+        : {
+          projectId: null,
+          projectName: null,
+          sprintRuns: [],
+          taskDispatches: [],
+          connections: [],
+          recentEvents: [],
+          updatedAt: null,
+        };
     },
-    getProjectExecutionSnapshot: (projectId) => deps.executionRepository.getProjectExecutionSnapshot(projectId),
+    getProjectExecutionSnapshot: (projectId) => ({
+      ...deps.executionRepository.getProjectExecutionSnapshot(projectId),
+      connections: mapExecutionConnections(deps.connectionChatRepository.listConnections(projectId)),
+    }),
     getLiveActivities: deps.getLiveActivitiesForActiveTasks,
     getGitStatus: deps.getGitStatus,
     getExternalSettingsHints: () => deps.externalSettingsHints,

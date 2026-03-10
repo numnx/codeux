@@ -733,6 +733,7 @@ export class ConnectionChatRepository {
       threadCount: toNumber(row.thread_count),
       messageCount: toNumber(row.message_count),
       pendingInboxCount: toNumber(row.pending_inbox_count),
+      activeDispatchCount: toNumber(row.active_dispatch_count),
     }));
   }
 

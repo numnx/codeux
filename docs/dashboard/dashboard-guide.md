@@ -102,7 +102,7 @@ Legacy runtime:
 
 ### Dashboard view
 - Task statistics
-- Execution runtime panel for sprint runs, dispatch queue state, worker assignment, lease ownership, and recent task-run events
+- Execution runtime panel for sprint runs, dispatch queue state, live project connections, worker assignment, lease ownership, and recent runtime events
 - Task pipeline cards
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
 - Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
@@ -110,6 +110,7 @@ Legacy runtime:
 - The runtime feed now includes direct CLI stage events, action-required and protocol events, sprint-run lifecycle events, and CI/merge-gate state changes in addition to provider session activity
 - `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`
 - The execution runtime panel can now start or resume sprint orchestration, pause or cancel sprint runs, cancel queued dispatches, and retry terminal dispatches
+- The execution runtime panel now also shows live project connections with transport, role, listening metadata, inbox load, dispatch load, and heartbeat-derived status
 - Running dispatch cancel is now request-based instead of instant-terminal:
   - local CLI runs move to `cancel_requested` and abort through the process runner
   - worker runs move to `cancel_requested` and surface a stop request through the worker heartbeat response

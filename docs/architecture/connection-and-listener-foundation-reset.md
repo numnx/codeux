@@ -418,7 +418,8 @@ Current status:
 
 - `Agents` is now rebuilt as project-scoped preset CRUD
 - live connection data no longer drives the `Agents` page
-- a dedicated live connections surface is still pending
+- the v2 live runtime panel now includes a dedicated live-connections surface backed by `/api/execution`
+- a separate operations page for advanced connection management is still pending
 
 ### Phase E: add remote transport
 

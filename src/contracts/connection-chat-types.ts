@@ -33,6 +33,7 @@ export interface McpConnectionRecord {
   threadCount: number;
   messageCount: number;
   pendingInboxCount: number;
+  activeDispatchCount: number;
 }
 
 export interface ConversationThreadRecord {

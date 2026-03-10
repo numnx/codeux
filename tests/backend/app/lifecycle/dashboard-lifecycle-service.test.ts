@@ -33,12 +33,16 @@ describe("dashboard-lifecycle-service", () => {
       projectRuntimeRepository: {
         getSelectedProjectStatus: vi.fn().mockReturnValue("runtime-status"),
       } as any,
+      connectionChatRepository: {
+        listConnections: vi.fn().mockReturnValue([]),
+      } as any,
       executionRepository: {
         getProjectExecutionSnapshot: vi.fn().mockReturnValue({
           projectId: "project-1",
           projectName: "Project 1",
           sprintRuns: [],
           taskDispatches: [],
+          connections: [],
           recentEvents: [],
           updatedAt: "2026-03-09T00:00:00.000Z",
         }),

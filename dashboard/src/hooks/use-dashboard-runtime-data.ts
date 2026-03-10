@@ -25,6 +25,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     projectName: null,
     sprintRuns: [],
     taskDispatches: [],
+    connections: [],
     recentEvents: [],
     updatedAt: null,
   });

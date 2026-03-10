@@ -498,6 +498,125 @@ const EXECUTOR_LABELS: Record<string, string> = {
     mixed: "Mixed",
 };
 
+const CONNECTION_ROLE_LABELS: Record<string, string> = {
+    listener: "Listener",
+    worker: "Worker",
+    project_manager: "Manager",
+};
+
+const ConnectionRuntimePanel: FunctionComponent<{
+    snapshot: ExecutionDashboardSnapshot;
+}> = ({ snapshot }) => {
+    const activeConnections = snapshot.connections.filter((connection) => connection.status !== "offline");
+    const listeningConnections = activeConnections.filter((connection) => connection.status === "listening");
+    const workerConnections = activeConnections.filter((connection) => connection.role === "worker");
+
+    return (
+        <div className="rounded-[1.4rem] border border-black/[0.04] bg-black/[0.015] p-4 dark:border-white/[0.04] dark:bg-white/[0.015]">
+            <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                    <Radio className="h-4 w-4 text-signal-500" strokeWidth={1.5} />
+                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">Live Connections</span>
+                </div>
+                <div className="flex items-center gap-4 text-[10px] font-mono text-slate-400">
+                    <span>{activeConnections.length} active</span>
+                    <span>{listeningConnections.length} listening</span>
+                    <span>{workerConnections.length} workers</span>
+                </div>
+            </div>
+
+            {snapshot.connections.length === 0 ? (
+                <p className="text-[11px] font-mono text-slate-400 dark:text-slate-600">
+                    No listeners or workers are connected to the selected project yet.
+                </p>
+            ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto dashboard-scrollbar pr-1">
+                    {snapshot.connections.slice(0, 8).map((connection) => (
+                        <div
+                            key={connection.id}
+                            className="rounded-xl border border-black/[0.04] bg-white/55 p-3 dark:border-white/[0.04] dark:bg-void-900/30"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                            {connection.displayName}
+                                        </span>
+                                        <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                            {CONNECTION_ROLE_LABELS[connection.role] || connection.role}
+                                        </span>
+                                        {connection.listenMode && (
+                                            <span className="rounded-full border border-signal-500/20 bg-signal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-signal-500">
+                                                Listening
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                                        <span>{connection.transport}</span>
+                                        {connection.model && (
+                                            <>
+                                                <span>·</span>
+                                                <span>{connection.model}</span>
+                                            </>
+                                        )}
+                                        <span>·</span>
+                                        <span className="truncate">{connection.connectionKey}</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(connection.status)}`}>
+                                        {connection.status}
+                                    </div>
+                                    <div className="mt-1 text-[10px] font-mono text-slate-400">
+                                        {connection.lastHeartbeatAt ? formatTime(connection.lastHeartbeatAt) : "no heartbeat"}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold uppercase tracking-[0.12em]">
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                    inbox {connection.pendingInboxCount}
+                                </span>
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                    dispatch {connection.activeDispatchCount}
+                                </span>
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                    threads {connection.threadCount}
+                                </span>
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                    runs {connection.tasksRunCount}
+                                </span>
+                            </div>
+
+                            {(connection.labels.length > 0 || connection.instruction) && (
+                                <div className="mt-3 border-t border-black/[0.04] pt-3 dark:border-white/[0.04]">
+                                    {connection.labels.length > 0 && (
+                                        <div className="mb-2 flex flex-wrap gap-2">
+                                            {connection.labels.slice(0, 4).map((label) => (
+                                                <span
+                                                    key={label}
+                                                    className="rounded-full border border-ember-500/20 bg-ember-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-ember-500"
+                                                >
+                                                    {label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {connection.instruction && (
+                                        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                            {connection.instruction}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ExecutionRuntimePanel: FunctionComponent<{
     snapshot: ExecutionDashboardSnapshot;
     onOrchestrateSprint: (projectId: string, sprintId: string) => void;
@@ -519,6 +638,7 @@ const ExecutionRuntimePanel: FunctionComponent<{
     const activeDispatches = snapshot.taskDispatches.filter((dispatch) => (
         dispatch.status === "queued" || dispatch.status === "claimed" || dispatch.status === "running" || dispatch.status === "cancel_requested" || dispatch.status === "blocked"
     ));
+    const activeConnections = snapshot.connections.filter((connection) => connection.status !== "offline");
     const workerDispatches = activeDispatches.filter((dispatch) => dispatch.executorType === "mcp_worker");
     const queuedWorkers = workerDispatches.filter((dispatch) => dispatch.status === "queued").length;
     const runningWorkers = workerDispatches.filter((dispatch) => dispatch.status === "claimed" || dispatch.status === "running").length;
@@ -539,12 +659,14 @@ const ExecutionRuntimePanel: FunctionComponent<{
                     </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                     {[
                         { label: "Active Runs", value: activeSprintRuns.length, accent: "text-signal-500" },
                         { label: "Active Dispatches", value: activeDispatches.length, accent: "text-slate-700 dark:text-slate-200" },
                         { label: "Worker Queued", value: queuedWorkers, accent: "text-ember-500" },
                         { label: "Worker Running", value: runningWorkers, accent: "text-status-green" },
+                        { label: "Connections", value: activeConnections.length, accent: "text-signal-500" },
+                        { label: "Pending Inbox", value: snapshot.connections.reduce((sum, connection) => sum + connection.pendingInboxCount, 0), accent: "text-status-amber" },
                     ].map(({ label, value, accent }) => (
                         <div key={label} className="rounded-xl bg-black/[0.02] dark:bg-white/[0.02] p-3">
                             <div className={`text-xl font-black font-mono leading-none ${accent}`}>{value}</div>
@@ -711,6 +833,8 @@ const ExecutionRuntimePanel: FunctionComponent<{
                         </div>
                     )}
                 </div>
+
+                <ConnectionRuntimePanel snapshot={snapshot} />
 
                 <div>
                     <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Runtime Timeline</span>

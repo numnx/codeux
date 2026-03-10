@@ -670,6 +670,7 @@ export class ExecutionRepository {
       projectName: projectRow?.name || null,
       sprintRuns: sprintRuns.map((row) => this.mapExecutionSprintRunSummaryRow(row)),
       taskDispatches: taskDispatches.map((row) => this.mapExecutionTaskDispatchSummaryRow(row)),
+      connections: [],
       recentEvents: recentEvents.map((row) => this.mapExecutionRuntimeEventSummaryRow(row)),
       updatedAt: new Date().toISOString(),
     };
