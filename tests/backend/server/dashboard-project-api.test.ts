@@ -161,6 +161,7 @@ async function createServerHandle(): Promise<{
     listConversationThreads: (projectId) => connectionRepository.listThreads(projectId),
     createConversationThread: (projectId, input) => connectionRepository.createThread(projectId, input),
     updateConversationThread: (threadId, input) => connectionRepository.updateThread(threadId, input),
+    deleteConversationThread: (threadId) => connectionRepository.deleteThread(threadId),
     listConversationMessages: (threadId) => connectionRepository.listMessages(threadId),
     postConversationMessage: (projectId, input) => connectionRepository.postDashboardMessage(projectId, input),
     saveSettings: (settings) => settings,
@@ -432,6 +433,16 @@ describe("dashboard project management API", () => {
     const messages = await fetch(`${baseUrl}/api/conversations/threads/${thread.id}/messages`)
       .then(async (response) => response.json()) as Array<{ bodyMarkdown: string }>;
     expect(messages[0]?.bodyMarkdown).toContain("Route this to the active listener");
+
+    const deleteThreadResponse = await fetch(`${baseUrl}/api/conversations/threads/${thread.id}`, {
+      method: "DELETE",
+    });
+    expect(deleteThreadResponse.status).toBe(200);
+    expect(await deleteThreadResponse.json()).toEqual({ ok: true });
+
+    const threadsAfterDelete = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/threads`)
+      .then(async (response) => response.json()) as Array<{ id: string }>;
+    expect(threadsAfterDelete.some((entry) => entry.id === thread.id)).toBe(false);
 
     const agentPresetDeleteResponse = await fetch(`${baseUrl}/api/agent-presets/${agentPreset.id}`, {
       method: "DELETE",

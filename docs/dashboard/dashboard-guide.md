@@ -110,6 +110,10 @@ Legacy runtime:
 - Agents page is DB-backed and manages project-scoped agent presets (`name`, `labels`, `instruction markdown`)
 - Chat page is DB-backed and stores project conversation threads/messages in sqlite
 - Chat page now receives websocket updates for thread assignment changes and incoming thread messages in the active thread
+- Chat page now shows a live "working" bubble once a listener has picked up a dashboard message and is preparing a reply
+- Chat threads can now be deleted directly from the history rail; deletion is realtime-aware and removes the thread across open dashboard views
+- Chat composer now sends on `Enter` and inserts a newline on `Shift+Enter`
+- Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
 - Worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or queued for a connected worker
 
 ### Dashboard view

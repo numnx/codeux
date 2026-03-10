@@ -63,6 +63,12 @@ export const updateConversationThread = async (
   });
 };
 
+export const deleteConversationThread = async (threadId: string): Promise<void> => {
+  await fetchJson<{ ok: true }>(`/api/conversations/threads/${encodeURIComponent(threadId)}`, {
+    method: "DELETE",
+  });
+};
+
 export const postConversationMessage = async (
   projectId: string,
   input: CreateDashboardConversationMessageInput

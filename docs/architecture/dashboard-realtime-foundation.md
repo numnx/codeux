@@ -74,6 +74,7 @@ The first dashboard consumers now use websocket-first updates with polling fallb
 - `dashboard/src/hooks/use-overview-telemetry.ts`
 - `dashboard/src/v2/hooks/use-project-execution.ts`
 - `dashboard/src/v2/ChatPage.tsx`
+- Chat subscriptions now also react to `conversation.thread.deleted`, so thread removal propagates across open dashboard tabs without a manual refresh.
 
 Behavior:
 

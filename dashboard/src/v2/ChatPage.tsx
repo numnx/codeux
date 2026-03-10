@@ -7,6 +7,7 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
   UserCircle2,
 } from "lucide-preact";
 import type { AgentConnection, ChatMessageRecord, ChatThread } from "./types.js";
@@ -18,6 +19,7 @@ import type {
 import { useProjectData } from "./context/project-data.js";
 import {
   createConversationThread,
+  deleteConversationThread,
   fetchConversationMessages,
   fetchConversationThreads,
   fetchProjectConnections,
@@ -45,6 +47,21 @@ const statusTone = (pendingCount: number): string => (
   pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
 );
 
+const isWorkingMessage = (
+  message: ChatMessageRecord,
+  allMessages: ChatMessageRecord[],
+): boolean => {
+  if (message.direction !== "dashboard_to_connection" || message.deliveryStatus !== "delivered") {
+    return false;
+  }
+
+  return !allMessages.some((candidate) => (
+    candidate.threadId === message.threadId
+    && candidate.direction === "connection_to_dashboard"
+    && new Date(candidate.createdAt).getTime() >= new Date(message.createdAt).getTime()
+  ));
+};
+
 const upsertThread = (threads: ChatThread[], nextThread: ChatThread): ChatThread[] => {
   const withoutCurrent = threads.filter((thread) => thread.id !== nextThread.id);
   return [nextThread, ...withoutCurrent].sort((left, right) => {
@@ -67,6 +84,10 @@ const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRe
     return left.id.localeCompare(right.id);
   });
 };
+
+const removeThread = (threads: ChatThread[], threadId: string): ChatThread[] => (
+  threads.filter((thread) => thread.id !== threadId)
+);
 
 const toAgentConnection = (connection: ExecutionConnectionSummary): AgentConnection => ({
   id: connection.id,
@@ -113,34 +134,49 @@ const ThreadList: FunctionComponent<{
   threads: ChatThread[];
   selectedThreadId: string | null;
   onSelect: (threadId: string) => void;
-}> = ({ threads, selectedThreadId, onSelect }) => (
+  onDelete: (threadId: string) => void;
+  deletingThreadId: string | null;
+}> = ({ threads, selectedThreadId, onSelect, onDelete, deletingThreadId }) => (
   <div className="space-y-3">
     {threads.map((thread) => (
-      <button
-        key={thread.id}
-        type="button"
-        onClick={() => onSelect(thread.id)}
-        className={`w-full rounded-[1.25rem] border px-4 py-3 text-left transition-colors ${
-          selectedThreadId === thread.id
-            ? "border-signal-500/30 bg-signal-500/10"
-            : "border-black/[0.05] bg-black/[0.03] hover:border-slate-300 hover:bg-black/[0.05] dark:border-white/[0.05] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]"
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{thread.title}</div>
-            <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              {thread.lastMessagePreview || "No messages yet."}
+      <div key={thread.id} className="group relative overflow-hidden rounded-[1.25rem]">
+        <button
+          type="button"
+          onClick={() => onSelect(thread.id)}
+          className={`w-full rounded-[1.25rem] border px-4 py-3 pr-16 text-left transition-colors duration-150 ${
+            selectedThreadId === thread.id
+              ? "border-signal-500/30 bg-signal-500/10"
+              : "border-black/[0.05] bg-black/[0.03] hover:border-slate-300 hover:bg-black/[0.05] dark:border-white/[0.05] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{thread.title}</div>
+              <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                {thread.lastMessagePreview || "No messages yet."}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
+                {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
+              </div>
+              <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
             </div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
-              {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
-            </div>
-            <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
-          </div>
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(thread.id);
+          }}
+          disabled={deletingThreadId === thread.id}
+          aria-label={`Delete ${thread.title}`}
+          className="absolute inset-y-0 right-0 flex w-12 translate-x-full items-center justify-center border-l border-status-red/15 bg-status-red/10 text-status-red opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 disabled:translate-x-0 disabled:opacity-100"
+        >
+          {deletingThreadId === thread.id ? <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={2.1} /> : <Trash2 className="h-4 w-4" strokeWidth={2.1} />}
+        </button>
+      </div>
     ))}
   </div>
 );
@@ -178,6 +214,31 @@ const MessageBubble: FunctionComponent<{ message: ChatMessageRecord }> = ({ mess
   );
 };
 
+const WorkingBubble: FunctionComponent<{ displayName: string | null }> = ({ displayName }) => (
+  <div className="flex justify-start">
+    <div className="flex max-w-[760px] items-start gap-3">
+      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-[0.9rem] border border-signal-500/20 bg-signal-500/10 text-signal-500">
+        <Sparkles className="h-4 w-4" strokeWidth={1.6} />
+      </div>
+      <div className="space-y-2">
+        <div className="rounded-[1.5rem] rounded-tl-sm border border-black/[0.06] bg-white/75 px-5 py-4 text-slate-700 shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/70 dark:text-slate-200">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+              {displayName || "Listener"} is preparing a reply
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500 [animation-delay:120ms]" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500 [animation-delay:240ms]" />
+            </span>
+          </div>
+        </div>
+        <div className="px-1 text-[10px] font-mono text-slate-400">Working</div>
+      </div>
+    </div>
+  </div>
+);
+
 export const ChatPage: FunctionComponent = () => {
   const headerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -191,6 +252,7 @@ export const ChatPage: FunctionComponent = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -300,6 +362,19 @@ export const ChatPage: FunctionComponent = () => {
         return;
       }
 
+      if (message.event.eventType === "conversation.thread.deleted") {
+        const payload = message.event.payload as { threadId: string; projectId: string };
+        if (payload.projectId !== selectedProject.id) {
+          return;
+        }
+        setThreads((current) => removeThread(current, payload.threadId));
+        if (selectedThreadId === payload.threadId) {
+          setSelectedThreadId(null);
+          setMessages([]);
+        }
+        return;
+      }
+
       if (message.event.eventType === "conversation.message.created") {
         const realtimeMessage = message.event.payload as ChatMessageRecord;
         if (realtimeMessage.threadId !== selectedThreadId) {
@@ -391,6 +466,36 @@ export const ChatPage: FunctionComponent = () => {
     message.direction === "dashboard_to_connection" && message.deliveryStatus !== "processed"
   )).length;
 
+  const hasWorkingReply = useMemo(() => messages.some((message) => isWorkingMessage(message, messages)), [messages]);
+
+  const handleDeleteThread = useCallback(async (threadId: string): Promise<void> => {
+    const nextSelection = threads.find((thread) => thread.id !== threadId)?.id || null;
+    setDeletingThreadId(threadId);
+    setThreads((current) => removeThread(current, threadId));
+    if (selectedThreadId === threadId) {
+      setSelectedThreadId(nextSelection);
+      if (!nextSelection) {
+        setMessages([]);
+      }
+    }
+
+    try {
+      await deleteConversationThread(threadId);
+      if (nextSelection) {
+        await refreshMessages(nextSelection);
+      }
+      setError(null);
+    } catch (deleteError) {
+      await refreshThreads();
+      if (selectedThreadId === threadId) {
+        await refreshMessages(threadId);
+      }
+      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+    } finally {
+      setDeletingThreadId((current) => current === threadId ? null : current);
+    }
+  }, [refreshMessages, refreshThreads, selectedThreadId, threads]);
+
   return (
     <div className="relative z-10 mx-auto flex min-h-[calc(100vh-70px)] max-w-[1900px] flex-col gap-10 px-8 py-16 md:px-20">
       <div ref={headerRef} className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -471,7 +576,13 @@ export const ChatPage: FunctionComponent = () => {
             {threads.length === 0 ? (
               <EmptyChat message="Create the first project thread or post a message to queue work for an incoming listener." />
             ) : (
-              <ThreadList threads={threads} selectedThreadId={selectedThreadId} onSelect={setSelectedThreadId} />
+              <ThreadList
+                threads={threads}
+                selectedThreadId={selectedThreadId}
+                onSelect={setSelectedThreadId}
+                onDelete={(threadId) => void handleDeleteThread(threadId)}
+                deletingThreadId={deletingThreadId}
+              />
             )}
           </aside>
 
@@ -486,19 +597,22 @@ export const ChatPage: FunctionComponent = () => {
                 </div>
                 <div className="text-right text-[10px] font-mono text-slate-400">
                   <div className="mb-2">{selectedThread ? `${selectedThread.messageCount} messages` : "0 messages"}</div>
-                  <select
-                    value={selectedThread?.connectionId || ""}
-                    onChange={(event) => void handleAssignThread(event.currentTarget.value)}
-                    disabled={!selectedThread}
-                    className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
-                  >
-                    <option value="">Unassigned</option>
-                    {connections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.displayName} · {connection.status}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="inline-flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
+                    <select
+                      value={selectedThread?.connectionId || ""}
+                      onChange={(event) => void handleAssignThread(event.currentTarget.value)}
+                      disabled={!selectedThread}
+                      className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
+                    >
+                      <option value="">Unassigned</option>
+                      {connections.map((connection) => (
+                        <option key={connection.id} value={connection.id}>
+                          {connection.displayName} · {connection.status}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
             </div>
@@ -509,7 +623,10 @@ export const ChatPage: FunctionComponent = () => {
               ) : messages.length === 0 ? (
                 <EmptyChat message="This thread is ready. The next dashboard message will be stored in Sprint OS and queued for a listening MCP connection." />
               ) : (
-                messages.map((message) => <MessageBubble key={message.id} message={message} />)
+                <>
+                  {messages.map((message) => <MessageBubble key={message.id} message={message} />)}
+                  {hasWorkingReply ? <WorkingBubble displayName={activeConnection?.displayName || null} /> : null}
+                </>
               )}
             </div>
 
@@ -528,7 +645,10 @@ export const ChatPage: FunctionComponent = () => {
                     setInput(element.value);
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    if (event.isComposing) {
+                      return;
+                    }
+                    if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       void handleSend();
                     }
@@ -536,7 +656,9 @@ export const ChatPage: FunctionComponent = () => {
                 />
                 <div className="mt-3 flex items-center justify-between">
                   <div className="text-[10px] font-mono text-slate-400">
-                    {activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : "Messages will stay queued until a listener claims or is assigned to this thread"}
+                    {activeConnection
+                      ? `${activeConnection.displayName} · ${activeConnection.status} · Enter sends`
+                      : "Messages will stay queued until a listener claims or is assigned to this thread · Enter sends · Shift+Enter newline"}
                   </div>
                   <button
                     type="button"

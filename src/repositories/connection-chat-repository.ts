@@ -418,6 +418,18 @@ export class ConnectionChatRepository {
     return updated;
   }
 
+  deleteThread(threadId: string): void {
+    const thread = this.requireThread(threadId);
+
+    this.db.prepare(`
+      DELETE FROM conversation_threads
+      WHERE id = ?
+    `).run(thread.id);
+
+    this.notifyProjects([thread.projectId]);
+    this.publishThreadDeletedEvent(thread.projectId, thread.id);
+  }
+
   postDashboardMessage(projectId: string, input: CreateDashboardConversationMessageInput): ConversationMessageRecord {
     this.requireProject(projectId);
     const thread = input.threadId
@@ -862,6 +874,38 @@ export class ConnectionChatRepository {
       projectId: thread.projectId,
       threadId: thread.id,
       payload: thread,
+    });
+  }
+
+  private publishThreadDeletedEvent(projectId: string, threadId: string): void {
+    if (!this.realtimeService) {
+      return;
+    }
+
+    const payload = {
+      threadId,
+      projectId,
+    };
+
+    this.realtimeService.publishRawEvent({
+      scopeType: "project",
+      scopeId: projectId,
+      eventType: "conversation.thread.deleted",
+      entityType: "conversation_thread",
+      entityId: threadId,
+      projectId,
+      threadId,
+      payload,
+    });
+    this.realtimeService.publishRawEvent({
+      scopeType: "thread",
+      scopeId: threadId,
+      eventType: "conversation.thread.deleted",
+      entityType: "conversation_thread",
+      entityId: threadId,
+      projectId,
+      threadId,
+      payload,
     });
   }
 
