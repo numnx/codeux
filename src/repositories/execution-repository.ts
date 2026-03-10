@@ -1084,6 +1084,24 @@ export class ExecutionRepository {
     }
   }
 
+  releaseStaleSprintLease(projectId: string, sprintId: string): boolean {
+    this.requireProject(projectId);
+    this.requireSprint(sprintId, projectId);
+
+    const lease = this.getLease("sprint", sprintId);
+    if (!lease) {
+      return false;
+    }
+
+    const activeRun = this.findActiveSprintRun(projectId, sprintId);
+    if (activeRun) {
+      return false;
+    }
+
+    this.releaseLease("sprint", sprintId, lease.leaseToken);
+    return true;
+  }
+
   getLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): ExecutionLeaseRecord | null {
     const row = this.db.prepare(`
       SELECT *
@@ -1140,6 +1158,7 @@ export class ExecutionRepository {
     }, {
       sourceEventKey: `sprint-cancelled:${sprintRunId}:cancel-request-completed`,
     });
+    this.releaseStaleSprintLease(updated.projectId, updated.sprintId);
     return updated;
   }
 

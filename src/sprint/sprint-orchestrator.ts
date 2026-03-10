@@ -379,6 +379,11 @@ export class SprintOrchestrator {
           }
         }
 
+        this.deps.executionRepository.releaseStaleSprintLease(
+          executionContext.project.id,
+          executionContext.sprint.id,
+        );
+
         const leaseToken = randomUUID();
         try {
           this.deps.executionRepository.acquireLease({

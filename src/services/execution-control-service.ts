@@ -39,6 +39,15 @@ export class ExecutionControlService {
       );
     }
 
+    this.deps.executionRepository.releaseStaleSprintLease(projectId, sprintId);
+
+    const lingeringLease = this.deps.executionRepository.getLease("sprint", sprintId);
+    if (lingeringLease) {
+      throw new Error(
+        `Sprint ${sprint.number ?? sprint.name} cannot be started because the previous orchestration still owns the sprint lease.`,
+      );
+    }
+
     void this.deps.sprintOrchestrator.execute({
       action: "orchestrate",
       project_id: projectId,

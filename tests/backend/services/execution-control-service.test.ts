@@ -83,6 +83,76 @@ describe("ExecutionControlService", () => {
     }));
   });
 
+  it("releases a stale sprint lease before starting a fresh orchestration", async () => {
+    const { projectRepository, executionRepository, service, executeOrchestrator } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Recovered Lease Project",
+      sourceType: "local",
+      sourceRef: "/workspace/recovered-lease-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Recovered Lease Sprint",
+      number: 1,
+    });
+    const priorRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "cancelled",
+    });
+    executionRepository.updateSprintRun(priorRun.id, {
+      finishedAt: "2026-03-10T10:00:00.000Z",
+      lastHeartbeatAt: "2026-03-10T10:00:00.000Z",
+    });
+    executionRepository.acquireLease({
+      scopeType: "sprint",
+      scopeId: sprint.id,
+      ownerKey: "sprint_agent",
+      leaseToken: "stale-lease-token",
+      expiresAt: "2030-03-09T12:00:00.000Z",
+    });
+
+    await service.orchestrateSprint(project.id, sprint.id);
+
+    expect(executionRepository.getLease("sprint", sprint.id)).toBeNull();
+    expect(executeOrchestrator).toHaveBeenCalledWith(expect.objectContaining({
+      action: "orchestrate",
+      project_id: project.id,
+      sprint_id: sprint.id,
+      wait: true,
+    }));
+  });
+
+  it("fails fast when a lingering sprint lease still blocks orchestration", async () => {
+    const { projectRepository, executionRepository, service, executeOrchestrator } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Lingering Lease Project",
+      sourceType: "local",
+      sourceRef: "/workspace/lingering-lease-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Lingering Lease Sprint",
+      number: 1,
+    });
+    const pausedRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "paused",
+    });
+    executionRepository.updateSprintRun(pausedRun.id, {
+      lastHeartbeatAt: "2026-03-10T10:00:00.000Z",
+    });
+    executionRepository.acquireLease({
+      scopeType: "sprint",
+      scopeId: sprint.id,
+      ownerKey: "sprint_agent",
+      leaseToken: "lingering-lease-token",
+      expiresAt: "2030-03-09T12:00:00.000Z",
+    });
+
+    await expect(service.orchestrateSprint(project.id, sprint.id)).rejects.toThrow("still owns the sprint lease");
+    expect(executeOrchestrator).not.toHaveBeenCalled();
+  });
+
   it("rejects orchestration while a sprint cancellation is still pending for active work", async () => {
     const { projectRepository, executionRepository, service, executeOrchestrator } = await createFixture();
     const project = projectRepository.createProject({
