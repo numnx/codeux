@@ -6,22 +6,38 @@ interface CellActionsProps {
     isRunning: boolean;
     label?: string;
     to?: string;
+    primaryBusy?: boolean;
+    onPrimaryAction?: () => void;
 }
 
 /**
  * Shared bottom action bar for organic blob cells (SourceCell, SprintBubble).
  * Appears on hover: [play/stop circle] [Action pill] [settings circle]
  */
-export const CellActions: FunctionComponent<CellActionsProps> = ({ isRunning, label = "Open", to = "#" }) => (
+export const CellActions: FunctionComponent<CellActionsProps> = ({
+    isRunning,
+    label = "Open",
+    to = "#",
+    primaryBusy = false,
+    onPrimaryAction,
+}) => (
     <div className="absolute bottom-5 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 w-full">
         <button
-            className="flex items-center justify-center w-9 h-9 bg-black/[0.06] dark:bg-white/[0.07] hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-slate-800 dark:text-white transition-colors"
+            className={`flex items-center justify-center w-9 h-9 rounded-full text-slate-800 dark:text-white transition-all duration-300 ${
+                isRunning
+                    ? "bg-status-red/[0.12] hover:bg-status-red/[0.18] shadow-[0_0_18px_rgba(227,0,15,0.16)]"
+                    : "bg-signal-500/[0.12] hover:bg-signal-500/[0.18] shadow-[0_0_18px_rgba(0,224,160,0.16)]"
+            } disabled:opacity-60 disabled:cursor-not-allowed`}
             title={isRunning ? "Stop" : "Play"}
-            onClick={(e: any) => e.stopPropagation()}
+            disabled={!onPrimaryAction || primaryBusy}
+            onClick={(e: any) => {
+                e.stopPropagation();
+                onPrimaryAction?.();
+            }}
         >
             {isRunning
-                ? <Square className="w-3.5 h-3.5" fill="currentColor" />
-                : <Play className="w-3.5 h-3.5" fill="currentColor" />
+                ? <Square className={`w-3.5 h-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />
+                : <Play className={`w-3.5 h-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />
             }
         </button>
         <Link 

@@ -96,6 +96,7 @@ Legacy runtime:
 - Projects page is DB-backed and can create/select/delete projects
 - Sprints page is project-scoped, creates sprint records in sqlite, and exposes markdown import/export controls
 - Sprints page now also starts and stops sprint orchestration directly from sprint cards, with optimistic visual state updates tied to project-scoped execution data
+- The organic sprint bubble cells use the same live start/stop control path as the registry list, so the hover play/stop action is now functional instead of decorative
 - Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
 - Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface

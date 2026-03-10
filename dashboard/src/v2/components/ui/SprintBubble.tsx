@@ -24,12 +24,16 @@ interface SprintBubbleProps {
     sprint: Sprint;
     isEven: boolean;
     accentColor: string;
+    primaryBusy?: boolean;
+    onPrimaryAction?: () => void;
 }
 
 export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
     sprint,
     isEven,
     accentColor,
+    primaryBusy = false,
+    onPrimaryAction,
 }) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const anim = isEven ? 'animate-organic' : 'animate-organic-reverse';
@@ -119,6 +123,8 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
 
                 <CellActions 
                     isRunning={sprint.status === 'running'} 
+                    primaryBusy={primaryBusy}
+                    onPrimaryAction={onPrimaryAction}
                     label="View Tasks" 
                     to={`/tasks?sprint=${sprint.id}`} 
                 />

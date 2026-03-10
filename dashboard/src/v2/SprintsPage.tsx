@@ -62,6 +62,26 @@ export const SprintsPage: FunctionComponent = () => {
         }))
     ), [optimisticStatuses, sprints]);
 
+    const handleSprintToggle = (sprintId: string) => {
+        if (!selectedProject) return;
+        const activeRun = activeRunsBySprintId.get(sprintId);
+        const sprint = displaySprints.find((item) => item.id === sprintId);
+        if (!sprint) return;
+
+        if (activeRun) {
+            const stopActionId = `sprint-stop:${activeRun.id}`;
+            void runSprintAction(stopActionId, sprintId, "cancelled", async () => {
+                await cancelSprintRun(activeRun.id);
+            });
+            return;
+        }
+
+        const startActionId = `sprint-start:${sprintId}`;
+        void runSprintAction(startActionId, sprintId, "running", async () => {
+            await orchestrateSprint(selectedProject.id, sprintId);
+        });
+    };
+
     const runSprintAction = async (
         actionId: string,
         sprintId: string,
@@ -189,12 +209,21 @@ export const SprintsPage: FunctionComponent = () => {
                 {/* Organic Sprint Bubbles */}
                 <div ref={bubblesRef} className="flex flex-wrap gap-14 justify-center lg:justify-start">
                     {sprints.map((sprint, index) => (
+                        (() => {
+                            const displaySprint = displaySprints[index];
+                            const activeRun = activeRunsBySprintId.get(displaySprint.id);
+                            const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${displaySprint.id}`;
+                            return (
                         <SprintBubble
-                            key={displaySprints[index].id}
-                            sprint={displaySprints[index]}
+                            key={displaySprint.id}
+                            sprint={displaySprint}
                             isEven={index % 2 === 0}
                             accentColor={ACCENT_CYCLE[index % 3]}
+                            primaryBusy={pendingActionIds.has(pendingActionId)}
+                            onPrimaryAction={() => { handleSprintToggle(displaySprint.id); }}
                         />
+                            );
+                        })()
                     ))}
 
                     {/* Ghost "Add Sprint" cell */}
@@ -302,18 +331,7 @@ export const SprintsPage: FunctionComponent = () => {
 
                                     <div className="flex items-center gap-2 self-start lg:self-auto">
                                         <button
-                                            onClick={() => {
-                                                if (!selectedProject) return;
-                                                if (activeRun) {
-                                                    void runSprintAction(stopActionId, sprint.id, "cancelled", async () => {
-                                                        await cancelSprintRun(activeRun.id);
-                                                    });
-                                                    return;
-                                                }
-                                                void runSprintAction(startActionId, sprint.id, "running", async () => {
-                                                    await orchestrateSprint(selectedProject.id, sprint.id);
-                                                });
-                                            }}
+                                            onClick={() => { handleSprintToggle(sprint.id); }}
                                             disabled={!selectedProject || startPending || stopPending}
                                             className={`group relative inline-flex items-center gap-2 overflow-hidden px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-[0.12em] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                                                 isRunning
