@@ -12,6 +12,7 @@ Sprint OS now projects execution state directly from sqlite into a dedicated das
 - task dispatch queue state
 - worker assignment
 - active lease ownership
+- recent task-run events
 
 ## API Surface
 
@@ -33,6 +34,7 @@ The payload includes:
 - `updatedAt`
 - `sprintRuns`
 - `taskDispatches`
+- `recentEvents`
 
 ### `sprintRuns`
 
@@ -57,6 +59,17 @@ Each dispatch includes:
 - provider/session/pr metadata
 - active task-dispatch lease owner
 
+### `recentEvents`
+
+Each event includes:
+
+- task and sprint identity
+- task-run and dispatch identity
+- event type and originator
+- provider/session/branch/PR context
+- connection metadata when a worker is involved
+- parsed event payload
+
 ## Repository Source
 
 Projection is built in:
@@ -68,6 +81,7 @@ It joins:
 - `sprint_runs`
 - `task_dispatches`
 - `task_runs`
+- `task_run_events`
 - `tasks`
 - `sprints`
 - `mcp_connections`
@@ -83,5 +97,6 @@ The v2 live page now renders an execution runtime panel showing:
 - active dispatch counts
 - queued and running worker dispatches
 - current lease owners
+- a DB-backed runtime timeline
 
 That makes multi-sprint and worker execution visible without reconstructing state from task markdown or process-local globals.

@@ -239,7 +239,7 @@ describe("ExecutionRepository", () => {
       connectionId: worker.id,
       status: "running",
     });
-    executionRepository.createTaskRun({
+    const run = executionRepository.createTaskRun({
       projectId: project.id,
       sprintId: sprint.id,
       taskId: task.id,
@@ -251,6 +251,13 @@ describe("ExecutionRepository", () => {
       sessionId: "session-snapshot-1",
       state: "RUNNING",
       startedAt: "2026-03-09T10:00:00.000Z",
+    });
+    executionRepository.appendTaskRunEvent(run.id, "provider_activity", "agent", {
+      activityId: "activity-1",
+      preview: "Implementing runtime panel",
+    }, {
+      createdAt: "2026-03-09T10:05:00.000Z",
+      sourceEventKey: "activity:activity-1",
     });
     executionRepository.acquireLease({
       scopeType: "task_dispatch",
@@ -283,6 +290,60 @@ describe("ExecutionRepository", () => {
       taskRunState: "RUNNING",
       sessionId: "session-snapshot-1",
       activeLeaseOwnerKey: "worker-snapshot-1",
+    });
+    expect(snapshot.recentEvents[0]).toMatchObject({
+      taskId: task.id,
+      taskKey: "T01",
+      eventType: "provider_activity",
+      originator: "agent",
+      connectionDisplayName: "Worker Snapshot 1",
+    });
+    expect(snapshot.recentEvents[0]?.payload).toMatchObject({
+      activityId: "activity-1",
+      preview: "Implementing runtime panel",
+    });
+  });
+
+  it("deduplicates task run events by source event key within the same task run", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Event Project",
+      sourceType: "local",
+      sourceRef: "/workspace/event-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Event Sprint",
+      number: 3,
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Record event once",
+    });
+    const run = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      state: "RUNNING",
+    });
+
+    executionRepository.appendTaskRunEvent(run.id, "provider_activity", "agent", {
+      activityId: "a-1",
+      preview: "First event",
+    }, {
+      sourceEventKey: "activity:a-1",
+    });
+    executionRepository.appendTaskRunEvent(run.id, "provider_activity", "agent", {
+      activityId: "a-1",
+      preview: "Duplicate event",
+    }, {
+      sourceEventKey: "activity:a-1",
+    });
+
+    const events = executionRepository.listTaskRunEvents(run.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({
+      activityId: "a-1",
+      preview: "First event",
     });
   });
 });

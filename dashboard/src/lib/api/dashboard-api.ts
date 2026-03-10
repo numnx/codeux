@@ -4,7 +4,6 @@ import type {
   ExecutionDashboardSnapshot,
   ExternalSettingsHints,
   GitTrackingStatus,
-  LiveActivitiesResponse,
 } from "../../types.js";
 
 const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -19,20 +18,17 @@ const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
 export interface RuntimeDashboardPayload {
   status: DashboardStatus;
-  liveActivities: LiveActivitiesResponse["activitiesBySession"];
   execution: ExecutionDashboardSnapshot;
 }
 
 export const fetchRuntimeDashboardPayload = async (): Promise<RuntimeDashboardPayload> => {
-  const [status, liveActivitiesResponse, execution] = await Promise.all([
+  const [status, execution] = await Promise.all([
     fetchJson<DashboardStatus>("/api/status"),
-    fetchJson<LiveActivitiesResponse>("/api/live-activities"),
     fetchJson<ExecutionDashboardSnapshot>("/api/execution"),
   ]);
 
   return {
     status,
-    liveActivities: liveActivitiesResponse.activitiesBySession || {},
     execution,
   };
 };

@@ -56,6 +56,8 @@ export class CycleRunner {
           extractSessionId: this.deps.extractSessionId,
           fetchRecentActivities: this.deps.fetchRecentActivities,
           isActionRequiredState: this.deps.isActionRequiredState,
+          executionRepository: this.deps.executionRepository,
+          sprintRunId: args.sprintRunId,
           logger: this.deps.logger.child({ component: "session-sync-step" }),
         },
         args.retryFailed,

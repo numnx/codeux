@@ -164,6 +164,7 @@ export class AppDbStorage {
         event_type TEXT NOT NULL,
         originator TEXT,
         payload_json TEXT,
+        source_event_key TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (task_run_id) REFERENCES task_runs(id) ON DELETE CASCADE
       );
@@ -252,10 +253,13 @@ export class AppDbStorage {
     this.ensureColumn("task_runs", "sprint_run_id", "TEXT");
     this.ensureColumn("task_runs", "dispatch_id", "TEXT");
     this.ensureColumn("tasks", "executor_type", "TEXT NOT NULL DEFAULT 'auto'");
+    this.ensureColumn("task_run_events", "source_event_key", "TEXT");
     this.ensureIndex("idx_sprint_runs_project_sprint", "sprint_runs", "project_id, sprint_id, created_at DESC");
     this.ensureIndex("idx_task_dispatches_sprint_run", "task_dispatches", "sprint_run_id, status, queued_at ASC");
     this.ensureIndex("idx_task_dispatches_task", "task_dispatches", "task_id, created_at DESC");
     this.ensureIndex("idx_execution_leases_scope", "execution_leases", "scope_type, scope_id");
+    this.ensureIndex("idx_task_run_events_task_run_created", "task_run_events", "task_run_id, created_at DESC");
+    this.ensureUniqueIndex("idx_task_run_events_source_event", "task_run_events", "task_run_id, source_event_key");
   }
 
   getPath(): string {
@@ -286,5 +290,9 @@ export class AppDbStorage {
 
   private ensureIndex(indexName: string, tableName: string, columns: string): void {
     this.db.exec(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${tableName} (${columns})`);
+  }
+
+  private ensureUniqueIndex(indexName: string, tableName: string, columns: string): void {
+    this.db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${tableName} (${columns})`);
   }
 }

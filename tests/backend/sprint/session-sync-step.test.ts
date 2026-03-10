@@ -1,6 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import { runSessionSyncStep } from "../../../src/sprint/steps/session-sync-step.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
+import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
+import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
 
 describe("runSessionSyncStep", () => {
   it("matches sessions by repo/sprint/task run key to avoid task-id collisions", async () => {
@@ -194,5 +206,131 @@ describe("runSessionSyncStep", () => {
 
     expect(fetchRecentActivities).toHaveBeenCalledTimes(6);
     expect(maxConcurrentFetches).toBeLessThanOrEqual(5);
+  });
+
+  it("syncs provider session state and activities into task runs", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-session-sync-"));
+    tempDirs.push(dir);
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+
+    const project = projectRepository.createProject({
+      name: "Session Sync Project",
+      sourceType: "local",
+      sourceRef: "/tmp/my-repo",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Session Sync Sprint",
+      number: 6,
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Sync provider runtime",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "running",
+    });
+    const run = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "codex",
+      state: "RUNNING",
+      startedAt: "2026-03-09T10:00:00.000Z",
+    });
+
+    const subtasks: Subtask[] = [
+      {
+        id: task.taskKey,
+        record_id: task.id,
+        title: task.title,
+        prompt: task.promptMarkdown,
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+      },
+    ];
+
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "session-sync-1",
+            name: "sessions/session-sync-1",
+            title: "Sprint 6: [run:my-repo/s6/t01] [t01] Sync provider runtime",
+            state: "COMPLETED",
+            provider: "codex",
+            outputs: [{ pullRequest: { url: "https://example.com/pr/1", workerBranch: "feature/sprint-6" } }],
+          },
+        ],
+      }),
+      resolveSessionName: (session: { name?: string }) => session.name,
+      extractSessionId: (session: { id?: string }) => session.id,
+      fetchRecentActivities: vi.fn().mockResolvedValue([
+        {
+          id: "activity-1",
+          name: "sessions/session-sync-1/activities/activity-1",
+          createTime: "2026-03-09T10:05:00.000Z",
+          originator: "agent",
+          progressUpdated: { title: "Runtime synced" },
+        },
+      ]),
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      executionRepository,
+      sprintRunId: sprintRun.id,
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        child: vi.fn().mockReturnThis(),
+      },
+    };
+
+    const result = await runSessionSyncStep(
+      subtasks,
+      deps,
+      false,
+      {
+        repoPath: "/tmp/my-repo",
+        sprintNumber: 6,
+      }
+    );
+
+    expect(result.subtasks[0]?.status).toBe("COMPLETED");
+    const syncedRun = executionRepository.getTaskRun(run.id);
+    expect(syncedRun).toMatchObject({
+      sessionId: "session-sync-1",
+      sessionName: "sessions/session-sync-1",
+      state: "COMPLETED",
+      prUrl: "https://example.com/pr/1",
+      workerBranch: "feature/sprint-6",
+    });
+
+    const syncedDispatch = executionRepository.getTaskDispatch(dispatch.id);
+    expect(syncedDispatch).toMatchObject({
+      status: "completed",
+    });
+
+    const events = executionRepository.listTaskRunEvents(run.id);
+    expect(events.map((event) => event.eventType)).toEqual([
+      "session_state_synced",
+      "provider_activity",
+    ]);
+    expect(events[1]?.sourceEventKey).toBe("activity:activity-1");
   });
 });

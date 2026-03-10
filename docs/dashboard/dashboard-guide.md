@@ -67,7 +67,7 @@ Legacy runtime:
 - `GET /api/status`
   - Selected-project runtime payload (`sprint_number`, `subtasks`, `instructions`, etc.) projected from sqlite
 - `GET /api/execution`
-  - Selected-project execution control-plane snapshot (`sprintRuns`, `taskDispatches`, lease ownership)
+  - Selected-project execution control-plane snapshot (`sprintRuns`, `taskDispatches`, `recentEvents`, lease ownership)
 - `GET /api/projects/:projectId/execution`
   - Project-scoped execution control-plane snapshot for the v2 runtime
 - `GET /api/live-activities`
@@ -98,10 +98,11 @@ Legacy runtime:
 
 ### Dashboard view
 - Task statistics
-- Execution runtime panel for sprint runs, dispatch queue state, worker assignment, and lease ownership
+- Execution runtime panel for sprint runs, dispatch queue state, worker assignment, lease ownership, and recent task-run events
 - Task pipeline cards
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
 - Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
+- Task cards now open a DB-backed runtime feed sourced from `task_run_events`
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel
@@ -124,7 +125,7 @@ Runtime scoping:
 ## Polling Behavior
 
 From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
-- Status and live activities poll every 10 seconds.
+- Status and execution snapshot poll every 10 seconds.
 - Git status polls every 10 seconds.
 
 Settings are loaded from `dashboard/src/hooks/use-dashboard-settings.ts` and saved through
@@ -231,9 +232,9 @@ Runtime update:
 
 ## Session Tracking and Live Feed
 
-For Gemini/Codex runs, sessions are tracked locally and surfaced with the same dashboard flow:
+For provider-backed runs, session polling is now used to ingest durable runtime events into sqlite:
 - Session IDs and states appear in task cards.
-- Live activity feed displays streamed CLI output.
+- Provider activity is mirrored into `task_run_events` and shown through the runtime feed.
 - PR URL is shown once the workflow creates the PR.
 
 ## Security Notes

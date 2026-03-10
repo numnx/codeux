@@ -73,7 +73,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
       const projectId = deps.projectManagementRepository.getSelectedProjectId();
       return projectId
         ? deps.executionRepository.getProjectExecutionSnapshot(projectId)
-        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], updatedAt: null };
+        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], recentEvents: [], updatedAt: null };
     },
     getProjectExecutionSnapshot: (projectId) => deps.executionRepository.getProjectExecutionSnapshot(projectId),
     getLiveActivities: deps.getLiveActivitiesForActiveTasks,

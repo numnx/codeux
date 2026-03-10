@@ -144,11 +144,40 @@ export interface ExecutionTaskDispatchSummary {
   activeLeaseExpiresAt: string | null;
 }
 
+export interface ExecutionTaskRunEventSummary {
+  id: string;
+  taskRunId: string;
+  sprintRunId: string | null;
+  dispatchId: string | null;
+  projectId: string;
+  sprintId: string;
+  sprintName: string;
+  sprintNumber: number | null;
+  taskId: string;
+  taskKey: string;
+  taskTitle: string;
+  taskRunState: string;
+  eventType: string;
+  originator: string | null;
+  sourceEventKey: string | null;
+  provider: string | null;
+  sessionId: string | null;
+  sessionName: string | null;
+  workerBranch: string | null;
+  prUrl: string | null;
+  connectionId: string | null;
+  connectionDisplayName: string | null;
+  connectionRole: string | null;
+  createdAt: string;
+  payload: Record<string, unknown> | null;
+}
+
 export interface ExecutionDashboardSnapshot {
   projectId: string | null;
   projectName: string | null;
   sprintRuns: ExecutionSprintRunSummary[];
   taskDispatches: ExecutionTaskDispatchSummary[];
+  recentEvents: ExecutionTaskRunEventSummary[];
   updatedAt: string | null;
 }
 

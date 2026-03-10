@@ -63,6 +63,16 @@ export interface TaskRunRecord {
   durationMs: number | null;
 }
 
+export interface TaskRunEventRecord {
+  id: string;
+  taskRunId: string;
+  eventType: string;
+  originator: string | null;
+  payload: Record<string, unknown> | null;
+  sourceEventKey: string | null;
+  createdAt: string;
+}
+
 export interface ExecutionLeaseRecord {
   id: string;
   scopeType: ExecutionLeaseScopeType;
@@ -180,6 +190,14 @@ export interface WorkerTaskDispatchClaim {
     defaultBranch: string;
     featureBranch: string;
   };
+}
+
+export interface AppendTaskRunEventInput {
+  eventType: string;
+  originator: string;
+  payload: Record<string, unknown>;
+  createdAt?: string;
+  sourceEventKey?: string | null;
 }
 
 export interface AcquireExecutionLeaseInput {

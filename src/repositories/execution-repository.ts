@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { AppDbStorage } from "./app-db-storage.js";
 import type {
   AcquireExecutionLeaseInput,
+  AppendTaskRunEventInput,
   CreateTaskRunInput,
   CreateSprintRunInput,
   CreateTaskDispatchInput,
@@ -10,6 +11,7 @@ import type {
   RenewExecutionLeaseInput,
   SprintRunRecord,
   TaskRunRecord,
+  TaskRunEventRecord,
   TaskDispatchRecord,
   UpdateTaskRunInput,
   UpdateSprintRunInput,
@@ -19,6 +21,7 @@ import type {
   ExecutionDashboardSnapshot,
   ExecutionSprintRunSummary,
   ExecutionTaskDispatchSummary,
+  ExecutionTaskRunEventSummary,
 } from "../contracts/app-types.js";
 
 interface SprintRunRow {
@@ -87,6 +90,16 @@ interface TaskRunRow {
   duration_ms: number | string | null;
 }
 
+interface TaskRunEventRow {
+  id: string;
+  task_run_id: string;
+  event_type: string;
+  originator: string | null;
+  payload_json: string | null;
+  source_event_key: string | null;
+  created_at: string;
+}
+
 interface ExecutionSprintRunSummaryRow {
   id: string;
   project_id: string;
@@ -138,8 +151,49 @@ interface ExecutionTaskDispatchSummaryRow {
   active_lease_expires_at: string | null;
 }
 
+interface ExecutionTaskRunEventSummaryRow {
+  id: string;
+  task_run_id: string;
+  sprint_run_id: string | null;
+  dispatch_id: string | null;
+  project_id: string;
+  sprint_id: string;
+  sprint_name: string;
+  sprint_number: number | string | null;
+  task_id: string;
+  task_key: string;
+  task_title: string;
+  task_run_state: string;
+  event_type: string;
+  originator: string | null;
+  source_event_key: string | null;
+  provider: string | null;
+  session_id: string | null;
+  session_name: string | null;
+  worker_branch: string | null;
+  pr_url: string | null;
+  connection_id: string | null;
+  connection_display_name: string | null;
+  connection_role: string | null;
+  created_at: string;
+  payload_json: string | null;
+}
+
 function toNumber(value: number | string): number {
   return typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
+}
+
+function parsePayloadJson(value: string | null): Record<string, unknown> | null {
+  if (!value || !value.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
 }
 
 export class ExecutionRepository {
@@ -400,6 +454,20 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
+  getLatestTaskRun(taskId: string, sprintRunId?: string): TaskRunRecord | null {
+    this.requireTask(taskId);
+    const runClause = sprintRunId ? "AND sprint_run_id = ?" : "";
+    const row = this.db.prepare(`
+      SELECT *
+      FROM task_runs
+      WHERE task_id = ?
+      ${runClause}
+      ORDER BY rowid DESC
+      LIMIT 1
+    `).get(taskId, ...(sprintRunId ? [sprintRunId] : [])) as TaskRunRow | undefined;
+    return row ? this.mapTaskRunRow(row) : null;
+  }
+
   getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {
     this.requireProject(projectId);
     const projectRow = this.db.prepare(`
@@ -492,11 +560,49 @@ export class ExecutionRepository {
       LIMIT 24
     `).all(projectId) as unknown as ExecutionTaskDispatchSummaryRow[];
 
+    const recentEvents = this.db.prepare(`
+      SELECT
+        tre.id,
+        tre.task_run_id,
+        tr.sprint_run_id,
+        tr.dispatch_id,
+        tr.project_id,
+        tr.sprint_id,
+        s.name AS sprint_name,
+        s.number AS sprint_number,
+        tr.task_id,
+        t.task_key,
+        t.title AS task_title,
+        tr.state AS task_run_state,
+        tre.event_type,
+        tre.originator,
+        tre.source_event_key,
+        tr.provider,
+        tr.session_id,
+        tr.session_name,
+        tr.worker_branch,
+        tr.pr_url,
+        tr.connection_id,
+        c.display_name AS connection_display_name,
+        c.role AS connection_role,
+        tre.created_at,
+        tre.payload_json
+      FROM task_run_events tre
+      INNER JOIN task_runs tr ON tr.id = tre.task_run_id
+      INNER JOIN sprints s ON s.id = tr.sprint_id
+      INNER JOIN tasks t ON t.id = tr.task_id
+      LEFT JOIN mcp_connections c ON c.id = tr.connection_id
+      WHERE tr.project_id = ?
+      ORDER BY tre.created_at DESC, tre.rowid DESC
+      LIMIT 60
+    `).all(projectId) as unknown as ExecutionTaskRunEventSummaryRow[];
+
     return {
       projectId: projectRow?.id || null,
       projectName: projectRow?.name || null,
       sprintRuns: sprintRuns.map((row) => this.mapExecutionSprintRunSummaryRow(row)),
       taskDispatches: taskDispatches.map((row) => this.mapExecutionTaskDispatchSummaryRow(row)),
+      recentEvents: recentEvents.map((row) => this.mapExecutionTaskRunEventSummaryRow(row)),
       updatedAt: new Date().toISOString(),
     };
   }
@@ -554,19 +660,39 @@ export class ExecutionRepository {
     return map;
   }
 
-  appendTaskRunEvent(taskRunId: string, eventType: string, originator: string, payload: Record<string, unknown>): void {
+  appendTaskRunEvent(
+    taskRunId: string,
+    eventType: string,
+    originator: string,
+    payload: Record<string, unknown>,
+    options?: { createdAt?: string; sourceEventKey?: string | null },
+  ): boolean {
     this.requireTaskRun(taskRunId);
-    this.db.prepare(`
-      INSERT INTO task_run_events (id, task_run_id, event_type, originator, payload_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+    const result = this.db.prepare(`
+      INSERT OR IGNORE INTO task_run_events (id, task_run_id, event_type, originator, payload_json, source_event_key, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       randomUUID(),
       taskRunId,
       eventType,
       originator,
       JSON.stringify(payload),
-      new Date().toISOString()
+      options?.sourceEventKey ?? null,
+      options?.createdAt || new Date().toISOString()
     );
+    return Number((result as { changes?: number }).changes || 0) > 0;
+  }
+
+  listTaskRunEvents(taskRunId: string, limit: number = 50): TaskRunEventRecord[] {
+    this.requireTaskRun(taskRunId);
+    const rows = this.db.prepare(`
+      SELECT *
+      FROM task_run_events
+      WHERE task_run_id = ?
+      ORDER BY created_at DESC, rowid DESC
+      LIMIT ?
+    `).all(taskRunId, Math.max(1, limit)) as unknown as TaskRunEventRow[];
+    return rows.map((row) => this.mapTaskRunEventRow(row));
   }
 
   claimNextTaskDispatch(args: {
@@ -834,6 +960,18 @@ export class ExecutionRepository {
     };
   }
 
+  private mapTaskRunEventRow(row: TaskRunEventRow): TaskRunEventRecord {
+    return {
+      id: row.id,
+      taskRunId: row.task_run_id,
+      eventType: row.event_type,
+      originator: row.originator,
+      payload: parsePayloadJson(row.payload_json),
+      sourceEventKey: row.source_event_key,
+      createdAt: row.created_at,
+    };
+  }
+
   private mapExecutionSprintRunSummaryRow(row: ExecutionSprintRunSummaryRow): ExecutionSprintRunSummary {
     return {
       id: row.id,
@@ -886,6 +1024,36 @@ export class ExecutionRepository {
       errorMessage: row.error_message,
       activeLeaseOwnerKey: row.active_lease_owner_key,
       activeLeaseExpiresAt: row.active_lease_expires_at,
+    };
+  }
+
+  private mapExecutionTaskRunEventSummaryRow(row: ExecutionTaskRunEventSummaryRow): ExecutionTaskRunEventSummary {
+    return {
+      id: row.id,
+      taskRunId: row.task_run_id,
+      sprintRunId: row.sprint_run_id,
+      dispatchId: row.dispatch_id,
+      projectId: row.project_id,
+      sprintId: row.sprint_id,
+      sprintName: row.sprint_name,
+      sprintNumber: row.sprint_number === null ? null : toNumber(row.sprint_number),
+      taskId: row.task_id,
+      taskKey: row.task_key,
+      taskTitle: row.task_title,
+      taskRunState: row.task_run_state,
+      eventType: row.event_type,
+      originator: row.originator,
+      sourceEventKey: row.source_event_key,
+      provider: row.provider,
+      sessionId: row.session_id,
+      sessionName: row.session_name,
+      workerBranch: row.worker_branch,
+      prUrl: row.pr_url,
+      connectionId: row.connection_id,
+      connectionDisplayName: row.connection_display_name,
+      connectionRole: row.connection_role,
+      createdAt: row.created_at,
+      payload: parsePayloadJson(row.payload_json),
     };
   }
 }

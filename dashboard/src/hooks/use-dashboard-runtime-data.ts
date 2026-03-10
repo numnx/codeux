@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "preact/hooks";
-import { computeStats, mergeLiveActivities } from "../lib/status.js";
+import { computeStats } from "../lib/status.js";
 import { fetchGitTrackingStatus, fetchRuntimeDashboardPayload } from "../lib/api/dashboard-api.js";
-import type { DashboardStatus, ExecutionDashboardSnapshot, GitTrackingStatus, LiveActivitiesResponse } from "../types.js";
+import type { DashboardStatus, ExecutionDashboardSnapshot, GitTrackingStatus } from "../types.js";
 import { useDashboardPollManager } from "./use-dashboard-poll-manager.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 10000;
@@ -25,10 +25,10 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     projectName: null,
     sprintRuns: [],
     taskDispatches: [],
+    recentEvents: [],
     updatedAt: null,
   });
   const [error, setError] = useState<string | null>(null);
-  const [liveActivities, setLiveActivities] = useState<Record<string, LiveActivitiesResponse["activitiesBySession"][string]>>({});
   const [gitStatus, setGitStatus] = useState<GitTrackingStatus | null>(null);
   const [gitStatusError, setGitStatusError] = useState<string | null>(null);
 
@@ -37,7 +37,6 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
       const data = await fetchRuntimeDashboardPayload();
       setStatus(data.status);
       setExecution(data.execution);
-      setLiveActivities((prev) => ({ ...prev, ...data.liveActivities }));
       setError(null);
     } catch (err) {
       setError("Unable to connect to Orchestrator API");
@@ -61,9 +60,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     onPoll: [refreshRuntimeStatusAction, refreshGitStatusAction],
   });
 
-  const tasksWithLiveActivities = useMemo(() => {
-    return mergeLiveActivities(status.subtasks || [], liveActivities);
-  }, [status.subtasks, liveActivities]);
+  const tasksWithLiveActivities = useMemo(() => status.subtasks || [], [status.subtasks]);
 
   const stats = useMemo(() => computeStats(tasksWithLiveActivities), [tasksWithLiveActivities]);
 

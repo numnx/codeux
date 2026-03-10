@@ -11,10 +11,9 @@ import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js";
 import { rerunTask } from "../lib/api/dashboard-api.js";
-import { getActivityText } from "../lib/activity.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
-import type { Subtask, JulesActivity, GitTrackingStatus, DashboardStats, ExecutionDashboardSnapshot } from "../types.js";
+import type { Subtask, GitTrackingStatus, ExecutionDashboardSnapshot, ExecutionTaskRunEventSummary } from "../types.js";
 
 /* ─── Status Maps ────────────────────────────────────────────────────────── */
 
@@ -102,9 +101,40 @@ const StatMetric: FunctionComponent<{
     );
 };
 
-/* ─── Live Activity Feed ─────────────────────────────────────────────────── */
+/* ─── Runtime Event Feed ─────────────────────────────────────────────────── */
 
-const LiveActivityFeed: FunctionComponent<{ activities?: JulesActivity[] }> = ({ activities }) => {
+const getExecutionEventText = (event: ExecutionTaskRunEventSummary): string => {
+    const payload = event.payload || {};
+
+    switch (event.eventType) {
+        case "dispatch_queued":
+            return `Queued for ${String(payload.executorType || event.provider || "execution")}`;
+        case "dispatch_started":
+            return `Started ${String(payload.executorType || event.provider || "execution")} dispatch`;
+        case "session_created":
+            return `Session created ${String(payload.sessionId || event.sessionId || "")}`.trim();
+        case "worker_claimed":
+            return `Claimed by ${String(payload.connectionKey || event.connectionDisplayName || "worker")}`;
+        case "run_running":
+            return String(payload.summaryMarkdown || "Worker heartbeat received");
+        case "run_completed":
+            return String(payload.summaryMarkdown || "Run completed");
+        case "run_failed":
+            return String(payload.errorMessage || payload.summaryMarkdown || "Run failed");
+        case "run_blocked":
+            return String(payload.errorMessage || payload.summaryMarkdown || "Run blocked");
+        case "session_state_synced":
+            return `Session ${String(payload.sessionState || event.taskRunState || "updated").toLowerCase()}`;
+        case "provider_activity":
+            return String(payload.preview || payload.description || "Provider activity");
+        case "dispatch_failed":
+            return String(payload.error || "Dispatch failed");
+        default:
+            return event.eventType.replace(/_/g, " ");
+    }
+};
+
+const RuntimeEventFeed: FunctionComponent<{ events?: ExecutionTaskRunEventSummary[] }> = ({ events }) => {
     const feedRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -114,14 +144,14 @@ const LiveActivityFeed: FunctionComponent<{ activities?: JulesActivity[] }> = ({
         if (distanceFromBottom < 120) {
             el.scrollTop = el.scrollHeight;
         }
-    }, [activities]);
+    }, [events]);
 
-    if (!activities || activities.length === 0) {
+    if (!events || events.length === 0) {
         return (
             <div className="flex items-center justify-center py-12 text-slate-400 dark:text-slate-600">
                 <div className="text-center">
                     <Terminal className="w-6 h-6 mx-auto mb-3 opacity-40" strokeWidth={1} />
-                    <p className="text-xs font-mono">Awaiting session data...</p>
+                    <p className="text-xs font-mono">Awaiting runtime events...</p>
                 </div>
             </div>
         );
@@ -129,21 +159,24 @@ const LiveActivityFeed: FunctionComponent<{ activities?: JulesActivity[] }> = ({
 
     return (
         <div ref={feedRef} className="max-h-64 overflow-y-auto pr-2 dashboard-scrollbar space-y-1">
-            {activities.map((activity) => {
-                const cfg = getOriginatorCfg(activity.originator);
+            {events.map((event) => {
+                const cfg = getOriginatorCfg(event.originator || "system");
                 return (
-                    <div key={activity.id} className={`flex gap-3 border-l-2 ${cfg.border} pl-3 py-2 group/entry hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-r-lg transition-colors duration-200`}>
+                    <div key={event.id} className={`flex gap-3 border-l-2 ${cfg.border} pl-3 py-2 group/entry hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-r-lg transition-colors duration-200`}>
                         <div className="flex-grow min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                                 <span className={`text-[9px] font-bold uppercase tracking-[0.12em] ${cfg.text}`}>
                                     {cfg.label}
                                 </span>
+                                <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                                    {event.eventType.replace(/_/g, " ")}
+                                </span>
                                 <span className="text-[9px] text-slate-400 dark:text-slate-600 font-mono">
-                                    {formatTime(activity.createTime)}
+                                    {formatTime(event.createdAt)}
                                 </span>
                             </div>
                             <div className="text-[12px] text-slate-600 dark:text-slate-400 leading-relaxed font-mono line-clamp-2 group-hover/entry:line-clamp-none transition-all cursor-default">
-                                {getActivityText(activity)}
+                                {getExecutionEventText(event)}
                             </div>
                         </div>
                     </div>
@@ -157,15 +190,16 @@ const LiveActivityFeed: FunctionComponent<{ activities?: JulesActivity[] }> = ({
 
 const LiveTaskCard: FunctionComponent<{
     task: Subtask;
+    events?: ExecutionTaskRunEventSummary[];
     onRerun: (id: string) => void;
     isRerunning: boolean;
-}> = ({ task, onRerun, isRerunning }) => {
+}> = ({ task, events, onRerun, isRerunning }) => {
     const [expanded, setExpanded] = useState(false);
     const [showFeed, setShowFeed] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const cfg = getTaskCfg(task.status);
     const StatusIcon = cfg.icon;
-    const hasSession = Boolean(task.session_id || task.session_name);
+    const hasEventFeed = Boolean(events && events.length > 0);
     const mergeCfg = task.merge_indicator ? MERGE_INDICATOR_CFG[task.merge_indicator] : null;
     const sessionLabel = (task.session_id || task.session_name || "").replace(/^sessions\//, "");
 
@@ -243,7 +277,7 @@ const LiveTaskCard: FunctionComponent<{
                                 {task.provider}
                             </span>
                         )}
-                        {hasSession && (
+                        {(hasEventFeed || task.session_id || task.session_name) && (
                             <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 max-w-[100px] truncate" title={sessionLabel}>
                                 {sessionLabel.substring(0, 16)}
                             </span>
@@ -285,20 +319,20 @@ const LiveTaskCard: FunctionComponent<{
                 )}
 
                 {/* Live session feed */}
-                {showFeed && hasSession && (
+                {showFeed && (
                     <div className="mb-5 p-5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.04]">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="w-1.5 h-1.5 rounded-full bg-signal-500 animate-pulse" />
-                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Live Session Feed</span>
+                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Runtime Feed</span>
                         </div>
-                        <LiveActivityFeed activities={task.activities} />
+                        <RuntimeEventFeed events={events} />
                     </div>
                 )}
 
                 {/* Action bar */}
                 <div className="flex items-center justify-between pt-4 border-t border-black/[0.04] dark:border-white/[0.04]">
                     <div className="flex items-center gap-2">
-                        {hasSession && (
+                        {hasEventFeed && (
                             <button
                                 type="button"
                                 onClick={() => { setShowFeed(!showFeed); if (expanded) setExpanded(false); }}
@@ -310,7 +344,7 @@ const LiveTaskCard: FunctionComponent<{
                                            }`}
                             >
                                 {showFeed ? <EyeOff className="w-3 h-3" strokeWidth={2} /> : <Eye className="w-3 h-3" strokeWidth={2} />}
-                                {showFeed ? "Hide Feed" : "Live Feed"}
+                                {showFeed ? "Hide Feed" : "Runtime Feed"}
                             </button>
                         )}
                         <button
@@ -499,6 +533,17 @@ const ExecutionRuntimePanel: FunctionComponent<{ snapshot: ExecutionDashboardSna
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Runtime Timeline</span>
+                    {snapshot.recentEvents.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No task run events recorded yet.</p>
+                    ) : (
+                        <div className="max-h-72 overflow-y-auto dashboard-scrollbar pr-1">
+                            <RuntimeEventFeed events={snapshot.recentEvents.slice(0, 24)} />
                         </div>
                     )}
                 </div>
@@ -755,6 +800,24 @@ export const LiveSessionPage: FunctionComponent = () => {
         return tasksWithLiveActivities.filter(t => t.status === target);
     }, [tasksWithLiveActivities, activeFilter]);
 
+    const taskEventsByRecordId = useMemo(() => {
+        const byRecordId = new Map<string, ExecutionTaskRunEventSummary[]>();
+        const byTaskKey = new Map<string, ExecutionTaskRunEventSummary[]>();
+        for (const event of execution.recentEvents) {
+            if (event.taskId) {
+                const existing = byRecordId.get(event.taskId) || [];
+                existing.push(event);
+                byRecordId.set(event.taskId, existing);
+            }
+            if (event.taskKey) {
+                const existing = byTaskKey.get(event.taskKey) || [];
+                existing.push(event);
+                byTaskKey.set(event.taskKey, existing);
+            }
+        }
+        return { byRecordId, byTaskKey };
+    }, [execution.recentEvents]);
+
     const counts: Record<TaskFilter, number> = useMemo(() => ({
         All:       tasksWithLiveActivities.length,
         Running:   stats.running,
@@ -920,6 +983,9 @@ export const LiveSessionPage: FunctionComponent = () => {
                             <LiveTaskCard
                                 key={task.id}
                                 task={task}
+                                events={(task.record_id && taskEventsByRecordId.byRecordId.get(task.record_id))
+                                    || taskEventsByRecordId.byTaskKey.get(task.id)
+                                    || []}
                                 onRerun={handleRerun}
                                 isRerunning={rerunningIds.has(task.id)}
                             />

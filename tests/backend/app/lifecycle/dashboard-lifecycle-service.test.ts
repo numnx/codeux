@@ -39,6 +39,7 @@ describe("dashboard-lifecycle-service", () => {
           projectName: "Project 1",
           sprintRuns: [],
           taskDispatches: [],
+          recentEvents: [],
           updatedAt: "2026-03-09T00:00:00.000Z",
         }),
       } as any,

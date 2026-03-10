@@ -1,6 +1,181 @@
-import type { JulesSession, Subtask } from "../../contracts/app-types.js";
+import type { JulesActivity, JulesSession, Subtask } from "../../contracts/app-types.js";
+import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../contracts/execution-types.js";
 import type { SessionSyncDependencies } from "../sprint-types.js";
 import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
+
+const mapSessionStateToTaskRunState = (
+  sessionState: string | undefined,
+  isActionRequiredState: SessionSyncDependencies["isActionRequiredState"],
+): TaskRunState => {
+  if (sessionState === "COMPLETED") {
+    return "COMPLETED";
+  }
+  if (sessionState === "FAILED") {
+    return "FAILED";
+  }
+  if (isActionRequiredState(sessionState)) {
+    return "BLOCKED";
+  }
+  return "RUNNING";
+};
+
+const mapTaskRunStateToDispatchStatus = (state: TaskRunState): TaskDispatchStatus => {
+  switch (state) {
+    case "COMPLETED":
+      return "completed";
+    case "FAILED":
+      return "failed";
+    case "BLOCKED":
+      return "blocked";
+    case "RUNNING":
+    case "PENDING":
+    default:
+      return "running";
+  }
+};
+
+const getActivityPreview = (activity: JulesActivity): string => {
+  if (typeof activity.agentMessaged?.agentMessage === "string" && activity.agentMessaged.agentMessage.trim()) {
+    return activity.agentMessaged.agentMessage.trim();
+  }
+  if (typeof activity.userMessaged?.userMessage === "string" && activity.userMessaged.userMessage.trim()) {
+    return activity.userMessaged.userMessage.trim();
+  }
+  if (typeof activity.progressUpdated?.title === "string" && activity.progressUpdated.title.trim()) {
+    return activity.progressUpdated.title.trim();
+  }
+  if (typeof activity.progressUpdated?.description === "string" && activity.progressUpdated.description.trim()) {
+    return activity.progressUpdated.description.trim();
+  }
+  if (typeof activity.description === "string" && activity.description.trim()) {
+    return activity.description.trim();
+  }
+  return "Activity updated";
+};
+
+const getActivityKind = (activity: JulesActivity): string => {
+  if (activity.sessionCompleted) return "session_completed";
+  if (activity.sessionFailed) return "session_failed";
+  if (activity.planApproved) return "plan_approved";
+  if (activity.planGenerated) return "plan_generated";
+  if (activity.progressUpdated) return "progress_updated";
+  if (activity.agentMessaged) return "agent_message";
+  if (activity.userMessaged) return "user_message";
+  return "activity";
+};
+
+const resolveWorkerBranch = (session: JulesSession): string | null => {
+  const output = Array.isArray(session.outputs)
+    ? session.outputs.find((entry) => entry && typeof entry === "object" && "pullRequest" in entry)
+    : undefined;
+  const branch = output && typeof output.pullRequest === "object"
+    ? (output.pullRequest as Record<string, unknown>).workerBranch
+    : null;
+  return typeof branch === "string" && branch.trim().length > 0 ? branch : null;
+};
+
+const resolvePrUrl = (session: JulesSession): string | null => {
+  const output = Array.isArray(session.outputs)
+    ? session.outputs.find((entry) => entry && typeof entry === "object" && "pullRequest" in entry)
+    : undefined;
+  const url = output && typeof output.pullRequest === "object"
+    ? (output.pullRequest as Record<string, unknown>).url
+    : null;
+  return typeof url === "string" && url.trim().length > 0 ? url : null;
+};
+
+const syncExecutionRunState = (
+  deps: SessionSyncDependencies,
+  task: Subtask,
+  session: JulesSession,
+  activities: JulesActivity[] | undefined,
+): void => {
+  if (!deps.executionRepository || !deps.sprintRunId || !task.record_id) {
+    return;
+  }
+
+  const taskRun = deps.executionRepository.getLatestTaskRun(task.record_id, deps.sprintRunId);
+  if (!taskRun) {
+    return;
+  }
+
+  const sessionName = deps.resolveSessionName(session) || taskRun.sessionName;
+  const sessionId = deps.extractSessionId(session) || taskRun.sessionId;
+  const provider = session.provider || taskRun.provider;
+  const workerBranch = resolveWorkerBranch(session) || taskRun.workerBranch;
+  const prUrl = resolvePrUrl(session) || taskRun.prUrl;
+  const nextRunState = mapSessionStateToTaskRunState(session.state, deps.isActionRequiredState);
+  const now = new Date().toISOString();
+  const nextFinishedAt = nextRunState === "RUNNING" ? null : now;
+  const nextDurationMs = nextRunState === "RUNNING" || !taskRun.startedAt
+    ? null
+    : Math.max(0, new Date(nextFinishedAt || now).getTime() - new Date(taskRun.startedAt).getTime());
+
+  deps.executionRepository.updateTaskRun(taskRun.id, {
+    sessionId,
+    sessionName,
+    provider,
+    workerBranch,
+    prUrl,
+    state: nextRunState,
+    startedAt: taskRun.startedAt || now,
+    finishedAt: nextFinishedAt,
+    durationMs: nextDurationMs,
+  });
+
+  if (taskRun.dispatchId) {
+    deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
+      status: mapTaskRunStateToDispatchStatus(nextRunState),
+      startedAt: taskRun.startedAt || now,
+      finishedAt: nextRunState === "RUNNING" ? null : now,
+      lastHeartbeatAt: now,
+      errorMessage: nextRunState === "FAILED"
+        ? `Provider session ${session.state || "FAILED"}`
+        : nextRunState === "BLOCKED"
+          ? `Provider session requires attention: ${session.state || "ACTION_REQUIRED"}`
+          : null,
+    });
+  }
+
+  const sessionSyncKey = [
+    "session-sync",
+    sessionId || sessionName || taskRun.id,
+    session.state || "RUNNING",
+    provider || "",
+    workerBranch || "",
+    prUrl || "",
+  ].join(":");
+  deps.executionRepository.appendTaskRunEvent(taskRun.id, "session_state_synced", "provider", {
+    sessionState: session.state || null,
+    taskRunState: nextRunState,
+    provider,
+    sessionId,
+    sessionName,
+    workerBranch,
+    prUrl,
+  }, {
+    sourceEventKey: sessionSyncKey,
+  });
+
+  for (const activity of activities || []) {
+    if (!activity || typeof activity !== "object" || typeof activity.id !== "string") {
+      continue;
+    }
+
+    deps.executionRepository.appendTaskRunEvent(taskRun.id, "provider_activity", activity.originator || "provider", {
+      activityId: activity.id,
+      sessionId,
+      sessionName,
+      provider,
+      kind: getActivityKind(activity),
+      preview: getActivityPreview(activity),
+      description: typeof activity.description === "string" ? activity.description : null,
+    }, {
+      createdAt: typeof activity.createTime === "string" && activity.createTime.trim().length > 0 ? activity.createTime : undefined,
+      sourceEventKey: `activity:${activity.id}`,
+    });
+  }
+};
 
 export const runSessionSyncStep = async (
   subtasks: Subtask[],
@@ -36,7 +211,7 @@ export const runSessionSyncStep = async (
     }
   }
 
-  const activitiesMap = new Map<string, any[]>();
+  const activitiesMap = new Map<string, JulesActivity[]>();
   const sessionNameArray = Array.from(uniqueSessionNames);
   const chunkSize = 5;
 
@@ -88,6 +263,13 @@ export const runSessionSyncStep = async (
     if (sessionName && activitiesMap.has(sessionName)) {
       task.activities = activitiesMap.get(sessionName);
     }
+
+    syncExecutionRunState(
+      deps,
+      task,
+      match,
+      sessionName ? activitiesMap.get(sessionName) : undefined,
+    );
 
     if (match.state === "COMPLETED") {
       task.status = "COMPLETED";

@@ -61,7 +61,7 @@ async function createServerHandle(): Promise<{
       const selectedProjectId = repository.getSelectedProjectId();
       return selectedProjectId
         ? executionRepository.getProjectExecutionSnapshot(selectedProjectId)
-        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], updatedAt: null };
+        : { projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], recentEvents: [], updatedAt: null };
     },
     getProjectExecutionSnapshot: (projectId) => executionRepository.getProjectExecutionSnapshot(projectId),
     getLiveActivities: async () => ({}),
@@ -221,10 +221,17 @@ describe("dashboard project management API", () => {
       projectId: string | null;
       sprintRuns: Array<{ sprintId: string; status: string }>;
       taskDispatches: Array<{ taskId: string; executorType: string }>;
+      recentEvents: Array<unknown>;
     };
     expect(executionSnapshot.projectId).toBe(project.id);
     expect(executionSnapshot.sprintRuns).toEqual([]);
     expect(executionSnapshot.taskDispatches).toEqual([]);
+    expect(executionSnapshot.recentEvents[0]).toMatchObject({
+      eventType: "status_sync",
+      taskKey: "T01",
+      taskTitle: "Wire selected project state",
+      sessionId: "session-api",
+    });
 
     const startListenResponse = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/threads`, {
       method: "POST",
