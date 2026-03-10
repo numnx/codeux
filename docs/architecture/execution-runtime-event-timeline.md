@@ -10,6 +10,8 @@ The durable runtime timeline now lives in sqlite:
 
 - one `task_run` captures the current execution record for a task run
 - many `task_run_events` capture the timeline of what happened during that run
+- one `sprint_run` captures the current orchestration record for a sprint execution attempt
+- many `sprint_run_events` capture sprint-scoped orchestration state that does not belong to one task
 
 This gives the dashboard, orchestrator, and future worker control paths one shared event history.
 
@@ -42,6 +44,19 @@ Primary event types now written into `task_run_events`:
 - `ci_gate_status`
 - existing `status_sync` projection events from selected-project runtime sync
 
+Primary event types now written into `sprint_run_events`:
+
+- `branch_preflight_blocked`
+- `planning_preflight_blocked`
+- `watch_loop_started`
+- `sprint_merge_required`
+- `sprint_no_more_actions`
+- `sprint_completed`
+- `sprint_failed`
+- `sprint_paused`
+- `sprint_cancelled`
+- `main_merge_gate_status`
+
 Each event stores:
 
 - `task_run_id`
@@ -53,7 +68,7 @@ Each event stores:
 
 ## Deduplication
 
-`task_run_events.source_event_key` is now used to make event ingestion idempotent per task run.
+`task_run_events.source_event_key` and `sprint_run_events.source_event_key` are now used to make event ingestion idempotent per run scope.
 
 Current usage:
 
@@ -112,14 +127,21 @@ This means merge gating is now part of the same DB-native runtime history as dis
 - `taskDispatches`
 - `recentEvents`
 
-`recentEvents` is joined with:
+`recentEvents` is now a unified runtime stream with `scopeType = "task_run" | "sprint_run"`.
+
+Task events are joined with:
 
 - `task_runs`
 - `tasks`
 - `sprints`
 - `mcp_connections`
 
-so each row already has the task, sprint, connection, provider, branch, PR, and payload context the v2 dashboard needs.
+Sprint events are joined with:
+
+- `sprint_runs`
+- `sprints`
+
+so each row already has the sprint, task when applicable, connection, provider, branch, PR, and payload context the v2 dashboard needs.
 
 ## UI Usage
 
@@ -128,4 +150,4 @@ The v2 live page now uses this DB timeline in two places:
 - the execution runtime sidebar panel shows a project-scoped runtime timeline
 - each task card can open a runtime feed derived from recent `task_run_events`
 
-This means the main live feed is now DB-native even when execution is happening through Docker/CLI providers or connected MCP workers.
+This means the main live feed is now DB-native even when execution is happening through Docker/CLI providers, connected MCP workers, or sprint-scoped orchestration control paths.

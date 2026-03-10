@@ -10,6 +10,7 @@ import type {
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { CycleRunner } from "./cycle-runner.js";
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
+import type { MergeFeedbackResult } from "../ci/main-merge-gate.js";
 
 export interface WatchLoopRunnerArgs {
   args: SprintAgentArgs;
@@ -32,7 +33,7 @@ export class WatchLoopRunner {
   constructor(
     private readonly deps: SprintOrchestratorDependencies,
     private readonly cycleRunner: CycleRunner,
-    private readonly renderMainMergeCiFeedback: (args: any) => Promise<string>
+    private readonly renderMainMergeCiFeedback: (args: any) => Promise<MergeFeedbackResult>
   ) {}
 
   async run(params: WatchLoopRunnerArgs): Promise<string> {
@@ -83,6 +84,13 @@ export class WatchLoopRunner {
       featureBranch: defaultFeatureBranch,
     });
     this.deps.logger.info(`Live dashboard available at http://localhost:${dashboardPort}`);
+    this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "watch_loop_started", "system", {
+      sprintNumber: scopedExecutionContext.sprintNumber,
+      featureBranch: defaultFeatureBranch,
+      defaultBranch,
+    }, {
+      sourceEventKey: `watch-loop-started:${sprintRunId}`,
+    });
 
     while (!allFinished) {
       const { subtasks, reportText, statusTable, instructions, awaitingMerge } = await this.cycleRunner.run({
@@ -141,8 +149,21 @@ export class WatchLoopRunner {
           fullReport += instructions;
 
           if (needsManualMerge) {
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_merge_required", "system", {
+              awaitingMergeCount: awaitingMerge.length,
+              taskIds: awaitingMerge.map((task) => task.record_id || task.id),
+            }, {
+              sourceEventKey: `sprint-merge-required:${sprintRunId}`,
+            });
             fullReport += await this.deps.renderInstruction("watchMergeRequired", {}, repoPath);
           } else if (subtasks.length > 0 && !allTerminal && noMoreActionPossible) {
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_no_more_actions", "system", {
+              taskCount: subtasks.length,
+              runningCount: runningTasks.length,
+              readyCount: readyTasks.length,
+            }, {
+              sourceEventKey: `sprint-no-more-actions:${sprintRunId}`,
+            });
             fullReport += await this.deps.renderInstruction("watchNoMoreActions", {}, repoPath);
           }
 
@@ -161,6 +182,12 @@ export class WatchLoopRunner {
                 finishedAt: new Date().toISOString(),
                 lastHeartbeatAt: new Date().toISOString(),
               });
+              this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_completed", "system", {
+                sprintNumber: scopedExecutionContext.sprintNumber,
+                taskCount: subtasks.length,
+              }, {
+                sourceEventKey: `sprint-completed:${sprintRunId}`,
+              });
               fullReport += await this.deps.renderInstruction("cleanupAllMerged", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
               fullReport += await runCompletionStep({
                 defaultBranch,
@@ -170,7 +197,7 @@ export class WatchLoopRunner {
                 ciIntelligence,
                 renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, repoPath),
               });
-              fullReport += await this.renderMainMergeCiFeedback({
+              const mergeFeedback = await this.renderMainMergeCiFeedback({
                 repoPath,
                 featureBranch: defaultFeatureBranch,
                 defaultBranch,
@@ -178,6 +205,20 @@ export class WatchLoopRunner {
                 ciIntelligence,
                 githubMode,
               });
+              if (mergeFeedback.text) {
+                this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "main_merge_gate_status", "system", {
+                  state: mergeFeedback.state,
+                  prNumber: mergeFeedback.prNumber,
+                  prUrl: mergeFeedback.prUrl,
+                  hasFailedChecks: mergeFeedback.hasFailedChecks,
+                  hasPendingChecks: mergeFeedback.hasPendingChecks,
+                  hasReviewBlockers: mergeFeedback.hasReviewBlockers,
+                  failedChecks: mergeFeedback.failedChecks,
+                }, {
+                  sourceEventKey: `main-merge-gate:${sprintRunId}:${mergeFeedback.state}:${mergeFeedback.prNumber || "none"}`,
+                });
+              }
+              fullReport += mergeFeedback.text;
             } catch (cleanupError) {
               this.deps.logger.warn("Failed to finalize sprint run", {
                 sprintRunId,
@@ -190,11 +231,22 @@ export class WatchLoopRunner {
               finishedAt: new Date().toISOString(),
               lastHeartbeatAt: new Date().toISOString(),
             });
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_failed", "system", {
+              failedTaskCount: subtasks.filter((task) => task.status === "FAILED").length,
+            }, {
+              sourceEventKey: `sprint-failed:${sprintRunId}`,
+            });
             fullReport += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
           } else if (subtasks.some((task) => task.status === "COMPLETED" && !task.is_merged)) {
             this.deps.executionRepository.updateSprintRun(sprintRunId, {
               status: "paused",
               lastHeartbeatAt: new Date().toISOString(),
+            });
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_paused", "system", {
+              reason: "awaiting_merge",
+              awaitingMergeCount: subtasks.filter((task) => task.status === "COMPLETED" && !task.is_merged).length,
+            }, {
+              sourceEventKey: `sprint-paused:${sprintRunId}:awaiting-merge`,
             });
             fullReport += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
           } else if (subtasks.length === 0) {
@@ -203,11 +255,21 @@ export class WatchLoopRunner {
               finishedAt: new Date().toISOString(),
               lastHeartbeatAt: new Date().toISOString(),
             });
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_cancelled", "system", {
+              reason: "empty",
+            }, {
+              sourceEventKey: `sprint-cancelled:${sprintRunId}:empty`,
+            });
             fullReport += await this.renderInstruction("cleanupEmpty", {}, repoPath);
           } else {
             this.deps.executionRepository.updateSprintRun(sprintRunId, {
               status: "paused",
               lastHeartbeatAt: new Date().toISOString(),
+            });
+            this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_paused", "system", {
+              reason: "manual_attention",
+            }, {
+              sourceEventKey: `sprint-paused:${sprintRunId}:manual-attention`,
             });
           }
 

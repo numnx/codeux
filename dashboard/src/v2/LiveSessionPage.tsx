@@ -13,7 +13,7 @@ import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js"
 import { rerunTask } from "../lib/api/dashboard-api.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
-import type { Subtask, GitTrackingStatus, ExecutionDashboardSnapshot, ExecutionTaskRunEventSummary } from "../types.js";
+import type { Subtask, GitTrackingStatus, ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary } from "../types.js";
 
 /* ─── Status Maps ────────────────────────────────────────────────────────── */
 
@@ -103,7 +103,7 @@ const StatMetric: FunctionComponent<{
 
 /* ─── Runtime Event Feed ─────────────────────────────────────────────────── */
 
-const getExecutionEventText = (event: ExecutionTaskRunEventSummary): string => {
+const getExecutionEventText = (event: ExecutionRuntimeEventSummary): string => {
     const payload = event.payload || {};
 
     switch (event.eventType) {
@@ -153,12 +153,46 @@ const getExecutionEventText = (event: ExecutionTaskRunEventSummary): string => {
             return `Preserved worktree ${String(payload.worktreePath || "")}`.trim();
         case "ci_gate_status":
             return `CI gate ${String(payload.state || "updated").replace(/_/g, " ")}`;
+        case "action_required_manual_intervention":
+            return `${String(payload.owner || "Manual")} intervention required${payload.reason ? `: ${String(payload.reason)}` : ""}`;
+        case "action_required_auto_approved":
+            return "Auto-approved session plan";
+        case "action_required_auto_replied":
+            return "Auto-answered clarification request";
+        case "action_required_auto_resumed":
+            return "Auto-resumed paused session";
+        case "action_required_auto_failed":
+            return String(payload.reason || "Auto-intervention failed");
+        case "protocol_merge_required":
+            return "Task completed and is awaiting merge";
+        case "protocol_action_required":
+            return `${String(payload.owner || "Manual")} action required${payload.interventionHint ? `: ${String(payload.interventionHint)}` : ""}`;
+        case "watch_loop_started":
+            return `Watch loop started for sprint ${String(payload.sprintNumber || "")}`.trim();
+        case "branch_preflight_blocked":
+            return `Branch preflight blocked for ${String(payload.featureBranch || "feature branch")}`;
+        case "planning_preflight_blocked":
+            return `Planning required before orchestration for ${String(payload.planningTarget || "selected sprint")}`;
+        case "sprint_merge_required":
+            return `Sprint paused for manual merge (${String(payload.awaitingMergeCount || 0)} task${Number(payload.awaitingMergeCount || 0) === 1 ? "" : "s"})`;
+        case "sprint_no_more_actions":
+            return "Sprint paused because no more executable work was available";
+        case "sprint_completed":
+            return "Sprint execution completed";
+        case "sprint_failed":
+            return `Sprint execution failed (${String(payload.failedTaskCount || 0)} failed task${Number(payload.failedTaskCount || 0) === 1 ? "" : "s"})`;
+        case "sprint_paused":
+            return `Sprint paused: ${String(payload.reason || "manual attention").replace(/_/g, " ")}`;
+        case "sprint_cancelled":
+            return `Sprint cancelled: ${String(payload.reason || "empty").replace(/_/g, " ")}`;
+        case "main_merge_gate_status":
+            return `Main merge gate ${String(payload.state || "updated").replace(/_/g, " ")}`;
         default:
             return event.eventType.replace(/_/g, " ");
     }
 };
 
-const RuntimeEventFeed: FunctionComponent<{ events?: ExecutionTaskRunEventSummary[] }> = ({ events }) => {
+const RuntimeEventFeed: FunctionComponent<{ events?: ExecutionRuntimeEventSummary[] }> = ({ events }) => {
     const feedRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -214,7 +248,7 @@ const RuntimeEventFeed: FunctionComponent<{ events?: ExecutionTaskRunEventSummar
 
 const LiveTaskCard: FunctionComponent<{
     task: Subtask;
-    events?: ExecutionTaskRunEventSummary[];
+    events?: ExecutionRuntimeEventSummary[];
     onRerun: (id: string) => void;
     isRerunning: boolean;
 }> = ({ task, events, onRerun, isRerunning }) => {
@@ -825,8 +859,8 @@ export const LiveSessionPage: FunctionComponent = () => {
     }, [tasksWithLiveActivities, activeFilter]);
 
     const taskEventsByRecordId = useMemo(() => {
-        const byRecordId = new Map<string, ExecutionTaskRunEventSummary[]>();
-        const byTaskKey = new Map<string, ExecutionTaskRunEventSummary[]>();
+        const byRecordId = new Map<string, ExecutionRuntimeEventSummary[]>();
+        const byTaskKey = new Map<string, ExecutionRuntimeEventSummary[]>();
         for (const event of execution.recentEvents) {
             if (event.taskId) {
                 const existing = byRecordId.get(event.taskId) || [];

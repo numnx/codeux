@@ -19,6 +19,8 @@ It now:
 - exposes execution control-plane state through a dedicated dashboard projection
 - persists provider session state and activity into `task_run_events`
 - persists direct CLI pipeline stage events and CI-gate state changes into `task_run_events`
+- persists action-required automation and protocol state into `task_run_events`
+- persists branch/planning preflight blockers and watch-loop sprint lifecycle into `sprint_run_events`
 
 It does not yet:
 - remove all legacy wording from every instruction template

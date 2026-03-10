@@ -25,7 +25,11 @@ describe("sprint-orchestrator", () => {
         const orch = new SprintOrchestrator(deps as any);
 
         const feedback = await (orch as any).renderMainMergeCiFeedback({ repoPath: "path", featureBranch: "a", defaultBranch: "b", featureBranchPrefix: "c" });
-        expect(feedback).toBe("");
+        expect(feedback).toMatchObject({
+            text: "",
+            state: "unavailable",
+            prNumber: null,
+        });
     });
 
     it("returns message if sprint already completed", async () => {

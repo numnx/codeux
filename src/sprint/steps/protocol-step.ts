@@ -9,6 +9,12 @@ interface ProtocolStepOptions {
   enableActionRequiredProtocol: boolean;
   isActionRequiredState: (state?: string) => boolean;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>) => Promise<string>;
+  onTaskEvent?: (args: {
+    task: Subtask;
+    eventType: string;
+    sourceEventKey?: string;
+    payload: Record<string, unknown>;
+  }) => void;
 }
 
 export interface ProtocolStepResult {
@@ -47,6 +53,16 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("mergeHeader", {});
 
     for (const task of awaitingMerge) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_merge_required",
+        sourceEventKey: `protocol:merge-required:${task.id}:${task.merge_indicator || "pending"}`,
+        payload: {
+          featureBranch: options.featureBranch,
+          provider: task.provider || "jules",
+          mergeIndicator: task.merge_indicator || null,
+        },
+      });
       instructions += await options.renderInstruction("mergeTask", {
         task_id: task.id,
         git_manager_skill: options.githubMode === "REMOTE" ? "`git_manager_remote`" : "`git_manager_local`",
@@ -64,6 +80,17 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("actionRequiredAgentHeader", {});
 
     for (const task of agentInterventionTasks) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_action_required",
+        sourceEventKey: `protocol:action-required:${task.id}:agent:${task.session_state || "unknown"}`,
+        payload: {
+          owner: "AGENT",
+          sessionState: task.session_state || "UNKNOWN",
+          provider: task.provider || "jules",
+          interventionHint: task.intervention_hint || null,
+        },
+      });
       const interventionHintLine = typeof task.intervention_hint === "string" && task.intervention_hint.trim().length > 0
         ? `- Context: ${task.intervention_hint.trim()}\n`
         : "";
@@ -81,6 +108,17 @@ export const runProtocolStep = async (subtasks: Subtask[], options: ProtocolStep
     instructions += await options.renderInstruction("actionRequiredHumanHeader", {});
 
     for (const task of humanInterventionTasks) {
+      options.onTaskEvent?.({
+        task,
+        eventType: "protocol_action_required",
+        sourceEventKey: `protocol:action-required:${task.id}:human:${task.session_state || "unknown"}`,
+        payload: {
+          owner: task.intervention_owner || "HUMAN",
+          sessionState: task.session_state || "UNKNOWN",
+          provider: task.provider || "jules",
+          interventionHint: task.intervention_hint || null,
+        },
+      });
       const interventionHintLine = typeof task.intervention_hint === "string" && task.intervention_hint.trim().length > 0
         ? `- Context: ${task.intervention_hint.trim()}\n`
         : "";

@@ -12,6 +12,7 @@
 - [DB-Native Orchestrator Integration](./architecture/db-native-orchestrator-integration.md)
 - [Execution Dashboard Projection](./architecture/execution-dashboard-projection.md)
 - [Execution Runtime Event Timeline](./architecture/execution-runtime-event-timeline.md)
+- [Unified Runtime Event Stream](./architecture/unified-runtime-event-stream.md)
 - [Project Management Implementation](./architecture/project-management-implementation.md)
 - [Project Runtime Integration](./architecture/project-runtime-integration.md)
 - [MCP Connections And Listen Mode](./architecture/mcp-connections-and-listen-mode.md)

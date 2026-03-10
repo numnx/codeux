@@ -3,11 +3,11 @@ import type { DatabaseSync } from "node:sqlite";
 import { AppDbStorage } from "./app-db-storage.js";
 import type {
   AcquireExecutionLeaseInput,
-  AppendTaskRunEventInput,
   CreateTaskRunInput,
   CreateSprintRunInput,
   CreateTaskDispatchInput,
   ExecutionLeaseRecord,
+  SprintRunEventRecord,
   RenewExecutionLeaseInput,
   SprintRunRecord,
   TaskRunRecord,
@@ -19,9 +19,9 @@ import type {
 } from "../contracts/execution-types.js";
 import type {
   ExecutionDashboardSnapshot,
+  ExecutionRuntimeEventSummary,
   ExecutionSprintRunSummary,
   ExecutionTaskDispatchSummary,
-  ExecutionTaskRunEventSummary,
 } from "../contracts/app-types.js";
 
 interface SprintRunRow {
@@ -100,6 +100,16 @@ interface TaskRunEventRow {
   created_at: string;
 }
 
+interface SprintRunEventRow {
+  id: string;
+  sprint_run_id: string;
+  event_type: string;
+  originator: string | null;
+  payload_json: string | null;
+  source_event_key: string | null;
+  created_at: string;
+}
+
 interface ExecutionSprintRunSummaryRow {
   id: string;
   project_id: string;
@@ -151,19 +161,21 @@ interface ExecutionTaskDispatchSummaryRow {
   active_lease_expires_at: string | null;
 }
 
-interface ExecutionTaskRunEventSummaryRow {
+interface ExecutionRuntimeEventSummaryRow {
   id: string;
-  task_run_id: string;
+  scope_type: string;
+  task_run_id: string | null;
   sprint_run_id: string | null;
   dispatch_id: string | null;
   project_id: string;
   sprint_id: string;
   sprint_name: string;
   sprint_number: number | string | null;
-  task_id: string;
-  task_key: string;
-  task_title: string;
-  task_run_state: string;
+  sprint_run_status: string | null;
+  task_id: string | null;
+  task_key: string | null;
+  task_title: string | null;
+  task_run_state: string | null;
   event_type: string;
   originator: string | null;
   source_event_key: string | null;
@@ -576,48 +588,89 @@ export class ExecutionRepository {
     `).all(projectId) as unknown as ExecutionTaskDispatchSummaryRow[];
 
     const recentEvents = this.db.prepare(`
-      SELECT
-        tre.id,
-        tre.task_run_id,
-        tr.sprint_run_id,
-        tr.dispatch_id,
-        tr.project_id,
-        tr.sprint_id,
-        s.name AS sprint_name,
-        s.number AS sprint_number,
-        tr.task_id,
-        t.task_key,
-        t.title AS task_title,
-        tr.state AS task_run_state,
-        tre.event_type,
-        tre.originator,
-        tre.source_event_key,
-        tr.provider,
-        tr.session_id,
-        tr.session_name,
-        tr.worker_branch,
-        tr.pr_url,
-        tr.connection_id,
-        c.display_name AS connection_display_name,
-        c.role AS connection_role,
-        tre.created_at,
-        tre.payload_json
-      FROM task_run_events tre
-      INNER JOIN task_runs tr ON tr.id = tre.task_run_id
-      INNER JOIN sprints s ON s.id = tr.sprint_id
-      INNER JOIN tasks t ON t.id = tr.task_id
-      LEFT JOIN mcp_connections c ON c.id = tr.connection_id
-      WHERE tr.project_id = ?
-      ORDER BY tre.created_at DESC, tre.rowid DESC
+      SELECT *
+      FROM (
+        SELECT
+          tre.id,
+          'task_run' AS scope_type,
+          tre.task_run_id,
+          tr.sprint_run_id,
+          tr.dispatch_id,
+          tr.project_id,
+          tr.sprint_id,
+          s.name AS sprint_name,
+          s.number AS sprint_number,
+          sr.status AS sprint_run_status,
+          tr.task_id,
+          t.task_key,
+          t.title AS task_title,
+          tr.state AS task_run_state,
+          tre.event_type,
+          tre.originator,
+          tre.source_event_key,
+          tr.provider,
+          tr.session_id,
+          tr.session_name,
+          tr.worker_branch,
+          tr.pr_url,
+          tr.connection_id,
+          c.display_name AS connection_display_name,
+          c.role AS connection_role,
+          tre.created_at,
+          tre.payload_json
+        FROM task_run_events tre
+        INNER JOIN task_runs tr ON tr.id = tre.task_run_id
+        INNER JOIN sprints s ON s.id = tr.sprint_id
+        INNER JOIN tasks t ON t.id = tr.task_id
+        LEFT JOIN sprint_runs sr ON sr.id = tr.sprint_run_id
+        LEFT JOIN mcp_connections c ON c.id = tr.connection_id
+        WHERE tr.project_id = ?
+
+        UNION ALL
+
+        SELECT
+          sre.id,
+          'sprint_run' AS scope_type,
+          NULL AS task_run_id,
+          sre.sprint_run_id,
+          NULL AS dispatch_id,
+          sr.project_id,
+          sr.sprint_id,
+          s.name AS sprint_name,
+          s.number AS sprint_number,
+          sr.status AS sprint_run_status,
+          NULL AS task_id,
+          NULL AS task_key,
+          NULL AS task_title,
+          NULL AS task_run_state,
+          sre.event_type,
+          sre.originator,
+          sre.source_event_key,
+          NULL AS provider,
+          NULL AS session_id,
+          NULL AS session_name,
+          NULL AS worker_branch,
+          NULL AS pr_url,
+          NULL AS connection_id,
+          NULL AS connection_display_name,
+          NULL AS connection_role,
+          sre.created_at,
+          sre.payload_json
+        FROM sprint_run_events sre
+        INNER JOIN sprint_runs sr ON sr.id = sre.sprint_run_id
+        INNER JOIN sprints s ON s.id = sr.sprint_id
+        WHERE sr.project_id = ?
+      )
+      ORDER BY created_at DESC, id DESC
       LIMIT 60
-    `).all(projectId) as unknown as ExecutionTaskRunEventSummaryRow[];
+    `).all(projectId, projectId) as unknown as ExecutionRuntimeEventSummaryRow[];
 
     return {
       projectId: projectRow?.id || null,
       projectName: projectRow?.name || null,
       sprintRuns: sprintRuns.map((row) => this.mapExecutionSprintRunSummaryRow(row)),
       taskDispatches: taskDispatches.map((row) => this.mapExecutionTaskDispatchSummaryRow(row)),
-      recentEvents: recentEvents.map((row) => this.mapExecutionTaskRunEventSummaryRow(row)),
+      recentEvents: recentEvents.map((row) => this.mapExecutionRuntimeEventSummaryRow(row)),
       updatedAt: new Date().toISOString(),
     };
   }
@@ -698,6 +751,29 @@ export class ExecutionRepository {
     return Number((result as { changes?: number }).changes || 0) > 0;
   }
 
+  appendSprintRunEvent(
+    sprintRunId: string,
+    eventType: string,
+    originator: string,
+    payload: Record<string, unknown>,
+    options?: { createdAt?: string; sourceEventKey?: string | null },
+  ): boolean {
+    this.requireSprintRun(sprintRunId);
+    const result = this.db.prepare(`
+      INSERT OR IGNORE INTO sprint_run_events (id, sprint_run_id, event_type, originator, payload_json, source_event_key, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(),
+      sprintRunId,
+      eventType,
+      originator,
+      JSON.stringify(payload),
+      options?.sourceEventKey ?? null,
+      options?.createdAt || new Date().toISOString(),
+    );
+    return Number((result as { changes?: number }).changes || 0) > 0;
+  }
+
   listTaskRunEvents(taskRunId: string, limit: number = 50): TaskRunEventRecord[] {
     this.requireTaskRun(taskRunId);
     const rows = this.db.prepare(`
@@ -708,6 +784,18 @@ export class ExecutionRepository {
       LIMIT ?
     `).all(taskRunId, Math.max(1, limit)) as unknown as TaskRunEventRow[];
     return rows.map((row) => this.mapTaskRunEventRow(row));
+  }
+
+  listSprintRunEvents(sprintRunId: string, limit: number = 50): SprintRunEventRecord[] {
+    this.requireSprintRun(sprintRunId);
+    const rows = this.db.prepare(`
+      SELECT *
+      FROM sprint_run_events
+      WHERE sprint_run_id = ?
+      ORDER BY created_at DESC, rowid DESC
+      LIMIT ?
+    `).all(sprintRunId, Math.max(1, limit)) as unknown as SprintRunEventRow[];
+    return rows.map((row) => this.mapSprintRunEventRow(row));
   }
 
   claimNextTaskDispatch(args: {
@@ -987,6 +1075,18 @@ export class ExecutionRepository {
     };
   }
 
+  private mapSprintRunEventRow(row: SprintRunEventRow): SprintRunEventRecord {
+    return {
+      id: row.id,
+      sprintRunId: row.sprint_run_id,
+      eventType: row.event_type,
+      originator: row.originator,
+      payload: parsePayloadJson(row.payload_json),
+      sourceEventKey: row.source_event_key,
+      createdAt: row.created_at,
+    };
+  }
+
   private mapExecutionSprintRunSummaryRow(row: ExecutionSprintRunSummaryRow): ExecutionSprintRunSummary {
     return {
       id: row.id,
@@ -1042,9 +1142,10 @@ export class ExecutionRepository {
     };
   }
 
-  private mapExecutionTaskRunEventSummaryRow(row: ExecutionTaskRunEventSummaryRow): ExecutionTaskRunEventSummary {
+  private mapExecutionRuntimeEventSummaryRow(row: ExecutionRuntimeEventSummaryRow): ExecutionRuntimeEventSummary {
     return {
       id: row.id,
+      scopeType: row.scope_type === "sprint_run" ? "sprint_run" : "task_run",
       taskRunId: row.task_run_id,
       sprintRunId: row.sprint_run_id,
       dispatchId: row.dispatch_id,
@@ -1052,6 +1153,7 @@ export class ExecutionRepository {
       sprintId: row.sprint_id,
       sprintName: row.sprint_name,
       sprintNumber: row.sprint_number === null ? null : toNumber(row.sprint_number),
+      sprintRunStatus: row.sprint_run_status,
       taskId: row.task_id,
       taskKey: row.task_key,
       taskTitle: row.task_title,

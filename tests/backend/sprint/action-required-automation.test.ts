@@ -43,6 +43,7 @@ describe("action-required-automation", () => {
 
   it("auto-approves plan when allowed", async () => {
     const approve = vi.fn().mockResolvedValue({});
+    const onTaskEvent = vi.fn();
     const task = createTask({ session_state: "AWAITING_PLAN_APPROVAL" });
     const result = await applyActionRequiredAutomation([task], {
       automationLevel: "FULL",
@@ -56,11 +57,16 @@ describe("action-required-automation", () => {
       isJulesApiConfigured: () => true,
       approveSessionPlan: approve,
       sendSessionMessage: vi.fn(),
+      onTaskEvent,
     });
 
     expect(approve).toHaveBeenCalledWith("abc123");
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(result.reportText).toContain("Auto-Approved Plan");
+    expect(onTaskEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: "action_required_auto_approved",
+      sourceEventKey: "action-required:T1:auto-approved:abc123",
+    }));
   });
 
 

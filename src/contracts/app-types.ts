@@ -144,19 +144,21 @@ export interface ExecutionTaskDispatchSummary {
   activeLeaseExpiresAt: string | null;
 }
 
-export interface ExecutionTaskRunEventSummary {
+export interface ExecutionRuntimeEventSummary {
   id: string;
-  taskRunId: string;
+  scopeType: "task_run" | "sprint_run";
+  taskRunId: string | null;
   sprintRunId: string | null;
   dispatchId: string | null;
   projectId: string;
   sprintId: string;
   sprintName: string;
   sprintNumber: number | null;
-  taskId: string;
-  taskKey: string;
-  taskTitle: string;
-  taskRunState: string;
+  sprintRunStatus: string | null;
+  taskId: string | null;
+  taskKey: string | null;
+  taskTitle: string | null;
+  taskRunState: string | null;
   eventType: string;
   originator: string | null;
   sourceEventKey: string | null;
@@ -172,12 +174,14 @@ export interface ExecutionTaskRunEventSummary {
   payload: Record<string, unknown> | null;
 }
 
+export type ExecutionTaskRunEventSummary = ExecutionRuntimeEventSummary;
+
 export interface ExecutionDashboardSnapshot {
   projectId: string | null;
   projectName: string | null;
   sprintRuns: ExecutionSprintRunSummary[];
   taskDispatches: ExecutionTaskDispatchSummary[];
-  recentEvents: ExecutionTaskRunEventSummary[];
+  recentEvents: ExecutionRuntimeEventSummary[];
   updatedAt: string | null;
 }
 

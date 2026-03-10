@@ -73,6 +73,16 @@ export interface TaskRunEventRecord {
   createdAt: string;
 }
 
+export interface SprintRunEventRecord {
+  id: string;
+  sprintRunId: string;
+  eventType: string;
+  originator: string | null;
+  payload: Record<string, unknown> | null;
+  sourceEventKey: string | null;
+  createdAt: string;
+}
+
 export interface ExecutionLeaseRecord {
   id: string;
   scopeType: ExecutionLeaseScopeType;
@@ -193,6 +203,14 @@ export interface WorkerTaskDispatchClaim {
 }
 
 export interface AppendTaskRunEventInput {
+  eventType: string;
+  originator: string;
+  payload: Record<string, unknown>;
+  createdAt?: string;
+  sourceEventKey?: string | null;
+}
+
+export interface AppendSprintRunEventInput {
   eventType: string;
   originator: string;
   payload: Record<string, unknown>;

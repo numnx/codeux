@@ -69,10 +69,14 @@ export const buildDeps = () => {
     },
     executionRepository: {
       acquireLease: vi.fn().mockReturnValue({ leaseToken: "lease-1" }),
+      appendSprintRunEvent: vi.fn(),
+      appendTaskRunEvent: vi.fn(),
       createSprintRun: vi.fn().mockReturnValue({ id: "run-1" }),
       findActiveSprintRun: vi.fn().mockReturnValue(null),
+      getLatestTaskRun: vi.fn().mockReturnValue(null),
       releaseLease: vi.fn(),
       renewLease: vi.fn(),
+      listSprintRunEvents: vi.fn().mockReturnValue([]),
       updateSprintRun: vi.fn(),
     },
     sprintExecutionStateService: {

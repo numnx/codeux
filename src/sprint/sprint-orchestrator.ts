@@ -25,7 +25,7 @@ import { CycleRunner } from "../domain/sprint/orchestrator/cycle-runner.js";
 import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner.js";
 import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-runner.js";
 import type { Logger } from "../shared/logging/logger.js";
-import { MainMergeGateService } from "../domain/sprint/ci/main-merge-gate.js";
+import { MainMergeGateService, type MergeFeedbackResult } from "../domain/sprint/ci/main-merge-gate.js";
 
 export interface SprintOrchestratorDependencies {
   settings: Settings;
@@ -190,9 +190,18 @@ export class SprintOrchestrator {
     featureBranchPrefix: string;
     ciIntelligence: CiIntelligenceSettings;
     githubMode: "REMOTE" | "LOCAL";
-  }): Promise<string> {
+  }): Promise<MergeFeedbackResult> {
     if (!this.deps.getCiStatusForScope) {
-      return "";
+      return {
+        text: "",
+        state: "unavailable",
+        prNumber: null,
+        prUrl: null,
+        hasFailedChecks: false,
+        hasPendingChecks: false,
+        hasReviewBlockers: false,
+        failedChecks: [],
+      };
     }
 
     const gitStatus = await this.deps.getCiStatusForScope({
@@ -203,9 +212,39 @@ export class SprintOrchestrator {
       featureBranchPrefix: args.featureBranchPrefix,
     });
 
-    return MainMergeGateService.renderMergeFeedback({
+    return MainMergeGateService.evaluateMergeFeedback({
       ...args,
       gitStatus,
+    });
+  }
+
+  private recordBlockedSprintRun(args: {
+    action: SprintAgentArgs["action"];
+    projectId: string;
+    sprintId: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+  }): void {
+    if (args.action !== "orchestrate") {
+      return;
+    }
+    const sprintRun = this.deps.executionRepository.createSprintRun({
+      projectId: args.projectId,
+      sprintId: args.sprintId,
+      triggerType: "mcp",
+      triggeredBy: "sprint_agent",
+      executorMode: "mixed",
+      status: "paused",
+    });
+    const now = new Date().toISOString();
+    this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+      status: "paused",
+      startedAt: now,
+      finishedAt: now,
+      lastHeartbeatAt: now,
+    });
+    this.deps.executionRepository.appendSprintRunEvent(sprintRun.id, args.eventType, "system", args.payload, {
+      sourceEventKey: `${args.eventType}:${args.sprintId}:${JSON.stringify(args.payload)}`,
     });
   }
 
@@ -243,6 +282,17 @@ export class SprintOrchestrator {
       const { existsLocal, existsRemote } = await runBranchPreflightStep(repoPath, defaultFeatureBranch);
       if (!existsLocal || !existsRemote) {
         const branchBlocker = await this.renderBranchBlocker(args, repoPath, defaultFeatureBranch, existsLocal, existsRemote);
+        this.recordBlockedSprintRun({
+          action: args.action,
+          projectId: executionContext.project.id,
+          sprintId: executionContext.sprint.id,
+          eventType: "branch_preflight_blocked",
+          payload: {
+            featureBranch: defaultFeatureBranch,
+            existsLocal,
+            existsRemote,
+          },
+        });
         return { content: [{ type: "text", text: branchBlocker }] };
       }
     }
@@ -254,6 +304,15 @@ export class SprintOrchestrator {
       );
       if (!hasPlannedTasks) {
         const planningBlocker = await this.renderPlanningBlocker(planningTarget, repoPath);
+        this.recordBlockedSprintRun({
+          action: args.action,
+          projectId: executionContext.project.id,
+          sprintId: executionContext.sprint.id,
+          eventType: "planning_preflight_blocked",
+          payload: {
+            planningTarget,
+          },
+        });
         return { content: [{ type: "text", text: planningBlocker }] };
       }
     }

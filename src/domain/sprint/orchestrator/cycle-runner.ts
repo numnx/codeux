@@ -46,6 +46,23 @@ export class CycleRunner {
           args.sprintRunId,
         )
       : [];
+    const appendTaskEvent = (
+      task: Subtask,
+      eventType: string,
+      payload: Record<string, unknown>,
+      sourceEventKey?: string,
+    ): void => {
+      if (!args.sprintRunId || typeof task.record_id !== "string" || task.record_id.trim().length === 0) {
+        return;
+      }
+      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, args.sprintRunId);
+      if (!taskRun) {
+        return;
+      }
+      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
+        sourceEventKey,
+      });
+    };
 
     if (args.loopSteps.sessionSync && subtasks.length > 0) {
       const syncResult = await runSessionSyncStep(
@@ -113,6 +130,9 @@ export class CycleRunner {
         isJulesApiConfigured: this.deps.isJulesApiConfigured,
         approveSessionPlan: this.deps.approveSessionPlan,
         sendSessionMessage: this.deps.sendSessionMessage,
+        onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
+          appendTaskEvent(task, eventType, payload, sourceEventKey);
+        },
       });
       subtasks = interventionResult.subtasks;
       reportText += interventionResult.reportText;
@@ -169,6 +189,9 @@ export class CycleRunner {
       enableActionRequiredProtocol: args.loopSteps.actionRequiredProtocol,
       isActionRequiredState: this.deps.isActionRequiredState,
       renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, args.repoPath),
+      onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
+        appendTaskEvent(task, eventType, payload, sourceEventKey);
+      },
     });
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";

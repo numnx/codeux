@@ -169,6 +169,17 @@ export class AppDbStorage {
         FOREIGN KEY (task_run_id) REFERENCES task_runs(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS sprint_run_events (
+        id TEXT PRIMARY KEY,
+        sprint_run_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        originator TEXT,
+        payload_json TEXT,
+        source_event_key TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (sprint_run_id) REFERENCES sprint_runs(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS conversation_threads (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
@@ -260,6 +271,8 @@ export class AppDbStorage {
     this.ensureIndex("idx_execution_leases_scope", "execution_leases", "scope_type, scope_id");
     this.ensureIndex("idx_task_run_events_task_run_created", "task_run_events", "task_run_id, created_at DESC");
     this.ensureUniqueIndex("idx_task_run_events_source_event", "task_run_events", "task_run_id, source_event_key");
+    this.ensureIndex("idx_sprint_run_events_sprint_run_created", "sprint_run_events", "sprint_run_id, created_at DESC");
+    this.ensureUniqueIndex("idx_sprint_run_events_source_event", "sprint_run_events", "sprint_run_id, source_event_key");
   }
 
   getPath(): string {

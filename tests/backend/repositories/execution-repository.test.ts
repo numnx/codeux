@@ -292,6 +292,7 @@ describe("ExecutionRepository", () => {
       activeLeaseOwnerKey: "worker-snapshot-1",
     });
     expect(snapshot.recentEvents[0]).toMatchObject({
+      scopeType: "task_run",
       taskId: task.id,
       taskKey: "T01",
       eventType: "provider_activity",
@@ -344,6 +345,42 @@ describe("ExecutionRepository", () => {
     expect(events[0]?.payload).toMatchObject({
       activityId: "a-1",
       preview: "First event",
+    });
+  });
+
+  it("projects sprint-run events into the unified runtime timeline", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Sprint Event Project",
+      sourceType: "local",
+      sourceRef: "/workspace/sprint-event-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Sprint Event Sprint",
+      number: 5,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "paused",
+      triggerType: "mcp",
+      triggeredBy: "sprint_agent",
+    });
+
+    executionRepository.appendSprintRunEvent(sprintRun.id, "planning_preflight_blocked", "system", {
+      planningTarget: "Sprint Event Project / Sprint Event Sprint",
+    }, {
+      sourceEventKey: "planning-blocked",
+    });
+
+    const snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+
+    expect(snapshot.recentEvents[0]).toMatchObject({
+      scopeType: "sprint_run",
+      sprintRunId: sprintRun.id,
+      eventType: "planning_preflight_blocked",
+      taskId: null,
+      sprintRunStatus: "paused",
     });
   });
 });

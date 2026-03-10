@@ -10,7 +10,9 @@ const buildDeps = () => ({
   getGuideContent: vi.fn().mockResolvedValue("guide"),
   completedSprints: new Set<string>(),
   executionRepository: {
+    appendSprintRunEvent: vi.fn(),
     updateSprintRun: vi.fn(),
+    renewLease: vi.fn(),
   },
   logger: {
     info: vi.fn(),
@@ -92,7 +94,16 @@ describe("WatchLoopRunner", () => {
     });
 
     deps.completedSprints = new Set();
-    const renderMergeFeedbackMock = vi.fn().mockResolvedValue("MERGE_FEEDBACK");
+    const renderMergeFeedbackMock = vi.fn().mockResolvedValue({
+      text: "MERGE_FEEDBACK",
+      state: "ready_for_merge",
+      prNumber: 101,
+      prUrl: "https://github.com/example/repo/pull/101",
+      hasFailedChecks: false,
+      hasPendingChecks: false,
+      hasReviewBlockers: false,
+      failedChecks: [],
+    });
 
     cycleRunner.run.mockResolvedValue({
       subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: true })],

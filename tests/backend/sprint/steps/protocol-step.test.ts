@@ -23,22 +23,29 @@ describe("protocol-step", () => {
         ];
 
         const renderInstruction = vi.fn(async (t, v) => `${t}:${JSON.stringify(v)}`);
+        const onTaskEvent = vi.fn();
 
         const res = await runProtocolStep(subtasks, {
-            subtasksDir: "dir",
             featureBranch: "fb",
             githubMode: "REMOTE",
             ciIntelligence,
             enableMergeProtocol: true,
             enableActionRequiredProtocol: true,
             isActionRequiredState: () => true,
-            renderInstruction
+            renderInstruction,
+            onTaskEvent,
         });
 
         expect(res.instructions).toContain("Wait for CI checks");
         expect(res.instructions).toContain("Resolve all PR comments");
         expect(res.instructions).toContain("hint 2");
         expect(res.instructions).not.toContain("hint 3"); // hint 3 doesn't exist
+        expect(onTaskEvent).toHaveBeenCalledWith(expect.objectContaining({
+            eventType: "protocol_merge_required",
+        }));
+        expect(onTaskEvent).toHaveBeenCalledWith(expect.objectContaining({
+            eventType: "protocol_action_required",
+        }));
     });
 
     it("disables lines when CI intelligence is off", async () => {
@@ -49,7 +56,6 @@ describe("protocol-step", () => {
         const renderInstruction = vi.fn(async (t, v) => JSON.stringify(v));
 
         const res = await runProtocolStep(subtasks, {
-            subtasksDir: "dir",
             featureBranch: "fb",
             githubMode: "REMOTE",
             ciIntelligence: { ...ciIntelligence, enabled: false },
