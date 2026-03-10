@@ -193,4 +193,38 @@ describe("SprintOrchestrator core execution", () => {
     expect(result.content[0].text).toContain("Status Action is Instant");
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
+
+  it("releases stale sprint leases before acquiring a fresh orchestration lease", async () => {
+    const { deps, subtaskRepository } = buildDeps();
+    deps.getDashboardSettings = () => ({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      sprintLoopSteps: {
+        ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps,
+        branchPreflight: false,
+        planningPreflight: false,
+        watchLoop: false,
+      },
+    });
+    const orchestrator = new SprintOrchestrator(deps as any);
+
+    const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-orch-stale-lease-"));
+    const subtasksDir = path.join(tmpRoot, ".sprint-os", "sprints", "sprint1-subtasks");
+    await fs.mkdir(subtasksDir, { recursive: true });
+    await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt: x\n", "utf-8");
+
+    subtaskRepository.loadSubtasks.mockResolvedValue([]);
+
+    await orchestrator.execute({
+      sprint_number: 1,
+      repo_path: tmpRoot,
+      source_id: "sources/123",
+      action: "orchestrate",
+      wait: false,
+    });
+
+    expect(deps.executionRepository.releaseStaleSprintLease).toHaveBeenCalledWith("project-1", "sprint-1");
+    expect(deps.executionRepository.acquireLease).toHaveBeenCalled();
+
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  });
 });

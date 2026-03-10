@@ -138,6 +138,37 @@ describe("ExecutionRepository", () => {
     expect(executionRepository.getLease("project", project.id)).toBeNull();
   });
 
+  it("releases a stale sprint lease once cancellation is finalized", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Cancel Lease Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cancel-lease-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Cancel Lease Sprint",
+      number: 5,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "cancel_requested",
+    });
+
+    executionRepository.acquireLease({
+      scopeType: "sprint",
+      scopeId: sprint.id,
+      ownerKey: "sprint_agent",
+      leaseToken: "cancel-lease-token",
+      expiresAt: "2030-03-09T12:00:00.000Z",
+    });
+
+    const finalized = executionRepository.finalizeSprintRunCancellationIfIdle(sprintRun.id);
+
+    expect(finalized?.status).toBe("cancelled");
+    expect(executionRepository.getLease("sprint", sprint.id)).toBeNull();
+  });
+
   it("allows worker dispatch claims by connection identity", async () => {
     const { projectRepository, connectionRepository, executionRepository } = await createRepositories();
     const project = projectRepository.createProject({
