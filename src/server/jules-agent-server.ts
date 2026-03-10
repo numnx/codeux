@@ -296,9 +296,13 @@ export class JulesAgentServer {
     return this.projectRuntimeRepository.getSelectedProjectRepoPath(this.projectRoot);
   }
 
+  private isDashboardEnabled(): boolean {
+    return this.appConfig.dashboardEnabled;
+  }
+
   private isReady(): ReadinessProbeStatus {
     const settingsDbUp = this.runtimeContext.settings !== undefined;
-    const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
+    const dashboardBindUp = !this.isDashboardEnabled() || this.runtimeContext.dashboardRuntimePort !== null;
     const mcpServiceUp = this.mcpServiceBound;
 
     const isReady = settingsDbUp && dashboardBindUp && mcpServiceUp && !!this.projectRuntimeRepository.getSelectedProjectStatus().timestamp;
@@ -315,7 +319,7 @@ export class JulesAgentServer {
 
   private isHealthy(): ReadinessProbeStatus {
     const settingsDbUp = this.runtimeContext.settings !== undefined;
-    const dashboardBindUp = this.runtimeContext.dashboardRuntimePort !== null;
+    const dashboardBindUp = !this.isDashboardEnabled() || this.runtimeContext.dashboardRuntimePort !== null;
     const mcpServiceUp = this.mcpServiceBound;
 
     const isHealthy = settingsDbUp && dashboardBindUp && mcpServiceUp;
@@ -520,33 +524,41 @@ export class JulesAgentServer {
       });
     }
 
-    this.registerLocalConnection();
+    if (this.appConfig.registerLocalConnection) {
+      this.registerLocalConnection();
+    }
 
-    await bootDashboard({
-      app: this.app,
-      projectRoot: this.projectRoot,
-      getDashboardPort: () => this.getDashboardPort(),
-      runtimeContext: this.runtimeContext,
-      externalSettingsHints: this.externalSettingsHints,
-      settingsRepository: this.settingsRepository,
-      projectManagementRepository: this.projectManagementRepository,
-      projectRuntimeRepository: this.projectRuntimeRepository,
-      executionRepository: this.executionRepository,
-      connectionChatRepository: this.connectionChatRepository,
-      sprintMarkdownService: this.sprintMarkdownService,
-      activityCacheService: this.activityCacheService,
-      taskRerunService: this.taskRerunService,
-      executionControlService: this.executionControlService,
-      logger: this.logger,
-      getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
-      getGitStatus: () => this.getGitStatus(),
-      isReady: () => this.isReady(),
-      isHealthy: () => this.isHealthy(),
-      syncGitSettingsFromDashboard: () => syncGitSettingsFromDashboard(this.runtimeContext),
-      refreshJulesApiKey: () => this.refreshJulesApiKey(),
-      setLogger: (logger) => { this.logger = logger; },
-      LIVE_ACTIVITY_CACHE_MS: JulesAgentServer.LIVE_ACTIVITY_CACHE_MS,
-    });
+    if (this.isDashboardEnabled()) {
+      await bootDashboard({
+        app: this.app,
+        projectRoot: this.projectRoot,
+        getDashboardPort: () => this.getDashboardPort(),
+        runtimeContext: this.runtimeContext,
+        externalSettingsHints: this.externalSettingsHints,
+        settingsRepository: this.settingsRepository,
+        projectManagementRepository: this.projectManagementRepository,
+        projectRuntimeRepository: this.projectRuntimeRepository,
+        executionRepository: this.executionRepository,
+        connectionChatRepository: this.connectionChatRepository,
+        sprintMarkdownService: this.sprintMarkdownService,
+        activityCacheService: this.activityCacheService,
+        taskRerunService: this.taskRerunService,
+        executionControlService: this.executionControlService,
+        logger: this.logger,
+        getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
+        getGitStatus: () => this.getGitStatus(),
+        isReady: () => this.isReady(),
+        isHealthy: () => this.isHealthy(),
+        syncGitSettingsFromDashboard: () => syncGitSettingsFromDashboard(this.runtimeContext),
+        refreshJulesApiKey: () => this.refreshJulesApiKey(),
+        setLogger: (logger) => { this.logger = logger; },
+        LIVE_ACTIVITY_CACHE_MS: JulesAgentServer.LIVE_ACTIVITY_CACHE_MS,
+      });
+    } else {
+      this.logger.info("Dashboard startup skipped for headless Sprint OS runtime", {
+        runtimeRole: this.appConfig.runtimeRole,
+      });
+    }
 
     await bootMcpTransport({
       server: this.server,

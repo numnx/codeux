@@ -68,9 +68,19 @@ export interface ListAllActivitiesArgs {
 export interface TaskAgentArgs {
   prompt: string;
   source_id?: string;
+  repo_path?: string;
   title?: string;
   branch?: string;
   wait?: boolean;
+}
+
+export interface ExecuteWorkerDispatchArgs {
+  dispatch_id: string;
+}
+
+export interface CancelLocalDispatchArgs {
+  dispatch_id: string;
+  reason?: string;
 }
 
 export interface StartListenArgs {
@@ -131,6 +141,8 @@ export interface McpToolArgsByName {
   list_all_activities: ListAllActivitiesArgs;
   sprint_agent: SprintAgentArgs;
   task_agent: TaskAgentArgs;
+  execute_worker_dispatch: ExecuteWorkerDispatchArgs;
+  cancel_local_dispatch: CancelLocalDispatchArgs;
   start_listen: StartListenArgs;
   pull_inbox: PullInboxArgs;
   post_listen_reply: PostListenReplyArgs;

@@ -2,10 +2,12 @@ import type { TaskService } from "../services/task-service.js";
 import type { DashboardSettings } from "../contracts/app-types.js";
 import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
 import type { SprintAgentArgs } from "../sprint/sprint-types.js";
+import type { WorkerDispatchExecutionService } from "../services/worker-dispatch-execution-service.js";
 
 interface AgentToolHandlerDependencies {
   sprintOrchestrator: SprintOrchestrator;
   taskService: TaskService;
+  workerDispatchExecutionService: WorkerDispatchExecutionService;
   getDashboardSettings: () => DashboardSettings;
   formatSprintBranch: (scheme: string | undefined, sprintNumber: number) => string;
   getConsecutiveFailures: () => number;
@@ -59,6 +61,7 @@ export class AgentToolHandler {
   async handleTaskAgent(args: {
     prompt: string;
     source_id?: string;
+    repo_path?: string;
     title?: string;
     branch?: string;
     wait?: boolean;
@@ -73,7 +76,7 @@ export class AgentToolHandler {
     try {
       const session = await this.deps.taskService.createTaskAgentSession({
         ...args,
-        repo_path: process.cwd(),
+        repo_path: args.repo_path || process.cwd(),
       });
       this.deps.setConsecutiveFailures(0);
 
@@ -86,5 +89,15 @@ export class AgentToolHandler {
       this.deps.setConsecutiveFailures(this.deps.getConsecutiveFailures() + 1);
       throw error;
     }
+  }
+
+  async handleExecuteWorkerDispatch(args: { dispatch_id: string }) {
+    const result = await this.deps.workerDispatchExecutionService.executeDispatch(args.dispatch_id);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+
+  async handleCancelLocalDispatch(args: { dispatch_id: string; reason?: string }) {
+    const result = await this.deps.workerDispatchExecutionService.cancelLocalDispatch(args.dispatch_id, args.reason);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 }

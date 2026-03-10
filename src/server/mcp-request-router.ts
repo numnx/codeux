@@ -41,7 +41,9 @@ export const registerMcpRequestHandlers = (args: McpRequestRouterArgs): void => 
     .register("pull_task_dispatch", (input) => args.coreToolHandler.handlePullTaskDispatch(input))
     .register("update_task_dispatch", (input) => args.coreToolHandler.handleUpdateTaskDispatch(input))
     .register("sprint_agent", async (input) => (await args.agentToolHandler.handleSprintAgent(input)) as McpToolResponse)
-    .register("task_agent", async (input) => (await args.agentToolHandler.handleTaskAgent(input)) as McpToolResponse);
+    .register("task_agent", async (input) => (await args.agentToolHandler.handleTaskAgent(input)) as McpToolResponse)
+    .register("execute_worker_dispatch", async (input) => (await args.agentToolHandler.handleExecuteWorkerDispatch(input)) as McpToolResponse)
+    .register("cancel_local_dispatch", async (input) => (await args.agentToolHandler.handleCancelLocalDispatch(input)) as McpToolResponse);
 
   args.server.setRequestHandler(ListToolsRequestSchema, async () => {
     logger?.debug("MCP list_tools request received");

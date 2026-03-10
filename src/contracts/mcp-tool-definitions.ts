@@ -172,11 +172,35 @@ export const TOOL_DEFINITIONS = [
       properties: {
         prompt: { type: "string", description: "The specific task to perform." },
         source_id: { type: "string", description: "Optional Jules source ID override (e.g., 'sources/123'). Auto-resolved from repo path when omitted." },
+        repo_path: { type: "string", description: "Optional explicit repo path. When omitted, the current working directory is used." },
         title: { type: "string", description: "Optional title for the session." },
         branch: { type: "string", description: "Optional starting branch." },
         wait: { type: "boolean", description: "Whether to wait for the task to reach a terminal state (COMPLETED/FAILED).", default: false }
       },
       required: ["prompt"],
+    },
+  },
+  {
+    name: "execute_worker_dispatch",
+    description: "Start local execution for a claimed worker dispatch on a Sprint OS worker host.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dispatch_id: { type: "string", description: "The claimed worker dispatch id to execute locally." },
+      },
+      required: ["dispatch_id"],
+    },
+  },
+  {
+    name: "cancel_local_dispatch",
+    description: "Request cancellation for an active local worker dispatch on the current Sprint OS worker host.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dispatch_id: { type: "string", description: "The local worker dispatch id to stop." },
+        reason: { type: "string", description: "Optional cancellation reason for logs and provider feedback." },
+      },
+      required: ["dispatch_id"],
     },
   },
   {

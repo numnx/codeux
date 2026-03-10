@@ -23,6 +23,8 @@ Implemented in:
 These cover:
 - `sprint_agent`
 - `task_agent`
+- `execute_worker_dispatch`
+- `cancel_local_dispatch`
 
 ## Registered Tools
 
@@ -56,6 +58,8 @@ Typed tool argument contracts and registry dispatch are defined in `src/api/mcp/
 ### Worker execution
 - `pull_task_dispatch`
 - `update_task_dispatch`
+- `execute_worker_dispatch`
+- `cancel_local_dispatch`
 
 ### Output minimization
 - `get_source` returns a compact source summary (`id`, `name`).
@@ -120,6 +124,7 @@ Unknown tool names raise MCP `MethodNotFound`.
 - Creates session with `AUTO_CREATE_PR`.
 - `source_id` is optional; when provider is Jules and `source_id` is omitted, source is auto-resolved from the repo's `remote.origin.url`.
 - For Jules sessions, explicit `source_id` values are validated against the repo remote and rejected on mismatch.
+- `repo_path` is now optional and overrides `process.cwd()` when the task must run against an explicit project repository.
 - Optional `wait: true` delegates to session completion wait flow.
 
 ### `sprint_agent` behavior
@@ -143,9 +148,11 @@ Unknown tool names raise MCP `MethodNotFound`.
 - Worker MCPs register through `start_listen` with `role = worker`.
 - `pull_task_dispatch` claims the next queued `mcp_worker` dispatch for one of the worker's active projects.
 - Claiming a dispatch acquires a DB-backed lease on that dispatch and returns the full task payload plus project/sprint branch context.
+- `execute_worker_dispatch` starts the claimed dispatch on a headless worker-host Sprint OS server using the existing provider execution path.
 - `update_task_dispatch` is used for heartbeats and terminal worker outcomes (`RUNNING`, `COMPLETED`, `FAILED`, `BLOCKED`).
 - `update_task_dispatch` now returns both the persisted dispatch state and an optional `controlAction`.
 - When the dashboard cancels a running worker dispatch, the next worker heartbeat receives `controlAction = "cancel"` while the dispatch remains `cancel_requested`.
+- `cancel_local_dispatch` is the worker-host side stop hook for active local execution and Jules soft-stop requests.
 - Workers are expected to stop promptly and send a terminal `update_task_dispatch` result to close the dispatch cleanly.
 - Worker execution writes back into the same `task_dispatches`, `task_runs`, and `task_run_events` records used by the rest of Sprint OS.
 

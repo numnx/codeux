@@ -102,6 +102,39 @@ This keeps worker execution aligned with the v2 architecture:
 
 There is no worker-only control plane and no compatibility file bridge.
 
+## External Worker Process
+
+Worker support is now concrete, not schema-only.
+
+The repo now ships `sprint-os-worker`, which:
+
+1. spawns Sprint OS in headless `worker-host` mode
+2. connects to that worker-host server over stdio MCP
+3. registers as `role = worker`
+4. claims DB-native dispatches
+5. executes them through the same provider stack already used by Sprint OS
+6. heartbeats and finalizes dispatch state through the worker tools
+
+Because transport is stdio today, this is the correct model for a real external worker client without requiring a second network transport.
+
+## Local Worker Execution
+
+Claimed worker dispatches are now started through `execute_worker_dispatch`.
+
+That tool resolves the DB task, sprint, and project and starts the existing task execution path from sqlite-backed runtime data.
+
+This keeps the current Docker/worktree/CI flow intact for worker-owned local execution instead of re-implementing provider workflows inside the worker loop.
+
+## Cancellation Path
+
+Workers now honor dashboard cancel end-to-end.
+
+When `update_task_dispatch` returns `controlAction = "cancel"`:
+
+- the worker calls `cancel_local_dispatch`
+- active CLI execution is stopped through the worker-host process' `ActiveDispatchRegistry`
+- active Jules execution receives a soft-stop session message
+
 ## Dashboard Visibility
 
 Worker dispatches are now visible in the v2 live page through the execution snapshot API.

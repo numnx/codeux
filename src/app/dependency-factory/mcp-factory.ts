@@ -6,6 +6,7 @@ import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
 import { formatSprintBranch } from "../../git/sprint-branch-scheme.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
+import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -25,6 +26,7 @@ export function createMcpDependencies(
     sessionTracking,
     executionRepository,
     projectManagementRepository,
+    activeDispatchRegistry,
   } = coreDeps;
   const { sprintOrchestrator, taskService } = sprintDeps;
   const workerTaskDispatchService = new WorkerTaskDispatchService(
@@ -63,6 +65,14 @@ export function createMcpDependencies(
   const agentToolHandler = new AgentToolHandler({
     sprintOrchestrator,
     taskService,
+    workerDispatchExecutionService: new WorkerDispatchExecutionService(
+      executionRepository,
+      projectManagementRepository,
+      taskService,
+      activeDispatchRegistry,
+      julesApi,
+      logger.child({ component: "worker-dispatch-execution-service" }),
+    ),
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     formatSprintBranch,
     getConsecutiveFailures: () => context.runtimeContext.consecutiveFailures,

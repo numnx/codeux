@@ -10,6 +10,9 @@ export interface AppConfig {
   baseUrl: string;
   dashboardPort: number;
   apiKeyArg: string | null;
+  runtimeRole: "project_manager" | "worker_host";
+  dashboardEnabled: boolean;
+  registerLocalConnection: boolean;
 }
 
 /**
@@ -29,6 +32,33 @@ export const parseApiKeyArg = (argv: string[]): string | null => {
   }
 
   return null;
+};
+
+const parseStringFlag = (argv: string[], flagName: string): string | null => {
+  const args = argv.slice(2);
+  const inlineArg = args.find((arg) => arg.startsWith(`${flagName}=`));
+  if (inlineArg) {
+    return inlineArg.slice(flagName.length + 1) || null;
+  }
+
+  const argIndex = args.indexOf(flagName);
+  if (argIndex !== -1 && args[argIndex + 1] && !args[argIndex + 1].startsWith("-")) {
+    return args[argIndex + 1];
+  }
+
+  return null;
+};
+
+export const parseRuntimeRoleArg = (argv: string[]): AppConfig["runtimeRole"] => {
+  const runtimeRole = parseStringFlag(argv, "--runtime-role")?.trim().toLowerCase();
+  return runtimeRole === "worker-host" || runtimeRole === "worker_host"
+    ? "worker_host"
+    : "project_manager";
+};
+
+export const hasHeadlessArg = (argv: string[]): boolean => {
+  const args = argv.slice(2);
+  return args.includes("--headless") || args.includes("--no-dashboard");
 };
 
 /**
@@ -108,11 +138,16 @@ export const loadAppConfig = (argv: string[], projectRoot: string): AppConfig =>
   const apiKey = apiKeyArg || apiKeyLoader(projectRoot);
   const baseUrl = process.env.JULES_API_BASE_URL || "https://jules.googleapis.com/v1alpha";
   const dashboardPort = dashboardPortLoader(projectRoot);
+  const runtimeRole = parseRuntimeRoleArg(argv);
+  const dashboardEnabled = runtimeRole === "worker_host" ? false : !hasHeadlessArg(argv);
 
   return {
     apiKey,
     baseUrl,
     dashboardPort,
     apiKeyArg,
+    runtimeRole,
+    dashboardEnabled,
+    registerLocalConnection: dashboardEnabled && runtimeRole === "project_manager",
   };
 };

@@ -6,7 +6,9 @@ import {
   loadAppConfig, 
   apiKeyLoader, 
   dashboardPortLoader, 
-  parseApiKeyArg 
+  hasHeadlessArg,
+  parseApiKeyArg,
+  parseRuntimeRoleArg,
 } from "../../../src/config/app-config.js";
 
 const originalEnv = { ...process.env };
@@ -45,6 +47,23 @@ describe("parseApiKeyArg", () => {
 
   it("returns null if --api-key is followed by another flag", () => {
     expect(parseApiKeyArg(["node", "index.js", "--api-key", "--other-flag"])).toBeNull();
+  });
+});
+
+describe("runtime flags", () => {
+  it("parses worker-host runtime role", () => {
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role", "worker-host"])).toBe("worker_host");
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role=worker_host"])).toBe("worker_host");
+  });
+
+  it("defaults runtime role to project_manager", () => {
+    expect(parseRuntimeRoleArg(["node", "index.js"])).toBe("project_manager");
+  });
+
+  it("detects headless flags", () => {
+    expect(hasHeadlessArg(["node", "index.js", "--headless"])).toBe(true);
+    expect(hasHeadlessArg(["node", "index.js", "--no-dashboard"])).toBe(true);
+    expect(hasHeadlessArg(["node", "index.js"])).toBe(false);
   });
 });
 
@@ -115,6 +134,9 @@ describe("loadAppConfig", () => {
     expect(config.apiKey).toBe("cli-key");
     expect(config.apiKeyArg).toBe("cli-key");
     expect(config.dashboardPort).toBe(4444);
+    expect(config.runtimeRole).toBe("project_manager");
+    expect(config.dashboardEnabled).toBe(true);
+    expect(config.registerLocalConnection).toBe(true);
   });
 
   it("assembles full config from env when CLI arg is missing", () => {
@@ -123,5 +145,19 @@ describe("loadAppConfig", () => {
     const config = loadAppConfig(["node", "index.js"], tempDir);
     expect(config.apiKey).toBe("env-key");
     expect(config.dashboardPort).toBe(8888);
+  });
+
+  it("disables dashboard and local project-manager registration in worker-host mode", () => {
+    const config = loadAppConfig(["node", "index.js", "--runtime-role", "worker-host"], tempDir);
+    expect(config.runtimeRole).toBe("worker_host");
+    expect(config.dashboardEnabled).toBe(false);
+    expect(config.registerLocalConnection).toBe(false);
+  });
+
+  it("supports explicit headless project-manager mode", () => {
+    const config = loadAppConfig(["node", "index.js", "--headless"], tempDir);
+    expect(config.runtimeRole).toBe("project_manager");
+    expect(config.dashboardEnabled).toBe(false);
+    expect(config.registerLocalConnection).toBe(false);
   });
 });

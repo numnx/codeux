@@ -15,12 +15,15 @@ export async function main(args: string[] = process.argv) {
   const appConfig = loadAppConfig(args, projectRoot);
 
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Jules Agent MCP Server");
+    console.log("Sprint OS MCP Server");
     console.log("");
-    console.log("Usage: jules-agent [options]");
+    console.log("Usage: sprint-os [options]");
     console.log("");
     console.log("Options:");
     console.log("  --api-key VALUE   Set the Jules API key (overrides env and settings)");
+    console.log("  --runtime-role VALUE");
+    console.log("                    Runtime role: project_manager (default) or worker-host");
+    console.log("  --headless        Start MCP-only without binding the dashboard");
     console.log("  --help, -h        Show this help message");
     console.log("");
     console.log("Environment Variables:");
