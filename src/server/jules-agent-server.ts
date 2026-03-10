@@ -39,6 +39,7 @@ import { CliWorkflowService } from "../services/cli-workflow-service.js";
 import { ActivityCacheService } from "./activity-cache-service.js";
 import { registerMcpRequestHandlers } from "./mcp-request-router.js";
 import { TaskRerunService } from "../services/task-rerun-service.js";
+import { ExecutionControlService } from "../services/execution-control-service.js";
 import { JulesSourceResolver } from "../services/jules-source-resolver.js";
 import { createRuntimeDependencies, ServerContext } from "../app/dependency-factory.js";
 import { generateCorrelationId, runWithCorrelationId } from "../shared/logging/correlation-id.js";
@@ -87,6 +88,7 @@ export class JulesAgentServer {
   private agentToolHandler: AgentToolHandler;
   private activityCacheService: ActivityCacheService;
   private taskRerunService: TaskRerunService;
+  private executionControlService: ExecutionControlService;
   private mcpServiceBound = false;
 
   constructor(options: JulesAgentServerOptions) {
@@ -117,6 +119,7 @@ export class JulesAgentServer {
     this.agentToolHandler = deps.agentToolHandler;
     this.activityCacheService = deps.activityCacheService;
     this.taskRerunService = deps.taskRerunService;
+    this.executionControlService = deps.executionControlService;
 
     registerMcpRequestHandlers({
       server: this.server,
@@ -533,6 +536,7 @@ export class JulesAgentServer {
       sprintMarkdownService: this.sprintMarkdownService,
       activityCacheService: this.activityCacheService,
       taskRerunService: this.taskRerunService,
+      executionControlService: this.executionControlService,
       logger: this.logger,
       getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),
       getGitStatus: () => this.getGitStatus(),

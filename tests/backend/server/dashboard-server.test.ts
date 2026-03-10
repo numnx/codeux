@@ -138,6 +138,11 @@ describe("setupDashboardServer", () => {
       }),
       saveSettings: (settings) => settings,
       rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
     });
 
     serversToClose.push(handle.server);
@@ -177,6 +182,11 @@ describe("setupDashboardServer", () => {
       getSettings: () => ({} as any),
       saveSettings: (settings) => settings,
       rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       isReady: () => probeResponse,
       isHealthy: () => healthResponseData,
     });
@@ -216,6 +226,11 @@ describe("setupDashboardServer", () => {
       getSettings: () => ({} as any),
       saveSettings: (settings) => settings,
       rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       isReady: () => probeResponse,
     });
     serversToClose.push(handle.server);

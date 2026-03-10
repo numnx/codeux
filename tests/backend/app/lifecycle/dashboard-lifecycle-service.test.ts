@@ -49,6 +49,13 @@ describe("dashboard-lifecycle-service", () => {
       taskRerunService: {
         rerunTask: vi.fn().mockResolvedValue({ id: "123" }),
       } as any,
+      executionControlService: {
+        orchestrateSprint: vi.fn().mockResolvedValue({ ok: true }),
+        pauseSprintRun: vi.fn().mockResolvedValue({ id: "run-1" }),
+        cancelSprintRun: vi.fn().mockResolvedValue({ id: "run-1" }),
+        cancelTaskDispatch: vi.fn().mockResolvedValue({ id: "dispatch-1" }),
+        retryTaskDispatch: vi.fn().mockResolvedValue({ id: "task-1" }),
+      } as any,
       logger: {
         child: vi.fn().mockReturnValue({}),
       } as any,
@@ -141,6 +148,24 @@ describe("dashboard-lifecycle-service", () => {
       expect(mockDeps.taskRerunService.rerunTask).toHaveBeenCalledWith("task-1");
       expect(mockDeps.activityCacheService.invalidateGitStatusCache).toHaveBeenCalled();
       expect(result).toEqual({ id: "123" });
+    });
+
+    it("handles execution control callbacks correctly", async () => {
+      await bootDashboard(mockDeps);
+
+      const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
+
+      await setupArgs.orchestrateSprint!("project-1", "sprint-1");
+      await setupArgs.pauseSprintRun!("run-1");
+      await setupArgs.cancelSprintRun!("run-1");
+      await setupArgs.cancelTaskDispatch!("dispatch-1");
+      await setupArgs.retryTaskDispatch!("dispatch-1");
+
+      expect(mockDeps.executionControlService.orchestrateSprint).toHaveBeenCalledWith("project-1", "sprint-1");
+      expect(mockDeps.executionControlService.pauseSprintRun).toHaveBeenCalledWith("run-1");
+      expect(mockDeps.executionControlService.cancelSprintRun).toHaveBeenCalledWith("run-1");
+      expect(mockDeps.executionControlService.cancelTaskDispatch).toHaveBeenCalledWith("dispatch-1");
+      expect(mockDeps.executionControlService.retryTaskDispatch).toHaveBeenCalledWith("dispatch-1");
     });
 
     it("handles other callbacks correctly", async () => {

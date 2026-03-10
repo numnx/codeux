@@ -3,10 +3,12 @@ import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { ActivityCacheService } from "../../server/activity-cache-service.js";
 import { TaskRerunService } from "../../services/task-rerun-service.js";
+import { ExecutionControlService } from "../../services/execution-control-service.js";
 
 export interface DashboardDependencies {
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
+  executionControlService: ExecutionControlService;
 }
 
 export function createDashboardDependencies(
@@ -15,7 +17,7 @@ export function createDashboardDependencies(
   sprintDeps: SprintDependencies
 ): DashboardDependencies {
   const { logger, projectRuntimeRepository, projectManagementRepository, executionRepository } = coreDeps;
-  const { sprintTaskDispatchService } = sprintDeps;
+  const { sprintTaskDispatchService, sprintOrchestrator } = sprintDeps;
 
   const activityCacheService = new ActivityCacheService(
     {
@@ -82,8 +84,18 @@ export function createDashboardDependencies(
     logger: logger.child({ component: "task-rerun-service" }),
   });
 
+  const executionControlService = new ExecutionControlService({
+    projectManagementRepository,
+    projectRuntimeRepository,
+    executionRepository,
+    taskRerunService,
+    sprintOrchestrator,
+    logger: logger.child({ component: "execution-control-service" }),
+  });
+
   return {
     activityCacheService,
     taskRerunService,
+    executionControlService,
   };
 }

@@ -73,6 +73,7 @@ export const buildDeps = () => {
       appendTaskRunEvent: vi.fn(),
       createSprintRun: vi.fn().mockReturnValue({ id: "run-1" }),
       findActiveSprintRun: vi.fn().mockReturnValue(null),
+      getSprintRun: vi.fn().mockReturnValue({ id: "run-1", status: "running" }),
       getLatestTaskRun: vi.fn().mockReturnValue(null),
       releaseLease: vi.fn(),
       renewLease: vi.fn(),

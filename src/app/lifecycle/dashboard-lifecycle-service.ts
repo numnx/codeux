@@ -21,6 +21,7 @@ import type { ExecutionRepository } from "../../repositories/execution-repositor
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
+import type { ExecutionControlService } from "../../services/execution-control-service.js";
 import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config/sprint-os-paths.js";
 
 export interface BootDashboardDeps {
@@ -37,6 +38,7 @@ export interface BootDashboardDeps {
   sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
+  executionControlService: ExecutionControlService;
   logger: Logger;
   getLiveActivitiesForActiveTasks: () => Promise<Record<string, JulesActivity[]>>;
   getGitStatus: () => Promise<GitTrackingStatus>;
@@ -120,6 +122,19 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
       const task = await deps.taskRerunService.rerunTask(taskId);
       deps.activityCacheService.invalidateGitStatusCache();
       return task;
+    },
+    orchestrateSprint: async (projectId, sprintId) => {
+      const result = await deps.executionControlService.orchestrateSprint(projectId, sprintId);
+      deps.activityCacheService.invalidateGitStatusCache();
+      return result;
+    },
+    pauseSprintRun: async (sprintRunId) => deps.executionControlService.pauseSprintRun(sprintRunId),
+    cancelSprintRun: async (sprintRunId) => deps.executionControlService.cancelSprintRun(sprintRunId),
+    cancelTaskDispatch: async (dispatchId) => deps.executionControlService.cancelTaskDispatch(dispatchId),
+    retryTaskDispatch: async (dispatchId) => {
+      const result = await deps.executionControlService.retryTaskDispatch(dispatchId);
+      deps.activityCacheService.invalidateGitStatusCache();
+      return result;
     },
     logger: deps.logger.child({ component: "dashboard-server" }),
     isReady: deps.isReady,

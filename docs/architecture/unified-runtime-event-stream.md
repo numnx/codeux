@@ -68,6 +68,7 @@ Sprint-scoped producers:
 - watch loop start
 - watch loop finish states
 - main merge CI/review gate feedback
+- dashboard pause and cancel control requests
 
 ## Design Rule
 
@@ -77,3 +78,14 @@ New runtime history should follow this rule:
 - if the state describes ownership or lifecycle of the sprint orchestration attempt, write a `sprint_run_event`
 
 Do not force sprint state into fake task events just to make it visible in the dashboard.
+
+## Control Plane Events
+
+Dashboard actions now also write into the runtime stream:
+
+- `sprint_pause_requested`
+- `sprint_cancel_requested`
+- `dispatch_cancelled`
+- `dispatch_retry_requested`
+
+That makes operator actions visible in the same project-scoped history as automation and provider activity.

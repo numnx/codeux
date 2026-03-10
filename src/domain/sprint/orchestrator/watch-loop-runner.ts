@@ -93,6 +93,16 @@ export class WatchLoopRunner {
     });
 
     while (!allFinished) {
+      const controlledRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+      if (controlledRun?.status === "paused") {
+        fullReport += "\n⏸️ **Sprint Paused:** Dashboard control paused this sprint run.\n";
+        return fullReport;
+      }
+      if (controlledRun?.status === "cancelled") {
+        fullReport += "\n🛑 **Sprint Cancelled:** Dashboard control cancelled this sprint run.\n";
+        return fullReport;
+      }
+
       const { subtasks, reportText, statusTable, instructions, awaitingMerge } = await this.cycleRunner.run({
         action: args.action as "status" | "orchestrate",
         automationLevel,
@@ -302,6 +312,10 @@ export class WatchLoopRunner {
 
         case WatchLoopState.RUNNING: {
           const now = new Date().toISOString();
+          const latestRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+          if (latestRun?.status === "paused" || latestRun?.status === "cancelled") {
+            continue;
+          }
           this.deps.executionRepository.updateSprintRun(sprintRunId, {
             status: "running",
             lastHeartbeatAt: now,

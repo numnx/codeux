@@ -56,6 +56,13 @@ Primary event types now written into `sprint_run_events`:
 - `sprint_paused`
 - `sprint_cancelled`
 - `main_merge_gate_status`
+- `sprint_pause_requested`
+- `sprint_cancel_requested`
+
+Additional task-run control events:
+
+- `dispatch_cancelled`
+- `dispatch_retry_requested`
 
 Each event stores:
 

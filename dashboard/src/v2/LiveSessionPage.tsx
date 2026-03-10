@@ -5,12 +5,19 @@ import {
     Zap, GitBranch, Clock, CheckCircle2, XCircle, AlertTriangle,
     Activity, ChevronDown, ChevronRight, Radio, Terminal, RefreshCw,
     GitPullRequest, GitMerge, CircleDot, ExternalLink, Eye, EyeOff,
-    Play, FileText, RotateCcw, Layers, Bot, Workflow,
+    Play, FileText, RotateCcw, Layers, Bot, Workflow, PauseCircle,
 } from "lucide-preact";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js";
-import { rerunTask } from "../lib/api/dashboard-api.js";
+import {
+    cancelSprintRun,
+    cancelTaskDispatch,
+    orchestrateSprint,
+    pauseSprintRun,
+    rerunTask,
+    retryTaskDispatch,
+} from "../lib/api/dashboard-api.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import type { Subtask, GitTrackingStatus, ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary } from "../types.js";
@@ -187,6 +194,14 @@ const getExecutionEventText = (event: ExecutionRuntimeEventSummary): string => {
             return `Sprint cancelled: ${String(payload.reason || "empty").replace(/_/g, " ")}`;
         case "main_merge_gate_status":
             return `Main merge gate ${String(payload.state || "updated").replace(/_/g, " ")}`;
+        case "sprint_pause_requested":
+            return "Dashboard requested a sprint pause";
+        case "sprint_cancel_requested":
+            return "Dashboard requested sprint cancellation";
+        case "dispatch_cancelled":
+            return String(payload.reason || "Dispatch cancelled from dashboard");
+        case "dispatch_retry_requested":
+            return "Dashboard requested a dispatch retry";
         default:
             return event.eventType.replace(/_/g, " ");
     }
@@ -468,7 +483,23 @@ const EXECUTOR_LABELS: Record<string, string> = {
     mixed: "Mixed",
 };
 
-const ExecutionRuntimePanel: FunctionComponent<{ snapshot: ExecutionDashboardSnapshot }> = ({ snapshot }) => {
+const ExecutionRuntimePanel: FunctionComponent<{
+    snapshot: ExecutionDashboardSnapshot;
+    onOrchestrateSprint: (projectId: string, sprintId: string) => void;
+    onPauseSprintRun: (sprintRunId: string) => void;
+    onCancelSprintRun: (sprintRunId: string) => void;
+    onCancelTaskDispatch: (dispatchId: string) => void;
+    onRetryTaskDispatch: (dispatchId: string) => void;
+    pendingActionIds: Set<string>;
+}> = ({
+    snapshot,
+    onOrchestrateSprint,
+    onPauseSprintRun,
+    onCancelSprintRun,
+    onCancelTaskDispatch,
+    onRetryTaskDispatch,
+    pendingActionIds,
+}) => {
     const activeSprintRuns = snapshot.sprintRuns.filter((run) => run.status === "running" || run.status === "queued" || run.status === "paused");
     const activeDispatches = snapshot.taskDispatches.filter((dispatch) => (
         dispatch.status === "queued" || dispatch.status === "claimed" || dispatch.status === "running" || dispatch.status === "blocked"
@@ -536,6 +567,41 @@ const ExecutionRuntimePanel: FunctionComponent<{ snapshot: ExecutionDashboardSna
                                             )}
                                         </div>
                                     </div>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {(run.status === "paused" || run.status === "failed" || run.status === "completed" || run.status === "cancelled") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onOrchestrateSprint(run.projectId, run.sprintId)}
+                                                disabled={pendingActionIds.has(`sprint-start:${run.sprintId}`)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-500 transition-colors hover:bg-signal-500/15 disabled:opacity-50"
+                                            >
+                                                <Play className="w-3 h-3" strokeWidth={2} />
+                                                {pendingActionIds.has(`sprint-start:${run.sprintId}`) ? "Starting" : (run.status === "paused" ? "Resume" : "Run Again")}
+                                            </button>
+                                        )}
+                                        {(run.status === "running" || run.status === "queued") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onPauseSprintRun(run.id)}
+                                                disabled={pendingActionIds.has(`sprint-pause:${run.id}`)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-status-amber/20 bg-status-amber/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-status-amber transition-colors hover:bg-status-amber/15 disabled:opacity-50"
+                                            >
+                                                <PauseCircle className="w-3 h-3" strokeWidth={2} />
+                                                {pendingActionIds.has(`sprint-pause:${run.id}`) ? "Pausing" : "Pause"}
+                                            </button>
+                                        )}
+                                        {(run.status === "running" || run.status === "queued" || run.status === "paused") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onCancelSprintRun(run.id)}
+                                                disabled={pendingActionIds.has(`sprint-cancel:${run.id}`)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 disabled:opacity-50"
+                                            >
+                                                <XCircle className="w-3 h-3" strokeWidth={2} />
+                                                {pendingActionIds.has(`sprint-cancel:${run.id}`) ? "Cancelling" : "Cancel"}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -589,6 +655,30 @@ const ExecutionRuntimePanel: FunctionComponent<{ snapshot: ExecutionDashboardSna
                                             {dispatch.errorMessage && <div className="text-status-red">{dispatch.errorMessage}</div>}
                                         </div>
                                     )}
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {(dispatch.status === "queued" || dispatch.status === "claimed") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onCancelTaskDispatch(dispatch.id)}
+                                                disabled={pendingActionIds.has(`dispatch-cancel:${dispatch.id}`)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 disabled:opacity-50"
+                                            >
+                                                <XCircle className="w-3 h-3" strokeWidth={2} />
+                                                {pendingActionIds.has(`dispatch-cancel:${dispatch.id}`) ? "Cancelling" : "Cancel"}
+                                            </button>
+                                        )}
+                                        {(dispatch.status === "failed" || dispatch.status === "blocked" || dispatch.status === "cancelled") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onRetryTaskDispatch(dispatch.id)}
+                                                disabled={pendingActionIds.has(`dispatch-retry:${dispatch.id}`)}
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-500 transition-colors hover:bg-signal-500/15 disabled:opacity-50"
+                                            >
+                                                <RotateCcw className={`w-3 h-3 ${pendingActionIds.has(`dispatch-retry:${dispatch.id}`) ? 'animate-spin' : ''}`} strokeWidth={2} />
+                                                {pendingActionIds.has(`dispatch-retry:${dispatch.id}`) ? "Retrying" : "Retry"}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -818,6 +908,7 @@ export const LiveSessionPage: FunctionComponent = () => {
     const contentRef = useRef<HTMLDivElement>(null);
     const { error, execution, gitStatus, gitStatusError, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
     const [rerunningIds, setRerunningIds] = useState<Set<string>>(new Set());
+    const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
     const [activeFilter, setFilter] = useState<TaskFilter>("All");
 
     /* GSAP entrance */
@@ -851,6 +942,51 @@ export const LiveSessionPage: FunctionComponent = () => {
             setRerunningIds(prev => { const next = new Set(prev); next.delete(taskId); return next; });
         }
     }, [refreshRuntimeStatus, refreshGitStatus]);
+
+    const runControlAction = useCallback(async (actionId: string, operation: () => Promise<void>) => {
+        setPendingActionIds(prev => new Set(prev).add(actionId));
+        try {
+            await operation();
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            await refreshRuntimeStatus();
+            await refreshGitStatus();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to execute runtime control.";
+            window.alert(message);
+        } finally {
+            setPendingActionIds(prev => { const next = new Set(prev); next.delete(actionId); return next; });
+        }
+    }, [refreshRuntimeStatus, refreshGitStatus]);
+
+    const handleOrchestrateSprint = useCallback(async (projectId: string, sprintId: string) => {
+        await runControlAction(`sprint-start:${sprintId}`, async () => {
+            await orchestrateSprint(projectId, sprintId);
+        });
+    }, [runControlAction]);
+
+    const handlePauseSprintRun = useCallback(async (sprintRunId: string) => {
+        await runControlAction(`sprint-pause:${sprintRunId}`, async () => {
+            await pauseSprintRun(sprintRunId);
+        });
+    }, [runControlAction]);
+
+    const handleCancelSprintRun = useCallback(async (sprintRunId: string) => {
+        await runControlAction(`sprint-cancel:${sprintRunId}`, async () => {
+            await cancelSprintRun(sprintRunId);
+        });
+    }, [runControlAction]);
+
+    const handleCancelTaskDispatch = useCallback(async (dispatchId: string) => {
+        await runControlAction(`dispatch-cancel:${dispatchId}`, async () => {
+            await cancelTaskDispatch(dispatchId);
+        });
+    }, [runControlAction]);
+
+    const handleRetryTaskDispatch = useCallback(async (dispatchId: string) => {
+        await runControlAction(`dispatch-retry:${dispatchId}`, async () => {
+            await retryTaskDispatch(dispatchId);
+        });
+    }, [runControlAction]);
 
     const filtered = useMemo(() => {
         if (activeFilter === "All") return tasksWithLiveActivities;
@@ -1053,7 +1189,15 @@ export const LiveSessionPage: FunctionComponent = () => {
 
                 {/* Sidebar — Intelligence + Git */}
                 <div className="xl:col-span-4 flex flex-col gap-6">
-                    <ExecutionRuntimePanel snapshot={execution} />
+                    <ExecutionRuntimePanel
+                        snapshot={execution}
+                        onOrchestrateSprint={handleOrchestrateSprint}
+                        onPauseSprintRun={handlePauseSprintRun}
+                        onCancelSprintRun={handleCancelSprintRun}
+                        onCancelTaskDispatch={handleCancelTaskDispatch}
+                        onRetryTaskDispatch={handleRetryTaskDispatch}
+                        pendingActionIds={pendingActionIds}
+                    />
                     <IntelPanel
                         title="Latest Activity"
                         icon={Activity}

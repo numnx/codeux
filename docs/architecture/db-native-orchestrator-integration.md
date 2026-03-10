@@ -21,6 +21,7 @@ It now:
 - persists direct CLI pipeline stage events and CI-gate state changes into `task_run_events`
 - persists action-required automation and protocol state into `task_run_events`
 - persists branch/planning preflight blockers and watch-loop sprint lifecycle into `sprint_run_events`
+- exposes dashboard control actions for sprint orchestration and dispatch management on the same DB-native runtime
 
 It does not yet:
 - remove all legacy wording from every instruction template
@@ -157,3 +158,4 @@ The execution model is now DB-native at the entry, load, dispatch, and merge-per
 Still pending:
 - CI/protocol wording should stop referencing any subtask-file semantics
 - broader executor transcript coverage beyond current session-sync, CLI stage, worker lifecycle, and CI gate events
+- safe executor-specific force-stop behavior for already running provider work

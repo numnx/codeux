@@ -40,6 +40,13 @@ async function createServerHandle(): Promise<{
   repository: ProjectManagementRepository;
   runtimeRepository: ProjectRuntimeRepository;
   markdownService: SprintMarkdownService;
+  controlCalls: {
+    orchestrate: Array<{ projectId: string; sprintId: string }>;
+    pauseRuns: string[];
+    cancelRuns: string[];
+    cancelDispatches: string[];
+    retryDispatches: string[];
+  };
 }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-dashboard-api-"));
   tempDirs.push(dir);
@@ -49,6 +56,13 @@ async function createServerHandle(): Promise<{
   const connectionRepository = new ConnectionChatRepository(storage);
   const executionRepository = new ExecutionRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
+  const controlCalls = {
+    orchestrate: [] as Array<{ projectId: string; sprintId: string }>,
+    pauseRuns: [] as string[],
+    cancelRuns: [] as string[],
+    cancelDispatches: [] as string[],
+    retryDispatches: [] as string[],
+  };
 
   const app = express();
   const handle = await setupDashboardServer({
@@ -109,6 +123,26 @@ async function createServerHandle(): Promise<{
     postConversationMessage: (projectId, input) => connectionRepository.postDashboardMessage(projectId, input),
     saveSettings: (settings) => settings,
     rerunTask: async () => ({ ok: true }),
+    orchestrateSprint: async (projectId, sprintId) => {
+      controlCalls.orchestrate.push({ projectId, sprintId });
+      return { ok: true };
+    },
+    pauseSprintRun: async (sprintRunId) => {
+      controlCalls.pauseRuns.push(sprintRunId);
+      return { ok: true };
+    },
+    cancelSprintRun: async (sprintRunId) => {
+      controlCalls.cancelRuns.push(sprintRunId);
+      return { ok: true };
+    },
+    cancelTaskDispatch: async (dispatchId) => {
+      controlCalls.cancelDispatches.push(dispatchId);
+      return { ok: true };
+    },
+    retryTaskDispatch: async (dispatchId) => {
+      controlCalls.retryDispatches.push(dispatchId);
+      return { ok: true };
+    },
   });
   serversToClose.push(handle.server);
 
@@ -117,12 +151,13 @@ async function createServerHandle(): Promise<{
     repository,
     runtimeRepository,
     markdownService,
+    controlCalls,
   };
 }
 
 describe("dashboard project management API", () => {
   it("creates and queries DB-backed projects, sprints, tasks, and markdown export", async () => {
-    const { port, runtimeRepository } = await createServerHandle();
+    const { port, runtimeRepository, controlCalls } = await createServerHandle();
     const baseUrl = `http://127.0.0.1:${port}`;
 
     const projectResponse = await fetch(`${baseUrl}/api/projects`, {
@@ -273,5 +308,11 @@ describe("dashboard project management API", () => {
 
     expect(exported.sprint.markdown).toContain("name: API Sprint");
     expect(exported.tasks[0].markdown).toContain("title: Wire selected project state");
+
+    const orchestrateResponse = await fetch(`${baseUrl}/api/projects/${project.id}/sprints/${sprint.id}/orchestrate`, {
+      method: "POST",
+    });
+    expect(orchestrateResponse.status).toBe(202);
+    expect(controlCalls.orchestrate).toEqual([{ projectId: project.id, sprintId: sprint.id }]);
   });
 });

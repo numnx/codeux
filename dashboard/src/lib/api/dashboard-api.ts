@@ -60,3 +60,34 @@ export const rerunTask = async (taskId: string): Promise<void> => {
     method: "POST",
   });
 };
+
+export const orchestrateSprint = async (projectId: string, sprintId: string): Promise<void> => {
+  await fetchJson<{ ok: boolean }>(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/orchestrate`,
+    { method: "POST" },
+  );
+};
+
+export const pauseSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/pause`, {
+    method: "POST",
+  });
+};
+
+export const cancelSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/cancel`, {
+    method: "POST",
+  });
+};
+
+export const cancelTaskDispatch = async (dispatchId: string): Promise<void> => {
+  await fetchJson(`/api/task-dispatches/${encodeURIComponent(dispatchId)}/cancel`, {
+    method: "POST",
+  });
+};
+
+export const retryTaskDispatch = async (dispatchId: string): Promise<void> => {
+  await fetchJson(`/api/task-dispatches/${encodeURIComponent(dispatchId)}/retry`, {
+    method: "POST",
+  });
+};

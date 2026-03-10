@@ -105,6 +105,8 @@ Legacy runtime:
 - Task cards now open a DB-backed runtime feed sourced from `task_run_events`
 - The runtime feed now includes direct CLI stage events, action-required and protocol events, sprint-run lifecycle events, and CI/merge-gate state changes in addition to provider session activity
 - `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`
+- The execution runtime panel can now start or resume sprint orchestration, pause or cancel sprint runs, cancel queued dispatches, and retry terminal dispatches
+- Dispatch cancel is intentionally limited to `queued` and `claimed` work; already running provider work is not force-killed yet
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel

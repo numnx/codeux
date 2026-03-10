@@ -1,0 +1,187 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
+import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
+import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
+import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
+import { ExecutionControlService } from "../../../src/services/execution-control-service.js";
+
+const tempDirs: string[] = [];
+
+async function createFixture(): Promise<{
+  projectRepository: ProjectManagementRepository;
+  projectRuntimeRepository: ProjectRuntimeRepository;
+  executionRepository: ExecutionRepository;
+  service: ExecutionControlService;
+  rerunTask: ReturnType<typeof vi.fn>;
+  executeOrchestrator: ReturnType<typeof vi.fn>;
+}> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-execution-control-"));
+  tempDirs.push(dir);
+  const storage = new AppDbStorage(path.join(dir, "app.db"));
+  const projectRepository = new ProjectManagementRepository(storage);
+  const projectRuntimeRepository = new ProjectRuntimeRepository(storage);
+  const executionRepository = new ExecutionRepository(storage);
+  const rerunTask = vi.fn().mockResolvedValue({ id: "task-1" });
+  const executeOrchestrator = vi.fn().mockResolvedValue({ content: [] });
+
+  const service = new ExecutionControlService({
+    projectManagementRepository: projectRepository,
+    projectRuntimeRepository,
+    executionRepository,
+    taskRerunService: {
+      rerunTask,
+    } as any,
+    sprintOrchestrator: {
+      execute: executeOrchestrator,
+    } as any,
+  });
+
+  return {
+    projectRepository,
+    projectRuntimeRepository,
+    executionRepository,
+    service,
+    rerunTask,
+    executeOrchestrator,
+  };
+}
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
+describe("ExecutionControlService", () => {
+  it("starts sprint orchestration through the sprint orchestrator", async () => {
+    const { projectRepository, service, executeOrchestrator } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Execution Control Project",
+      sourceType: "local",
+      sourceRef: "/workspace/control-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Execution Control Sprint",
+      number: 1,
+    });
+
+    await service.orchestrateSprint(project.id, sprint.id);
+
+    expect(executeOrchestrator).toHaveBeenCalledWith(expect.objectContaining({
+      action: "orchestrate",
+      project_id: project.id,
+      sprint_id: sprint.id,
+      wait: true,
+    }));
+  });
+
+  it("pauses sprint runs and records a sprint event", async () => {
+    const { projectRepository, executionRepository, service } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Pause Project",
+      sourceType: "local",
+      sourceRef: "/workspace/pause-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Pause Sprint",
+      number: 1,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+
+    const paused = service.pauseSprintRun(sprintRun.id);
+
+    expect(paused.status).toBe("paused");
+    expect(executionRepository.listSprintRunEvents(sprintRun.id)[0]).toMatchObject({
+      eventType: "sprint_pause_requested",
+      originator: "user",
+    });
+  });
+
+  it("cancels queued dispatches within a cancelled sprint run", async () => {
+    const { projectRepository, executionRepository, service } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Cancel Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cancel-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Cancel Sprint",
+      number: 2,
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Cancel queued dispatch",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "mcp_worker",
+      status: "queued",
+    });
+    const taskRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      state: "RUNNING",
+      startedAt: new Date().toISOString(),
+    });
+
+    const cancelled = service.cancelSprintRun(sprintRun.id);
+
+    expect(cancelled.status).toBe("cancelled");
+    expect(executionRepository.getTaskDispatch(dispatch.id)).toMatchObject({
+      status: "cancelled",
+    });
+    expect(executionRepository.getTaskRun(taskRun.id)).toMatchObject({
+      state: "BLOCKED",
+    });
+  });
+
+  it("retries terminal dispatches through the task rerun service", async () => {
+    const { projectRepository, executionRepository, service, rerunTask } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Retry Project",
+      sourceType: "local",
+      sourceRef: "/workspace/retry-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Retry Sprint",
+      number: 3,
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Retry failed dispatch",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "failed",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "failed",
+    });
+
+    await service.retryTaskDispatch(dispatch.id);
+
+    expect(rerunTask).toHaveBeenCalledWith(task.id);
+  });
+});

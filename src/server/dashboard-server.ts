@@ -72,6 +72,11 @@ export interface DashboardServerOptions {
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
   rerunTask: (taskId: string) => Promise<unknown>;
+  orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;
+  pauseSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
+  cancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
+  cancelTaskDispatch: (dispatchId: string) => Promise<unknown> | unknown;
+  retryTaskDispatch: (dispatchId: string) => Promise<unknown>;
   logger?: Logger;
   isReady?: () => ReadinessProbeStatus;
   isHealthy?: () => ReadinessProbeStatus;
@@ -126,6 +131,11 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     getSettings,
     saveSettings,
     rerunTask,
+    orchestrateSprint,
+    pauseSprintRun,
+    cancelSprintRun,
+    cancelTaskDispatch,
+    retryTaskDispatch,
     logger,
     isReady,
   } = options;
@@ -424,6 +434,49 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       res.status(400).json({ error: `Failed to rerun task: ${message}` });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sprints/:sprintId/orchestrate", async (req, res) => {
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      const sprintId = String(req.params.sprintId || "").trim();
+      const result = await orchestrateSprint(projectId, sprintId);
+      res.status(202).json(result);
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to start sprint orchestration") });
+    }
+  });
+
+  app.post("/api/sprint-runs/:sprintRunId/pause", async (req, res) => {
+    try {
+      res.json(await pauseSprintRun(String(req.params.sprintRunId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to pause sprint run") });
+    }
+  });
+
+  app.post("/api/sprint-runs/:sprintRunId/cancel", async (req, res) => {
+    try {
+      res.json(await cancelSprintRun(String(req.params.sprintRunId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to cancel sprint run") });
+    }
+  });
+
+  app.post("/api/task-dispatches/:dispatchId/cancel", async (req, res) => {
+    try {
+      res.json(await cancelTaskDispatch(String(req.params.dispatchId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to cancel task dispatch") });
+    }
+  });
+
+  app.post("/api/task-dispatches/:dispatchId/retry", async (req, res) => {
+    try {
+      res.json(await retryTaskDispatch(String(req.params.dispatchId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to retry task dispatch") });
     }
   });
 
