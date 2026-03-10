@@ -1,7 +1,6 @@
 import type { Subtask } from "../contracts/app-types.js";
 import type { TaskDispatchRecord, SprintRunRecord, TaskRunRecord } from "../contracts/execution-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
-import type { ProjectRuntimeRepository } from "../repositories/project-runtime-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { TaskRerunService } from "./task-rerun-service.js";
 import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
@@ -11,7 +10,6 @@ import type { Logger } from "../shared/logging/logger.js";
 
 interface ExecutionControlServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
-  projectRuntimeRepository: ProjectRuntimeRepository;
   executionRepository: ExecutionRepository;
   taskRerunService: TaskRerunService;
   sprintOrchestrator: SprintOrchestrator;
@@ -166,11 +164,8 @@ export class ExecutionControlService {
         sourceEventKey: `dashboard-dispatch-cancel:${dispatch.id}`,
       });
     }
-    this.updateSelectedProjectStatus(dispatch.taskId, {
-      status: "BLOCKED",
-      session_state: "CANCELLED",
-      intervention_owner: "HUMAN",
-      intervention_hint: message,
+    this.deps.projectManagementRepository.updateTask(dispatch.taskId, {
+      status: "pending",
     });
     return updated;
   }
@@ -192,12 +187,6 @@ export class ExecutionControlService {
         sourceEventKey: `dashboard-dispatch-cancel-request:${dispatch.id}`,
       });
     }
-    this.updateSelectedProjectStatus(dispatch.taskId, {
-      status: "RUNNING",
-      session_state: "CANCEL_REQUESTED",
-      intervention_owner: "HUMAN",
-      intervention_hint: message,
-    });
 
     if (dispatch.executorType === "docker_cli") {
       await this.deps.activeDispatchRegistry.requestStop(dispatch.id, message);
@@ -228,28 +217,6 @@ export class ExecutionControlService {
     }
 
     return this.deps.executionRepository.getTaskDispatch(dispatch.id) || updated;
-  }
-
-  private updateSelectedProjectStatus(taskId: string, patch: Partial<Subtask>): void {
-    const task = this.deps.projectManagementRepository.getTask(taskId);
-    if (!task) {
-      return;
-    }
-    const selectedStatus = this.deps.projectRuntimeRepository.getSelectedProjectStatus();
-    if (selectedStatus.project_id !== task.projectId) {
-      return;
-    }
-    const subtasks = Array.isArray(selectedStatus.subtasks) ? selectedStatus.subtasks : [];
-    const updatedSubtasks = subtasks.map((subtask) => (
-      subtask.record_id === taskId || subtask.id === task.taskKey
-        ? { ...subtask, ...patch }
-        : subtask
-    ));
-    this.deps.projectRuntimeRepository.syncDashboardStatus({
-      ...selectedStatus,
-      subtasks: updatedSubtasks,
-      timestamp: new Date().toLocaleTimeString(),
-    });
   }
 
   private ensureSyntheticTaskRun(dispatch: TaskDispatchRecord): string {

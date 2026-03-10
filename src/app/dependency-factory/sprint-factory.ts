@@ -36,6 +36,7 @@ export function createSprintDependencies(
   const cliWorkflowService = new CliWorkflowService({
     sessionTracking,
     executionRepository,
+    projectManagementRepository,
     activeDispatchRegistry,
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     getGuideContent: (guideName: string, repoPath?: string) => context.getGuideContentIfEnabled(guideName, repoPath),

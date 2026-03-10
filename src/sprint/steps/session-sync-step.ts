@@ -34,6 +34,20 @@ const mapTaskRunStateToDispatchStatus = (state: TaskRunState): TaskDispatchStatu
   }
 };
 
+const mapTaskRunStateToPlanningStatus = (state: TaskRunState): "pending" | "in_progress" | "completed" => {
+  switch (state) {
+    case "COMPLETED":
+      return "completed";
+    case "RUNNING":
+      return "in_progress";
+    case "FAILED":
+    case "BLOCKED":
+    case "PENDING":
+    default:
+      return "pending";
+  }
+};
+
 const mergeDispatchStatus = (
   currentStatus: TaskDispatchStatus | null,
   nextRunState: TaskRunState,
@@ -150,6 +164,10 @@ const syncExecutionRunState = (
       deps.executionRepository.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
     }
   }
+
+  deps.projectManagementRepository?.updateTask(task.record_id, {
+    status: mapTaskRunStateToPlanningStatus(nextRunState),
+  });
 
   const sessionSyncKey = [
     "session-sync",

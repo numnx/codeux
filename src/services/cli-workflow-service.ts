@@ -4,6 +4,7 @@ import * as path from "path";
 import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
 import type { UpdateTaskDispatchInput, UpdateTaskRunInput } from "../contracts/execution-types.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import { runCommandStrict, type CommandResult } from "./cli-process-runner.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
@@ -32,6 +33,7 @@ import type { ActiveDispatchRegistry } from "./active-dispatch-registry.js";
 interface CliWorkflowServiceDependencies {
   sessionTracking: SessionTrackingRepository;
   executionRepository?: ExecutionRepository;
+  projectManagementRepository?: ProjectManagementRepository;
   activeDispatchRegistry?: ActiveDispatchRegistry;
   getDashboardSettings: () => DashboardSettings;
   getGuideContent: (guideName: string, repoPath?: string) => Promise<string>;
@@ -361,6 +363,9 @@ export class CliWorkflowService {
       workerBranch: input.workerBranch === undefined ? taskRun.workerBranch || args.workerBranch : input.workerBranch,
     };
     this.deps.executionRepository.updateTaskRun(taskRun.id, taskRunUpdate);
+    this.deps.projectManagementRepository?.updateTask(taskRun.taskId, {
+      status: input.state === "COMPLETED" ? "completed" : input.state === "FAILED" ? "pending" : "in_progress",
+    });
 
     if (taskRun.dispatchId) {
       this.deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {

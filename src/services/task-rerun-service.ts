@@ -3,22 +3,18 @@ import type { StartSprintDispatchResult } from "./sprint-task-dispatch-service.j
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface TaskRerunContext {
-  project_id?: string;
-  sprint_id?: string;
-  sprint_number?: number;
-  source_id?: string;
-  repo_path?: string;
-  feature_branch?: string;
-  subtasks?: Subtask[];
-  reportText?: string;
-  statusTable?: string;
-  instructions?: string;
-  timestamp?: string | null;
+  task: Subtask;
+  projectId: string;
+  sprintId: string;
+  sprintNumber: number;
+  sourceId?: string;
+  repoPath: string;
+  featureBranch: string;
 }
 
 export interface TaskRerunServiceDependencies {
-  getStatus: () => TaskRerunContext;
-  updateStatus: (status: TaskRerunContext) => void;
+  resolveTaskContext: (taskId: string) => TaskRerunContext | null;
+  updateTaskPlanningStatus: (taskId: string, status: "pending" | "in_progress" | "completed") => void;
   resolveSprintRunId: (args: {
     projectId: string;
     sprintId: string;
@@ -60,32 +56,13 @@ export class TaskRerunService {
   constructor(private readonly deps: TaskRerunServiceDependencies) {}
 
   async rerunTask(taskId: string): Promise<Subtask> {
-    const status = this.deps.getStatus();
-    const projectId = typeof status.project_id === "string" && status.project_id.trim().length > 0 ? status.project_id.trim() : null;
-    const sprintId = typeof status.sprint_id === "string" && status.sprint_id.trim().length > 0 ? status.sprint_id.trim() : null;
-    const sprintNumber = typeof status.sprint_number === "number" ? status.sprint_number : null;
-    const sourceId = typeof status.source_id === "string" && status.source_id.trim().length > 0 ? status.source_id.trim() : undefined;
-    const repoPath = typeof status.repo_path === "string" && status.repo_path.trim().length > 0 ? status.repo_path.trim() : null;
-    const featureBranch =
-      typeof status.feature_branch === "string" && status.feature_branch.trim().length > 0 ? status.feature_branch.trim() : null;
-    const subtasks = Array.isArray(status.subtasks) ? status.subtasks : [];
-
-    if (projectId === null || sprintId === null || sprintNumber === null || repoPath === null || featureBranch === null) {
+    const context = this.deps.resolveTaskContext(taskId);
+    if (!context) {
       throw new Error("Cannot rerun task: sprint context is incomplete. Run orchestration/status first.");
     }
 
-    const taskIndex = subtasks.findIndex((task) => task.record_id === taskId || task.id === taskId);
-    if (taskIndex < 0) {
-      throw new Error(`Cannot rerun task: task '${taskId}' was not found in current sprint status.`);
-    }
-
-    const resetTask = resetTaskState(subtasks[taskIndex]);
-    const resetSubtasks = subtasks.map((task, index) => (index === taskIndex ? resetTask : task));
-    this.deps.updateStatus({
-      ...status,
-      subtasks: resetSubtasks,
-      timestamp: new Date().toLocaleTimeString(),
-    });
+    const resetTask = resetTaskState(context.task);
+    this.deps.updateTaskPlanningStatus(resetTask.record_id || taskId, "pending");
 
     try {
       await this.deps.persistMergedFlag({
@@ -102,20 +79,20 @@ export class TaskRerunService {
 
     try {
       const sprintRunId = await this.deps.resolveSprintRunId({
-        projectId,
-        sprintId,
-        sprintNumber,
-        featureBranch,
+        projectId: context.projectId,
+        sprintId: context.sprintId,
+        sprintNumber: context.sprintNumber,
+        featureBranch: context.featureBranch,
       });
       const session = await this.deps.startTask({
         task: resetTask,
-        projectId,
-        sprintId,
+        projectId: context.projectId,
+        sprintId: context.sprintId,
         sprintRunId,
-        sourceId,
-        featureBranch,
-        repoPath,
-        sprintNumber,
+        sourceId: context.sourceId,
+        featureBranch: context.featureBranch,
+        repoPath: context.repoPath,
+        sprintNumber: context.sprintNumber,
       });
       const restartedTask: Subtask = {
         ...resetTask,
@@ -127,24 +104,8 @@ export class TaskRerunService {
             ? session.provider
             : undefined,
       };
-      const restartedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? restartedTask : task));
-      this.deps.updateStatus({
-        ...status,
-        subtasks: restartedSubtasks,
-        timestamp: new Date().toLocaleTimeString(),
-      });
       return restartedTask;
     } catch (error) {
-      const failedTask: Subtask = {
-        ...resetTask,
-        status: "FAILED",
-      };
-      const failedSubtasks = resetSubtasks.map((task, index) => (index === taskIndex ? failedTask : task));
-      this.deps.updateStatus({
-        ...status,
-        subtasks: failedSubtasks,
-        timestamp: new Date().toLocaleTimeString(),
-      });
       throw error;
     }
   }

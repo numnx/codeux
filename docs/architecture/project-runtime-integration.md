@@ -62,6 +62,11 @@ Current limitations:
 - worker MCP assignment and multi-MCP scheduling are not implemented yet
 - listen mode now has project-scoped connection/thread/message storage and a pull-based MCP tool loop, but not autonomous server-side dispatch
 
+Recent tightening:
+- dashboard rerun no longer rewrites the selected-project runtime snapshot optimistically
+- dashboard cancel no longer patches selected-project subtasks directly
+- task planning status is now updated from execution owners (`cli_workflow`, worker dispatch completion, and Jules session sync) instead of relying only on snapshot mirroring
+
 ## Why This Matters
 
 This closes the biggest phase-1 gap:

@@ -44,9 +44,13 @@ describe("Dashboard Factory", () => {
       },
       projectRuntimeRepository: {
         getSelectedProjectStatus: vi.fn().mockReturnValue({ project_id: "project-1", sprint_id: "sprint-1", sprint_number: 3, feature_branch: "feature/sprint3", repo_path: "/repo", subtasks: ["mock-subtask"] }),
+        getProjectStatus: vi.fn().mockReturnValue({ project_id: "project-1", sprint_id: "sprint-1", sprint_number: 3, source_id: "source-1", feature_branch: "feature/sprint3", repo_path: "/repo", subtasks: [{ record_id: "task1", id: "T1", title: "Task", prompt: "Do it", depends_on: [], is_independent: true }] }),
         syncDashboardStatus: vi.fn(),
       },
       projectManagementRepository: {
+        getTask: vi.fn().mockReturnValue({ id: "task1", taskKey: "T1", projectId: "project-1", sprintId: "sprint-1" }),
+        getSprint: vi.fn().mockReturnValue({ id: "sprint-1", projectId: "project-1", number: 3, featureBranch: "feature/sprint3" }),
+        getProject: vi.fn().mockReturnValue({ id: "project-1", baseDir: "/repo" }),
         updateTask: vi.fn(),
       },
       executionRepository: {
@@ -106,14 +110,20 @@ describe("Dashboard Factory", () => {
     // Get the arguments passed to TaskRerunService constructor
     const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
 
-    // Test getStatus
-    const status = taskRerunArgs.getStatus();
-    expect(status).toEqual({ project_id: "project-1", sprint_id: "sprint-1", sprint_number: 3, feature_branch: "feature/sprint3", repo_path: "/repo", subtasks: ["mock-subtask"] });
+    const taskContext = taskRerunArgs.resolveTaskContext("task1");
+    expect(mockCoreDeps.projectManagementRepository.getTask).toHaveBeenCalledWith("task1");
+    expect(taskContext).toEqual({
+      task: expect.objectContaining({ record_id: "task1", id: "T1" }),
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      sprintNumber: 3,
+      sourceId: "source-1",
+      repoPath: "/repo",
+      featureBranch: "feature/sprint3",
+    });
 
-    // Test updateStatus
-    taskRerunArgs.updateStatus({ updated: true });
-    expect(mockCoreDeps.projectRuntimeRepository.syncDashboardStatus).toHaveBeenCalledWith({ updated: true });
-    expect(mockContext.runtimeContext.lastStatus).toEqual({ updated: true });
+    taskRerunArgs.updateTaskPlanningStatus("task1", "pending");
+    expect(mockCoreDeps.projectManagementRepository.updateTask).toHaveBeenCalledWith("task1", { status: "pending" });
 
     // Test startTask
     taskRerunArgs.resolveSprintRunId({ projectId: "project-1", sprintId: "sprint-1", sprintNumber: 3, featureBranch: "feature/sprint3" });
@@ -159,8 +169,8 @@ describe("Dashboard Factory", () => {
     expect(activityCacheArgs.getSubtasks()).toEqual([]);
   });
 
-  it("getStatus handles missing lastStatus", () => {
-    mockCoreDeps.projectRuntimeRepository.getSelectedProjectStatus.mockReturnValue({ subtasks: [] });
+  it("resolveTaskContext returns null when runtime task context is unavailable", () => {
+    mockCoreDeps.projectRuntimeRepository.getProjectStatus.mockReturnValue({ subtasks: [] });
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,
@@ -168,6 +178,6 @@ describe("Dashboard Factory", () => {
     );
 
     const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
-    expect(taskRerunArgs.getStatus()).toEqual({ subtasks: [] });
+    expect(taskRerunArgs.resolveTaskContext("task1")).toBeNull();
   });
 });

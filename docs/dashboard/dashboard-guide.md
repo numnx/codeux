@@ -111,6 +111,7 @@ Legacy runtime:
   - worker runs move to `cancel_requested` and surface a stop request through the worker heartbeat response
   - Jules runs move to `cancel_requested` and get a best-effort in-session stop message
 - Sprint runs also use `cancel_requested` while active work is shutting down, then finalize to `cancelled` once no active dispatches remain
+- Dashboard rerun and cancel actions now rely on DB task/task-run/dispatch records instead of patching the selected-project runtime snapshot directly
 - Live activity sidebar
 - Protocol instruction panel
 - Git/CI status panel

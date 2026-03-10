@@ -4,7 +4,6 @@ import * as os from "os";
 import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
-import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { ExecutionControlService } from "../../../src/services/execution-control-service.js";
 
@@ -12,7 +11,6 @@ const tempDirs: string[] = [];
 
 async function createFixture(): Promise<{
   projectRepository: ProjectManagementRepository;
-  projectRuntimeRepository: ProjectRuntimeRepository;
   executionRepository: ExecutionRepository;
   service: ExecutionControlService;
   rerunTask: ReturnType<typeof vi.fn>;
@@ -24,7 +22,6 @@ async function createFixture(): Promise<{
   tempDirs.push(dir);
   const storage = new AppDbStorage(path.join(dir, "app.db"));
   const projectRepository = new ProjectManagementRepository(storage);
-  const projectRuntimeRepository = new ProjectRuntimeRepository(storage);
   const executionRepository = new ExecutionRepository(storage);
   const rerunTask = vi.fn().mockResolvedValue({ id: "task-1" });
   const executeOrchestrator = vi.fn().mockResolvedValue({ content: [] });
@@ -33,7 +30,6 @@ async function createFixture(): Promise<{
 
   const service = new ExecutionControlService({
     projectManagementRepository: projectRepository,
-    projectRuntimeRepository,
     executionRepository,
     taskRerunService: {
       rerunTask,
@@ -51,7 +47,6 @@ async function createFixture(): Promise<{
 
   return {
     projectRepository,
-    projectRuntimeRepository,
     executionRepository,
     service,
     rerunTask,
