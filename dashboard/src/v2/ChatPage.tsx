@@ -26,6 +26,7 @@ import {
   postConversationMessage,
   updateConversationThread,
 } from "./lib/connection-api.js";
+import { upsertChatThread } from "./lib/chat-thread-utils.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
 
@@ -60,15 +61,6 @@ const isWorkingMessage = (
     && candidate.direction === "connection_to_dashboard"
     && new Date(candidate.createdAt).getTime() >= new Date(message.createdAt).getTime()
   ));
-};
-
-const upsertThread = (threads: ChatThread[], nextThread: ChatThread): ChatThread[] => {
-  const withoutCurrent = threads.filter((thread) => thread.id !== nextThread.id);
-  return [nextThread, ...withoutCurrent].sort((left, right) => {
-    const leftTime = left.lastMessageAt ? new Date(left.lastMessageAt).getTime() : new Date(left.updatedAt).getTime();
-    const rightTime = right.lastMessageAt ? new Date(right.lastMessageAt).getTime() : new Date(right.updatedAt).getTime();
-    return rightTime - leftTime;
-  });
 };
 
 const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRecord): ChatMessageRecord[] => {
@@ -355,7 +347,7 @@ export const ChatPage: FunctionComponent = () => {
         if (thread.projectId !== selectedProject.id) {
           return;
         }
-        setThreads((current) => upsertThread(current, thread));
+        setThreads((current) => upsertChatThread(current, thread));
         if (!selectedThreadId) {
           setSelectedThreadId(thread.id);
         }
@@ -413,7 +405,7 @@ export const ChatPage: FunctionComponent = () => {
     const thread = await createConversationThread(selectedProject.id, {
       title: `Project Chat ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
     });
-    setThreads((current) => [thread, ...current]);
+    setThreads((current) => upsertChatThread(current, thread));
     setSelectedThreadId(thread.id);
     return thread;
   };
