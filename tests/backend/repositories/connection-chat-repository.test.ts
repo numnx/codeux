@@ -378,4 +378,32 @@ describe("ConnectionChatRepository", () => {
     expect(threadEvents.some((event) => event.entityId === thread.id)).toBe(true);
     expect(threadEvents.some((event) => event.entityId === message.id)).toBe(true);
   });
+
+  it("deletes a thread, cascades its messages, and publishes a realtime delete event", async () => {
+    const { projectRepository, connectionRepository, realtimeEventRepository } = await createRepositoriesWithRealtime();
+    const project = projectRepository.createProject({
+      name: "Delete Chat Project",
+      sourceType: "local",
+      sourceRef: "/workspace/delete-chat-project",
+    });
+
+    const thread = connectionRepository.createThread(project.id, {
+      title: "Delete me",
+    });
+    connectionRepository.postDashboardMessage(project.id, {
+      threadId: thread.id,
+      bodyMarkdown: "Delete this whole thread.",
+    });
+
+    connectionRepository.deleteThread(thread.id);
+
+    expect(connectionRepository.listThreads(project.id)).toEqual([]);
+    expect(connectionRepository.listConnections(project.id)).toEqual([]);
+    expect(() => connectionRepository.listMessages(thread.id)).toThrow(`Conversation thread not found: ${thread.id}`);
+
+    const projectEvents = realtimeEventRepository.listEventsSince([`project:${project.id}`], 0, 20);
+    expect(projectEvents.some((event) => (
+      event.eventType === "conversation.thread.deleted" && event.entityId === thread.id
+    ))).toBe(true);
+  });
 });

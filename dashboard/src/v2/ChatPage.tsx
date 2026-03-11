@@ -7,6 +7,7 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
   UserCircle2,
 } from "lucide-preact";
 import type { AgentConnection, ChatMessageRecord, ChatThread } from "./types.js";
@@ -18,12 +19,19 @@ import type {
 import { useProjectData } from "./context/project-data.js";
 import {
   createConversationThread,
+  deleteConversationThread,
   fetchConversationMessages,
   fetchConversationThreads,
   fetchProjectConnections,
   postConversationMessage,
   updateConversationThread,
 } from "./lib/connection-api.js";
+import {
+  isThreadListLoading,
+  isThreadMessagesLoading,
+  resolveSelectedThreadId,
+} from "./lib/chat-page-state-utils.js";
+import { upsertChatThread } from "./lib/chat-thread-utils.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
 
@@ -45,13 +53,19 @@ const statusTone = (pendingCount: number): string => (
   pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
 );
 
-const upsertThread = (threads: ChatThread[], nextThread: ChatThread): ChatThread[] => {
-  const withoutCurrent = threads.filter((thread) => thread.id !== nextThread.id);
-  return [nextThread, ...withoutCurrent].sort((left, right) => {
-    const leftTime = left.lastMessageAt ? new Date(left.lastMessageAt).getTime() : new Date(left.updatedAt).getTime();
-    const rightTime = right.lastMessageAt ? new Date(right.lastMessageAt).getTime() : new Date(right.updatedAt).getTime();
-    return rightTime - leftTime;
-  });
+const isWorkingMessage = (
+  message: ChatMessageRecord,
+  allMessages: ChatMessageRecord[],
+): boolean => {
+  if (message.direction !== "dashboard_to_connection" || message.deliveryStatus !== "delivered") {
+    return false;
+  }
+
+  return !allMessages.some((candidate) => (
+    candidate.threadId === message.threadId
+    && candidate.direction === "connection_to_dashboard"
+    && new Date(candidate.createdAt).getTime() >= new Date(message.createdAt).getTime()
+  ));
 };
 
 const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRecord): ChatMessageRecord[] => {
@@ -67,6 +81,51 @@ const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRe
     return left.id.localeCompare(right.id);
   });
 };
+
+const removeThread = (threads: ChatThread[], threadId: string): ChatThread[] => (
+  threads.filter((thread) => thread.id !== threadId)
+);
+
+const areThreadsEqual = (left: ChatThread[], right: ChatThread[]): boolean => (
+  left.length === right.length
+  && left.every((thread, index) => {
+    const candidate = right[index];
+    return Boolean(candidate)
+      && candidate.id === thread.id
+      && candidate.updatedAt === thread.updatedAt
+      && candidate.lastMessageAt === thread.lastMessageAt
+      && candidate.lastMessagePreview === thread.lastMessagePreview
+      && candidate.messageCount === thread.messageCount
+      && candidate.pendingMessageCount === thread.pendingMessageCount
+      && candidate.connectionId === thread.connectionId;
+  })
+);
+
+const areMessagesEqual = (left: ChatMessageRecord[], right: ChatMessageRecord[]): boolean => (
+  left.length === right.length
+  && left.every((message, index) => {
+    const candidate = right[index];
+    return Boolean(candidate)
+      && candidate.id === message.id
+      && candidate.createdAt === message.createdAt
+      && candidate.deliveryStatus === message.deliveryStatus;
+  })
+);
+
+const areConnectionsEqual = (left: AgentConnection[], right: AgentConnection[]): boolean => (
+  left.length === right.length
+  && left.every((connection, index) => {
+    const candidate = right[index];
+    return Boolean(candidate)
+      && candidate.id === connection.id
+      && candidate.updatedAt === connection.updatedAt
+      && candidate.status === connection.status
+      && candidate.threadCount === connection.threadCount
+      && candidate.messageCount === connection.messageCount
+      && candidate.pendingInboxCount === connection.pendingInboxCount
+      && candidate.activeDispatchCount === connection.activeDispatchCount;
+  })
+);
 
 const toAgentConnection = (connection: ExecutionConnectionSummary): AgentConnection => ({
   id: connection.id,
@@ -109,38 +168,69 @@ const EmptyChat: FunctionComponent<{ message: string }> = ({ message }) => (
   </div>
 );
 
+const LoadingChat: FunctionComponent<{ label: string }> = ({ label }) => (
+  <div className="flex h-full min-h-[360px] items-center justify-center rounded-[1.9rem] border border-dashed border-black/[0.06] bg-white/70 p-8 text-center shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+    <div className="space-y-4">
+      <div className="mx-auto flex items-center justify-center gap-1.5">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500" />
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500 [animation-delay:140ms]" />
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500 [animation-delay:280ms]" />
+      </div>
+      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-signal-500">{label}</div>
+      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Sprint OS is loading the latest stored conversation state.
+      </p>
+    </div>
+  </div>
+);
+
 const ThreadList: FunctionComponent<{
   threads: ChatThread[];
   selectedThreadId: string | null;
   onSelect: (threadId: string) => void;
-}> = ({ threads, selectedThreadId, onSelect }) => (
+  onDelete: (threadId: string) => void;
+  deletingThreadId: string | null;
+}> = ({ threads, selectedThreadId, onSelect, onDelete, deletingThreadId }) => (
   <div className="space-y-3">
     {threads.map((thread) => (
-      <button
-        key={thread.id}
-        type="button"
-        onClick={() => onSelect(thread.id)}
-        className={`w-full rounded-[1.25rem] border px-4 py-3 text-left transition-colors ${
-          selectedThreadId === thread.id
-            ? "border-signal-500/30 bg-signal-500/10"
-            : "border-black/[0.05] bg-black/[0.03] hover:border-slate-300 hover:bg-black/[0.05] dark:border-white/[0.05] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]"
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{thread.title}</div>
-            <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              {thread.lastMessagePreview || "No messages yet."}
+      <div key={thread.id} className="group relative overflow-hidden rounded-[1.25rem]">
+        <button
+          type="button"
+          onClick={() => onSelect(thread.id)}
+          className={`w-full rounded-[1.25rem] border px-4 py-3 pr-16 text-left transition-colors duration-150 ${
+            selectedThreadId === thread.id
+              ? "border-signal-500/30 bg-signal-500/10"
+              : "border-black/[0.05] bg-black/[0.03] hover:border-slate-300 hover:bg-black/[0.05] dark:border-white/[0.05] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{thread.title}</div>
+              <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                {thread.lastMessagePreview || "No messages yet."}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
+                {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
+              </div>
+              <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
             </div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
-              {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
-            </div>
-            <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
-          </div>
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(thread.id);
+          }}
+          disabled={deletingThreadId === thread.id}
+          aria-label={`Delete ${thread.title}`}
+          className="absolute inset-y-0 right-0 flex w-12 translate-x-full items-center justify-center border-l border-status-red/15 bg-status-red/10 text-status-red opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 disabled:translate-x-0 disabled:opacity-100"
+        >
+          {deletingThreadId === thread.id ? <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={2.1} /> : <Trash2 className="h-4 w-4" strokeWidth={2.1} />}
+        </button>
+      </div>
     ))}
   </div>
 );
@@ -178,10 +268,42 @@ const MessageBubble: FunctionComponent<{ message: ChatMessageRecord }> = ({ mess
   );
 };
 
+const WorkingBubble: FunctionComponent<{ displayName: string | null }> = ({ displayName }) => (
+  <div className="flex justify-start">
+    <div className="flex max-w-[760px] items-start gap-3">
+      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-[0.9rem] border border-signal-500/20 bg-signal-500/10 text-signal-500">
+        <Sparkles className="h-4 w-4" strokeWidth={1.6} />
+      </div>
+      <div className="space-y-2">
+        <div className="rounded-[1.5rem] rounded-tl-sm border border-black/[0.06] bg-white/75 px-5 py-4 text-slate-700 shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/70 dark:text-slate-200">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+              {displayName || "Listener"} is preparing a reply
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500 [animation-delay:120ms]" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-500 [animation-delay:240ms]" />
+            </span>
+          </div>
+        </div>
+        <div className="px-1 text-[10px] font-mono text-slate-400">Working</div>
+      </div>
+    </div>
+  </div>
+);
+
 export const ChatPage: FunctionComponent = () => {
   const headerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const selectedThreadIdRef = useRef<string | null>(null);
+  const threadsRef = useRef<ChatThread[]>([]);
+  const messageCacheRef = useRef(new Map<string, ChatMessageRecord[]>());
+  const threadCacheRef = useRef(new Map<string, ChatThread[]>());
+  const connectionCacheRef = useRef(new Map<string, AgentConnection[]>());
+  const inflightMessageFetchesRef = useRef(new Map<string, Promise<ChatMessageRecord[]>>());
+  const activationTokenRef = useRef(0);
   const { selectedProject } = useProjectData();
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -190,7 +312,9 @@ export const ChatPage: FunctionComponent = () => {
   const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -199,19 +323,155 @@ export const ChatPage: FunctionComponent = () => {
     [threads, selectedThreadId]
   );
 
-  const refreshThreads = useCallback(async (options?: { manual?: boolean }): Promise<void> => {
+  useEffect(() => {
+    selectedThreadIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
+
+  const setThreadsSnapshot = useCallback((nextThreads: ChatThread[]): void => {
+    setThreads((current) => areThreadsEqual(current, nextThreads) ? current : nextThreads);
+  }, []);
+
+  const setConnectionsSnapshot = useCallback((nextConnections: AgentConnection[]): void => {
+    setConnections((current) => areConnectionsEqual(current, nextConnections) ? current : nextConnections);
+  }, []);
+
+  const setMessagesSnapshot = useCallback((nextMessages: ChatMessageRecord[]): void => {
+    setMessages((current) => areMessagesEqual(current, nextMessages) ? current : nextMessages);
+  }, []);
+
+  const ensureMessagesLoaded = useCallback(async (threadId: string): Promise<ChatMessageRecord[]> => {
+    const cachedMessages = messageCacheRef.current.get(threadId);
+    if (cachedMessages) {
+      return cachedMessages;
+    }
+
+    const inflightRequest = inflightMessageFetchesRef.current.get(threadId);
+    if (inflightRequest) {
+      return inflightRequest;
+    }
+
+    const request = fetchConversationMessages(threadId)
+      .then((nextMessages) => {
+        messageCacheRef.current.set(threadId, nextMessages);
+        return nextMessages;
+      })
+      .finally(() => {
+        inflightMessageFetchesRef.current.delete(threadId);
+      });
+
+    inflightMessageFetchesRef.current.set(threadId, request);
+    return request;
+  }, []);
+
+  const activateThread = useCallback(async (
+    threadId: string | null,
+    options?: { foreground?: boolean; preferredThread?: ChatThread | null },
+  ): Promise<void> => {
+    activationTokenRef.current += 1;
+    const activationToken = activationTokenRef.current;
+
+    if (!threadId) {
+      setSelectedThreadId(null);
+      setMessagesSnapshot([]);
+      setMessagesLoading(false);
+      return;
+    }
+
+    const targetThread = options?.preferredThread || threadsRef.current.find((thread) => thread.id === threadId) || null;
+    const cachedMessages = messageCacheRef.current.get(threadId);
+    if (cachedMessages) {
+      setSelectedThreadId(threadId);
+      setMessagesSnapshot(cachedMessages);
+      setMessagesLoading(false);
+      return;
+    }
+
+    if ((targetThread?.messageCount || 0) === 0) {
+      messageCacheRef.current.set(threadId, []);
+      setSelectedThreadId(threadId);
+      setMessagesSnapshot([]);
+      setMessagesLoading(false);
+      return;
+    }
+
+    if (options?.foreground) {
+      setSelectedThreadId(threadId);
+      setMessagesSnapshot([]);
+      setMessagesLoading(true);
+    }
+
+    try {
+      const nextMessages = await ensureMessagesLoaded(threadId);
+      if (activationToken !== activationTokenRef.current) {
+        return;
+      }
+      setSelectedThreadId(threadId);
+      setMessagesSnapshot(nextMessages);
+      setError(null);
+    } catch (fetchError) {
+      if (activationToken === activationTokenRef.current) {
+        setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+      }
+    } finally {
+      if (activationToken === activationTokenRef.current) {
+        setMessagesLoading(false);
+      }
+    }
+  }, [ensureMessagesLoaded, setMessagesSnapshot]);
+
+  const refreshMessages = useCallback(async (
+    threadId: string | null,
+    options?: { foreground?: boolean; force?: boolean },
+  ): Promise<void> => {
+    if (!threadId) {
+      setMessagesSnapshot([]);
+      setMessagesLoading(false);
+      return;
+    }
+
+    if (options?.foreground) {
+      setMessagesLoading(true);
+    }
+
+    try {
+      const nextMessages = options?.force
+        ? await fetchConversationMessages(threadId).then((messagesResponse) => {
+          messageCacheRef.current.set(threadId, messagesResponse);
+          return messagesResponse;
+        })
+        : await ensureMessagesLoaded(threadId);
+      if (selectedThreadIdRef.current === threadId) {
+        setMessagesSnapshot(nextMessages);
+      }
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+    } finally {
+      if (options?.foreground) {
+        setMessagesLoading(false);
+      }
+    }
+  }, [ensureMessagesLoaded, setMessagesSnapshot]);
+
+  const refreshThreads = useCallback(async (options?: { manual?: boolean; foreground?: boolean }): Promise<void> => {
     if (!selectedProject) {
       setThreads([]);
       setConnections([]);
       setMessages([]);
       setSelectedThreadId(null);
+      setMessagesLoading(false);
       setError(null);
       return;
     }
 
     if (options?.manual) {
       setManualRefreshing(true);
-    } else {
+    }
+    if (options?.foreground) {
       setLoading(true);
     }
     try {
@@ -219,45 +479,58 @@ export const ChatPage: FunctionComponent = () => {
         fetchConversationThreads(selectedProject.id),
         fetchProjectConnections(selectedProject.id),
       ]);
-      setThreads(nextThreads);
-      setConnections(nextConnections);
-      const nextSelectedId = selectedThreadId && nextThreads.some((thread) => thread.id === selectedThreadId)
-        ? selectedThreadId
-        : nextThreads[0]?.id || null;
-      setSelectedThreadId(nextSelectedId);
+      threadCacheRef.current.set(selectedProject.id, nextThreads);
+      connectionCacheRef.current.set(selectedProject.id, nextConnections);
+      setThreadsSnapshot(nextThreads);
+      setConnectionsSnapshot(nextConnections);
+      const nextSelectedId = resolveSelectedThreadId(nextThreads, selectedThreadIdRef.current);
+      const nextSelectedThread = nextThreads.find((thread) => thread.id === nextSelectedId) || null;
+      await activateThread(nextSelectedId, {
+        foreground: Boolean(options?.foreground),
+        preferredThread: nextSelectedThread,
+      });
       setError(null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
       if (options?.manual) {
         setManualRefreshing(false);
-      } else {
+      }
+      if (options?.foreground) {
         setLoading(false);
       }
     }
-  }, [selectedProject, selectedThreadId]);
+  }, [activateThread, selectedProject, setConnectionsSnapshot, setThreadsSnapshot]);
 
-  const refreshMessages = useCallback(async (threadId: string | null): Promise<void> => {
-    if (!threadId) {
-      setMessages([]);
+  useEffect(() => {
+    if (!selectedProject) {
       return;
     }
 
-    try {
-      const nextMessages = await fetchConversationMessages(threadId);
-      setMessages(nextMessages);
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+    const cachedThreads = threadCacheRef.current.get(selectedProject.id);
+    const cachedConnections = connectionCacheRef.current.get(selectedProject.id);
+    if (cachedThreads) {
+      setThreadsSnapshot(cachedThreads);
+      setConnectionsSnapshot(cachedConnections || []);
+      const nextSelectedId = resolveSelectedThreadId(cachedThreads, selectedThreadIdRef.current);
+      const nextSelectedThread = cachedThreads.find((thread) => thread.id === nextSelectedId) || null;
+      setSelectedThreadId(null);
+      setMessagesSnapshot([]);
+      void activateThread(nextSelectedId, {
+        foreground: false,
+        preferredThread: nextSelectedThread,
+      });
+      void refreshThreads();
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    void refreshThreads();
-  }, [refreshThreads]);
-
-  useEffect(() => {
-    void refreshMessages(selectedThreadId);
-  }, [selectedThreadId]);
+    setThreads([]);
+    setConnections([]);
+    setMessages([]);
+    setSelectedThreadId(null);
+    setMessagesLoading(false);
+    void refreshThreads({ foreground: true });
+  }, [activateThread, refreshThreads, selectedProject, setConnectionsSnapshot, setThreadsSnapshot]);
 
   useEffect(() => {
     if (!selectedProject) {
@@ -272,8 +545,8 @@ export const ChatPage: FunctionComponent = () => {
     return subscribeToDashboardRealtime(scopes, (message: DashboardRealtimeServerMessage) => {
       if (message.type === "snapshot_required") {
         void refreshThreads();
-        if (selectedThreadId) {
-          void refreshMessages(selectedThreadId);
+        if (selectedThreadIdRef.current) {
+          void refreshMessages(selectedThreadIdRef.current, { force: true });
         }
         return;
       }
@@ -284,7 +557,9 @@ export const ChatPage: FunctionComponent = () => {
 
       if (message.event.eventType === "project.execution.updated") {
         const payload = message.event.payload as ExecutionDashboardSnapshot;
-        setConnections((payload.connections || []).map((connection) => toAgentConnection(connection)));
+        const nextConnections = (payload.connections || []).map((connection) => toAgentConnection(connection));
+        connectionCacheRef.current.set(selectedProject.id, nextConnections);
+        setConnectionsSnapshot(nextConnections);
         return;
       }
 
@@ -293,22 +568,45 @@ export const ChatPage: FunctionComponent = () => {
         if (thread.projectId !== selectedProject.id) {
           return;
         }
-        setThreads((current) => upsertThread(current, thread));
-        if (!selectedThreadId) {
-          setSelectedThreadId(thread.id);
+        const currentThreads = threadCacheRef.current.get(selectedProject.id) || threadsRef.current;
+        const nextThreads = upsertChatThread(currentThreads, thread);
+        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        setThreadsSnapshot(nextThreads);
+        if (!selectedThreadIdRef.current) {
+          void activateThread(thread.id, { preferredThread: thread });
+        }
+        return;
+      }
+
+      if (message.event.eventType === "conversation.thread.deleted") {
+        const payload = message.event.payload as { threadId: string; projectId: string };
+        if (payload.projectId !== selectedProject.id) {
+          return;
+        }
+        const currentThreads = threadCacheRef.current.get(selectedProject.id) || threadsRef.current;
+        const nextThreads = removeThread(currentThreads, payload.threadId);
+        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        setThreadsSnapshot(nextThreads);
+        messageCacheRef.current.delete(payload.threadId);
+        if (selectedThreadIdRef.current === payload.threadId) {
+          const nextSelection = resolveSelectedThreadId(nextThreads, null);
+          const nextSelectedThread = nextThreads.find((thread) => thread.id === nextSelection) || null;
+          void activateThread(nextSelection, { preferredThread: nextSelectedThread });
         }
         return;
       }
 
       if (message.event.eventType === "conversation.message.created") {
         const realtimeMessage = message.event.payload as ChatMessageRecord;
-        if (realtimeMessage.threadId !== selectedThreadId) {
-          return;
+        const cachedMessages = messageCacheRef.current.get(realtimeMessage.threadId) || [];
+        const nextMessages = upsertMessage(cachedMessages, realtimeMessage);
+        messageCacheRef.current.set(realtimeMessage.threadId, nextMessages);
+        if (realtimeMessage.threadId === selectedThreadIdRef.current) {
+          setMessagesSnapshot(nextMessages);
         }
-        setMessages((current) => upsertMessage(current, realtimeMessage));
       }
     });
-  }, [refreshMessages, selectedProject, selectedThreadId]);
+  }, [activateThread, refreshMessages, selectedProject, setConnectionsSnapshot, setMessagesSnapshot, setThreadsSnapshot]);
 
   useEffect(() => {
     if (!messagesRef.current) return;
@@ -331,19 +629,22 @@ export const ChatPage: FunctionComponent = () => {
     return connections.find((connection) => connection.id === selectedThread.connectionId) || null;
   }, [connections, selectedThread]);
 
-  const createThreadForCompose = async (): Promise<ChatThread> => {
+  const createThreadForCompose = useCallback(async (): Promise<ChatThread> => {
     if (!selectedProject) {
       throw new Error("Select a project before starting a chat thread.");
     }
     const thread = await createConversationThread(selectedProject.id, {
       title: `Project Chat ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
     });
-    setThreads((current) => [thread, ...current]);
-    setSelectedThreadId(thread.id);
+    const nextThreads = upsertChatThread(threadCacheRef.current.get(selectedProject.id) || threadsRef.current, thread);
+    threadCacheRef.current.set(selectedProject.id, nextThreads);
+    messageCacheRef.current.set(thread.id, []);
+    setThreadsSnapshot(nextThreads);
+    await activateThread(thread.id, { preferredThread: thread });
     return thread;
-  };
+  }, [activateThread, selectedProject, setThreadsSnapshot]);
 
-  const handleAssignThread = async (connectionId: string): Promise<void> => {
+  const handleAssignThread = useCallback(async (connectionId: string): Promise<void> => {
     if (!selectedThread) {
       return;
     }
@@ -352,15 +653,21 @@ export const ChatPage: FunctionComponent = () => {
       const updated = await updateConversationThread(selectedThread.id, {
         connectionId: connectionId || null,
       });
-      setThreads((current) => current.map((thread) => thread.id === updated.id ? updated : thread));
+      const nextThreads = (threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current).map((thread) => (
+        thread.id === updated.id ? updated : thread
+      ));
+      if (selectedProject) {
+        threadCacheRef.current.set(selectedProject.id, nextThreads);
+      }
+      setThreadsSnapshot(nextThreads);
       await refreshMessages(updated.id);
       setError(null);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : String(updateError));
     }
-  };
+  }, [refreshMessages, selectedProject, selectedThread, setThreadsSnapshot]);
 
-  const handleSend = async (): Promise<void> => {
+  const handleSend = useCallback(async (): Promise<void> => {
     const bodyMarkdown = input.trim();
     if (!bodyMarkdown || !selectedProject) {
       return;
@@ -377,7 +684,9 @@ export const ChatPage: FunctionComponent = () => {
       if (composerRef.current) {
         composerRef.current.style.height = "auto";
       }
-      setMessages((current) => upsertMessage(current, created));
+      const nextMessages = upsertMessage(messageCacheRef.current.get(thread.id) || [], created);
+      messageCacheRef.current.set(thread.id, nextMessages);
+      setMessagesSnapshot(nextMessages);
       await refreshThreads();
       setError(null);
     } catch (sendError) {
@@ -385,11 +694,45 @@ export const ChatPage: FunctionComponent = () => {
     } finally {
       setSending(false);
     }
-  };
+  }, [createThreadForCompose, input, refreshThreads, selectedProject, selectedThread, setMessagesSnapshot]);
 
   const pendingDashboardMessages = messages.filter((message) => (
     message.direction === "dashboard_to_connection" && message.deliveryStatus !== "processed"
   )).length;
+
+  const hasWorkingReply = useMemo(() => messages.some((message) => isWorkingMessage(message, messages)), [messages]);
+  const hasProjectSnapshot = Boolean(selectedProject && threadCacheRef.current.has(selectedProject.id));
+  const hasThreadSnapshot = Boolean(
+    selectedThreadId
+    && (messageCacheRef.current.has(selectedThreadId) || (selectedThread?.messageCount || 0) === 0)
+  );
+  const threadsLoading = isThreadListLoading(selectedProject?.id || null, hasProjectSnapshot, loading);
+  const threadMessagesLoading = isThreadMessagesLoading(selectedThreadId, hasThreadSnapshot, messagesLoading);
+
+  const handleDeleteThread = useCallback(async (threadId: string): Promise<void> => {
+    const nextThreads = removeThread(threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current, threadId);
+    const nextSelection = resolveSelectedThreadId(nextThreads, selectedThreadId === threadId ? null : selectedThreadId);
+    setDeletingThreadId(threadId);
+    if (selectedProject) {
+      threadCacheRef.current.set(selectedProject.id, nextThreads);
+    }
+    setThreadsSnapshot(nextThreads);
+    if (selectedThreadId === threadId) {
+      const nextSelectedThread = nextThreads.find((thread) => thread.id === nextSelection) || null;
+      await activateThread(nextSelection, { preferredThread: nextSelectedThread });
+    }
+    messageCacheRef.current.delete(threadId);
+
+    try {
+      await deleteConversationThread(threadId);
+      setError(null);
+    } catch (deleteError) {
+      await refreshThreads();
+      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+    } finally {
+      setDeletingThreadId((current) => current === threadId ? null : current);
+    }
+  }, [activateThread, refreshThreads, selectedProject, selectedThreadId, setThreadsSnapshot]);
 
   return (
     <div className="relative z-10 mx-auto flex min-h-[calc(100vh-70px)] max-w-[1900px] flex-col gap-10 px-8 py-16 md:px-20">
@@ -468,10 +811,21 @@ export const ChatPage: FunctionComponent = () => {
               </div>
             </div>
 
-            {threads.length === 0 ? (
+            {threadsLoading ? (
+              <LoadingChat label="Loading threads" />
+            ) : threads.length === 0 ? (
               <EmptyChat message="Create the first project thread or post a message to queue work for an incoming listener." />
             ) : (
-              <ThreadList threads={threads} selectedThreadId={selectedThreadId} onSelect={setSelectedThreadId} />
+              <ThreadList
+                threads={threads}
+                selectedThreadId={selectedThreadId}
+                onSelect={(threadId) => {
+                  const preferredThread = threads.find((thread) => thread.id === threadId) || null;
+                  void activateThread(threadId, { preferredThread });
+                }}
+                onDelete={(threadId) => void handleDeleteThread(threadId)}
+                deletingThreadId={deletingThreadId}
+              />
             )}
           </aside>
 
@@ -486,30 +840,40 @@ export const ChatPage: FunctionComponent = () => {
                 </div>
                 <div className="text-right text-[10px] font-mono text-slate-400">
                   <div className="mb-2">{selectedThread ? `${selectedThread.messageCount} messages` : "0 messages"}</div>
-                  <select
-                    value={selectedThread?.connectionId || ""}
-                    onChange={(event) => void handleAssignThread(event.currentTarget.value)}
-                    disabled={!selectedThread}
-                    className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
-                  >
-                    <option value="">Unassigned</option>
-                    {connections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.displayName} · {connection.status}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="inline-flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
+                    <select
+                      value={selectedThread?.connectionId || ""}
+                      onChange={(event) => void handleAssignThread(event.currentTarget.value)}
+                      disabled={!selectedThread}
+                      className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
+                    >
+                      <option value="">Unassigned</option>
+                      {connections.map((connection) => (
+                        <option key={connection.id} value={connection.id}>
+                          {connection.displayName} · {connection.status}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
             </div>
 
             <div ref={messagesRef} className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-              {!selectedThread ? (
+              {threadsLoading ? (
+                <LoadingChat label="Loading conversation" />
+              ) : !selectedThread ? (
                 <EmptyChat message="Select an existing thread or create a new one to start routing dashboard chat through the selected project." />
+              ) : threadMessagesLoading ? (
+                <LoadingChat label="Loading conversation" />
               ) : messages.length === 0 ? (
                 <EmptyChat message="This thread is ready. The next dashboard message will be stored in Sprint OS and queued for a listening MCP connection." />
               ) : (
-                messages.map((message) => <MessageBubble key={message.id} message={message} />)
+                <>
+                  {messages.map((message) => <MessageBubble key={message.id} message={message} />)}
+                  {hasWorkingReply ? <WorkingBubble displayName={activeConnection?.displayName || null} /> : null}
+                </>
               )}
             </div>
 
@@ -528,7 +892,10 @@ export const ChatPage: FunctionComponent = () => {
                     setInput(element.value);
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    if (event.isComposing) {
+                      return;
+                    }
+                    if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       void handleSend();
                     }
@@ -536,7 +903,9 @@ export const ChatPage: FunctionComponent = () => {
                 />
                 <div className="mt-3 flex items-center justify-between">
                   <div className="text-[10px] font-mono text-slate-400">
-                    {activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : "Messages will stay queued until a listener claims or is assigned to this thread"}
+                    {activeConnection
+                      ? `${activeConnection.displayName} · ${activeConnection.status} · Enter sends`
+                      : "Messages will stay queued until a listener claims or is assigned to this thread · Enter sends · Shift+Enter newline"}
                   </div>
                   <button
                     type="button"

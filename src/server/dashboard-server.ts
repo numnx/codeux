@@ -83,6 +83,7 @@ export interface DashboardServerOptions {
   listConversationThreads: (projectId: string) => ConversationThreadRecord[];
   createConversationThread: (projectId: string, input: CreateConversationThreadInput) => ConversationThreadRecord;
   updateConversationThread: (threadId: string, input: UpdateConversationThreadInput) => ConversationThreadRecord;
+  deleteConversationThread: (threadId: string) => void;
   listConversationMessages: (threadId: string) => ConversationMessageRecord[];
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
@@ -442,6 +443,15 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(options.updateConversationThread(String(req.params.threadId || "").trim(), req.body as UpdateConversationThreadInput));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to update conversation thread") });
+    }
+  });
+
+  app.delete("/api/conversations/threads/:threadId", (req, res) => {
+    try {
+      options.deleteConversationThread(String(req.params.threadId || "").trim());
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to delete conversation thread") });
     }
   });
 
