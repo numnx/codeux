@@ -35,6 +35,9 @@
     "lucide-preact": "^0.577.0",
     "marked": "^17.0.3"
   },
+  "overrides": {
+    "hono": "^4.12.7"
+  },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.3",
     "@tailwindcss/typography": "^0.5.19",
