@@ -341,7 +341,11 @@ export const TasksPage: FunctionComponent = () => {
   const headerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const { projects, selectedProject } = useProjectData();
-  const { sprints, refresh: refreshSprints } = useProjectSprints(selectedProject?.id || null);
+  const {
+    sprints,
+    loading: sprintsLoading,
+    refresh: refreshSprints,
+  } = useProjectSprints(selectedProject?.id || null);
   const locationSearch = useRouterState({ select: (state) => state.location.searchStr });
   const initialSprint = useMemo(() => {
     const params = new URLSearchParams(locationSearch);
@@ -381,14 +385,27 @@ export const TasksPage: FunctionComponent = () => {
   }, [selectedProject?.id, selectedSprint, statusFilter, priorityFilter]);
 
   useEffect(() => {
-    setSelectedSprint(initialSprint);
-  }, [initialSprint, selectedProject?.id]);
-
-  useEffect(() => {
-    if (selectedSprint && !sprints.some((sprint) => sprint.id === selectedSprint)) {
+    if (!selectedProject) {
       setSelectedSprint(null);
+      return;
     }
-  }, [selectedSprint, sprints]);
+
+    if (!initialSprint) {
+      setSelectedSprint(null);
+      return;
+    }
+
+    if (sprintsLoading) {
+      return;
+    }
+
+    if (sprints.some((sprint) => sprint.id === initialSprint)) {
+      setSelectedSprint(initialSprint);
+      return;
+    }
+
+    setSelectedSprint(null);
+  }, [initialSprint, selectedProject, sprints, sprintsLoading]);
 
   const filtered = useMemo(() => {
     return tasks.filter((task) => {

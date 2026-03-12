@@ -17,7 +17,6 @@ import {
   Square,
   XCircle,
 } from "lucide-preact";
-import { Link } from "@tanstack/react-router";
 import type { Sprint, SprintStatus } from "../../types.js";
 import { WaveFluid } from "./WaveFluid.js";
 import { BorderTrace } from "./BorderTrace.js";
@@ -132,7 +131,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
         <BorderTrace accentHex={state.accentHex} />
         {state.ring && !isCompleted && (
           <div
-            className={`absolute inset-0 border-2 bg-transparent pointer-events-none mix-blend-screen scale-105 ${state.ring}`}
+            className={`absolute inset-0 border-2 bg-transparent pointer-events-none mix-blend-screen scale-105 animate-[spin_5s_linear_infinite] ${state.ring}`}
             style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%", clipPath: "inset(-10px)" }}
           />
         )}
@@ -195,14 +194,14 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
               ? <Square className={`h-3.5 w-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />
               : <Play className={`h-3.5 w-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />}
           </button>
-          <Link
-            to={`/tasks?sprint=${sprint.id}`}
+          <a
+            href={`/tasks?sprint=${encodeURIComponent(sprint.id)}`}
             onClick={(event: MouseEvent) => event.stopPropagation()}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-slate-900 px-5 text-[10px] font-bold uppercase tracking-[0.1em] text-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all hover:opacity-85 dark:bg-white dark:text-void-900"
           >
             View Tasks
             <Maximize2 className="h-2.5 w-2.5" />
-          </Link>
+          </a>
           <button
             type="button"
             onClick={(event) => {
@@ -248,7 +247,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
               className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
             >
               <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
-              {sprint.showcasePinned ? "Remove From Showcase" : "Add To Showcase"}
+              {sprint.showcasePinned ? "Remove" : "Add"}
             </button>
             <button
               type="button"
