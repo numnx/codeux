@@ -1,10 +1,16 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { Bot, Brain, Plus, RefreshCw, Save, Sparkles, Tags, Trash2 } from "lucide-preact";
+import { AlertTriangle, Bot, Brain, FileUp, Plus, RefreshCw, Save, Sparkles, Tags, Trash2 } from "lucide-preact";
 import type { AgentPreset } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
-import { createAgentPreset, deleteAgentPreset, fetchAgentPresets, updateAgentPreset } from "./lib/agent-preset-api.js";
+import {
+  createAgentPreset,
+  deleteAgentPreset,
+  fetchAgentPresets,
+  importAgentPresetFromMarkdown,
+  updateAgentPreset,
+} from "./lib/agent-preset-api.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 
@@ -21,8 +27,8 @@ const EmptyState: FunctionComponent<{ hasProject: boolean; onCreate?: () => void
       </h3>
       <p className="max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
         {hasProject
-          ? "Create reusable role presets with instructions and labels. These presets stay separate from live connections and will later be assignable during planning and execution."
-          : "Choose a project from the top navigation to manage its agent role presets."}
+          ? "Create reusable agent definitions with instructions and labels. Agents stay separate from live connections and can now sync from `.sprint-os/agents/*.md`."
+          : "Choose a project from the top navigation to manage its project agents."}
       </p>
       {hasProject && onCreate && (
         <button
@@ -31,12 +37,41 @@ const EmptyState: FunctionComponent<{ hasProject: boolean; onCreate?: () => void
           className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-void-900 transition-colors hover:bg-signal-400"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
-          New Preset
+          New Agent
         </button>
       )}
     </div>
   </div>
 );
+
+const syncStatusTone = (preset: AgentPreset): { badge: string; label: string } => {
+  switch (preset.syncStatus) {
+    case "out_of_sync":
+      return {
+        badge: "border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300",
+        label: "Out of Sync",
+      };
+    case "missing_source":
+      return {
+        badge: "border-status-red/25 bg-status-red/10 text-status-red",
+        label: "Source Missing",
+      };
+    case "synced":
+      return {
+        badge: "border-signal-500/25 bg-signal-500/10 text-signal-600 dark:text-signal-400",
+        label: preset.sourceScope === "project"
+          ? "Project Markdown"
+          : preset.sourceScope === "default"
+            ? "Default Markdown"
+            : "Home Markdown",
+      };
+    default:
+      return {
+        badge: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+        label: "Database Only",
+      };
+  }
+};
 
 const splitLabels = (value: string): string[] => (
   value
@@ -49,13 +84,16 @@ const AgentPresetCard: FunctionComponent<{
   preset: AgentPreset;
   saving: boolean;
   deleting: boolean;
+  importing: boolean;
   onSave: (presetId: string, next: { name: string; labels: string[]; instructionMarkdown: string }) => Promise<void>;
   onDelete: (presetId: string) => Promise<void>;
-}> = ({ preset, saving, deleting, onSave, onDelete }) => {
+  onImport: (presetId: string) => Promise<void>;
+}> = ({ preset, saving, deleting, importing, onSave, onDelete, onImport }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(preset.name);
   const [labels, setLabels] = useState(preset.labels.join(", "));
   const [instructionMarkdown, setInstructionMarkdown] = useState(preset.instructionMarkdown);
+  const syncTone = syncStatusTone(preset);
 
   useEffect(() => {
     setName(preset.name);
@@ -87,28 +125,50 @@ const AgentPresetCard: FunctionComponent<{
               <Brain className="h-5 w-5" strokeWidth={1.6} />
             </div>
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500">Agent Preset</div>
-              <div className="mt-2 font-mono text-[10px] text-slate-400">Updated {new Date(preset.updatedAt).toLocaleDateString()}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500">Agent</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${syncTone.badge}`}>
+                  {preset.syncStatus === "out_of_sync" && <AlertTriangle className="h-3 w-3" strokeWidth={2.1} />}
+                  {syncTone.label}
+                </span>
+                <span className="font-mono text-[10px] text-slate-400">
+                  Updated {new Date(preset.updatedAt).toLocaleDateString()}
+                </span>
+              </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void onDelete(preset.id)}
-            disabled={deleting}
-            className="inline-flex items-center gap-2 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {deleting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.1} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.1} />}
-            Delete
-          </button>
+          <div className="flex items-center gap-2">
+            {preset.sourcePath && (
+              <button
+                type="button"
+                onClick={() => void onImport(preset.id)}
+                disabled={importing || preset.syncStatus === "manual"}
+                className="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-signal-300"
+                title={preset.syncStatus === "out_of_sync" ? "Import updated markdown" : "Re-import markdown"}
+              >
+                {importing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.1} /> : <FileUp className="h-3.5 w-3.5" strokeWidth={2.1} />}
+                Import
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void onDelete(preset.id)}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {deleting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.1} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.1} />}
+              Delete
+            </button>
+          </div>
         </div>
 
         <label className="space-y-2">
-          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Preset Name</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Agent Name</span>
           <input
             value={name}
             onInput={(event) => setName((event.target as HTMLInputElement).value)}
             className="w-full rounded-[1.2rem] border border-black/[0.08] bg-black/[0.03] px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-200"
-            placeholder="Project Manager"
+            placeholder="Planning agent"
           />
         </label>
 
@@ -136,6 +196,13 @@ const AgentPresetCard: FunctionComponent<{
           />
         </label>
 
+        {preset.sourcePath && (
+          <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+            <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Markdown Source</div>
+            <div className="mt-2 break-all font-mono text-[11px]">{preset.sourcePath}</div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t border-black/[0.05] pt-4 text-[10px] font-mono dark:border-white/[0.05]">
           <span className="truncate text-slate-400">{preset.id}</span>
           <button
@@ -161,14 +228,15 @@ export const AgentsPage: FunctionComponent = () => {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importingId, setImportingId] = useState<string | null>(null);
 
   const refreshPresets = async (): Promise<void> => {
     if (!selectedProject) {
       setPresets([]);
       setError(null);
-      return;
-    }
-    setLoading(true);
+    return;
+  }
+  setLoading(true);
     try {
       setPresets(await fetchAgentPresets(selectedProject.id));
       setError(null);
@@ -196,6 +264,7 @@ export const AgentsPage: FunctionComponent = () => {
     total: presets.length,
     withLabels: presets.filter((preset) => preset.labels.length > 0).length,
     withInstructions: presets.filter((preset) => preset.instructionMarkdown.trim().length > 0).length,
+    outOfSync: presets.filter((preset) => preset.syncStatus === "out_of_sync").length,
   }), [presets]);
 
   const handleCreate = async (): Promise<void> => {
@@ -205,7 +274,7 @@ export const AgentsPage: FunctionComponent = () => {
 
     try {
       const created = await createAgentPreset(selectedProject.id, {
-        name: `Agent Preset ${presets.length + 1}`,
+        name: `Agent ${presets.length + 1}`,
         instructionMarkdown: "",
         labels: [],
       });
@@ -213,6 +282,19 @@ export const AgentsPage: FunctionComponent = () => {
       setError(null);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : String(createError));
+    }
+  };
+
+  const handleImport = async (presetId: string): Promise<void> => {
+    setImportingId(presetId);
+    try {
+      const updated = await importAgentPresetFromMarkdown(presetId);
+      setPresets((current) => current.map((preset) => preset.id === updated.id ? updated : preset));
+      setError(null);
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : String(importError));
+    } finally {
+      setImportingId(null);
     }
   };
 
@@ -251,7 +333,7 @@ export const AgentsPage: FunctionComponent = () => {
         <div className="space-y-5">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
             <Sparkles className="h-3.5 w-3.5" strokeWidth={2.3} />
-            Agent Presets
+            Agents
           </div>
           <div className="relative overflow-hidden">
             <div className="pointer-events-none absolute -left-2 -top-8 font-display text-[6rem] font-black leading-none tracking-tighter text-black/[0.04] dark:text-white/[0.03]">
@@ -263,16 +345,17 @@ export const AgentsPage: FunctionComponent = () => {
           </div>
           <p className="max-w-2xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
             {selectedProject
-              ? `Reusable role presets for ${selectedProject.name}. These are instruction profiles, not live MCP connections.`
-              : "Select a project to create reusable agent role presets with instructions and labels."}
+              ? `Database-backed agents for ${selectedProject.name}. Markdown agents from home or project \`.sprint-os/agents\` are imported automatically and tracked for sync drift.`
+              : "Select a project to create reusable agents with instructions and labels."}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { label: "Presets", value: stats.total, icon: Brain },
+            { label: "Agents", value: stats.total, icon: Brain },
             { label: "Tagged", value: stats.withLabels, icon: Tags },
             { label: "Ready", value: stats.withInstructions, icon: Bot },
+            { label: "Drift", value: stats.outOfSync, icon: AlertTriangle },
           ].map(({ label, value, icon: Icon }) => (
             <div
               key={label}
@@ -298,7 +381,7 @@ export const AgentsPage: FunctionComponent = () => {
             className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-void-900 transition-colors hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
-            New Preset
+            New Agent
           </button>
         </div>
       </div>
@@ -321,8 +404,10 @@ export const AgentsPage: FunctionComponent = () => {
               preset={preset}
               saving={savingId === preset.id}
               deleting={deletingId === preset.id}
+              importing={importingId === preset.id}
               onSave={handleSave}
               onDelete={handleDelete}
+              onImport={handleImport}
             />
           ))}
         </div>

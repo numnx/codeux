@@ -32,6 +32,7 @@ export interface SprintRecord {
   name: string;
   goal: string;
   status: SprintStatus;
+  showcasePinned: boolean;
   startDate: string | null;
   endDate: string | null;
   featureBranch: string | null;
@@ -93,6 +94,7 @@ export interface CreateSprintInput {
   goal?: string;
   number?: number;
   status?: SprintStatus;
+  showcasePinned?: boolean;
   startDate?: string | null;
   endDate?: string | null;
   featureBranch?: string | null;
@@ -103,6 +105,7 @@ export interface UpdateSprintInput {
   goal?: string;
   number?: number | null;
   status?: SprintStatus;
+  showcasePinned?: boolean;
   startDate?: string | null;
   endDate?: string | null;
   featureBranch?: string | null;

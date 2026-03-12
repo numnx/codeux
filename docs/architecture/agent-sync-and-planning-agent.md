@@ -1,0 +1,110 @@
+# Agent Sync And Planning Agent
+
+## Status
+Implemented
+
+## Purpose
+
+Sprint OS now treats dashboard agents as database-backed records that can be seeded and refreshed from markdown files under:
+
+- `<project>/.sprint-os/agents/*.md`
+- `~/.sprint-os/agents/*.md`
+
+The first concrete built-in role is the `Planning agent`.
+
+This agent is used by the sprint creation flow to:
+
+- improve a sprint prompt before creation
+- plan sprint subtasks after creation
+- optionally start the sprint immediately after planning
+
+## Source Of Truth
+
+Agents are stored in sqlite and edited from the dashboard.
+
+Markdown files are import sources, not the live runtime authority.
+
+That means:
+
+- newly discovered markdown agents are imported into sqlite automatically
+- existing DB agents remain editable in the dashboard
+- if the linked markdown file changes later and is newer than the last import, the agent is marked `out_of_sync`
+- the dashboard can re-import that markdown into the DB record on demand
+
+## Agent Metadata
+
+`agent_presets` now stores source metadata in addition to the editable instruction body:
+
+- `source_path`
+- `source_scope`
+- `source_updated_at`
+- `source_imported_at`
+
+The API record also exposes derived sync state:
+
+- `manual`
+- `synced`
+- `out_of_sync`
+- `missing_source`
+
+## Import Resolution
+
+When Sprint OS syncs project agents:
+
+1. project-level `.sprint-os/agents` is scanned first
+2. home-level `.sprint-os/agents` is scanned second
+3. filename without `.md` becomes the agent name
+4. project-scoped files win on name collisions
+5. previously unseen agents are imported into sqlite automatically
+
+## Planning Agent Flow
+
+The Planning agent runs through the existing connected listen-mode inbox path.
+
+Behavior:
+
+1. dashboard resolves the `Planning agent` from the DB
+2. dashboard selects an active listen-mode planning connection, preferring `worker` and then falling back to `listener`
+3. dashboard creates a thread targeted at that worker
+4. dashboard posts a planning request message containing the agent instructions
+5. the worker claims the inbox message and generates the reply
+6. Sprint OS parses the reply and applies the result
+
+Two request types are currently supported:
+
+- prompt improvement
+- sprint planning
+
+Sprint planning expects structured JSON from the worker reply and creates DB task records from it.
+
+If `autoStart` is enabled, Sprint OS starts orchestration after the tasks are created.
+
+## Dashboard Surface
+
+### Agents page
+
+The Agents page now shows:
+
+- normal editable DB agent fields
+- whether an agent is DB-only or markdown-backed
+- out-of-sync state for changed markdown
+- `Import` action for linked markdown agents
+
+### Sprints page
+
+The sprint creation modal now supports:
+
+- `Improve with AI`
+- `Plan & Start`
+- `Plan Only`
+- `Save Draft`
+
+Both `Improve with AI` and planning actions are worker-backed via the Planning agent.
+
+## Default Agent
+
+This repository now includes the default project-level agent file:
+
+- `.sprint-os/agents/Planning agent.md`
+
+That file is auto-imported when this repository is used as the selected project and no DB record exists yet.

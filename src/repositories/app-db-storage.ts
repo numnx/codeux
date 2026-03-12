@@ -72,6 +72,7 @@ export class AppDbStorage {
         name TEXT NOT NULL,
         goal TEXT,
         status TEXT NOT NULL DEFAULT 'idle',
+        showcase_pinned INTEGER NOT NULL DEFAULT 0,
         start_date TEXT,
         end_date TEXT,
         feature_branch TEXT,
@@ -212,6 +213,10 @@ export class AppDbStorage {
         name TEXT NOT NULL,
         instruction_markdown TEXT NOT NULL DEFAULT '',
         labels_json TEXT,
+        source_path TEXT,
+        source_scope TEXT,
+        source_updated_at TEXT,
+        source_imported_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -296,6 +301,11 @@ export class AppDbStorage {
     this.ensureColumn("task_runs", "dispatch_id", "TEXT");
     this.ensureColumn("tasks", "executor_type", "TEXT NOT NULL DEFAULT 'auto'");
     this.ensureColumn("task_run_events", "source_event_key", "TEXT");
+    this.ensureColumn("sprints", "showcase_pinned", "INTEGER NOT NULL DEFAULT 0");
+    this.ensureColumn("agent_presets", "source_path", "TEXT");
+    this.ensureColumn("agent_presets", "source_scope", "TEXT");
+    this.ensureColumn("agent_presets", "source_updated_at", "TEXT");
+    this.ensureColumn("agent_presets", "source_imported_at", "TEXT");
     this.ensureIndex("idx_sprint_runs_project_sprint", "sprint_runs", "project_id, sprint_id, created_at DESC");
     this.ensureIndex("idx_task_dispatches_sprint_run", "task_dispatches", "sprint_run_id, status, queued_at ASC");
     this.ensureIndex("idx_task_dispatches_task", "task_dispatches", "task_id, created_at DESC");
@@ -305,6 +315,8 @@ export class AppDbStorage {
     this.ensureIndex("idx_sprint_run_events_sprint_run_created", "sprint_run_events", "sprint_run_id, created_at DESC");
     this.ensureUniqueIndex("idx_sprint_run_events_source_event", "sprint_run_events", "sprint_run_id, source_event_key");
     this.ensureIndex("idx_dashboard_realtime_events_scope_sequence", "dashboard_realtime_events", "scope_type, scope_id, sequence DESC");
+    this.ensureIndex("idx_agent_presets_project_updated", "agent_presets", "project_id, updated_at DESC");
+    this.ensureIndex("idx_agent_presets_project_name", "agent_presets", "project_id, name");
   }
 
   getPath(): string {

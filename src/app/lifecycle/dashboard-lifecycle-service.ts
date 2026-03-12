@@ -20,12 +20,14 @@ import type { ProjectManagementRepository } from "../../repositories/project-man
 import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import type { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
 import type { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
+import type { AgentPresetSyncService } from "../../services/agent-preset-sync-service.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
 import type { ExecutionControlService } from "../../services/execution-control-service.js";
 import type { DashboardRealtimeService } from "../../services/dashboard-realtime-service.js";
+import type { PlanningAgentService } from "../../services/planning-agent-service.js";
 import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config/sprint-os-paths.js";
 
 export interface BootDashboardDeps {
@@ -40,10 +42,12 @@ export interface BootDashboardDeps {
   executionRepository: ExecutionRepository;
   connectionChatRepository: ConnectionChatRepository;
   agentPresetRepository: AgentPresetRepository;
+  agentPresetSyncService: AgentPresetSyncService;
   sprintMarkdownService: SprintMarkdownService;
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
   executionControlService: ExecutionControlService;
+  planningAgentService: PlanningAgentService;
   dashboardRealtimeService: DashboardRealtimeService;
   logger: Logger;
   getLiveActivitiesForActiveTasks: () => Promise<Record<string, JulesActivity[]>>;
@@ -163,10 +167,11 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     deleteTask: (taskId) => deps.projectManagementRepository.deleteTask(taskId),
     listConnections: (projectId) => deps.connectionChatRepository.listConnections(projectId),
     updateConnection: (connectionId, input) => deps.connectionChatRepository.updateConnection(connectionId, input),
-    listAgentPresets: (projectId) => deps.agentPresetRepository.listAgentPresets(projectId),
+    listAgentPresets: async (projectId) => await deps.agentPresetSyncService.listAgentPresets(projectId),
     createAgentPreset: (projectId, input) => deps.agentPresetRepository.createAgentPreset(projectId, input),
     updateAgentPreset: (agentPresetId, input) => deps.agentPresetRepository.updateAgentPreset(agentPresetId, input),
     deleteAgentPreset: (agentPresetId) => deps.agentPresetRepository.deleteAgentPreset(agentPresetId),
+    importAgentPresetFromMarkdown: async (agentPresetId) => await deps.agentPresetSyncService.importAgentPresetFromMarkdown(agentPresetId),
     listConversationThreads: (projectId) => deps.connectionChatRepository.listThreads(projectId),
     createConversationThread: (projectId, input) => deps.connectionChatRepository.createThread(projectId, input),
     updateConversationThread: (threadId, input) => deps.connectionChatRepository.updateThread(threadId, input),
@@ -192,8 +197,16 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
       deps.activityCacheService.invalidateGitStatusCache();
       return task;
     },
+    improveSprintPrompt: async (projectId, input) => {
+      return await deps.planningAgentService.improveSprintPrompt(projectId, input);
+    },
     orchestrateSprint: async (projectId, sprintId) => {
       const result = await deps.executionControlService.orchestrateSprint(projectId, sprintId);
+      deps.activityCacheService.invalidateGitStatusCache();
+      return result;
+    },
+    planSprint: async (projectId, sprintId, input) => {
+      const result = await deps.planningAgentService.planSprint(projectId, sprintId, input);
       deps.activityCacheService.invalidateGitStatusCache();
       return result;
     },

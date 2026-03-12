@@ -76,10 +76,11 @@ export interface DashboardServerOptions {
   deleteTask: (taskId: string) => void;
   listConnections: (projectId: string) => McpConnectionRecord[];
   updateConnection: (connectionId: string, input: UpdateMcpConnectionInput) => McpConnectionRecord;
-  listAgentPresets: (projectId: string) => AgentPresetRecord[];
+  listAgentPresets: (projectId: string) => Promise<AgentPresetRecord[]> | AgentPresetRecord[];
   createAgentPreset: (projectId: string, input: CreateAgentPresetInput) => AgentPresetRecord;
   updateAgentPreset: (agentPresetId: string, input: UpdateAgentPresetInput) => AgentPresetRecord;
   deleteAgentPreset: (agentPresetId: string) => void;
+  importAgentPresetFromMarkdown?: (agentPresetId: string) => Promise<AgentPresetRecord> | AgentPresetRecord;
   listConversationThreads: (projectId: string) => ConversationThreadRecord[];
   createConversationThread: (projectId: string, input: CreateConversationThreadInput) => ConversationThreadRecord;
   updateConversationThread: (threadId: string, input: UpdateConversationThreadInput) => ConversationThreadRecord;
@@ -89,6 +90,8 @@ export interface DashboardServerOptions {
   saveSettings: (settings: DashboardSettings) => DashboardSettings;
   rerunTask: (taskId: string) => Promise<unknown>;
   orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;
+  improveSprintPrompt?: (projectId: string, input: { name: string; goal: string }) => Promise<unknown>;
+  planSprint?: (projectId: string, sprintId: string, input: { autoStart: boolean }) => Promise<unknown>;
   pauseSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   cancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   forceCancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
@@ -151,6 +154,8 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     saveSettings,
     rerunTask,
     orchestrateSprint,
+    improveSprintPrompt,
+    planSprint,
     pauseSprintRun,
     cancelSprintRun,
     forceCancelSprintRun,
@@ -379,9 +384,9 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
   });
 
-  app.get("/api/projects/:projectId/agent-presets", (req, res) => {
+  app.get("/api/projects/:projectId/agent-presets", async (req, res) => {
     try {
-      res.json(options.listAgentPresets(String(req.params.projectId || "").trim()));
+      res.json(await options.listAgentPresets(String(req.params.projectId || "").trim()));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to load agent presets") });
     }
@@ -409,6 +414,18 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to delete agent preset") });
+    }
+  });
+
+  app.post("/api/agent-presets/:agentPresetId/import-markdown", async (req, res) => {
+    if (!options.importAgentPresetFromMarkdown) {
+      res.status(404).json({ error: "Markdown import is not enabled for agents." });
+      return;
+    }
+    try {
+      res.json(await options.importAgentPresetFromMarkdown(String(req.params.agentPresetId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to import agent markdown") });
     }
   });
 
@@ -520,6 +537,36 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.status(202).json(result);
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to start sprint orchestration") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/planning/improve-sprint-prompt", async (req, res) => {
+    if (!improveSprintPrompt) {
+      res.status(404).json({ error: "Sprint prompt improvement is not enabled." });
+      return;
+    }
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+      const goal = typeof req.body?.goal === "string" ? req.body.goal : "";
+      res.status(202).json(await improveSprintPrompt(projectId, { name, goal }));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to improve sprint prompt") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sprints/:sprintId/plan", async (req, res) => {
+    if (!planSprint) {
+      res.status(404).json({ error: "Sprint planning is not enabled." });
+      return;
+    }
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      const sprintId = String(req.params.sprintId || "").trim();
+      const autoStart = Boolean(req.body?.autoStart);
+      res.status(202).json(await planSprint(projectId, sprintId, { autoStart }));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to plan sprint") });
     }
   });
 

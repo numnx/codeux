@@ -24,6 +24,7 @@ export function areSprintListsEqual(current: Sprint[], next: Sprint[]): boolean 
       left.name !== right.name ||
       left.goal !== right.goal ||
       left.status !== right.status ||
+      left.showcasePinned !== right.showcasePinned ||
       left.startDate !== right.startDate ||
       left.endDate !== right.endDate ||
       left.featureBranch !== right.featureBranch ||

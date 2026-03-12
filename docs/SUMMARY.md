@@ -19,6 +19,7 @@
 - [Project Management Implementation](./architecture/project-management-implementation.md)
 - [Project Runtime Integration](./architecture/project-runtime-integration.md)
 - [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
+- [Agent Sync And Planning Agent](./architecture/agent-sync-and-planning-agent.md)
 - [Live Connections Runtime Surface](./architecture/live-connections-runtime-surface.md)
 - [Connection And Listener Foundation Reset](./architecture/connection-and-listener-foundation-reset.md)
 - [Streamable HTTP Worker Gateway](./architecture/streamable-http-worker-gateway.md)
