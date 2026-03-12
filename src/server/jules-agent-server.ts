@@ -44,6 +44,8 @@ import { ExecutionControlService } from "../services/execution-control-service.j
 import { JulesSourceResolver } from "../services/jules-source-resolver.js";
 import { RuntimeCleanupService } from "../services/runtime-cleanup-service.js";
 import { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
+import { AgentPresetSyncService } from "../services/agent-preset-sync-service.js";
+import { PlanningAgentService } from "../services/planning-agent-service.js";
 import { createRuntimeDependencies, ServerContext } from "../app/dependency-factory.js";
 import { generateCorrelationId, runWithCorrelationId } from "../shared/logging/correlation-id.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
@@ -83,6 +85,7 @@ export class JulesAgentServer {
   private projectRuntimeRepository: ProjectRuntimeRepository;
   private connectionChatRepository: ConnectionChatRepository;
   private agentPresetRepository: AgentPresetRepository;
+  private agentPresetSyncService: AgentPresetSyncService;
   private executionRepository: ExecutionRepository;
   private sprintMarkdownService: SprintMarkdownService;
   private externalSettingsHints: ExternalSettingsHints;
@@ -94,6 +97,7 @@ export class JulesAgentServer {
   private activityCacheService: ActivityCacheService;
   private taskRerunService: TaskRerunService;
   private executionControlService: ExecutionControlService;
+  private planningAgentService: PlanningAgentService;
   private runtimeCleanupService: RuntimeCleanupService;
   private dashboardRealtimeService: DashboardRealtimeService;
   private runtimeCleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -119,6 +123,7 @@ export class JulesAgentServer {
     this.projectRuntimeRepository = deps.projectRuntimeRepository;
     this.connectionChatRepository = deps.connectionChatRepository;
     this.agentPresetRepository = deps.agentPresetRepository;
+    this.agentPresetSyncService = deps.agentPresetSyncService;
     this.executionRepository = deps.executionRepository;
     this.sprintMarkdownService = deps.sprintMarkdownService;
     this.externalSettingsHints = deps.externalSettingsHints;
@@ -130,6 +135,7 @@ export class JulesAgentServer {
     this.activityCacheService = deps.activityCacheService;
     this.taskRerunService = deps.taskRerunService;
     this.executionControlService = deps.executionControlService;
+    this.planningAgentService = deps.planningAgentService;
     this.runtimeCleanupService = deps.runtimeCleanupService;
     this.dashboardRealtimeService = deps.dashboardRealtimeService;
 
@@ -577,10 +583,12 @@ export class JulesAgentServer {
         executionRepository: this.executionRepository,
         connectionChatRepository: this.connectionChatRepository,
         agentPresetRepository: this.agentPresetRepository,
+        agentPresetSyncService: this.agentPresetSyncService,
         sprintMarkdownService: this.sprintMarkdownService,
         activityCacheService: this.activityCacheService,
         taskRerunService: this.taskRerunService,
         executionControlService: this.executionControlService,
+        planningAgentService: this.planningAgentService,
         dashboardRealtimeService: this.dashboardRealtimeService,
         logger: this.logger,
         getLiveActivitiesForActiveTasks: () => this.getLiveActivitiesForActiveTasks(),

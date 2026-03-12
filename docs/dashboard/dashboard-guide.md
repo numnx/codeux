@@ -54,6 +54,20 @@ Project management:
   - Lists MCP connections visible to the selected project
 - `PATCH /api/connections/:connectionId`
   - Updates connection metadata such as role/status/instruction payload
+- `GET /api/projects/:projectId/agent-presets`
+  - Lists DB-backed project agents and auto-imports unseen markdown agents from `.sprint-os/agents`
+- `POST /api/projects/:projectId/agent-presets`
+  - Creates a manual DB-backed agent
+- `PATCH /api/agent-presets/:agentPresetId`
+  - Updates agent metadata and instruction markdown
+- `DELETE /api/agent-presets/:agentPresetId`
+  - Deletes an agent record
+- `POST /api/agent-presets/:agentPresetId/import-markdown`
+  - Re-imports a linked markdown agent into sqlite
+- `POST /api/projects/:projectId/planning/improve-sprint-prompt`
+  - Sends a draft sprint prompt to the Planning agent through a connected worker and returns the improved prompt
+- `POST /api/projects/:projectId/sprints/:sprintId/plan`
+  - Sends a created sprint to the Planning agent through a connected worker, creates subtasks from the reply, and can auto-start the sprint
 - `GET /api/projects/:projectId/conversations/threads`
   - Lists project conversation threads
 - `POST /api/projects/:projectId/conversations/threads`
@@ -101,13 +115,31 @@ Legacy runtime:
 - Sprints page now also refreshes from project-structure realtime invalidation, so sprint CRUD and status-adjacent updates propagate across open dashboard tabs
 - Sprints page now also starts and stops sprint orchestration directly from sprint cards, with optimistic visual state updates tied to project-scoped execution data
 - The organic sprint bubble cells use the same live start/stop control path as the registry list, so the hover play/stop action is now functional instead of decorative
+- Sprint creation no longer asks for start/end dates
+- The sprint modal now supports `Plan & Start`, `Plan Only`, and `Save Draft`
+- `Improve with AI` is worker-backed through the Planning agent and only rewrites the sprint prompt
+- Sprint planning is also worker-backed through the Planning agent and automatically creates task records from the returned plan
+- The sprint page now shows a visible planning-connection indicator, preferring a listen-mode project `worker` and then a listen-mode project `listener`
+- New sprints are showcased by default, showcased sprints are controlled by the heart toggle, and the showcase gallery is no longer capped to 3 sprint cells
+- Completed sprints are automatically removed from showcase pinning and drop out of the top gallery
+- The sprint gallery selection is now the full set of showcased sprints, ordered newest-first by sprint creation time
+- Completed sprint cells now use a static finished treatment and fade slightly instead of continuing animated motion
+- Sprint cell settings now open an animated menu with showcase toggle, `Edit`, `Export`, `Delete`, and placeholder `Overrides`
+- Sprint cells now use created-date metadata on the accent rail and move the visible sprint key into the card body instead of surfacing the UUID there
+- Sprint markdown export now includes direct download actions in the export modal
+- The sprint modal is compacted for small screens with scrollable height constraints and a stacked mobile layout
+- The sprint ledger below the showcase now lists all sprints, supports sorting from the column headers, includes showcase pinning controls, and can sort by sprint id (`SPR-x`)
 - Tasks page is project-scoped and supports create/edit/delete plus dependency metadata
+- Navigating from a sprint cell into `View Tasks` now preselects that sprint instead of leaving the board on `All Sprints`
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
 - Tasks and sprints now refresh silently on background realtime invalidation, so opening the Tasks page no longer repeatedly flashes loading state when project metadata or structure updates arrive
 - Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
 - The Tasks board entrance animation now replays only for project/view/filter changes instead of every background task refresh
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface
-- Agents page is DB-backed and manages project-scoped agent presets (`name`, `labels`, `instruction markdown`)
+- Agents page is DB-backed and manages project-scoped agents (`name`, `labels`, `instruction markdown`)
+- Agents are auto-imported from project and home `.sprint-os/agents/*.md` when first discovered
+- Markdown-backed agents now show sync state and support manual re-import when the file is newer than the DB copy
+- The first built-in role is `Planning agent`, which is editable under Agents like any other DB-backed agent
 - Chat page is DB-backed and stores project conversation threads/messages in sqlite
 - Chat page now receives websocket updates for thread assignment changes and incoming thread messages in the active thread
 - Chat page now shows a live "working" bubble once a listener has picked up a dashboard message and is preparing a reply

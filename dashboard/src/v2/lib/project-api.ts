@@ -74,6 +74,29 @@ export const createSprint = async (projectId: string, input: CreateSprintInput):
   });
 };
 
+export const improveSprintPrompt = async (
+  projectId: string,
+  input: { name: string; goal: string },
+): Promise<{ goal: string; threadId: string; agentId: string; workerConnectionId: string }> => {
+  return fetchJson(`/api/projects/${encodeURIComponent(projectId)}/planning/improve-sprint-prompt`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+};
+
+export const planSprint = async (
+  projectId: string,
+  sprintId: string,
+  input: { autoStart: boolean },
+): Promise<{ ok: true; threadId: string; agentId: string; createdTaskIds: string[]; started: boolean }> => {
+  return fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+};
+
 export const updateSprint = async (sprintId: string, input: UpdateSprintInput): Promise<SprintRecord> => {
   return fetchJson<SprintRecord>(`/api/sprints/${encodeURIComponent(sprintId)}`, {
     method: "PATCH",

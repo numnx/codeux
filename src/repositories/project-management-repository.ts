@@ -47,6 +47,7 @@ interface SprintRow {
   name: string;
   goal: string | null;
   status: SprintRecord["status"];
+  showcase_pinned: number | string | null;
   start_date: string | null;
   end_date: string | null;
   feature_branch: string | null;
@@ -288,6 +289,7 @@ export class ProjectManagementRepository {
         s.name,
         s.goal,
         s.status,
+        s.showcase_pinned,
         s.start_date,
         s.end_date,
         s.feature_branch,
@@ -306,7 +308,7 @@ export class ProjectManagementRepository {
       LEFT JOIN tasks t ON t.sprint_id = s.id
       WHERE s.project_id = ?
       GROUP BY s.id
-      ORDER BY COALESCE(s.number, 999999) ASC, s.created_at ASC
+      ORDER BY COALESCE(s.number, 0) DESC, s.created_at DESC
     `).all(projectId) as unknown as SprintRow[];
 
     return rows.map((row) => this.mapSprintRow(row));
@@ -323,8 +325,8 @@ export class ProjectManagementRepository {
 
     this.db.prepare(`
       INSERT INTO sprints (
-        id, project_id, number, slug, name, goal, status, start_date, end_date, feature_branch, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, project_id, number, slug, name, goal, status, showcase_pinned, start_date, end_date, feature_branch, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       projectId,
@@ -333,6 +335,7 @@ export class ProjectManagementRepository {
       name,
       input.goal?.trim() || "",
       input.status || "idle",
+      Number(Boolean(input.showcasePinned)),
       input.startDate || null,
       input.endDate || null,
       input.featureBranch || null,
@@ -354,7 +357,7 @@ export class ProjectManagementRepository {
 
     this.db.prepare(`
       UPDATE sprints
-      SET number = ?, slug = ?, name = ?, goal = ?, status = ?, start_date = ?, end_date = ?, feature_branch = ?, updated_at = ?
+      SET number = ?, slug = ?, name = ?, goal = ?, status = ?, showcase_pinned = ?, start_date = ?, end_date = ?, feature_branch = ?, updated_at = ?
       WHERE id = ?
     `).run(
       input.number === undefined ? current.number : input.number,
@@ -362,6 +365,7 @@ export class ProjectManagementRepository {
       nextName,
       input.goal === undefined ? current.goal : input.goal,
       input.status || current.status,
+      input.showcasePinned === undefined ? Number(current.showcasePinned) : Number(Boolean(input.showcasePinned)),
       input.startDate === undefined ? current.startDate : input.startDate,
       input.endDate === undefined ? current.endDate : input.endDate,
       input.featureBranch === undefined ? current.featureBranch : input.featureBranch,
@@ -738,6 +742,7 @@ export class ProjectManagementRepository {
       name: row.name,
       goal: row.goal || "",
       status: mapEffectiveSprintStatus(row.status, row.latest_run_status),
+      showcasePinned: toBoolean(row.showcase_pinned),
       startDate: row.start_date,
       endDate: row.end_date,
       featureBranch: row.feature_branch,

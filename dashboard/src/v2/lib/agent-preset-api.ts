@@ -45,3 +45,9 @@ export const deleteAgentPreset = async (agentPresetId: string): Promise<void> =>
     method: "DELETE",
   });
 };
+
+export const importAgentPresetFromMarkdown = async (agentPresetId: string): Promise<AgentPreset> => {
+  return fetchJson<AgentPreset>(`/api/agent-presets/${encodeURIComponent(agentPresetId)}/import-markdown`, {
+    method: "POST",
+  });
+};

@@ -13,6 +13,7 @@ import { ConnectionChatRepository } from "../../repositories/connection-chat-rep
 import { ExecutionRepository } from "../../repositories/execution-repository.js";
 import { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import { DashboardRealtimeEventRepository } from "../../repositories/dashboard-realtime-event-repository.js";
+import { AgentPresetSyncService } from "../../services/agent-preset-sync-service.js";
 import { ActivitySummaryService } from "../../domain/sessions/activity-summary.js";
 import { JulesSourceResolver } from "../../services/jules-source-resolver.js";
 import { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
@@ -41,6 +42,7 @@ export interface CoreDependencies {
   projectRuntimeRepository: ProjectRuntimeRepository;
   connectionChatRepository: ConnectionChatRepository;
   agentPresetRepository: AgentPresetRepository;
+  agentPresetSyncService: AgentPresetSyncService;
   executionRepository: ExecutionRepository;
   dashboardRealtimeEventRepository: DashboardRealtimeEventRepository;
   dashboardRealtimeService: DashboardRealtimeService;
@@ -102,6 +104,12 @@ export function createCoreDependencies(
   const projectRuntimeRepository = new ProjectRuntimeRepository(appDbStorage);
   const connectionChatRepository = new ConnectionChatRepository(appDbStorage, dashboardRealtimeService);
   const agentPresetRepository = new AgentPresetRepository(appDbStorage);
+  const agentPresetSyncService = new AgentPresetSyncService({
+    projectManagementRepository,
+    agentPresetRepository,
+    projectRoot: options.projectRoot,
+    logger: logger.child({ component: "agent-preset-sync-service" }),
+  });
   const executionRepository = new ExecutionRepository(appDbStorage, dashboardRealtimeService);
   const sprintMarkdownService = new SprintMarkdownService(projectManagementRepository);
   const activeDispatchRegistry = new ActiveDispatchRegistry();
@@ -130,6 +138,7 @@ export function createCoreDependencies(
     projectRuntimeRepository,
     connectionChatRepository,
     agentPresetRepository,
+    agentPresetSyncService,
     executionRepository,
     dashboardRealtimeEventRepository,
     dashboardRealtimeService,

@@ -1,472 +1,874 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { Target, Plus, Upload, Download, Trash2, CalendarDays, Layers3, Play, Square } from "lucide-preact";
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle2,
+  Download,
+  Heart,
+  Plus,
+  Radio,
+  Target,
+} from "lucide-preact";
 import { SprintBubble } from "./components/ui/SprintBubble.js";
-import { AddSprintModal } from "./components/ui/AddSprintModal.js";
+import { AddSprintModal, type SprintSubmitMode } from "./components/ui/AddSprintModal.js";
 import { SprintMarkdownModal } from "./components/ui/SprintMarkdownModal.js";
-import type { SprintStatus } from "./types.js";
+import type { Sprint, SprintStatus } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
 import { useProjectSprints } from "./hooks/use-project-sprints.js";
 import { useProjectExecution } from "./hooks/use-project-execution.js";
-import { createSprint, deleteSprint, exportSprintMarkdown, fetchProjectExecution, importSprintMarkdown } from "./lib/project-api.js";
+import {
+  createSprint,
+  deleteSprint,
+  exportSprintMarkdown,
+  fetchProjectExecution,
+  importSprintMarkdown,
+  improveSprintPrompt,
+  planSprint,
+  updateSprint,
+} from "./lib/project-api.js";
 import { buildTaskBundle, parseTaskBundle } from "./lib/markdown-transfer.js";
 import { cancelSprintRun, orchestrateSprint } from "../lib/api/dashboard-api.js";
 
-const ACCENT_CYCLE = ['text-signal-500', 'text-ember-500', 'text-status-green'] as const;
+const ACCENT_CYCLE = ["text-signal-500", "text-ember-500", "text-status-green"] as const;
+const TABLE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const TABLE_META_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const ACTIVE_CONNECTION_STATUSES = new Set(["connected", "listening", "idle"]);
+const IN_WORK_STATUSES = new Set<SprintStatus>(["running", "paused"]);
+const STATUS_LABELS: Record<SprintStatus, string> = {
+  running: "Running",
+  paused: "Paused",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  idle: "Draft",
+};
+const STATUS_ORDER: Record<SprintStatus, number> = {
+  running: 0,
+  paused: 1,
+  idle: 2,
+  completed: 3,
+  failed: 4,
+  cancelled: 5,
+};
+const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
+  running: "border-status-green/25 bg-status-green/10 text-status-green",
+  paused: "border-ember-500/25 bg-ember-500/10 text-ember-500",
+  completed: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  failed: "border-status-red/20 bg-status-red/10 text-status-red",
+  cancelled: "border-slate-300/40 bg-slate-200/55 text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+  idle: "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 dark:text-signal-300",
+};
+const PLANNING_ROLE_PRIORITY: Record<string, number> = {
+  worker: 0,
+  listener: 1,
+};
+const CONNECTION_STATUS_PRIORITY: Record<string, number> = {
+  listening: 0,
+  connected: 1,
+  idle: 2,
+  paused: 3,
+  stale: 4,
+  offline: 5,
+};
+
+type SprintTableSortKey = "showcasePinned" | "sprintKey" | "name" | "status" | "tasksCount" | "completion" | "createdAt";
+type SprintTableSortDirection = "asc" | "desc";
+
+const formatSprintKey = (sprint: Sprint): string => (
+  sprint.number ? `SPR-${sprint.number}` : sprint.slug.toUpperCase()
+);
+
+const shortenId = (value: string): string => value.slice(0, 8);
+const formatTableDate = (value: string): string => TABLE_DATE_FORMATTER.format(new Date(value));
+const formatMetaDate = (value: string): string => TABLE_META_DATE_FORMATTER.format(new Date(value));
+const compareString = (left: string, right: string): number => (
+  left.localeCompare(right, undefined, { sensitivity: "base" })
+);
 
 export const SprintsPage: FunctionComponent = () => {
-    const mainRef      = useRef<HTMLDivElement>(null);
-    const bubblesRef   = useRef<HTMLDivElement>(null);
-    const [showModal, setShowModal] = useState(false);
-    const [showImportModal, setShowImportModal] = useState(false);
-    const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
-    const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, SprintStatus>>({});
-    const [suppressedRunningSprintIds, setSuppressedRunningSprintIds] = useState<Set<string>>(new Set());
-    const [exportState, setExportState] = useState<{
-        sprintLabel: string;
-        sprintMarkdown: string;
-        tasksMarkdown: string;
-    } | null>(null);
-    const { selectedProject } = useProjectData();
-    const { sprints, refresh } = useProjectSprints(selectedProject?.id || null);
-    const { execution, refresh: refreshExecution } = useProjectExecution(selectedProject?.id || null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const bubblesRef = useRef<HTMLDivElement>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, SprintStatus>>({});
+  const [suppressedRunningSprintIds, setSuppressedRunningSprintIds] = useState<Set<string>>(new Set());
+  const [exportState, setExportState] = useState<{
+    sprintLabel: string;
+    sprintMarkdown: string;
+    tasksMarkdown: string;
+  } | null>(null);
+  const [tableSort, setTableSort] = useState<{
+    key: SprintTableSortKey;
+    direction: SprintTableSortDirection;
+  }>({
+    key: "createdAt",
+    direction: "desc",
+  });
+  const { selectedProject } = useProjectData();
+  const { sprints, refresh } = useProjectSprints(selectedProject?.id || null);
+  const { execution, refresh: refreshExecution } = useProjectExecution(selectedProject?.id || null);
 
-    useLayoutEffect(() => {
-        if (mainRef.current) {
-            gsap.fromTo(mainRef.current.children,
-                { opacity: 0, y: 40 },
-                { opacity: 1, y: 0, stagger: 0.12, duration: 1, ease: "power4.out", delay: 0.15 }
-            );
+  useLayoutEffect(() => {
+    if (!mainRef.current) {
+      return;
+    }
+    gsap.fromTo(
+      mainRef.current.children,
+      { opacity: 0, y: 40 },
+      { opacity: 1, y: 0, stagger: 0.12, duration: 1, ease: "power4.out", delay: 0.1 },
+    );
+  }, []);
+
+  const nextSprintNumber = useMemo(() => (
+    sprints.reduce((maxNumber, sprint) => Math.max(maxNumber, sprint.number || 0), 0) + 1
+  ), [sprints]);
+  const nextId = `SPR-${String(nextSprintNumber).padStart(2, "0")}`;
+
+  const actualActiveRunsBySprintId = useMemo(() => {
+    const map = new Map<string, { id: string; status: string }>();
+    for (const run of execution.sprintRuns) {
+      if (run.status !== "running" && run.status !== "queued") {
+        continue;
+      }
+      if (!map.has(run.sprintId)) {
+        map.set(run.sprintId, { id: run.id, status: run.status });
+      }
+    }
+    return map;
+  }, [execution.sprintRuns]);
+
+  useEffect(() => {
+    setSuppressedRunningSprintIds((current) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const sprintId of current) {
+        if (actualActiveRunsBySprintId.has(sprintId)) {
+          next.add(sprintId);
+        } else {
+          changed = true;
         }
-    }, []);
+      }
+      return changed ? next : current;
+    });
+  }, [actualActiveRunsBySprintId]);
 
-    const nextId = `SPR-${String((sprints.at(-1)?.number ?? sprints.length) + 1).padStart(2, '0')}`;
+  const activeRunsBySprintId = useMemo(() => {
+    const map = new Map<string, { id: string; status: string }>();
+    for (const [sprintId, run] of actualActiveRunsBySprintId.entries()) {
+      if (suppressedRunningSprintIds.has(sprintId)) {
+        continue;
+      }
+      map.set(sprintId, run);
+    }
+    return map;
+  }, [actualActiveRunsBySprintId, suppressedRunningSprintIds]);
 
-    const actualActiveRunsBySprintId = useMemo(() => {
-        const map = new Map<string, { id: string; status: string }>();
-        for (const run of execution.sprintRuns) {
-            if (run.status !== "running" && run.status !== "queued") {
-                continue;
-            }
-            if (!map.has(run.sprintId)) {
-                map.set(run.sprintId, { id: run.id, status: run.status });
-            }
+  const displaySprints = useMemo(() => (
+    sprints.map((sprint) => ({
+      ...sprint,
+      status: optimisticStatuses[sprint.id]
+        || (suppressedRunningSprintIds.has(sprint.id) && sprint.status === "running" ? "cancelled" : sprint.status),
+    }))
+  ), [optimisticStatuses, sprints, suppressedRunningSprintIds]);
+
+  const sortedSprints = useMemo(() => (
+    [...displaySprints].sort((left, right) => {
+      const createdAtDelta = right.createdAt.localeCompare(left.createdAt);
+      if (createdAtDelta !== 0) {
+        return createdAtDelta;
+      }
+      return (right.number || 0) - (left.number || 0);
+    })
+  ), [displaySprints]);
+
+  const showcaseSprints = useMemo(() => {
+    return sortedSprints.filter((sprint) => sprint.showcasePinned && sprint.status !== "completed");
+  }, [sortedSprints]);
+
+  const completedCount = useMemo(() => (
+    sortedSprints.filter((sprint) => sprint.status === "completed").length
+  ), [sortedSprints]);
+
+  const inWorkCount = useMemo(() => (
+    sortedSprints.filter((sprint) => IN_WORK_STATUSES.has(sprint.status)).length
+  ), [sortedSprints]);
+
+  const planningConnection = useMemo(() => (
+    [...execution.connections]
+      .filter((connection) => (
+        connection.listenMode
+        && ACTIVE_CONNECTION_STATUSES.has(connection.status)
+        && (connection.role === "worker" || connection.role === "listener")
+      ))
+      .sort((left, right) => {
+        const roleDelta = (PLANNING_ROLE_PRIORITY[left.role] ?? 99) - (PLANNING_ROLE_PRIORITY[right.role] ?? 99);
+        if (roleDelta !== 0) {
+          return roleDelta;
         }
-        return map;
-    }, [execution.sprintRuns]);
-
-    useEffect(() => {
-        setSuppressedRunningSprintIds((current) => {
-            let changed = false;
-            const next = new Set<string>();
-            for (const sprintId of current) {
-                if (actualActiveRunsBySprintId.has(sprintId)) {
-                    next.add(sprintId);
-                } else {
-                    changed = true;
-                }
-            }
-            return changed ? next : current;
-        });
-    }, [actualActiveRunsBySprintId]);
-
-    const activeRunsBySprintId = useMemo(() => {
-        const map = new Map<string, { id: string; status: string }>();
-        for (const [sprintId, run] of actualActiveRunsBySprintId.entries()) {
-            if (suppressedRunningSprintIds.has(sprintId)) {
-                continue;
-            }
-            map.set(sprintId, run);
+        const statusDelta = (CONNECTION_STATUS_PRIORITY[left.status] ?? 99) - (CONNECTION_STATUS_PRIORITY[right.status] ?? 99);
+        if (statusDelta !== 0) {
+          return statusDelta;
         }
-        return map;
-    }, [actualActiveRunsBySprintId, suppressedRunningSprintIds]);
+        return compareString(left.displayName, right.displayName);
+      })[0] || null
+  ), [execution.connections]);
 
-    const displaySprints = useMemo(() => (
-        sprints.map((sprint) => ({
-            ...sprint,
-            status: optimisticStatuses[sprint.id]
-                || (suppressedRunningSprintIds.has(sprint.id) && sprint.status === "running" ? "cancelled" : sprint.status),
-        }))
-    ), [optimisticStatuses, sprints, suppressedRunningSprintIds]);
+  const tableSprints = useMemo(() => {
+    const ordered = [...sortedSprints].sort((left, right) => {
+      switch (tableSort.key) {
+        case "showcasePinned":
+          return Number(right.showcasePinned) - Number(left.showcasePinned);
+        case "sprintKey":
+          if (left.number !== null && right.number !== null && left.number !== right.number) {
+            return left.number - right.number;
+          }
+          return compareString(formatSprintKey(left), formatSprintKey(right));
+        case "name":
+          return compareString(left.name, right.name);
+        case "status":
+          return STATUS_ORDER[left.status] - STATUS_ORDER[right.status];
+        case "tasksCount":
+          return left.tasksCount - right.tasksCount;
+        case "completion":
+          return left.completion - right.completion;
+        case "createdAt":
+        default:
+          return left.createdAt.localeCompare(right.createdAt);
+      }
+    });
 
-    const handleSprintToggle = (sprintId: string) => {
-        if (!selectedProject) return;
-        const activeRun = activeRunsBySprintId.get(sprintId);
-        const sprint = displaySprints.find((item) => item.id === sprintId);
-        if (!sprint) return;
+    if (tableSort.direction === "desc") {
+      ordered.reverse();
+    }
+    return ordered;
+  }, [sortedSprints, tableSort]);
 
-        if (activeRun) {
-            const stopActionId = `sprint-stop:${activeRun.id}`;
-            void runSprintAction(stopActionId, sprintId, async () => {
-                await cancelSprintRun(activeRun.id);
-            }, { optimisticStatus: "cancelled" });
-            return;
-        }
+  useEffect(() => {
+    const completedPinnedSprints = sortedSprints.filter((sprint) => (
+      sprint.showcasePinned
+      && sprint.status === "completed"
+      && !pendingActionIds.has(`sprint-showcase-auto:${sprint.id}`)
+    ));
 
-        const startActionId = `sprint-start:${sprintId}`;
-        if (pendingActionIds.has(startActionId)) {
-            return;
-        }
-        setSuppressedRunningSprintIds((current) => {
-            if (!current.has(sprintId)) {
-                return current;
-            }
-            const next = new Set(current);
-            next.delete(sprintId);
-            return next;
-        });
-        void runSprintAction(startActionId, sprintId, async () => {
-            await orchestrateSprint(selectedProject.id, sprintId);
-        }, { waitForActiveRun: true });
-    };
+    if (completedPinnedSprints.length === 0) {
+      return;
+    }
 
-    const runSprintAction = async (
-        actionId: string,
-        sprintId: string,
-        operation: () => Promise<void>,
-        options: {
-            optimisticStatus?: SprintStatus;
-            waitForActiveRun?: boolean;
-        } = {},
-    ) => {
-        setPendingActionIds((current) => new Set(current).add(actionId));
-        if (options.optimisticStatus) {
-            setOptimisticStatuses((current) => ({ ...current, [sprintId]: options.optimisticStatus! }));
-        }
-        try {
-            await operation();
-            if (options.optimisticStatus === "cancelled") {
-                setSuppressedRunningSprintIds((current) => new Set(current).add(sprintId));
-            }
-            if (options.waitForActiveRun && selectedProject) {
-                for (let attempt = 0; attempt < 8; attempt += 1) {
-                    const snapshot = await fetchProjectExecution(selectedProject.id);
-                    if (snapshot.sprintRuns.some((run) => run.sprintId === sprintId && (run.status === "running" || run.status === "queued"))) {
-                        break;
-                    }
-                    await new Promise((resolve) => window.setTimeout(resolve, 250));
-                }
-            }
-            await Promise.all([refresh(), refreshExecution()]);
-            setOptimisticStatuses((current) => {
-                const next = { ...current };
-                delete next[sprintId];
-                return next;
-            });
-        } catch (error) {
-            setOptimisticStatuses((current) => {
-                const next = { ...current };
-                delete next[sprintId];
-                return next;
-            });
-            await Promise.all([refresh(), refreshExecution()]);
-            window.alert(error instanceof Error ? error.message : String(error));
-        } finally {
-            setPendingActionIds((current) => {
-                const next = new Set(current);
-                next.delete(actionId);
-                return next;
-            });
-        }
-    };
+    const actionIds = completedPinnedSprints.map((sprint) => `sprint-showcase-auto:${sprint.id}`);
+    setPendingActionIds((current) => {
+      const next = new Set(current);
+      for (const actionId of actionIds) {
+        next.add(actionId);
+      }
+      return next;
+    });
 
-    const handleAddSprint = async (sprint: {
-        name: string;
-        goal: string;
-        startDate: string;
-        endDate: string;
-        status: "idle";
-    }) => {
-        if (!selectedProject) return;
-        await createSprint(selectedProject.id, {
-            name: sprint.name,
-            startDate: sprint.startDate,
-            endDate: sprint.endDate,
-            goal: sprint.goal,
-            status: sprint.status,
-        });
+    void Promise.all(completedPinnedSprints.map(async (sprint) => {
+      await updateSprint(sprint.id, { showcasePinned: false });
+    }))
+      .then(async () => {
         await refresh();
-        // Animate the new cell in
-        requestAnimationFrame(() => {
-            if (!bubblesRef.current) return;
-            const cells = Array.from(bubblesRef.current.children);
-            const newCell = cells[cells.length - 2]; // second-to-last (last is the add-cell)
-            if (newCell) {
-                gsap.fromTo(newCell,
-                    { scale: 0.7, opacity: 0, rotation: -8 },
-                    { scale: 1, opacity: 1, rotation: 0, duration: 0.8, ease: "elastic.out(1, 0.6)" }
+      })
+      .catch((error) => {
+        window.alert(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        setPendingActionIds((current) => {
+          const next = new Set(current);
+          for (const actionId of actionIds) {
+            next.delete(actionId);
+          }
+          return next;
+        });
+      });
+  }, [pendingActionIds, refresh, sortedSprints]);
+
+  const runSprintAction = async (
+    actionId: string,
+    sprintId: string,
+    operation: () => Promise<void>,
+    options: {
+      optimisticStatus?: SprintStatus;
+      waitForActiveRun?: boolean;
+    } = {},
+  ) => {
+    setPendingActionIds((current) => new Set(current).add(actionId));
+    if (options.optimisticStatus) {
+      setOptimisticStatuses((current) => ({ ...current, [sprintId]: options.optimisticStatus! }));
+    }
+    try {
+      await operation();
+      if (options.optimisticStatus === "cancelled") {
+        setSuppressedRunningSprintIds((current) => new Set(current).add(sprintId));
+      }
+      if (options.waitForActiveRun && selectedProject) {
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          const snapshot = await fetchProjectExecution(selectedProject.id);
+          if (snapshot.sprintRuns.some((run) => run.sprintId === sprintId && (run.status === "running" || run.status === "queued"))) {
+            break;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+        }
+      }
+      await Promise.all([refresh(), refreshExecution()]);
+      setOptimisticStatuses((current) => {
+        const next = { ...current };
+        delete next[sprintId];
+        return next;
+      });
+    } catch (error) {
+      setOptimisticStatuses((current) => {
+        const next = { ...current };
+        delete next[sprintId];
+        return next;
+      });
+      await Promise.all([refresh(), refreshExecution()]);
+      window.alert(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      setPendingActionIds((current) => {
+        const next = new Set(current);
+        next.delete(actionId);
+        return next;
+      });
+    }
+  };
+
+  const handleSprintToggle = (sprintId: string) => {
+    if (!selectedProject) {
+      return;
+    }
+    const activeRun = activeRunsBySprintId.get(sprintId);
+    if (activeRun) {
+      const stopActionId = `sprint-stop:${activeRun.id}`;
+      void runSprintAction(stopActionId, sprintId, async () => {
+        await cancelSprintRun(activeRun.id);
+      }, { optimisticStatus: "cancelled" });
+      return;
+    }
+
+    const startActionId = `sprint-start:${sprintId}`;
+    if (pendingActionIds.has(startActionId)) {
+      return;
+    }
+    setSuppressedRunningSprintIds((current) => {
+      if (!current.has(sprintId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(sprintId);
+      return next;
+    });
+    void runSprintAction(startActionId, sprintId, async () => {
+      await orchestrateSprint(selectedProject.id, sprintId);
+    }, { waitForActiveRun: true });
+  };
+
+  const handleTableSort = (key: SprintTableSortKey) => {
+    setTableSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction: current.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return {
+        key,
+        direction: key === "name" || key === "status" || key === "showcasePinned" || key === "sprintKey" ? "asc" : "desc",
+      };
+    });
+  };
+
+  const animateLatestCell = () => {
+    requestAnimationFrame(() => {
+      if (!bubblesRef.current) {
+        return;
+      }
+      const newCell = bubblesRef.current.firstElementChild;
+      if (!newCell) {
+        return;
+      }
+      gsap.fromTo(
+        newCell,
+        { scale: 0.88, opacity: 0, y: 18 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.8, ease: "elastic.out(1, 0.65)" },
+      );
+    });
+  };
+
+  const handleSubmitSprint = async (payload: {
+    name: string;
+    goal: string;
+    submitMode: SprintSubmitMode;
+  }): Promise<void> => {
+    if (!selectedProject) {
+      return;
+    }
+
+    if (editingSprint) {
+      await updateSprint(editingSprint.id, {
+        name: payload.name,
+        goal: payload.goal,
+      });
+      await refresh();
+      setEditingSprint(null);
+      return;
+    }
+
+    const created = await createSprint(selectedProject.id, {
+      name: payload.name,
+      goal: payload.goal,
+      number: nextSprintNumber,
+      status: "idle",
+      showcasePinned: true,
+      startDate: null,
+      endDate: null,
+    });
+
+    if (payload.submitMode === "plan_only") {
+      await planSprint(selectedProject.id, created.id, { autoStart: false });
+    } else if (payload.submitMode === "plan_and_start") {
+      await planSprint(selectedProject.id, created.id, { autoStart: true });
+    }
+
+    await Promise.all([refresh(), refreshExecution()]);
+    animateLatestCell();
+  };
+
+  const handleImprovePrompt = async (draft: { name: string; goal: string }): Promise<string> => {
+    if (!selectedProject) {
+      throw new Error("Select a project before using Improve with AI.");
+    }
+    const response = await improveSprintPrompt(selectedProject.id, draft);
+    return response.goal;
+  };
+
+  const handleDeleteSprint = async (sprintId: string) => {
+    await deleteSprint(sprintId);
+    await Promise.all([refresh(), refreshExecution()]);
+  };
+
+  const handleToggleShowcase = async (sprint: Sprint) => {
+    if (sprint.status === "completed") {
+      return;
+    }
+    const actionId = `sprint-showcase:${sprint.id}`;
+    if (pendingActionIds.has(actionId)) {
+      return;
+    }
+    setPendingActionIds((current) => new Set(current).add(actionId));
+    try {
+      await updateSprint(sprint.id, {
+        showcasePinned: !sprint.showcasePinned,
+      });
+      await refresh();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPendingActionIds((current) => {
+        const next = new Set(current);
+        next.delete(actionId);
+        return next;
+      });
+    }
+  };
+
+  const handleOpenExport = async (sprintId: string, sprintName: string) => {
+    if (!selectedProject) {
+      return;
+    }
+    const bundle = await exportSprintMarkdown(selectedProject.id, sprintId);
+    setExportState({
+      sprintLabel: sprintName,
+      sprintMarkdown: bundle.sprint.markdown,
+      tasksMarkdown: buildTaskBundle(bundle.tasks),
+    });
+  };
+
+  const handleImportSprint = async (payload: { sprintMarkdown: string; tasksMarkdown: string }) => {
+    if (!selectedProject) {
+      return;
+    }
+    await importSprintMarkdown(selectedProject.id, {
+      sprintMarkdown: payload.sprintMarkdown,
+      tasks: parseTaskBundle(payload.tasksMarkdown),
+    });
+    await refresh();
+  };
+
+  const renderSortIndicator = (key: SprintTableSortKey) => {
+    if (tableSort.key !== key) {
+      return <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600" strokeWidth={2.2} />;
+    }
+    return tableSort.direction === "asc"
+      ? <ArrowUp className="h-3 w-3 text-signal-500" strokeWidth={2.2} />
+      : <ArrowDown className="h-3 w-3 text-signal-500" strokeWidth={2.2} />;
+  };
+
+  return (
+    <>
+      <div ref={mainRef} className="relative z-10 mx-auto flex max-w-[1920px] flex-col gap-20 px-8 py-24 md:px-20">
+        <div className="flex flex-wrap items-end justify-between gap-8">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-2.5 font-mono text-xs font-bold uppercase tracking-[0.15em] text-signal-500">
+              <Target className="h-4 w-4" strokeWidth={2.5} />
+              Iteration Cycles
+            </div>
+            <h1 className="font-display text-5xl font-black leading-[0.92] tracking-tighter text-slate-900 dark:text-white md:text-7xl">
+              Active <br />
+              <span className="text-signal-500">Sprints.</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+              {selectedProject
+                ? `Define the sprint once for ${selectedProject.name}. The Planning agent can improve the prompt, plan subtasks, and launch the sprint without manual task entry.`
+                : "Select a project to manage sprint structure."}
+            </p>
+            {selectedProject && (
+              <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
+                planningConnection
+                  ? "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 dark:text-signal-300"
+                  : "border-status-red/20 bg-status-red/10 text-status-red"
+              }`}>
+                <Radio className="h-3.5 w-3.5" strokeWidth={2.1} />
+                {planningConnection ? `Planning via ${planningConnection.displayName}` : "No planning listener available"}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { label: "Total", value: sortedSprints.length, icon: Target },
+              { label: "Completed", value: completedCount, icon: CheckCircle2 },
+              { label: "In Work", value: inWorkCount, icon: Activity },
+            ].map(({ label, value, icon: Icon }) => (
+              <div
+                key={label}
+                className="inline-flex items-center gap-3 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300"
+              >
+                <Icon className="h-3.5 w-3.5 text-signal-500" strokeWidth={2} />
+                {label} <span className="font-mono text-slate-700 dark:text-white">{value}</span>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              disabled={!selectedProject}
+              className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
+            >
+              <Download className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Import Markdown
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              disabled={!selectedProject}
+              className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-void-900 transition-all hover:-translate-y-px hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+              New Sprint
+            </button>
+          </div>
+        </div>
+
+        {selectedProject ? (
+          <>
+            <div ref={bubblesRef} className="flex flex-wrap justify-center gap-10 xl:gap-12">
+              {showcaseSprints.map((sprint, index) => {
+                const activeRun = activeRunsBySprintId.get(sprint.id);
+                const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
+                return (
+                  <SprintBubble
+                    key={sprint.id}
+                    sprint={sprint}
+                    isEven={index % 2 === 0}
+                    accentColor={ACCENT_CYCLE[index % ACCENT_CYCLE.length]}
+                    primaryBusy={pendingActionIds.has(pendingActionId)}
+                    onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
+                    onEdit={() => setEditingSprint(sprint)}
+                    onDelete={() => { void handleDeleteSprint(sprint.id); }}
+                    onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
+                    onOverrides={() => window.alert("Overrides are a placeholder for the next iteration.")}
+                    onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
+                  />
                 );
-            }
-        });
-    };
+              })}
 
-    const handleDeleteSprint = async (sprintId: string) => {
-        await deleteSprint(sprintId);
-        await refresh();
-    };
-
-    const handleOpenExport = async (sprintId: string, sprintName: string) => {
-        if (!selectedProject) return;
-        const bundle = await exportSprintMarkdown(selectedProject.id, sprintId);
-        setExportState({
-            sprintLabel: sprintName,
-            sprintMarkdown: bundle.sprint.markdown,
-            tasksMarkdown: buildTaskBundle(bundle.tasks),
-        });
-    };
-
-    const handleImportSprint = async (payload: { sprintMarkdown: string; tasksMarkdown: string }) => {
-        if (!selectedProject) return;
-        await importSprintMarkdown(selectedProject.id, {
-            sprintMarkdown: payload.sprintMarkdown,
-            tasks: parseTaskBundle(payload.tasksMarkdown),
-        });
-        await refresh();
-    };
-
-    return (
-        <>
-            <div ref={mainRef} className="max-w-[1920px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-20 relative z-10">
-
-                {/* Page Header */}
-                <div className="flex items-end justify-between">
-                    <div className="flex flex-col gap-5">
-                        <div className="flex items-center gap-2.5 text-signal-500 font-bold tracking-[0.15em] uppercase text-xs font-mono">
-                            <Target className="w-4 h-4" strokeWidth={2.5} />
-                            Iteration Cycles
-                        </div>
-                        <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-[0.92] font-display">
-                            Active <br />
-                            <span className="text-signal-500">Sprints.</span>
-                        </h1>
-                        <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-2 leading-relaxed">
-                            {selectedProject
-                                ? `Iteration cycles for ${selectedProject.name}.`
-                                : "Select a project to manage sprint structure."}
-                        </p>
-                    </div>
-
-                    {/* New Sprint button */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowImportModal(true)}
-                            disabled={!selectedProject}
-                            className="group flex items-center gap-2.5 px-5 py-3.5 bg-black/[0.04] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.06] border border-black/[0.08] dark:border-white/[0.08] text-slate-700 dark:text-slate-200 font-bold text-sm rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Upload className="w-4 h-4 transition-transform duration-300 group-hover:-translate-y-0.5" />
-                            Import Markdown
-                        </button>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            disabled={!selectedProject}
-                            className="group flex items-center gap-2.5 px-6 py-3.5 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.45)] hover:-translate-y-px shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-                            New Sprint
-                        </button>
-                    </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                disabled={!selectedProject}
+                className="group relative flex h-72 w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80"
+              >
+                <div
+                  className="absolute inset-0 animate-organic border-2 border-dashed border-signal-500/25 transition-all duration-500 group-hover:border-signal-500/60"
+                  style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
+                />
+                <div
+                  className="absolute inset-0 animate-organic-reverse bg-signal-500/0 transition-all duration-500 group-hover:bg-signal-500/[0.04]"
+                  style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
+                />
+                <div className="relative z-10 flex flex-col items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-signal-500/30 transition-all duration-400 group-hover:border-signal-500 group-hover:bg-signal-500/10">
+                    <Plus className="h-6 w-6 text-signal-500/40 transition-all duration-400 group-hover:rotate-90 group-hover:scale-110 group-hover:text-signal-500" />
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-300 transition-colors duration-300 group-hover:text-signal-500 dark:text-slate-600">
+                      New Sprint
+                    </span>
+                    <span className="font-mono text-[9px] text-slate-200 transition-colors duration-300 group-hover:text-slate-400 dark:text-slate-700">
+                      {nextId.toUpperCase()}
+                    </span>
+                  </div>
                 </div>
-
-                {/* Organic Sprint Bubbles */}
-                <div ref={bubblesRef} className="flex flex-wrap gap-14 justify-center lg:justify-start">
-                    {sprints.map((sprint, index) => (
-                        (() => {
-                            const displaySprint = displaySprints[index];
-                            const activeRun = activeRunsBySprintId.get(displaySprint.id);
-                            const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${displaySprint.id}`;
-                            return (
-                        <SprintBubble
-                            key={displaySprint.id}
-                            sprint={displaySprint}
-                            isEven={index % 2 === 0}
-                            accentColor={ACCENT_CYCLE[index % 3]}
-                            primaryBusy={pendingActionIds.has(pendingActionId)}
-                            onPrimaryAction={() => { handleSprintToggle(displaySprint.id); }}
-                        />
-                            );
-                        })()
-                    ))}
-
-                    {/* Ghost "Add Sprint" cell */}
-                    <button
-                        onClick={() => setShowModal(true)}
-                        disabled={!selectedProject}
-                        className="group relative cursor-pointer perspective-1000 flex items-center justify-center shrink-0 w-72 h-72 lg:w-80 lg:h-80"
-                    >
-                        {/* Morphing dashed border */}
-                        <div
-                            className="absolute inset-0 border-2 border-dashed border-signal-500/25 group-hover:border-signal-500/60 transition-all duration-500 animate-organic"
-                            style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }}
-                        />
-                        {/* Subtle glow fill on hover */}
-                        <div
-                            className="absolute inset-0 bg-signal-500/0 group-hover:bg-signal-500/[0.04] transition-all duration-500 animate-organic-reverse"
-                            style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }}
-                        />
-
-                        {/* Center content */}
-                        <div className="relative z-10 flex flex-col items-center gap-4">
-                            <div className="w-14 h-14 rounded-full border-2 border-dashed border-signal-500/30 group-hover:border-signal-500 group-hover:bg-signal-500/10 flex items-center justify-center transition-all duration-400">
-                                <Plus className="w-6 h-6 text-signal-500/40 group-hover:text-signal-500 group-hover:scale-110 group-hover:rotate-90 transition-all duration-400" />
-                            </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-300 dark:text-slate-600 group-hover:text-signal-500 transition-colors duration-300">
-                                    New Sprint
-                                </span>
-                                <span className="text-[9px] font-mono text-slate-200 dark:text-slate-700 group-hover:text-slate-400 transition-colors duration-300">
-                                    {nextId.toUpperCase()}
-                                </span>
-                            </div>
-                        </div>
-                    </button>
-                </div>
-
-                {!selectedProject && (
-                    <div className="px-6 py-8 rounded-[1.75rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/55 dark:bg-void-800/55 text-slate-500 dark:text-slate-400 text-sm max-w-xl">
-                        Projects now scope the whole dashboard. Create or select a project in the top navigation before adding sprints.
-                    </div>
-                )}
-
-                {selectedProject && (
-                    <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/60 dark:bg-void-800/60 backdrop-blur-2xl p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.22)]">
-                        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_90%_60%_at_100%_0%,rgba(255,184,0,0.06),transparent_60%)]" />
-                        <div className="relative z-10 flex items-center justify-between gap-6 mb-6">
-                            <div>
-                                <div className="flex items-center gap-2 text-ember-500 font-bold tracking-[0.16em] uppercase text-[10px] font-mono mb-2">
-                                    <Layers3 className="w-3.5 h-3.5" strokeWidth={2.4} />
-                                    Sprint Registry
-                                </div>
-                                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white font-display">
-                                    Manage sprint records and markdown transfer.
-                                </h2>
-                            </div>
-                            <div className="text-xs text-slate-400 font-mono">
-                                {sprints.length} sprint{sprints.length === 1 ? "" : "s"}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
-                            {sprints.length === 0 ? (
-                                <div className="px-5 py-6 rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] text-sm text-slate-400">
-                                    No sprints yet. Create one or import markdown to seed this project.
-                                </div>
-                            ) : displaySprints.map((sprint) => {
-                                const activeRun = activeRunsBySprintId.get(sprint.id);
-                                const startActionId = `sprint-start:${sprint.id}`;
-                                const stopActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-stop:${sprint.id}`;
-                                const startPending = pendingActionIds.has(startActionId);
-                                const stopPending = pendingActionIds.has(stopActionId);
-                                const isRunning = sprint.status === "running";
-
-                                return (
-                                <div
-                                    key={sprint.id}
-                                    className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 py-4 rounded-[1.4rem] border border-black/[0.05] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02]"
-                                >
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2 mb-1.5">
-                                            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
-                                                {sprint.number ? `Sprint ${sprint.number}` : sprint.slug}
-                                            </span>
-                                            <span className={`w-2 h-2 rounded-full ${
-                                                sprint.status === "running" ? "bg-status-green" :
-                                                sprint.status === "paused" ? "bg-status-amber" :
-                                                sprint.status === "completed" ? "bg-signal-500" :
-                                                sprint.status === "failed" ? "bg-status-red" :
-                                                sprint.status === "cancelled" ? "bg-slate-400" :
-                                                "bg-slate-400"
-                                            }`} />
-                                        </div>
-                                        <div className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                                            {sprint.name}
-                                        </div>
-                                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                                            <span className="inline-flex items-center gap-1.5">
-                                                <CalendarDays className="w-3.5 h-3.5" strokeWidth={2} />
-                                                {sprint.date}
-                                            </span>
-                                            <span>{sprint.tasksCount} tasks</span>
-                                            <span>{sprint.completion}% complete</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 self-start lg:self-auto">
-                                        <button
-                                            onClick={() => { handleSprintToggle(sprint.id); }}
-                                            disabled={!selectedProject || startPending || stopPending}
-                                            className={`group relative inline-flex items-center gap-2 overflow-hidden px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-[0.12em] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                isRunning
-                                                    ? "bg-status-red/[0.10] hover:bg-status-red/[0.16] text-status-red border border-status-red/20 shadow-[0_8px_24px_rgba(227,0,15,0.12)]"
-                                                    : "bg-signal-500/[0.10] hover:bg-signal-500/[0.16] text-signal-600 dark:text-signal-400 border border-signal-500/20 shadow-[0_8px_24px_rgba(0,224,160,0.16)]"
-                                            }`}
-                                        >
-                                            <span className={`absolute inset-0 opacity-0 transition-opacity duration-300 ${isRunning ? "group-hover:opacity-100 bg-[radial-gradient(circle_at_center,rgba(227,0,15,0.18),transparent_70%)]" : "group-hover:opacity-100 bg-[radial-gradient(circle_at_center,rgba(0,224,160,0.16),transparent_70%)]"}`} />
-                                            <span className={`relative flex items-center justify-center w-6 h-6 rounded-full ${isRunning ? "bg-status-red/15" : "bg-signal-500/15"}`}>
-                                                {isRunning ? (
-                                                    <Square className={`w-3.5 h-3.5 ${stopPending ? "animate-pulse" : "group-hover:scale-110"} transition-transform duration-300`} strokeWidth={2.4} />
-                                                ) : (
-                                                    <Play className={`w-3.5 h-3.5 ${startPending ? "animate-pulse" : "group-hover:translate-x-0.5 group-hover:scale-110"} transition-transform duration-300`} strokeWidth={2.4} />
-                                                )}
-                                            </span>
-                                            <span className="relative">
-                                                {startPending
-                                                    ? "Igniting"
-                                                    : stopPending
-                                                        ? "Stopping"
-                                                        : isRunning
-                                                            ? "Stop"
-                                                            : "Start"}
-                                            </span>
-                                        </button>
-                                        <button
-                                            onClick={() => { void handleOpenExport(sprint.id, sprint.name); }}
-                                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ember-500/[0.08] hover:bg-ember-500/[0.14] text-ember-600 dark:text-ember-400 text-xs font-bold uppercase tracking-[0.12em] transition-colors"
-                                        >
-                                            <Download className="w-3.5 h-3.5" strokeWidth={2.3} />
-                                            Export
-                                        </button>
-                                        <button
-                                            onClick={() => { void handleDeleteSprint(sprint.id); }}
-                                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-status-red/[0.08] hover:bg-status-red/[0.14] text-status-red text-xs font-bold uppercase tracking-[0.12em] transition-colors"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" strokeWidth={2.3} />
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            )})}
-                        </div>
-                    </div>
-                )}
+              </button>
             </div>
 
-            {/* Modal */}
-            {showModal && (
-                <AddSprintModal
-                    nextId={nextId}
-                    onClose={() => setShowModal(false)}
-                    onAdd={(sprint) => { void handleAddSprint(sprint); }}
-                />
-            )}
+            <div className="overflow-hidden rounded-[2.2rem] border border-black/[0.06] bg-white/70 shadow-[0_12px_36px_rgba(15,23,42,0.05)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/62 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
+              <div className="flex flex-wrap items-center justify-between gap-6 border-b border-black/[0.06] px-6 py-5 dark:border-white/[0.06]">
+                <div>
+                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-ember-500">
+                    <Heart className="h-3.5 w-3.5" strokeWidth={2.3} />
+                    Sprint Ledger
+                  </div>
+                  <h2 className="mt-2 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                    All sprints, fully sortable.
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+                    The showcase above reflects the sprints marked with the heart. New sprints are showcased by default, and completed ones drop out automatically.
+                  </p>
+                </div>
+                <div className="text-xs font-mono text-slate-400">{tableSprints.length} total</div>
+              </div>
 
-            {showImportModal && (
-                <SprintMarkdownModal
-                    mode="import"
-                    onClose={() => setShowImportModal(false)}
-                    onImport={(payload) => { void handleImportSprint(payload); }}
-                />
-            )}
+              {tableSprints.length === 0 ? (
+                <div className="px-6 py-8 text-sm text-slate-400">
+                  No sprints exist yet. Create one above and it will appear in the showcase and in the ledger below.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-black/[0.05] text-left dark:divide-white/[0.05]">
+                    <thead>
+                      <tr className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                        <th className="px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("showcasePinned")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Showcase
+                            {renderSortIndicator("showcasePinned")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("sprintKey")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Sprint ID
+                            {renderSortIndicator("sprintKey")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("name")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Sprint
+                            {renderSortIndicator("name")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("status")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Status
+                            {renderSortIndicator("status")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("tasksCount")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Tasks
+                            {renderSortIndicator("tasksCount")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("completion")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Completion
+                            {renderSortIndicator("completion")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTableSort("createdAt")}
+                            className="inline-flex items-center gap-2"
+                          >
+                            Created
+                            {renderSortIndicator("createdAt")}
+                          </button>
+                        </th>
+                        <th className="px-6 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableSprints.map((sprint) => {
+                        const activeRun = activeRunsBySprintId.get(sprint.id);
+                        const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
+                        const pinActionId = `sprint-showcase:${sprint.id}`;
+                        return (
+                          <tr key={sprint.id} className={`border-t border-black/[0.05] align-top dark:border-white/[0.05] ${sprint.status === "completed" ? "opacity-70" : ""}`}>
+                            <td className="px-4 py-4">
+                              <button
+                                type="button"
+                                onClick={() => { void handleToggleShowcase(sprint); }}
+                                disabled={pendingActionIds.has(pinActionId) || sprint.status === "completed"}
+                                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+                                  sprint.showcasePinned
+                                    ? "border-status-red/20 bg-status-red/10 text-status-red"
+                                    : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
+                                } disabled:cursor-not-allowed disabled:opacity-50`}
+                                title={sprint.showcasePinned ? "Unstick from showcase" : "Stick to showcase"}
+                              >
+                                <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
+                              </button>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="font-mono text-sm font-bold text-slate-700 dark:text-white">{formatSprintKey(sprint)}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">{sprint.name}</div>
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                                <span title={sprint.id}>{shortenId(sprint.id)}</span>
+                                <span>·</span>
+                                <span>Updated {formatMetaDate(sprint.updatedAt)}</span>
+                              </div>
+                              {sprint.goal ? (
+                                <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                                  {sprint.goal}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] ${STATUS_BADGE_TONES[sprint.status]}`}>
+                                {STATUS_LABELS[sprint.status]}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                              <div className="font-mono text-lg font-bold text-slate-700 dark:text-white">{sprint.tasksCount}</div>
+                              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">planned tasks</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex min-w-[10rem] items-center gap-3">
+                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.06]">
+                                  <div
+                                    className="h-full rounded-full bg-signal-500 transition-[width]"
+                                    style={{ width: `${sprint.completion}%` }}
+                                  />
+                                </div>
+                                <span className="font-mono text-sm font-bold text-slate-700 dark:text-white">{sprint.completion}%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                              {formatTableDate(sprint.createdAt)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { handleSprintToggle(sprint.id); }}
+                                  disabled={pendingActionIds.has(pendingActionId)}
+                                  className="rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/[0.14] disabled:cursor-not-allowed disabled:opacity-50 dark:text-signal-300"
+                                >
+                                  {activeRun ? "Stop" : "Start"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { void handleOpenExport(sprint.id, sprint.name); }}
+                                  className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white"
+                                >
+                                  Export
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSprint(sprint)}
+                                  className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-void-800/55 dark:text-slate-400">
+            Projects scope the sprint gallery. Select a project from the top navigation before creating or planning sprints.
+          </div>
+        )}
+      </div>
 
-            {exportState && (
-                <SprintMarkdownModal
-                    mode="export"
-                    sprintLabel={exportState.sprintLabel}
-                    sprintMarkdown={exportState.sprintMarkdown}
-                    tasksMarkdown={exportState.tasksMarkdown}
-                    onClose={() => setExportState(null)}
-                />
-            )}
-        </>
-    );
+      {(showCreateModal || editingSprint) && (
+        <AddSprintModal
+          nextId={nextId}
+          initialSprint={editingSprint}
+          planningConnectionLabel={planningConnection?.displayName || null}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditingSprint(null);
+          }}
+          onImprovePrompt={editingSprint ? undefined : handleImprovePrompt}
+          onSubmit={(payload) => handleSubmitSprint(payload)}
+        />
+      )}
+
+      {showImportModal && (
+        <SprintMarkdownModal
+          mode="import"
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportSprint}
+        />
+      )}
+
+      {exportState && (
+        <SprintMarkdownModal
+          mode="export"
+          sprintLabel={exportState.sprintLabel}
+          sprintMarkdown={exportState.sprintMarkdown}
+          tasksMarkdown={exportState.tasksMarkdown}
+          onClose={() => setExportState(null)}
+        />
+      )}
+    </>
+  );
 };

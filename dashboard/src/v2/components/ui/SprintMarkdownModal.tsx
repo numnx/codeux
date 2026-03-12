@@ -63,6 +63,16 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
     onClose();
   };
 
+  const handleDownload = (fileName: string, text: string) => {
+    const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const title = mode === "import" ? "Import Sprint Markdown." : `Export ${sprintLabel || "Sprint"} Markdown.`;
   const subtitle = mode === "import"
     ? "Paste one sprint markdown document and an optional task bundle."
@@ -123,14 +133,24 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Markdown</label>
                   {mode === "export" && (
-                    <button
-                      type="button"
-                      onClick={() => { void handleCopy("sprint", sprintText); }}
-                      className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-                    >
-                      {copiedField === "sprint" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      {copiedField === "sprint" ? "Copied" : "Copy"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}.md`, sprintText)}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { void handleCopy("sprint", sprintText); }}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                      >
+                        {copiedField === "sprint" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        {copiedField === "sprint" ? "Copied" : "Copy"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <textarea
@@ -146,14 +166,24 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Bundle</label>
                   {mode === "export" && (
-                    <button
-                      type="button"
-                      onClick={() => { void handleCopy("tasks", tasksText); }}
-                      className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-                    >
-                      {copiedField === "tasks" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      {copiedField === "tasks" ? "Copied" : "Copy"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}-tasks.md`, tasksText)}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { void handleCopy("tasks", tasksText); }}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                      >
+                        {copiedField === "tasks" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        {copiedField === "tasks" ? "Copied" : "Copy"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <textarea

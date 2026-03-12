@@ -1,254 +1,323 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { X, Plus, Target, CalendarDays, Sparkles, Loader2, FileText } from "lucide-preact";
+import {
+  ChevronDown,
+  ClipboardList,
+  Loader2,
+  Rocket,
+  Save,
+  Sparkles,
+  Target,
+  X,
+} from "lucide-preact";
+import type { Sprint } from "../../types.js";
 
-interface AddSprintModalProps {
-    nextId: string;
-    onClose: () => void;
-    onAdd: (sprint: {
-        name: string;
-        goal: string;
-        startDate: string;
-        endDate: string;
-        status: "idle";
-    }) => void;
+export type SprintSubmitMode = "plan_and_start" | "plan_only" | "draft";
+
+interface SprintDraftInput {
+  name: string;
+  goal: string;
 }
 
-export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({ nextId, onClose, onAdd }) => {
-    const backdropRef = useRef<HTMLDivElement>(null);
-    const cardRef     = useRef<HTMLDivElement>(null);
-    const fieldsRef   = useRef<HTMLDivElement>(null);
+interface AddSprintModalProps {
+  nextId: string;
+  initialSprint?: Sprint | null;
+  planningConnectionLabel?: string | null;
+  onClose: () => void;
+  onImprovePrompt?: (draft: SprintDraftInput) => Promise<string>;
+  onSubmit: (payload: SprintDraftInput & { submitMode: SprintSubmitMode }) => Promise<void> | void;
+}
 
-    const [name, setName]               = useState('');
-    const [startDate, setStartDate]     = useState('');
-    const [endDate, setEndDate]         = useState('');
-    const [description, setDescription] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
+const CREATE_MODES: Array<{
+  id: SprintSubmitMode;
+  label: string;
+  description: string;
+  icon: typeof Rocket;
+}> = [
+  {
+    id: "plan_and_start",
+    label: "Plan & Start",
+    description: "Create the sprint, let the Planning agent build subtasks, then start execution.",
+    icon: Rocket,
+  },
+  {
+    id: "plan_only",
+    label: "Plan Only",
+    description: "Create the sprint and have the Planning agent generate subtasks without starting it.",
+    icon: ClipboardList,
+  },
+  {
+    id: "draft",
+    label: "Save Draft",
+    description: "Create the sprint record only and keep it ready for later planning.",
+    icon: Save,
+  },
+];
 
-    // Entrance — useLayoutEffect so initial from-state is set before first paint
-    useLayoutEffect(() => {
-        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
-        gsap.fromTo(cardRef.current,
-            { y: 48, opacity: 0, scale: 0.94 },
-            { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.out", delay: 0.05 }
-        );
-        if (fieldsRef.current) {
-            gsap.fromTo(Array.from(fieldsRef.current.children),
-                { y: 18, opacity: 0 },
-                { y: 0, opacity: 1, stagger: 0.07, duration: 0.45, ease: "power3.out", delay: 0.25 }
-            );
-        }
-    }, []);
+export const AddSprintModal: FunctionComponent<AddSprintModalProps> = ({
+  nextId,
+  initialSprint = null,
+  planningConnectionLabel = null,
+  onClose,
+  onImprovePrompt,
+  onSubmit,
+}) => {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const [name, setName] = useState(initialSprint?.name || "");
+  const [goal, setGoal] = useState(initialSprint?.goal || "");
+  const [isImproving, setIsImproving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [submitMode, setSubmitMode] = useState<SprintSubmitMode>("plan_and_start");
+  const isEditing = Boolean(initialSprint);
 
-    const handleClose = () => {
-        gsap.to(cardRef.current, { y: 24, opacity: 0, scale: 0.96, duration: 0.28, ease: "power3.in" });
-        gsap.to(backdropRef.current, { opacity: 0, duration: 0.28, delay: 0.05, onComplete: onClose });
-    };
-
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-        document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler);
-    }, []);
-
-    const handleBackdropClick = (e: MouseEvent) => {
-        if (e.target === backdropRef.current) handleClose();
-    };
-
-    const handleSubmit = (e: Event) => {
-        e.preventDefault();
-        if (!name.trim() || !startDate || !endDate) return;
-        onAdd({
-            name: name.trim(),
-            goal: description.trim(),
-            startDate,
-            endDate,
-            status: 'idle',
-        });
-        handleClose();
-    };
-
-    return (
-        <div
-            ref={backdropRef}
-            onClick={handleBackdropClick}
-            className="fixed inset-0 z-[200] flex items-center justify-center px-6 bg-black/50 dark:bg-black/70 backdrop-blur-xl"
-        >
-            <div
-                ref={cardRef}
-                className="relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)] flex"
-                style={{ minHeight: '540px' }}
-            >
-                {/* ── Left decorative panel ── */}
-                <div className="relative w-52 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
-                    <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">
-                        NEW
-                    </span>
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-44 h-44 bg-signal-500/[0.08] animate-organic" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }} />
-                        <div className="absolute w-32 h-32 bg-signal-500/[0.12] animate-organic-reverse" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }} />
-                        <div className="absolute w-20 h-20 bg-signal-500/[0.18] animate-organic" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }} />
-                    </div>
-                    <div className="relative z-10 flex items-center gap-2 text-signal-500 font-mono font-bold text-[10px] tracking-[0.2em] uppercase">
-                        <Target className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        New Sprint
-                    </div>
-                    <div className="relative z-10">
-                        <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 font-mono mb-1.5">Sprint ID</div>
-                        <div className="text-4xl font-black text-white font-mono tracking-tighter leading-none">
-                            {nextId.toUpperCase()}
-                        </div>
-                        <div className="mt-3 w-8 h-[2px] bg-signal-500/50" />
-                    </div>
-                </div>
-
-                {/* ── Right form panel ── */}
-                <div className="flex-1 bg-white/98 dark:bg-void-800/98 p-8 flex flex-col">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-8">
-                        <div>
-                            <h2 className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
-                                Launch Sprint.
-                            </h2>
-                            <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
-                                Define the next iteration cycle
-                            </p>
-                        </div>
-                        <button
-                            onClick={handleClose}
-                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-                        <div ref={fieldsRef} className="flex flex-col gap-6 flex-1">
-
-                            {/* Sprint Name */}
-                            <div className="group/field">
-                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-signal-600 dark:group-focus-within/field:text-signal-400 transition-colors">
-                                    Sprint Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onInput={(e) => setName((e.target as HTMLInputElement).value)}
-                                    placeholder="Authentication Overhaul"
-                                    className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-signal-500 dark:focus:border-signal-500 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 focus:outline-none transition-colors font-display tracking-tight leading-none"
-                                    required
-                                    autoFocus
-                                />
-                            </div>
-
-                            {/* Date range */}
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="group/field">
-                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-signal-600 dark:group-focus-within/field:text-signal-400 transition-colors flex items-center gap-1.5">
-                                        <CalendarDays className="w-3 h-3" /> Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onInput={(e) => setStartDate((e.target as HTMLInputElement).value)}
-                                        className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-signal-500 dark:focus:border-signal-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 focus:outline-none transition-colors"
-                                        required
-                                    />
-                                </div>
-                                <div className="group/field">
-                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-signal-600 dark:group-focus-within/field:text-signal-400 transition-colors flex items-center gap-1.5">
-                                        <CalendarDays className="w-3 h-3" /> End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onInput={(e) => setEndDate((e.target as HTMLInputElement).value)}
-                                        className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-signal-500 dark:focus:border-signal-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 focus:outline-none transition-colors"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Description + AI — fills remaining space */}
-                            <div className="flex flex-col flex-1 min-h-0">
-                                {/* Label row with AI button */}
-                                <div className="flex items-center justify-between mb-2.5">
-                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
-                                        <FileText className="w-3 h-3" /> Description
-                                    </label>
-
-                                    {/* AI generate button */}
-                                    <button
-                                        type="button"
-                                        disabled={isGenerating}
-                                        onClick={() => setIsGenerating(g => !g)}
-                                        className={`group/ai flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-[0.15em] border transition-all duration-300 ${
-                                            isGenerating
-                                                ? 'bg-signal-500/[0.06] border-signal-500/30 text-signal-500/60 cursor-not-allowed'
-                                                : 'bg-signal-500/[0.07] border-signal-500/25 text-signal-600 dark:text-signal-400 hover:bg-signal-500/[0.14] hover:border-signal-500/55 hover:shadow-[0_0_14px_rgba(0,224,160,0.2)] hover:-translate-y-px'
-                                        }`}
-                                    >
-                                        {isGenerating
-                                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                                            : <Sparkles className="w-3 h-3 group-hover/ai:scale-110 transition-transform duration-200" />
-                                        }
-                                        {isGenerating ? 'Generating...' : 'Generate with AI'}
-                                    </button>
-                                </div>
-
-                                {/* Textarea with generating overlay */}
-                                <div className={`relative flex-1 transition-all duration-500 rounded-2xl ${
-                                    isGenerating
-                                        ? 'shadow-[0_0_0_1.5px_rgba(0,224,160,0.45),0_0_24px_rgba(0,224,160,0.12)]'
-                                        : ''
-                                }`}>
-                                    <textarea
-                                        value={description}
-                                        onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-                                        placeholder={isGenerating ? '' : "Describe your sprint goals, paste a brief idea, or write a rough scope."}
-                                        className={`w-full h-full min-h-[128px] bg-black/[0.025] dark:bg-white/[0.03] border rounded-2xl p-4 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none resize-none leading-relaxed transition-all duration-300 ${
-                                            isGenerating
-                                                ? 'border-signal-500/40 dark:border-signal-500/30'
-                                                : 'border-black/[0.07] dark:border-white/[0.07] focus:border-signal-500/50 dark:focus:border-signal-500/40'
-                                        }`}
-                                    />
-
-                                    {/* Generating shimmer — three scanning lines */}
-                                    {isGenerating && (
-                                        <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
-                                            <div className="absolute inset-x-4 h-px bg-gradient-to-r from-transparent via-signal-500/70 to-transparent animate-pulse" style={{ top: '28%' }} />
-                                            <div className="absolute inset-x-4 h-px bg-gradient-to-r from-transparent via-signal-500/50 to-transparent animate-pulse" style={{ top: '52%', animationDelay: '0.35s' }} />
-                                            <div className="absolute inset-x-4 h-px bg-gradient-to-r from-transparent via-signal-500/30 to-transparent animate-pulse" style={{ top: '76%', animationDelay: '0.7s' }} />
-                                            {/* Corner cursor blink */}
-                                            <div className="absolute top-4 left-4 w-[2px] h-4 bg-signal-500 animate-[blink_1s_step-end_infinite] rounded-full" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-between pt-1">
-                                <button
-                                    type="button"
-                                    onClick={handleClose}
-                                    className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="group/btn flex items-center gap-2.5 px-6 py-3 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.3)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.45)] hover:-translate-y-px"
-                                >
-                                    <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
-                                    Launch Sprint
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+  useLayoutEffect(() => {
+    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
+    gsap.fromTo(
+      cardRef.current,
+      { y: 48, opacity: 0, scale: 0.94 },
+      { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.out", delay: 0.05 },
     );
+    if (fieldsRef.current) {
+      gsap.fromTo(
+        Array.from(fieldsRef.current.children),
+        { y: 18, opacity: 0 },
+        { y: 0, opacity: 1, stagger: 0.07, duration: 0.45, ease: "power3.out", delay: 0.22 },
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const activeMode = CREATE_MODES.find((mode) => mode.id === submitMode) || CREATE_MODES[0]!;
+  const ActiveModeIcon = activeMode.icon;
+
+  const handleBackdropClick = (event: MouseEvent) => {
+    if (event.target === backdropRef.current) {
+      onClose();
+    }
+  };
+
+  const handleImprovePrompt = async (): Promise<void> => {
+    if (!onImprovePrompt || !name.trim() || !goal.trim()) {
+      return;
+    }
+    setIsImproving(true);
+    try {
+      const improvedGoal = await onImprovePrompt({
+        name: name.trim(),
+        goal: goal.trim(),
+      });
+      setGoal(improvedGoal);
+    } finally {
+      setIsImproving(false);
+    }
+  };
+
+  const handleSubmit = async (event: Event) => {
+    event.preventDefault();
+    if (!name.trim()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        goal: goal.trim(),
+        submitMode: isEditing ? "draft" : submitMode,
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      ref={backdropRef}
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-[200] overflow-y-auto bg-black/55 backdrop-blur-xl dark:bg-black/75"
+    >
+      <div className="flex min-h-full items-start justify-center px-3 py-4 sm:px-6 sm:py-8 md:items-center">
+        <div
+          ref={cardRef}
+          className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-y-auto rounded-[2rem] shadow-[0_40px_88px_rgba(0,0,0,0.28)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.72)] md:max-h-[92vh] md:flex-row md:rounded-[2.4rem]"
+        >
+          <div className="relative flex w-full shrink-0 flex-col justify-between overflow-hidden bg-[#0d1113] p-5 text-white sm:p-6 md:w-64 md:p-8">
+            <span className="pointer-events-none absolute -left-3 -top-2 select-none font-display text-[7.5rem] font-black leading-none tracking-tighter text-white/[0.035]">
+              {isEditing ? "EDIT" : "SPR"}
+            </span>
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(0,224,160,0.16),transparent_30%),radial-gradient(circle_at_80%_80%,rgba(255,184,0,0.14),transparent_35%)]" />
+            <div className="relative z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
+              <Target className="h-3.5 w-3.5" strokeWidth={2.4} />
+              {isEditing ? "Edit Sprint" : "New Sprint"}
+            </div>
+            <div className="relative z-10 space-y-4">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">Sprint Key</div>
+                <div className="mt-2 font-mono text-3xl font-black tracking-tight sm:text-4xl">{(initialSprint?.number ? `SPR-${initialSprint.number}` : nextId).toUpperCase()}</div>
+              </div>
+              <p className="max-w-[18rem] text-sm leading-relaxed text-white/55">
+                {isEditing
+                  ? "Refine the sprint definition and keep the Planning agent instructions intact."
+                  : "Improve the prompt with AI first, then choose whether the Planning agent should plan and launch or only draft the sprint."}
+              </p>
+            </div>
+            {!isEditing && (
+              <div className="relative z-10 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 text-xs leading-relaxed text-white/60">
+                Planning and prompt improvement are worker-backed actions. A connected Planning worker needs to be available.
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 bg-white/98 p-5 dark:bg-void-800/98 sm:p-6 md:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4 md:mb-8">
+              <div>
+                <h2 className="font-display text-[1.75rem] font-black leading-none tracking-tight text-slate-900 dark:text-white sm:text-[2rem]">
+                  {isEditing ? "Edit Sprint." : "Shape The Sprint."}
+                </h2>
+                <p className="mt-2 text-xs font-medium tracking-wide text-slate-400">
+                  {isEditing
+                    ? "Update the sprint metadata stored in the database."
+                    : "Define the sprint once and let the Planning agent take care of the task breakdown."}
+                </p>
+                {!isEditing && (
+                  <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300">
+                    <Sparkles className="h-3 w-3 text-signal-500" strokeWidth={2.2} />
+                    {planningConnectionLabel ? `Planning via ${planningConnectionLabel}` : "No Planning Connection"}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.05] text-slate-400 transition-all hover:bg-black/10 hover:text-slate-900 dark:bg-white/[0.05] dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            <div ref={fieldsRef} className="flex flex-col gap-6">
+              <label className="space-y-2">
+                <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Name</span>
+                <input
+                  type="text"
+                  value={name}
+                  onInput={(event) => setName((event.target as HTMLInputElement).value)}
+                  placeholder="Runtime hardening"
+                  className="w-full border-0 border-b-2 border-black/[0.08] bg-transparent pb-3 font-display text-[1.7rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700"
+                  required
+                  autoFocus
+                />
+              </label>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Prompt</label>
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => { void handleImprovePrompt(); }}
+                      disabled={isImproving || !name.trim() || !goal.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-signal-600 transition-all hover:bg-signal-500/[0.14] disabled:cursor-not-allowed disabled:opacity-50 dark:text-signal-300"
+                    >
+                      {isImproving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" strokeWidth={2.3} />}
+                      {isImproving ? "Improving" : "Improve with AI"}
+                    </button>
+                  )}
+                </div>
+                <div className={`rounded-[1.7rem] border bg-black/[0.025] transition-all dark:bg-white/[0.03] ${isImproving ? "border-signal-500/40 shadow-[0_0_0_1px_rgba(0,224,160,0.24),0_0_30px_rgba(0,224,160,0.12)]" : "border-black/[0.07] dark:border-white/[0.08]"}`}>
+                  <textarea
+                    value={goal}
+                    onInput={(event) => setGoal((event.target as HTMLTextAreaElement).value)}
+                    placeholder="Describe the sprint outcome, key systems, and what good looks like when this sprint is done."
+                    className="min-h-[180px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-600 sm:min-h-[220px] md:min-h-[240px] md:px-5"
+                  />
+                </div>
+              </div>
+
+              {!isEditing && (
+                <div className="rounded-[1.5rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Creation Mode</div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen((current) => !current)}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-void-900"
+                    >
+                      <ActiveModeIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+                      {activeMode.label}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuOpen ? "rotate-180" : ""}`} strokeWidth={2.2} />
+                    </button>
+                    <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{activeMode.description}</p>
+                  </div>
+                  <div className={`expand-grid mt-4 ${menuOpen ? "expanded" : ""}`}>
+                    <div className="expand-content">
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                        {CREATE_MODES.map((mode) => {
+                          const ModeIcon = mode.icon;
+                          return (
+                            <button
+                              key={mode.id}
+                              type="button"
+                              onClick={() => {
+                                setSubmitMode(mode.id);
+                                setMenuOpen(false);
+                              }}
+                              className={`rounded-[1.3rem] border px-4 py-4 text-left transition-all ${
+                                submitMode === mode.id
+                                  ? "border-signal-500/35 bg-signal-500/[0.08] text-slate-900 dark:text-white"
+                                  : "border-black/[0.08] bg-white/70 text-slate-500 hover:border-black/[0.12] hover:bg-white dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-slate-400 dark:hover:border-white/[0.12]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em]">
+                                <ModeIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+                                {mode.label}
+                              </div>
+                              <div className="mt-2 text-xs leading-relaxed">{mode.description}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-sm font-semibold text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || !name.trim()}
+                className="inline-flex items-center gap-2.5 rounded-[1.2rem] bg-signal-500 px-6 py-3 text-sm font-bold text-void-900 shadow-[0_8px_28px_rgba(0,224,160,0.28)] transition-all hover:-translate-y-px hover:bg-signal-400 hover:shadow-[0_14px_38px_rgba(0,224,160,0.34)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ActiveModeIcon className="h-4 w-4" strokeWidth={2.4} />}
+                {isEditing ? "Save Changes" : activeMode.label}
+              </button>
+            </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };

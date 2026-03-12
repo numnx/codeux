@@ -1,7 +1,7 @@
 # Agent Preset Foundation
 
 ## Status
-Implemented foundation
+Implemented foundation, later extended with markdown sync and Planning agent orchestration
 
 ## Purpose
 
@@ -17,7 +17,7 @@ Agent presets are stored in sqlite table:
 
 - `agent_presets`
 
-Current fields:
+Foundation fields:
 
 - `id`
 - `project_id`
@@ -26,6 +26,10 @@ Current fields:
 - `labels_json`
 - `created_at`
 - `updated_at`
+
+The current markdown-sync and Planning agent extensions are documented in:
+
+- [Agent Sync And Planning Agent](./agent-sync-and-planning-agent.md)
 
 Implementation files:
 
@@ -52,13 +56,13 @@ These endpoints are project-scoped and intentionally separate from:
 
 The v2 `Agents` page now manages project-scoped presets only.
 
-Current supported fields:
+Foundation-supported fields:
 
 - preset name
 - labels
 - instruction markdown
 
-This gives Sprint OS a clean product foundation for:
+This foundation gave Sprint OS a clean product base for:
 
 - reusable planning roles
 - reusable worker role definitions later

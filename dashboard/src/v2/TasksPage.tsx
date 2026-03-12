@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   ListChecks,
   ChevronDown,
@@ -342,10 +342,11 @@ export const TasksPage: FunctionComponent = () => {
   const boardRef = useRef<HTMLDivElement>(null);
   const { projects, selectedProject } = useProjectData();
   const { sprints, refresh: refreshSprints } = useProjectSprints(selectedProject?.id || null);
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialSprint = urlParams.get("sprint");
-
+  const locationSearch = useRouterState({ select: (state) => state.location.searchStr });
+  const initialSprint = useMemo(() => {
+    const params = new URLSearchParams(locationSearch);
+    return params.get("sprint");
+  }, [locationSearch]);
   const [selectedSprint, setSelectedSprint] = useState<string | null>(initialSprint);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
@@ -378,6 +379,10 @@ export const TasksPage: FunctionComponent = () => {
       });
     }
   }, [selectedProject?.id, selectedSprint, statusFilter, priorityFilter]);
+
+  useEffect(() => {
+    setSelectedSprint(initialSprint);
+  }, [initialSprint, selectedProject?.id]);
 
   useEffect(() => {
     if (selectedSprint && !sprints.some((sprint) => sprint.id === selectedSprint)) {

@@ -4,11 +4,13 @@ import { SprintDependencies } from "./sprint-factory.js";
 import { ActivityCacheService } from "../../server/activity-cache-service.js";
 import { TaskRerunService } from "../../services/task-rerun-service.js";
 import { ExecutionControlService } from "../../services/execution-control-service.js";
+import { PlanningAgentService } from "../../services/planning-agent-service.js";
 
 export interface DashboardDependencies {
   activityCacheService: ActivityCacheService;
   taskRerunService: TaskRerunService;
   executionControlService: ExecutionControlService;
+  planningAgentService: PlanningAgentService;
 }
 
 export function createDashboardDependencies(
@@ -16,7 +18,16 @@ export function createDashboardDependencies(
   coreDeps: CoreDependencies,
   sprintDeps: SprintDependencies
 ): DashboardDependencies {
-  const { logger, projectRuntimeRepository, projectManagementRepository, executionRepository, julesApi, activeDispatchRegistry } = coreDeps;
+  const {
+    logger,
+    projectRuntimeRepository,
+    projectManagementRepository,
+    connectionChatRepository,
+    agentPresetSyncService,
+    executionRepository,
+    julesApi,
+    activeDispatchRegistry,
+  } = coreDeps;
   const { sprintTaskDispatchService, sprintOrchestrator } = sprintDeps;
 
   const activityCacheService = new ActivityCacheService(
@@ -124,9 +135,18 @@ export function createDashboardDependencies(
     logger: logger.child({ component: "execution-control-service" }),
   });
 
+  const planningAgentService = new PlanningAgentService({
+    projectManagementRepository,
+    connectionChatRepository,
+    agentPresetSyncService,
+    executionControlService,
+    logger: logger.child({ component: "planning-agent-service" }),
+  });
+
   return {
     activityCacheService,
     taskRerunService,
     executionControlService,
+    planningAgentService,
   };
 }
