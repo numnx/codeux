@@ -18,6 +18,7 @@
 - [Execution Dashboard Controls](./architecture/execution-dashboard-controls.md)
 - [Project Management Implementation](./architecture/project-management-implementation.md)
 - [Project Runtime Integration](./architecture/project-runtime-integration.md)
+- [Multi-Project Agentic Refactor Plan](./architecture/multi-project-agentic-refactor-plan.md)
 - [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
 - [Agent Sync And Planning Agent](./architecture/agent-sync-and-planning-agent.md)
 - [Live Connections Runtime Surface](./architecture/live-connections-runtime-surface.md)
