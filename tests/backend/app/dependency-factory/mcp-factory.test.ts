@@ -148,7 +148,6 @@ describe("MCP Factory", () => {
     // Get the arguments passed to AgentToolHandler constructor
     const agentArgs = vi.mocked(AgentToolHandler).mock.calls[0][0];
 
-    expect(agentArgs.getDashboardSettings()).toEqual({ testSetting: true });
     expect(agentArgs.getConsecutiveFailures()).toBe(3); // Updated from setConsecutiveFailures(3) above
 
     agentArgs.setConsecutiveFailures(4);
@@ -177,6 +176,5 @@ describe("MCP Factory", () => {
 
     const agentArgs = vi.mocked(AgentToolHandler).mock.calls[0][0];
     expect(agentArgs.getMaxFailures()).toBe(5);
-    expect(agentArgs.getDashboardSettings()).toBeDefined();
   });
 });

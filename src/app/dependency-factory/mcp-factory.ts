@@ -3,7 +3,6 @@ import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { CoreToolHandler } from "../../mcp/core-tool-handler.js";
 import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
-import { formatSprintBranch } from "../../git/sprint-branch-scheme.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
@@ -34,7 +33,7 @@ export function createMcpDependencies(
     projectManagementRepository,
     activeDispatchRegistry,
   } = coreDeps;
-  const { sprintOrchestrator, taskService } = sprintDeps;
+  const { taskService } = sprintDeps;
   const workerTaskDispatchService = new WorkerTaskDispatchService(
     executionRepository,
     projectManagementRepository,
@@ -84,7 +83,6 @@ export function createMcpDependencies(
   });
 
   const agentToolHandler = new AgentToolHandler({
-    sprintOrchestrator,
     taskService,
     workerDispatchExecutionService: new WorkerDispatchExecutionService(
       executionRepository,
@@ -102,8 +100,6 @@ export function createMcpDependencies(
       getGithubToken: () => context.getEffectiveGithubToken(),
       logger: logger.child({ component: "worker-inbox-reply-service" }),
     }),
-    getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
-    formatSprintBranch,
     getConsecutiveFailures: () => context.runtimeContext.consecutiveFailures,
     setConsecutiveFailures: (value) => { context.runtimeContext.consecutiveFailures = value; },
     getMaxFailures: () => context.runtimeContext.settings.maxFailures || 5,

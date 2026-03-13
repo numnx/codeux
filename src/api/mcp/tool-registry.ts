@@ -2,7 +2,6 @@ import type { ToolName as ContractToolName } from "../../contracts/mcp-tool-defi
 import type { McpConnectionCapabilities, McpConnectionRole } from "../../contracts/connection-chat-types.js";
 import type { TaskRunState } from "../../contracts/execution-types.js";
 import type { WorkerAttentionOutcome } from "../../contracts/project-attention-types.js";
-import type { SprintAgentArgs } from "../../sprint/sprint-types.js";
 
 export interface GetSourceArgs {
   source_id: string;
@@ -187,7 +186,6 @@ export interface McpToolArgsByName {
   get_activity: GetActivityArgs;
   list_activities: ListActivitiesArgs;
   list_all_activities: ListAllActivitiesArgs;
-  sprint_agent: SprintAgentArgs;
   task_agent: TaskAgentArgs;
   execute_worker_dispatch: ExecuteWorkerDispatchArgs;
   cancel_local_dispatch: CancelLocalDispatchArgs;

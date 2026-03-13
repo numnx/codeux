@@ -161,7 +161,7 @@ describe("ExecutionRepository", () => {
     executionRepository.acquireLease({
       scopeType: "sprint",
       scopeId: sprint.id,
-      ownerKey: "sprint_agent",
+      ownerKey: "sprint_orchestrator",
       leaseToken: "cancel-lease-token",
       expiresAt: "2030-03-09T12:00:00.000Z",
     });
@@ -349,7 +349,7 @@ describe("ExecutionRepository", () => {
     executionRepository.acquireLease({
       scopeType: "sprint",
       scopeId: sprint.id,
-      ownerKey: "sprint_agent",
+      ownerKey: "sprint_orchestrator",
       leaseToken: "lease-sprint-1",
       expiresAt: "2030-03-09T12:00:00.000Z",
     });
@@ -401,7 +401,7 @@ describe("ExecutionRepository", () => {
       sprintId: sprint.id,
       sprintName: "Snapshot Sprint",
       status: "running",
-      activeLeaseOwnerKey: "sprint_agent",
+      activeLeaseOwnerKey: "sprint_orchestrator",
     });
     expect(snapshot.taskDispatches[0]).toMatchObject({
       id: dispatch.id,
@@ -487,7 +487,7 @@ describe("ExecutionRepository", () => {
       sprintId: sprint.id,
       status: "paused",
       triggerType: "mcp",
-      triggeredBy: "sprint_agent",
+      triggeredBy: "sprint_orchestrator",
     });
 
     executionRepository.appendSprintRunEvent(sprintRun.id, "planning_preflight_blocked", "system", {

@@ -13,7 +13,6 @@ export interface SprintAgentArgs {
   action: "status" | "orchestrate" | "plan";
   wait?: boolean;
   retry_failed?: boolean;
-  checkpoint_policy?: "return" | "continue";
 }
 
 export interface SprintCycleResult {

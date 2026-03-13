@@ -27,7 +27,6 @@ export interface WatchLoopRunnerArgs {
   dashboardPort: number;
   sprintRunId: string;
   leaseToken?: string;
-  checkpointPolicy?: "return" | "continue";
 }
 
 export class WatchLoopRunner {
@@ -53,7 +52,6 @@ export class WatchLoopRunner {
       dashboardPort,
       sprintRunId,
       leaseToken,
-      checkpointPolicy = "return",
     } = params;
     const scopedExecutionContext = executionContext || {
       project: { id: "unknown-project", name: "Selected Project" },
@@ -324,46 +322,14 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.CHECKPOINT: {
-          const pendingTasks = subtasks.filter((task) => task.status === "PENDING");
-          const completedTasks = subtasks.filter((task) => task.status === "COMPLETED");
-          const failedTasks = subtasks.filter((task) => task.status === "FAILED");
-
-          fullReport += reportText;
-          fullReport += statusTable;
-          fullReport += instructions;
-          fullReport += await this.deps.renderInstruction(
-            "watchContinue",
-            {
-              elapsed_seconds: Math.floor(elapsedMs / 1000),
-              action: args.action,
-              running_tasks: runningTasks.length,
-              pending_tasks: pendingTasks.length,
-              completed_tasks: completedTasks.length,
-              failed_tasks: failedTasks.length,
-            },
-            repoPath
-          );
-          if (checkpointPolicy === "continue") {
-            this.renewSprintRunHeartbeat({
-              sprintRunId,
-              sprintId: scopedExecutionContext.sprint.id,
-              leaseToken,
-            });
-            checkpointWindowStartedAt = Date.now();
-            fullReport = await this.deps.renderInstruction(
-              "watchHeader",
-              {
-                sprint_number: scopedExecutionContext.sprintNumber,
-                feature_branch: defaultFeatureBranch,
-                dashboard_port: dashboardPort,
-              },
-              repoPath
-            );
-            fullReport += "\n";
-            await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
-            break;
-          }
-          return fullReport;
+          this.renewSprintRunHeartbeat({
+            sprintRunId,
+            sprintId: scopedExecutionContext.sprint.id,
+            leaseToken,
+          });
+          checkpointWindowStartedAt = Date.now();
+          await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
+          break;
         }
 
         case WatchLoopState.RUNNING: {

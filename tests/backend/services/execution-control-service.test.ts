@@ -90,7 +90,6 @@ describe("ExecutionControlService", () => {
       project_id: project.id,
       sprint_id: sprint.id,
       wait: true,
-      checkpoint_policy: "continue",
     }));
   });
 
@@ -117,7 +116,7 @@ describe("ExecutionControlService", () => {
     executionRepository.acquireLease({
       scopeType: "sprint",
       scopeId: sprint.id,
-      ownerKey: "sprint_agent",
+      ownerKey: "sprint_orchestrator",
       leaseToken: "stale-lease-token",
       expiresAt: "2030-03-09T12:00:00.000Z",
     });
@@ -130,7 +129,6 @@ describe("ExecutionControlService", () => {
       project_id: project.id,
       sprint_id: sprint.id,
       wait: true,
-      checkpoint_policy: "continue",
     }));
   });
 
@@ -156,7 +154,7 @@ describe("ExecutionControlService", () => {
     executionRepository.acquireLease({
       scopeType: "sprint",
       scopeId: sprint.id,
-      ownerKey: "sprint_agent",
+      ownerKey: "sprint_orchestrator",
       leaseToken: "lingering-lease-token",
       expiresAt: "2030-03-09T12:00:00.000Z",
     });

@@ -28,6 +28,8 @@ import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-
 import type { Logger } from "../shared/logging/logger.js";
 import { MainMergeGateService, type MergeFeedbackResult } from "../domain/sprint/ci/main-merge-gate.js";
 
+const SPRINT_ORCHESTRATOR_OWNER_KEY = "sprint_orchestrator";
+
 export interface SprintOrchestratorDependencies {
   settings: Settings;
   dashboardPort: number;
@@ -234,7 +236,7 @@ export class SprintOrchestrator {
       projectId: args.projectId,
       sprintId: args.sprintId,
       triggerType: "mcp",
-      triggeredBy: "sprint_agent",
+      triggeredBy: SPRINT_ORCHESTRATOR_OWNER_KEY,
       executorMode: "mixed",
       status: "paused",
     });
@@ -345,8 +347,6 @@ export class SprintOrchestrator {
     const requestedWait = args.wait !== undefined ? args.wait : supportsWatchMode;
     const shouldWait = supportsWatchMode && requestedWait;
     const watchLoopEnabled = shouldWait && loopSteps.watchLoop;
-    const checkpointPolicy = args.checkpoint_policy === "continue" ? "continue" : "return";
-
     switch (args.action) {
       case "plan":
         return await this.actionRunner.runPlan(args, planningTarget, repoPath);
@@ -406,7 +406,7 @@ export class SprintOrchestrator {
           this.deps.executionRepository.acquireLease({
             scopeType: "sprint",
             scopeId: executionContext.sprint.id,
-            ownerKey: "sprint_agent",
+            ownerKey: SPRINT_ORCHESTRATOR_OWNER_KEY,
             leaseToken,
             expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           });
@@ -430,7 +430,7 @@ export class SprintOrchestrator {
           projectId: executionContext.project.id,
           sprintId: executionContext.sprint.id,
           triggerType: "mcp",
-          triggeredBy: "sprint_agent",
+          triggeredBy: SPRINT_ORCHESTRATOR_OWNER_KEY,
           executorMode: "mixed",
           status: "running",
         });
@@ -459,7 +459,6 @@ export class SprintOrchestrator {
               watchLoopEnabled,
               sprintRunId: sprintRun.id,
               leaseToken,
-              checkpointPolicy,
             });
           } catch (error) {
             const failedAt = new Date().toISOString();

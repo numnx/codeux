@@ -1382,7 +1382,7 @@ Every phase should add tests before the next phase lands.
 
 ### Regression tests
 
-- `sprint_agent` still works for single-project manual use
+- dashboard-triggered sprint orchestration remains stable for single-project use while the multi-project runtime expands
 - dashboard rerun/cancel behavior remains correct
 - worker lease expiry still reopens work safely
 - no flow depends on selected project or `process.cwd()` during autonomous orchestration
@@ -1462,7 +1462,7 @@ If this refactor is parallelized across multiple engineers:
 
 - Rewriting the CLI provider pipeline from scratch
 - Removing `worker_host` immediately
-- Replacing `sprint_agent` as the user-facing primitive before the internals are stable
+- replacing the dashboard as the user-facing orchestration surface before the internals are stable
 - Forcing all projects to require a connected worker
 - Treating hosted API workers as if they automatically have local repo access
 

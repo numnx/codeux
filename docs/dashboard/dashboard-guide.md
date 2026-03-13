@@ -187,7 +187,7 @@ Legacy runtime:
 - When no sprint is running but a paused sprint needs human intervention, the overview telemetry now switches from an empty state to an attention state with the exact reason and operator instructions
 - Task pipeline cards
 - Task cards include a `Rerun` action with confirmation prompt; rerun clears session/PR/merge state for that task and starts it again
-- Reruns now reuse the same dispatch model as `sprint_agent` instead of bypassing execution state
+- Reruns now reuse the same dispatch model as normal dashboard orchestration instead of bypassing execution state
 - Task cards now open a DB-backed runtime feed sourced from `task_run_events`
 - The runtime feed now includes direct CLI stage events, action-required and protocol events, sprint-run lifecycle events, and CI/merge-gate state changes in addition to provider session activity
 - `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`

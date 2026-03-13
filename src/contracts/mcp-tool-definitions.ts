@@ -157,29 +157,6 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "sprint_agent",
-    runtimeRoles: ["project_manager"],
-    description: "Intelligent agent that orchestrates sprints by delegating subtasks to configured providers (Jules/Gemini/Codex).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_id: { type: "string", description: "Optional Sprint OS project id. When omitted, the selected dashboard project is used." },
-        sprint_id: { type: "string", description: "Optional Sprint OS sprint id. Prefer this for precise project-scoped execution." },
-        sprint_number: { type: "number", description: "Optional sprint number within the resolved project scope." },
-        source_id: { type: "string", description: "Optional Jules source ID override. If omitted, it is auto-resolved from repo git remote when Jules is used." },
-        feature_branch: { type: "string", description: "The main feature branch for this sprint." },
-        action: {
-          type: "string",
-          enum: ["status", "orchestrate", "plan"],
-          description: "Action to perform: 'status', 'orchestrate', 'plan'."
-        },
-        wait: { type: "boolean", description: "Whether to wait and watch for all tasks to complete (poll interval is configurable in dashboard settings, default 120s). Defaults to true for 'status' and 'orchestrate'.", default: true },
-        retry_failed: { type: "boolean", description: "Whether to automatically retry failed tasks. Defaults to true.", default: true },
-      },
-      required: ["action"],
-    },
-  },
-  {
     name: "task_agent",
     runtimeRoles: ["project_manager"],
     description: "Executes a single specific task on a codebase via the configured provider workflow with injected engineering standards.",

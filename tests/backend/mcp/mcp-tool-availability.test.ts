@@ -8,7 +8,6 @@ describe("tool availability", () => {
     const workerHostTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_host");
     const workerGatewayTools = getEnabledToolDefinitions(DEFAULT_DASHBOARD_SETTINGS, "worker_gateway");
 
-    expect(projectManagerTools.some((tool) => tool.name === "sprint_agent")).toBe(true);
     expect(projectManagerTools.some((tool) => tool.name === "listen")).toBe(true);
     expect(projectManagerTools.some((tool) => tool.name === "start_listen")).toBe(false);
     expect(projectManagerTools.some((tool) => tool.name === "pull_inbox")).toBe(false);
@@ -18,14 +17,12 @@ describe("tool availability", () => {
     expect(workerHostTools.some((tool) => tool.name === "resolve_attention_item")).toBe(true);
     expect(workerHostTools.some((tool) => tool.name === "report_attention_outcome")).toBe(true);
     expect(workerHostTools.some((tool) => tool.name === "listen")).toBe(true);
-    expect(workerHostTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
     expect(workerGatewayTools.some((tool) => tool.name === "listen")).toBe(true);
     expect(workerGatewayTools.some((tool) => tool.name === "claim_attention_item")).toBe(true);
     expect(workerGatewayTools.some((tool) => tool.name === "resolve_attention_item")).toBe(true);
     expect(workerGatewayTools.some((tool) => tool.name === "report_attention_outcome")).toBe(true);
     expect(workerGatewayTools.some((tool) => tool.name === "update_task_dispatch")).toBe(true);
     expect(workerGatewayTools.some((tool) => tool.name === "execute_worker_dispatch")).toBe(false);
-    expect(workerGatewayTools.some((tool) => tool.name === "sprint_agent")).toBe(false);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "project_manager")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "get_session", "worker_host")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "listen", "project_manager")).toBe(true);

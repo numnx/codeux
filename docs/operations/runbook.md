@@ -17,10 +17,10 @@ If started without key:
 ## Sprint Execution Procedure
 
 1. Verify the repo is a healthy git checkout. Sprint OS now prepares the local feature branch automatically on orchestration start and will try to push it to `origin` when that remote exists.
-2. Run `sprint_agent(action: "plan")`.
-3. Create or verify subtask markdown files.
-4. Run `sprint_agent(action: "orchestrate")`.
-5. Follow merge and action-required protocol until terminal state.
+2. Create or verify sprint tasks in the dashboard, or import them from markdown when needed.
+3. Ensure at least one worker is connected through `listen` for the project when you want supervised execution.
+4. Start the sprint from the dashboard.
+5. Follow merge and action-required protocol until terminal state, resuming from the dashboard after manual intervention.
 
 ## Safety Controls
 
@@ -112,12 +112,12 @@ Checks:
 - Restart MCP once to trigger startup recovery.
 - Verify startup logs for a recovery line:
   - `[Recovery] Marked <N> interrupted CLI session(s) as FAILED ...`
-- Run `sprint_agent(action: "orchestrate")` again so failed tasks are retried.
+- Restart the sprint from the dashboard so failed tasks are retried on a fresh orchestration attempt.
 
 ## Recovery Techniques
 
 - Temporarily disable selected loop steps for diagnosis.
-- Run `status` action to inspect state without creating tasks.
+- Use the dashboard live view to inspect state without starting new work.
 - Use activities APIs to inspect detailed session trace.
 - Re-enable steps after diagnosis to restore normal operation.
 - On startup, interrupted local CLI sessions (`cli-*` with `RUNNING`) are auto-recovered to `FAILED` so orchestration can safely retry them.
