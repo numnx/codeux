@@ -440,24 +440,41 @@ export class SprintOrchestrator {
         });
 
         try {
-          return await this.actionRunner.runOrchestrate({
-            args,
-            executionContext,
-            repoPath,
-            defaultFeatureBranch,
-            defaultBranch,
-            githubMode,
-            retryFailed,
-            loopSteps,
-            ciIntelligence,
-            automationLevel,
-            automationInterventions,
-            dashboardPort,
-            shouldWait,
-            watchLoopEnabled,
-            sprintRunId: sprintRun.id,
-            leaseToken,
-          });
+          try {
+            return await this.actionRunner.runOrchestrate({
+              args,
+              executionContext,
+              repoPath,
+              defaultFeatureBranch,
+              defaultBranch,
+              githubMode,
+              retryFailed,
+              loopSteps,
+              ciIntelligence,
+              automationLevel,
+              automationInterventions,
+              dashboardPort,
+              shouldWait,
+              watchLoopEnabled,
+              sprintRunId: sprintRun.id,
+              leaseToken,
+            });
+          } catch (error) {
+            const failedAt = new Date().toISOString();
+            const message = error instanceof Error ? error.message : String(error);
+            this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+              status: "failed",
+              finishedAt: failedAt,
+              lastHeartbeatAt: failedAt,
+            });
+            this.deps.executionRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
+              reason: "orchestrator_exception",
+              errorMessage: message,
+            }, {
+              sourceEventKey: `orchestrator-error:${sprintRun.id}:${message}`,
+            });
+            throw error;
+          }
         } finally {
           this.deps.executionRepository.releaseLease("sprint", executionContext.sprint.id, leaseToken);
         }

@@ -177,4 +177,107 @@ describe("RuntimeCleanupService", () => {
       severity: "high",
     });
   });
+
+  it("reconciles terminal task runs back into stale dispatches and fails stale sprint runs without a lease", async () => {
+    const {
+      projectRepository,
+      executionRepository,
+      cleanupService,
+    } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Stale Runtime Project",
+      sourceType: "local",
+      sourceRef: "/workspace/stale-runtime-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Stale Runtime Sprint",
+      number: 16,
+      status: "running",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Reconcile stale Jules dispatch",
+      status: "completed",
+      executorType: "jules",
+    });
+
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+      triggerType: "dashboard",
+    });
+    executionRepository.updateSprintRun(sprintRun.id, {
+      status: "running",
+      startedAt: "2026-03-13T04:12:11.559Z",
+      lastHeartbeatAt: "2026-03-13T04:16:36.944Z",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "jules",
+      status: "running",
+    });
+    executionRepository.updateTaskDispatch(dispatch.id, {
+      status: "running",
+      claimedAt: "2026-03-13T04:18:47.166Z",
+      startedAt: "2026-03-13T04:18:47.166Z",
+      lastHeartbeatAt: "2026-03-13T04:18:51.400Z",
+    });
+    const taskRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "jules",
+      mode: "jules",
+      sessionId: "session-16",
+      sessionName: "sessions/session-16",
+      state: "COMPLETED",
+      startedAt: "2026-03-13T04:18:47.166Z",
+      finishedAt: "2026-03-13T04:37:54.622Z",
+      prUrl: "https://github.com/example/repo/pull/16",
+    });
+
+    const result = cleanupService.cleanup(new Date("2026-03-13T04:40:00.000Z"));
+    expect(result.reconciledDispatchIds).toEqual([dispatch.id]);
+    expect(result.failedSprintRunIds).toEqual([sprintRun.id]);
+
+    const reconciledDispatch = executionRepository.getTaskDispatch(dispatch.id);
+    expect(reconciledDispatch).toMatchObject({
+      id: dispatch.id,
+      status: "completed",
+      finishedAt: "2026-03-13T04:37:54.622Z",
+      lastHeartbeatAt: "2026-03-13T04:37:54.622Z",
+    });
+
+    const failedSprintRun = executionRepository.getSprintRun(sprintRun.id);
+    expect(failedSprintRun).toMatchObject({
+      id: sprintRun.id,
+      status: "failed",
+      finishedAt: "2026-03-13T04:40:00.000Z",
+      lastHeartbeatAt: "2026-03-13T04:40:00.000Z",
+    });
+
+    const sprintEvents = executionRepository.listSprintRunEvents(sprintRun.id);
+    expect(sprintEvents[0]).toMatchObject({
+      eventType: "sprint_failed",
+      originator: "system",
+      payload: expect.objectContaining({
+        reason: "orchestration_heartbeat_stalled",
+      }),
+    });
+
+    const refreshedTaskRun = executionRepository.getTaskRun(taskRun.id);
+    expect(refreshedTaskRun).toMatchObject({
+      id: taskRun.id,
+      state: "COMPLETED",
+      finishedAt: "2026-03-13T04:37:54.622Z",
+    });
+  });
 });

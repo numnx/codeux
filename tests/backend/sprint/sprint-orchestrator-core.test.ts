@@ -227,4 +227,47 @@ describe("SprintOrchestrator core execution", () => {
 
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });
+
+  it("marks the sprint run failed when orchestration throws unexpectedly", async () => {
+    const { deps } = buildDeps();
+    deps.getDashboardSettings = () => ({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      sprintLoopSteps: {
+        ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps,
+        branchPreflight: false,
+        planningPreflight: false,
+        watchLoop: false,
+      },
+    });
+    const orchestrator = new SprintOrchestrator(deps as any);
+    vi.spyOn((orchestrator as any).actionRunner as SprintActionRunner, "runOrchestrate")
+      .mockRejectedValue(new Error("watch loop exploded"));
+
+    await expect(orchestrator.execute({
+      sprint_number: 1,
+      repo_path: "/tmp/repo",
+      source_id: "sources/123",
+      action: "orchestrate",
+      wait: false,
+    })).rejects.toThrow("watch loop exploded");
+
+    expect(deps.executionRepository.updateSprintRun).toHaveBeenCalledWith(
+      "run-1",
+      expect.objectContaining({
+        status: "failed",
+        finishedAt: expect.any(String),
+        lastHeartbeatAt: expect.any(String),
+      }),
+    );
+    expect(deps.executionRepository.appendSprintRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "sprint_failed",
+      "system",
+      expect.objectContaining({
+        reason: "orchestrator_exception",
+        errorMessage: "watch loop exploded",
+      }),
+      expect.any(Object),
+    );
+  });
 });
