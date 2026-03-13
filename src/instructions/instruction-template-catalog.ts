@@ -22,7 +22,7 @@ export const INSTRUCTION_TEMPLATE_PATHS = {
 export type InstructionTemplateId = keyof typeof INSTRUCTION_TEMPLATE_PATHS;
 
 export const DEFAULT_INSTRUCTION_TEMPLATES: Record<InstructionTemplateId, string> = {
-  branchMissing: `### 🛑 ACTION REQUIRED: Branch Configuration Missing\n\nThe feature branch \`{{feature_branch}}\` is not ready. Jules agents require this branch to exist on the remote repository to begin work.\n\n{{create_branch_step}}{{push_branch_step}}**Important:** Once these steps are completed, run this tool again to proceed with the \`{{action}}\` phase.`,
+  branchMissing: `### 🛑 ACTION REQUIRED: Branch Configuration Missing\n\nSprint OS could not prepare the feature branch \`{{feature_branch}}\` automatically.\n\n{{create_branch_step}}{{push_branch_step}}**Important:** Once these steps are completed, run this tool again to proceed with the \`{{action}}\` phase.`,
   planningMissing: `### 🛑 ACTION REQUIRED: Sprint Planning Missing\n\nNo tasks were found for \`{{planning_target}}{{subtasks_dir}}\`. You must create or import sprint tasks before orchestration can begin.\n\n**Instruction:** Use the v2 dashboard Projects/Sprints/Tasks flow or markdown import to populate the sprint, then rerun \`sprint_agent\`.`,
   planningCreated: `### Planning Phase for Sprint {{sprint_number}}\n\nTarget sprint: \`{{planning_target}}{{subtasks_dir}}\`.\n\n{{planning_guide_block}}**Instructions for the calling Agent:**\n1. Open the v2 dashboard sprint and define the task breakdown there, or use markdown import.\n2. Keep dependencies explicit so Sprint OS can derive task readiness from the database.\n3. Use markdown only as import/export transport, not as runtime state.`,
   mergeHeader: `\n### 📥 MERGE INSTRUCTIONS\n`,

@@ -77,7 +77,7 @@ curl http://localhost:4444/api/git-status
 ## Common First Workflow
 
 1. Configure system settings in dashboard, then adjust project settings and sprint overrides as needed.
-2. Create or ensure sprint feature branch exists locally and on origin.
+2. Create the sprint and tasks. Sprint OS now prepares the local feature branch automatically when orchestration starts, and it will attempt to push that branch to `origin` when the remote exists.
 3. Run `sprint_agent` with `action: "plan"`.
 4. Create subtask markdown files.
 5. Run `sprint_agent` with `action: "orchestrate"`.

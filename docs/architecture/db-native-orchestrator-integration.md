@@ -21,6 +21,7 @@ It now:
 - persists direct CLI pipeline stage events and CI-gate state changes into `task_run_events`
 - persists action-required automation and protocol state into `task_run_events`
 - persists branch/planning preflight blockers and watch-loop sprint lifecycle into `sprint_run_events`
+- orchestrate branch preflight now auto-prepares the local sprint feature branch and best-effort pushes it to `origin` before opening a blocker
 - exposes dashboard control actions for sprint orchestration and dispatch management on the same DB-native runtime
 
 It does not yet:

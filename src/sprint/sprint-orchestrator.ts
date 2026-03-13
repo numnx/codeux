@@ -5,7 +5,7 @@ import {
   DEFAULT_CI_INTELLIGENCE_SETTINGS,
   DEFAULT_SPRINT_LOOP_STEP_SETTINGS,
 } from "./sprint-orchestrator-defaults.js";
-import { runBranchPreflightStep } from "./steps/branch-preflight-step.js";
+import { prepareBranchForOrchestration, runBranchPreflightStep } from "./steps/branch-preflight-step.js";
 import type { SprintAgentArgs } from "./sprint-types.js";
 import type {
   AutomationInterventionsSettings,
@@ -281,8 +281,21 @@ export class SprintOrchestrator {
     }
 
     if (loopSteps.branchPreflight && (args.action === "plan" || args.action === "orchestrate")) {
-      const { existsLocal, existsRemote } = await runBranchPreflightStep(repoPath, defaultFeatureBranch);
+      const branchAvailability = args.action === "orchestrate"
+        ? await prepareBranchForOrchestration(repoPath, defaultFeatureBranch, defaultBranch)
+        : await runBranchPreflightStep(repoPath, defaultFeatureBranch);
+      const { existsLocal, existsRemote } = branchAvailability;
+      const requiresRemoteBranch = args.action === "plan"
+        || ("hasRemoteOrigin" in branchAvailability && branchAvailability.hasRemoteOrigin);
       if (!existsLocal || !existsRemote) {
+        if (args.action === "orchestrate" && existsLocal && !requiresRemoteBranch) {
+          this.deps.logger.info("Continuing sprint orchestration without a remote feature branch because no origin remote is configured.", {
+            projectId: executionContext.project.id,
+            sprintId: executionContext.sprint.id,
+            repoPath,
+            featureBranch: defaultFeatureBranch,
+          });
+        } else {
         const branchBlocker = await this.renderBranchBlocker(args, repoPath, defaultFeatureBranch, existsLocal, existsRemote);
         this.recordBlockedSprintRun({
           action: args.action,
@@ -296,6 +309,7 @@ export class SprintOrchestrator {
           },
         });
         return { content: [{ type: "text", text: branchBlocker }] };
+        }
       }
     }
 

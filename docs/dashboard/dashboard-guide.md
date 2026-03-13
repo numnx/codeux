@@ -68,6 +68,7 @@ Project management:
   - Sends a draft sprint prompt to the Planning agent through a connected worker and returns the improved prompt
 - `POST /api/projects/:projectId/sprints/:sprintId/plan`
   - Sends a created sprint to the Planning agent through a connected worker, creates subtasks from the reply, and can auto-start the sprint
+  - Auto-start orchestration now prepares the local sprint feature branch automatically and attempts to push it to `origin` when that remote exists
 - `GET /api/projects/:projectId/conversations/threads`
   - Lists project conversation threads
 - `POST /api/projects/:projectId/conversations/threads`

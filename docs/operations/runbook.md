@@ -16,7 +16,7 @@ If started without key:
 
 ## Sprint Execution Procedure
 
-1. Validate feature branch exists locally and on origin.
+1. Verify the repo is a healthy git checkout. Sprint OS now prepares the local feature branch automatically on orchestration start and will try to push it to `origin` when that remote exists.
 2. Run `sprint_agent(action: "plan")`.
 3. Create or verify subtask markdown files.
 4. Run `sprint_agent(action: "orchestrate")`.
@@ -31,7 +31,7 @@ If consecutive task creation failures reach threshold:
 - Re-run after corrective actions.
 
 ### Preflight blockers
-- Branch preflight blocker means local/remote branch setup is incomplete.
+- Branch preflight blocker means Sprint OS could not prepare the local feature branch, or it could not push the branch to `origin` on a repo that expects a remote feature branch.
 - Planning preflight blocker means subtask files are missing.
 
 ## Common Incidents
