@@ -90,6 +90,7 @@ describe("ExecutionControlService", () => {
       project_id: project.id,
       sprint_id: sprint.id,
       wait: true,
+      checkpoint_policy: "continue",
     }));
   });
 
@@ -129,6 +130,7 @@ describe("ExecutionControlService", () => {
       project_id: project.id,
       sprint_id: sprint.id,
       wait: true,
+      checkpoint_policy: "continue",
     }));
   });
 

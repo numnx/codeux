@@ -86,6 +86,85 @@ describe("WatchLoopRunner", () => {
     nowSpy.mockRestore();
   });
 
+  it("continues past checkpoint in background mode and resets the checkpoint window", async () => {
+    const deps = buildDeps();
+    const cycleRunner = buildCycleRunner();
+    const nowValues = [0, 61_000, 62_000, 63_000];
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowValues.shift() ?? 63_000);
+
+    deps.renderInstruction.mockImplementation(async (id) => {
+      if (id === "watchHeader") return "HEADER";
+      if (id === "watchContinue") return "WATCH_CONTINUE";
+      if (id === "cleanupAllMerged") return "CLEANUP_MERGED";
+      return "";
+    });
+
+    cycleRunner.run
+      .mockResolvedValueOnce({
+        subtasks: [buildMockSubtask({ status: "RUNNING" })],
+        reportText: "REPORT_1",
+        statusTable: "TABLE_1",
+        instructions: "INST_1",
+        awaitingMerge: [],
+      })
+      .mockResolvedValueOnce({
+        subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: true })],
+        reportText: "REPORT_2",
+        statusTable: "TABLE_2",
+        instructions: "INST_2",
+        awaitingMerge: [],
+      });
+
+    const runner = new WatchLoopRunner(deps as any, cycleRunner as any, vi.fn().mockResolvedValue({
+      text: "",
+      state: "ready_for_merge",
+      prNumber: null,
+      prUrl: null,
+      hasFailedChecks: false,
+      hasPendingChecks: false,
+      hasReviewBlockers: false,
+      failedChecks: [],
+    }));
+
+    const result = await runner.run({
+      args: { sprint_number: 1, action: "orchestrate" } as any,
+      executionContext: {
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
+      repoPath: "/tmp",
+      defaultFeatureBranch: "feat",
+      defaultBranch: "main",
+      githubMode: "LOCAL",
+      retryFailed: false,
+      loopSteps: { watchLoopOutputIntervalSeconds: 60, watchLoopIntervalSeconds: 0.01 } as any,
+      ciIntelligence: {} as any,
+      automationLevel: "SEMI_AUTO",
+      automationInterventions: {} as any,
+      dashboardPort: 4444,
+      sprintRunId: "run-1",
+      checkpointPolicy: "continue",
+    });
+
+    expect(cycleRunner.run).toHaveBeenCalledTimes(2);
+    expect(result).toContain("Sprint Execution Finished");
+    expect(result).toContain("REPORT_2");
+    expect(result).not.toContain("WATCH_CONTINUE");
+    expect(deps.executionRepository.updateSprintRun).toHaveBeenCalledWith(
+      "run-1",
+      expect.objectContaining({
+        status: "running",
+        lastHeartbeatAt: expect.any(String),
+      }),
+    );
+
+    nowSpy.mockRestore();
+  });
+
   it("completes the loop and returns final report when FINISHED transition is triggered (all terminal)", async () => {
     const deps = buildDeps();
     const cycleRunner = buildCycleRunner();

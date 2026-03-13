@@ -345,6 +345,7 @@ export class SprintOrchestrator {
     const requestedWait = args.wait !== undefined ? args.wait : supportsWatchMode;
     const shouldWait = supportsWatchMode && requestedWait;
     const watchLoopEnabled = shouldWait && loopSteps.watchLoop;
+    const checkpointPolicy = args.checkpoint_policy === "continue" ? "continue" : "return";
 
     switch (args.action) {
       case "plan":
@@ -458,6 +459,7 @@ export class SprintOrchestrator {
               watchLoopEnabled,
               sprintRunId: sprintRun.id,
               leaseToken,
+              checkpointPolicy,
             });
           } catch (error) {
             const failedAt = new Date().toISOString();

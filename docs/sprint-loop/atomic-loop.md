@@ -132,6 +132,7 @@ When `action=orchestrate`, `wait` is true, and `watchLoop` is enabled:
 - Orchestrator enters continuous loop.
 - Wait interval is 120 seconds between cycles.
 - Output interval defaults to 300 seconds: if tasks are still in progress at that point, the loop returns a status checkpoint and instructs the caller to rerun `sprint_agent(..., wait: true)`.
+- Dashboard-triggered background orchestration does not stop at that checkpoint. Sprint OS keeps the same sprint run alive, renews its lease/heartbeat, resets the checkpoint window, and continues watching until a real terminal condition is reached.
 - Loop exits when:
   - all tasks terminal (`COMPLETED+merged` or `FAILED`), or
   - no runnable tasks remain, or

@@ -27,6 +27,7 @@ export interface WatchLoopRunnerArgs {
   dashboardPort: number;
   sprintRunId: string;
   leaseToken?: string;
+  checkpointPolicy?: "return" | "continue";
 }
 
 export class WatchLoopRunner {
@@ -52,6 +53,7 @@ export class WatchLoopRunner {
       dashboardPort,
       sprintRunId,
       leaseToken,
+      checkpointPolicy = "return",
     } = params;
     const scopedExecutionContext = executionContext || {
       project: { id: "unknown-project", name: "Selected Project" },
@@ -64,7 +66,7 @@ export class WatchLoopRunner {
     };
 
     let allFinished = false;
-    const watchStartedAt = Date.now();
+    let checkpointWindowStartedAt = Date.now();
     let fullReport = await this.deps.renderInstruction(
       "watchHeader",
       {
@@ -151,7 +153,7 @@ export class WatchLoopRunner {
       const needsManualMerge = awaitingMerge.length > 0;
 
       allFinished = allTerminal || noMoreActionPossible || needsManualMerge;
-      const elapsedMs = Date.now() - watchStartedAt;
+      const elapsedMs = Date.now() - checkpointWindowStartedAt;
       const outputIntervalReached = elapsedMs >= watchLoopOutputIntervalMs;
 
       const nextState = determineNextState({
@@ -341,27 +343,39 @@ export class WatchLoopRunner {
             },
             repoPath
           );
+          if (checkpointPolicy === "continue") {
+            this.renewSprintRunHeartbeat({
+              sprintRunId,
+              sprintId: scopedExecutionContext.sprint.id,
+              leaseToken,
+            });
+            checkpointWindowStartedAt = Date.now();
+            fullReport = await this.deps.renderInstruction(
+              "watchHeader",
+              {
+                sprint_number: scopedExecutionContext.sprintNumber,
+                feature_branch: defaultFeatureBranch,
+                dashboard_port: dashboardPort,
+              },
+              repoPath
+            );
+            fullReport += "\n";
+            await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
+            break;
+          }
           return fullReport;
         }
 
         case WatchLoopState.RUNNING: {
-          const now = new Date().toISOString();
           const latestRun = this.deps.executionRepository.getSprintRun(sprintRunId);
           if (latestRun?.status === "paused" || latestRun?.status === "cancelled" || latestRun?.status === "cancel_requested") {
             continue;
           }
-          this.deps.executionRepository.updateSprintRun(sprintRunId, {
-            status: "running",
-            lastHeartbeatAt: now,
+          this.renewSprintRunHeartbeat({
+            sprintRunId,
+            sprintId: scopedExecutionContext.sprint.id,
+            leaseToken,
           });
-          if (leaseToken) {
-            this.deps.executionRepository.renewLease({
-              scopeType: "sprint",
-              scopeId: scopedExecutionContext.sprint.id,
-              leaseToken,
-              expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-            });
-          }
           await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
           break;
         }
@@ -377,5 +391,25 @@ export class WatchLoopRunner {
     repoPath?: string
   ): Promise<string> {
     return await this.deps.renderInstruction(templateId, variables, repoPath);
+  }
+
+  private renewSprintRunHeartbeat(args: {
+    sprintRunId: string;
+    sprintId: string;
+    leaseToken?: string;
+  }): void {
+    const now = new Date().toISOString();
+    this.deps.executionRepository.updateSprintRun(args.sprintRunId, {
+      status: "running",
+      lastHeartbeatAt: now,
+    });
+    if (args.leaseToken) {
+      this.deps.executionRepository.renewLease({
+        scopeType: "sprint",
+        scopeId: args.sprintId,
+        leaseToken: args.leaseToken,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      });
+    }
   }
 }

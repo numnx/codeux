@@ -34,6 +34,7 @@ export class SprintActionRunner {
     watchLoopEnabled: boolean;
     sprintRunId: string;
     leaseToken?: string;
+    checkpointPolicy?: "return" | "continue";
   }): Promise<any> {
     if (options.watchLoopEnabled) {
       const fullReport = await this.watchLoopRunner.run({
@@ -51,6 +52,7 @@ export class SprintActionRunner {
         dashboardPort: options.dashboardPort,
         sprintRunId: options.sprintRunId,
         leaseToken: options.leaseToken,
+        checkpointPolicy: options.checkpointPolicy,
       });
       return { content: [{ type: "text", text: fullReport }] };
     }

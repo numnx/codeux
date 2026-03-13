@@ -55,6 +55,7 @@ export class ExecutionControlService {
       project_id: projectId,
       sprint_id: sprintId,
       wait: true,
+      checkpoint_policy: "continue",
     }).catch((error) => {
       this.deps.logger?.error("Dashboard-triggered sprint orchestration failed", {
         projectId,
