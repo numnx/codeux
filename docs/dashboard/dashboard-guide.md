@@ -92,12 +92,32 @@ Legacy runtime:
   - websocket upgrade endpoint for dashboard realtime subscriptions (`projects`, `overview`, `project:<projectId>`, `thread:<threadId>`)
 - `GET /api/projects/:projectId/execution`
   - Project-scoped execution control-plane snapshot for the v2 runtime
+- `POST /api/projects/:projectId/attention-items/:attentionItemId/claim`
+  - Claims an active worker-owned attention item on behalf of the assigned project worker
+- `POST /api/projects/:projectId/attention-items/:attentionItemId/resolve`
+  - Resolves or dismisses an active attention item from the dashboard runtime surface
 - `GET /api/live-activities`
   - Session activity stream for running tasks in the selected project
-- `GET /api/settings`
-  - Persisted dashboard settings
-- `PUT /api/settings`
-  - Save settings
+- `GET /api/system-settings`
+  - Persisted system-wide settings (`runtime`, `integrations`, `defaults`, `mcpTools`)
+- `PUT /api/system-settings`
+  - Save system-wide settings
+- `GET /api/projects/:projectId/settings`
+  - Raw project override document
+- `PUT /api/projects/:projectId/settings`
+  - Save project overrides
+- `DELETE /api/projects/:projectId/settings`
+  - Reset project overrides back to inherited system defaults
+- `GET /api/projects/:projectId/settings/effective`
+  - Resolved project settings plus source metadata
+- `GET /api/sprints/:sprintId/settings`
+  - Raw sprint override document
+- `PUT /api/sprints/:sprintId/settings`
+  - Save sprint overrides (requires `projectId` in body)
+- `DELETE /api/sprints/:sprintId/settings`
+  - Reset sprint overrides
+- `GET /api/projects/:projectId/sprints/:sprintId/settings/effective`
+  - Resolved sprint settings plus source metadata
 - `GET /api/settings/import-sources`
   - External key hints from env/json
 - `GET /api/git-status`
@@ -126,7 +146,7 @@ Legacy runtime:
 - Completed sprints are automatically removed from showcase pinning and drop out of the top gallery
 - The sprint gallery selection is now the full set of showcased sprints, ordered newest-first by sprint creation time
 - Completed sprint cells now use a static finished treatment and fade slightly instead of continuing animated motion
-- Sprint cell settings now open an animated menu with showcase toggle, `Edit`, `Export`, `Delete`, and placeholder `Overrides`
+- Sprint cell settings now open an animated menu with showcase toggle, `Edit`, `Export`, `Delete`, and live `Overrides`
 - The showcase wrappers now leave enough vertical breathing room for hover expansion, so bubble motion is no longer clipped top or bottom
 - Sprint cells now use created-date metadata on the accent rail and move the visible sprint key into the card body instead of surfacing the UUID there
 - Sprint markdown export now includes direct download actions in the export modal
@@ -169,6 +189,8 @@ Legacy runtime:
 - The runtime feed now includes direct CLI stage events, action-required and protocol events, sprint-run lifecycle events, and CI/merge-gate state changes in addition to provider session activity
 - `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`
 - The execution runtime panel can now start or resume sprint orchestration, pause or cancel sprint runs, cancel queued dispatches, and retry terminal dispatches
+- The execution runtime panel now also exposes the active attention queue, including worker claim, resolve, and dismiss controls for open project blockers
+- Worker escalations now also create project chat threads with a system-authored handoff message, so operator follow-up lives in the same project conversation model as the rest of dashboard chat
 - The execution runtime panel now also shows live project connections with transport, role, listening metadata, inbox load, dispatch load, and heartbeat-derived status
 - The Overview page telemetry now renders a consolidated runtime timeline across all currently active projects instead of a static placeholder
 - Running dispatch cancel is now request-based instead of instant-terminal:
@@ -187,14 +209,20 @@ Runtime scoping:
 - dashboard runtime state is projected through sqlite task-run records instead of being served only from one in-memory global payload
 
 ### Settings view
-- Basic settings
-  - includes `Dashboard Port` field
-- AI provider settings
-- Git settings
-- CI Intelligence settings
-- Sprint loop step toggles
-- MCP tool toggles
-- Skill toggles
+- The active backend model is now scoped as `system -> project -> sprint`
+- System settings own runtime, integrations, default project behavior, and MCP tool exposure
+- Project settings own inheritable execution behavior such as provider routing, git defaults, CI intelligence, sprint loop steps, CLI workflow, and skills
+- The `/config` page keeps the existing v2 settings shell and categories, but now binds them to real scoped settings instead of draft-only values
+- System scope only edits system-owned controls, while project scope only edits project-owned overrides for the selected project
+- The integrations view now owns provider API keys plus GitHub token and GitHub workflow settings, rather than splitting those across separate categories
+- The integrations view uses a registry-style list with per-integration `Configure` actions so additional integrations can be added without turning the page into one long form
+- Individual MCP tool toggles and skill toggles are intentionally not exposed in the current user-facing settings surface
+- The settings surface is regrouped into smaller operational cards so GitHub integration, provider credentials, merge gates, loop control, and execution runtime are separated cleanly
+- Danger Zone now supports project deletion in project scope and full database reset in system scope
+- Project saves operate on the effective form but persist only sparse diffs relative to the current system defaults
+- Sprint settings are sparse overrides applied from the sprint page through the live override modal
+- Effective settings APIs expose per-field source metadata so the UI can show inherited vs overridden values
+- The old legacy dashboard settings route is removed; there is no runtime fallback to the pre-refactor global settings page
 
 ## Polling Behavior
 
@@ -227,8 +255,7 @@ Chat-specific behavior:
 - The Chat refresh button is now manual-only.
 - Background realtime sync and fallback refreshes no longer drive the refresh button spinner state.
 
-Settings are loaded from `dashboard/src/hooks/use-dashboard-settings.ts` and saved through
-`dashboard/src/lib/api/dashboard-api.ts` request helpers.
+The old legacy settings hook remains outside the active v2 flow; the live dashboard now uses the scoped settings API above.
 
 Project management requests are centralized in:
 - `dashboard/src/v2/lib/project-api.ts`

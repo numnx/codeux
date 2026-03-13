@@ -58,6 +58,18 @@ describe("MCP Factory", () => {
         getConnectionByKey: vi.fn(),
         touchConnectionHeartbeat: vi.fn(),
       },
+      workerEndpointRepository: {
+        getWorkerEndpointByConnectionId: vi.fn(),
+      },
+      projectWorkerAssignmentService: {
+        noteWorkerActivity: vi.fn(),
+      },
+      projectAttentionService: {
+        openItem: vi.fn(),
+        resolveItemsForDispatch: vi.fn(),
+      },
+      projectWorkerAssignmentRepository: {},
+      projectAttentionRepository: {},
       executionRepository: {},
       projectManagementRepository: {},
       sessionTracking: {

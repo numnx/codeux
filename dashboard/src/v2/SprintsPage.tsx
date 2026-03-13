@@ -24,6 +24,7 @@ import {
 import { SprintBubble } from "./components/ui/SprintBubble.js";
 import { SprintComposer, type SprintSubmitMode } from "./components/ui/SprintComposer.js";
 import { SprintMarkdownModal } from "./components/ui/SprintMarkdownModal.js";
+import { SprintSettingsOverrideModal } from "./components/ui/SprintSettingsOverrideModal.js";
 import type { Sprint, SprintStatus } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
 import { useProjectSprints } from "./hooks/use-project-sprints.js";
@@ -125,6 +126,7 @@ export const SprintsPage: FunctionComponent = () => {
     sprintMarkdown: string;
     tasksMarkdown: string;
   } | null>(null);
+  const [overrideSprint, setOverrideSprint] = useState<Sprint | null>(null);
   const [tableSort, setTableSort] = useState<{
     key: SprintTableSortKey;
     direction: SprintTableSortDirection;
@@ -691,7 +693,7 @@ export const SprintsPage: FunctionComponent = () => {
                         }}
                         onDelete={() => { void handleDeleteSprint(sprint.id); }}
                         onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
-                        onOverrides={() => window.alert("Overrides are a placeholder for the next iteration.")}
+                        onOverrides={() => { setOverrideSprint(sprint); }}
                         onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
                       />
                     );
@@ -1017,7 +1019,7 @@ export const SprintsPage: FunctionComponent = () => {
               type="button"
               onClick={() => {
                 setRowMenu(null);
-                window.alert("Overrides are a placeholder for the next iteration.");
+                setOverrideSprint(activeRowMenuSprint);
               }}
               className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
             >
@@ -1054,6 +1056,17 @@ export const SprintsPage: FunctionComponent = () => {
           sprintMarkdown={exportState.sprintMarkdown}
           tasksMarkdown={exportState.tasksMarkdown}
           onClose={() => setExportState(null)}
+        />
+      )}
+
+      {overrideSprint && selectedProject && (
+        <SprintSettingsOverrideModal
+          projectId={selectedProject.id}
+          sprint={overrideSprint}
+          onClose={() => setOverrideSprint(null)}
+          onSaved={async () => {
+            await Promise.all([refresh(), refreshExecution()]);
+          }}
         />
       )}
     </>

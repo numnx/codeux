@@ -21,6 +21,7 @@ import type { ProjectManagementRepository } from "../repositories/project-manage
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { SprintExecutionStateService } from "../services/sprint-execution-state-service.js";
 import type { StartSprintDispatchResult } from "../services/sprint-task-dispatch-service.js";
+import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import { CycleRunner } from "../domain/sprint/orchestrator/cycle-runner.js";
 import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner.js";
 import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-runner.js";
@@ -41,6 +42,7 @@ export interface SprintOrchestratorDependencies {
   listSessions: () => Promise<{ sessions?: JulesSession[] }>;
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  projectAttentionService: ProjectAttentionService;
   sprintExecutionStateService: SprintExecutionStateService;
   startTask: (
     task: Subtask,

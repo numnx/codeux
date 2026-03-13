@@ -1,7 +1,71 @@
 # Multi-Project Agentic Refactor Plan
 
 ## Status
-Proposed
+In Progress
+
+## Implementation Snapshot
+
+Completed on March 12, 2026:
+
+- replaced the single-document settings repository with scoped sqlite storage:
+  - `system_settings`
+  - `project_settings`
+  - `sprint_settings`
+- added typed scoped settings contracts and server-side resolution:
+  - `SystemSettings`
+  - `ProjectSettings`
+  - `ProjectSettingsOverride`
+  - `SprintSettingsOverride`
+  - effective settings with per-field source metadata
+- cut the dashboard HTTP surface over to scoped settings endpoints:
+  - `/api/system-settings`
+  - `/api/projects/:projectId/settings`
+  - `/api/projects/:projectId/settings/effective`
+  - `/api/sprints/:sprintId/settings`
+  - `/api/projects/:projectId/sprints/:sprintId/settings/effective`
+- removed the runtime legacy dashboard fallback route from the active Preact entrypoint
+- added integration coverage for the scoped settings API and resolution path
+- replaced the v2 `/config` draft with a real scoped settings UI for:
+  - system runtime, integrations, default project behavior, and MCP tools
+  - selected-project effective settings with inherited-source metadata
+- added a live sprint override modal on the sprint page backed by the sprint effective-settings API
+- changed project override persistence to diff against current system defaults so the UI can safely save effective project forms without snapshotting inherited values
+- taught the MCP worker dispatch path to prefer sticky project affinity:
+  - a worker listening across multiple active projects now checks its own recent worker dispatch history first
+  - active or most-recently-seen projects are claimed before unrelated projects
+  - explicit `projectId` worker pulls still stay project-specific and bypass affinity reordering
+- introduced the first worker endpoint abstraction layer:
+  - added `worker_endpoints` as a transport-neutral worker table
+  - synchronized MCP worker registrations into worker endpoint rows
+  - worker task dispatch claims now require a worker endpoint with task-execution capability
+- added explicit project-worker assignments:
+  - `project_worker_assignments` now persist sticky worker ownership per project
+  - active worker task claims refresh assignment affinity
+  - execution snapshots now expose primary vs overflow assigned workers
+- introduced the first structured attention queue:
+  - `project_attention_items` now persist worker-oriented supervision items
+  - worker lease expiry, stale cancel timeouts, worker-blocked dispatches, merge-required tasks, blocked action-required tasks, and watch-loop manual-attention pauses open attention items
+  - dispatch retry resolves active dispatch-scoped attention items
+  - sprint cycles resolve stale merge/action/manual attention items when the blocker clears
+  - execution snapshots now expose active project attention items
+  - worker and dashboard flows can now claim, resolve, and dismiss active attention items
+  - the v2 runtime page now shows the project attention queue with direct operator controls
+- upgraded the worker listen loop foundation:
+  - `listen` and `start_listen` now accept `project_ids` and `active_project_ids`
+  - worker listeners now receive `assignment_changed` and `attention_item` events
+  - worker supervision events now include `repoPath`, `workingDirectoryHint`, and a lightweight `contextDigest`
+  - the in-repo worker now auto-claims open worker-owned attention items and keeps active project supervision state locally
+  - worker supervision no longer stalls at claim time:
+    - workers can now report `handled_locally`, `needs_dashboard_reply`, or `needs_human_escalation`
+    - operator-required outcomes create a real project thread with a system handoff message
+    - the original worker-owned item resolves and, when needed, a human-owned handoff queue item opens
+
+Still pending from the broader refactor:
+
+- portfolio coordinator and project-loop controller split
+- worker endpoint abstraction beyond MCP connections
+- richer reassignment policy and deeper worker-side handling after delivery
+- settings search, override filters, and deeper per-field reset UX
 
 ## Purpose and Scope
 
@@ -91,7 +155,7 @@ From the current implementation, there are also deeper technical issues to corre
 5. Transport-independent workers. MCP workers are one adapter, not the domain model.
 6. Separate supervision from execution. A worker can supervise a project without being the primary executor for normal coding tasks.
 7. DB is the source of truth. No new control plane should be built in process memory only.
-8. Backward-compatible rollout. Keep `sprint_agent` and current worker-host execution alive while the new scheduler is phased in.
+8. Direct cutover over compatibility layers. Replace the old single-scope settings/runtime flow instead of adding new bridge APIs or dashboard fallbacks.
 9. Settings inheritance must be explicit. Effective runtime settings must always resolve from `system -> project -> sprint`.
 10. UI organization must follow the real settings schema. The new settings dashboard should be generated from the settings catalog, not from disconnected draft categories.
 
@@ -881,7 +945,6 @@ This solves the "worker must know which directory to use" requirement.
 Introduce structured tools for supervision items instead of overloading chat replies:
 
 - `claim_attention_item`
-- `update_attention_item`
 - `resolve_attention_item`
 
 The existing `post_listen_reply` remains for chat.

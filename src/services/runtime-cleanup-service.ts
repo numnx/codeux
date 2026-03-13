@@ -1,6 +1,7 @@
 import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
+import { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface RuntimeCleanupResult {
@@ -18,6 +19,7 @@ export class RuntimeCleanupService {
     private readonly connectionChatRepository: ConnectionChatRepository,
     private readonly executionRepository: ExecutionRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
+    private readonly projectAttentionService: ProjectAttentionService,
     private readonly logger?: Logger,
   ) {}
 
@@ -65,6 +67,23 @@ export class RuntimeCleanupService {
       this.projectManagementRepository.updateTask(dispatch.taskId, {
         status: "pending",
       });
+      this.projectAttentionService.openItem({
+        projectId: dispatch.projectId,
+        sprintId: dispatch.sprintId,
+        taskId: dispatch.taskId,
+        sprintRunId: dispatch.sprintRunId,
+        dispatchId: dispatch.id,
+        attentionType: "worker_lease_expired",
+        severity: "high",
+        ownerType: "worker",
+        title: "Worker lease expired during dispatch",
+        summaryMarkdown: dispatch.errorMessage || "Worker lease expired before the dispatch completed.",
+        payload: {
+          dispatchId: dispatch.id,
+          leaseOwnerKey: lease.ownerKey,
+          expiredAt: lease.expiresAt,
+        },
+      });
       blockedDispatchIds.push(dispatch.id);
       if (dispatch.sprintRunId) {
         this.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
@@ -104,6 +123,22 @@ export class RuntimeCleanupService {
 
       this.projectManagementRepository.updateTask(dispatch.taskId, {
         status: "pending",
+      });
+      this.projectAttentionService.openItem({
+        projectId: dispatch.projectId,
+        sprintId: dispatch.sprintId,
+        taskId: dispatch.taskId,
+        sprintRunId: dispatch.sprintRunId,
+        dispatchId: dispatch.id,
+        attentionType: "dispatch_cancel_stalled",
+        severity: "medium",
+        ownerType: "worker",
+        title: "Dispatch cancellation stalled",
+        summaryMarkdown: dispatch.errorMessage || "Dispatch was force-cancelled after stale cancellation timeout.",
+        payload: {
+          dispatchId: dispatch.id,
+          staleCancelCutoff: staleCancelCutoffIso,
+        },
       });
       forceCancelledDispatchIds.push(dispatch.id);
       if (dispatch.sprintRunId) {

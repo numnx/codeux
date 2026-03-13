@@ -6,6 +6,11 @@ import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { ConnectionChatRepository } from "../../../src/repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
+import { WorkerEndpointRepository } from "../../../src/repositories/worker-endpoint-repository.js";
+import { ProjectWorkerAssignmentRepository } from "../../../src/repositories/project-worker-assignment-repository.js";
+import { ProjectWorkerAssignmentService } from "../../../src/domain/workers/project-worker-assignment-service.js";
+import { ProjectAttentionRepository } from "../../../src/repositories/project-attention-repository.js";
+import { ProjectAttentionService } from "../../../src/domain/workers/project-attention-service.js";
 import { RuntimeCleanupService } from "../../../src/services/runtime-cleanup-service.js";
 
 const tempDirs: string[] = [];
@@ -15,18 +20,27 @@ async function createRepositories(): Promise<{
   projectRepository: ProjectManagementRepository;
   connectionRepository: ConnectionChatRepository;
   executionRepository: ExecutionRepository;
+  projectAttentionRepository: ProjectAttentionRepository;
   cleanupService: RuntimeCleanupService;
 }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-runtime-cleanup-"));
   tempDirs.push(dir);
   const storage = new AppDbStorage(path.join(dir, "app.db"));
   const projectRepository = new ProjectManagementRepository(storage);
-  const connectionRepository = new ConnectionChatRepository(storage);
+  const workerEndpointRepository = new WorkerEndpointRepository(storage);
+  const projectWorkerAssignmentRepository = new ProjectWorkerAssignmentRepository(storage);
+  const projectAttentionRepository = new ProjectAttentionRepository(storage);
+  const connectionRepository = new ConnectionChatRepository(storage, undefined, workerEndpointRepository);
   const executionRepository = new ExecutionRepository(storage);
+  const projectAttentionService = new ProjectAttentionService(
+    projectAttentionRepository,
+    projectWorkerAssignmentRepository,
+  );
   const cleanupService = new RuntimeCleanupService(
     connectionRepository,
     executionRepository,
     projectRepository,
+    projectAttentionService,
   );
 
   return {
@@ -34,6 +48,7 @@ async function createRepositories(): Promise<{
     projectRepository,
     connectionRepository,
     executionRepository,
+    projectAttentionRepository,
     cleanupService,
   };
 }
@@ -48,6 +63,7 @@ describe("RuntimeCleanupService", () => {
       projectRepository,
       connectionRepository,
       executionRepository,
+      projectAttentionRepository,
       cleanupService,
     } = await createRepositories();
 
@@ -150,5 +166,15 @@ describe("RuntimeCleanupService", () => {
       status: "cancelled",
     });
     expect(cancelledSprintRun?.finishedAt).not.toBeNull();
+
+    const attentionItems = projectAttentionRepository.listProjectAttentionItems(project.id, {
+      statuses: ["open"],
+    });
+    expect(attentionItems[0]).toMatchObject({
+      dispatchId: dispatch.id,
+      attentionType: "worker_lease_expired",
+      ownerType: "worker",
+      severity: "high",
+    });
   });
 });

@@ -161,6 +161,12 @@ export class WatchLoopRunner {
 
       switch (nextState) {
         case WatchLoopState.FINISHED: {
+          this.deps.projectAttentionService.resolveItemsForSprintRun(
+            scopedExecutionContext.project.id,
+            sprintRunId,
+            ["manual_attention"],
+            "watch_loop_finished",
+          );
           fullReport += reportText;
           fullReport += statusTable;
           fullReport += instructions;
@@ -287,6 +293,27 @@ export class WatchLoopRunner {
               reason: "manual_attention",
             }, {
               sourceEventKey: `sprint-paused:${sprintRunId}:manual-attention`,
+            });
+            this.deps.projectAttentionService.openItem({
+              projectId: scopedExecutionContext.project.id,
+              sprintId: scopedExecutionContext.sprint.id,
+              sprintRunId,
+              attentionType: "manual_attention",
+              severity: "medium",
+              ownerType: "worker",
+              title: `Sprint ${scopedExecutionContext.sprint.name} needs manual attention`,
+              summaryMarkdown: "Sprint execution paused because no further automatic action was available.",
+              payload: {
+                repoPath,
+                featureBranch: defaultFeatureBranch,
+                defaultBranch,
+                sprintNumber: scopedExecutionContext.sprintNumber,
+                runningTaskIds: runningTasks.map((task) => task.record_id || task.id),
+                readyTaskIds: readyTasks.map((task) => task.record_id || task.id),
+                blockedTaskIds: subtasks
+                  .filter((task) => task.status === "BLOCKED")
+                  .map((task) => task.record_id || task.id),
+              },
             });
           }
 

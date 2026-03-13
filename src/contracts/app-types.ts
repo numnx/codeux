@@ -201,12 +201,53 @@ export interface ExecutionConnectionSummary {
   activeDispatchCount: number;
 }
 
+export interface ExecutionAssignedWorkerSummary {
+  assignmentId: string;
+  workerEndpointId: string | null;
+  workerEndpointKey: string;
+  workerEndpointType: string;
+  workerDisplayName: string;
+  connectionId: string | null;
+  connectionKey: string | null;
+  transport: string | null;
+  assignmentRole: string;
+  status: string;
+  assignedAt: string;
+  lastAffinityAt: string;
+  workerStatus: string | null;
+  canSuperviseProjects: boolean;
+  canExecuteTasks: boolean;
+}
+
+export interface ExecutionAttentionItemSummary {
+  id: string;
+  sprintId: string | null;
+  taskId: string | null;
+  sprintRunId: string | null;
+  dispatchId: string | null;
+  attentionType: string;
+  severity: string;
+  ownerType: string;
+  status: string;
+  assignedWorkerEndpointId: string | null;
+  title: string;
+  summaryMarkdown: string;
+  payload: Record<string, unknown> | null;
+  openedAt: string;
+  claimedAt: string | null;
+  resolvedAt: string | null;
+  updatedAt: string;
+}
+
 export interface ExecutionDashboardSnapshot {
   projectId: string | null;
   projectName: string | null;
   sprintRuns: ExecutionSprintRunSummary[];
   taskDispatches: ExecutionTaskDispatchSummary[];
   connections: ExecutionConnectionSummary[];
+  primaryAssignedWorker: ExecutionAssignedWorkerSummary | null;
+  overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];
+  attentionItems: ExecutionAttentionItemSummary[];
   recentEvents: ExecutionRuntimeEventSummary[];
   updatedAt: string | null;
 }

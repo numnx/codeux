@@ -8,6 +8,7 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
+import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -24,6 +25,10 @@ export function createMcpDependencies(
     julesApi,
     activitySummary,
     connectionChatRepository,
+    workerEndpointRepository,
+    projectWorkerAssignmentService,
+    projectAttentionService,
+    workerAttentionOutcomeService,
     sessionTracking,
     executionRepository,
     projectManagementRepository,
@@ -34,6 +39,9 @@ export function createMcpDependencies(
     executionRepository,
     projectManagementRepository,
     connectionChatRepository,
+    workerEndpointRepository,
+    projectWorkerAssignmentService,
+    projectAttentionService,
     () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     logger.child({ component: "worker-task-dispatch-service" }),
   );
@@ -60,7 +68,18 @@ export function createMcpDependencies(
     listAllTrackedActivities: (sessionId) => sessionTracking.listAllActivities(sessionId),
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     connectionChatRepository,
+    workerEndpointRepository,
+    projectAttentionService,
+    workerAttentionOutcomeService,
     workerTaskDispatchService,
+    workerListenEventService: new WorkerListenEventService(
+      connectionChatRepository,
+      workerEndpointRepository,
+      projectManagementRepository,
+      coreDeps.projectWorkerAssignmentRepository,
+      coreDeps.projectAttentionRepository,
+      executionRepository,
+    ),
     logger: logger.child({ component: "core-tool-handler" }),
   });
 

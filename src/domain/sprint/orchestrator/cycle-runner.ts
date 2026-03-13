@@ -12,6 +12,7 @@ import type {
   SprintLoopStepSettings,
   Subtask,
 } from "../../../contracts/app-types.js";
+import type { ProjectAttentionOwnerType } from "../../../contracts/project-attention-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
@@ -194,6 +195,7 @@ export class CycleRunner {
         appendTaskEvent(task, eventType, payload, sourceEventKey);
       },
     });
+    this.syncProtocolAttentionItems(subtasks, protocolResult, args);
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
 
@@ -204,5 +206,104 @@ export class CycleRunner {
       instructions: protocolResult.instructions,
       awaitingMerge: protocolResult.awaitingMerge,
     };
+  }
+
+  private syncProtocolAttentionItems(
+    subtasks: Subtask[],
+    protocolResult: {
+      awaitingMerge: Subtask[];
+      actionRequiredTasks: Subtask[];
+    },
+    args: CycleRunnerArgs,
+  ): void {
+    const projectId = args.executionContext.project.id;
+    const sprintId = args.executionContext.sprint.id;
+    const sprintRunId = args.sprintRunId;
+    const knownTaskIds = subtasks
+      .map((task) => task.record_id?.trim())
+      .filter((taskId): taskId is string => Boolean(taskId));
+
+    const mergeTaskIds = new Set<string>();
+    for (const task of protocolResult.awaitingMerge) {
+      const taskId = task.record_id?.trim();
+      if (!taskId) {
+        continue;
+      }
+      mergeTaskIds.add(taskId);
+      this.deps.projectAttentionService.openItem({
+        projectId,
+        sprintId,
+        taskId,
+        sprintRunId,
+        attentionType: "merge_required",
+        severity: task.merge_indicator === "MERGE_BLOCKED" ? "high" : "medium",
+        ownerType: "worker",
+        title: `Merge required for ${task.id}`,
+        summaryMarkdown: task.merge_indicator === "MERGE_BLOCKED"
+          ? `Task \`${task.id}\` is complete but blocked on merge work that could not be resolved automatically.`
+          : `Task \`${task.id}\` is complete and awaiting merge into \`${args.defaultFeatureBranch}\`.`,
+        payload: {
+          repoPath: args.repoPath,
+          featureBranch: args.defaultFeatureBranch,
+          defaultBranch: args.defaultBranch,
+          taskKey: task.id,
+          taskTitle: task.title,
+          mergeIndicator: task.merge_indicator || null,
+          workerBranch: task.worker_branch || null,
+          prUrl: task.pr_url || null,
+        },
+      });
+    }
+
+    const actionTaskIds = new Set<string>();
+    for (const task of protocolResult.actionRequiredTasks) {
+      const taskId = task.record_id?.trim();
+      if (!taskId) {
+        continue;
+      }
+      actionTaskIds.add(taskId);
+      const ownerType: ProjectAttentionOwnerType = task.intervention_owner === "AGENT" ? "worker" : "human";
+      this.deps.projectAttentionService.openItem({
+        projectId,
+        sprintId,
+        taskId,
+        sprintRunId,
+        attentionType: "action_required",
+        severity: task.intervention_owner === "AGENT" ? "high" : "medium",
+        ownerType,
+        title: `Action required for ${task.id}`,
+        summaryMarkdown: task.intervention_hint?.trim()
+          || `Task \`${task.id}\` is blocked in session state \`${task.session_state || "UNKNOWN"}\`.`,
+        payload: {
+          repoPath: args.repoPath,
+          featureBranch: args.defaultFeatureBranch,
+          defaultBranch: args.defaultBranch,
+          taskKey: task.id,
+          taskTitle: task.title,
+          sessionState: task.session_state || null,
+          provider: task.provider || null,
+          interventionOwner: task.intervention_owner || "HUMAN",
+        },
+      });
+    }
+
+    for (const taskId of knownTaskIds) {
+      if (!mergeTaskIds.has(taskId)) {
+        this.deps.projectAttentionService.resolveItemsForTask(
+          projectId,
+          taskId,
+          ["merge_required"],
+          "merge_attention_cleared",
+        );
+      }
+      if (!actionTaskIds.has(taskId)) {
+        this.deps.projectAttentionService.resolveItemsForTask(
+          projectId,
+          taskId,
+          ["action_required"],
+          "action_required_cleared",
+        );
+      }
+    }
   }
 }

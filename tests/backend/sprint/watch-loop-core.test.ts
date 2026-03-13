@@ -9,6 +9,10 @@ const buildDeps = () => ({
   getDashboardSettings: () => buildMockSettings(),
   getGuideContent: vi.fn().mockResolvedValue("guide"),
   completedSprints: new Set<string>(),
+  projectAttentionService: {
+    openItem: vi.fn(),
+    resolveItemsForSprintRun: vi.fn(),
+  },
   executionRepository: {
     appendSprintRunEvent: vi.fn(),
     finalizeSprintRunCancellationIfIdle: vi.fn().mockReturnValue(null),
