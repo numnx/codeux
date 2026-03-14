@@ -136,14 +136,15 @@ The effective endpoints return:
   - `containerImage`
   - `containerSetupScriptPath` (optional; when set to a relative path, runtime checks both sprint repo root and current server working directory)
     - if empty, falls back to `.sprint-os/container/setup.sh` in repo root and home directory
-  - `containerMountCredentials` (master toggle)
   - `containerMountGitConfig`
   - `containerMountGithubAuth`
   - `containerMountGeminiAuth`
   - `containerMountCodexAuth`
+  - `containerMountClaudeCodeAuth`
   - `containerGithubAuthPath` (default `~/.config/gh`)
   - `containerGeminiAuthPath` (default `~/.gemini`)
   - `containerCodexAuthPath` (default `~/.codex`)
+  - `containerClaudeCodeAuthPath` (default `~/.claude`)
 
 `sprintLoopSteps` also includes:
 - `watchLoopIntervalSeconds` (default `120`, clamped to `1..3600`)
@@ -178,6 +179,7 @@ Repository demo script:
   - When Claude credential mounts are enabled, runtime mounts `~/.claude` and also `~/.claude.json` when present.
   - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
   - GitHub/Gemini sync now copies directory contents into fixed destinations (`~/.config/gh`, `~/.gemini`) to avoid nested paths on repeated runs.
+  - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
 
 ## Default Values
 

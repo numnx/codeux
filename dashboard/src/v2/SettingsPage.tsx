@@ -1233,15 +1233,6 @@ export const SettingsPage: FunctionComponent = () => {
               mono
             />
           </Row>
-          <Row label="Mount credentials" description="Mount generic credentials into the container runtime.">
-            <Toggle value={editableSettings.cliWorkflow.containerMountCredentials} onChange={() => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                containerMountCredentials: !current.cliWorkflow.containerMountCredentials,
-              },
-            }))} />
-          </Row>
           <Row label="Mount git config" description="Share host git config with the task container." last>
             <Toggle value={editableSettings.cliWorkflow.containerMountGitConfig} onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -1250,97 +1241,6 @@ export const SettingsPage: FunctionComponent = () => {
                 containerMountGitConfig: !current.cliWorkflow.containerMountGitConfig,
               },
             }))} />
-          </Row>
-        </SectionCard>
-
-        <SectionCard title="Container Auth Mounts" watermark="AUTH" badge={getBadge("cliWorkflow")}>
-          <Row label="Mount GitHub auth" description="Expose GitHub auth state inside the container." >
-            <Toggle value={editableSettings.cliWorkflow.containerMountGithubAuth} onChange={() => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                containerMountGithubAuth: !current.cliWorkflow.containerMountGithubAuth,
-              },
-            }))} />
-          </Row>
-          <Row label="Container GitHub auth path" description="Path where GitHub auth should be mounted inside the container." >
-            <TextInput
-              value={editableSettings.cliWorkflow.containerGithubAuthPath}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                cliWorkflow: {
-                  ...current.cliWorkflow,
-                  containerGithubAuthPath: value,
-                },
-              }))}
-              mono
-            />
-          </Row>
-          <Row label="Mount Gemini auth" description="Expose Gemini auth state inside the container." >
-            <Toggle value={editableSettings.cliWorkflow.containerMountGeminiAuth} onChange={() => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                containerMountGeminiAuth: !current.cliWorkflow.containerMountGeminiAuth,
-              },
-            }))} />
-          </Row>
-          <Row label="Container Gemini auth path" description="Path where Gemini auth should be mounted inside the container." >
-            <TextInput
-              value={editableSettings.cliWorkflow.containerGeminiAuthPath}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                cliWorkflow: {
-                  ...current.cliWorkflow,
-                  containerGeminiAuthPath: value,
-                },
-              }))}
-              mono
-            />
-          </Row>
-          <Row label="Mount Codex auth" description="Expose Codex auth state inside the container." >
-            <Toggle value={editableSettings.cliWorkflow.containerMountCodexAuth} onChange={() => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                containerMountCodexAuth: !current.cliWorkflow.containerMountCodexAuth,
-              },
-            }))} />
-          </Row>
-          <Row label="Container Codex auth path" description="Path where Codex auth should be mounted inside the container." >
-            <TextInput
-              value={editableSettings.cliWorkflow.containerCodexAuthPath}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                cliWorkflow: {
-                  ...current.cliWorkflow,
-                  containerCodexAuthPath: value,
-                },
-              }))}
-              mono
-            />
-          </Row>
-          <Row label="Mount Claude Code auth" description="Expose Claude Code auth state inside the container." >
-            <Toggle value={editableSettings.cliWorkflow.containerMountClaudeCodeAuth} onChange={() => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                containerMountClaudeCodeAuth: !current.cliWorkflow.containerMountClaudeCodeAuth,
-              },
-            }))} />
-          </Row>
-          <Row label="Container Claude Code auth path" description="Path where Claude Code auth should be mounted inside the container." last>
-            <TextInput
-              value={editableSettings.cliWorkflow.containerClaudeCodeAuthPath}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                cliWorkflow: {
-                  ...current.cliWorkflow,
-                  containerClaudeCodeAuthPath: value,
-                },
-              }))}
-              mono
-            />
           </Row>
         </SectionCard>
       </div>
@@ -1354,11 +1254,12 @@ export const SettingsPage: FunctionComponent = () => {
 
     const connectedState: Record<IntegrationId, boolean> = {
       jules: Boolean(systemSettings.integrations.julesApiKey.trim()),
-      gemini: Boolean(systemSettings.integrations.geminiApiKey.trim()),
-      codex: Boolean(systemSettings.integrations.codexApiKey.trim()),
-      "claude-code": Boolean(systemSettings.integrations.claudeCodeApiKey.trim()),
-      github: Boolean(systemSettings.integrations.githubToken.trim()),
+      gemini: Boolean(systemSettings.integrations.geminiApiKey.trim() || editableSettings.cliWorkflow.containerMountGeminiAuth),
+      codex: Boolean(systemSettings.integrations.codexApiKey.trim() || editableSettings.cliWorkflow.containerMountCodexAuth),
+      "claude-code": Boolean(systemSettings.integrations.claudeCodeApiKey.trim() || editableSettings.cliWorkflow.containerMountClaudeCodeAuth),
+      github: Boolean(systemSettings.integrations.githubToken.trim() || editableSettings.cliWorkflow.containerMountGithubAuth),
     };
+    const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
 
     const renderIntegrationConfig = (): ComponentChildren => {
       switch (selectedIntegration) {
@@ -1396,12 +1297,35 @@ export const SettingsPage: FunctionComponent = () => {
                 <NoticePanel title="System-owned credential">
                   The Gemini API key is shared at system scope so hosted worker integrations can reuse it across projects.
                 </NoticePanel>
+                <Row label="Mount Gemini auth" description="Copy Gemini CLI auth into Docker for this scope.">
+                  <Toggle value={editableSettings.cliWorkflow.containerMountGeminiAuth} onChange={() => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerMountGeminiAuth: !current.cliWorkflow.containerMountGeminiAuth,
+                    },
+                  }))} />
+                </Row>
+                <Row label="Gemini auth path" description="Host path copied into the Docker runtime for Gemini auth." last>
+                  <TextInput
+                    value={editableSettings.cliWorkflow.containerGeminiAuthPath}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      cliWorkflow: {
+                        ...current.cliWorkflow,
+                        containerGeminiAuthPath: value,
+                      },
+                    }))}
+                    disabled={!editableSettings.cliWorkflow.containerMountGeminiAuth}
+                    mono
+                  />
+                </Row>
               </SectionCard>
             );
           }
           return (
             <SectionCard title="Gemini Configuration" watermark="GEM">
-              <Row label="Gemini API key" description="Shared credential for Gemini-backed execution and future hosted workers." last>
+              <Row label="Gemini API key" description="Shared credential for Gemini-backed execution and future hosted workers. Disabled while Docker auth mount is active.">
                 <TextInput
                   value={systemSettings.integrations.geminiApiKey}
                   onChange={(value) => updateSystem((current) => ({
@@ -1411,6 +1335,30 @@ export const SettingsPage: FunctionComponent = () => {
                       geminiApiKey: value,
                     },
                   }))}
+                  disabled={dockerExecutionEnabled && editableSettings.cliWorkflow.containerMountGeminiAuth}
+                  mono
+                />
+              </Row>
+              <Row label="Mount Gemini auth" description="Copy Gemini CLI auth into Docker instead of passing the API key.">
+                <Toggle value={editableSettings.cliWorkflow.containerMountGeminiAuth} onChange={() => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountGeminiAuth: !current.cliWorkflow.containerMountGeminiAuth,
+                  },
+                }))} />
+              </Row>
+              <Row label="Gemini auth path" description="Host path copied into the Docker runtime for Gemini auth." last>
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerGeminiAuthPath}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerGeminiAuthPath: value,
+                    },
+                  }))}
+                  disabled={!editableSettings.cliWorkflow.containerMountGeminiAuth}
                   mono
                 />
               </Row>
@@ -1423,12 +1371,35 @@ export const SettingsPage: FunctionComponent = () => {
                 <NoticePanel title="System-owned credential">
                   The Codex API key is managed once at system scope and then reused by projects and future worker providers.
                 </NoticePanel>
+                <Row label="Mount Codex auth" description="Copy Codex auth into Docker for this scope.">
+                  <Toggle value={editableSettings.cliWorkflow.containerMountCodexAuth} onChange={() => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerMountCodexAuth: !current.cliWorkflow.containerMountCodexAuth,
+                    },
+                  }))} />
+                </Row>
+                <Row label="Codex auth path" description="Host path copied into the Docker runtime for Codex auth." last>
+                  <TextInput
+                    value={editableSettings.cliWorkflow.containerCodexAuthPath}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      cliWorkflow: {
+                        ...current.cliWorkflow,
+                        containerCodexAuthPath: value,
+                      },
+                    }))}
+                    disabled={!editableSettings.cliWorkflow.containerMountCodexAuth}
+                    mono
+                  />
+                </Row>
               </SectionCard>
             );
           }
           return (
             <SectionCard title="Codex Configuration" watermark="CDX">
-              <Row label="Codex API key" description="Shared credential for Codex-backed execution and worker routing." last>
+              <Row label="Codex API key" description="Shared credential for Codex-backed execution and worker routing. Disabled while Docker auth mount is active.">
                 <TextInput
                   value={systemSettings.integrations.codexApiKey}
                   onChange={(value) => updateSystem((current) => ({
@@ -1438,6 +1409,30 @@ export const SettingsPage: FunctionComponent = () => {
                       codexApiKey: value,
                     },
                   }))}
+                  disabled={dockerExecutionEnabled && editableSettings.cliWorkflow.containerMountCodexAuth}
+                  mono
+                />
+              </Row>
+              <Row label="Mount Codex auth" description="Copy Codex auth into Docker instead of passing the API key.">
+                <Toggle value={editableSettings.cliWorkflow.containerMountCodexAuth} onChange={() => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountCodexAuth: !current.cliWorkflow.containerMountCodexAuth,
+                  },
+                }))} />
+              </Row>
+              <Row label="Codex auth path" description="Host path copied into the Docker runtime for Codex auth." last>
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerCodexAuthPath}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerCodexAuthPath: value,
+                    },
+                  }))}
+                  disabled={!editableSettings.cliWorkflow.containerMountCodexAuth}
                   mono
                 />
               </Row>
@@ -1450,12 +1445,35 @@ export const SettingsPage: FunctionComponent = () => {
                 <NoticePanel title="System-owned credential">
                   The Claude Code API key is shared system-wide. Project-level provider selection still lives under AI Models.
                 </NoticePanel>
+                <Row label="Mount Claude Code auth" description="Copy Claude Code auth into Docker for this scope.">
+                  <Toggle value={editableSettings.cliWorkflow.containerMountClaudeCodeAuth} onChange={() => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerMountClaudeCodeAuth: !current.cliWorkflow.containerMountClaudeCodeAuth,
+                    },
+                  }))} />
+                </Row>
+                <Row label="Claude Code auth path" description="Host path copied into the Docker runtime for Claude Code auth." last>
+                  <TextInput
+                    value={editableSettings.cliWorkflow.containerClaudeCodeAuthPath}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      cliWorkflow: {
+                        ...current.cliWorkflow,
+                        containerClaudeCodeAuthPath: value,
+                      },
+                    }))}
+                    disabled={!editableSettings.cliWorkflow.containerMountClaudeCodeAuth}
+                    mono
+                  />
+                </Row>
               </SectionCard>
             );
           }
           return (
             <SectionCard title="Claude Code Configuration" watermark="CCD">
-              <Row label="Claude Code API key" description="Shared credential for Claude Code-backed execution." last>
+              <Row label="Claude Code API key" description="Shared credential for Claude Code-backed execution. Disabled while Docker auth mount is active.">
                 <TextInput
                   value={systemSettings.integrations.claudeCodeApiKey}
                   onChange={(value) => updateSystem((current) => ({
@@ -1465,6 +1483,30 @@ export const SettingsPage: FunctionComponent = () => {
                       claudeCodeApiKey: value,
                     },
                   }))}
+                  disabled={dockerExecutionEnabled && editableSettings.cliWorkflow.containerMountClaudeCodeAuth}
+                  mono
+                />
+              </Row>
+              <Row label="Mount Claude Code auth" description="Copy Claude Code auth into Docker instead of passing the API key.">
+                <Toggle value={editableSettings.cliWorkflow.containerMountClaudeCodeAuth} onChange={() => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountClaudeCodeAuth: !current.cliWorkflow.containerMountClaudeCodeAuth,
+                  },
+                }))} />
+              </Row>
+              <Row label="Claude Code auth path" description="Host path copied into the Docker runtime for Claude Code auth." last>
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerClaudeCodeAuthPath}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerClaudeCodeAuthPath: value,
+                    },
+                  }))}
+                  disabled={!editableSettings.cliWorkflow.containerMountClaudeCodeAuth}
                   mono
                 />
               </Row>
@@ -1485,10 +1527,34 @@ export const SettingsPage: FunctionComponent = () => {
                         githubToken: value,
                       },
                     }))}
+                    disabled={dockerExecutionEnabled && editableSettings.cliWorkflow.containerMountGithubAuth}
                     mono
                   />
                 </Row>
               ) : null}
+              <Row label="Mount GitHub auth" description="Copy GitHub CLI auth into Docker instead of passing the token.">
+                <Toggle value={editableSettings.cliWorkflow.containerMountGithubAuth} onChange={() => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountGithubAuth: !current.cliWorkflow.containerMountGithubAuth,
+                  },
+                }))} />
+              </Row>
+              <Row label="GitHub auth path" description="Host path copied into the Docker runtime for GitHub CLI auth.">
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerGithubAuthPath}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerGithubAuthPath: value,
+                    },
+                  }))}
+                  disabled={!editableSettings.cliWorkflow.containerMountGithubAuth}
+                  mono
+                />
+              </Row>
               <Row label="GitHub mode" description="Remote uses GitHub APIs; local keeps workflow on the local repository only.">
                 <SelectInput
                   value={editableSettings.git.githubMode}

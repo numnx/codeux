@@ -425,7 +425,6 @@ export interface CliWorkflowSettings {
   executionMode: CliExecutionMode;
   containerImage: string;
   containerSetupScriptPath: string;
-  containerMountCredentials: boolean;
   containerMountGitConfig: boolean;
   containerMountGithubAuth: boolean;
   containerMountGeminiAuth: boolean;

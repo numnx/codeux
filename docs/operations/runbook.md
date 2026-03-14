@@ -75,7 +75,7 @@ Checks:
   - Claude runner executes headless using `claude -p "<prompt>" --dangerously-skip-permissions`.
   - For Claude auth mounts, ensure host has `~/.claude/.credentials.json`; if auth still stalls, also verify `~/.claude.json` exists (runtime mounts it automatically when present).
   - Runtime now syncs only those Claude auth files before launch, avoiding recursive copy of all `.claude` state.
-  - If auth is expected from host login state, is `Mount user credentials into container` enabled and are mount paths valid?
+  - If auth is expected from host login state, is the relevant Docker auth mount enabled and is its mount path valid?
   - Docker mode requires daemon-visible workspace paths. Runtime now prefers repo-scoped worktree paths for Docker sessions.
   - Docker runtime state is stored under `~/.jules-subagents/runtime/docker/<repo-hash>/` by default (override with `JULES_DOCKER_RUNTIME_ROOT`).
   - Codex uses per-session container home directories under that runtime root to prevent stale state from previous Codex runs.

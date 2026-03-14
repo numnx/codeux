@@ -583,7 +583,6 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["cleanupWorktreeOnFailure", "Cleanup worktree on failure"],
             ["retryOnReadFileNotFound", "Retry missing file reads"],
             ["resumeFailedTaskInSameWorkspace", "Resume failed tasks in same workspace"],
-            ["containerMountCredentials", "Mount credentials into container"],
             ["containerMountGitConfig", "Mount git config"],
             ["containerMountGithubAuth", "Mount GitHub auth"],
             ["containerMountGeminiAuth", "Mount Gemini auth"],
