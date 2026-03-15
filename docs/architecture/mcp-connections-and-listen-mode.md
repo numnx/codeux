@@ -124,6 +124,13 @@ The worker listener contract now also supports:
 - `resolve_attention_item` so a worker can close or dismiss a blocker after handling it
 - `report_attention_outcome` so a worker can hand supervision off to the operator side without leaving the original item claimed forever
 
+Worker supervision assignment rules:
+
+- entering `listen` as a worker now ensures project-supervision assignment for the worker's active project scope even before any task dispatch is claimed
+- this makes worker-owned attention items, including merge-conflict escalations, deliverable to a listen-only connected worker
+- repeated `listen` calls now preserve per-project attention and assignment cursors when the project scope is unchanged, so long-poll re-registration does not replay the same assignment event forever
+- worker attention replay now advances in deterministic cursor order, so multiple open items created in the same second no longer allow one item to advance the cursor past its sibling and leave it undelivered
+
 Operational behavior:
 
 - the blocking call still polls sqlite-backed inbox and dispatch state internally

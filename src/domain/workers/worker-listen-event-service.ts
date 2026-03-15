@@ -15,6 +15,10 @@ function makeCursor(updatedAt: string, id: string): string {
   return `${updatedAt}::${id}`;
 }
 
+function compareCursor(left: { updatedAt: string; id: string }, right: { updatedAt: string; id: string }): number {
+  return makeCursor(left.updatedAt, left.id).localeCompare(makeCursor(right.updatedAt, right.id));
+}
+
 export class WorkerListenEventService {
   constructor(
     private readonly connectionChatRepository: ConnectionChatRepository,
@@ -89,16 +93,14 @@ export class WorkerListenEventService {
     const assignments = this.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId);
     const workerAssignment = assignments
       .filter((assignment) => assignment.workerEndpointId === workerEndpointId)
-      .sort((left, right) => makeCursor(right.updatedAt, right.id).localeCompare(makeCursor(left.updatedAt, left.id)))[0];
+      .filter((assignment) => !lastCursor || makeCursor(assignment.updatedAt, assignment.id) > lastCursor)
+      .sort(compareCursor)[0];
 
     if (!workerAssignment) {
       return null;
     }
 
     const nextCursor = makeCursor(workerAssignment.updatedAt, workerAssignment.id);
-    if (lastCursor && nextCursor <= lastCursor) {
-      return null;
-    }
 
     const activeAssignments = assignments.filter((assignment) => assignment.status === "active");
     const primary = activeAssignments.find((assignment) => assignment.assignmentRole === "primary") || null;
@@ -133,7 +135,7 @@ export class WorkerListenEventService {
   private pullAttentionItemEvent(
     workerEndpointId: string,
     projectId: string,
-    lastCursor: string | null,
+    _lastCursor: string | null,
   ): ListenAttentionItemEvent | null {
     const activeAssignments = this.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, {
       activeOnly: true,
@@ -145,12 +147,11 @@ export class WorkerListenEventService {
 
     const item = this.projectAttentionRepository.listProjectAttentionItems(projectId, {
       statuses: ["open"],
-      limit: 20,
-    }).find((candidate) => (
+      limit: 200,
+    }).filter((candidate) => (
       candidate.ownerType === "worker"
       && (candidate.assignedWorkerEndpointId === workerEndpointId || candidate.assignedWorkerEndpointId === null)
-      && (!lastCursor || makeCursor(candidate.updatedAt, candidate.id) > lastCursor)
-    ));
+    )).sort(compareCursor)[0];
 
     if (!item) {
       return null;

@@ -12,7 +12,7 @@ export async function attemptAutoMerge(args: {
   mode: "always" | "when_green";
   autoMergeFeaturePr: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
   persistMergedTask: (task: Subtask) => Promise<void>;
-}): Promise<{ reportText: string; state: "merged" | "scheduled" | "failed" }> {
+}): Promise<{ reportText: string; state: "merged" | "scheduled" | "conflict" | "failed" }> {
   const mergeResult = await args.autoMergeFeaturePr({
     repoPath: args.repoPath,
     prNumber: args.prNumber,
@@ -50,6 +50,21 @@ export async function attemptAutoMerge(args: {
         args.mode === "always" ? "always" : undefined,
       ),
       state: "scheduled",
+    };
+  }
+
+  if (mergeResult.mergeConflict) {
+    args.task.is_merged = false;
+    args.task.status = "COMPLETED";
+    args.task.merge_indicator = "MERGE_CONFLICT";
+    return {
+      reportText: buildAutoMergeFailedText(
+        args.task.id,
+        args.prNumber,
+        mergeResult.message || "merge conflict detected",
+        args.mode === "always" ? "always" : undefined,
+      ),
+      state: "conflict",
     };
   }
 

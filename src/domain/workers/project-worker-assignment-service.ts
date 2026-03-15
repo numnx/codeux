@@ -9,6 +9,18 @@ export class ProjectWorkerAssignmentService {
   ) {}
 
   noteWorkerActivity(projectId: string, workerEndpointId: string): ProjectWorkerAssignmentRecord {
+    return this.upsertWorkerAssignment(projectId, workerEndpointId, true);
+  }
+
+  ensureWorkerAssignment(projectId: string, workerEndpointId: string): ProjectWorkerAssignmentRecord {
+    return this.upsertWorkerAssignment(projectId, workerEndpointId, false);
+  }
+
+  private upsertWorkerAssignment(
+    projectId: string,
+    workerEndpointId: string,
+    touchExisting: boolean,
+  ): ProjectWorkerAssignmentRecord {
     const workerEndpoint = this.workerEndpointRepository.getWorkerEndpoint(workerEndpointId);
     if (!workerEndpoint) {
       throw new Error(`Worker endpoint not found: ${workerEndpointId}`);
@@ -26,6 +38,9 @@ export class ProjectWorkerAssignmentService {
     const nextRole = shouldBePrimary && !workerOwnsPrimaryElsewhere ? "primary" : "overflow";
 
     if (current) {
+      if (!touchExisting && current.assignmentRole === nextRole) {
+        return current;
+      }
       return this.projectWorkerAssignmentRepository.touchAssignment(current.id, {
         assignmentRole: current.assignmentRole === nextRole ? undefined : nextRole,
       });

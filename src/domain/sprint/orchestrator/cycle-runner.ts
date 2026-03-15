@@ -198,6 +198,12 @@ export class CycleRunner {
       }
     }
 
+    const activeWorkerMergeConflictTaskIds = collectActiveWorkerMergeConflictTaskIds(
+      typeof this.deps.projectAttentionService?.listActiveProjectItems === "function"
+        ? this.deps.projectAttentionService.listActiveProjectItems(args.executionContext.project.id)
+        : [],
+    );
+
     const protocolResult = await runProtocolStep(subtasks, {
       featureBranch: args.defaultFeatureBranch,
       githubMode: args.githubMode,
@@ -205,13 +211,18 @@ export class CycleRunner {
       enableMergeProtocol: args.loopSteps.mergeProtocol,
       enableActionRequiredProtocol: args.loopSteps.actionRequiredProtocol,
       isActionRequiredState: this.deps.isActionRequiredState,
-      isWorkerEscalatedMergeConflictTask: (task) => shouldEscalateFeatureMergeConflict(task, args, gitStatus),
+      isWorkerEscalatedMergeConflictTask: (task) => shouldEscalateFeatureMergeConflict(
+        task,
+        args,
+        gitStatus,
+        activeWorkerMergeConflictTaskIds,
+      ),
       renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, args.repoPath),
       onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
         appendTaskEvent(task, eventType, payload, sourceEventKey);
       },
     });
-    this.syncProtocolAttentionItems(subtasks, protocolResult, args, gitStatus);
+    this.syncProtocolAttentionItems(subtasks, protocolResult, args, gitStatus, activeWorkerMergeConflictTaskIds);
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
 
@@ -263,6 +274,7 @@ export class CycleRunner {
     },
     args: CycleRunnerArgs,
     gitStatus: GitTrackingStatus | null,
+    activeWorkerMergeConflictTaskIds: Set<string>,
   ): void {
     const projectId = args.executionContext.project.id;
     const sprintId = args.executionContext.sprint.id;
@@ -279,7 +291,12 @@ export class CycleRunner {
       }
       mergeTaskIds.add(taskId);
       const pr = gitStatus?.available ? matchPrForTask(task, gitStatus) : undefined;
-      const mergeConflictDetected = shouldEscalateFeatureMergeConflict(task, args, gitStatus);
+      const mergeConflictDetected = shouldEscalateFeatureMergeConflict(
+        task,
+        args,
+        gitStatus,
+        activeWorkerMergeConflictTaskIds,
+      );
       const mergedFeatureTasks = selectMergedFeatureTaskContexts(subtasks, taskId);
 
       this.deps.projectAttentionService.openItem({
@@ -382,13 +399,40 @@ function shouldEscalateFeatureMergeConflict(
   task: Subtask,
   args: CycleRunnerArgs,
   gitStatus: GitTrackingStatus | null,
+  activeWorkerMergeConflictTaskIds: Set<string>,
 ): boolean {
-  if (!args.ciIntelligence.resolveMergeConflicts || !gitStatus?.available) {
+  if (!args.ciIntelligence.resolveMergeConflicts) {
+    return false;
+  }
+
+  const taskId = task.record_id?.trim();
+  if (taskId && activeWorkerMergeConflictTaskIds.has(taskId)) {
+    return true;
+  }
+
+  if (task.merge_indicator === "MERGE_CONFLICT") {
+    return true;
+  }
+
+  if (!gitStatus?.available) {
     return false;
   }
 
   const pr = matchPrForTask(task, gitStatus);
   return pr?.mergeStateStatus === "DIRTY";
+}
+
+function collectActiveWorkerMergeConflictTaskIds(subtasks: Array<{
+  taskId: string | null;
+  attentionType: string;
+  ownerType: string;
+}>): Set<string> {
+  return new Set(
+    subtasks
+      .filter((item) => item.attentionType === "merge_conflict" && item.ownerType === "worker")
+      .map((item) => item.taskId?.trim())
+      .filter((taskId): taskId is string => Boolean(taskId)),
+  );
 }
 
 function snapshotTaskState(subtasks: Subtask[]): Map<string, TaskStateSnapshot> {

@@ -11,6 +11,7 @@ const buildDeps = () => ({
   projectAttentionService: {
     openItem: vi.fn(),
     resolveItemsForSprintRun: vi.fn(),
+    listActiveProjectItems: vi.fn().mockReturnValue([]),
   },
   executionRepository: {
     appendSprintRunEvent: vi.fn(),
@@ -366,6 +367,83 @@ describe("WatchLoopRunner", () => {
     expect(deps.executionRepository.appendSprintRunEvent).not.toHaveBeenCalledWith(
       "run-1",
       "sprint_merge_required",
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+    nowSpy.mockRestore();
+  });
+
+  it("does not fall back to no-more-actions while a worker-owned merge conflict item is still open", async () => {
+    const deps = buildDeps();
+    const cycleRunner = buildCycleRunner();
+    const nowSpy = vi.spyOn(Date, "now");
+    let sprintRunLookupCount = 0;
+
+    nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(1_000).mockReturnValueOnce(2_000).mockReturnValueOnce(61_000);
+    deps.renderInstruction.mockImplementation(async (id) => id === "watchHeader" ? "HEADER" : "");
+    deps.projectAttentionService.listActiveProjectItems = vi.fn().mockReturnValue([
+      {
+        id: "attention-1",
+        taskId: "task-1",
+        attentionType: "merge_conflict",
+        ownerType: "worker",
+      },
+    ]);
+    deps.executionRepository.getSprintRun = vi.fn(() => {
+      sprintRunLookupCount += 1;
+      return { status: sprintRunLookupCount >= 5 ? "paused" : "running" };
+    });
+
+    cycleRunner.run
+      .mockResolvedValueOnce({
+        subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: false })],
+        reportText: "REPORT_CONFLICT",
+        statusTable: "TABLE_CONFLICT",
+        instructions: "INST_CONFLICT",
+        awaitingMerge: [buildMockSubtask({ status: "COMPLETED", is_merged: false })],
+        manualMergeTasks: [],
+        workerEscalatedMergeConflictTasks: [],
+      })
+      .mockResolvedValueOnce({
+        subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: false })],
+        reportText: "REPORT_CONFLICT_2",
+        statusTable: "TABLE_CONFLICT_2",
+        instructions: "INST_CONFLICT_2",
+        awaitingMerge: [buildMockSubtask({ status: "COMPLETED", is_merged: false })],
+        manualMergeTasks: [],
+        workerEscalatedMergeConflictTasks: [],
+      });
+
+    const runner = new WatchLoopRunner(deps as any, cycleRunner as any, vi.fn());
+    const result = await runner.run({
+      args: { sprint_number: 1, action: "orchestrate" } as any,
+      executionContext: {
+        project: { id: "project-1", name: "Test Project" },
+        sprint: { id: "sprint-1", name: "Sprint 1" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
+      repoPath: "/tmp",
+      defaultFeatureBranch: "feat",
+      defaultBranch: "main",
+      githubMode: "REMOTE",
+      retryFailed: false,
+      loopSteps: { watchLoopOutputIntervalSeconds: 60, watchLoopIntervalSeconds: 0.01 } as any,
+      ciIntelligence: {} as any,
+      automationLevel: "SEMI_AUTO",
+      automationInterventions: {} as any,
+      dashboardPort: 4444,
+      sprintRunId: "run-1",
+    });
+
+    expect(cycleRunner.run).toHaveBeenCalledTimes(2);
+    expect(result).toContain("Sprint Paused");
+    expect(deps.executionRepository.appendSprintRunEvent).not.toHaveBeenCalledWith(
+      "run-1",
+      "sprint_no_more_actions",
       expect.anything(),
       expect.anything(),
       expect.anything(),

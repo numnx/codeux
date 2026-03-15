@@ -44,7 +44,11 @@ export class FeaturePrGateService {
   async evaluateCiGate(subtasks: Subtask[], context: CiGateContext): Promise<CiGateResult> {
     const updatedSubtasks = [...subtasks];
     for (const task of updatedSubtasks) {
-      task.merge_indicator = task.is_merged ? "MERGED" : undefined;
+      task.merge_indicator = task.is_merged
+        ? "MERGED"
+        : task.merge_indicator === "MERGE_CONFLICT"
+          ? "MERGE_CONFLICT"
+          : undefined;
       if (task.status === "COMPLETED") {
         task.intervention_owner = undefined;
         task.intervention_hint = undefined;
@@ -130,6 +134,8 @@ export class FeaturePrGateService {
           ? "automerge_succeeded"
           : mergeAttempt.state === "scheduled"
             ? "automerge_scheduled"
+            : mergeAttempt.state === "conflict"
+              ? "automerge_conflict"
             : "automerge_failed", {
           prNumber: pr.number,
           prUrl: pr.url,
@@ -156,6 +162,8 @@ export class FeaturePrGateService {
             ? "automerge_succeeded"
             : mergeAttempt.state === "scheduled"
               ? "automerge_scheduled"
+              : mergeAttempt.state === "conflict"
+                ? "automerge_conflict"
               : "automerge_failed", {
             prNumber: pr.number,
             prUrl: pr.url,

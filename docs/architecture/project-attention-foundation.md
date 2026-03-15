@@ -73,6 +73,11 @@ When an item is opened with `ownerType = worker`:
 - otherwise use an overflow assignment that can supervise projects
 - otherwise leave the item unassigned
 
+Worker listen-mode supervision now backfills that assignment path:
+
+- when a worker enters `listen` for a project, Sprint OS ensures a project-worker assignment for that active project scope even if the worker has not claimed a task dispatch yet
+- this lets worker-owned items that were opened before any dispatch activity still reach the connected worker through `listen`
+
 This keeps the sticky-worker behavior intact without forcing a worker connection to be online at open time.
 
 ## Current Openers
@@ -120,6 +125,9 @@ When CI intelligence sees a feature PR in `DIRTY` merge state and `ciIntelligenc
   - the prompts for merged tasks already present on the feature branch
 - generic `merge_required` attention for the same task is resolved automatically so the queue shows one clear conflict item
 - these worker-owned conflict items do not count as human merge protocol anymore, so the watch loop keeps running instead of pausing for operator merge work
+- once a worker-owned `merge_conflict` item exists for a task, the orchestrator keeps that routing sticky across later loops until the blocker clears; a stale or incomplete PR snapshot no longer downgrades the task back into manual `merge_required` pause flow
+- feature PR auto-merge failures now also promote into the same worker-owned `merge_conflict` path when the merge command reports a real merge conflict, even if the last PR snapshot had not yet surfaced `DIRTY`
+- the watch loop now also trusts the active worker-owned `merge_conflict` queue directly, so an already-open conflict item cannot regress into `no further action possible` if one cycle returns incomplete merge classification
 
 When the main merge PR (`feature -> default`) is in `DIRTY` state and `ciIntelligence.resolveMainMergeConflicts` is enabled:
 

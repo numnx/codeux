@@ -127,4 +127,36 @@ describe("ProjectWorkerAssignmentRepository", () => {
     const promoted = projectWorkerAssignmentService.noteWorkerActivity(project.id, endpointB.id);
     expect(promoted.assignmentRole).toBe("primary");
   });
+
+  it("does not churn an existing assignment when ensuring the same worker/project binding", async () => {
+    const {
+      projectRepository,
+      connectionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentService,
+    } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Ensure Project",
+      sourceType: "local",
+      sourceRef: "/workspace/ensure-project",
+    });
+
+    const worker = connectionRepository.upsertConnection({
+      connectionKey: "worker-ensure-1",
+      displayName: "Worker Ensure 1",
+      role: "worker",
+      transport: "stdio",
+      status: "listening",
+      projectIds: [project.id],
+      activeProjectIds: [project.id],
+    });
+    const workerEndpoint = workerEndpointRepository.getWorkerEndpointByConnectionId(worker.id)!;
+
+    const first = projectWorkerAssignmentService.ensureWorkerAssignment(project.id, workerEndpoint.id);
+    const second = projectWorkerAssignmentService.ensureWorkerAssignment(project.id, workerEndpoint.id);
+
+    expect(second.id).toBe(first.id);
+    expect(second.updatedAt).toBe(first.updatedAt);
+    expect(second.lastAffinityAt).toBe(first.lastAffinityAt);
+  });
 });

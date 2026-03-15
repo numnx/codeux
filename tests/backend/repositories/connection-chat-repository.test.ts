@@ -253,6 +253,43 @@ describe("ConnectionChatRepository", () => {
     });
   });
 
+  it("preserves project binding cursors when a listener is re-registered on the same project scope", async () => {
+    const { projectRepository, connectionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Cursor Preserve Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cursor-preserve-project",
+    });
+
+    const started = connectionRepository.startListen({
+      connectionKey: "listener-cursor-preserve",
+      displayName: "Cursor Preserve",
+      role: "worker",
+      projectId: project.id,
+    });
+
+    connectionRepository.updateProjectBindingCursor(started.connection.id, project.id, {
+      attentionCursor: "attention-cursor-1",
+      assignmentCursor: "assignment-cursor-1",
+    });
+
+    connectionRepository.startListen({
+      connectionKey: "listener-cursor-preserve",
+      displayName: "Cursor Preserve",
+      role: "worker",
+      projectId: project.id,
+    });
+
+    expect(connectionRepository.listProjectBindingStates(started.connection.id)).toEqual([
+      expect.objectContaining({
+        projectId: project.id,
+        isActive: true,
+        lastAttentionCursor: "attention-cursor-1",
+        lastAssignmentCursor: "assignment-cursor-1",
+      }),
+    ]);
+  });
+
   it("throttles connection heartbeat writes while a listener stays idle", async () => {
     const { storage, projectRepository, connectionRepository } = await createRepositories();
     const project = projectRepository.createProject({

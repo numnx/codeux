@@ -126,6 +126,29 @@ describe("FeaturePrGateService", () => {
     );
   });
 
+  it("keeps task awaiting merge and marks a merge conflict when auto-merge fails with a conflict", async () => {
+    context.ciIntelligence.featurePrAutoMergeMode = "WHEN_GREEN";
+    context.autoMergeFeaturePr = vi.fn().mockResolvedValue({
+      ok: false,
+      mergeConflict: true,
+      message: "Merge conflict detected while merging PR.",
+    });
+
+    const result = await service.evaluateCiGate(subtasks, context);
+
+    expect(result.subtasks[0].status).toBe("COMPLETED");
+    expect(result.subtasks[0].is_merged).toBe(false);
+    expect(result.subtasks[0].merge_indicator).toBe("MERGE_CONFLICT");
+    expect(result.reportText).toContain("Auto-Merge Failed");
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "automerge_conflict", prNumber: 101 }),
+      expect.any(Object),
+    );
+  });
+
   it("keeps task in RUNNING with CI indicator if checks are pending", async () => {
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "in_progress", conclusion: null }

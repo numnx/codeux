@@ -36,6 +36,17 @@ export type { GitTrackingRequest };
 const FAILED_RUN_DETAILS_LIMIT = 3;
 const FAILED_JOBS_PER_RUN_LIMIT = 3;
 
+function detectMergeConflictMessage(message: string | null | undefined): boolean {
+  const normalized = String(message || "").trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return normalized.includes("merge conflict")
+    || normalized.includes("not mergeable")
+    || normalized.includes("cannot be cleanly created")
+    || normalized.includes("dirty");
+}
+
 export class GitStatusService {
   private static statusCache = new Map<string, { timestamp: number; promise: Promise<GitTrackingStatus> }>();
 
@@ -337,9 +348,11 @@ export class GitStatusService {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
     const result = await this.queryClient.ghPrMerge(prNumber, effectiveToken);
     if (!result.ok) {
+      const message = result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.";
       return {
         ok: false,
-        message: result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.",
+        message,
+        mergeConflict: detectMergeConflictMessage(message),
       };
     }
     GitStatusService.invalidateCache(this.repoPath);

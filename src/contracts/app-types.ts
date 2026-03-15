@@ -45,7 +45,7 @@ export interface JulesActivity {
 }
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED";
-export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED";
+export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT";
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code";
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -351,6 +351,7 @@ export interface DashboardStats {
   automerge: number;
   merged: number;
   mergeBlocked: number;
+  mergeConflicts: number;
 }
 
 export interface Settings {
@@ -591,6 +592,7 @@ export interface AutoMergeFeaturePrResult {
   ok: boolean;
   merged?: boolean;
   autoMergeScheduled?: boolean;
+  mergeConflict?: boolean;
   message?: string;
 }
 

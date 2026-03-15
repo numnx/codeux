@@ -59,6 +59,17 @@ import { bootMcpHttpTransport, bootMcpTransport, type McpHttpTransportHandle } f
 import { getSprintSubtasksDir, SPRINT_OS_SERVICE_NAME } from "../shared/config/sprint-os-paths.js";
 import { SprintMarkdownService } from "../services/sprint-markdown-service.js";
 
+function detectMergeConflictMessage(message: string | null | undefined): boolean {
+  const normalized = String(message || "").trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return normalized.includes("merge conflict")
+    || normalized.includes("not mergeable")
+    || normalized.includes("cannot be cleanly created")
+    || normalized.includes("dirty");
+}
+
 export interface JulesAgentServerOptions {
   projectRoot: string;
   appConfig: AppConfig;
@@ -538,7 +549,11 @@ export class JulesAgentServer {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { ok: false, message };
+      return {
+        ok: false,
+        message,
+        mergeConflict: detectMergeConflictMessage(message),
+      };
     }
   }
 

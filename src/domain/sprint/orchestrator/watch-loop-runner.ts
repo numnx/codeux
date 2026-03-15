@@ -150,13 +150,18 @@ export class WatchLoopRunner {
 
       const runningTasks = subtasks.filter((task) => task.status === "RUNNING");
       const readyTasks = subtasks.filter((task) => task.status === "PENDING");
+      const activeWorkerMergeConflictAttention = typeof this.deps.projectAttentionService?.listActiveProjectItems === "function"
+        ? this.deps.projectAttentionService.listActiveProjectItems(scopedExecutionContext.project.id).some((item) => (
+          item.attentionType === "merge_conflict" && item.ownerType === "worker"
+        ))
+        : false;
 
       const allTerminal = subtasks.length > 0 && subtasks.every(
         (task) => (task.status === "COMPLETED" && task.is_merged) || task.status === "FAILED"
       );
       const noMoreActionPossible = runningTasks.length === 0 && readyTasks.length === 0;
       const needsManualMerge = manualMergeTasks.length > 0;
-      const waitingOnWorkerMergeConflict = workerEscalatedMergeConflictTasks.length > 0;
+      const waitingOnWorkerMergeConflict = workerEscalatedMergeConflictTasks.length > 0 || activeWorkerMergeConflictAttention;
 
       allFinished = allTerminal || needsManualMerge || (noMoreActionPossible && !waitingOnWorkerMergeConflict);
       const elapsedMs = Date.now() - checkpointWindowStartedAt;

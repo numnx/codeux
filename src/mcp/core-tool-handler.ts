@@ -21,6 +21,7 @@ import type { WorkerListenEventService } from "../domain/workers/worker-listen-e
 import type { WorkerEndpointRepository } from "../repositories/worker-endpoint-repository.js";
 import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import type { WorkerAttentionOutcomeService } from "../domain/workers/worker-attention-outcome-service.js";
+import type { ProjectWorkerAssignmentService } from "../domain/workers/project-worker-assignment-service.js";
 
 interface CoreToolHandlerDependencies {
   julesApi: JulesApiClient;
@@ -35,6 +36,7 @@ interface CoreToolHandlerDependencies {
   getDashboardSettings: () => DashboardSettings;
   connectionChatRepository: ConnectionChatRepository;
   workerEndpointRepository?: WorkerEndpointRepository;
+  projectWorkerAssignmentService?: ProjectWorkerAssignmentService;
   projectAttentionService?: ProjectAttentionService;
   workerAttentionOutcomeService?: WorkerAttentionOutcomeService;
   workerTaskDispatchService: WorkerTaskDispatchService;
@@ -102,6 +104,7 @@ export class CoreToolHandler {
       capabilities: args.capabilities,
       maxMessages: args.max_messages,
     });
+    this.ensureWorkerProjectAssignments(response.connection);
 
     return {
       content: [{
@@ -140,6 +143,7 @@ export class CoreToolHandler {
       capabilities: normalizedArgs.capabilities,
       maxMessages: 1,
     });
+    this.ensureWorkerProjectAssignments(startResponse.connection);
 
     const immediateInboxMessage = startResponse.inbox[0];
     if (immediateInboxMessage) {
@@ -410,6 +414,35 @@ export class CoreToolHandler {
         text: JSON.stringify(response, null, 2),
       }],
     };
+  }
+
+  private ensureWorkerProjectAssignments(connection: {
+    id: string;
+    role?: string;
+    projectIds?: string[];
+    activeProjectIds?: string[];
+  }): void {
+    if (connection.role !== "worker") {
+      return;
+    }
+    if (!this.deps.projectWorkerAssignmentService || !this.deps.workerEndpointRepository) {
+      return;
+    }
+
+    const workerEndpoint = this.deps.workerEndpointRepository.getWorkerEndpointByConnectionId(connection.id);
+    if (!workerEndpoint?.id) {
+      return;
+    }
+
+    const projectIds = (
+      Array.isArray(connection.activeProjectIds) && connection.activeProjectIds.length > 0
+        ? connection.activeProjectIds
+        : connection.projectIds
+    ) || [];
+
+    for (const projectId of projectIds.map((value) => String(value || "").trim()).filter(Boolean)) {
+      this.deps.projectWorkerAssignmentService.ensureWorkerAssignment(projectId, workerEndpoint.id);
+    }
   }
 
   private requireWorkerEndpointId(connectionKey: string): string {

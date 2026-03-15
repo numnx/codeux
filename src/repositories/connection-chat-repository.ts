@@ -44,6 +44,7 @@ interface BindingRow {
   is_active: number | string;
   last_attention_cursor: string | null;
   last_assignment_cursor: string | null;
+  created_at?: string | null;
 }
 
 export interface ConnectionProjectBindingState {
@@ -241,6 +242,14 @@ export class ConnectionChatRepository {
     const connectionId = existing?.id || randomUUID();
     const normalizedProjectIds = this.normalizeProjectIds(input.projectIds);
     const activeProjectIds = this.normalizeActiveProjectIds(normalizedProjectIds, input.activeProjectIds);
+    const existingBindings = existing
+      ? this.db.prepare(`
+        SELECT connection_id, project_id, is_active, last_attention_cursor, last_assignment_cursor, created_at
+        FROM connection_project_bindings
+        WHERE connection_id = ?
+      `).all(connectionId) as unknown as BindingRow[]
+      : [];
+    const existingBindingsByProjectId = new Map(existingBindings.map((binding) => [binding.project_id, binding]));
 
     this.runInTransaction(() => {
       this.db.prepare(`DELETE FROM connection_project_bindings WHERE connection_id = ?`).run(connectionId);
@@ -288,10 +297,18 @@ export class ConnectionChatRepository {
             last_attention_cursor,
             last_assignment_cursor,
             created_at
-          ) VALUES (?, ?, ?, NULL, NULL, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?)
         `);
         for (const projectId of normalizedProjectIds) {
-          insertBinding.run(connectionId, projectId, Number(activeProjectIds.includes(projectId)), now);
+          const existingBinding = existingBindingsByProjectId.get(projectId);
+          insertBinding.run(
+            connectionId,
+            projectId,
+            Number(activeProjectIds.includes(projectId)),
+            existingBinding?.last_attention_cursor ?? null,
+            existingBinding?.last_assignment_cursor ?? null,
+            existingBinding?.created_at ?? now,
+          );
         }
       }
     });
