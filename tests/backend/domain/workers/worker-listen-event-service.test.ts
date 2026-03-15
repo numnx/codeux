@@ -199,4 +199,73 @@ describe("WorkerListenEventService", () => {
     expect(firstEvent?.kind).toBe("attention_item");
     expect(secondEvent).toBeNull();
   });
+
+  it("includes branch-aware continuation guidance for merge_conflict attention items", async () => {
+    const {
+      projectRepository,
+      connectionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectAttentionRepository,
+      service,
+    } = await createFixture();
+    const project = projectRepository.createProject({
+      name: "Merge Conflict Project",
+      sourceType: "local",
+      sourceRef: "/repo/merge-conflict-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Sprint 1",
+      number: 1,
+      featureBranch: "feature/sprint-1",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T9",
+      title: "Resolve conflict",
+      promptMarkdown: "Handle the conflicting API updates.",
+      status: "pending",
+      isIndependent: true,
+    });
+    connectionRepository.startListen({
+      connectionKey: "worker-delta",
+      displayName: "Worker Delta",
+      role: "worker",
+      projectIds: [project.id],
+      activeProjectIds: [project.id],
+    });
+    const connection = connectionRepository.getConnectionByKey("worker-delta");
+    const workerEndpoint = workerEndpointRepository.getWorkerEndpointByConnectionId(connection!.id);
+    projectWorkerAssignmentRepository.createAssignment(project.id, workerEndpoint!, "primary");
+    service.pullNextEvent({ connectionKey: "worker-delta" });
+
+    projectAttentionRepository.openOrRefreshItem({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      attentionType: "merge_conflict",
+      severity: "high",
+      ownerType: "worker",
+      assignedWorkerEndpointId: workerEndpoint!.id,
+      title: "Merge conflict for T9",
+      summaryMarkdown: "Conflict needs worker resolution.",
+      payload: {
+        workerBranch: "worker/T9",
+        featureBranch: "feature/sprint-1",
+        conflictingBranches: {
+          source: "worker/T9",
+          target: "feature/sprint-1",
+        },
+      },
+    });
+
+    const event = service.pullNextEvent({
+      connectionKey: "worker-delta",
+    });
+
+    expect(event?.kind).toBe("attention_item");
+    expect(event?.continuation.instruction).toContain("worker/T9");
+    expect(event?.continuation.instruction).toContain("feature/sprint-1");
+    expect(event?.continuation.instruction).toContain("/repo/merge-conflict-project");
+  });
 });

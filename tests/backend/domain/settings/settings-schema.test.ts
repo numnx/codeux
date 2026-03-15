@@ -123,6 +123,7 @@ describe("validateSettingsPayload", () => {
         resolveAllCommentsBeforeMainMerge: "bad",
         waitForCiBeforeFeatureMerge: "bad",
         resolveAllCommentsBeforeFeatureMerge: "bad",
+        resolveMergeConflicts: "bad",
         waitForJulesCiAutofix: "bad",
         julesCiAutofixMaxRetries: "bad",
         featurePrAutoMergeMode: "invalid",

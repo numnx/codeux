@@ -1025,6 +1025,18 @@ export const SettingsPage: FunctionComponent = () => {
         </SectionCard>
 
         <SectionCard title="Autofix Policy" watermark="FIX" badge={getBadge("ciIntelligence")}>
+          <Row label="Resolve merge conflicts" description="Escalate feature-branch merge conflicts to the connected worker with full branch and task context.">
+            <Toggle
+              value={editableSettings.ciIntelligence.resolveMergeConflicts}
+              onChange={() => updateEditableSettings((current) => ({
+                ...current,
+                ciIntelligence: {
+                  ...current.ciIntelligence,
+                  resolveMergeConflicts: !current.ciIntelligence.resolveMergeConflicts,
+                },
+              }))}
+            />
+          </Row>
           <Row label="Jules CI autofix" description="Allow Jules to attempt CI autofixes before escalating to a worker.">
             <Toggle
               value={editableSettings.ciIntelligence.waitForJulesCiAutofix}

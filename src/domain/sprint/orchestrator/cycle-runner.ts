@@ -9,6 +9,8 @@ import type {
   AutomationInterventionsSettings,
   AutomationLevel,
   CiIntelligenceSettings,
+  GitPullRequestStatus,
+  GitTrackingStatus,
   SprintLoopStepSettings,
   Subtask,
 } from "../../../contracts/app-types.js";
@@ -16,6 +18,7 @@ import type { ProjectAttentionOwnerType } from "../../../contracts/project-atten
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
+import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 
 export interface CycleRunnerArgs {
   action: "status" | "orchestrate";
@@ -36,6 +39,14 @@ export interface CycleRunnerArgs {
 interface TaskStateSnapshot {
   id: string;
   isMerged: boolean;
+}
+
+interface MergeConflictTaskContext {
+  taskKey: string;
+  taskTitle: string;
+  taskPrompt: string;
+  workerBranch: string | null;
+  prUrl: string | null;
 }
 
 export class CycleRunner {
@@ -123,15 +134,17 @@ export class CycleRunner {
       reportText += interventionResult.reportText;
     }
 
+    let gitStatus: GitTrackingStatus | null = null;
     if (subtasks.length > 0) {
       const taskStateBeforeCiGate = snapshotTaskState(subtasks);
-      const gitStatus = this.deps.getCiStatusForScope
+      gitStatus = this.deps.getCiStatusForScope
         ? await this.deps.getCiStatusForScope({
             repoPath: args.repoPath,
             scope: "FEATURE_PR_CI",
             featureBranch: args.defaultFeatureBranch,
             defaultBranch: args.defaultBranch,
             featureBranchPrefix: args.featureBranchPrefix,
+            cacheTtlMs: resolveCiStatusCacheTtlMs(args.loopSteps.watchLoopIntervalSeconds),
           })
         : null;
 
@@ -193,7 +206,7 @@ export class CycleRunner {
         appendTaskEvent(task, eventType, payload, sourceEventKey);
       },
     });
-    this.syncProtocolAttentionItems(subtasks, protocolResult, args);
+    this.syncProtocolAttentionItems(subtasks, protocolResult, args, gitStatus);
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
 
@@ -242,6 +255,7 @@ export class CycleRunner {
       actionRequiredTasks: Subtask[];
     },
     args: CycleRunnerArgs,
+    gitStatus: GitTrackingStatus | null,
   ): void {
     const projectId = args.executionContext.project.id;
     const sprintId = args.executionContext.sprint.id;
@@ -257,29 +271,55 @@ export class CycleRunner {
         continue;
       }
       mergeTaskIds.add(taskId);
+      const pr = gitStatus?.available ? matchPrForTask(task, gitStatus) : undefined;
+      const mergeConflictDetected = Boolean(
+        args.ciIntelligence.resolveMergeConflicts
+        && pr
+        && pr.mergeStateStatus === "DIRTY",
+      );
+      const mergedFeatureTasks = selectMergedFeatureTaskContexts(subtasks, taskId);
+
       this.deps.projectAttentionService.openItem({
         projectId,
         sprintId,
         taskId,
         sprintRunId,
-        attentionType: "merge_required",
-        severity: task.merge_indicator === "MERGE_BLOCKED" ? "high" : "medium",
+        attentionType: mergeConflictDetected ? "merge_conflict" : "merge_required",
+        severity: mergeConflictDetected || task.merge_indicator === "MERGE_BLOCKED" ? "high" : "medium",
         ownerType: "worker",
-        title: `Merge required for ${task.id}`,
-        summaryMarkdown: task.merge_indicator === "MERGE_BLOCKED"
-          ? `Task \`${task.id}\` is complete but blocked on merge work that could not be resolved automatically.`
-          : `Task \`${task.id}\` is complete and awaiting merge into \`${args.defaultFeatureBranch}\`.`,
+        title: mergeConflictDetected ? `Merge conflict for ${task.id}` : `Merge required for ${task.id}`,
+        summaryMarkdown: mergeConflictDetected
+          ? buildMergeConflictSummary(task, args, pr || null, mergedFeatureTasks)
+          : task.merge_indicator === "MERGE_BLOCKED"
+            ? `Task \`${task.id}\` is complete but blocked on merge work that could not be resolved automatically.`
+            : `Task \`${task.id}\` is complete and awaiting merge into \`${args.defaultFeatureBranch}\`.`,
         payload: {
           repoPath: args.repoPath,
+          workingDirectoryHint: `cd ${args.repoPath}`,
           featureBranch: args.defaultFeatureBranch,
           defaultBranch: args.defaultBranch,
           taskKey: task.id,
           taskTitle: task.title,
+          taskPrompt: task.prompt,
           mergeIndicator: task.merge_indicator || null,
           workerBranch: task.worker_branch || null,
           prUrl: task.pr_url || null,
+          prNumber: pr?.number ?? null,
+          mergeStateStatus: pr?.mergeStateStatus ?? null,
+          conflictingBranches: {
+            source: task.worker_branch || pr?.headRefName || null,
+            target: args.defaultFeatureBranch,
+          },
+          currentTask: buildTaskContext(task),
+          featureBranchTaskContexts: mergedFeatureTasks,
         },
       });
+      this.deps.projectAttentionService.resolveItemsForTask(
+        projectId,
+        taskId,
+        [mergeConflictDetected ? "merge_required" : "merge_conflict"],
+        mergeConflictDetected ? "merge_conflict_attention_replaced" : "merge_required_attention_replaced",
+      );
     }
 
     const actionTaskIds = new Set<string>();
@@ -319,7 +359,7 @@ export class CycleRunner {
         this.deps.projectAttentionService.resolveItemsForTask(
           projectId,
           taskId,
-          ["merge_required"],
+          ["merge_required", "merge_conflict"],
           "merge_attention_cleared",
         );
       }
@@ -350,4 +390,75 @@ function hasMergeStateChanges(previous: Map<string, TaskStateSnapshot>, subtasks
     }
     return earlier.isMerged !== Boolean(task.is_merged);
   });
+}
+
+function resolveCiStatusCacheTtlMs(watchLoopIntervalSeconds: number | undefined): number {
+  const watchLoopIntervalMs = Math.max(1, Number(watchLoopIntervalSeconds || 0)) * 1000;
+  return Math.min(15_000, Math.max(3_000, watchLoopIntervalMs));
+}
+
+function buildTaskContext(task: Subtask): MergeConflictTaskContext {
+  return {
+    taskKey: task.id,
+    taskTitle: task.title,
+    taskPrompt: task.prompt,
+    workerBranch: task.worker_branch || null,
+    prUrl: task.pr_url || null,
+  };
+}
+
+function selectMergedFeatureTaskContexts(subtasks: Subtask[], excludedTaskId: string): MergeConflictTaskContext[] {
+  return subtasks
+    .filter((candidate) => candidate.record_id?.trim() !== excludedTaskId && candidate.is_merged)
+    .slice(0, 5)
+    .map((candidate) => buildTaskContext(candidate));
+}
+
+function buildMergeConflictSummary(
+  task: Subtask,
+  args: CycleRunnerArgs,
+  pr: GitPullRequestStatus | null,
+  mergedFeatureTasks: MergeConflictTaskContext[],
+): string {
+  const sourceBranch = task.worker_branch || pr?.headRefName || "the task worker branch";
+  const lines = [
+    `Task \`${task.id}\` completed, but the feature PR is reporting merge conflicts between \`${sourceBranch}\` and \`${args.defaultFeatureBranch}\`.`,
+    "",
+    "Resolve this directly on the connected worker so the sprint can continue without a manual dashboard merge handoff.",
+    "",
+    `Repo path: \`${args.repoPath}\``,
+    `Working directory: \`cd ${args.repoPath}\``,
+    `Conflicting branches: \`${sourceBranch}\` -> \`${args.defaultFeatureBranch}\``,
+  ];
+
+  if (pr?.url) {
+    lines.push(`Feature PR: ${pr.url}`);
+  }
+
+  lines.push(
+    "",
+    `Current task: \`${task.id}\` ${task.title}`,
+    "",
+    "Current task prompt:",
+    "```md",
+    task.prompt.trim() || "No prompt recorded.",
+    "```",
+  );
+
+  if (mergedFeatureTasks.length > 0) {
+    lines.push("", "Merged task prompts already on the feature branch:");
+    for (const mergedTask of mergedFeatureTasks) {
+      lines.push(
+        "",
+        `### ${mergedTask.taskKey} ${mergedTask.taskTitle}`,
+        mergedTask.workerBranch ? `Branch: \`${mergedTask.workerBranch}\`` : "Branch: not recorded",
+        mergedTask.prUrl ? `PR: ${mergedTask.prUrl}` : "PR: not recorded",
+        "```md",
+        mergedTask.taskPrompt.trim() || "No prompt recorded.",
+        "```",
+      );
+    }
+  }
+
+  return lines.join("\n");
 }

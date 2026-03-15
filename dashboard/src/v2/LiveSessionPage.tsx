@@ -560,6 +560,7 @@ const ATTENTION_TYPE_LABELS: Record<string, string> = {
     worker_dispatch_blocked: "Worker Dispatch Blocked",
     dispatch_cancel_stalled: "Dispatch Cancel Stalled",
     merge_required: "Merge Required",
+    merge_conflict: "Merge Conflict",
     action_required: "Action Required",
     manual_attention: "Manual Attention",
 };

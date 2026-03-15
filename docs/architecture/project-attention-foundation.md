@@ -106,6 +106,20 @@ When the sprint protocol detects a completed task that still needs merge handlin
 - the payload includes `repoPath`, feature branch, worker branch, and PR URL context
 - owner routing stays with the assigned project worker
 
+### Merge-conflict escalation
+
+When CI intelligence sees a feature PR in `DIRTY` merge state and `ciIntelligence.resolveMergeConflicts` is enabled:
+
+- the protocol opens a task-scoped attention item with type `merge_conflict`
+- the item stays worker-owned so the connected worker receives it through `listen`
+- the payload includes:
+  - `repoPath` and `workingDirectoryHint`
+  - conflicting source and target branches
+  - PR number, URL, and merge-state metadata
+  - the current task key, title, and main prompt
+  - the prompts for merged tasks already present on the feature branch
+- generic `merge_required` attention for the same task is resolved automatically so the queue shows one clear conflict item
+
 ### Blocked action-required protocol tasks
 
 When the sprint protocol detects a blocked task that still requires intervention:
@@ -173,7 +187,7 @@ Current worker runtime behavior:
 - the in-repo worker client now treats `attention_item` as actionable supervision work, not just a log event
 - when a worker receives an open worker-owned item, it immediately calls `claim_attention_item`
 - after claim, the worker now reports a structured outcome instead of holding the item indefinitely:
-  - `merge_required`, `action_required`, and `manual_attention` currently map to `needs_human_escalation`
+  - `merge_required`, `merge_conflict`, `action_required`, and `manual_attention` currently map to escalation-style outcomes in the in-repo worker client
   - other current worker queue items map to `needs_dashboard_reply`
 - the worker keeps a local supervision map keyed by project so future `listen` calls carry the currently active supervised projects
 - assignment changes and claimed attention items now update that local project context, including `repoPath` and `workingDirectoryHint`
@@ -203,6 +217,7 @@ Current dashboard behavior:
 - claim prefers the item's current assigned worker endpoint
 - if the item is unassigned, claim falls back to the project's primary supervising worker, then overflow worker
 - resolved and dismissed items drop out of the active execution snapshot because the dashboard only shows `open` and `claimed` items
+- attention open/claim/resolve mutations now trigger a direct project execution realtime refresh, so the Live view updates immediately instead of waiting for adjacent execution events
 
 ## Current Limitation
 

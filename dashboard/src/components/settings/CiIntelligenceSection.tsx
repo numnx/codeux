@@ -55,6 +55,15 @@ const ciDescriptors: FieldDescriptor<DashboardSettings>[] = [
     onToggle: (settings, checked) => updateCiIntelligence(settings, { resolveAllCommentsBeforeFeatureMerge: checked }),
   },
   {
+    id: "resolveMergeConflicts",
+    type: "toggle",
+    label: "Resolve Merge Conflicts",
+    description: "Escalate detected feature-branch merge conflicts to the connected worker with branch and task prompt context.",
+    disabled: (settings) => !settings.ciIntelligence.enabled || settings.git.githubMode === "LOCAL",
+    getValue: (settings) => settings.ciIntelligence.resolveMergeConflicts,
+    onToggle: (settings, checked) => updateCiIntelligence(settings, { resolveMergeConflicts: checked }),
+  },
+  {
     id: "waitForJulesCiAutofix",
     type: "toggle",
     label: "Wait for Jules CI Autofix on feature PRs",

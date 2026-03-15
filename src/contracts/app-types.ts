@@ -399,6 +399,7 @@ export interface CiIntelligenceSettings {
   resolveAllCommentsBeforeMainMerge: boolean;
   waitForCiBeforeFeatureMerge: boolean;
   resolveAllCommentsBeforeFeatureMerge: boolean;
+  resolveMergeConflicts: boolean;
   waitForJulesCiAutofix: boolean;
   julesCiAutofixMaxRetries: number;
   featurePrAutoMergeMode: FeaturePrAutoMergeMode;
@@ -577,11 +578,19 @@ export interface GetCiStatusForScopeArgs {
   featureBranch: string;
   defaultBranch: string;
   featureBranchPrefix: string;
+  cacheTtlMs?: number;
 }
 
 export interface AutoMergeFeaturePrArgs {
   repoPath: string;
   prNumber: number;
+}
+
+export interface AutoMergeFeaturePrResult {
+  ok: boolean;
+  merged?: boolean;
+  autoMergeScheduled?: boolean;
+  message?: string;
 }
 
 export interface PersistTaskMergedFlagArgs {

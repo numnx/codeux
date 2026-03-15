@@ -1,14 +1,19 @@
 import { evaluateMergeReadiness } from "./feature-pr/merge-readiness-policy.js";
 import { getCiAutofixRetryKey } from "./feature-pr/ci-autofix-policy.js";
-import { matchPrForTask } from "./feature-pr/pr-matcher.js";
+import { matchMergedPrForTask, matchPrForTask } from "./feature-pr/pr-matcher.js";
 import { attemptAutoMerge } from "./feature-pr/automerge-policy.js";
 import { evaluateInProgressState } from "./feature-pr/in-progress-policy.js";
-import { buildNoPrFoundText, buildMergeReadyText } from "./feature-pr/ci-notification-builder.js";
+import {
+  buildMergeConfirmedText,
+  buildMergeReadyText,
+  buildNoPrFoundText,
+} from "./feature-pr/ci-notification-builder.js";
 import type {
   AutomationLevel,
   CiIntelligenceSettings,
   GitTrackingStatus,
   Subtask,
+  AutoMergeFeaturePrResult,
 } from "../../../contracts/app-types.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 
@@ -24,7 +29,7 @@ export interface CiGateContext {
   ciAutofixRetryCounts: Map<string, number>;
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
-  autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<{ ok: boolean; message?: string }>;
+  autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
   persistMergedTask: (task: Subtask) => Promise<void>;
   executionRepository?: ExecutionRepository;
   sprintRunId?: string;
@@ -69,6 +74,21 @@ export class FeaturePrGateService {
     for (const task of completedAwaitingMerge) {
       const workerBranch = typeof task.worker_branch === "string" ? task.worker_branch : null;
       const pr = matchPrForTask(task, context.gitStatus);
+      const mergedPr = matchMergedPrForTask(task, context.gitStatus);
+
+      if (mergedPr) {
+        task.status = "COMPLETED";
+        task.is_merged = true;
+        task.merge_indicator = task.merge_indicator === "AUTOMERGE" ? "AUTOMERGE" : "MERGED";
+        await this.persistMergedTask(task, context);
+        this.appendCiGateEvent(task, context, "merge_confirmed", {
+          prNumber: mergedPr.number,
+          prUrl: mergedPr.url,
+          mergedAt: mergedPr.mergedAt,
+        });
+        reportText += buildMergeConfirmedText(task.id, mergedPr.number, context.featureBranch);
+        continue;
+      }
 
       if (!pr) {
         task.status = "RUNNING";
@@ -97,7 +117,7 @@ export class FeaturePrGateService {
       const shouldAutoMergeWhenGreen = autoMergeMode === "WHEN_GREEN";
 
       if (shouldAutoMergeAlways && !hasReviewBlockers && context.autoMergeFeaturePr) {
-        reportText += await attemptAutoMerge({
+        const mergeAttempt = await attemptAutoMerge({
           task,
           prNumber: pr.number,
           repoPath: context.repoPath,
@@ -105,7 +125,12 @@ export class FeaturePrGateService {
           autoMergeFeaturePr: context.autoMergeFeaturePr,
           persistMergedTask: context.persistMergedTask,
         });
-        this.appendCiGateEvent(task, context, task.is_merged ? "automerge_succeeded" : "automerge_failed", {
+        reportText += mergeAttempt.reportText;
+        this.appendCiGateEvent(task, context, mergeAttempt.state === "merged"
+          ? "automerge_succeeded"
+          : mergeAttempt.state === "scheduled"
+            ? "automerge_scheduled"
+            : "automerge_failed", {
           prNumber: pr.number,
           prUrl: pr.url,
           mode: "always",
@@ -118,7 +143,7 @@ export class FeaturePrGateService {
         context.ciAutofixRetryCounts.delete(retryKey);
 
         if (shouldAutoMergeWhenGreen && context.autoMergeFeaturePr) {
-          reportText += await attemptAutoMerge({
+          const mergeAttempt = await attemptAutoMerge({
             task,
             prNumber: pr.number,
             repoPath: context.repoPath,
@@ -126,7 +151,12 @@ export class FeaturePrGateService {
             autoMergeFeaturePr: context.autoMergeFeaturePr,
             persistMergedTask: context.persistMergedTask,
           });
-          this.appendCiGateEvent(task, context, task.is_merged ? "automerge_succeeded" : "automerge_failed", {
+          reportText += mergeAttempt.reportText;
+          this.appendCiGateEvent(task, context, mergeAttempt.state === "merged"
+            ? "automerge_succeeded"
+            : mergeAttempt.state === "scheduled"
+              ? "automerge_scheduled"
+              : "automerge_failed", {
             prNumber: pr.number,
             prUrl: pr.url,
             mode: "when_green",
@@ -207,5 +237,13 @@ export class FeaturePrGateService {
     }, {
       sourceEventKey,
     });
+  }
+
+  private async persistMergedTask(task: Subtask, context: CiGateContext): Promise<void> {
+    try {
+      await context.persistMergedTask(task);
+    } catch {
+      // Preserve in-memory merged state even if persistence fails.
+    }
   }
 }

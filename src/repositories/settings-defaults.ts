@@ -106,6 +106,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     resolveAllCommentsBeforeMainMerge: true,
     waitForCiBeforeFeatureMerge: true,
     resolveAllCommentsBeforeFeatureMerge: true,
+    resolveMergeConflicts: false,
     waitForJulesCiAutofix: false,
     julesCiAutofixMaxRetries: 3,
     featurePrAutoMergeMode: "OFF",

@@ -423,6 +423,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
           ["resolveAllCommentsBeforeMainMerge", "Resolve comments before main merge", "Require review comment resolution before main branch merge."],
           ["waitForCiBeforeFeatureMerge", "Wait before feature merge", "Hold feature branch merge until checks finish."],
           ["resolveAllCommentsBeforeFeatureMerge", "Resolve comments before feature merge", "Require review comment resolution before feature branch merge."],
+          ["resolveMergeConflicts", "Resolve merge conflicts", "Escalate merge conflicts to the connected worker with branch and prompt context."],
           ["waitForJulesCiAutofix", "Wait for Jules autofix", "Allow Jules to attempt CI autofix before escalating."],
         ].map(([field, label, description]) => (
           <Row key={field} label={label} description={description}>

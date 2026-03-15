@@ -4,6 +4,7 @@ import type {
   GitCiFailedJob,
   GitCiRunStatus,
   GitMergeStatus,
+  AutoMergeFeaturePrResult,
 } from "../contracts/app-types.js";
 import {
   GitStatusQueryClient,
@@ -332,7 +333,7 @@ export class GitStatusService {
     return fetchPromise;
   }
 
-  async mergePullRequest(prNumber: number, ghToken?: string): Promise<{ ok: boolean; message?: string }> {
+  async mergePullRequest(prNumber: number, ghToken?: string): Promise<AutoMergeFeaturePrResult> {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
     const result = await this.queryClient.ghPrMerge(prNumber, effectiveToken);
     if (!result.ok) {
@@ -342,7 +343,37 @@ export class GitStatusService {
       };
     }
     GitStatusService.invalidateCache(this.repoPath);
-    return { ok: true };
+
+    const [openPrs, mergedPrs] = await Promise.all([
+      this.fetchOpenPrs(effectiveToken),
+      this.fetchMergedPrs(effectiveToken),
+    ]);
+    const merged = mergedPrs.data.some((pr) => pr.number === prNumber);
+    if (merged) {
+      return { ok: true, merged: true, autoMergeScheduled: false };
+    }
+
+    const openPr = openPrs.data.find((pr) => pr.number === prNumber);
+    if (openPr) {
+      return {
+        ok: true,
+        merged: false,
+        autoMergeScheduled: true,
+        message: "The PR is still open after the merge command. Auto-merge is likely armed or waiting on branch protection.",
+      };
+    }
+
+    const confirmationWarnings = [openPrs.warning, mergedPrs.warning].filter((warning): warning is string => Boolean(warning));
+    const commandOutput = [
+      typeof result.stdout === "string" ? result.stdout.trim() : "",
+      typeof result.stderr === "string" ? result.stderr.trim() : "",
+    ].filter(Boolean).join(" ").trim();
+    return {
+      ok: true,
+      merged: false,
+      autoMergeScheduled: false,
+      message: confirmationWarnings[0] || commandOutput || "Merge command completed, but Sprint OS could not confirm the PR merge yet.",
+    };
   }
 
   private async fetchOpenPrs(ghToken?: string): Promise<{ data: GitPullRequestStatus[]; warning?: string }> {

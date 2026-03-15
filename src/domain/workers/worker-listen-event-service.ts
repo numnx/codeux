@@ -182,7 +182,7 @@ export class WorkerListenEventService {
       contextDigest: this.buildContextDigest(projectId),
       continuation: {
         nextTool: "listen",
-        instruction: "Review the attention item in the provided project context, handle the blocker using your available tools, then call listen again with the same connection_key to keep supervising work.",
+        instruction: this.buildAttentionContinuationInstruction(project.repoPath, item),
       },
     };
   }
@@ -227,5 +227,37 @@ export class WorkerListenEventService {
       unresolvedAttentionTitles: unresolvedAttention.slice(0, 3).map((item) => item.title),
       recentEventTypes: snapshot.recentEvents.slice(0, 5).map((event) => event.eventType),
     };
+  }
+
+  private buildAttentionContinuationInstruction(
+    repoPath: string,
+    item: { attentionType: string; payload: Record<string, unknown> | null },
+  ): string {
+    if (item.attentionType === "merge_conflict") {
+      const conflictingBranches = this.asRecord(item.payload?.conflictingBranches);
+      const sourceBranch = this.readPayloadString(conflictingBranches, "source")
+        || this.readPayloadString(item.payload, "workerBranch")
+        || "the task branch";
+      const targetBranch = this.readPayloadString(conflictingBranches, "target")
+        || this.readPayloadString(item.payload, "featureBranch")
+        || "the sprint feature branch";
+      return `Change into ${repoPath}, inspect the merge conflict between ${sourceBranch} and ${targetBranch}, use the task prompt context in the attention payload to resolve it, then call listen again with the same connection_key to keep supervising work.`;
+    }
+
+    return "Review the attention item in the provided project context, handle the blocker using your available tools, then call listen again with the same connection_key to keep supervising work.";
+  }
+
+  private readPayloadString(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+  ): string | null {
+    const value = payload?.[key];
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
   }
 }

@@ -3,6 +3,7 @@ import * as path from "path";
 import type { DatabaseSync } from "node:sqlite";
 import type { DashboardStatus, Subtask, SubtaskMergeIndicator, SubtaskStatus } from "../contracts/app-types.js";
 import { AppDbStorage } from "./app-db-storage.js";
+import type { DashboardRealtimeMutationNotifier } from "../services/dashboard-realtime-service.js";
 
 const RUNTIME_CONTEXT_PREFIX = "runtime_context:";
 
@@ -156,7 +157,10 @@ function toMergeIndicator(value: string | null | undefined): SubtaskMergeIndicat
 export class ProjectRuntimeRepository {
   private readonly db: DatabaseSync;
 
-  constructor(storage: AppDbStorage = new AppDbStorage()) {
+  constructor(
+    storage: AppDbStorage = new AppDbStorage(),
+    private readonly realtimeNotifier?: DashboardRealtimeMutationNotifier,
+  ) {
     this.db = storage.getDatabase();
   }
 
@@ -254,6 +258,8 @@ export class ProjectRuntimeRepository {
         `).run(sprintStatus, now, sprint.id);
       }
     });
+
+    this.realtimeNotifier?.scheduleProjectRuntimeStatusRefresh(project.id);
 
     return this.getProjectStatus(project.id);
   }

@@ -15,6 +15,7 @@ import type {
   DashboardStatus,
   GetCiStatusForScopeArgs,
   AutoMergeFeaturePrArgs,
+  AutoMergeFeaturePrResult,
   PersistTaskMergedFlagArgs,
   ReadinessProbeStatus,
 } from "../contracts/app-types.js";
@@ -208,7 +209,8 @@ export class JulesAgentServer {
       }
     };
 
-    runCleanup();
+    const initialTimer = setTimeout(runCleanup, 0);
+    initialTimer.unref?.();
     this.runtimeCleanupInterval = setInterval(runCleanup, JulesAgentServer.RUNTIME_CLEANUP_INTERVAL_MS);
     this.runtimeCleanupInterval.unref?.();
   }
@@ -506,22 +508,30 @@ export class JulesAgentServer {
   private async getCiStatusForScope(args: GetCiStatusForScopeArgs): Promise<GitTrackingStatus | null> {
     const gitStatusService = new GitStatusService(args.repoPath);
     try {
-      return await gitStatusService.getStatus(
-        "REMOTE",
-        this.getEffectiveGithubToken(),
-        {
-          scope: args.scope,
-          featureBranch: args.featureBranch,
-          defaultBranch: args.defaultBranch,
-          featureBranchPrefix: args.featureBranchPrefix,
-        }
-      );
+      const trackingRequest = {
+        scope: args.scope,
+        featureBranch: args.featureBranch,
+        defaultBranch: args.defaultBranch,
+        featureBranchPrefix: args.featureBranchPrefix,
+      };
+      return typeof args.cacheTtlMs === "number"
+        ? await gitStatusService.getStatus(
+            "REMOTE",
+            this.getEffectiveGithubToken(),
+            trackingRequest,
+            args.cacheTtlMs,
+          )
+        : await gitStatusService.getStatus(
+            "REMOTE",
+            this.getEffectiveGithubToken(),
+            trackingRequest,
+          );
     } catch {
       return null;
     }
   }
 
-  private async autoMergeFeaturePr(args: AutoMergeFeaturePrArgs): Promise<{ ok: boolean; message?: string }> {
+  private async autoMergeFeaturePr(args: AutoMergeFeaturePrArgs): Promise<AutoMergeFeaturePrResult> {
     const gitStatusService = new GitStatusService(args.repoPath);
     try {
       const result = await gitStatusService.mergePullRequest(args.prNumber, this.getEffectiveGithubToken());

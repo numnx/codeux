@@ -10,6 +10,7 @@ describe("MainMergeGateService", () => {
     resolveAllCommentsBeforeMainMerge: true,
     waitForCiBeforeFeatureMerge: true,
     resolveAllCommentsBeforeFeatureMerge: true,
+    resolveMergeConflicts: false,
     waitForJulesCiAutofix: false,
     julesCiAutofixMaxRetries: 0,
     featurePrAutoMergeMode: "OFF",

@@ -225,7 +225,6 @@ export class SprintOsWorker {
       }
 
       if (response.kind === "noop_timeout") {
-        await delay(this.config.dispatchPollIntervalMs, signal).catch(() => undefined);
         continue;
       }
     }
@@ -447,6 +446,7 @@ export class SprintOsWorker {
   ): "needs_dashboard_reply" | "needs_human_escalation" {
     switch (event.item.attentionType) {
       case "merge_required":
+      case "merge_conflict":
       case "action_required":
       case "manual_attention":
         return "needs_human_escalation";

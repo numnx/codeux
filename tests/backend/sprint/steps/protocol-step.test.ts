@@ -10,6 +10,7 @@ describe("protocol-step", () => {
         resolveAllCommentsBeforeMainMerge: false,
         waitForCiBeforeFeatureMerge: true,
         resolveAllCommentsBeforeFeatureMerge: true,
+        resolveMergeConflicts: false,
         waitForJulesCiAutofix: false,
         julesCiAutofixMaxRetries: 0,
         featurePrAutoMergeMode: "OFF",

@@ -235,8 +235,8 @@ Runtime scoping:
 ## Polling Behavior
 
 From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
-- Status and execution snapshot poll every 30 seconds.
-- Git status polls every 30 seconds.
+- Status and execution snapshot now use websocket-first updates with a `5s` fallback poll for degraded transport cases.
+- Git status keeps a `30s` fallback poll and also refreshes opportunistically from project realtime events with internal rate limiting, so the live view no longer waits for the next full poll cycle after sprint activity.
 
 From `dashboard/src/hooks/use-overview-telemetry.ts` and `dashboard/src/v2/hooks/use-project-execution.ts`:
 - Overview telemetry and project execution are now websocket-first through `/api/realtime`.
@@ -262,6 +262,13 @@ Chat-specific behavior:
 
 - The Chat refresh button is now manual-only.
 - Background realtime sync and fallback refreshes no longer drive the refresh button spinner state.
+
+Live view behavior:
+
+- `project.execution.updated` replaces the execution snapshot immediately
+- `project.runtime_status.updated` replaces the runtime task state immediately
+- `project.structure.updated` triggers a silent background reload for structural changes that are not already embedded in the execution payload
+- attention queue changes now flow through the same realtime execution snapshot path, so merge-conflict escalation, worker claims, and resolution actions appear without waiting for a poll tick
 
 The old legacy settings hook remains outside the active v2 flow; the live dashboard now uses the scoped settings API above.
 

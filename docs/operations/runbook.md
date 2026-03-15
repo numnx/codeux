@@ -42,6 +42,17 @@ Checks:
 - Is configured dashboard port free?
 - Any startup warning for `EADDRINUSE`?
 
+### 1a. Dashboard loads slowly or live view feels stale during a sprint
+Checks:
+- Look at dashboard request timings for static assets and `/api/execution`; multi-second `304` or static asset responses usually indicate event-loop pressure from orchestration work rather than network latency.
+- Verify the current build includes the March 15, 2026 realtime hardening:
+  - throttled project execution snapshots
+  - lightweight non-replayable snapshot markers in `dashboard_realtime_events`
+  - direct attention-item realtime refresh
+  - scope-aware websocket replay checks
+- If the live view updates task state but Git/CI panels lag, confirm `/api/git-status` is healthy; that surface is rate-limited to avoid external API spam, so it may trail runtime updates by a couple of seconds under heavy activity.
+- If the dashboard still degrades under load, inspect whether debug file logging is enabled; file logging now uses async streams, but sustained log volume is still a useful signal that a hot loop is too noisy.
+
 ### 2. No PR/CI data in remote mode
 Checks:
 - `gh --version`
