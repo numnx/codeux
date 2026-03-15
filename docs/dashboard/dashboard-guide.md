@@ -202,6 +202,7 @@ Legacy runtime:
 - merge conflicts are now first-class task indicators in the live UI, including dedicated task badges and a realtime `Conflicts` metric in the runtime stats row
 - Worker escalations now also create project chat threads with a system-authored handoff message, so operator follow-up lives in the same project conversation model as the rest of dashboard chat
 - The execution runtime panel now also shows live project connections with transport, role, listening metadata, inbox load, dispatch load, and heartbeat-derived status
+- stale and offline connection rows now disappear much faster in practice: cold start prunes disconnected connections with no active dispatches, and live heartbeat aging promotes dead workers to `stale` or `offline` quickly enough that new worker-owned merge conflicts route to the live connected worker instead of lingering on an older listener
 - The Overview page telemetry now renders a consolidated runtime timeline across all currently active projects instead of a static placeholder
 - Running dispatch cancel is now request-based instead of instant-terminal:
   - local CLI runs move to `cancel_requested` and abort through the process runner

@@ -72,6 +72,7 @@ When an item is opened with `ownerType = worker`:
 - prefer the current primary assigned worker for the project
 - otherwise use an overflow assignment that can supervise projects
 - otherwise leave the item unassigned
+- a preferred worker endpoint is only kept when that endpoint is still effectively live; heartbeat-aged `stale` and `offline` workers are skipped immediately instead of waiting for a background cleanup rewrite
 
 Worker listen-mode supervision now backfills that assignment path:
 
@@ -128,6 +129,7 @@ When CI intelligence sees a feature PR in `DIRTY` merge state and `ciIntelligenc
 - once a worker-owned `merge_conflict` item exists for a task, the orchestrator keeps that routing sticky across later loops until the blocker clears; a stale or incomplete PR snapshot no longer downgrades the task back into manual `merge_required` pause flow
 - feature PR auto-merge failures now also promote into the same worker-owned `merge_conflict` path when the merge command reports a real merge conflict, even if the last PR snapshot had not yet surfaced `DIRTY`
 - the watch loop now also trusts the active worker-owned `merge_conflict` queue directly, so an already-open conflict item cannot regress into `no further action possible` if one cycle returns incomplete merge classification
+- assignment for these conflict items now uses effective heartbeat status, not just persisted worker status, so a dead primary worker cannot keep conflict items pinned away from the live connected worker
 
 When the main merge PR (`feature -> default`) is in `DIRTY` state and `ciIntelligence.resolveMainMergeConflicts` is enabled:
 

@@ -19,6 +19,10 @@ function compareCursor(left: { updatedAt: string; id: string }, right: { updated
   return makeCursor(left.updatedAt, left.id).localeCompare(makeCursor(right.updatedAt, right.id));
 }
 
+function isAssignableWorkerStatus(status: string | null | undefined): boolean {
+  return status !== null && status !== "stale" && status !== "offline";
+}
+
 export class WorkerListenEventService {
   constructor(
     private readonly connectionChatRepository: ConnectionChatRepository,
@@ -102,7 +106,11 @@ export class WorkerListenEventService {
 
     const nextCursor = makeCursor(workerAssignment.updatedAt, workerAssignment.id);
 
-    const activeAssignments = assignments.filter((assignment) => assignment.status === "active");
+    const activeAssignments = assignments.filter((assignment) => (
+      assignment.status === "active"
+      && assignment.capabilities.canSuperviseProjects
+      && isAssignableWorkerStatus(assignment.workerStatus)
+    ));
     const primary = activeAssignments.find((assignment) => assignment.assignmentRole === "primary") || null;
     const project = this.buildProjectPayload(projectId);
     return {

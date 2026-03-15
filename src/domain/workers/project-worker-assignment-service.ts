@@ -2,6 +2,10 @@ import { ProjectWorkerAssignmentRepository } from "../../repositories/project-wo
 import { WorkerEndpointRepository } from "../../repositories/worker-endpoint-repository.js";
 import type { ProjectWorkerAssignmentRecord } from "../../contracts/worker-types.js";
 
+function isAssignableWorkerStatus(status: string | null | undefined): boolean {
+  return status !== null && status !== "stale" && status !== "offline";
+}
+
 export class ProjectWorkerAssignmentService {
   constructor(
     private readonly projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository,
@@ -28,10 +32,17 @@ export class ProjectWorkerAssignmentService {
 
     const current = this.projectWorkerAssignmentRepository.getActiveAssignment(projectId, workerEndpointId);
     const projectAssignments = this.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true });
-    const currentPrimary = projectAssignments.find((assignment) => assignment.assignmentRole === "primary");
+    const currentPrimary = projectAssignments.find((assignment) => (
+      assignment.assignmentRole === "primary"
+      && assignment.capabilities.canSuperviseProjects
+      && isAssignableWorkerStatus(assignment.workerStatus)
+    ));
     const workerAssignments = this.projectWorkerAssignmentRepository.listActiveAssignmentsForWorker(workerEndpointId);
     const workerOwnsPrimaryElsewhere = workerAssignments.some((assignment) => (
-      assignment.assignmentRole === "primary" && assignment.projectId !== projectId
+      assignment.assignmentRole === "primary"
+      && assignment.projectId !== projectId
+      && assignment.capabilities.canSuperviseProjects
+      && isAssignableWorkerStatus(assignment.workerStatus)
     ));
 
     const shouldBePrimary = !currentPrimary || currentPrimary.workerEndpointId === workerEndpointId;

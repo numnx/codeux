@@ -79,7 +79,7 @@ export class JulesAgentServer {
   private static readonly DASHBOARD_ACTIVITY_PAGE_SIZE = 20;
   private static readonly LIVE_ACTIVITY_CACHE_MS = 10_000;
   private static readonly GIT_STATUS_CACHE_MS = 10_000;
-  private static readonly RUNTIME_CLEANUP_INTERVAL_MS = 60_000;
+  private static readonly RUNTIME_CLEANUP_INTERVAL_MS = 15_000;
   private readonly projectRoot: string;
   private readonly appConfig: AppConfig;
   private server: Server;
@@ -580,6 +580,16 @@ export class JulesAgentServer {
       }
     } catch (error) {
       this.logger.error("Failed to recover interrupted CLI sessions on startup", { error });
+    }
+    try {
+      const startupPrune = this.connectionChatRepository.pruneDisconnectedConnectionsOnStartup();
+      if (startupPrune.prunedConnectionIds.length > 0) {
+        this.logger.info("Pruned disconnected MCP connections on startup", {
+          prunedCount: startupPrune.prunedConnectionIds.length,
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to prune disconnected MCP connections on startup", { error });
     }
 
     if (this.isDashboardEnabled()) {

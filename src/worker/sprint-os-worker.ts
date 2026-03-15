@@ -188,6 +188,8 @@ export class SprintOsWorker {
         project_id: this.config.projectId,
         project_ids: this.config.projectIds,
         active_project_ids: this.resolveActiveProjectIds(),
+        timeout_seconds: this.config.listenTimeoutSeconds,
+        poll_interval_ms: this.config.listenPollIntervalMs,
         transport: this.config.controlPlaneUrl ? "streamable_http" : "stdio",
         include_task_dispatch: true,
         include_attention_items: true,
@@ -196,6 +198,8 @@ export class SprintOsWorker {
             ? "Claims Sprint OS worker dispatches from the remote control plane and executes them on the local worker host."
             : "Claims Sprint OS worker dispatches and executes them locally through the worker-host runtime.",
           listenMode: true,
+          workerCanSuperviseProjects: true,
+          workerCanExecuteTasks: true,
           labels: ["worker"],
           machineName: os.hostname(),
           platform: os.platform(),

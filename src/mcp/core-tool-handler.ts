@@ -12,7 +12,7 @@ import type {
 import type { JulesApiClient } from "../integrations/jules-api-client.js";
 import type { DashboardSettings, JulesActivity, JulesSession } from "../contracts/app-types.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
-import type { ListenResponse } from "../contracts/connection-chat-types.js";
+import type { ListenResponse, McpConnectionRole } from "../contracts/connection-chat-types.js";
 import type { WorkerTaskDispatchService } from "../services/worker-task-dispatch-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ActivitySummaryService } from "../domain/sessions/activity-summary.js";
@@ -45,6 +45,7 @@ interface CoreToolHandlerDependencies {
 }
 
 const DEFAULT_LISTEN_POLL_INTERVAL_MS = 3000;
+const DEFAULT_WORKER_LISTEN_TIMEOUT_SECONDS = 30;
 const MIN_LISTEN_TIMEOUT_SECONDS = 1;
 const MAX_LISTEN_TIMEOUT_SECONDS = 3600;
 const MIN_LISTEN_POLL_INTERVAL_MS = 100;
@@ -127,7 +128,7 @@ export class CoreToolHandler {
       }
       : args;
     const settings = this.deps.getDashboardSettings();
-    const timeoutSeconds = this.normalizeListenTimeoutSeconds(normalizedArgs.timeout_seconds, settings);
+    const timeoutSeconds = this.normalizeListenTimeoutSeconds(normalizedArgs.timeout_seconds, settings, normalizedArgs.role);
     const pollIntervalMs = this.normalizeListenPollIntervalMs(normalizedArgs.poll_interval_ms);
     const shouldIncludeTaskDispatch = Boolean(normalizedArgs.include_task_dispatch ?? (normalizedArgs.role === "worker"));
     const shouldIncludeAttentionItems = Boolean(normalizedArgs.include_attention_items ?? (normalizedArgs.role === "worker"));
@@ -390,8 +391,11 @@ export class CoreToolHandler {
   private normalizeListenTimeoutSeconds(
     requestedTimeoutSeconds: number | undefined,
     settings: DashboardSettings,
+    role?: McpConnectionRole,
   ): number {
-    const fallback = settings.sprintLoopSteps?.watchLoopOutputIntervalSeconds ?? 300;
+    const fallback = role === "worker"
+      ? DEFAULT_WORKER_LISTEN_TIMEOUT_SECONDS
+      : settings.sprintLoopSteps?.watchLoopOutputIntervalSeconds ?? 300;
     const candidate = requestedTimeoutSeconds ?? fallback;
     if (!Number.isFinite(candidate) || candidate <= 0) {
       return fallback;

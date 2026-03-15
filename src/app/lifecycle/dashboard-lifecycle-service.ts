@@ -207,14 +207,20 @@ function resolveAttentionClaimWorkerEndpointId(
     activeOnly: true,
   });
   const primary = assignments.find((assignment) => (
-    assignment.assignmentRole === "primary" && assignment.capabilities.canSuperviseProjects
+    assignment.assignmentRole === "primary"
+    && assignment.capabilities.canSuperviseProjects
+    && assignment.workerStatus !== "stale"
+    && assignment.workerStatus !== "offline"
   ));
   if (primary?.workerEndpointId) {
     return primary.workerEndpointId;
   }
 
   const overflow = assignments.find((assignment) => (
-    assignment.assignmentRole === "overflow" && assignment.capabilities.canSuperviseProjects
+    assignment.assignmentRole === "overflow"
+    && assignment.capabilities.canSuperviseProjects
+    && assignment.workerStatus !== "stale"
+    && assignment.workerStatus !== "offline"
   ));
   if (overflow?.workerEndpointId) {
     return overflow.workerEndpointId;
