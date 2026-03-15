@@ -55,7 +55,11 @@ export class CycleRunner {
 
   constructor(private readonly deps: SprintOrchestratorDependencies) {}
 
-  async run(args: CycleRunnerArgs): Promise<SprintCycleResult & { awaitingMerge: Subtask[] }> {
+  async run(args: CycleRunnerArgs): Promise<SprintCycleResult & {
+    awaitingMerge: Subtask[];
+    manualMergeTasks: Subtask[];
+    workerEscalatedMergeConflictTasks: Subtask[];
+  }> {
     let subtasks: Subtask[] = args.loopSteps.loadSubtasks
       ? await this.deps.sprintExecutionStateService.loadSubtasks(
           args.executionContext.project.id,
@@ -201,6 +205,7 @@ export class CycleRunner {
       enableMergeProtocol: args.loopSteps.mergeProtocol,
       enableActionRequiredProtocol: args.loopSteps.actionRequiredProtocol,
       isActionRequiredState: this.deps.isActionRequiredState,
+      isWorkerEscalatedMergeConflictTask: (task) => shouldEscalateFeatureMergeConflict(task, args, gitStatus),
       renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, args.repoPath),
       onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
         appendTaskEvent(task, eventType, payload, sourceEventKey);
@@ -216,6 +221,8 @@ export class CycleRunner {
       statusTable,
       instructions: protocolResult.instructions,
       awaitingMerge: protocolResult.awaitingMerge,
+      manualMergeTasks: protocolResult.manualMergeTasks,
+      workerEscalatedMergeConflictTasks: protocolResult.workerEscalatedMergeConflictTasks,
     };
   }
 
@@ -272,11 +279,7 @@ export class CycleRunner {
       }
       mergeTaskIds.add(taskId);
       const pr = gitStatus?.available ? matchPrForTask(task, gitStatus) : undefined;
-      const mergeConflictDetected = Boolean(
-        args.ciIntelligence.resolveMergeConflicts
-        && pr
-        && pr.mergeStateStatus === "DIRTY",
-      );
+      const mergeConflictDetected = shouldEscalateFeatureMergeConflict(task, args, gitStatus);
       const mergedFeatureTasks = selectMergedFeatureTaskContexts(subtasks, taskId);
 
       this.deps.projectAttentionService.openItem({
@@ -373,6 +376,19 @@ export class CycleRunner {
       }
     }
   }
+}
+
+function shouldEscalateFeatureMergeConflict(
+  task: Subtask,
+  args: CycleRunnerArgs,
+  gitStatus: GitTrackingStatus | null,
+): boolean {
+  if (!args.ciIntelligence.resolveMergeConflicts || !gitStatus?.available) {
+    return false;
+  }
+
+  const pr = matchPrForTask(task, gitStatus);
+  return pr?.mergeStateStatus === "DIRTY";
 }
 
 function snapshotTaskState(subtasks: Subtask[]): Map<string, TaskStateSnapshot> {

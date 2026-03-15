@@ -194,6 +194,8 @@ export class SprintOrchestrator {
         state: "unavailable",
         prNumber: null,
         prUrl: null,
+        hasMergeConflict: false,
+        mergeStateStatus: null,
         hasFailedChecks: false,
         hasPendingChecks: false,
         hasReviewBlockers: false,

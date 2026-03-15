@@ -383,7 +383,11 @@ export class SprintOsWorker {
           assignedWorkerEndpointId: claimed.assignedWorkerEndpointId,
           claimedAt: claimed.claimedAt,
         });
-        await this.reportAttentionOutcome(controlPlaneClient, event);
+        if (this.shouldAutoReportAttentionOutcome(event)) {
+          await this.reportAttentionOutcome(controlPlaneClient, event);
+        } else {
+          console.info("[sprint-os-worker] Holding claimed attention item for worker-side handling", logPayload);
+        }
       } catch (error) {
         console.error("[sprint-os-worker] Failed to claim attention item", {
           ...logPayload,
@@ -395,7 +399,11 @@ export class SprintOsWorker {
 
     if (event.item.status === "claimed") {
       this.supervisionState.markAttentionItemClaimed(event.project.id, event.item.id);
-      await this.reportAttentionOutcome(controlPlaneClient, event);
+      if (this.shouldAutoReportAttentionOutcome(event)) {
+        await this.reportAttentionOutcome(controlPlaneClient, event);
+      } else {
+        console.info("[sprint-os-worker] Attention item remains claimed for worker-side handling", logPayload);
+      }
     }
 
     console.warn("[sprint-os-worker] Attention item requires worker supervision", logPayload);
@@ -453,6 +461,10 @@ export class SprintOsWorker {
       default:
         return "needs_dashboard_reply";
     }
+  }
+
+  private shouldAutoReportAttentionOutcome(event: ListenAttentionItemEvent): boolean {
+    return event.item.attentionType !== "merge_conflict";
   }
 
   private buildAttentionOutcomeSummary(

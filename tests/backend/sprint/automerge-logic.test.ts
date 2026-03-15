@@ -84,6 +84,7 @@ describe("SprintOrchestrator - Automerge Logic", () => {
         enableLivePrMonitoring: true,
         waitForCiBeforeMainMerge: true,
         resolveAllCommentsBeforeMainMerge: true,
+        resolveMainMergeConflicts: false,
         waitForCiBeforeFeatureMerge: true,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: false,

@@ -119,6 +119,13 @@ When CI intelligence sees a feature PR in `DIRTY` merge state and `ciIntelligenc
   - the current task key, title, and main prompt
   - the prompts for merged tasks already present on the feature branch
 - generic `merge_required` attention for the same task is resolved automatically so the queue shows one clear conflict item
+- these worker-owned conflict items do not count as human merge protocol anymore, so the watch loop keeps running instead of pausing for operator merge work
+
+When the main merge PR (`feature -> default`) is in `DIRTY` state and `ciIntelligence.resolveMainMergeConflicts` is enabled:
+
+- the completion path opens a sprint-scoped worker-owned `merge_conflict` item
+- the payload includes `repoPath`, working-directory hint, conflicting branches, PR metadata, sprint identity, and merged task prompts already present on the feature branch
+- this keeps main-branch conflict handling on the connected worker instead of downgrading it into a dashboard/operator blocker by default
 
 ### Blocked action-required protocol tasks
 
@@ -187,7 +194,8 @@ Current worker runtime behavior:
 - the in-repo worker client now treats `attention_item` as actionable supervision work, not just a log event
 - when a worker receives an open worker-owned item, it immediately calls `claim_attention_item`
 - after claim, the worker now reports a structured outcome instead of holding the item indefinitely:
-  - `merge_required`, `merge_conflict`, `action_required`, and `manual_attention` currently map to escalation-style outcomes in the in-repo worker client
+  - `merge_required`, `action_required`, and `manual_attention` currently map to escalation-style outcomes in the in-repo worker client
+  - `merge_conflict` is claimed and then left worker-owned so the conflict stays assigned to the connected worker instead of being immediately re-routed into human escalation
   - other current worker queue items map to `needs_dashboard_reply`
 - the worker keeps a local supervision map keyed by project so future `listen` calls carry the currently active supervised projects
 - assignment changes and claimed attention items now update that local project context, including `repoPath` and `workingDirectoryHint`

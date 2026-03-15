@@ -216,7 +216,7 @@ describe("CycleRunner attention sync", () => {
       ciRuns: [],
     });
 
-    await runner.run({
+    const result = await runner.run({
       action: "status",
       automationLevel: "SEMI_AUTO",
       automationInterventions: DEFAULT_DASHBOARD_SETTINGS.automationInterventions,
@@ -252,6 +252,8 @@ describe("CycleRunner attention sync", () => {
       sprintRunId: "run-1",
     });
 
+    expect(result.manualMergeTasks).toEqual([]);
+    expect(result.workerEscalatedMergeConflictTasks).toHaveLength(1);
     expect(deps.projectAttentionService.openItem).toHaveBeenCalledWith(expect.objectContaining({
       attentionType: "merge_conflict",
       title: "Merge conflict for T1",

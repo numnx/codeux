@@ -121,6 +121,7 @@ describe("validateSettingsPayload", () => {
         enableLivePrMonitoring: "bad",
         waitForCiBeforeMainMerge: "bad",
         resolveAllCommentsBeforeMainMerge: "bad",
+        resolveMainMergeConflicts: "bad",
         waitForCiBeforeFeatureMerge: "bad",
         resolveAllCommentsBeforeFeatureMerge: "bad",
         resolveMergeConflicts: "bad",

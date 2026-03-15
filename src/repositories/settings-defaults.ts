@@ -104,6 +104,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     enableLivePrMonitoring: true,
     waitForCiBeforeMainMerge: true,
     resolveAllCommentsBeforeMainMerge: true,
+    resolveMainMergeConflicts: false,
     waitForCiBeforeFeatureMerge: true,
     resolveAllCommentsBeforeFeatureMerge: true,
     resolveMergeConflicts: false,

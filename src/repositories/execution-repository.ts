@@ -1849,7 +1849,6 @@ export class ExecutionRepository {
 
     if (
       row.attention_type === "merge_required"
-      || row.attention_type === "merge_conflict"
       || row.attention_type === "manual_attention"
       || row.attention_type === "dashboard_reply_required"
       || row.attention_type === "human_escalation_required"
@@ -1858,6 +1857,10 @@ export class ExecutionRepository {
       || row.attention_type === "dispatch_cancel_stalled"
     ) {
       return true;
+    }
+
+    if (row.attention_type === "merge_conflict") {
+      return row.owner_type !== "worker";
     }
 
     if (row.attention_type !== "action_required") {

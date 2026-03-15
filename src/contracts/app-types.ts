@@ -397,6 +397,7 @@ export interface CiIntelligenceSettings {
   enableLivePrMonitoring: boolean;
   waitForCiBeforeMainMerge: boolean;
   resolveAllCommentsBeforeMainMerge: boolean;
+  resolveMainMergeConflicts: boolean;
   waitForCiBeforeFeatureMerge: boolean;
   resolveAllCommentsBeforeFeatureMerge: boolean;
   resolveMergeConflicts: boolean;
