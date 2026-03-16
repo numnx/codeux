@@ -12,6 +12,7 @@ import type { Logger } from "../shared/logging/logger.js";
 import { buildTaskRunKey } from "./task-run-key.js";
 import { buildProviderPrompt, DEFAULT_CLI_WORKFLOW_SETTINGS, sanitizeToken } from "./cli-workflow-utils.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
+import { classifyProviderError, ProviderQuotaError } from "../shared/providers/provider-error-classifier.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
 import { ProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
@@ -22,7 +23,7 @@ import { WorkerTaskDispatchService } from "./worker-task-dispatch-service.js";
 import { CliWorkflowService } from "./cli-workflow-service.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
-const VIRTUAL_WORKER_SESSION_POLL_MS = 5_000;
+const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -32,7 +33,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function isTerminalSessionState(state: string | undefined): boolean {
-  return state === "COMPLETED" || state === "FAILED" || state === "CANCELLED";
+  return state === "COMPLETED" || state === "FAILED" || state === "CANCELLED" || state === "QUOTA";
 }
 
 function extractPullRequest(session: JulesSession): { url?: string; workerBranch?: string } | null {
@@ -42,9 +43,12 @@ function extractPullRequest(session: JulesSession): { url?: string; workerBranch
   return output || null;
 }
 
-function resolveTerminalDispatchState(session: JulesSession): "COMPLETED" | "FAILED" | null {
+function resolveTerminalDispatchState(session: JulesSession): "COMPLETED" | "FAILED" | "QUOTA" | null {
   if (extractPullRequest(session) || session.state === "COMPLETED") {
     return "COMPLETED";
+  }
+  if (session.state === "QUOTA") {
+    return "QUOTA";
   }
   if (session.state === "FAILED" || session.state === "CANCELLED") {
     return "FAILED";
@@ -217,6 +221,7 @@ export class VirtualWorkerService {
     return this.deps.projectAttentionService.listActiveProjectItems(projectId)
       .find((item) => (
         item.ownerType === "worker"
+        && item.attentionType !== "merge_required"
         && (item.status === "open" || (item.status === "claimed" && !item.assignedWorkerEndpointId))
       )) || null;
   }
@@ -273,9 +278,11 @@ export class VirtualWorkerService {
         ? "COMPLETED"
         : persistedTaskRun?.state === "FAILED"
           ? "FAILED"
-          : persistedTaskRun?.state === "BLOCKED"
-            ? "BLOCKED"
-            : resolveTerminalDispatchState(currentSession);
+          : persistedTaskRun?.state === "QUOTA"
+            ? "QUOTA"
+            : persistedTaskRun?.state === "BLOCKED"
+              ? "BLOCKED"
+              : resolveTerminalDispatchState(currentSession);
       const currentPullRequest = extractPullRequest(currentSession);
       const update = this.deps.workerTaskDispatchService.updateDispatchForWorker({
         workerEndpointId,
@@ -448,9 +455,11 @@ export class VirtualWorkerService {
         item.summaryMarkdown.trim(),
       ].join("\n"));
     } finally {
+      // Virtual merge worktrees are ephemeral — always clean up to prevent
+      // stale worktree references from poisoning subsequent git fetch operations.
       const shouldCleanup = succeeded
         ? workflowSettings.cleanupWorktreeOnSuccess
-        : workflowSettings.cleanupWorktreeOnFailure;
+        : true;
       if (shouldCleanup) {
         await this.workspaceManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
         cleanedUp = true;
@@ -523,7 +532,11 @@ export class VirtualWorkerService {
       result = await runProvider(buildReadFileRetryPrompt(args.providerPrompt));
     }
     if (!result.ok) {
-      throw new Error(result.stderr || result.stdout || `${args.provider} failed`);
+      const classification = classifyProviderError(args.provider, result);
+      if (classification.category !== "UNKNOWN") {
+        throw new ProviderQuotaError(classification);
+      }
+      throw new Error(classification.userMessage);
     }
   }
 
@@ -577,18 +590,14 @@ export class VirtualWorkerService {
     workspaceGuidance: string,
   ): string {
     const payload = item.payload || {};
-    const mergedTaskPrompts = Array.isArray(payload.mergedTaskPrompts)
-      ? payload.mergedTaskPrompts
-          .map((entry) => this.asRecord(entry))
-          .filter((entry): entry is Record<string, unknown> => Boolean(entry))
-          .map((entry) => {
-            const taskKey = typeof entry.taskKey === "string" ? entry.taskKey : "task";
-            const title = typeof entry.title === "string" ? entry.title : taskKey;
-            const prompt = typeof entry.prompt === "string" ? entry.prompt : "";
-            return `${taskKey} ${title}\n\n${prompt}`.trim();
-          })
-      : [];
-    const currentTaskPrompt = typeof payload.currentTaskPrompt === "string" ? payload.currentTaskPrompt.trim() : "";
+    const mergedTaskPrompts = this.extractMergeConflictTaskPrompts(
+      Array.isArray(payload.mergedTaskPrompts)
+        ? payload.mergedTaskPrompts
+        : Array.isArray(payload.featureBranchTaskContexts)
+          ? payload.featureBranchTaskContexts
+          : [],
+    );
+    const currentTaskPrompt = this.extractCurrentTaskPrompt(payload);
 
     return [
       "Resolve the active Git merge conflict already present in this worktree.",
@@ -611,6 +620,44 @@ export class VirtualWorkerService {
       "",
       workspaceGuidance,
     ].filter(Boolean).join("\n");
+  }
+
+  private extractCurrentTaskPrompt(payload: Record<string, unknown>): string {
+    if (typeof payload.currentTaskPrompt === "string" && payload.currentTaskPrompt.trim()) {
+      return payload.currentTaskPrompt.trim();
+    }
+
+    const currentTask = this.asRecord(payload.currentTask);
+    if (typeof currentTask?.taskPrompt === "string" && currentTask.taskPrompt.trim()) {
+      return currentTask.taskPrompt.trim();
+    }
+
+    if (typeof payload.taskPrompt === "string" && payload.taskPrompt.trim()) {
+      return payload.taskPrompt.trim();
+    }
+
+    return "";
+  }
+
+  private extractMergeConflictTaskPrompts(entries: unknown[]): string[] {
+    return entries
+      .map((entry) => this.asRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      .map((entry) => {
+        const taskKey = typeof entry.taskKey === "string" ? entry.taskKey : "task";
+        const title = typeof entry.taskTitle === "string"
+          ? entry.taskTitle
+          : typeof entry.title === "string"
+            ? entry.title
+            : taskKey;
+        const prompt = typeof entry.taskPrompt === "string"
+          ? entry.taskPrompt
+          : typeof entry.prompt === "string"
+            ? entry.prompt
+            : "";
+        return `${taskKey} ${title}\n\n${prompt}`.trim();
+      })
+      .filter(Boolean);
   }
 
   private escalateAttentionToHuman(workerEndpointId: string, item: ProjectAttentionItemRecord, summaryMarkdown: string): void {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { computeStats } from "../lib/status.js";
-import { fetchGitTrackingStatus, fetchRuntimeDashboardPayload } from "../lib/api/dashboard-api.js";
+import { fetchExecutionSnapshot, fetchGitTrackingStatus, fetchLivePayload, fetchRuntimeStatus } from "../lib/api/dashboard-api.js";
 import type {
   DashboardStatus,
   ExecutionDashboardSnapshot,
@@ -13,6 +13,20 @@ import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime
 const RUNTIME_POLL_INTERVAL_MS = 5_000;
 const GIT_STATUS_POLL_INTERVAL_MS = 30_000;
 const REALTIME_GIT_REFRESH_DEBOUNCE_MS = 2_500;
+
+const EMPTY_STATUS: DashboardStatus = { subtasks: [], timestamp: null };
+const EMPTY_EXECUTION: ExecutionDashboardSnapshot = {
+  projectId: null,
+  projectName: null,
+  sprintRuns: [],
+  taskDispatches: [],
+  connections: [],
+  primaryAssignedWorker: null,
+  overflowAssignedWorkers: [],
+  attentionItems: [],
+  recentEvents: [],
+  updatedAt: null,
+};
 
 interface UseDashboardRuntimeDataResult {
   error: string | null;
@@ -27,34 +41,48 @@ interface UseDashboardRuntimeDataResult {
 }
 
 export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
-  const [status, setStatus] = useState<DashboardStatus>({ subtasks: [], timestamp: null });
-  const [execution, setExecution] = useState<ExecutionDashboardSnapshot>({
-    projectId: null,
-    projectName: null,
-    sprintRuns: [],
-    taskDispatches: [],
-    connections: [],
-    primaryAssignedWorker: null,
-    overflowAssignedWorkers: [],
-    attentionItems: [],
-    recentEvents: [],
-    updatedAt: null,
-  });
+  const [status, setStatus] = useState<DashboardStatus>(EMPTY_STATUS);
+  const [execution, setExecution] = useState<ExecutionDashboardSnapshot>(EMPTY_EXECUTION);
   const [error, setError] = useState<string | null>(null);
   const [gitStatus, setGitStatus] = useState<GitTrackingStatus | null>(null);
   const [gitStatusError, setGitStatusError] = useState<string | null>(null);
   const gitRefreshTimerRef = useRef<number | null>(null);
+  const initialFetchDoneRef = useRef(false);
 
   const refreshRuntimeStatusAction = useCallback(async (): Promise<void> => {
-    try {
-      const data = await fetchRuntimeDashboardPayload();
-      setStatus(data.status);
-      setExecution(data.execution);
-      setError(null);
-    } catch (err) {
-      setError("Unable to connect to Orchestrator API");
-      throw err;
+    // First call uses combined /api/live endpoint (single HTTP roundtrip)
+    if (!initialFetchDoneRef.current) {
+      initialFetchDoneRef.current = true;
+      try {
+        const data = await fetchLivePayload();
+        setStatus(data.status);
+        setExecution(data.execution);
+        setError(null);
+        return;
+      } catch {
+        // Fall through to parallel fetch below
+      }
     }
+
+    const [statusResult, executionResult] = await Promise.allSettled([
+      fetchRuntimeStatus(),
+      fetchExecutionSnapshot(),
+    ]);
+
+    if (statusResult.status === "fulfilled") {
+      setStatus(statusResult.value);
+    }
+    if (executionResult.status === "fulfilled") {
+      setExecution(executionResult.value);
+    }
+
+    if (statusResult.status === "fulfilled" || executionResult.status === "fulfilled") {
+      setError(null);
+      return;
+    }
+
+    setError("Unable to connect to Orchestrator API");
+    throw (statusResult.reason || executionResult.reason || new Error("Unable to connect to Orchestrator API"));
   }, []);
 
   const refreshGitStatusAction = useCallback(async (): Promise<void> => {
@@ -70,7 +98,13 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
 
   const scheduleGitStatusRefresh = useCallback((delayMs: number = REALTIME_GIT_REFRESH_DEBOUNCE_MS): void => {
     if (gitRefreshTimerRef.current !== null) {
-      return;
+      // If delay is 0 (immediate), cancel existing timer and reschedule
+      if (delayMs === 0) {
+        window.clearTimeout(gitRefreshTimerRef.current);
+        gitRefreshTimerRef.current = null;
+      } else {
+        return;
+      }
     }
 
     gitRefreshTimerRef.current = window.setTimeout(() => {

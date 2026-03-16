@@ -14,6 +14,11 @@ const areDependenciesMet = (subtasks: Subtask[], task: Subtask): boolean => {
 
 export const runStatusDerivationStep = (subtasks: Subtask[], options: DeriveStatusOptions): Subtask[] => {
   for (const task of subtasks) {
+    if (task.session_state === "QUOTA" || task.status === "QUOTA") {
+      task.status = "QUOTA";
+      continue;
+    }
+
     if (task.session_state === "FAILED" && options.retryFailed) {
       task.status = areDependenciesMet(subtasks, task) ? "PENDING" : "BLOCKED";
       continue;

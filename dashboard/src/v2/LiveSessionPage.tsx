@@ -6,7 +6,9 @@ import {
     Activity, ChevronDown, ChevronRight, Radio, Terminal, RefreshCw,
     GitPullRequest, GitMerge, CircleDot, ExternalLink, Eye, EyeOff,
     Play, FileText, RotateCcw, Layers, Bot, Workflow, PauseCircle,
+    Ship, BarChart3, Anchor, Timer,
 } from "lucide-preact";
+import { SprintBoatRace } from "./components/SprintBoatRace.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { HumanInterventionBadge } from "./components/ui/HumanInterventionBadge.js";
@@ -25,8 +27,8 @@ import {
 } from "../lib/api/dashboard-api.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
-import { getPrimaryPausedInterventionRun } from "../lib/execution-intervention.js";
 import type { Subtask, GitTrackingStatus, ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary } from "../types.js";
+import { deriveLiveSessionRuntimeState } from "./lib/live-session-runtime.js";
 
 /* ─── Status Maps ────────────────────────────────────────────────────────── */
 
@@ -36,6 +38,7 @@ const TASK_STATUS_CFG = {
     FAILED:    { label: "Failed",    hex: "#E3000F", dot: "bg-status-red shadow-[0_0_10px_rgba(227,0,15,0.7)]",                  text: "text-status-red",   bg: "bg-status-red/8",   border: "border-status-red/20", icon: XCircle },
     BLOCKED:   { label: "Blocked",   hex: "#F59E0B", dot: "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)]",               text: "text-status-amber", bg: "bg-status-amber/8", border: "border-status-amber/20", icon: AlertTriangle },
     PENDING:   { label: "Pending",   hex: "#64748b", dot: "bg-slate-400 dark:bg-slate-600",                                      text: "text-slate-400",    bg: "bg-slate-500/8",    border: "border-slate-500/20", icon: Clock },
+    QUOTA:     { label: "Quota",     hex: "#F59E0B", dot: "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-pulse",  text: "text-status-amber", bg: "bg-status-amber/8", border: "border-status-amber/20", icon: PauseCircle },
 } as const;
 
 type TaskStatusKey = keyof typeof TASK_STATUS_CFG;
@@ -102,14 +105,25 @@ const StatMetric: FunctionComponent<{
                        backdrop-blur-2xl
                        border border-black/[0.06] dark:border-white/[0.06]
                        rounded-[1.75rem] p-6
-                       shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]"
+                       shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
+                       stat-card-premium
+                       hover:shadow-[0_4px_30px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_8px_36px_rgba(0,0,0,0.35)]
+                       hover:border-black/[0.08] dark:hover:border-white/[0.08]
+                       transition-shadow duration-500"
         >
             <WaveFluid accentHex={accentHex} />
             <BorderTrace accentHex={accentHex} />
 
+            {/* Accent glow dot */}
+            <div
+                className="absolute top-4 right-4 w-2 h-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{ backgroundColor: accentHex, boxShadow: `0 0 12px ${accentHex}60` }}
+            />
+
             <div className="relative z-10 flex items-center gap-4">
                 <div
-                    className="w-10 h-10 rounded-[0.875rem] flex items-center justify-center shrink-0"
+                    className="w-10 h-10 rounded-[0.875rem] flex items-center justify-center shrink-0
+                               group-hover:scale-110 transition-transform duration-400 ease-out"
                     style={{ backgroundColor: `${accentHex}14` }}
                 >
                     <span style={{ color: accentHex }}><Icon className="w-5 h-5" strokeWidth={1.5} /></span>
@@ -320,7 +334,10 @@ const LiveTaskCard: FunctionComponent<{
     events?: ExecutionRuntimeEventSummary[];
     onRerun: (id: string) => void;
     isRerunning: boolean;
-}> = ({ task, events, onRerun, isRerunning }) => {
+    dispatchError?: string | null;
+    dispatchStartedAt?: string | null;
+    dispatchFinishedAt?: string | null;
+}> = ({ task, events, onRerun, isRerunning, dispatchError, dispatchStartedAt, dispatchFinishedAt }) => {
     const [expanded, setExpanded] = useState(false);
     const [showFeed, setShowFeed] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
@@ -404,6 +421,7 @@ const LiveTaskCard: FunctionComponent<{
                                 {task.provider}
                             </span>
                         )}
+                        <TaskDuration startedAt={dispatchStartedAt ?? null} finishedAt={dispatchFinishedAt ?? null} status={task.status ?? ""} />
                         {(hasEventFeed || task.session_id || task.session_name) && (
                             <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 max-w-[100px] truncate" title={sessionLabel}>
                                 {sessionLabel.substring(0, 16)}
@@ -453,6 +471,13 @@ const LiveTaskCard: FunctionComponent<{
                             <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Runtime Feed</span>
                         </div>
                         <RuntimeEventFeed events={events} />
+                    </div>
+                )}
+
+                {/* Dispatch error / quota countdown */}
+                {dispatchError && (
+                    <div className="mb-4 rounded-xl border border-status-amber/15 bg-status-amber/[0.04] px-4 py-2.5">
+                        <QuotaCountdown errorMessage={dispatchError} />
                     </div>
                 )}
 
@@ -526,7 +551,7 @@ const statusTone = (value: string | null): string => {
     const n = value.toUpperCase();
     if (n === "SUCCESS" || n === "COMPLETED" || n === "MERGED") return "text-status-green";
     if (n === "CANCEL_REQUESTED") return "text-status-amber";
-    if (n === "IN_PROGRESS" || n === "QUEUED" || n === "PENDING") return "text-status-amber";
+    if (n === "IN_PROGRESS" || n === "QUEUED" || n === "PENDING" || n === "QUOTA") return "text-status-amber";
     if (n === "FAILURE" || n === "FAILED" || n === "ERROR" || n === "CANCELLED") return "text-status-red";
     return "text-slate-400";
 };
@@ -542,6 +567,83 @@ const CONNECTION_ROLE_LABELS: Record<string, string> = {
     listener: "Listener",
     worker: "Worker",
     project_manager: "Manager",
+};
+
+function extractRetryAfterIso(errorMessage: string): string | null {
+    const match = errorMessage.match(/\[RETRY_AFTER:(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]/);
+    return match?.[1] ?? null;
+}
+
+function formatDuration(totalSeconds: number): string {
+    if (totalSeconds <= 0) return "0s";
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+}
+
+const QuotaCountdown: FunctionComponent<{ errorMessage: string }> = ({ errorMessage }) => {
+    const retryIso = extractRetryAfterIso(errorMessage);
+    const [remaining, setRemaining] = useState(() =>
+        retryIso ? Math.max(0, Math.floor((new Date(retryIso).getTime() - Date.now()) / 1000)) : null
+    );
+
+    useEffect(() => {
+        if (!retryIso) { setRemaining(null); return; }
+        const update = () => Math.max(0, Math.floor((new Date(retryIso).getTime() - Date.now()) / 1000));
+        setRemaining(update());
+        const timer = window.setInterval(() => {
+            const left = update();
+            setRemaining(left);
+            if (left <= 0) window.clearInterval(timer);
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [retryIso]);
+
+    if (remaining == null) {
+        return <div className="text-status-red">{errorMessage}</div>;
+    }
+
+    return (
+        <div className="flex items-center gap-2 text-status-amber">
+            <Clock className="w-3 h-3 flex-shrink-0" strokeWidth={2} />
+            <span>
+                {remaining <= 0
+                    ? "Quota should be available now — retry the task."
+                    : `Quota exhausted — resets in ${formatDuration(remaining)}`}
+            </span>
+        </div>
+    );
+};
+
+const TaskDuration: FunctionComponent<{ startedAt: string | null; finishedAt: string | null; status: string }> = ({ startedAt, finishedAt, status }) => {
+    const [elapsed, setElapsed] = useState(0);
+    const isRunning = status === "RUNNING" || status === "running";
+
+    useEffect(() => {
+        if (!startedAt) { setElapsed(0); return; }
+        const start = new Date(startedAt).getTime();
+        const compute = () => {
+            const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();
+            return Math.max(0, Math.floor((end - start) / 1000));
+        };
+        setElapsed(compute());
+        if (!finishedAt && isRunning) {
+            const timer = window.setInterval(() => setElapsed(compute()), 1000);
+            return () => window.clearInterval(timer);
+        }
+    }, [startedAt, finishedAt, isRunning]);
+
+    if (!startedAt || elapsed === 0) return null;
+
+    return (
+        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+            <Timer className="w-3 h-3" strokeWidth={2} />
+            <span>{formatDuration(elapsed)}</span>
+        </div>
+    );
 };
 
 const ATTENTION_SEVERITY_TONE: Record<string, string> = {
@@ -887,6 +989,8 @@ const ExecutionRuntimePanel: FunctionComponent<{
     onResolveAttentionItem: (projectId: string, attentionItemId: string) => void;
     onDismissAttentionItem: (projectId: string, attentionItemId: string) => void;
     pendingActionIds: Set<string>;
+    collapsible?: boolean;
+    defaultOpen?: boolean;
 }> = ({
     snapshot,
     onOrchestrateSprint,
@@ -900,7 +1004,10 @@ const ExecutionRuntimePanel: FunctionComponent<{
     onResolveAttentionItem,
     onDismissAttentionItem,
     pendingActionIds,
+    collapsible = false,
+    defaultOpen = true,
 }) => {
+    const [open, setOpen] = useState(defaultOpen);
     const activeSprintRuns = snapshot.sprintRuns.filter((run) => run.status === "running" || run.status === "queued");
     const activeDispatches = snapshot.taskDispatches.filter((dispatch) => (
         dispatch.status === "queued" || dispatch.status === "claimed" || dispatch.status === "running"
@@ -912,12 +1019,38 @@ const ExecutionRuntimePanel: FunctionComponent<{
     const timelineEvents = activeSprintRuns.length > 0 ? snapshot.recentEvents.slice(0, 24) : [];
 
     return (
-        <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+        <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
             <WaveFluid accentHex="#00E0A0" />
             <BorderTrace accentHex="#00E0A0" />
 
-            <div className="relative z-10 space-y-6">
-                <div className="flex items-center justify-between gap-4">
+            {/* Header — clickable when collapsible */}
+            {collapsible ? (
+                <button
+                    type="button"
+                    onClick={() => setOpen(!open)}
+                    className="relative z-10 w-full flex items-center justify-between gap-4 p-5 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors duration-200"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <Workflow className="w-4 h-4 text-signal-500" strokeWidth={1.5} />
+                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
+                        {activeSprintRuns.length > 0 && (
+                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-signal-500/10 text-signal-500">
+                                {activeSprintRuns.length} active
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="text-[9px] font-mono text-slate-400">
+                            {snapshot.updatedAt ? `Updated ${formatTime(snapshot.updatedAt)}` : "No active project"}
+                        </span>
+                        <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                            strokeWidth={2}
+                        />
+                    </div>
+                </button>
+            ) : (
+                <div className="relative z-10 flex items-center justify-between gap-4 px-7 pt-7">
                     <div className="flex items-center gap-2.5">
                         <Workflow className="w-4 h-4 text-signal-500" strokeWidth={1.5} />
                         <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
@@ -926,6 +1059,11 @@ const ExecutionRuntimePanel: FunctionComponent<{
                         {snapshot.updatedAt ? `Updated ${formatTime(snapshot.updatedAt)}` : "No active project"}
                     </span>
                 </div>
+            )}
+
+            <div className={collapsible ? `collapsible-section ${open ? "open" : ""}` : ""}>
+            <div className={collapsible ? "collapsible-content" : ""}>
+            <div className={`relative z-10 space-y-6 ${collapsible ? "px-5 pb-5" : "px-7 pb-7 pt-4"}`}>
 
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                     {[
@@ -1088,6 +1226,7 @@ const ExecutionRuntimePanel: FunctionComponent<{
                                                     {dispatch.taskRunState}
                                                 </div>
                                             )}
+                                            <TaskDuration startedAt={dispatch.startedAt} finishedAt={dispatch.finishedAt} status={dispatch.status} />
                                         </div>
                                     </div>
                                     {(dispatch.sessionId || dispatch.workerBranch || dispatch.errorMessage || dispatch.activeLeaseOwnerKey) && (
@@ -1095,7 +1234,7 @@ const ExecutionRuntimePanel: FunctionComponent<{
                                             {dispatch.sessionId && <div>session {dispatch.sessionId}</div>}
                                             {dispatch.workerBranch && <div>branch {dispatch.workerBranch}</div>}
                                             {dispatch.activeLeaseOwnerKey && <div>lease {dispatch.activeLeaseOwnerKey}</div>}
-                                            {dispatch.errorMessage && <div className="text-status-red">{dispatch.errorMessage}</div>}
+                                            {dispatch.errorMessage && <QuotaCountdown errorMessage={dispatch.errorMessage} />}
                                         </div>
                                     )}
                                     <div className="mt-3 flex flex-wrap gap-2">
@@ -1165,6 +1304,8 @@ const ExecutionRuntimePanel: FunctionComponent<{
                         </div>
                     )}
                 </div>
+            </div>
+            </div>
             </div>
         </div>
     );
@@ -1363,6 +1504,60 @@ const IntelPanel: FunctionComponent<{
     </div>
 );
 
+/* ─── Collapsible Panel Wrapper ──────────────────────────────────────────── */
+
+const CollapsiblePanel: FunctionComponent<{
+    title: string;
+    icon: any;
+    accentHex: string;
+    defaultOpen?: boolean;
+    badge?: string | number;
+    children: any;
+}> = ({ title, icon: Icon, accentHex, defaultOpen = false, badge, children }) => {
+    const [open, setOpen] = useState(defaultOpen);
+
+    return (
+        <div className="group/collapse relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+            <WaveFluid accentHex={accentHex} />
+            <BorderTrace accentHex={accentHex} />
+
+            {/* Header — always visible, clickable */}
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                className="relative z-10 w-full flex items-center justify-between gap-3 p-5 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors duration-200"
+            >
+                <div className="flex items-center gap-2.5">
+                    <span style={{ color: accentHex }}><Icon className="w-4 h-4" strokeWidth={1.5} /></span>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">{title}</span>
+                    {badge != null && (
+                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
+                            {badge}
+                        </span>
+                    )}
+                </div>
+                <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                    strokeWidth={2}
+                />
+            </button>
+
+            {/* Collapsible body */}
+            <div className={`collapsible-section ${open ? "open" : ""}`}>
+                <div className="collapsible-content">
+                    <div className="relative z-10 px-5 pb-5 pt-0">
+                        {children}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ─── Header View Type ──────────────────────────────────────────────────── */
+
+type HeaderView = "stats" | "race";
+
 /* ─── Filter Type ────────────────────────────────────────────────────────── */
 
 type TaskFilter = "All" | "Running" | "Completed" | "Failed" | "Pending";
@@ -1380,6 +1575,7 @@ export const LiveSessionPage: FunctionComponent = () => {
     const [rerunningIds, setRerunningIds] = useState<Set<string>>(new Set());
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
     const [activeFilter, setFilter] = useState<TaskFilter>("All");
+    const [headerView, setHeaderView] = useState<HeaderView>("race");
 
     /* GSAP entrance */
     useLayoutEffect(() => {
@@ -1511,21 +1707,21 @@ export const LiveSessionPage: FunctionComponent = () => {
         });
     }, [runControlAction]);
 
-    const liveSprintRun = useMemo(
-        () => execution.sprintRuns.find((run) => run.status === "running" || run.status === "queued") || null,
-        [execution.sprintRuns],
+    const runtimeState = useMemo(
+        () => deriveLiveSessionRuntimeState(status, execution),
+        [status, execution],
     );
-    const pausedInterventionRun = useMemo(
-        () => getPrimaryPausedInterventionRun(execution),
-        [execution],
-    );
+    const liveSprintRun = runtimeState.liveSprintRun;
+    const pausedInterventionRun = runtimeState.pausedInterventionRun;
     const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
-    const hasLiveSprint = Boolean(liveSprintRun);
-    const visibleTasksWithLiveActivities = hasLiveSprint ? tasksWithLiveActivities : [];
-    const visibleStats = hasLiveSprint ? stats : EMPTY_RUNTIME_STATS;
+    const hasLiveSprint = runtimeState.hasActiveSprint;
+    const hasSprintContext = runtimeState.hasSprintContext;
+    const visibleTasksWithLiveActivities = hasSprintContext ? tasksWithLiveActivities : [];
+    const visibleStats = hasSprintContext ? stats : EMPTY_RUNTIME_STATS;
 
     const filtered = useMemo(() => {
         if (activeFilter === "All") return visibleTasksWithLiveActivities;
+        if (activeFilter === "Pending") return visibleTasksWithLiveActivities.filter(t => t.status === "PENDING" || t.status === "BLOCKED" || t.status === "QUOTA");
         const target = FILTER_STATUS_MAP[activeFilter];
         return visibleTasksWithLiveActivities.filter(t => t.status === target);
     }, [visibleTasksWithLiveActivities, activeFilter]);
@@ -1548,12 +1744,29 @@ export const LiveSessionPage: FunctionComponent = () => {
         return { byRecordId, byTaskKey };
     }, [execution.recentEvents]);
 
+    const dispatchInfoByTaskId = useMemo(() => {
+        const map = new Map<string, { errorMessage: string | null; startedAt: string | null; finishedAt: string | null }>();
+        for (const dispatch of execution.taskDispatches) {
+            if (!dispatch.taskId) continue;
+            const existing = map.get(dispatch.taskId);
+            // Keep the most recent dispatch (last in list), but prefer one with error if present
+            if (!existing || dispatch.errorMessage || (!existing.errorMessage && dispatch.startedAt)) {
+                map.set(dispatch.taskId, {
+                    errorMessage: dispatch.errorMessage,
+                    startedAt: dispatch.startedAt,
+                    finishedAt: dispatch.finishedAt,
+                });
+            }
+        }
+        return map;
+    }, [execution.taskDispatches]);
+
     const counts: Record<TaskFilter, number> = useMemo(() => ({
         All:       visibleTasksWithLiveActivities.length,
         Running:   visibleStats.running,
         Completed: visibleStats.completed,
         Failed:    visibleStats.failed,
-        Pending:   visibleTasksWithLiveActivities.filter(t => t.status === "PENDING" || t.status === "BLOCKED").length,
+        Pending:   visibleTasksWithLiveActivities.filter(t => t.status === "PENDING" || t.status === "BLOCKED" || t.status === "QUOTA").length,
     }), [visibleStats, visibleTasksWithLiveActivities]);
 
     /* Connection error */
@@ -1612,14 +1825,44 @@ export const LiveSessionPage: FunctionComponent = () => {
                                 : `Monitoring ${liveSprintRun?.sprintName || "the active sprint"} in real-time.`
                             : pausedIntervention
                                 ? pausedIntervention.instructions
-                                : "Waiting for sprint to start."
+                                : hasSprintContext
+                                    ? "Loading the latest sprint telemetry snapshot."
+                                    : "Waiting for sprint to start."
                         }
                     </p>
                 </div>
 
-                {/* Right: pills + timestamp */}
+                {/* Right: pills + view toggle + timestamp */}
                 <div className="flex flex-col items-start lg:items-end gap-4 shrink-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
+                        {/* ── View Toggle ─────────────────────────────── */}
+                        <div className="flex gap-0.5 p-0.5 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl backdrop-blur-md">
+                            <button
+                                type="button"
+                                onClick={() => setHeaderView("stats")}
+                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${
+                                    headerView === "stats"
+                                        ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]"
+                                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                }`}
+                            >
+                                <BarChart3 className="w-3 h-3" strokeWidth={2} />
+                                Stats
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHeaderView("race")}
+                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${
+                                    headerView === "race"
+                                        ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]"
+                                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                }`}
+                            >
+                                <Ship className="w-3 h-3" strokeWidth={2} />
+                                Race
+                            </button>
+                        </div>
+
                         <div className={`px-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full border flex items-center gap-2.5 backdrop-blur-md ${
                             hasLiveSprint
                                 ? "bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/15 dark:border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)]"
@@ -1630,7 +1873,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : pausedIntervention ? "bg-status-amber" : "bg-slate-400"}`}>
                                 {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
                             </span>
-                            {hasLiveSprint ? `${visibleStats.running} Running` : pausedIntervention ? "Paused for intervention" : "Waiting"}
+                            {hasLiveSprint ? `${visibleStats.running} Running` : pausedIntervention ? "Paused for intervention" : hasSprintContext ? "Snapshot loaded" : "Waiting"}
                         </div>
                         {pausedIntervention && !hasLiveSprint && (
                             <HumanInterventionBadge summary={pausedIntervention} label="Needs you" align="right" />
@@ -1646,7 +1889,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             </div>
                         )}
                     </div>
-                    {status.timestamp && hasLiveSprint && (
+                    {status.timestamp && hasSprintContext && (
                         <span className="text-[10px] font-mono text-slate-400">
                             Updated {formatTime(status.timestamp)}
                         </span>
@@ -1682,18 +1925,27 @@ export const LiveSessionPage: FunctionComponent = () => {
                 </div>
             )}
 
-            {/* ── Stats Row ───────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-9 gap-4">
-                <StatMetric label="Total"        value={visibleStats.total}        accentHex="#00E0A0" icon={Layers}        delay={0.1} />
-                <StatMetric label="Running"      value={visibleStats.running}      accentHex="#00E0A0" icon={Activity}      delay={0.15} />
-                <StatMetric label="Completed"    value={visibleStats.completed}    accentHex="#00AB84" icon={CheckCircle2}  delay={0.2} />
-                <StatMetric label="Failed"       value={visibleStats.failed}       accentHex="#E3000F" icon={XCircle}       delay={0.25} />
-                <StatMetric label="CI"           value={visibleStats.ci}           accentHex="#00E0A0" icon={CircleDot}     delay={0.3} />
-                <StatMetric label="Automerge"    value={visibleStats.automerge}    accentHex="#FFB800" icon={GitMerge}      delay={0.35} />
-                <StatMetric label="Merged"       value={visibleStats.merged}       accentHex="#00AB84" icon={GitPullRequest} delay={0.4} />
-                <StatMetric label="Blocked"      value={visibleStats.mergeBlocked} accentHex="#F59E0B" icon={AlertTriangle} delay={0.45} />
-                <StatMetric label="Conflicts"    value={visibleStats.mergeConflicts} accentHex="#E3000F" icon={GitPullRequest} delay={0.5} />
-            </div>
+            {/* ── Header View: Stats or Boat Race ─────────────────────── */}
+            {headerView === "stats" ? (
+                <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-9 gap-4">
+                    <StatMetric label="Total"        value={visibleStats.total}        accentHex="#00E0A0" icon={Layers}        delay={0.1} />
+                    <StatMetric label="Running"      value={visibleStats.running}      accentHex="#00E0A0" icon={Activity}      delay={0.15} />
+                    <StatMetric label="Completed"    value={visibleStats.completed}    accentHex="#00AB84" icon={CheckCircle2}  delay={0.2} />
+                    <StatMetric label="Failed"       value={visibleStats.failed}       accentHex="#E3000F" icon={XCircle}       delay={0.25} />
+                    <StatMetric label="CI"           value={visibleStats.ci}           accentHex="#00E0A0" icon={CircleDot}     delay={0.3} />
+                    <StatMetric label="Automerge"    value={visibleStats.automerge}    accentHex="#FFB800" icon={GitMerge}      delay={0.35} />
+                    <StatMetric label="Merged"       value={visibleStats.merged}       accentHex="#00AB84" icon={GitPullRequest} delay={0.4} />
+                    <StatMetric label="Blocked"      value={visibleStats.mergeBlocked} accentHex="#F59E0B" icon={AlertTriangle} delay={0.45} />
+                    <StatMetric label="Conflicts"    value={visibleStats.mergeConflicts} accentHex="#E3000F" icon={GitPullRequest} delay={0.5} />
+                </div>
+            ) : (
+                /* ── Boat Race View ───────────────────────────────── */
+                <SprintBoatRace
+                    tasks={visibleTasksWithLiveActivities}
+                    dispatches={execution.taskDispatches}
+                    hasLiveSprint={hasSprintContext}
+                />
+            )}
 
             {/* ── Section Divider ─────────────────────────────────────── */}
             <div className="w-full flex items-center justify-center py-4 relative z-10 overflow-hidden">
@@ -1733,7 +1985,7 @@ export const LiveSessionPage: FunctionComponent = () => {
 
                 {/* Task cards */}
                 <div className="xl:col-span-8 flex flex-col gap-5">
-                    {!hasLiveSprint ? (
+                    {!hasSprintContext ? (
                         <IdleRuntimeState
                             title={pausedIntervention ? "Human Intervention Needed" : "Waiting for Sprint Start"}
                             subtitle={pausedIntervention
@@ -1762,13 +2014,29 @@ export const LiveSessionPage: FunctionComponent = () => {
                                     || []}
                                 onRerun={handleRerun}
                                 isRerunning={rerunningIds.has(task.id)}
+                                dispatchError={task.record_id ? dispatchInfoByTaskId.get(task.record_id)?.errorMessage : null}
+                                dispatchStartedAt={task.record_id ? dispatchInfoByTaskId.get(task.record_id)?.startedAt : null}
+                                dispatchFinishedAt={task.record_id ? dispatchInfoByTaskId.get(task.record_id)?.finishedAt : null}
                             />
                         ))
                     )}
                 </div>
 
-                {/* Sidebar — Intelligence + Git */}
-                <div className="xl:col-span-4 flex flex-col gap-6">
+                {/* Sidebar — Reordered: Latest Activity & Git at top, collapsible panels */}
+                <div className="xl:col-span-4 flex flex-col gap-5">
+                    {/* 1. Latest Activity — always visible at top */}
+                    <IntelPanel
+                        title="Latest Activity"
+                        icon={Activity}
+                        accentHex="#00E0A0"
+                        content={hasSprintContext ? status.reportText : undefined}
+                        fallback={hasSprintContext ? "Waiting for activity..." : "Waiting for sprint to start."}
+                    />
+
+                    {/* 2. Git/CI — moved to top, always visible */}
+                    <GitCiPanel status={gitStatus} error={gitStatusError} />
+
+                    {/* 3. Execution Runtime — collapsible */}
                     <ExecutionRuntimePanel
                         snapshot={execution}
                         onOrchestrateSprint={handleOrchestrateSprint}
@@ -1782,22 +2050,26 @@ export const LiveSessionPage: FunctionComponent = () => {
                         onResolveAttentionItem={handleResolveAttentionItem}
                         onDismissAttentionItem={handleDismissAttentionItem}
                         pendingActionIds={pendingActionIds}
+                        collapsible
+                        defaultOpen={hasSprintContext}
                     />
-                    <IntelPanel
-                        title="Latest Activity"
-                        icon={Activity}
-                        accentHex="#00E0A0"
-                        content={hasLiveSprint ? status.reportText : undefined}
-                        fallback={hasLiveSprint ? "Waiting for activity..." : "Waiting for sprint to start."}
-                    />
-                    <IntelPanel
+
+                    {/* 4. Protocol — collapsible */}
+                    <CollapsiblePanel
                         title="Protocol"
                         icon={AlertTriangle}
                         accentHex="#FFB800"
-                        content={hasLiveSprint ? status.instructions : undefined}
-                        fallback={hasLiveSprint ? "Orchestration optimal. No manual intervention needed." : "No active sprint protocol."}
-                    />
-                    <GitCiPanel status={gitStatus} error={gitStatusError} />
+                        defaultOpen={false}
+                    >
+                        <div
+                            className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
+                                       prose-headings:text-slate-800 dark:prose-headings:text-slate-200
+                                       prose-code:text-signal-600 dark:prose-code:text-signal-400
+                                       prose-code:bg-signal-500/[0.06] prose-code:px-1 prose-code:rounded-md
+                                       font-mono text-[12px] leading-relaxed max-h-64 overflow-y-auto dashboard-scrollbar"
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(hasSprintContext ? status.instructions : undefined) || '<p class="text-slate-400 dark:text-slate-600 italic">No active sprint protocol.</p>' }}
+                        />
+                    </CollapsiblePanel>
                 </div>
             </div>
         </div>

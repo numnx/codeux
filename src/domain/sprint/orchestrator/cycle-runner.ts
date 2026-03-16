@@ -20,6 +20,7 @@ import type { SprintExecutionContext } from "../../../services/sprint-execution-
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 
+
 export interface CycleRunnerArgs {
   action: "status" | "orchestrate";
   automationLevel: AutomationLevel;
@@ -103,7 +104,7 @@ export class CycleRunner {
         {
           repoPath: args.repoPath,
           sprintNumber: args.executionContext.sprintNumber,
-        }
+        },
       );
       subtasks = syncResult.subtasks;
     }
@@ -263,6 +264,7 @@ export class CycleRunner {
       resolveSessionName: this.deps.resolveSessionName,
       extractSessionId: this.deps.extractSessionId,
       logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
+      shouldSkipTask: (task) => task.status === "QUOTA",
     });
   }
 

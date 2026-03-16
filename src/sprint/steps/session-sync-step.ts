@@ -2,6 +2,7 @@ import type { JulesActivity, JulesSession, Subtask } from "../../contracts/app-t
 import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../contracts/execution-types.js";
 import type { SessionSyncDependencies } from "../sprint-types.js";
 import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
+import { isQuotaCooldownActive } from "../../shared/providers/provider-error-classifier.js";
 
 const mapSessionStateToTaskRunState = (
   sessionState: string | undefined,
@@ -12,6 +13,9 @@ const mapSessionStateToTaskRunState = (
   }
   if (sessionState === "FAILED") {
     return "FAILED";
+  }
+  if (sessionState === "QUOTA") {
+    return "QUOTA";
   }
   if (isActionRequiredState(sessionState)) {
     return "BLOCKED";
@@ -25,6 +29,8 @@ const mapTaskRunStateToDispatchStatus = (state: TaskRunState): TaskDispatchStatu
       return "completed";
     case "FAILED":
       return "failed";
+    case "QUOTA":
+      return "quota";
     case "BLOCKED":
       return "blocked";
     case "RUNNING":
@@ -213,7 +219,7 @@ export const runSessionSyncStep = async (
   subtasks: Subtask[],
   deps: SessionSyncDependencies,
   retryFailed: boolean,
-  context: { repoPath: string; sprintNumber: number }
+  context: { repoPath: string; sprintNumber: number },
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
@@ -310,6 +316,28 @@ export const runSessionSyncStep = async (
 
     if (match.state === "FAILED") {
       if (retryFailed) {
+        task.status = "PENDING";
+      } else {
+        task.status = "FAILED";
+      }
+      continue;
+    }
+
+    if (match.state === "QUOTA") {
+      // Check if the quota cooldown has expired by looking at the latest dispatch error
+      let cooldownActive = true;
+      if (task.record_id && task.project_id && deps.executionRepository) {
+        const dispatches = deps.executionRepository.listTaskDispatches({
+          projectId: task.project_id,
+          taskId: task.record_id,
+        });
+        const withError = dispatches.filter((d) => d.errorMessage);
+        const latestError = withError.length > 0 ? withError[withError.length - 1].errorMessage : null;
+        cooldownActive = isQuotaCooldownActive(latestError);
+      }
+      if (cooldownActive) {
+        task.status = "QUOTA";
+      } else if (retryFailed) {
         task.status = "PENDING";
       } else {
         task.status = "FAILED";

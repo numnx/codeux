@@ -23,16 +23,29 @@ export interface RuntimeDashboardPayload {
   execution: ExecutionDashboardSnapshot;
 }
 
+export const fetchRuntimeStatus = async (): Promise<DashboardStatus> => {
+  return fetchJson<DashboardStatus>("/api/status");
+};
+
+export const fetchExecutionSnapshot = async (): Promise<ExecutionDashboardSnapshot> => {
+  return fetchJson<ExecutionDashboardSnapshot>("/api/execution");
+};
+
 export const fetchRuntimeDashboardPayload = async (): Promise<RuntimeDashboardPayload> => {
   const [status, execution] = await Promise.all([
-    fetchJson<DashboardStatus>("/api/status"),
-    fetchJson<ExecutionDashboardSnapshot>("/api/execution"),
+    fetchRuntimeStatus(),
+    fetchExecutionSnapshot(),
   ]);
 
   return {
     status,
     execution,
   };
+};
+
+/** Single HTTP call returning both status + execution — used for fast initial load. */
+export const fetchLivePayload = async (): Promise<RuntimeDashboardPayload> => {
+  return fetchJson<RuntimeDashboardPayload>("/api/live");
 };
 
 export const fetchOverviewTelemetry = async (): Promise<OverviewTelemetrySnapshot> => {
