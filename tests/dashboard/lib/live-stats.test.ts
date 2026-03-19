@@ -8,6 +8,7 @@ import type {
 import {
   buildLiveSprintTimingSummary,
   buildLiveTaskTimingSummary,
+  buildLiveTaskTimingSummaries,
 } from "../../../dashboard/src/v2/lib/live-stats.js";
 
 function makeTask(overrides: Partial<Subtask> & Pick<Subtask, "id" | "title">): Subtask {
@@ -257,6 +258,129 @@ describe("live stats timing model", () => {
     expect(summary.activeStage).toBeNull();
   });
 
+  it("stops completed task timing at the terminal event even if later sync events arrive", () => {
+    const task = makeTask({
+      id: "T02A",
+      title: "Completed task",
+      record_id: "task-record-2a",
+      status: "COMPLETED",
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2a",
+      taskId: "task-record-2a",
+      taskKey: "T02A",
+      taskTitle: "Completed task",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2a-start",
+        dispatchId: "dispatch-2a",
+        taskRunId: "dispatch-2a-task-run",
+        taskId: "task-record-2a",
+        taskKey: "T02A",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2a-terminal",
+        dispatchId: "dispatch-2a",
+        taskRunId: "dispatch-2a-task-run",
+        taskId: "task-record-2a",
+        taskKey: "T02A",
+        eventType: "cli_git_no_changes",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2a-late-sync",
+        dispatchId: "dispatch-2a",
+        taskRunId: "dispatch-2a-task-run",
+        taskId: "task-record-2a",
+        taskKey: "T02A",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
+    expect(summary.totalSeconds).toBe(300);
+    expect(summary.stageTotals.coding).toBe(300);
+    expect(summary.activeStage).toBeNull();
+  });
+
+  it("stops coding-complete task timing until a real ci or merge stage begins", () => {
+    const task = makeTask({
+      id: "T02B",
+      title: "Awaiting merge orchestration",
+      record_id: "task-record-2b",
+      status: "COMPLETED",
+      worker_branch: "feature/t02b",
+      pr_url: "https://example.com/pr/2b",
+      merge_indicator: "AUTOMERGE",
+      is_merged: false,
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2b",
+      taskId: "task-record-2b",
+      taskKey: "T02B",
+      taskTitle: "Awaiting merge orchestration",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      workerBranch: "feature/t02b",
+      prUrl: "https://example.com/pr/2b",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2b-start",
+        dispatchId: "dispatch-2b",
+        taskRunId: "dispatch-2b-task-run",
+        taskId: "task-record-2b",
+        taskKey: "T02B",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2b-terminal",
+        dispatchId: "dispatch-2b",
+        taskRunId: "dispatch-2b-task-run",
+        taskId: "task-record-2b",
+        taskKey: "T02B",
+        eventType: "run_completed",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2b-late-sync",
+        dispatchId: "dispatch-2b",
+        taskRunId: "dispatch-2b-task-run",
+        taskId: "task-record-2b",
+        taskKey: "T02B",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.phase).toBe("CODING_COMPLETED");
+    expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
+    expect(summary.totalSeconds).toBe(300);
+    expect(summary.stageTotals.coding).toBe(300);
+    expect(summary.activeStage).toBeNull();
+  });
+
   it("uses the latest dispatch history for rerun tasks", () => {
     const task = makeTask({
       id: "T03",
@@ -314,6 +438,179 @@ describe("live stats timing model", () => {
     expect(summary.startedAt).toBe("2026-03-19T10:00:00.000Z");
     expect(summary.totalSeconds).toBe(300);
     expect(summary.activeStage).toBe("coding");
+  });
+
+  it("does not inherit task-key timing from an older sprint when a record id is available", () => {
+    const task = makeTask({
+      id: "T02",
+      title: "Fresh Task",
+      record_id: "task-record-current",
+      sprint_id: "sprint-current",
+      project_id: "project-1",
+      status: "COMPLETED",
+    });
+    const currentDispatch = makeDispatch({
+      id: "dispatch-current",
+      sprintId: "sprint-current",
+      taskId: "task-record-current",
+      taskKey: "T02",
+      taskTitle: "Fresh Task",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:00:38.000Z",
+    });
+    const oldDispatch = makeDispatch({
+      id: "dispatch-old-sprint",
+      sprintId: "sprint-old",
+      taskId: "task-record-old",
+      taskKey: "T02",
+      taskTitle: "Old Task",
+      startedAt: "2026-03-16T01:44:03.000Z",
+      finishedAt: "2026-03-19T10:00:00.000Z",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-current",
+        sprintId: "sprint-current",
+        dispatchId: "dispatch-current",
+        taskRunId: "dispatch-current-task-run",
+        taskId: "task-record-current",
+        taskKey: "T02",
+        createdAt: "2026-03-19T10:00:00.000Z",
+        eventType: "dispatch_started",
+      }),
+      makeEvent({
+        id: "evt-current-finish",
+        sprintId: "sprint-current",
+        dispatchId: "dispatch-current",
+        taskRunId: "dispatch-current-task-run",
+        taskId: "task-record-current",
+        taskKey: "T02",
+        createdAt: "2026-03-19T10:00:38.000Z",
+        eventType: "cli_git_no_changes",
+      }),
+      makeEvent({
+        id: "evt-old",
+        sprintId: "sprint-old",
+        dispatchId: "dispatch-old-sprint",
+        taskRunId: "dispatch-old-sprint-task-run",
+        taskId: "task-record-old",
+        taskKey: "T02",
+        createdAt: "2026-03-16T01:44:03.000Z",
+        eventType: "dispatch_started",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [oldDispatch, currentDispatch],
+      events,
+      nowIso: "2026-03-19T10:01:00.000Z",
+    });
+
+    expect(summary.startedAt).toBe("2026-03-19T10:00:00.000Z");
+    expect(summary.totalSeconds).toBe(38);
+    expect(summary.stageTotals.coding).toBe(38);
+  });
+
+  it("scopes task-key fallback to the current sprint when no record id is present", () => {
+    const task = makeTask({
+      id: "T04",
+      title: "Scoped by sprint",
+      sprint_id: "sprint-live",
+      project_id: "project-1",
+      status: "RUNNING",
+    });
+    const oldDispatch = makeDispatch({
+      id: "dispatch-old",
+      sprintId: "sprint-old",
+      taskId: "task-old",
+      taskKey: "T04",
+      taskTitle: "Old",
+      startedAt: "2026-03-18T01:00:00.000Z",
+      finishedAt: null,
+      status: "running",
+    });
+    const liveDispatch = makeDispatch({
+      id: "dispatch-live",
+      sprintId: "sprint-live",
+      taskId: "task-live",
+      taskKey: "T04",
+      taskTitle: "Live",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: null,
+      status: "running",
+    });
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [oldDispatch, liveDispatch],
+      events: [],
+      nowIso: "2026-03-19T10:01:00.000Z",
+    });
+
+    expect(summary.startedAt).toBe("2026-03-19T10:00:00.000Z");
+    expect(summary.totalSeconds).toBe(60);
+  });
+
+  it("does not inherit stale timing for blocked tasks from an older sprint run", () => {
+    const task = makeTask({
+      id: "T05",
+      title: "Blocked task",
+      record_id: "task-record-5",
+      sprint_id: "sprint-1",
+      project_id: "project-1",
+      status: "BLOCKED",
+    });
+    const staleDispatch = makeDispatch({
+      id: "dispatch-old-run",
+      sprintId: "sprint-1",
+      sprintRunId: "run-old",
+      taskId: "task-record-5",
+      taskKey: "T05",
+      taskTitle: "Blocked task",
+      startedAt: "2026-03-19T08:00:00.000Z",
+      finishedAt: "2026-03-19T08:01:15.000Z",
+    });
+    const staleEvent = makeEvent({
+      id: "evt-old-run",
+      sprintId: "sprint-1",
+      sprintRunId: "run-old",
+      dispatchId: "dispatch-old-run",
+      taskRunId: "dispatch-old-run-task-run",
+      taskId: "task-record-5",
+      taskKey: "T05",
+      createdAt: "2026-03-19T08:01:15.000Z",
+      eventType: "run_blocked",
+    });
+    const sprintRuns = [
+      makeSprintRun({
+        id: "run-old",
+        sprintId: "sprint-1",
+        startedAt: "2026-03-19T08:00:00.000Z",
+        createdAt: "2026-03-19T08:00:00.000Z",
+        status: "failed",
+      }),
+      makeSprintRun({
+        id: "run-live",
+        sprintId: "sprint-1",
+        startedAt: "2026-03-19T10:00:00.000Z",
+        createdAt: "2026-03-19T10:00:00.000Z",
+        status: "running",
+      }),
+    ];
+
+    const [summary] = buildLiveTaskTimingSummaries({
+      tasks: [task],
+      dispatches: [staleDispatch],
+      events: [staleEvent],
+      sprintRuns,
+      nowIso: "2026-03-19T10:01:15.000Z",
+    });
+
+    expect(summary.startedAt).toBeNull();
+    expect(summary.totalSeconds).toBe(0);
+    expect(summary.stageTotals.coding).toBe(0);
+    expect(summary.activeStage).toBeNull();
   });
 
   it("aggregates sprint elapsed time and active stage counts", () => {

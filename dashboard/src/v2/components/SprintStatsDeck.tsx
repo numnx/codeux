@@ -257,6 +257,7 @@ export function useLiveTaskTimingSummaries(args: {
     tasks: args.tasks,
     dispatches: args.dispatches,
     events: args.events,
+    sprintRuns: args.sprintRuns,
     nowIso: args.nowIso,
   });
 

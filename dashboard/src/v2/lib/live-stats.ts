@@ -56,6 +56,11 @@ interface LiveStatsModelArgs {
   nowIso?: string;
 }
 
+interface ScopedExecutionHistory {
+  dispatches: ExecutionTaskDispatchSummary[];
+  events: ExecutionRuntimeEventSummary[];
+}
+
 const ZERO_STAGE_TOTALS = (): Record<LiveTaskStageKey, number> => ({
   queued: 0,
   coding: 0,
@@ -106,18 +111,47 @@ function getDispatchRecency(dispatch: ExecutionTaskDispatchSummary): string {
   );
 }
 
+function taskScopeMatchesDispatch(task: Subtask, dispatch: ExecutionTaskDispatchSummary): boolean {
+  if (task.project_id && dispatch.projectId !== task.project_id) {
+    return false;
+  }
+  if (task.sprint_id && dispatch.sprintId !== task.sprint_id) {
+    return false;
+  }
+  return true;
+}
+
+function taskScopeMatchesEvent(task: Subtask, event: ExecutionRuntimeEventSummary): boolean {
+  if (task.project_id && event.projectId !== task.project_id) {
+    return false;
+  }
+  if (task.sprint_id && event.sprintId !== task.sprint_id) {
+    return false;
+  }
+  return true;
+}
+
 function pickLatestDispatch(
   task: Subtask,
   dispatches: ExecutionTaskDispatchSummary[],
 ): ExecutionTaskDispatchSummary | null {
   const recordId = typeof task.record_id === "string" ? task.record_id : null;
-  const matching = dispatches.filter((dispatch) => (
-    (recordId && dispatch.taskId === recordId) || dispatch.taskKey === task.id
-  ));
-  if (matching.length === 0) {
+  const scopedDispatches = dispatches.filter((dispatch) => taskScopeMatchesDispatch(task, dispatch));
+  const latestByRecency = (items: ExecutionTaskDispatchSummary[]): ExecutionTaskDispatchSummary | null => (
+    items.length === 0
+      ? null
+      : [...items].sort((left, right) => compareIsoAsc(getDispatchRecency(left), getDispatchRecency(right))).at(-1) ?? null
+  );
+
+  if (recordId) {
+    const exactMatches = scopedDispatches.filter((dispatch) => dispatch.taskId === recordId);
+    if (exactMatches.length > 0) {
+      return latestByRecency(exactMatches);
+    }
     return null;
   }
-  return [...matching].sort((left, right) => compareIsoAsc(getDispatchRecency(left), getDispatchRecency(right))).at(-1) ?? null;
+
+  return latestByRecency(scopedDispatches.filter((dispatch) => dispatch.taskKey === task.id));
 }
 
 function getTaskEvents(
@@ -126,24 +160,34 @@ function getTaskEvents(
   events: ExecutionRuntimeEventSummary[],
 ): ExecutionRuntimeEventSummary[] {
   const recordId = typeof task.record_id === "string" ? task.record_id : null;
-  const filtered = events.filter((event) => {
-    if (dispatch?.taskRunId && event.taskRunId === dispatch.taskRunId) {
-      return true;
+  const scopedEvents = events.filter((event) => taskScopeMatchesEvent(task, event));
+  const sortEvents = (items: ExecutionRuntimeEventSummary[]): ExecutionRuntimeEventSummary[] => {
+    const deduped = new Map<string, ExecutionRuntimeEventSummary>();
+    for (const event of items) {
+      deduped.set(event.id, event);
     }
-    if (dispatch?.id && event.dispatchId === dispatch.id) {
-      return true;
-    }
-    if (recordId && event.taskId === recordId) {
-      return true;
-    }
-    return event.taskKey === task.id;
-  });
+    return [...deduped.values()].sort((left, right) => compareIsoAsc(left.createdAt, right.createdAt));
+  };
 
-  const deduped = new Map<string, ExecutionRuntimeEventSummary>();
-  for (const event of filtered) {
-    deduped.set(event.id, event);
+  if (dispatch?.taskRunId) {
+    const taskRunMatches = scopedEvents.filter((event) => event.taskRunId === dispatch.taskRunId);
+    if (taskRunMatches.length > 0) {
+      return sortEvents(taskRunMatches);
+    }
   }
-  return [...deduped.values()].sort((left, right) => compareIsoAsc(left.createdAt, right.createdAt));
+
+  if (dispatch?.id) {
+    const dispatchMatches = scopedEvents.filter((event) => event.dispatchId === dispatch.id);
+    if (dispatchMatches.length > 0) {
+      return sortEvents(dispatchMatches);
+    }
+  }
+
+  if (recordId) {
+    return sortEvents(scopedEvents.filter((event) => event.taskId === recordId));
+  }
+
+  return sortEvents(scopedEvents.filter((event) => event.taskKey === task.id));
 }
 
 type StageSignal = {
@@ -227,6 +271,27 @@ function resolveEventStage(event: ExecutionRuntimeEventSummary): StageSignal {
   }
 }
 
+function findTerminalEventAt(events: ExecutionRuntimeEventSummary[]): string | null {
+  for (const event of events) {
+    const signal = resolveEventStage(event);
+    if (signal?.terminal) {
+      return event.createdAt;
+    }
+  }
+  return null;
+}
+
+function findLatestStageSignal(events: ExecutionRuntimeEventSummary[]): StageSignal {
+  let latestSignal: StageSignal = null;
+  for (const event of events) {
+    const signal = resolveEventStage(event);
+    if (signal) {
+      latestSignal = signal;
+    }
+  }
+  return latestSignal;
+}
+
 function deriveTaskEndAt(args: {
   task: Subtask;
   phase: ReturnType<typeof getTaskProgressPhase>;
@@ -236,13 +301,30 @@ function deriveTaskEndAt(args: {
 }): string | null {
   const latestEventAt = args.events.length > 0 ? args.events[args.events.length - 1]?.createdAt ?? null : null;
   const dispatchFinishedAt = args.dispatch?.finishedAt ?? null;
+  const terminalEventAt = findTerminalEventAt(args.events);
+  const latestStageSignal = findLatestStageSignal(args.events);
 
-  if (args.phase === "RUNNING" || args.phase === "CODING_COMPLETED") {
+  if (args.phase === "RUNNING") {
     return args.nowIso;
+  }
+
+  if (args.phase === "CODING_COMPLETED") {
+    const waitingAfterCoding = latestStageSignal && !latestStageSignal.terminal && latestStageSignal.stage !== "coding";
+    if (waitingAfterCoding) {
+      return args.nowIso;
+    }
+    if (terminalEventAt) {
+      return maxIso(dispatchFinishedAt, terminalEventAt);
+    }
+    return maxIso(dispatchFinishedAt, latestEventAt);
   }
 
   if (args.phase === "PENDING") {
     return null;
+  }
+
+  if (terminalEventAt) {
+    return maxIso(dispatchFinishedAt, terminalEventAt);
   }
 
   return maxIso(dispatchFinishedAt, latestEventAt);
@@ -283,6 +365,7 @@ export function buildLiveTaskTimingSummary(args: {
     nowIso,
   });
   const stageTotals = ZERO_STAGE_TOTALS();
+  const hasLiveWindow = endedAt === nowIso && (phase === "RUNNING" || phase === "CODING_COMPLETED");
 
   if (!startedAt || !endedAt) {
     return {
@@ -329,7 +412,7 @@ export function buildLiveTaskTimingSummary(args: {
     currentStage,
     currentStartedAt,
     endedAt,
-    phase === "RUNNING" || phase === "CODING_COMPLETED",
+    hasLiveWindow,
   ));
 
   for (const segment of segments) {
@@ -344,7 +427,7 @@ export function buildLiveTaskTimingSummary(args: {
     startedAt,
     endedAt,
     totalSeconds: secondsBetween(startedAt, endedAt),
-    activeStage: phase === "RUNNING" || phase === "CODING_COMPLETED"
+    activeStage: hasLiveWindow
       ? segments[segments.length - 1]?.stage ?? null
       : null,
     stageTotals,
@@ -356,21 +439,38 @@ export function buildLiveTaskTimingSummaries(args: {
   tasks: Subtask[];
   dispatches: ExecutionTaskDispatchSummary[];
   events: ExecutionRuntimeEventSummary[];
+  sprintRuns?: ExecutionSprintRunSummary[];
   nowIso?: string;
 }): LiveTaskTimingSummary[] {
+  const scopedHistory = args.sprintRuns
+    ? scopeExecutionHistoryToRelevantSprintRun({
+      tasks: args.tasks,
+      dispatches: args.dispatches,
+      events: args.events,
+      sprintRuns: args.sprintRuns,
+    })
+    : {
+      dispatches: args.dispatches,
+      events: args.events,
+    };
+
   return args.tasks.map((task) => buildLiveTaskTimingSummary({
     task,
-    dispatches: args.dispatches,
-    events: args.events,
+    dispatches: scopedHistory.dispatches,
+    events: scopedHistory.events,
     nowIso: args.nowIso,
   }));
 }
 
-function selectRelevantSprintRun(sprintRuns: ExecutionSprintRunSummary[]): ExecutionSprintRunSummary | null {
+function selectRelevantSprintRun(tasks: Subtask[], sprintRuns: ExecutionSprintRunSummary[]): ExecutionSprintRunSummary | null {
   if (sprintRuns.length === 0) {
     return null;
   }
-  return [...sprintRuns]
+  const scopedSprintRuns = tasks[0]?.sprint_id
+    ? sprintRuns.filter((run) => run.sprintId === tasks[0]?.sprint_id)
+    : sprintRuns;
+
+  return [...(scopedSprintRuns.length > 0 ? scopedSprintRuns : sprintRuns)]
     .sort((left, right) => compareIsoAsc(
       left.startedAt || left.createdAt,
       right.startedAt || right.createdAt,
@@ -378,15 +478,36 @@ function selectRelevantSprintRun(sprintRuns: ExecutionSprintRunSummary[]): Execu
     .at(-1) ?? null;
 }
 
+function scopeExecutionHistoryToRelevantSprintRun(args: {
+  tasks: Subtask[];
+  dispatches: ExecutionTaskDispatchSummary[];
+  events: ExecutionRuntimeEventSummary[];
+  sprintRuns: ExecutionSprintRunSummary[];
+}): ScopedExecutionHistory {
+  const relevantSprintRunId = selectRelevantSprintRun(args.tasks, args.sprintRuns)?.id ?? null;
+  if (!relevantSprintRunId) {
+    return {
+      dispatches: args.dispatches,
+      events: args.events,
+    };
+  }
+
+  return {
+    dispatches: args.dispatches.filter((dispatch) => dispatch.sprintRunId === relevantSprintRunId),
+    events: args.events.filter((event) => event.sprintRunId === relevantSprintRunId),
+  };
+}
+
 export function buildLiveSprintTimingSummary(args: LiveStatsModelArgs): LiveSprintTimingSummary {
   const nowIso = args.nowIso || new Date().toISOString();
+  const scopedHistory = scopeExecutionHistoryToRelevantSprintRun(args);
   const taskTimings = buildLiveTaskTimingSummaries({
     tasks: args.tasks,
-    dispatches: args.dispatches,
-    events: args.events,
+    dispatches: scopedHistory.dispatches,
+    events: scopedHistory.events,
     nowIso,
   });
-  const relevantSprintRun = selectRelevantSprintRun(args.sprintRuns);
+  const relevantSprintRun = selectRelevantSprintRun(args.tasks, args.sprintRuns);
   const sprintStartedAt = relevantSprintRun?.startedAt
     || taskTimings
       .map((timing) => timing.startedAt)
