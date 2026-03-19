@@ -305,6 +305,66 @@ describe("GitStatusService", () => {
     expect(result.message).toBe("conflict");
   });
 
+  it("resolves an existing matching pull request without creating a new one", async () => {
+    runner.mockImplementation(async (command, args) => {
+      const fullCmd = `${command} ${args.join(" ")}`;
+      const responses: Record<string, any> = {
+        "gh pr list --state open --base main --head feature/sprint1 --limit 1 --json number,url": {
+          ok: true,
+          stdout: JSON.stringify([{ number: 321, url: "https://example/pr/321" }]),
+        },
+      };
+      return responses[fullCmd] || { ok: true, stdout: "", stderr: "" };
+    });
+
+    const result = await service.resolveOrCreatePullRequest({
+      baseBranch: "main",
+      headBranch: "feature/sprint1",
+      title: "Sprint 1",
+      body: "body",
+    });
+
+    expect(result).toEqual({
+      created: false,
+      prNumber: 321,
+      prUrl: "https://example/pr/321",
+    });
+  });
+
+  it("creates a new matching pull request when none exists", async () => {
+    let lookupCount = 0;
+    runner.mockImplementation(async (command, args) => {
+      const fullCmd = `${command} ${args.join(" ")}`;
+      if (fullCmd === "gh pr list --state open --base main --head feature/sprint1 --limit 1 --json number,url") {
+        lookupCount += 1;
+        return {
+          ok: true,
+          stdout: lookupCount === 1
+            ? "[]"
+            : JSON.stringify([{ number: 322, url: "https://example/pr/322" }]),
+          stderr: "",
+        };
+      }
+      if (fullCmd === "gh pr create --base main --head feature/sprint1 --title Sprint 1 --body body") {
+        return { ok: true, stdout: "https://example/pr/322\n", stderr: "" };
+      }
+      return { ok: true, stdout: "", stderr: "" };
+    });
+
+    const result = await service.resolveOrCreatePullRequest({
+      baseBranch: "main",
+      headBranch: "feature/sprint1",
+      title: "Sprint 1",
+      body: "body",
+    });
+
+    expect(result).toEqual({
+      created: true,
+      prNumber: 322,
+      prUrl: "https://example/pr/322",
+    });
+  });
+
   it("memoizes getStatus within cache TTL window", async () => {
     let executionCount = 0;
     const service = new GitStatusService("/tmp/repo", async (command, args) => {

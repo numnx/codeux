@@ -55,6 +55,18 @@ describe("MainMergeGateService", () => {
     expect(result).toContain("No open PR `feature/sprint1 -> main` found");
   });
 
+  it("still reports missing main PR when CI wait is disabled but auto-merge mode is active", async () => {
+    const result = await MainMergeGateService.renderMergeFeedback({
+      ...defaultContext,
+      ciIntelligence: {
+        ...defaultCiSettings,
+        waitForCiBeforeMainMerge: false,
+        mainBranchAutoMergeMode: "ALWAYS",
+      },
+    });
+    expect(result).toContain("No open PR `feature/sprint1 -> main` found");
+  });
+
   it("reports failed checks", async () => {
     const context: MergeFeedbackContext = {
       ...defaultContext,
@@ -180,6 +192,41 @@ describe("MainMergeGateService", () => {
     const result = await MainMergeGateService.renderMergeFeedback(context);
     expect(result).toContain("Check Status: `SUCCESS`\n");
     expect(result).toContain("✅ Required checks are green. Main merge can be approved");
+  });
+
+  it("treats the main PR as ready when CI waiting is disabled", async () => {
+    const context: MergeFeedbackContext = {
+      ...defaultContext,
+      ciIntelligence: {
+        ...defaultCiSettings,
+        waitForCiBeforeMainMerge: false,
+        resolveAllCommentsBeforeMainMerge: false,
+        mainBranchAutoMergeMode: "ALWAYS",
+      },
+      gitStatus: {
+        ...defaultContext.gitStatus!,
+        openPullRequests: [
+          {
+            number: 101,
+            title: "Sprint 1",
+            url: "https://github.com/repo/pull/101",
+            state: "OPEN",
+            isDraft: false,
+            headRefName: "feature/sprint1",
+            baseRefName: "main",
+            reviewDecision: "REVIEW_REQUIRED",
+            comments: 2,
+            checks: [],
+          } as any,
+        ],
+      },
+    };
+
+    const structured = MainMergeGateService.evaluateMergeFeedback(context);
+    expect(structured.state).toBe("ready_for_merge");
+    expect(structured.hasPendingChecks).toBe(false);
+    expect(structured.hasReviewBlockers).toBe(false);
+    expect(structured.text).toContain("eligible to proceed without waiting for CI");
   });
 
   it("reports review blockers", async () => {

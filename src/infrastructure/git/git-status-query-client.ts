@@ -72,6 +72,38 @@ export class GitStatusQueryClient {
     ], ghToken);
   }
 
+  async ghPrListOpenMatching(baseBranch: string, headBranch: string, ghToken?: string): Promise<CommandResult> {
+    return this.run("gh", [
+      "pr",
+      "list",
+      "--state",
+      "open",
+      "--base",
+      baseBranch,
+      "--head",
+      headBranch,
+      "--limit",
+      "1",
+      "--json",
+      "number,url",
+    ], ghToken);
+  }
+
+  async ghPrCreate(baseBranch: string, headBranch: string, title: string, body: string, ghToken?: string): Promise<CommandResult> {
+    return this.run("gh", [
+      "pr",
+      "create",
+      "--base",
+      baseBranch,
+      "--head",
+      headBranch,
+      "--title",
+      title,
+      "--body",
+      body,
+    ], ghToken);
+  }
+
   async ghRunList(ghToken?: string): Promise<CommandResult> {
     return this.run("gh", [
       "run",

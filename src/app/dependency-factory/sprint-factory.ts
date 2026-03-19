@@ -153,6 +153,7 @@ export function createSprintDependencies(
     sendSessionMessage: (sessionId, prompt) => julesApi.sendSessionMessage(sessionId, prompt),
     getCiStatusForScope: (args) => context.getCiStatusForScope(args),
     autoMergeFeaturePr: (args) => context.autoMergeFeaturePr(args),
+    resolveOrCreateMainBranchPr: (args) => context.resolveOrCreateMainBranchPr(args),
     renderInstruction: (templateId, variables, repoPath) =>
       instructionService.render(templateId, variables, repoPath),
     logger: logger.child({ component: "sprint-orchestrator" }),

@@ -33,6 +33,12 @@ import {
 
 export type { GitTrackingRequest };
 
+export interface ResolvePullRequestResult {
+  created: boolean;
+  prNumber: number | null;
+  prUrl: string | null;
+}
+
 const FAILED_RUN_DETAILS_LIMIT = 3;
 const FAILED_JOBS_PER_RUN_LIMIT = 3;
 
@@ -389,6 +395,55 @@ export class GitStatusService {
     };
   }
 
+  async resolveOrCreatePullRequest(args: {
+    baseBranch: string;
+    headBranch: string;
+    title: string;
+    body: string;
+  }, ghToken?: string): Promise<ResolvePullRequestResult | null> {
+    const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
+
+    const existing = await this.findMatchingOpenPr(args.baseBranch, args.headBranch, effectiveToken);
+    if (existing) {
+      return {
+        created: false,
+        prNumber: existing.number,
+        prUrl: existing.url,
+      };
+    }
+
+    const createResult = await this.queryClient.ghPrCreate(
+      args.baseBranch,
+      args.headBranch,
+      args.title,
+      args.body,
+      effectiveToken,
+    );
+    if (!createResult.ok) {
+      const fallbackExisting = await this.findMatchingOpenPr(args.baseBranch, args.headBranch, effectiveToken);
+      if (fallbackExisting) {
+        return {
+          created: false,
+          prNumber: fallbackExisting.number,
+          prUrl: fallbackExisting.url,
+        };
+      }
+      return null;
+    }
+
+    GitStatusService.invalidateCache(this.repoPath);
+    const createdUrl = createResult.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith("http")) || null;
+    const created = await this.findMatchingOpenPr(args.baseBranch, args.headBranch, effectiveToken);
+    return {
+      created: true,
+      prNumber: created?.number ?? null,
+      prUrl: created?.url ?? createdUrl,
+    };
+  }
+
   private async fetchOpenPrs(ghToken?: string): Promise<{ data: GitPullRequestStatus[]; warning?: string }> {
     const result = await this.queryClient.ghPrListOpen(ghToken);
     if (!result.ok) {
@@ -411,5 +466,23 @@ export class GitStatusService {
       return { data: [], warning: "Failed to fetch recently merged pull requests via gh CLI." };
     }
     return parseMergedPrs(result.stdout);
+  }
+
+  private async findMatchingOpenPr(baseBranch: string, headBranch: string, ghToken?: string): Promise<{ number: number | null; url: string | null } | null> {
+    const result = await this.queryClient.ghPrListOpenMatching(baseBranch, headBranch, ghToken);
+    if (!result.ok) {
+      return null;
+    }
+
+    const parsed = parseJson<Array<Record<string, unknown>>>(result.stdout);
+    const first = Array.isArray(parsed) ? parsed[0] : null;
+    if (!first || typeof first !== "object") {
+      return null;
+    }
+
+    return {
+      number: toInt(first.number),
+      url: toStr(first.url),
+    };
   }
 }

@@ -60,7 +60,6 @@ export class MainMergeGateService {
     if (
       !ciIntelligence.enabled
       || !ciIntelligence.enableLivePrMonitoring
-      || !ciIntelligence.waitForCiBeforeMainMerge
       || githubMode !== "REMOTE"
     ) {
       return {
@@ -115,10 +114,13 @@ export class MainMergeGateService {
     const failedChecks = checks
       .filter((check) => isCiFailure(check.status, check.conclusion))
       .map((check) => check.name);
+    const waitForMainCi = ciIntelligence.waitForCiBeforeMainMerge;
+    const resolveAllCommentsBeforeMainMerge = ciIntelligence.resolveAllCommentsBeforeMainMerge;
     const hasMergeConflict = mainMergePr.mergeStateStatus === "DIRTY";
-    const hasFailedChecks = failedChecks.length > 0;
-    const hasPendingChecks = checks.length === 0 || checks.some((check) => isCiPending(check.status, check.conclusion));
-    const hasReviewBlockers = mainMergePr.reviewDecision === "CHANGES_REQUESTED" || mainMergePr.comments > 0;
+    const hasFailedChecks = waitForMainCi && failedChecks.length > 0;
+    const hasPendingChecks = waitForMainCi && (checks.length === 0 || checks.some((check) => isCiPending(check.status, check.conclusion)));
+    const hasReviewBlockers = resolveAllCommentsBeforeMainMerge
+      && (mainMergePr.reviewDecision === "CHANGES_REQUESTED" || mainMergePr.comments > 0);
 
     let text = `\n### Main Merge CI Gate\n`;
     text += `- PR: ${mainMergePr.url}\n`;
@@ -145,10 +147,12 @@ export class MainMergeGateService {
       text += `- Merge into \`${defaultBranch}\` is blocked until open reviews/comments are resolved.\n`;
       state = "review_blocked";
     } else {
-      text += `- ✅ Required checks are green. Main merge can be approved (verify reviews/comments).\n`;
+      text += waitForMainCi
+        ? `- ✅ Required checks are green. Main merge can be approved (verify reviews/comments).\n`
+        : `- ✅ Main merge is eligible to proceed without waiting for CI.\n`;
     }
 
-    if (hasReviewBlockers) {
+    if (resolveAllCommentsBeforeMainMerge) {
       text += `- Review comments: \`gh pr view ${mainMergePr.number} --comments\`\n`;
       text += `- Inline reviews: \`gh api repos/{owner}/{repo}/pulls/${mainMergePr.number}/comments\`\n`;
     }

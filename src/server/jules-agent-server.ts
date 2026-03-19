@@ -247,6 +247,7 @@ export class JulesAgentServer {
       listSessionsForSync: () => this.listSessionsForSync(),
       getCiStatusForScope: (args) => this.getCiStatusForScope(args),
       autoMergeFeaturePr: (args) => this.autoMergeFeaturePr(args),
+      resolveOrCreateMainBranchPr: (args) => this.resolveOrCreateMainBranchPr(args),
       resolveSessionNameFromTask: (task) => this.resolveSessionNameFromTask(task),
       resolveGitStatusRepoPath: () => this.resolveGitStatusRepoPath(),
       fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => this.fetchGitStatusForRepo(repoPath, cacheTtlMs),
@@ -567,6 +568,26 @@ export class JulesAgentServer {
         message,
         mergeConflict: detectMergeConflictMessage(message),
       };
+    }
+  }
+
+  private async resolveOrCreateMainBranchPr(args: {
+    repoPath: string;
+    featureBranch: string;
+    defaultBranch: string;
+    title: string;
+    body: string;
+  }): Promise<{ created: boolean; prNumber: number | null; prUrl: string | null } | null> {
+    const gitStatusService = new GitStatusService(args.repoPath);
+    try {
+      return await gitStatusService.resolveOrCreatePullRequest({
+        baseBranch: args.defaultBranch,
+        headBranch: args.featureBranch,
+        title: args.title,
+        body: args.body,
+      }, this.getEffectiveGithubToken());
+    } catch {
+      return null;
     }
   }
 

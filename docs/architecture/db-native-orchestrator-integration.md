@@ -119,6 +119,13 @@ Watch-loop execution now updates `sprint_runs` directly:
 
 The old subtask-directory cleanup behavior is removed from the execution path.
 
+When all sprint tasks are settled, the same completion path now also handles the final `feature -> default` merge gate:
+
+- if `ciIntelligence.mainBranchAutoMergeMode != OFF` and no main PR exists yet, Sprint OS opens or resolves the `feature -> default` PR automatically
+- it then re-checks the main merge gate and applies the configured auto-merge policy
+- `WHEN_GREEN` waits for green checks when main-CI waiting is enabled
+- `ALWAYS` can proceed without CI waiting when `waitForCiBeforeMainMerge = false`
+
 ## Active Ownership
 
 `orchestrate` now acquires an `execution_lease` on:
@@ -152,6 +159,7 @@ Feature PR merge waiting now only applies to completed tasks that have merge evi
 - `task.pr_url`
 
 This keeps no-output tasks, such as validation-only or test-only runs, in `COMPLETED` instead of pushing them back into the CI/PR wait path.
+The same merge-evidence rule is now used by dependency unlocking, the merge protocol, and the final watch-loop completion check so a sprint can finish cleanly when a completed task never opened a branch or PR.
 
 ## Dashboard Reruns
 
