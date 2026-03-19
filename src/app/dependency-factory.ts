@@ -12,6 +12,7 @@ import type {
   AutoMergeFeaturePrResult,
   PersistTaskMergedFlagArgs,
 } from "../contracts/app-types.js";
+import type { ResolvePullRequestResult } from "../services/git-status-service.js";
 import { createCoreDependencies, type CoreDependencies } from "./dependency-factory/core-factory.js";
 import { createSprintDependencies, type SprintDependencies } from "./dependency-factory/sprint-factory.js";
 import { createMcpDependencies, type McpDependencies } from "./dependency-factory/mcp-factory.js";
@@ -36,6 +37,13 @@ export interface ServerContext {
   listSessionsForSync: () => Promise<{ sessions?: JulesSession[] }>;
   getCiStatusForScope: (args: GetCiStatusForScopeArgs) => Promise<GitTrackingStatus | null>;
   autoMergeFeaturePr: (args: AutoMergeFeaturePrArgs) => Promise<AutoMergeFeaturePrResult>;
+  resolveOrCreateMainBranchPr: (args: {
+    repoPath: string;
+    featureBranch: string;
+    defaultBranch: string;
+    title: string;
+    body: string;
+  }) => Promise<ResolvePullRequestResult | null>;
   resolveSessionNameFromTask: (task: Subtask) => string | undefined;
   resolveGitStatusRepoPath: () => string;
   fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => Promise<GitTrackingStatus>;

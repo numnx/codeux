@@ -187,6 +187,10 @@ Dashboard behavior:
   - `"OFF"`: no feature PR auto-merge
   - `"WHEN_GREEN"`: auto-merge when merge gates are clear. If `waitForCiBeforeFeatureMerge` is enabled, this requires green checks; if disabled, CI status is not waited on.
   - `"ALWAYS"`: bypass CI waiting only when `waitForCiBeforeFeatureMerge` is disabled. If CI waiting is enabled, Sprint OS still waits for green checks before attempting auto-merge.
+- `mainBranchAutoMergeMode` (default `"OFF"`):
+  - `"OFF"`: Sprint OS does not automatically open or merge the final `feature -> default` PR
+  - `"WHEN_GREEN"`: when sprint work is complete, Sprint OS opens or resolves the main PR if needed, then auto-merges after the main merge gate is green
+  - `"ALWAYS"`: when sprint work is complete, Sprint OS opens or resolves the main PR if needed and can merge without CI waiting when `waitForCiBeforeMainMerge` is disabled
 
 `mcpTools` contains:
 - `name` (MCP tool name from `src/contracts/mcp-tool-definitions.ts`)

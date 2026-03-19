@@ -72,6 +72,7 @@ describe("Sprint Factory", () => {
       listSessionsForSync: vi.fn(),
       getCiStatusForScope: vi.fn(),
       autoMergeFeaturePr: vi.fn(),
+      resolveOrCreateMainBranchPr: vi.fn(),
     };
 
     mockCoreDeps = {
@@ -221,6 +222,9 @@ describe("Sprint Factory", () => {
 
     sprintArgs.autoMergeFeaturePr({ arg: 2 });
     expect(mockContext.autoMergeFeaturePr).toHaveBeenCalledWith({ arg: 2 });
+
+    sprintArgs.resolveOrCreateMainBranchPr({ arg: 3 });
+    expect(mockContext.resolveOrCreateMainBranchPr).toHaveBeenCalledWith({ arg: 3 });
 
     sprintArgs.renderInstruction("template1", { var: 1 }, "repo1");
     expect(mockCoreDeps.instructionService.render).toHaveBeenCalledWith("template1", { var: 1 }, "repo1");

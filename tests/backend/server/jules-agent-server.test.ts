@@ -502,6 +502,43 @@ describe("JulesAgentServer", () => {
         vi.restoreAllMocks();
       });
     });
+
+    describe("resolveOrCreateMainBranchPr", () => {
+      it("should resolve or create the main PR through GitStatusService", async () => {
+        const { GitStatusService } = await import("../../../src/services/git-status-service.js");
+        const mockResolve = vi.fn().mockResolvedValue({
+          created: true,
+          prNumber: 321,
+          prUrl: "https://github.com/example/repo/pull/321",
+        });
+        vi.spyOn(GitStatusService.prototype, "resolveOrCreatePullRequest").mockImplementation(mockResolve);
+
+        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGithubToken").mockReturnValue("token");
+
+        const result = await (server as any).resolveOrCreateMainBranchPr({
+          repoPath: "/repo",
+          featureBranch: "feature/sprint1",
+          defaultBranch: "main",
+          title: "Sprint 1",
+          body: "body",
+        });
+
+        expect(result).toEqual({
+          created: true,
+          prNumber: 321,
+          prUrl: "https://github.com/example/repo/pull/321",
+        });
+        expect(mockResolve).toHaveBeenCalledWith({
+          baseBranch: "main",
+          headBranch: "feature/sprint1",
+          title: "Sprint 1",
+          body: "body",
+        }, "token");
+
+        getEffectiveGithubTokenSpy.mockRestore();
+        vi.restoreAllMocks();
+      });
+    });
   });
 
 

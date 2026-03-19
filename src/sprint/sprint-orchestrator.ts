@@ -29,6 +29,7 @@ import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner
 import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-runner.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { MainMergeGateService, type MergeFeedbackResult } from "../domain/sprint/ci/main-merge-gate.js";
+import type { ResolvePullRequestResult } from "../services/git-status-service.js";
 
 const SPRINT_ORCHESTRATOR_OWNER_KEY = "sprint_orchestrator";
 
@@ -74,6 +75,13 @@ export interface SprintOrchestratorDependencies {
     cacheTtlMs?: number;
   }) => Promise<GitTrackingStatus | null>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
+  resolveOrCreateMainBranchPr?: (args: {
+    repoPath: string;
+    featureBranch: string;
+    defaultBranch: string;
+    title: string;
+    body: string;
+  }) => Promise<ResolvePullRequestResult | null>;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
   logger: Logger;
 }
@@ -186,6 +194,8 @@ export class SprintOrchestrator {
     featureBranch: string;
     defaultBranch: string;
     featureBranchPrefix: string;
+    sprintNumber?: number;
+    sprintName?: string;
     ciIntelligence: CiIntelligenceSettings;
     githubMode: "REMOTE" | "LOCAL";
   }): Promise<MergeFeedbackResult> {
@@ -204,7 +214,7 @@ export class SprintOrchestrator {
       };
     }
 
-    const gitStatus = await this.deps.getCiStatusForScope({
+    let gitStatus = await this.deps.getCiStatusForScope({
       repoPath: args.repoPath,
       scope: "MAIN_MERGE_PR_CI",
       featureBranch: args.featureBranch,
@@ -212,16 +222,54 @@ export class SprintOrchestrator {
       featureBranchPrefix: args.featureBranchPrefix,
     });
 
-    const feedback = MainMergeGateService.evaluateMergeFeedback({
+    let createdPrNote = "";
+    let feedback = MainMergeGateService.evaluateMergeFeedback({
       ...args,
       gitStatus,
       autoMergeMainBranchPr: this.deps.autoMergeFeaturePr,
     });
-    return MainMergeGateService.attemptMainAutoMerge(feedback, {
+    if (
+      feedback.state === "missing_pr"
+      && args.githubMode === "REMOTE"
+      && args.ciIntelligence.enabled
+      && args.ciIntelligence.enableLivePrMonitoring
+      && args.ciIntelligence.mainBranchAutoMergeMode !== "OFF"
+      && this.deps.resolveOrCreateMainBranchPr
+    ) {
+      const pr = await this.deps.resolveOrCreateMainBranchPr({
+        repoPath: args.repoPath,
+        featureBranch: args.featureBranch,
+        defaultBranch: args.defaultBranch,
+        title: resolveMainBranchPrTitle(args),
+        body: resolveMainBranchPrBody(args),
+      });
+      if (pr?.prUrl || pr?.prNumber) {
+        createdPrNote = `\n🤖 **Main PR ${pr.created ? "Created" : "Resolved"}:** ${formatMainPrReference(pr, args.featureBranch, args.defaultBranch)}\n`;
+        gitStatus = await this.deps.getCiStatusForScope({
+          repoPath: args.repoPath,
+          scope: "MAIN_MERGE_PR_CI",
+          featureBranch: args.featureBranch,
+          defaultBranch: args.defaultBranch,
+          featureBranchPrefix: args.featureBranchPrefix,
+        });
+        feedback = MainMergeGateService.evaluateMergeFeedback({
+          ...args,
+          gitStatus,
+          autoMergeMainBranchPr: this.deps.autoMergeFeaturePr,
+        });
+      }
+    }
+    const result = await MainMergeGateService.attemptMainAutoMerge(feedback, {
       ...args,
       gitStatus,
       autoMergeMainBranchPr: this.deps.autoMergeFeaturePr,
     });
+    return createdPrNote
+      ? {
+          ...result,
+          text: `${createdPrNote}${result.text}`,
+        }
+      : result;
   }
 
   private recordBlockedSprintRun(args: {
@@ -492,6 +540,51 @@ export class SprintOrchestrator {
       }
     }
   }
+}
+
+function resolveMainBranchPrTitle(args: {
+  featureBranch: string;
+  defaultBranch: string;
+  sprintNumber?: number;
+  sprintName?: string;
+}): string {
+  if (typeof args.sprintNumber === "number" && Number.isFinite(args.sprintNumber)) {
+    return `Sprint ${args.sprintNumber}: merge ${args.featureBranch} into ${args.defaultBranch}`;
+  }
+  if (typeof args.sprintName === "string" && args.sprintName.trim().length > 0) {
+    return `${args.sprintName.trim()}: merge ${args.featureBranch} into ${args.defaultBranch}`;
+  }
+  return `Merge ${args.featureBranch} into ${args.defaultBranch}`;
+}
+
+function resolveMainBranchPrBody(args: {
+  featureBranch: string;
+  defaultBranch: string;
+  sprintNumber?: number;
+  sprintName?: string;
+}): string {
+  const scopeLine = typeof args.sprintNumber === "number" && Number.isFinite(args.sprintNumber)
+    ? `Sprint: ${args.sprintNumber}`
+    : typeof args.sprintName === "string" && args.sprintName.trim().length > 0
+      ? `Sprint: ${args.sprintName.trim()}`
+      : "Sprint: not recorded";
+  return [
+    "Automated sprint completion PR opened by Sprint OS.",
+    "",
+    scopeLine,
+    `Base: \`${args.defaultBranch}\``,
+    `Head: \`${args.featureBranch}\``,
+  ].join("\n");
+}
+
+function formatMainPrReference(
+  pr: ResolvePullRequestResult,
+  featureBranch: string,
+  defaultBranch: string,
+): string {
+  const numberPart = pr.prNumber ? `PR #${pr.prNumber}` : "PR";
+  const linkPart = pr.prUrl ? ` (${pr.prUrl})` : "";
+  return `${numberPart}${linkPart} for \`${featureBranch} -> ${defaultBranch}\`.`;
 }
 
 export type { SprintAgentArgs } from "./sprint-types.js";
