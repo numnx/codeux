@@ -43,6 +43,7 @@ describe("FeaturePrGateService", () => {
         waitForJulesCiAutofix: true,
         julesCiAutofixMaxRetries: 3,
         featurePrAutoMergeMode: "OFF",
+        mainBranchAutoMergeMode: "OFF",
       },
       githubMode: "REMOTE",
       gitStatus: {
@@ -114,7 +115,7 @@ describe("FeaturePrGateService", () => {
     const result = await service.evaluateCiGate(subtasks, context);
 
     expect(result.subtasks[0].status).toBe("RUNNING");
-    expect(result.subtasks[0].is_merged).toBe(false);
+    expect(result.subtasks[0].is_merged).toBeFalsy();
     expect(result.subtasks[0].merge_indicator).toBe("CI");
     expect(result.reportText).toContain("Auto-Merge Armed");
     expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
@@ -137,7 +138,7 @@ describe("FeaturePrGateService", () => {
     const result = await service.evaluateCiGate(subtasks, context);
 
     expect(result.subtasks[0].status).toBe("COMPLETED");
-    expect(result.subtasks[0].is_merged).toBe(false);
+    expect(result.subtasks[0].is_merged).toBeFalsy();
     expect(result.subtasks[0].merge_indicator).toBe("MERGE_CONFLICT");
     expect(result.reportText).toContain("Auto-Merge Failed");
     expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
@@ -167,6 +168,21 @@ describe("FeaturePrGateService", () => {
       expect.objectContaining({ state: "waiting_checks", prNumber: 101, hasPendingChecks: true }),
       expect.any(Object),
     );
+  });
+
+  it("does not auto-merge in always mode while CI waiting is enabled and checks are pending", async () => {
+    context.ciIntelligence.featurePrAutoMergeMode = "ALWAYS";
+    context.gitStatus.openPullRequests[0].checks = [
+      { name: "build", status: "in_progress", conclusion: null }
+    ];
+
+    const result = await service.evaluateCiGate(subtasks, context);
+
+    expect(result.subtasks[0].status).toBe("RUNNING");
+    expect(result.subtasks[0].is_merged).toBeFalsy();
+    expect(result.subtasks[0].merge_indicator).toBe("CI");
+    expect(context.autoMergeFeaturePr).not.toHaveBeenCalled();
+    expect(result.reportText).toContain("CI Status: `PENDING`");
   });
 
   it("triggers CI autofix when checks fail", async () => {
@@ -228,6 +244,35 @@ describe("FeaturePrGateService", () => {
       expect.objectContaining({ state: "waiting_for_pr", featureBranch: "feature/sprint1" }),
       expect.any(Object),
     );
+  });
+
+  it("calls openCiFixAttention for non-Jules tasks with failed CI", async () => {
+    subtasks[0].session_id = undefined;
+    subtasks[0].provider = "gemini" as any;
+    context.gitStatus.openPullRequests[0].checks = [
+      { name: "build", status: "completed", conclusion: "failure" }
+    ];
+    context.openCiFixAttention = vi.fn();
+
+    const result = await service.evaluateCiGate(subtasks, context);
+
+    expect(result.subtasks[0].status).toBe("RUNNING");
+    expect(context.openCiFixAttention).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "T1" }),
+      expect.objectContaining({ prNumber: 101, branchName: "feat/T1" }),
+    );
+  });
+
+  it("does not call openCiFixAttention for Jules-managed tasks", async () => {
+    context.gitStatus.openPullRequests[0].checks = [
+      { name: "build", status: "completed", conclusion: "failure" }
+    ];
+    context.openCiFixAttention = vi.fn();
+
+    await service.evaluateCiGate(subtasks, context);
+
+    expect(context.openCiFixAttention).not.toHaveBeenCalled();
+    expect(context.sendSessionMessage).toHaveBeenCalled();
   });
 
   it("confirms the task as merged when the PR has already landed", async () => {
