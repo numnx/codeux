@@ -190,6 +190,12 @@ function getTaskEvents(
   return sortEvents(scopedEvents.filter((event) => event.taskKey === task.id));
 }
 
+function taskHasMergeEvidence(task: Pick<Subtask, "worker_branch" | "pr_url">): boolean {
+  const workerBranch = typeof task.worker_branch === "string" ? task.worker_branch.trim() : "";
+  const prUrl = typeof task.pr_url === "string" ? task.pr_url.trim() : "";
+  return workerBranch.length > 0 || prUrl.length > 0;
+}
+
 type StageSignal = {
   stage: LiveTaskStageKey;
   terminal?: boolean;
@@ -206,7 +212,7 @@ function resolveCiGateStage(event: ExecutionRuntimeEventSummary): StageSignal {
     return { stage: "merge", terminal: true };
   }
   if (state === "automerge_succeeded") {
-    return { stage: "merge" };
+    return { stage: "merge", terminal: true };
   }
   if (hasFailedChecks) {
     return { stage: "autofix" };
@@ -231,7 +237,9 @@ function resolveCiGateStage(event: ExecutionRuntimeEventSummary): StageSignal {
   return { stage: "merge" };
 }
 
-function resolveEventStage(event: ExecutionRuntimeEventSummary): StageSignal {
+function resolveEventStage(task: Subtask, event: ExecutionRuntimeEventSummary): StageSignal {
+  const hasMergeEvidence = taskHasMergeEvidence(task);
+
   switch (event.eventType) {
     case "dispatch_queued":
       return { stage: "queued" };
@@ -254,8 +262,15 @@ function resolveEventStage(event: ExecutionRuntimeEventSummary): StageSignal {
     case "ci_gate_status":
       return resolveCiGateStage(event);
     case "cli_git_no_changes":
+      return { stage: "coding", terminal: true };
     case "cli_workflow_completed":
+      return event.payload?.outcome === "no_changes" || !hasMergeEvidence
+        ? { stage: "coding", terminal: true }
+        : { stage: "coding" };
     case "run_completed":
+      return hasMergeEvidence
+        ? { stage: "coding" }
+        : { stage: "coding", terminal: true };
     case "run_failed":
     case "run_blocked":
     case "dispatch_failed":
@@ -271,9 +286,9 @@ function resolveEventStage(event: ExecutionRuntimeEventSummary): StageSignal {
   }
 }
 
-function findTerminalEventAt(events: ExecutionRuntimeEventSummary[]): string | null {
+function findTerminalEventAt(task: Subtask, events: ExecutionRuntimeEventSummary[]): string | null {
   for (const event of events) {
-    const signal = resolveEventStage(event);
+    const signal = resolveEventStage(task, event);
     if (signal?.terminal) {
       return event.createdAt;
     }
@@ -281,15 +296,30 @@ function findTerminalEventAt(events: ExecutionRuntimeEventSummary[]): string | n
   return null;
 }
 
-function findLatestStageSignal(events: ExecutionRuntimeEventSummary[]): StageSignal {
+function findLatestStageSignal(task: Subtask, events: ExecutionRuntimeEventSummary[]): StageSignal {
   let latestSignal: StageSignal = null;
   for (const event of events) {
-    const signal = resolveEventStage(event);
+    const signal = resolveEventStage(task, event);
     if (signal) {
       latestSignal = signal;
     }
   }
   return latestSignal;
+}
+
+function findCodingCompletedAt(task: Subtask, events: ExecutionRuntimeEventSummary[]): string | null {
+  for (const event of events) {
+    if (event.eventType === "cli_git_no_changes") {
+      return event.createdAt;
+    }
+    if (
+      taskHasMergeEvidence(task)
+      && (event.eventType === "run_completed" || event.eventType === "cli_workflow_completed")
+    ) {
+      return event.createdAt;
+    }
+  }
+  return null;
 }
 
 function deriveTaskEndAt(args: {
@@ -301,8 +331,9 @@ function deriveTaskEndAt(args: {
 }): string | null {
   const latestEventAt = args.events.length > 0 ? args.events[args.events.length - 1]?.createdAt ?? null : null;
   const dispatchFinishedAt = args.dispatch?.finishedAt ?? null;
-  const terminalEventAt = findTerminalEventAt(args.events);
-  const latestStageSignal = findLatestStageSignal(args.events);
+  const terminalEventAt = findTerminalEventAt(args.task, args.events);
+  const latestStageSignal = findLatestStageSignal(args.task, args.events);
+  const codingCompletedAt = findCodingCompletedAt(args.task, args.events);
 
   if (args.phase === "RUNNING") {
     return args.nowIso;
@@ -312,6 +343,9 @@ function deriveTaskEndAt(args: {
     const waitingAfterCoding = latestStageSignal && !latestStageSignal.terminal && latestStageSignal.stage !== "coding";
     if (waitingAfterCoding) {
       return args.nowIso;
+    }
+    if (codingCompletedAt) {
+      return maxIso(dispatchFinishedAt, codingCompletedAt);
     }
     if (terminalEventAt) {
       return maxIso(dispatchFinishedAt, terminalEventAt);
@@ -394,7 +428,7 @@ export function buildLiveTaskTimingSummary(args: {
     if (compareIsoAsc(event.createdAt, currentStartedAt) < 0 || compareIsoAsc(event.createdAt, endedAt) > 0) {
       continue;
     }
-    const signal = resolveEventStage(event);
+    const signal = resolveEventStage(args.task, event);
     if (!signal) {
       continue;
     }

@@ -258,6 +258,186 @@ describe("live stats timing model", () => {
     expect(summary.activeStage).toBeNull();
   });
 
+  it("tracks post-coding merge conflict handling under merge instead of coding", () => {
+    const task = makeTask({
+      id: "T02M",
+      title: "Merge conflict resolution",
+      record_id: "task-record-2m",
+      status: "COMPLETED",
+      worker_branch: "feature/t02m",
+      pr_url: "https://example.com/pr/2m",
+      merge_indicator: "MERGED",
+      is_merged: true,
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2m",
+      taskId: "task-record-2m",
+      taskKey: "T02M",
+      taskTitle: "Merge conflict resolution",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      workerBranch: "feature/t02m",
+      prUrl: "https://example.com/pr/2m",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2m-a",
+        dispatchId: "dispatch-2m",
+        taskRunId: "dispatch-2m-task-run",
+        taskId: "task-record-2m",
+        taskKey: "T02M",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2m-b",
+        dispatchId: "dispatch-2m",
+        taskRunId: "dispatch-2m-task-run",
+        taskId: "task-record-2m",
+        taskKey: "T02M",
+        eventType: "run_completed",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2m-pr",
+        dispatchId: "dispatch-2m",
+        taskRunId: "dispatch-2m-task-run",
+        taskId: "task-record-2m",
+        taskKey: "T02M",
+        eventType: "cli_pr_finalized",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2m-c",
+        dispatchId: "dispatch-2m",
+        taskRunId: "dispatch-2m-task-run",
+        taskId: "task-record-2m",
+        taskKey: "T02M",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:06:00.000Z",
+        payload: { state: "automerge_conflict" },
+      }),
+      makeEvent({
+        id: "evt-2m-d",
+        dispatchId: "dispatch-2m",
+        taskRunId: "dispatch-2m-task-run",
+        taskId: "task-record-2m",
+        taskKey: "T02M",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:12:00.000Z",
+        payload: { state: "merge_confirmed" },
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:15:00.000Z",
+    });
+
+    expect(summary.totalSeconds).toBe(720);
+    expect(summary.stageTotals.coding).toBe(300);
+    expect(summary.stageTotals.merge).toBe(360);
+    expect(summary.stageTotals.ci).toBe(60);
+    expect(summary.activeStage).toBeNull();
+  });
+
+  it("stops merge timing at automerge success even if later sync events arrive", () => {
+    const task = makeTask({
+      id: "T02S",
+      title: "Automerge success",
+      record_id: "task-record-2s",
+      status: "COMPLETED",
+      worker_branch: "feature/t02s",
+      pr_url: "https://example.com/pr/2s",
+      merge_indicator: "MERGED",
+      is_merged: true,
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2s",
+      taskId: "task-record-2s",
+      taskKey: "T02S",
+      taskTitle: "Automerge success",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      workerBranch: "feature/t02s",
+      prUrl: "https://example.com/pr/2s",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2s-start",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2s-complete",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "run_completed",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2s-pr",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "cli_pr_finalized",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2s-ready",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:06:00.000Z",
+        payload: { state: "ready_for_merge" },
+      }),
+      makeEvent({
+        id: "evt-2s-merged",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:07:00.000Z",
+        payload: { state: "automerge_succeeded" },
+      }),
+      makeEvent({
+        id: "evt-2s-late-sync",
+        dispatchId: "dispatch-2s",
+        taskRunId: "dispatch-2s-task-run",
+        taskId: "task-record-2s",
+        taskKey: "T02S",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:12:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:15:00.000Z",
+    });
+
+    expect(summary.endedAt).toBe("2026-03-19T10:07:00.000Z");
+    expect(summary.totalSeconds).toBe(420);
+    expect(summary.stageTotals.coding).toBe(300);
+    expect(summary.stageTotals.ci).toBe(60);
+    expect(summary.stageTotals.merge).toBe(60);
+    expect(summary.activeStage).toBeNull();
+  });
+
   it("stops completed task timing at the terminal event even if later sync events arrive", () => {
     const task = makeTask({
       id: "T02A",

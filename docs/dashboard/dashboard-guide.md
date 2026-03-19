@@ -224,6 +224,11 @@ Legacy runtime:
 - Stage timing is scoped to the current task identity and active sprint run, so reused task keys or stale task history from older attempts no longer leak durations into blocked or freshly restarted tasks
 - Completed task timing now stops at the task's terminal runtime event or dispatch finish time, so later provider/session sync noise does not keep increasing a finished task's total
 - Coding-complete tasks also freeze at coding completion until a real `CI / Review`, `Autofix`, or `Merge` runtime stage begins, so post-execution tasks do not keep counting as active coding time just because merge metadata exists
+- Stage attribution now follows the task runtime event stream more strictly:
+  - `run_completed` and `cli_workflow_completed` mark the end of coding for PR-backed tasks
+  - `ci_gate_status` drives later `CI / Review`, `Autofix`, and `Merge` buckets
+  - auto-merge conflicts and merge-confirmation windows are counted under `Merge`, not `Code`
+  - successful merge events such as `merge_confirmed` and `automerge_succeeded` stop the merge timer immediately, even if later sync events still arrive
 - The selected-project execution snapshot now ships a deeper recent runtime event window so stage timing remains accurate across larger sprints and reruns
 - In the active v2 settings UI, these controls live under `Settings -> Sprint Engine -> Worker Runtime`
 - Sprint compose/planning also follows that same worker mode:
