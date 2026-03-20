@@ -4,10 +4,16 @@ import { matchMergedPrForTask, matchPrForTask } from "./feature-pr/pr-matcher.js
 import { attemptAutoMerge } from "./feature-pr/automerge-policy.js";
 import { evaluateInProgressState } from "./feature-pr/in-progress-policy.js";
 import {
+  buildCiWaitSkippedText,
+  buildMergeConflictText,
   buildMergeConfirmedText,
   buildMergeReadyText,
   buildNoPrFoundText,
 } from "./feature-pr/ci-notification-builder.js";
+import {
+  detectPullRequestCiSupport,
+  type PullRequestCiSupportResult,
+} from "./feature-pr/workflow-ci-detection.js";
 import type {
   AutomationLevel,
   CiIntelligenceSettings,
@@ -121,10 +127,31 @@ export class FeaturePrGateService {
       const checks = Array.isArray(pr.checks) ? pr.checks : [];
       const waitForFeatureCi = context.ciIntelligence.waitForCiBeforeFeatureMerge;
       const resolveAllCommentsBeforeFeatureMerge = context.ciIntelligence.resolveAllCommentsBeforeFeatureMerge;
+      const sourceBranch = workerBranch || pr.headRefName || "the task worker branch";
+
+      if (pr.mergeStateStatus === "DIRTY") {
+        task.status = "CODING_COMPLETED";
+        task.merge_indicator = "MERGE_CONFLICT";
+        await this.persistMergedTask(task, context);
+        reportText += buildMergeConflictText(task.id, pr.number, pr.url, sourceBranch, context.featureBranch);
+        this.appendCiGateEvent(task, context, "merge_conflict", {
+          prNumber: pr.number,
+          prUrl: pr.url,
+          mergeStateStatus: pr.mergeStateStatus,
+          sourceBranch,
+          targetBranch: context.featureBranch,
+        });
+        continue;
+      }
+
+      const ciSupport = waitForFeatureCi && checks.length === 0
+        ? await detectPullRequestCiSupport(context.repoPath, pr.baseRefName || context.featureBranch)
+        : null;
+      const skipCiWait = ciSupport?.status === "not_applicable";
 
       const { hasFailedChecks, hasPendingChecks, hasReviewBlockers, isMergeReady } = evaluateMergeReadiness(
         checks,
-        waitForFeatureCi,
+        waitForFeatureCi && !skipCiWait,
         resolveAllCommentsBeforeFeatureMerge,
         pr.reviewDecision,
         pr.comments
@@ -194,8 +221,15 @@ export class FeaturePrGateService {
         this.appendCiGateEvent(task, context, "ready_for_merge", {
           prNumber: pr.number,
           prUrl: pr.url,
+          ciWaitSkipped: skipCiWait,
         });
         reportText += buildMergeReadyText(task.id, pr.number, context.featureBranch);
+        if (skipCiWait) {
+          reportText += buildCiWaitSkippedText(
+            pr.baseRefName || context.featureBranch,
+            describeCiSupportSkipReason(ciSupport.reason),
+          );
+        }
         continue;
       }
 
@@ -218,6 +252,12 @@ export class FeaturePrGateService {
         defaultBranch: context.defaultBranch,
       });
       reportText += inProgressResult.reportText;
+      if (skipCiWait) {
+        reportText += buildCiWaitSkippedText(
+          pr.baseRefName || context.featureBranch,
+          describeCiSupportSkipReason(ciSupport.reason),
+        );
+      }
 
       if (inProgressResult.workerCiFixRequired && inProgressResult.workerCiFixPayload && context.openCiFixAttention) {
         context.openCiFixAttention(task, inProgressResult.workerCiFixPayload);
@@ -279,5 +319,20 @@ export class FeaturePrGateService {
     } catch {
       // Preserve in-memory merged state even if persistence fails.
     }
+  }
+}
+
+function describeCiSupportSkipReason(reason: PullRequestCiSupportResult["reason"]): string {
+  switch (reason) {
+    case "no_workflow_directory":
+      return "repository has no `.github/workflows` directory.";
+    case "no_workflow_files":
+      return "repository has no workflow files.";
+    case "no_pull_request_triggers":
+      return "no workflow file declares a `pull_request` or `pull_request_target` trigger.";
+    case "no_matching_pull_request_branches":
+      return "no PR-triggered workflow matches this base branch.";
+    default:
+      return "no applicable PR-triggered CI workflow was detected.";
   }
 }
