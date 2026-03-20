@@ -307,12 +307,28 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
                 workers: {
                   ...settings.workers,
                   virtualWorkerProvider: value as ProjectSettings["workers"]["virtualWorkerProvider"],
+                  model: "default",
                 },
               })}
               options={[
                 { value: "gemini", label: "Gemini" },
                 { value: "codex", label: "Codex" },
                 { value: "claude-code", label: "Claude Code" },
+              ]}
+            />
+          </Row>
+          <Row label="Worker model" description="Override the global model for virtual workers. If set to 'Default', the global model for the selected CLI provider is used." badge={getBadge("workers.model")}>
+            <SelectField
+              value={settings.workers.model || "default"}
+              onChange={(value) => update({
+                workers: {
+                  ...settings.workers,
+                  model: value,
+                },
+              })}
+              options={[
+                { value: "default", label: `Default (${settings.aiProvider.providers[settings.workers.virtualWorkerProvider].model})` },
+                ...(AI_MODEL_CATALOG[settings.workers.virtualWorkerProvider] || []).map(m => ({ value: m, label: m })),
               ]}
             />
           </Row>
