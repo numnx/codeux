@@ -34,6 +34,23 @@ export function buildMergeReadyText(taskId: string, prNumber: number, featureBra
   return `✅ **Feature PR Ready:** Task \`${taskId}\` can be approved for merge into \`${featureBranch}\` (PR #${prNumber}).\n`;
 }
 
+export function buildMergeConflictText(
+  taskId: string,
+  prNumber: number,
+  prUrl: string,
+  sourceBranch: string,
+  targetBranch: string,
+): string {
+  let reportText = `⚠️ **Feature PR Merge Conflict:** Task \`${taskId}\` cannot merge cleanly yet (PR #${prNumber}, \`${sourceBranch}\` -> \`${targetBranch}\`).\n`;
+  reportText += `   - PR: ${prUrl}\n`;
+  reportText += `   - Resolve the merge conflict before waiting on CI.\n`;
+  return reportText;
+}
+
+export function buildCiWaitSkippedText(baseBranch: string, reason: string): string {
+  return `   - CI wait skipped for base \`${baseBranch}\`: ${reason}\n`;
+}
+
 export function buildInProgressText(
   taskId: string,
   prNumber: number,

@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FeaturePrGateService, CiGateContext } from "../../../../../src/domain/sprint/ci/feature-pr-gate.js";
 import type { Subtask, GitTrackingStatus } from "../../../../../src/contracts/app-types.js";
@@ -150,6 +153,25 @@ describe("FeaturePrGateService", () => {
     );
   });
 
+  it("marks the task as a merge conflict before waiting on CI when the PR is DIRTY", async () => {
+    context.gitStatus.openPullRequests[0].mergeStateStatus = "DIRTY";
+    context.gitStatus.openPullRequests[0].checks = [];
+
+    const result = await service.evaluateCiGate(subtasks, context);
+
+    expect(result.subtasks[0].status).toBe("CODING_COMPLETED");
+    expect(result.subtasks[0].merge_indicator).toBe("MERGE_CONFLICT");
+    expect(result.reportText).toContain("Feature PR Merge Conflict");
+    expect(context.autoMergeFeaturePr).not.toHaveBeenCalled();
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "merge_conflict", prNumber: 101, mergeStateStatus: "DIRTY" }),
+      expect.any(Object),
+    );
+  });
+
   it("keeps task in RUNNING with CI indicator if checks are pending", async () => {
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "in_progress", conclusion: null }
@@ -168,6 +190,36 @@ describe("FeaturePrGateService", () => {
       expect.objectContaining({ state: "waiting_checks", prNumber: 101, hasPendingChecks: true }),
       expect.any(Object),
     );
+  });
+
+  it("skips CI waiting when no PR-triggered workflow matches the feature branch", async () => {
+    const repoPath = await createTempRepoWithWorkflow(`
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+`);
+    context.repoPath = repoPath;
+    context.gitStatus.openPullRequests[0].checks = [];
+
+    try {
+      const result = await service.evaluateCiGate(subtasks, context);
+
+      expect(result.subtasks[0].status).toBe("CODING_COMPLETED");
+      expect(result.subtasks[0].merge_indicator).toBeUndefined();
+      expect(result.reportText).toContain("Feature PR Ready");
+      expect(result.reportText).toContain("CI wait skipped for base `feature/sprint1`");
+      expect(result.reportText).toContain("no PR-triggered workflow matches this base branch");
+    } finally {
+      await rm(repoPath, { recursive: true, force: true });
+    }
   });
 
   it("does not auto-merge in always mode while CI waiting is enabled and checks are pending", async () => {
@@ -311,3 +363,11 @@ describe("FeaturePrGateService", () => {
     expect(result.reportText).toContain("Feature PR Merged");
   });
 });
+
+async function createTempRepoWithWorkflow(workflowContent: string): Promise<string> {
+  const repoPath = await mkdtemp(path.join(os.tmpdir(), "feature-pr-gate-"));
+  const workflowDir = path.join(repoPath, ".github", "workflows");
+  await mkdir(workflowDir, { recursive: true });
+  await writeFile(path.join(workflowDir, "ci.yml"), workflowContent, "utf8");
+  return repoPath;
+}
