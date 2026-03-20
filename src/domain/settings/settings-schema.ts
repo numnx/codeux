@@ -20,7 +20,6 @@ import {
   FEATURE_PR_AUTOMERGE_MODES,
   VIRTUAL_WORKER_PROVIDERS,
   WORKER_EXECUTION_MODES,
-  VIRTUAL_WORKER_MODELS,
 } from "../../repositories/settings-defaults.js";
 import { INSTRUCTION_TEMPLATE_IDS } from "../../instructions/instruction-template-catalog.js";
 

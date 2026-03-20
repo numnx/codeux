@@ -61,8 +61,46 @@ describe("JulesApiClient", () => {
 
     it("creates session", async () => {
       mockAxios().post.mockResolvedValue({ data: { id: "s1" } });
-      const res = await client.createSession({ prompt: "p", sourceContext: { source: "src" } });
+      const res = await client.createSession({ prompt: "p", sourceContext: { source: "src" }, julesModel: "gemini-2.5-pro" });
       expect(res.id).toBe("s1");
+      expect(mockAxios().post).toHaveBeenCalledWith("/sessions", expect.objectContaining({
+        prompt: "p",
+        model: "gemini-2.5-pro",
+      }));
+    });
+
+    it("uses configured jules model when request model is omitted", async () => {
+      mockAxios().post.mockResolvedValue({ data: { id: "s2" } });
+      const scopedClient = new JulesApiClient({
+        baseUrl,
+        apiKey,
+        resolveJulesModel: () => "jules-model-from-settings",
+      });
+
+      await scopedClient.createSession({ prompt: "p", sourceContext: { source: "src" } });
+      expect((scopedClient as any).axiosInstance.post).toHaveBeenCalledWith("/sessions", expect.objectContaining({
+        model: "jules-model-from-settings",
+      }));
+    });
+
+    it("retries with fallback model when upstream rejects configured model", async () => {
+      mockAxios().post
+        .mockRejectedValueOnce(new Error("unknown model: unavailable-model"))
+        .mockResolvedValueOnce({ data: { id: "s3" } });
+
+      const res = await client.createSession({
+        prompt: "p",
+        sourceContext: { source: "src" },
+        julesModel: "unavailable-model",
+      });
+
+      expect(res.id).toBe("s3");
+      expect(mockAxios().post).toHaveBeenNthCalledWith(1, "/sessions", expect.objectContaining({
+        model: "unavailable-model",
+      }));
+      expect(mockAxios().post).toHaveBeenNthCalledWith(2, "/sessions", expect.objectContaining({
+        model: "default",
+      }));
     });
 
     it("gets session", async () => {

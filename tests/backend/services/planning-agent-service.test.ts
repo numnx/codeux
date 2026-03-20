@@ -295,6 +295,7 @@ describe("PlanningAgentService", () => {
       workers: {
         executionMode: "VIRTUAL",
         virtualWorkerProvider: "codex",
+        virtualWorkerModel: "gpt-4o",
       },
     });
 
@@ -310,6 +311,9 @@ describe("PlanningAgentService", () => {
     expect(executionControlService.orchestrateSprint).toHaveBeenCalledWith(project.id, sprint.id);
 
     expect(providerRunner.runProviderForText).toHaveBeenCalledTimes(2);
+    const improveCall = vi.mocked(providerRunner.runProviderForText).mock.calls[0]?.[0];
+    expect(improveCall?.model).toBe("gpt-4o");
+    expect(improveCall?.fallbackModel).toBe("gpt-5.3-codex");
     const planPrompt = vi.mocked(providerRunner.runProviderForText).mock.calls[1]?.[0]?.prompt ?? "";
     expect(planPrompt).toContain("Plan as a DAG, not as a flat checklist.");
     expect(planPrompt).toContain("Each task key must use `T01`, `T02`, `T03`, ... in topological order.");

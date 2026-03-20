@@ -27,6 +27,10 @@ Worker routing is now controlled by the inherited `workers` settings section:
   - `gemini`
   - `codex`
   - `claude-code`
+- `virtualWorkerModel`
+  - `default` uses `aiProvider.providers[virtualWorkerProvider].model`
+  - non-`default` overrides the virtual worker runtime model for planning, dispatches, and worker-owned attention handling
+  - runtime retries once with provider-model fallback if the override model is unavailable/unsupported
 
 When a project or sprint resolves to `VIRTUAL`:
 
@@ -85,6 +89,7 @@ Today virtual workers handle:
 For planning flows, Sprint OS:
 
 - runs the Planning agent prompt through the configured virtual worker CLI
+- applies `workers.virtualWorkerModel` override when configured
 - creates the same planning thread record in the dashboard, but stores the request/response as system messages instead of waiting on an MCP reply
 - allows sprint compose, improve, and `Plan & Start` to work even when no live MCP listener is attached
 

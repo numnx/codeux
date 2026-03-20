@@ -52,6 +52,8 @@ interface CliWorkflowServiceDependencies {
 
 interface StartCliTaskInput {
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+  modelOverride?: string;
+  fallbackModel?: string;
   task: Subtask;
   repoPath: string;
   featureBranch: string;

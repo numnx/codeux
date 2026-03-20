@@ -21,6 +21,7 @@ import { ProjectAttentionService } from "../domain/workers/project-attention-ser
 import { ProjectWorkerAssignmentService } from "../domain/workers/project-worker-assignment-service.js";
 import { WorkerTaskDispatchService } from "./worker-task-dispatch-service.js";
 import { CliWorkflowService } from "./cli-workflow-service.js";
+import { resolveVirtualWorkerModel } from "./virtual-worker-model.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
@@ -229,6 +230,7 @@ export class VirtualWorkerService {
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);
     const provider = settings.workers.virtualWorkerProvider;
+    const resolvedModel = resolveVirtualWorkerModel(settings, provider);
     const taskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
     if (!taskRun) {
       throw new Error(`Task run not found for dispatch ${claim.dispatch.id}`);
@@ -236,6 +238,8 @@ export class VirtualWorkerService {
 
     const session = await this.deps.cliWorkflowService.startTask({
       provider,
+      modelOverride: resolvedModel.model,
+      fallbackModel: resolvedModel.fallbackModel,
       task: {
         record_id: claim.task.id,
         project_id: claim.project.id,
@@ -363,6 +367,7 @@ export class VirtualWorkerService {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
     const provider = settings.workers.virtualWorkerProvider;
     const providerSettings = settings.aiProvider.providers[provider];
+    const resolvedModel = resolveVirtualWorkerModel(settings, provider);
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -409,7 +414,8 @@ export class VirtualWorkerService {
           repoPath,
           worktreePath: finalWorktreePath,
           sessionId,
-          model: providerSettings.model,
+          model: resolvedModel.model,
+          fallbackModel: resolvedModel.fallbackModel,
           apiKey: providerSettings.apiKey,
           githubToken: settings.git.githubToken,
         });
@@ -482,6 +488,7 @@ export class VirtualWorkerService {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
     const provider = settings.workers.virtualWorkerProvider;
     const providerSettings = settings.aiProvider.providers[provider];
+    const resolvedModel = resolveVirtualWorkerModel(settings, provider);
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -528,7 +535,8 @@ export class VirtualWorkerService {
         repoPath,
         worktreePath: finalWorktreePath,
         sessionId,
-        model: providerSettings.model,
+        model: resolvedModel.model,
+        fallbackModel: resolvedModel.fallbackModel,
         apiKey: providerSettings.apiKey,
         githubToken: settings.git.githubToken,
       });
@@ -659,6 +667,7 @@ export class VirtualWorkerService {
     worktreePath: string;
     sessionId: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     githubToken: string;
   }): Promise<void> {
@@ -667,6 +676,7 @@ export class VirtualWorkerService {
       prompt,
       cwd: args.worktreePath,
       model: args.model,
+      fallbackModel: args.fallbackModel,
       apiKey: args.apiKey,
       sessionId: args.sessionId,
       workflowSettings: args.workflowSettings,

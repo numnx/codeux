@@ -14,6 +14,7 @@ import { buildReadFileRetryPrompt, isReadFileNotFoundToolError } from "./cli-wor
 import { ProviderRunner, type IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { classifyProviderError, ProviderQuotaError } from "../shared/providers/provider-error-classifier.js";
+import { resolveVirtualWorkerModel } from "./virtual-worker-model.js";
 
 interface PlanningAgentServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
@@ -301,6 +302,7 @@ export class PlanningAgentService {
     if (!providerSettings) {
       throw new Error(`Virtual worker provider "${provider}" is not configured. Check AI Provider settings.`);
     }
+    const resolvedModel = resolveVirtualWorkerModel(args.settings, provider);
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...args.settings.cliWorkflow,
@@ -317,7 +319,8 @@ export class PlanningAgentService {
       provider,
       prompt: providerPrompt,
       cwd: args.repoPath,
-      model: providerSettings.model,
+      model: resolvedModel.model,
+      fallbackModel: resolvedModel.fallbackModel,
       apiKey: providerSettings.apiKey,
       sessionId,
       workflowSettings,
@@ -344,7 +347,8 @@ export class PlanningAgentService {
         provider,
         prompt: buildReadFileRetryPrompt(providerPrompt),
         cwd: args.repoPath,
-        model: providerSettings.model,
+        model: resolvedModel.model,
+        fallbackModel: resolvedModel.fallbackModel,
         apiKey: providerSettings.apiKey,
         sessionId: `${sessionId}-retry`,
         workflowSettings,

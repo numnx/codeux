@@ -86,4 +86,20 @@ describe("JulesApiClient coverage", () => {
         const config = cb({ headers: { "X-Goog-Api-Key": "test" } });
         expect(config.headers["X-Goog-Api-Key"]).toBeUndefined();
     });
+
+    it("maps julesModel to the sessions create payload model field", async () => {
+        const mockAxios: any = axios.create();
+        mockAxios.post.mockResolvedValue({ data: { id: "s1" } });
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
+
+        await client.createSession({
+            prompt: "model test",
+            sourceContext: { source: "sources/abc" },
+            julesModel: "gemini-2.5-pro",
+        });
+
+        expect(mockAxios.post).toHaveBeenCalledWith("/sessions", expect.objectContaining({
+            model: "gemini-2.5-pro",
+        }));
+    });
 });

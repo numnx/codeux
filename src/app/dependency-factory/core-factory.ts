@@ -104,6 +104,10 @@ export function createCoreDependencies(
   const julesApi = new JulesApiClient({
     apiKey: context.getEffectiveJulesApiKey(),
     baseUrl: options.appConfig.baseUrl,
+    resolveJulesModel: () => (
+      context.runtimeContext.dashboardSettings?.aiProvider.providers.jules.model
+      || settingsRepository.getDefaultDashboardSettings().aiProvider.providers.jules.model
+    ),
   });
 
   const subtaskRepository = new SubtaskFileRepository();

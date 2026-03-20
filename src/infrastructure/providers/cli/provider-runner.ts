@@ -33,6 +33,7 @@ export interface IProviderRunner {
     prompt: string;
     cwd: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     sessionId: string;
     workflowSettings: CliWorkflowSettings;
@@ -46,6 +47,7 @@ export interface IProviderRunner {
     prompt: string;
     cwd: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     sessionId: string;
     workflowSettings: CliWorkflowSettings;
@@ -64,6 +66,7 @@ export class ProviderRunner implements IProviderRunner {
     prompt: string;
     cwd: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     sessionId: string;
     workflowSettings: CliWorkflowSettings;
@@ -80,6 +83,7 @@ export class ProviderRunner implements IProviderRunner {
     prompt: string;
     cwd: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     sessionId: string;
     workflowSettings: CliWorkflowSettings;
@@ -122,6 +126,7 @@ export class ProviderRunner implements IProviderRunner {
     prompt: string;
     cwd: string;
     model: string;
+    fallbackModel?: string;
     apiKey: string;
     sessionId: string;
     workflowSettings: CliWorkflowSettings;
@@ -131,13 +136,15 @@ export class ProviderRunner implements IProviderRunner {
     onActivity: (desc: string, originator?: string) => void;
     codexOutputPath?: string | null;
   }): Promise<CommandResult> {
-    const { provider, prompt, cwd, model, apiKey, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
-    const providerEnv = this.withProviderEnv(provider, model, apiKey, workflowSettings, githubToken);
+    const { provider, prompt, cwd, model, fallbackModel, apiKey, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
+    let activeModel = this.normalizeModel(model);
+    const requestedFallbackModel = typeof fallbackModel === "string" ? this.normalizeModel(fallbackModel) : null;
+    const retryFallbackModel = requestedFallbackModel || (activeModel !== "default" ? "default" : null);
 
-    const spec = this.buildCommandSpec(provider, model, prompt, input.codexOutputPath);
-    const { command, args } = spec;
-
-    const runCmd = async () => {
+    const runCmd = async (modelToUse: string) => {
+      const providerEnv = this.withProviderEnv(provider, modelToUse, apiKey, workflowSettings, githubToken);
+      const spec = this.buildCommandSpec(provider, modelToUse, prompt, input.codexOutputPath);
+      const { command, args } = spec;
       if (workflowSettings.executionMode === "DOCKER") {
         const result = await this.dockerRunner.runProviderInDocker({
           command, args, cwd, providerEnv, sessionId,
@@ -155,11 +162,22 @@ export class ProviderRunner implements IProviderRunner {
       });
     };
 
-    let result = await runCmd();
+    let result = await runCmd(activeModel);
+    if (
+      !result.ok
+      && retryFallbackModel
+      && activeModel !== retryFallbackModel
+      && this.isModelUnavailableError(result)
+    ) {
+      onActivity(`Model "${activeModel}" is unavailable for ${provider}. Retrying with "${retryFallbackModel}".`);
+      activeModel = retryFallbackModel;
+      result = await runCmd(activeModel);
+    }
+
     if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
       onActivity("Codex transport disconnected. Retrying once automatically...");
       await new Promise(r => setTimeout(r, 1500));
-      result = await runCmd();
+      result = await runCmd(activeModel);
     }
     return result;
   }
@@ -211,6 +229,24 @@ export class ProviderRunner implements IProviderRunner {
       if (apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
     }
     return env;
+  }
+
+  private normalizeModel(model: string): string {
+    const trimmed = model.trim();
+    return trimmed.length > 0 ? trimmed : "default";
+  }
+
+  private isModelUnavailableError(result: CommandResult): boolean {
+    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
+    return [
+      /unknown model/.test(text),
+      /unsupported model/.test(text),
+      /model .* not found/.test(text),
+      /model .* does not exist/.test(text),
+      /model .* unavailable/.test(text),
+      /invalid model/.test(text),
+      /not a valid model/.test(text),
+    ].some(Boolean);
   }
 
   private isTransientCodexTransportError(result: CommandResult): boolean {

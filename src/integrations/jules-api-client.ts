@@ -5,6 +5,7 @@ import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-
 export interface JulesApiClientOptions {
   apiKey?: string | null;
   baseUrl: string;
+  resolveJulesModel?: () => string | null | undefined;
 }
 
 export interface JulesPageRequest {
@@ -50,7 +51,12 @@ export interface JulesCreateSessionRequest {
   title?: string;
   requirePlanApproval?: boolean;
   automationMode?: string;
+  model?: string;
+  julesModel?: string;
+  fallbackModel?: string;
 }
+
+type JulesCreateSessionPayload = Omit<JulesCreateSessionRequest, "julesModel" | "fallbackModel">;
 
 export interface JulesSessionActionResponse {
   id?: string;
@@ -75,10 +81,12 @@ interface JulesListSourcesQuery extends JulesPageQuery {
 
 export class JulesApiClient {
   private readonly axiosInstance: AxiosInstance;
+  private readonly resolveJulesModel?: () => string | null | undefined;
   private apiKey: string | null;
 
   constructor(options: JulesApiClientOptions) {
     this.apiKey = this.normalizeApiKey(options.apiKey);
+    this.resolveJulesModel = options.resolveJulesModel;
     this.axiosInstance = axios.create({
       baseURL: options.baseUrl,
       headers: {
@@ -118,6 +126,51 @@ export class JulesApiClient {
     }
     const trimmed = apiKey.trim();
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeModel(model?: string | null): string | null {
+    if (typeof model !== "string") {
+      return null;
+    }
+    const trimmed = model.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private buildCreateSessionPayload(data: JulesCreateSessionRequest): {
+    payload: JulesCreateSessionPayload;
+    fallbackModel: string | null;
+  } {
+    const requestedModel = this.normalizeModel(data.julesModel ?? data.model);
+    const configuredModel = this.normalizeModel(this.resolveJulesModel?.());
+    const selectedModel = requestedModel || configuredModel;
+    const fallbackModel = this.normalizeModel(data.fallbackModel)
+      || (selectedModel && selectedModel !== "default" ? "default" : null);
+
+    const payload = { ...data } as JulesCreateSessionPayload & { julesModel?: string; fallbackModel?: string };
+    delete payload.julesModel;
+    delete payload.fallbackModel;
+    return {
+      payload: selectedModel
+        ? { ...payload, model: selectedModel }
+        : payload,
+      fallbackModel,
+    };
+  }
+
+  private isModelUnavailableError(error: unknown): boolean {
+    const message = axios.isAxiosError(error)
+      ? `${error.message}\n${typeof error.response?.data === "string" ? error.response.data : JSON.stringify(error.response?.data || {})}`
+      : (error instanceof Error ? error.message : String(error));
+    const normalized = message.toLowerCase();
+    return [
+      /unknown model/.test(normalized),
+      /unsupported model/.test(normalized),
+      /model .* not found/.test(normalized),
+      /model .* does not exist/.test(normalized),
+      /model .* unavailable/.test(normalized),
+      /invalid model/.test(normalized),
+      /not a valid model/.test(normalized),
+    ].some(Boolean);
   }
 
   normalizeName(type: string, id: string): string {
@@ -190,8 +243,28 @@ export class JulesApiClient {
 
   async createSession(data: JulesCreateSessionRequest): Promise<JulesSession> {
     this.ensureApiKey();
-    const response = await this.axiosInstance.post<JulesSession>("/sessions", data);
-    return response.data;
+    const { payload, fallbackModel } = this.buildCreateSessionPayload(data);
+    try {
+      const response = await this.axiosInstance.post<JulesSession>("/sessions", payload);
+      return response.data;
+    } catch (error) {
+      const requestedModel = this.normalizeModel(payload.model);
+      if (
+        !requestedModel
+        || !fallbackModel
+        || requestedModel === fallbackModel
+        || !this.isModelUnavailableError(error)
+      ) {
+        throw error;
+      }
+
+      const retryPayload: JulesCreateSessionPayload = {
+        ...payload,
+        model: fallbackModel,
+      };
+      const response = await this.axiosInstance.post<JulesSession>("/sessions", retryPayload);
+      return response.data;
+    }
   }
 
   async getSession(sessionId: string): Promise<JulesSession> {

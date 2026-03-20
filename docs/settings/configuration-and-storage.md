@@ -123,6 +123,8 @@ Dashboard behavior:
 - `provider` (`jules|gemini|codex|claude-code`)
 - `strategy` (`MANUAL|WEIGHTED|ORCHESTRATOR`)
 - `providers` map (enabled/model/weight/thinkingMode)
+- `providers.jules.model` is sent on Jules `sessions.create` payloads as the session `model`
+  - when Jules rejects a configured model as unavailable/unsupported, runtime retries once with `default`
 
 `automationInterventions` contains:
 - `autoApprovePlan` (default `true`): auto-approve `AWAITING_PLAN_APPROVAL` sessions in `SEMI_AUTO`
@@ -168,6 +170,9 @@ Dashboard behavior:
 - `virtualWorkerProvider` (default `codex`)
   - allowed values: `gemini`, `codex`, `claude-code`
   - used only when `executionMode = VIRTUAL`
+- `virtualWorkerModel` (default `default`)
+  - when set to a non-`default` value, virtual worker planning/dispatch/attention execution uses that model
+  - fallback stays provider-scoped (`aiProvider.providers[virtualWorkerProvider].model`) when the override model is unavailable/unsupported
   - Jules is intentionally excluded from worker mode; virtual workers are CLI-only
 - In the dashboard, these controls are exposed in the active v2 settings page under `Sprint Engine -> Worker Runtime`
 
@@ -218,6 +223,11 @@ Repository demo script:
   - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
   - GitHub sync still copies directory contents into a fixed destination (`~/.config/gh`); Gemini now avoids recursive state copy so concurrent Docker sessions do not race on shared `.gemini/tmp` output files.
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
+  - Selected provider models are propagated to Docker execution:
+    - Gemini via `GEMINI_MODEL`
+    - Codex via `CODEX_MODEL` and CLI `--model`
+    - Claude Code via CLI `--model`
+    - provider runtime retries once with fallback model when the requested model is unavailable/unsupported
 
 Worker runtime notes:
 - connected MCP workers remain the default worker mode

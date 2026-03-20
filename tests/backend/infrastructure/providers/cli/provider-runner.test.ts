@@ -204,6 +204,62 @@ describe("ProviderRunner", () => {
     expect(input.providerEnv.GITHUB_TOKEN).toBeUndefined();
   });
 
+  it("should map selected models to Docker env/flags for gemini, claude-code, and codex", async () => {
+    const onActivity = vi.fn();
+    defaultWorkflowSettings.executionMode = "DOCKER";
+
+    await runner.runProvider({
+      provider: "gemini",
+      prompt: "gemini prompt",
+      cwd: "/repo",
+      model: "gemini-2.5-pro",
+      apiKey: "gem-key",
+      sessionId: "session-g",
+      workflowSettings: defaultWorkflowSettings,
+      repoPath: "/repo",
+      onActivity,
+    });
+    await runner.runProvider({
+      provider: "claude-code",
+      prompt: "claude prompt",
+      cwd: "/repo",
+      model: "claude-sonnet-4-6",
+      apiKey: "claude-key",
+      sessionId: "session-c",
+      workflowSettings: defaultWorkflowSettings,
+      repoPath: "/repo",
+      onActivity,
+    });
+    await runner.runProvider({
+      provider: "codex",
+      prompt: "codex prompt",
+      cwd: "/repo",
+      model: "gpt-5.3-codex",
+      apiKey: "codex-key",
+      sessionId: "session-o",
+      workflowSettings: defaultWorkflowSettings,
+      repoPath: "/repo",
+      onActivity,
+    });
+
+    const geminiInput = vi.mocked(mockDockerRunner.runProviderInDocker).mock.calls[0][0];
+    expect(geminiInput.providerEnv.GEMINI_MODEL).toBe("gemini-2.5-pro");
+    const claudeInput = vi.mocked(mockDockerRunner.runProviderInDocker).mock.calls[1][0];
+    expect(claudeInput.command).toBe("claude");
+    expect(claudeInput.args).toEqual(["--dangerously-skip-permissions", "--model", "claude-sonnet-4-6", "-p", "claude prompt"]);
+    const codexInput = vi.mocked(mockDockerRunner.runProviderInDocker).mock.calls[2][0];
+    expect(codexInput.command).toBe("codex");
+    expect(codexInput.args).toEqual([
+      "exec",
+      "--yolo",
+      "--output-last-message",
+      "/tmp/codex-last-message.txt",
+      "--model",
+      "gpt-5.3-codex",
+      "codex prompt",
+    ]);
+  });
+
   it("should handle Docker workspace mount error", async () => {
     const onActivity = vi.fn();
     defaultWorkflowSettings.executionMode = "DOCKER";
@@ -265,6 +321,43 @@ describe("ProviderRunner", () => {
 
     expect(runStreamingCommand).toHaveBeenCalledTimes(2);
     expect(onActivity).toHaveBeenCalledWith(expect.stringContaining("Codex transport disconnected. Retrying once automatically..."));
+  });
+
+  it("should retry with a fallback model when the configured model is unavailable", async () => {
+    const onActivity = vi.fn();
+
+    vi.mocked(runStreamingCommand)
+      .mockResolvedValueOnce({
+        ok: false,
+        stdout: "",
+        stderr: "unknown model: codex-next",
+        code: 1,
+        signal: null,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        stdout: "success",
+        stderr: "",
+        code: 0,
+        signal: null,
+      });
+
+    await runner.runProvider({
+      provider: "codex",
+      prompt: "test prompt",
+      cwd: "/repo",
+      model: "codex-next",
+      apiKey: "test-key",
+      sessionId: "session-1",
+      workflowSettings: defaultWorkflowSettings,
+      repoPath: "/repo",
+      onActivity,
+    });
+
+    expect(runStreamingCommand).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(runStreamingCommand).mock.calls[0][1]).toContain("codex-next");
+    expect(vi.mocked(runStreamingCommand).mock.calls[1][1]).not.toContain("codex-next");
+    expect(onActivity).toHaveBeenCalledWith(expect.stringContaining("Retrying with \"default\""));
   });
 
   it("should map GH_TOKEN correctly if githubToken is provided", async () => {

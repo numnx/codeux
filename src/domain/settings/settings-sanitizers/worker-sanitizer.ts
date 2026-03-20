@@ -3,7 +3,6 @@ import { readString } from "../../../shared/config/value-readers.js";
 import {
   DEFAULT_DASHBOARD_SETTINGS,
   VIRTUAL_WORKER_PROVIDERS,
-  VIRTUAL_WORKER_MODELS,
   WORKER_EXECUTION_MODES,
 } from "../../../repositories/settings-defaults.js";
 
@@ -22,8 +21,11 @@ export const sanitizeWorkers = (
     ? workerInput.virtualWorkerProvider as VirtualWorkerProvider
     : DEFAULT_DASHBOARD_SETTINGS.workers.virtualWorkerProvider;
 
-  const virtualWorkerModel = typeof workerInput.virtualWorkerModel === "string" && VIRTUAL_WORKER_MODELS.includes(workerInput.virtualWorkerModel)
-    ? workerInput.virtualWorkerModel
+  const normalizedVirtualWorkerModel = typeof workerInput.virtualWorkerModel === "string"
+    ? workerInput.virtualWorkerModel.trim()
+    : "";
+  const virtualWorkerModel = normalizedVirtualWorkerModel.length > 0
+    ? normalizedVirtualWorkerModel
     : DEFAULT_DASHBOARD_SETTINGS.workers.virtualWorkerModel;
 
   return {

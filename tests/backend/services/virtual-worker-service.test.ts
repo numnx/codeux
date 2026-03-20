@@ -223,6 +223,7 @@ describe("VirtualWorkerService", () => {
       workers: {
         executionMode: "VIRTUAL",
         virtualWorkerProvider: "codex",
+        virtualWorkerModel: "gpt-4o",
       },
     });
 
@@ -282,6 +283,11 @@ describe("VirtualWorkerService", () => {
     await vi.advanceTimersByTimeAsync(6_000);
 
     expect(cliWorkflowService.startTask).toHaveBeenCalledTimes(1);
+    expect(cliWorkflowService.startTask).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "codex",
+      modelOverride: "gpt-4o",
+      fallbackModel: "gpt-5.3-codex",
+    }));
     expect(executionRepository.getTaskDispatch(dispatch.id)?.status).toBe("completed");
     expect(projectManagementRepository.getTask(task.id)?.status).toBe("coding_completed");
     expect(workerEndpointRepository.listWorkerEndpoints().filter((endpoint) => endpoint.endpointType === "virtual_cli")).toHaveLength(0);

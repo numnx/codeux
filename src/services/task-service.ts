@@ -27,6 +27,13 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
+  private resolveJulesModel(scope?: DashboardSettingsScope): string {
+    const settings = this.deps.getDashboardSettings(scope);
+    const configured = settings.aiProvider.providers.jules.model;
+    const trimmed = typeof configured === "string" ? configured.trim() : "";
+    return trimmed.length > 0 ? trimmed : "default";
+  }
+
   selectProviderForTask(task: Subtask, scope?: DashboardSettingsScope): ProviderId {
     const settings = this.deps.getDashboardSettings(scope);
     const chosen = chooseProviderForTask(settings, task);
@@ -94,6 +101,7 @@ export class TaskService {
       sourceContext: {
         source: sourceId,
       },
+      julesModel: this.resolveJulesModel(),
       automationMode: "AUTO_CREATE_PR",
     };
 
@@ -148,6 +156,7 @@ export class TaskService {
         source: resolvedSourceId,
         githubRepoContext: { startingBranch: baseBranch },
       },
+      julesModel: this.resolveJulesModel(settingsScope),
       automationMode: "AUTO_CREATE_PR",
     };
 

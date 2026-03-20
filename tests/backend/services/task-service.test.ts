@@ -56,6 +56,7 @@ describe("TaskService", () => {
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/branch");
     expect(payload.title).toBe("Task Title");
     expect(payload.automationMode).toBe("AUTO_CREATE_PR");
+    expect(payload.julesModel).toBe("default");
   });
 
   it("falls back to raw prompt when worker agent instructions are missing", async () => {
@@ -114,6 +115,7 @@ describe("TaskService", () => {
     expect(payload.sourceContext.source).toBe("sources/999");
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/sprint1");
     expect(payload.prompt).toContain("SUBTASK TO EXECUTE");
+    expect(payload.julesModel).toBe("default");
   });
 
   it("falls back to cli provider when jules is unavailable", async () => {

@@ -23,6 +23,8 @@ export interface PipelineContext {
   featureBranch: string;
   task: Subtask;
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+  modelOverride?: string;
+  fallbackModel?: string;
   title: string;
   repoPath: string;
   worktreePath: string;
