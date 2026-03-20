@@ -288,7 +288,7 @@ const NoticePanel: FunctionComponent<{
       : "border-black/[0.06] bg-black/[0.03] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300";
 
   return (
-    <div className={`rounded-[1.35rem] border px-5 py-4 ${toneClass}`}>
+    <div className={`my-3 rounded-[1.35rem] border px-5 py-4 ${toneClass}`}>
       <div className="text-[11px] font-bold uppercase tracking-[0.16em]">{title}</div>
       <div className="mt-2 text-sm font-medium leading-relaxed">{children}</div>
     </div>
@@ -471,6 +471,8 @@ export const SettingsPage: FunctionComponent = () => {
     );
   }, []);
 
+  const selectedProjectId = selectedProject?.id ?? null;
+
   const loadSettings = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
@@ -478,8 +480,8 @@ export const SettingsPage: FunctionComponent = () => {
       setSystemSettings(cloneSystemSettings(nextSystem));
       setSavedSystemSettings(cloneSystemSettings(nextSystem));
 
-      if (selectedProject) {
-        const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+      if (selectedProjectId) {
+        const effectiveProject = await fetchProjectEffectiveSettings(selectedProjectId);
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
         setProjectSettings(cloneProjectSettings(nextProject));
         setSavedProjectSettings(cloneProjectSettings(nextProject));
@@ -496,7 +498,7 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedProject]);
+  }, [selectedProjectId]);
 
   useEffect(() => {
     void loadSettings();
