@@ -12,7 +12,12 @@ import type {
   UpdateSprintInput,
   UpdateTaskInput,
 } from "../types.js";
-import type { ExecutionDashboardSnapshot } from "../../types.js";
+import type {
+  ExecutionDashboardSnapshot,
+  ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
+  ProjectStatsWindow,
+} from "../../types.js";
 
 const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, init);
@@ -64,6 +69,24 @@ export const fetchSprints = async (projectId: string): Promise<SprintRecord[]> =
 
 export const fetchProjectExecution = async (projectId: string): Promise<ExecutionDashboardSnapshot> => {
   return fetchJson<ExecutionDashboardSnapshot>(`/api/projects/${encodeURIComponent(projectId)}/execution`);
+};
+
+export const fetchProjectStats = async (
+  projectId: string,
+  statsQuery: ProjectStatsQuery | ProjectStatsWindow = "7d",
+): Promise<ProjectExecutionStatsSnapshot> => {
+  const query = typeof statsQuery === "string"
+    ? { window: statsQuery }
+    : statsQuery;
+  const url = new URL(`/api/projects/${encodeURIComponent(projectId)}/stats`, window.location.origin);
+  url.searchParams.set("window", query.window);
+  if (query.from) {
+    url.searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    url.searchParams.set("to", query.to);
+  }
+  return fetchJson<ProjectExecutionStatsSnapshot>(`${url.pathname}${url.search}`);
 };
 
 export const createSprint = async (projectId: string, input: CreateSprintInput): Promise<SprintRecord> => {

@@ -700,4 +700,362 @@ describe("ExecutionRepository", () => {
     });
     expect(telemetry.attentionProjects[0]?.humanIntervention?.instructions).toContain("Plan Sprint");
   });
+
+  it("rolls token and time telemetry into task, sprint, and project stats snapshots", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Telemetry Project",
+      sourceType: "local",
+      sourceRef: "/workspace/telemetry-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Telemetry Sprint",
+      number: 7,
+      status: "running",
+    });
+    const firstTask = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Track coding usage",
+    });
+    const secondTask = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Track merge usage",
+    });
+
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+    const firstDispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: firstTask.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "completed",
+    });
+    const secondDispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: secondTask.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "completed",
+    });
+
+    const now = Date.now();
+    const firstStartedAt = new Date(now - 50 * 60 * 1000).toISOString();
+    const firstFinishedAt = new Date(now - 47 * 60 * 1000).toISOString();
+    const secondStartedAt = new Date(now - 28 * 60 * 1000).toISOString();
+    const secondFinishedAt = new Date(now - 24 * 60 * 1000).toISOString();
+
+    const firstTaskRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: firstTask.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: firstDispatch.id,
+      provider: "codex",
+      state: "completed",
+      sessionId: "session-task-1",
+      startedAt: firstStartedAt,
+      finishedAt: firstFinishedAt,
+      durationMs: 180_000,
+    });
+    executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: secondTask.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: secondDispatch.id,
+      provider: "claude-code",
+      state: "completed",
+      sessionId: "session-task-2",
+      startedAt: secondStartedAt,
+      finishedAt: secondFinishedAt,
+      durationMs: 240_000,
+    });
+
+    const codingInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: firstTask.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: firstDispatch.id,
+      taskRunId: firstTaskRun.id,
+      sessionId: "session-task-1",
+      provider: "codex",
+      purpose: "task_coding",
+      model: "gpt-5.3-codex",
+      startedAt: firstStartedAt,
+      promptChars: 420,
+    });
+    executionRepository.updateProviderInvocationUsage(codingInvocation.id, {
+      status: "completed",
+      finishedAt: firstFinishedAt,
+      durationMs: 180_000,
+      transcriptChars: 180,
+      inputTokens: 600,
+      cachedInputTokens: 90,
+      outputTokens: 210,
+      reasoningOutputTokens: 45,
+      totalTokens: 945,
+      usageSource: "reported",
+      rawUsageJson: { provider: "codex" },
+    });
+
+    const mergeInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: secondTask.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: secondDispatch.id,
+      sessionId: "session-task-2",
+      provider: "claude-code",
+      purpose: "merge_conflict",
+      model: "claude-sonnet-4-6",
+      startedAt: secondStartedAt,
+      promptChars: 260,
+    });
+    executionRepository.updateProviderInvocationUsage(mergeInvocation.id, {
+      status: "completed",
+      finishedAt: secondFinishedAt,
+      durationMs: 240_000,
+      transcriptChars: 140,
+      inputTokens: 320,
+      cachedInputTokens: 0,
+      outputTokens: 80,
+      reasoningOutputTokens: 0,
+      totalTokens: 400,
+      usageSource: "estimated",
+      rawUsageJson: null,
+    });
+
+    const executionSnapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+    const sprintUsage = executionSnapshot.sprintRuns[0]?.usage;
+    const firstTaskUsage = executionSnapshot.taskDispatches.find((dispatch) => dispatch.taskId === firstTask.id)?.usage;
+    const secondTaskUsage = executionSnapshot.taskDispatches.find((dispatch) => dispatch.taskId === secondTask.id)?.usage;
+
+    expect(sprintUsage).toMatchObject({
+      totalTokens: 1_345,
+      activeTimeMs: 420_000,
+      wallTimeMs: 420_000,
+      invocationCount: 2,
+      reportedInvocationCount: 1,
+      estimatedInvocationCount: 1,
+    });
+    expect(firstTaskUsage).toMatchObject({
+      totalTokens: 945,
+      activeTimeMs: 180_000,
+      wallTimeMs: 180_000,
+    });
+    expect(secondTaskUsage).toMatchObject({
+      totalTokens: 400,
+      activeTimeMs: 240_000,
+      wallTimeMs: 240_000,
+    });
+
+    const statsSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "24h");
+    expect(statsSnapshot.usage).toMatchObject({
+      totalTokens: 1_345,
+      activeTimeMs: 420_000,
+      wallTimeMs: 420_000,
+      invocationCount: 2,
+      reportedInvocationCount: 1,
+      estimatedInvocationCount: 1,
+    });
+    expect(statsSnapshot.activeSprint).toMatchObject({
+      sprintId: sprint.id,
+      sprintName: "Telemetry Sprint",
+      sprintNumber: 7,
+    });
+    expect(statsSnapshot.tasks[0]).toMatchObject({
+      label: "T01 Track coding usage",
+      usage: expect.objectContaining({
+        totalTokens: 945,
+      }),
+    });
+    expect(statsSnapshot.sprints[0]).toMatchObject({
+      label: "Sprint 7 · Telemetry Sprint",
+      usage: expect.objectContaining({
+        totalTokens: 1_345,
+      }),
+    });
+    expect(statsSnapshot.providers).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "codex",
+        usage: expect.objectContaining({ totalTokens: 945 }),
+      }),
+      expect.objectContaining({
+        id: "claude-code",
+        usage: expect.objectContaining({ totalTokens: 400 }),
+      }),
+    ]));
+    expect(statsSnapshot.purposes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "task_coding",
+        usage: expect.objectContaining({ totalTokens: 945 }),
+      }),
+      expect.objectContaining({
+        id: "merge_conflict",
+        usage: expect.objectContaining({ totalTokens: 400 }),
+      }),
+    ]));
+    expect(statsSnapshot.tokenSources).toEqual(expect.arrayContaining([
+      { source: "reported", count: 1 },
+      { source: "estimated", count: 1 },
+    ]));
+    expect(statsSnapshot.buckets).toHaveLength(24);
+  });
+
+  it("supports 30d, all-time, and custom project stats windows", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Windowed Stats Project",
+      sourceType: "local",
+      sourceRef: "/workspace/windowed-stats-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Windowed Sprint",
+      number: 4,
+      status: "running",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Measure time windows",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "completed",
+    });
+
+    const now = Date.now();
+    const olderStartedAt = new Date(now - 20 * 24 * 60 * 60 * 1000).toISOString();
+    const olderFinishedAt = new Date(now - 20 * 24 * 60 * 60 * 1000 + 180_000).toISOString();
+    const recentStartedAt = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const recentFinishedAt = new Date(now - 2 * 24 * 60 * 60 * 1000 + 240_000).toISOString();
+
+    executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "codex",
+      state: "completed",
+      sessionId: "windowed-task-run-1",
+      startedAt: olderStartedAt,
+      finishedAt: olderFinishedAt,
+      durationMs: 180_000,
+    });
+    executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "claude-code",
+      state: "completed",
+      sessionId: "windowed-task-run-2",
+      startedAt: recentStartedAt,
+      finishedAt: recentFinishedAt,
+      durationMs: 240_000,
+    });
+
+    const olderInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      sessionId: "windowed-task-run-1",
+      provider: "codex",
+      purpose: "task_coding",
+      model: "gpt-5.3-codex",
+      startedAt: olderStartedAt,
+      promptChars: 180,
+    });
+    executionRepository.updateProviderInvocationUsage(olderInvocation.id, {
+      status: "completed",
+      finishedAt: olderFinishedAt,
+      durationMs: 180_000,
+      transcriptChars: 90,
+      inputTokens: 300,
+      cachedInputTokens: 20,
+      outputTokens: 110,
+      reasoningOutputTokens: 10,
+      totalTokens: 440,
+      usageSource: "reported",
+      rawUsageJson: { provider: "codex" },
+    });
+
+    const recentInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      sessionId: "windowed-task-run-2",
+      provider: "claude-code",
+      purpose: "merge_conflict",
+      model: "claude-sonnet-4-6",
+      startedAt: recentStartedAt,
+      promptChars: 210,
+    });
+    executionRepository.updateProviderInvocationUsage(recentInvocation.id, {
+      status: "completed",
+      finishedAt: recentFinishedAt,
+      durationMs: 240_000,
+      transcriptChars: 120,
+      inputTokens: 420,
+      cachedInputTokens: 0,
+      outputTokens: 140,
+      reasoningOutputTokens: 0,
+      totalTokens: 560,
+      usageSource: "estimated",
+      rawUsageJson: null,
+    });
+
+    const thirtyDaySnapshot = executionRepository.getProjectStatsSnapshot(project.id, "30d");
+    expect(thirtyDaySnapshot.window).toBe("30d");
+    expect(thirtyDaySnapshot.range.resolution).toBe("day");
+    expect(thirtyDaySnapshot.range.bucketCount).toBe(30);
+    expect(thirtyDaySnapshot.usage.totalTokens).toBe(1_000);
+
+    const allTimeSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "all");
+    expect(allTimeSnapshot.window).toBe("all");
+    expect(allTimeSnapshot.range.isCustom).toBe(false);
+    expect(allTimeSnapshot.usage.totalTokens).toBe(1_000);
+    expect(allTimeSnapshot.tasks[0]?.lastActivityAt).toBe(recentFinishedAt);
+
+    const customSnapshot = executionRepository.getProjectStatsSnapshot(project.id, {
+      window: "custom",
+      from: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      to: new Date(now).toISOString().slice(0, 10),
+    });
+    expect(customSnapshot.window).toBe("custom");
+    expect(customSnapshot.query).toMatchObject({
+      window: "custom",
+    });
+    expect(customSnapshot.range.isCustom).toBe(true);
+    expect(customSnapshot.usage.totalTokens).toBe(560);
+    expect(customSnapshot.providers).toEqual([
+      expect.objectContaining({
+        id: "claude-code",
+        usage: expect.objectContaining({ totalTokens: 560 }),
+      }),
+    ]);
+  });
 });

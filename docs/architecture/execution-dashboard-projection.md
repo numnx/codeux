@@ -25,6 +25,9 @@ Endpoints:
   - returns the selected project's execution snapshot
 - `GET /api/projects/:projectId/execution`
   - returns the execution snapshot for a specific project
+- `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
+  - returns the project statistics snapshot used by the Stats page
+  - `custom` requires both `from` and `to`
 
 ## Snapshot Shape
 
@@ -32,6 +35,8 @@ The payload includes:
 
 - `projectId`
 - `projectName`
+- `query`
+- `range`
 - `updatedAt`
 - `sprintRuns`
 - `taskDispatches`
@@ -48,6 +53,7 @@ Each run includes:
 - executor mode
 - heartbeat timestamps
 - active sprint lease owner
+- rolled-up usage totals for provider time, wall time, and tokens
 
 ### `taskDispatches`
 
@@ -60,6 +66,7 @@ Each dispatch includes:
 - latest task-run state
 - provider/session/pr metadata
 - active task-dispatch lease owner
+- rolled-up usage totals for provider time, wall time, and tokens
 
 ### `recentEvents`
 
@@ -101,6 +108,7 @@ It joins:
 - `task_dispatches`
 - `task_runs`
 - `task_run_events`
+- `provider_invocations`
 - `tasks`
 - `sprints`
 - `mcp_connections`
@@ -120,6 +128,14 @@ The v2 live page now renders an execution runtime panel showing:
 - a DB-backed runtime timeline
 
 That makes multi-sprint and worker execution visible without reconstructing state from task markdown or process-local globals.
+
+The v2 stats page reads the adjacent project statistics snapshot and renders:
+
+- adaptive hourly, daily, or weekly usage graphs for `24h`, `7d`, `30d`, `all time`, and custom windows
+- drag-to-zoom analysis inside the active graph window
+- task and sprint usage leaderboards
+- provider and execution-purpose splits
+- telemetry confidence based on reported versus estimated token counts
 
 ## Live Task Timing Reconciliation
 

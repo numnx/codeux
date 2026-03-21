@@ -20,7 +20,15 @@ import type {
   UpdateConversationThreadInput,
   UpdateMcpConnectionInput,
 } from "../../../src/contracts/connection-chat-types.js";
-import type { ExecutionHumanInterventionSummary } from "../../../src/contracts/app-types.js";
+import type {
+  ExecutionHumanInterventionSummary,
+  ExecutionUsageTotals,
+  ExecutionUsageBucketSummary,
+  ExecutionStatsEntitySummary,
+  ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
+  ProjectStatsWindow,
+} from "../../../src/contracts/app-types.js";
 import type {
   CreateProjectInput,
   CreateSprintInput,
@@ -102,6 +110,12 @@ export type {
   StartListenInput,
   StartListenResponse,
   ExecutionHumanInterventionSummary,
+  ExecutionUsageTotals,
+  ExecutionUsageBucketSummary,
+  ExecutionStatsEntitySummary,
+  ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
+  ProjectStatsWindow,
   UpdateConversationThreadInput,
   TaskExecutorType,
   TaskPriority,

@@ -11,6 +11,7 @@ import type {
   ExternalSettingsHints,
   GitTrackingStatus,
   JulesActivity,
+  ProjectStatsQuery,
   ReadinessProbeStatus
 } from "../../contracts/app-types.js";
 import type { McpConnectionRecord } from "../../contracts/connection-chat-types.js";
@@ -233,10 +234,12 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
   const dashboardDir = `${deps.projectRoot}/dashboard`;
   const port = deps.getDashboardPort();
   const PROJECT_EXECUTION_CACHE_TTL_MS = 2_000;
+  const PROJECT_STATS_CACHE_TTL_MS = 2_000;
   const OVERVIEW_CACHE_TTL_MS = 500;
   const PROJECTS_CACHE_TTL_MS = 500;
 
   const projectExecutionSnapshotCache = new Map<string, { snapshot: ReturnType<typeof deps.executionRepository.getProjectExecutionSnapshot>; expiresAt: number }>();
+  const projectStatsSnapshotCache = new Map<string, { snapshot: ReturnType<typeof deps.executionRepository.getProjectStatsSnapshot>; expiresAt: number }>();
   let overviewTelemetryCache: { snapshot: ReturnType<typeof deps.executionRepository.getOverviewTelemetrySnapshot>; expiresAt: number } | null = null;
   let projectsSnapshotCache: { snapshot: ReturnType<typeof deps.projectManagementRepository.listProjects>; expiresAt: number } | null = null;
 
@@ -295,6 +298,21 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     return snapshot;
   };
 
+  const getProjectStatsSnapshot = (projectId: string, query: ProjectStatsQuery = { window: "7d" }) => {
+    const now = Date.now();
+    const cacheKey = `${projectId}:${JSON.stringify(query)}`;
+    const cached = projectStatsSnapshotCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.snapshot;
+    }
+    const snapshot = deps.executionRepository.getProjectStatsSnapshot(projectId, query);
+    projectStatsSnapshotCache.set(cacheKey, {
+      snapshot,
+      expiresAt: now + PROJECT_STATS_CACHE_TTL_MS,
+    });
+    return snapshot;
+  };
+
   deps.dashboardRealtimeService.setSnapshotLoaders({
     getProjectsSnapshot,
     getProjectExecutionSnapshot,
@@ -327,6 +345,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     },
     getOverviewTelemetrySnapshot,
     getProjectExecutionSnapshot,
+    getProjectStatsSnapshot,
     claimAttentionItem: (projectId, attentionItemId, input) => {
       const item = requireProjectAttentionItem(deps, projectId, attentionItemId);
       const workerEndpointId = resolveAttentionClaimWorkerEndpointId(
