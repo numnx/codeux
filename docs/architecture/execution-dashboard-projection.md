@@ -121,6 +121,15 @@ The v2 live page now renders an execution runtime panel showing:
 
 That makes multi-sprint and worker execution visible without reconstructing state from task markdown or process-local globals.
 
+## Live Task Timing Reconciliation
+
+The live task timing model now treats the execution snapshot as the source of truth for terminal timing cutoffs when `/api/status` and `/api/execution` are briefly out of sync.
+
+- terminal dispatch fields (`status`, `taskRunState`, `finishedAt`) can stop a task timer even before the task snapshot has promoted its visible status
+- terminal runtime events continue to win for late merge settlement and other post-dispatch outcomes
+- merge-backed tasks still stay in `CODING_COMPLETED` until real CI or merge-stage evidence appears, so the live page does not mark them fully complete just because coding finished
+- late sync-only events after terminal completion no longer reopen an active timing window
+
 ## Realtime Delivery
 
 The execution snapshot is now also pushed to the dashboard over websocket through `/api/realtime`.

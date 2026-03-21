@@ -6,6 +6,7 @@ import type {
   Subtask,
 } from "../../../dashboard/src/types.js";
 import {
+  STATS_DECK_VISIBLE_STAGES,
   buildLiveSprintTimingSummary,
   buildLiveTaskTimingSummary,
   buildLiveTaskTimingSummaries,
@@ -48,8 +49,8 @@ function makeDispatch(overrides: Partial<ExecutionTaskDispatchSummary> & Pick<Ex
     workerBranch: overrides.workerBranch ?? null,
     prUrl: overrides.prUrl ?? null,
     queuedAt: overrides.queuedAt || "2026-03-19T10:00:00.000Z",
-    claimedAt: overrides.claimedAt ?? overrides.queuedAt ?? "2026-03-19T10:00:00.000Z",
-    startedAt: overrides.startedAt ?? overrides.queuedAt ?? "2026-03-19T10:00:00.000Z",
+    claimedAt: "claimedAt" in overrides ? overrides.claimedAt : (overrides.queuedAt || "2026-03-19T10:00:00.000Z"),
+    startedAt: "startedAt" in overrides ? overrides.startedAt : (overrides.queuedAt || "2026-03-19T10:00:00.000Z"),
     finishedAt: overrides.finishedAt ?? null,
     lastHeartbeatAt: overrides.lastHeartbeatAt ?? overrides.finishedAt ?? overrides.startedAt ?? null,
     errorMessage: overrides.errorMessage ?? null,
@@ -161,6 +162,58 @@ describe("live stats timing model", () => {
     expect(summary.activeStage).toBeNull();
   });
 
+  it("stops active timing at dispatch completion when task status still looks running", () => {
+    const task = makeTask({
+      id: "T01S",
+      title: "Snapshot skew",
+      record_id: "task-record-1s",
+      status: "RUNNING",
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-1s",
+      taskId: "task-record-1s",
+      taskKey: "T01S",
+      taskTitle: "Snapshot skew",
+      status: "completed",
+      taskRunState: "COMPLETED",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      lastHeartbeatAt: "2026-03-19T10:05:00.000Z",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-1s-start",
+        dispatchId: "dispatch-1s",
+        taskRunId: "dispatch-1s-task-run",
+        taskId: "task-record-1s",
+        taskKey: "T01S",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-1s-late-sync",
+        dispatchId: "dispatch-1s",
+        taskRunId: "dispatch-1s-task-run",
+        taskId: "task-record-1s",
+        taskKey: "T01S",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.phase).toBe("COMPLETED");
+    expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
+    expect(summary.totalSeconds).toBe(300);
+    expect(summary.activeStage).toBeNull();
+  });
+
   it("splits task time across coding, ci, autofix, and merge windows", () => {
     const task = makeTask({
       id: "T02",
@@ -250,11 +303,11 @@ describe("live stats timing model", () => {
       nowIso: "2026-03-19T10:15:00.000Z",
     });
 
-    expect(summary.totalSeconds).toBe(720);
+    expect(summary.totalSeconds).toBe(300);
     expect(summary.stageTotals.coding).toBe(300);
-    expect(summary.stageTotals.ci).toBe(180);
-    expect(summary.stageTotals.autofix).toBe(180);
-    expect(summary.stageTotals.merge).toBe(60);
+    expect(summary.stageTotals.ci).toBe(0);
+    expect(summary.stageTotals.autofix).toBe(0);
+    expect(summary.stageTotals.merge).toBe(0);
     expect(summary.activeStage).toBeNull();
   });
 
@@ -336,10 +389,10 @@ describe("live stats timing model", () => {
       nowIso: "2026-03-19T10:15:00.000Z",
     });
 
-    expect(summary.totalSeconds).toBe(720);
+    expect(summary.totalSeconds).toBe(300);
     expect(summary.stageTotals.coding).toBe(300);
-    expect(summary.stageTotals.merge).toBe(360);
-    expect(summary.stageTotals.ci).toBe(60);
+    expect(summary.stageTotals.merge).toBe(0);
+    expect(summary.stageTotals.ci).toBe(0);
     expect(summary.activeStage).toBeNull();
   });
 
@@ -430,11 +483,11 @@ describe("live stats timing model", () => {
       nowIso: "2026-03-19T10:15:00.000Z",
     });
 
-    expect(summary.endedAt).toBe("2026-03-19T10:07:00.000Z");
-    expect(summary.totalSeconds).toBe(420);
+    expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
+    expect(summary.totalSeconds).toBe(300);
     expect(summary.stageTotals.coding).toBe(300);
-    expect(summary.stageTotals.ci).toBe(60);
-    expect(summary.stageTotals.merge).toBe(60);
+    expect(summary.stageTotals.ci).toBe(0);
+    expect(summary.stageTotals.merge).toBe(0);
     expect(summary.activeStage).toBeNull();
   });
 
@@ -496,7 +549,7 @@ describe("live stats timing model", () => {
     expect(summary.activeStage).toBeNull();
   });
 
-  it("stops coding-complete task timing until a real ci or merge stage begins", () => {
+  it("treats automerged tasks as terminal even if is_merged has not caught up yet", () => {
     const task = makeTask({
       id: "T02B",
       title: "Awaiting merge orchestration",
@@ -554,11 +607,85 @@ describe("live stats timing model", () => {
       nowIso: "2026-03-19T10:10:00.000Z",
     });
 
-    expect(summary.phase).toBe("CODING_COMPLETED");
+    expect(summary.phase).toBe("COMPLETED");
     expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
     expect(summary.totalSeconds).toBe(300);
     expect(summary.stageTotals.coding).toBe(300);
     expect(summary.activeStage).toBeNull();
+  });
+
+  it("resumes snapshot-skewed merge-backed tasks only after real ci evidence appears", () => {
+    const task = makeTask({
+      id: "T02C",
+      title: "Snapshot skew merge-backed",
+      record_id: "task-record-2c",
+      status: "RUNNING",
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2c",
+      taskId: "task-record-2c",
+      taskKey: "T02C",
+      taskTitle: "Snapshot skew merge-backed",
+      status: "completed",
+      taskRunState: "COMPLETED",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      workerBranch: "feature/t02c",
+      prUrl: "https://example.com/pr/2c",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2c-start",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2c-complete",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "run_completed",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2c-ci",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:06:00.000Z",
+        payload: { state: "waiting_checks", hasPendingChecks: true },
+      }),
+      makeEvent({
+        id: "evt-2c-late-sync",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.phase).toBe("CODING_COMPLETED");
+    expect(summary.endedAt).toBe("2026-03-19T10:10:00.000Z");
+    expect(summary.totalSeconds).toBe(600);
+    expect(summary.stageTotals.coding).toBe(360);
+    expect(summary.stageTotals.ci).toBe(240);
+    expect(summary.activeStage).toBe("ci");
   });
 
   it("uses the latest dispatch history for rerun tasks", () => {
@@ -898,5 +1025,38 @@ describe("live stats timing model", () => {
     expect(summary.stageTotals.coding).toBe(480);
     expect(summary.stageTotals.ci).toBe(120);
     expect(summary.longestTask?.totalSeconds).toBe(300);
+  });
+
+  it("omits 'queued' from STATS_DECK_VISIBLE_STAGES while it remains in timing totals", () => {
+    expect(STATS_DECK_VISIBLE_STAGES).not.toContain("queued");
+    expect(STATS_DECK_VISIBLE_STAGES).toEqual(["coding", "ci", "autofix", "merge"]);
+
+    const tasks = [makeTask({ id: "T01", title: "Queued", status: "RUNNING" })];
+    const dispatches = [
+      makeDispatch({
+        id: "dispatch-1",
+        taskId: "task-1",
+        taskKey: "T01",
+        taskTitle: "Queued",
+        status: "queued",
+        queuedAt: "2026-03-19T10:00:00.000Z",
+        claimedAt: null,
+        startedAt: null,
+      }),
+    ];
+
+    const summary = buildLiveSprintTimingSummary({
+      tasks,
+      dispatches,
+      events: [],
+      sprintRuns: [makeSprintRun({ startedAt: "2026-03-19T10:00:00.000Z" })],
+      nowIso: "2026-03-19T10:01:00.000Z",
+    });
+
+    // Queued time should still exist in the model
+    expect(summary.stageTotals.queued).toBe(60);
+
+    // But the stats deck order should not include it
+    expect(STATS_DECK_VISIBLE_STAGES).not.toContain("queued");
   });
 });
