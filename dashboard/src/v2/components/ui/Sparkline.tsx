@@ -28,13 +28,22 @@ export const Sparkline: FunctionComponent<{ points: number[]; color: string }> =
 
     const gradId = `sg-${color.replace('#', '')}`;
 
-    // Mount: set initial dash state before paint, then animate
-    useLayoutEffect(() => {
+    const applyDrawState = (animate: boolean) => {
         if (!pathRef.current) return;
         const len = pathRef.current.getTotalLength();
-        gsap.set(pathRef.current, { strokeDasharray: len, strokeDashoffset: len });
-        gsap.to(pathRef.current, { strokeDashoffset: 0, duration: 1.4, ease: "power3.inOut", delay: 0.4 });
-    }, []);
+        gsap.killTweensOf(pathRef.current);
+        gsap.set(pathRef.current, { strokeDasharray: `${len} ${len}`, strokeDashoffset: len });
+        if (animate) {
+            gsap.to(pathRef.current, { strokeDashoffset: 0, duration: 1.4, ease: "power3.inOut", delay: 0.4 });
+            return;
+        }
+        gsap.set(pathRef.current, { strokeDashoffset: 0 });
+    };
+
+    // Recompute the path contract whenever the rendered line changes.
+    useLayoutEffect(() => {
+        applyDrawState(true);
+    }, [pathD]);
 
     // Hover: replay from the start + glow the whole SVG
     useEffect(() => {
@@ -43,11 +52,9 @@ export const Sparkline: FunctionComponent<{ points: number[]; color: string }> =
 
         const onEnter = () => {
             if (!pathRef.current || !svgRef.current) return;
+            applyDrawState(false);
             const len = pathRef.current.getTotalLength();
-            gsap.fromTo(pathRef.current,
-                { strokeDasharray: len, strokeDashoffset: len },
-                { strokeDashoffset: 0, duration: 0.85, ease: "power2.out" }
-            );
+            gsap.fromTo(pathRef.current, { strokeDashoffset: len }, { strokeDashoffset: 0, duration: 0.85, ease: "power2.out" });
             gsap.to(svgRef.current, {
                 filter: `drop-shadow(0 0 5px ${color})`,
                 opacity: 0.55,
