@@ -162,6 +162,58 @@ describe("live stats timing model", () => {
     expect(summary.activeStage).toBeNull();
   });
 
+  it("stops active timing at dispatch completion when task status still looks running", () => {
+    const task = makeTask({
+      id: "T01S",
+      title: "Snapshot skew",
+      record_id: "task-record-1s",
+      status: "RUNNING",
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-1s",
+      taskId: "task-record-1s",
+      taskKey: "T01S",
+      taskTitle: "Snapshot skew",
+      status: "completed",
+      taskRunState: "COMPLETED",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      lastHeartbeatAt: "2026-03-19T10:05:00.000Z",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-1s-start",
+        dispatchId: "dispatch-1s",
+        taskRunId: "dispatch-1s-task-run",
+        taskId: "task-record-1s",
+        taskKey: "T01S",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-1s-late-sync",
+        dispatchId: "dispatch-1s",
+        taskRunId: "dispatch-1s-task-run",
+        taskId: "task-record-1s",
+        taskKey: "T01S",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.phase).toBe("COMPLETED");
+    expect(summary.endedAt).toBe("2026-03-19T10:05:00.000Z");
+    expect(summary.totalSeconds).toBe(300);
+    expect(summary.activeStage).toBeNull();
+  });
+
   it("splits task time across coding, ci, autofix, and merge windows", () => {
     const task = makeTask({
       id: "T02",
@@ -560,6 +612,80 @@ describe("live stats timing model", () => {
     expect(summary.totalSeconds).toBe(300);
     expect(summary.stageTotals.coding).toBe(300);
     expect(summary.activeStage).toBeNull();
+  });
+
+  it("resumes snapshot-skewed merge-backed tasks only after real ci evidence appears", () => {
+    const task = makeTask({
+      id: "T02C",
+      title: "Snapshot skew merge-backed",
+      record_id: "task-record-2c",
+      status: "RUNNING",
+    });
+    const dispatch = makeDispatch({
+      id: "dispatch-2c",
+      taskId: "task-record-2c",
+      taskKey: "T02C",
+      taskTitle: "Snapshot skew merge-backed",
+      status: "completed",
+      taskRunState: "COMPLETED",
+      startedAt: "2026-03-19T10:00:00.000Z",
+      finishedAt: "2026-03-19T10:05:00.000Z",
+      workerBranch: "feature/t02c",
+      prUrl: "https://example.com/pr/2c",
+    });
+    const events = [
+      makeEvent({
+        id: "evt-2c-start",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "dispatch_started",
+        createdAt: "2026-03-19T10:00:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2c-complete",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "run_completed",
+        createdAt: "2026-03-19T10:05:00.000Z",
+      }),
+      makeEvent({
+        id: "evt-2c-ci",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "ci_gate_status",
+        createdAt: "2026-03-19T10:06:00.000Z",
+        payload: { state: "waiting_checks", hasPendingChecks: true },
+      }),
+      makeEvent({
+        id: "evt-2c-late-sync",
+        dispatchId: "dispatch-2c",
+        taskRunId: "dispatch-2c-task-run",
+        taskId: "task-record-2c",
+        taskKey: "T02C",
+        eventType: "session_state_synced",
+        createdAt: "2026-03-19T10:08:00.000Z",
+      }),
+    ];
+
+    const summary = buildLiveTaskTimingSummary({
+      task,
+      dispatches: [dispatch],
+      events,
+      nowIso: "2026-03-19T10:10:00.000Z",
+    });
+
+    expect(summary.phase).toBe("CODING_COMPLETED");
+    expect(summary.endedAt).toBe("2026-03-19T10:10:00.000Z");
+    expect(summary.totalSeconds).toBe(600);
+    expect(summary.stageTotals.coding).toBe(360);
+    expect(summary.stageTotals.ci).toBe(240);
+    expect(summary.activeStage).toBe("ci");
   });
 
   it("uses the latest dispatch history for rerun tasks", () => {
