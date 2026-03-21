@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
-import type { DashboardRealtimeServerMessage, ProjectExecutionStatsSnapshot, ProjectStatsWindow } from "../../types.js";
+import type {
+  DashboardRealtimeServerMessage,
+  ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
+  ProjectStatsWindow,
+} from "../../types.js";
 import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
 import { fetchProjectStats } from "../lib/project-api.js";
 
 const EMPTY_STATS: ProjectExecutionStatsSnapshot | null = null;
 
-export function useProjectStats(projectId: string | null, statsWindow: ProjectStatsWindow, pollIntervalMs: number = 30000): {
+export function useProjectStats(
+  projectId: string | null,
+  statsQuery: ProjectStatsQuery | ProjectStatsWindow,
+  pollIntervalMs: number = 30000,
+): {
   stats: ProjectExecutionStatsSnapshot | null;
   loading: boolean;
   error: string | null;
@@ -25,14 +34,14 @@ export function useProjectStats(projectId: string | null, statsWindow: ProjectSt
 
     setLoading(true);
     try {
-      setStats(await fetchProjectStats(projectId, statsWindow));
+      setStats(await fetchProjectStats(projectId, statsQuery));
       setError(null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
       setLoading(false);
     }
-  }, [projectId, statsWindow]);
+  }, [projectId, statsQuery]);
 
   useEffect(() => {
     void refresh();

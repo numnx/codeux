@@ -95,8 +95,9 @@ Legacy runtime:
   - websocket upgrade endpoint for dashboard realtime subscriptions (`projects`, `overview`, `project:<projectId>`, `thread:<threadId>`)
 - `GET /api/projects/:projectId/execution`
   - Project-scoped execution control-plane snapshot for the v2 runtime
-- `GET /api/projects/:projectId/stats?window=24h|7d`
-  - Project-scoped token/time statistics snapshot with hourly or daily buckets, task/sprint/provider/purpose rollups, and telemetry-source mix
+- `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
+  - Project-scoped token/time statistics snapshot with adaptive hourly/daily/weekly buckets, task/sprint/provider/purpose rollups, and telemetry-source mix
+  - `custom` requires both `from` and `to`; presets ignore them
 - `POST /api/projects/:projectId/attention-items/:attentionItemId/claim`
   - Claims an active worker-owned attention item on behalf of the assigned project worker
 - `POST /api/projects/:projectId/attention-items/:attentionItemId/resolve`
@@ -171,13 +172,14 @@ Legacy runtime:
 - Tasks and sprints now refresh silently on background realtime invalidation, so opening the Tasks page no longer repeatedly flashes loading state when project metadata or structure updates arrive
 - Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
 - The Tasks board entrance animation now replays only for project/view/filter changes instead of every background task refresh
-- Stats page is project-scoped and visualizes tracked token/time usage for the selected project with `24h` and `7d` windows
+- Stats page is project-scoped and visualizes tracked token/time usage for the selected project with `24h`, `7d`, `30d`, `all time`, and custom date windows
 - Stats page now matches the high-interaction v2 dashboard card language more closely:
   - animated metric cards
   - a unified glass-panel system that mirrors the premium live card surfaces instead of using a separate visual treatment
   - a full-width analysis studio that switches completely between `Trend`, `Composition`, and `Reliability` modes
-  - an interactive trend graph with hover bucket inspection and a toggleable legend for tokens, active time, and invocation volume
-  - donut-style composition charts for providers, token anatomy, and telemetry-source mix
+  - an interactive trend graph with hover bucket inspection, a toggleable legend for tokens/active time/invocation volume, smooth staged line-draw animation that matches the metric-card sparkline language, and drag-to-zoom timeframe selection
+  - hourly views keep one-hour hover targets while reducing visible axis labels to a three-hour rhythm for readability
+  - donut-style composition charts for providers, token anatomy, and telemetry-source mix now animate as interactive slices with hover emphasis and center-detail readouts
   - redesigned task and sprint ledgers with search, sort-by-recency/tokens/time/input/output/name, and richer token/time breakdowns
 - The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to polling so usage graphs and tables stay current during active sprint execution
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface

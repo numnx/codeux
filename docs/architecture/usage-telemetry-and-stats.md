@@ -98,15 +98,16 @@ Usage data now appears in two read models:
 
 - `GET /api/projects/:projectId/execution`
   - task and sprint execution summaries now include usage rollups
-- `GET /api/projects/:projectId/stats?window=24h|7d`
+- `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
   - project-scoped statistics snapshot for the Stats page
 
 The stats snapshot includes:
 
 - project totals
 - active sprint metadata
-- hourly buckets for `24h`
-- daily buckets for `7d`
+- the original query (`window`, optional `from`, optional `to`)
+- normalized range metadata (`label`, `resolution`, `resolutionLabel`, `from`, `to`, `bucketCount`, `isCustom`)
+- adaptive hourly, daily, or weekly buckets depending on the selected range
 - task rankings
 - sprint rankings
 - provider split
@@ -126,13 +127,15 @@ It focuses on:
 - planning-lane usage
 - token anatomy
 - source mix
-- animated token/time trend lines for `24h` and `7d`
+- animated token/time trend lines for preset and custom windows
 - alternate composition and reliability views with donut charts
 - task, sprint, provider, and purpose leaderboards
 - scrollable lazy-loaded task and sprint ledgers with token-direction breakdowns
 - a full analysis-studio switcher so trend, composition, and reliability each get a distinct workspace instead of only changing a small subsection
-- an interactive trend graph with hover bucket inspection and a toggleable legend for tokens, active time, and invocation volume
+- an interactive trend graph with hover bucket inspection, a toggleable legend for tokens/active time/invocation volume, staged smooth line-draw animation, and mouse drag zoom selection
+- hourly windows keep one-hour hover buckets while rendering visible axis labels every three hours
 - redesigned task and sprint ledgers with search, recency, richer token breakdowns, and client-side sorting by date and usage dimensions
+- animated donut charts now expose slice-level hover focus with center-detail readouts instead of only static composition rings
 
 This page is intentionally separate from the live execution view so the live dashboard can stay optimized for orchestration while the Stats page handles historical analysis.
 

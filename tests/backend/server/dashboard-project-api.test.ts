@@ -791,6 +791,30 @@ describe("dashboard project management API", () => {
       },
     });
 
+    const today = new Date().toISOString().slice(0, 10);
+    const customStatsSnapshot = await fetch(
+      `${baseUrl}/api/projects/${project.id}/stats?window=custom&from=${today}&to=${today}`,
+    ).then(async (response) => response.json()) as {
+      window: string;
+      query: { window: string; from?: string; to?: string };
+      range: { isCustom: boolean };
+      usage: { totalTokens: number };
+    };
+    expect(customStatsSnapshot).toMatchObject({
+      window: "custom",
+      query: {
+        window: "custom",
+        from: today,
+        to: today,
+      },
+      range: {
+        isCustom: true,
+      },
+      usage: {
+        totalTokens: 490,
+      },
+    });
+
     const startListenResponse = await fetch(`${baseUrl}/api/projects/${project.id}/conversations/threads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

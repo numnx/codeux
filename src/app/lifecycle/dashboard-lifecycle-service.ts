@@ -11,6 +11,7 @@ import type {
   ExternalSettingsHints,
   GitTrackingStatus,
   JulesActivity,
+  ProjectStatsQuery,
   ReadinessProbeStatus
 } from "../../contracts/app-types.js";
 import type { McpConnectionRecord } from "../../contracts/connection-chat-types.js";
@@ -297,14 +298,14 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     return snapshot;
   };
 
-  const getProjectStatsSnapshot = (projectId: string, window: "24h" | "7d" = "7d") => {
+  const getProjectStatsSnapshot = (projectId: string, query: ProjectStatsQuery = { window: "7d" }) => {
     const now = Date.now();
-    const cacheKey = `${projectId}:${window}`;
+    const cacheKey = `${projectId}:${JSON.stringify(query)}`;
     const cached = projectStatsSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.snapshot;
     }
-    const snapshot = deps.executionRepository.getProjectStatsSnapshot(projectId, window);
+    const snapshot = deps.executionRepository.getProjectStatsSnapshot(projectId, query);
     projectStatsSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + PROJECT_STATS_CACHE_TTL_MS,

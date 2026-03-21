@@ -25,8 +25,9 @@ Endpoints:
   - returns the selected project's execution snapshot
 - `GET /api/projects/:projectId/execution`
   - returns the execution snapshot for a specific project
-- `GET /api/projects/:projectId/stats?window=24h|7d`
+- `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
   - returns the project statistics snapshot used by the Stats page
+  - `custom` requires both `from` and `to`
 
 ## Snapshot Shape
 
@@ -34,6 +35,8 @@ The payload includes:
 
 - `projectId`
 - `projectName`
+- `query`
+- `range`
 - `updatedAt`
 - `sprintRuns`
 - `taskDispatches`
@@ -128,8 +131,8 @@ That makes multi-sprint and worker execution visible without reconstructing stat
 
 The v2 stats page reads the adjacent project statistics snapshot and renders:
 
-- hourly `24h` usage graphs
-- daily `7d` usage graphs
+- adaptive hourly, daily, or weekly usage graphs for `24h`, `7d`, `30d`, `all time`, and custom windows
+- drag-to-zoom analysis inside the active graph window
 - task and sprint usage leaderboards
 - provider and execution-purpose splits
 - telemetry confidence based on reported versus estimated token counts

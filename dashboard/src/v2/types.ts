@@ -26,6 +26,7 @@ import type {
   ExecutionUsageBucketSummary,
   ExecutionStatsEntitySummary,
   ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
   ProjectStatsWindow,
 } from "../../../src/contracts/app-types.js";
 import type {
@@ -113,6 +114,7 @@ export type {
   ExecutionUsageBucketSummary,
   ExecutionStatsEntitySummary,
   ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
   ProjectStatsWindow,
   UpdateConversationThreadInput,
   TaskExecutorType,

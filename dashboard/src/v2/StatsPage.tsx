@@ -25,6 +25,7 @@ import type {
   ExecutionUsageBucketSummary,
   ExecutionUsageTotals,
   ProjectExecutionStatsSnapshot,
+  ProjectStatsQuery,
   ProjectStatsWindow,
 } from "./types.js";
 
@@ -51,6 +52,19 @@ interface ChartSeriesDefinition {
   accessor: (bucket: ExecutionUsageBucketSummary) => number;
   formatter: (value: number) => string;
   signalLabel: string;
+}
+
+interface ChartZoomRange {
+  start: number;
+  end: number;
+}
+
+interface DonutSliceGeometry extends SegmentDefinition {
+  path: string;
+  startAngle: number;
+  endAngle: number;
+  midAngle: number;
+  share: number;
 }
 
 const EMPTY_USAGE: ExecutionUsageTotals = {
@@ -160,6 +174,22 @@ function formatDay(value: string): string {
   return DAY_FORMATTER.format(date);
 }
 
+function formatHourTick(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return `${date.getHours()}:00`;
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return `${date.toLocaleString(undefined, { month: "short" })} ${date.getDate()}`;
+}
+
 function toTimestamp(value: string | null): number {
   if (!value) {
     return 0;
@@ -177,6 +207,25 @@ function buildPath(points: ChartPoint[]): string {
   )).join(" ");
 }
 
+function buildSmoothPath(points: ChartPoint[]): string {
+  if (points.length === 0) {
+    return "";
+  }
+  if (points.length === 1) {
+    const point = points[0]!;
+    return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+  }
+
+  return points.map((point, index) => {
+    if (index === 0) {
+      return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+    }
+    const previous = points[index - 1]!;
+    const dx = point.x - previous.x;
+    return `C ${(previous.x + dx * 0.35).toFixed(2)} ${previous.y.toFixed(2)} ${(point.x - dx * 0.35).toFixed(2)} ${point.y.toFixed(2)} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+  }).join(" ");
+}
+
 function buildAreaPath(points: ChartPoint[], height: number, padding: number): string {
   if (points.length === 0) {
     return "";
@@ -184,6 +233,15 @@ function buildAreaPath(points: ChartPoint[], height: number, padding: number): s
   const start = points[0]!;
   const end = points[points.length - 1]!;
   return `${buildPath(points)} L ${end.x.toFixed(2)} ${(height - padding).toFixed(2)} L ${start.x.toFixed(2)} ${(height - padding).toFixed(2)} Z`;
+}
+
+function buildSmoothAreaPath(points: ChartPoint[], height: number, padding: number): string {
+  if (points.length === 0) {
+    return "";
+  }
+  const start = points[0]!;
+  const end = points[points.length - 1]!;
+  return `${buildSmoothPath(points)} L ${end.x.toFixed(2)} ${(height - padding).toFixed(2)} L ${start.x.toFixed(2)} ${(height - padding).toFixed(2)} Z`;
 }
 
 function buildPoints(values: number[], width: number, height: number, padding: number): ChartPoint[] {
@@ -209,20 +267,65 @@ function createSeries(
   return values.some((value) => value > 0) ? values : new Array(Math.max(buckets.length, 7)).fill(0);
 }
 
-function buildConicGradient(segments: SegmentDefinition[]): string {
+function polarToCartesian(cx: number, cy: number, radius: number, angle: number): ChartPoint {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+}
+
+function buildDonutArcPath(
+  cx: number,
+  cy: number,
+  outerRadius: number,
+  innerRadius: number,
+  startAngle: number,
+  endAngle: number,
+): string {
+  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${outerStart.x.toFixed(2)} ${outerStart.y.toFixed(2)}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${outerEnd.x.toFixed(2)} ${outerEnd.y.toFixed(2)}`,
+    `L ${innerEnd.x.toFixed(2)} ${innerEnd.y.toFixed(2)}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${innerStart.x.toFixed(2)} ${innerStart.y.toFixed(2)}`,
+    "Z",
+  ].join(" ");
+}
+
+function buildDonutSlices(segments: SegmentDefinition[]): DonutSliceGeometry[] {
   const total = segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
   if (total <= 0) {
-    return "conic-gradient(rgba(148,163,184,0.24) 0deg 360deg)";
+    return [];
   }
-  let cursor = 0;
-  const parts = segments
+
+  const outerRadius = 104;
+  const innerRadius = 58;
+  const cx = 120;
+  const cy = 120;
+  let cursor = -90;
+
+  return segments
     .filter((segment) => segment.value > 0)
     .map((segment) => {
-      const start = cursor;
-      cursor += (segment.value / total) * 360;
-      return `${segment.color} ${start.toFixed(2)}deg ${cursor.toFixed(2)}deg`;
+      const sweep = (segment.value / total) * 360;
+      const startAngle = cursor;
+      const endAngle = cursor + sweep;
+      cursor = endAngle;
+      return {
+        ...segment,
+        share: (segment.value / total) * 100,
+        startAngle,
+        endAngle,
+        midAngle: startAngle + sweep / 2,
+        path: buildDonutArcPath(cx, cy, outerRadius, innerRadius, startAngle, endAngle),
+      };
     });
-  return `conic-gradient(${parts.join(", ")})`;
 }
 
 function sumUsage(items: ExecutionStatsEntitySummary[]): ExecutionUsageTotals {
@@ -280,12 +383,32 @@ function groupSegments(
   return segments.filter((segment) => segment.value > 0);
 }
 
-function getWindowLabel(window: ProjectStatsWindow): string {
-  return window === "24h" ? "Last 24 hours" : "Last 7 days";
+function getAxisLabelStep(stats: ProjectExecutionStatsSnapshot["range"]): number {
+  if (stats.resolution === "hour") {
+    return stats.bucketCount > 18 ? 3 : 1;
+  }
+  if (stats.resolution === "week") {
+    return stats.bucketCount > 24 ? 4 : 2;
+  }
+  return stats.bucketCount > 20 ? 5 : 1;
 }
 
-function getWindowResolutionLabel(window: ProjectStatsWindow): string {
-  return window === "24h" ? "Hourly telemetry buckets" : "Daily telemetry buckets";
+function formatAxisLabel(bucket: ExecutionUsageBucketSummary, range: ProjectExecutionStatsSnapshot["range"]): string {
+  if (range.resolution === "hour") {
+    return formatHourTick(bucket.bucketStart);
+  }
+  if (range.resolution === "week") {
+    return bucket.label;
+  }
+  return formatShortDate(bucket.bucketStart);
+}
+
+function toDateInputValue(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toISOString().slice(0, 10);
 }
 
 function getLedgerSortValue(item: ExecutionStatsEntitySummary, key: LedgerSortKey): number | string {
@@ -307,24 +430,71 @@ function getLedgerSortValue(item: ExecutionStatsEntitySummary, key: LedgerSortKe
 }
 
 const RangeToggle: FunctionComponent<{
-  window: ProjectStatsWindow;
-  onChange: (value: ProjectStatsWindow) => void;
-}> = ({ window, onChange }) => (
-  <div className={`inline-flex p-1 ${CHIP_CLASS}`}>
-    {(["24h", "7d"] as const).map((value) => (
+  activeWindow: ProjectStatsWindow;
+  customFrom: string;
+  customTo: string;
+  onSelectPreset: (value: Exclude<ProjectStatsWindow, "custom">) => void;
+  onCustomFromChange: (value: string) => void;
+  onCustomToChange: (value: string) => void;
+  onApplyCustom: () => void;
+}> = ({
+  activeWindow,
+  customFrom,
+  customTo,
+  onSelectPreset,
+  onCustomFromChange,
+  onCustomToChange,
+  onApplyCustom,
+}) => (
+  <div className="flex flex-col gap-4">
+    <div className={`inline-flex flex-wrap p-1 ${CHIP_CLASS}`}>
+      {(["24h", "7d", "30d", "all"] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onSelectPreset(value)}
+          className={`rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] transition-all ${
+            activeWindow === value
+              ? "bg-void-900 text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] dark:bg-white dark:text-void-900"
+              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          }`}
+        >
+          {value === "all" ? "All time" : value}
+        </button>
+      ))}
       <button
-        key={value}
         type="button"
-        onClick={() => onChange(value)}
+        onClick={onApplyCustom}
         className={`rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] transition-all ${
-          window === value
+          activeWindow === "custom"
             ? "bg-void-900 text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] dark:bg-white dark:text-void-900"
             : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         }`}
       >
-        {value}
+        Custom
       </button>
-    ))}
+    </div>
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <input
+        type="date"
+        value={customFrom}
+        onInput={(event) => onCustomFromChange((event.currentTarget as HTMLInputElement).value)}
+        className={INPUT_CLASS}
+      />
+      <input
+        type="date"
+        value={customTo}
+        onInput={(event) => onCustomToChange((event.currentTarget as HTMLInputElement).value)}
+        className={INPUT_CLASS}
+      />
+      <button
+        type="button"
+        onClick={onApplyCustom}
+        className="inline-flex h-11 items-center justify-center rounded-2xl bg-white/78 px-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition-transform hover:-translate-y-0.5 dark:bg-white dark:text-void-900"
+      >
+        Apply
+      </button>
+    </div>
   </div>
 );
 
@@ -429,49 +599,65 @@ const SeriesLegendButton: FunctionComponent<{
 );
 
 const InteractiveUsageChart: FunctionComponent<{
-  buckets: ExecutionUsageBucketSummary[];
-  window: ProjectStatsWindow;
-}> = ({ buckets, window }) => {
+  stats: ProjectExecutionStatsSnapshot;
+}> = ({ stats }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [zoomRange, setZoomRange] = useState<ChartZoomRange | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const [dragCurrentIndex, setDragCurrentIndex] = useState<number | null>(null);
   const [enabledSeries, setEnabledSeries] = useState<Record<ChartSeriesId, boolean>>({
     tokens: true,
     active: true,
     invocations: true,
   });
+  const buckets = stats.buckets;
 
   const width = 900;
   const height = 340;
   const padding = 34;
+  const viewStart = zoomRange?.start ?? 0;
+  const viewEnd = zoomRange?.end ?? Math.max(0, buckets.length - 1);
+  const visibleBuckets = buckets.slice(viewStart, viewEnd + 1);
 
   const chartData = useMemo(() => {
     return CHART_SERIES.map((series) => {
-      const values = buckets.map(series.accessor);
+      const values = visibleBuckets.map(series.accessor);
       const points = buildPoints(values.length > 0 ? values : [0], width, height, padding);
       return {
         ...series,
         values,
         points,
-        path: buildPath(points),
-        areaPath: buildAreaPath(points, height, padding),
+        path: buildSmoothPath(points),
+        areaPath: buildSmoothAreaPath(points, height, padding),
         max: Math.max(...(values.length > 0 ? values : [0]), 1),
       };
     });
-  }, [buckets]);
+  }, [visibleBuckets]);
 
   const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
   const activeSeriesCount = visibleSeries.length;
-  const activeIndex = hoveredIndex ?? (buckets.length > 0 ? buckets.length - 1 : 0);
-  const activeBucket = buckets[activeIndex] ?? null;
+  const activeIndex = hoveredIndex ?? (visibleBuckets.length > 0 ? visibleBuckets.length - 1 : 0);
+  const activeBucket = visibleBuckets[activeIndex] ?? null;
   const xPositions = chartData[0]?.points.map((point) => point.x) ?? [];
   const tooltipLeft = xPositions[activeIndex]
     ? ((xPositions[activeIndex]! - padding) / Math.max(1, width - padding * 2)) * 100
     : 50;
+  const selectionBounds = dragStartIndex !== null && dragCurrentIndex !== null
+    ? {
+      start: Math.min(dragStartIndex, dragCurrentIndex),
+      end: Math.max(dragStartIndex, dragCurrentIndex),
+    }
+    : null;
+  const zoomLabel = zoomRange
+    ? `${formatDateTime(buckets[zoomRange.start]?.bucketStart || null)} to ${formatDateTime(buckets[zoomRange.end]?.bucketEnd || null)}`
+    : stats.range.label;
+  const axisLabelStep = getAxisLabelStep(stats.range);
 
-  const peakTokens = Math.max(0, ...buckets.map((bucket) => bucket.usage.totalTokens));
-  const peakTime = Math.max(0, ...buckets.map((bucket) => bucket.usage.activeTimeMs));
-  const peakInvocations = Math.max(0, ...buckets.map((bucket) => bucket.usage.invocationCount));
-  const averageTokens = buckets.length > 0 ? Math.round(sumUsage(buckets.map((bucket) => ({
+  const peakTokens = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.totalTokens));
+  const peakTime = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.activeTimeMs));
+  const peakInvocations = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.invocationCount));
+  const averageTokens = visibleBuckets.length > 0 ? Math.round(sumUsage(visibleBuckets.map((bucket) => ({
     id: bucket.bucketStart,
     label: bucket.label,
     secondaryLabel: null,
@@ -480,7 +666,32 @@ const InteractiveUsageChart: FunctionComponent<{
     provider: null,
     usage: bucket.usage,
     lastActivityAt: bucket.bucketEnd,
-  }))).totalTokens / buckets.length) : 0;
+  }))).totalTokens / visibleBuckets.length) : 0;
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (dragStartIndex === null || dragCurrentIndex === null) {
+        return;
+      }
+      const start = Math.min(dragStartIndex, dragCurrentIndex);
+      const end = Math.max(dragStartIndex, dragCurrentIndex);
+      if (end - start >= 1) {
+        setZoomRange({ start, end });
+      }
+      setDragStartIndex(null);
+      setDragCurrentIndex(null);
+    };
+
+    globalThis.window.addEventListener("mouseup", handleMouseUp);
+    return () => globalThis.window.removeEventListener("mouseup", handleMouseUp);
+  }, [dragCurrentIndex, dragStartIndex]);
+
+  useEffect(() => {
+    setHoveredIndex(null);
+    setZoomRange(null);
+    setDragStartIndex(null);
+    setDragCurrentIndex(null);
+  }, [stats.range.from, stats.range.to, stats.range.resolution]);
 
   useLayoutEffect(() => {
     if (!panelRef.current) {
@@ -488,18 +699,24 @@ const InteractiveUsageChart: FunctionComponent<{
     }
 
     const paths = Array.from(panelRef.current.querySelectorAll<SVGPathElement>("[data-chart-path]"));
+    const areas = Array.from(panelRef.current.querySelectorAll<SVGPathElement>("[data-chart-area]"));
+    const points = Array.from(panelRef.current.querySelectorAll<SVGCircleElement>("[data-chart-point]"));
     const cards = Array.from(panelRef.current.querySelectorAll<HTMLElement>("[data-chart-card]"));
 
     const timeline = gsap.timeline();
+    gsap.set(areas, { opacity: 0 });
+    gsap.set(points, { opacity: 0, scale: 0.35, transformOrigin: "center center" });
     paths.forEach((path) => {
       const length = path.getTotalLength();
-      gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
-      timeline.to(path, { strokeDashoffset: 0, duration: 0.9, ease: "power3.out" }, 0);
+      gsap.set(path, { strokeDasharray: `${length} ${length}`, strokeDashoffset: length });
+      timeline.to(path, { strokeDashoffset: 0, duration: 1.05, ease: "power3.out" }, 0);
     });
+    timeline.to(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3"), duration: 0.7, stagger: 0.08, ease: "power2.out" }, 0.18);
+    timeline.to(points, { opacity: 1, scale: 1, duration: 0.38, stagger: 0.012, ease: "back.out(1.8)" }, 0.3);
     timeline.fromTo(cards, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.05, ease: "power3.out" }, 0.18);
 
     return () => timeline.kill();
-  }, [window, enabledSeries.tokens, enabledSeries.active, enabledSeries.invocations, buckets.length]);
+  }, [enabledSeries.tokens, enabledSeries.active, enabledSeries.invocations, visibleBuckets.length, stats.range.from, stats.range.to]);
 
   return (
     <div ref={panelRef} className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
@@ -512,17 +729,17 @@ const InteractiveUsageChart: FunctionComponent<{
               Usage Graph
             </div>
             <div className="mt-4 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-              {getWindowLabel(window)}
+              {zoomRange ? "Zoomed telemetry window" : stats.range.label}
             </div>
             <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-              Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Hover any bucket for exact values and use the legend to focus the graph.
+              Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use the legend to focus the graph.
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 xl:w-[27rem]">
             <div data-chart-card className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Tokens</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(peakTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in {window}</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in view</div>
             </div>
             <div data-chart-card className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Time</div>
@@ -532,7 +749,7 @@ const InteractiveUsageChart: FunctionComponent<{
             <div data-chart-card className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Average Tokens</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(averageTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{getWindowResolutionLabel(window)}</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stats.range.resolutionLabel}</div>
             </div>
             <div data-chart-card className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Invocations</div>
@@ -549,6 +766,18 @@ const InteractiveUsageChart: FunctionComponent<{
               <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
                 Hover buckets for exact values
               </div>
+              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                {zoomLabel}
+              </div>
+              {zoomRange ? (
+                <button
+                  type="button"
+                  onClick={() => setZoomRange(null)}
+                  className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white ${CHIP_CLASS}`}
+                >
+                  Reset zoom
+                </button>
+              ) : null}
             </div>
             <div className="relative">
               {activeBucket ? (
@@ -591,9 +820,31 @@ const InteractiveUsageChart: FunctionComponent<{
                     strokeOpacity="0.08"
                   />
                 ))}
+                {selectionBounds && xPositions.length > 0 ? (
+                  <rect
+                    x={Math.max(padding, xPositions[Math.max(0, selectionBounds.start - viewStart)] ?? padding)}
+                    y={padding}
+                    width={Math.max(
+                      12,
+                      (xPositions[Math.max(0, selectionBounds.end - viewStart)] ?? width - padding)
+                      - (xPositions[Math.max(0, selectionBounds.start - viewStart)] ?? padding),
+                    )}
+                    height={height - padding * 2}
+                    rx="18"
+                    fill="rgba(0,224,160,0.08)"
+                    stroke="rgba(0,224,160,0.4)"
+                    strokeDasharray="8 8"
+                  />
+                ) : null}
                 {visibleSeries.map((series) => (
                   <g key={series.id}>
-                    <path d={series.areaPath} fill={`url(#stats-area-${series.id})`} opacity={series.id === "tokens" ? 1 : 0.45} />
+                    <path
+                      data-chart-area
+                      data-area-opacity={series.id === "tokens" ? "1" : "0.45"}
+                      d={series.areaPath}
+                      fill={`url(#stats-area-${series.id})`}
+                      opacity={series.id === "tokens" ? 1 : 0.45}
+                    />
                     <path
                       data-chart-path
                       d={series.path}
@@ -620,6 +871,7 @@ const InteractiveUsageChart: FunctionComponent<{
                 {visibleSeries.map((series) => (
                   series.points.map((point, index) => (
                     <circle
+                      data-chart-point
                       key={`${series.id}-${index}`}
                       cx={point.x}
                       cy={point.y}
@@ -634,6 +886,7 @@ const InteractiveUsageChart: FunctionComponent<{
                   const startX = index === 0 ? padding : (xPositions[index - 1]! + x) / 2;
                   const endX = index === xPositions.length - 1 ? width - padding : (x + xPositions[index + 1]!) / 2;
                   const rectWidth = Math.max(8, endX - startX);
+                  const absoluteIndex = viewStart + index;
                   return (
                     <rect
                       key={`hover-${index}`}
@@ -642,21 +895,44 @@ const InteractiveUsageChart: FunctionComponent<{
                       width={rectWidth}
                       height={height - padding * 2}
                       fill="transparent"
+                      onMouseDown={() => {
+                        setDragStartIndex(absoluteIndex);
+                        setDragCurrentIndex(absoluteIndex);
+                      }}
                       onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseMove={() => {
+                        if (dragStartIndex !== null) {
+                          setDragCurrentIndex(absoluteIndex);
+                        }
+                      }}
                       onMouseLeave={() => setHoveredIndex(null)}
+                      onMouseUp={() => {
+                        if (dragStartIndex === null) {
+                          return;
+                        }
+                        const start = Math.min(dragStartIndex, absoluteIndex);
+                        const end = Math.max(dragStartIndex, absoluteIndex);
+                        if (end - start >= 1) {
+                          setZoomRange({ start, end });
+                        }
+                        setDragStartIndex(null);
+                        setDragCurrentIndex(null);
+                      }}
                     />
                   );
                 })}
-                {buckets.map((bucket, index) => (
-                  <text
-                    key={bucket.bucketStart}
-                    x={xPositions[index] ?? padding}
-                    y={height + 24}
-                    textAnchor="middle"
-                    className="fill-slate-400 text-[9px] font-bold uppercase tracking-[0.18em]"
-                  >
-                    {window === "24h" ? bucket.label : formatDay(bucket.bucketStart)}
-                  </text>
+                {visibleBuckets.map((bucket, index) => (
+                  (index % axisLabelStep === 0 || index === visibleBuckets.length - 1) ? (
+                    <text
+                      key={bucket.bucketStart}
+                      x={xPositions[index] ?? padding}
+                      y={height + 24}
+                      textAnchor="middle"
+                      className="fill-slate-400 text-[9px] font-bold uppercase tracking-[0.18em]"
+                    >
+                      {formatAxisLabel(bucket, stats.range)}
+                    </text>
+                  ) : null
                 ))}
               </svg>
             </div>
@@ -688,6 +964,11 @@ const InteractiveUsageChart: FunctionComponent<{
               </div>
               <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 {activeBucket ? `${formatDateTime(activeBucket.bucketStart)} to ${formatDateTime(activeBucket.bucketEnd)}` : "No bucket data yet."}
+              </div>
+              <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/70 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.05] dark:bg-void-900/40 dark:text-slate-300">
+                {zoomRange
+                  ? `${visibleBuckets.length} buckets in zoom`
+                  : `${stats.range.bucketCount} buckets in ${stats.range.label.toLowerCase()}`}
               </div>
               {activeBucket ? (
                 <div className="mt-5 space-y-3">
@@ -722,9 +1003,10 @@ const DonutCard: FunctionComponent<{
   segments: SegmentDefinition[];
 }> = ({ title, eyebrow, description, centerValue, centerLabel, segments }) => {
   const cardRef = useRef<HTMLDivElement>(null);
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const gradient = useMemo(() => buildConicGradient(segments), [segments]);
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  const wheelRef = useRef<SVGSVGElement>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const slices = useMemo(() => buildDonutSlices(segments), [segments]);
+  const activeSegment = hoveredIndex === null ? null : slices[hoveredIndex] || null;
 
   useLayoutEffect(() => {
     if (!cardRef.current || !wheelRef.current) {
@@ -732,12 +1014,14 @@ const DonutCard: FunctionComponent<{
     }
 
     const items = Array.from(cardRef.current.querySelectorAll("[data-donut-item]"));
+    const sliceNodes = Array.from(cardRef.current.querySelectorAll("[data-donut-slice]"));
     const timeline = gsap.timeline();
     timeline
       .fromTo(wheelRef.current, { opacity: 0, scale: 0.84, rotate: -14 }, { opacity: 1, scale: 1, rotate: 0, duration: 0.85, ease: "power4.out" })
-      .fromTo(items, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.05, ease: "power3.out" }, "-=0.44");
+      .fromTo(sliceNodes, { opacity: 0, scale: 0.86, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, duration: 0.42, stagger: 0.05, ease: "power3.out" }, "-=0.52")
+      .fromTo(items, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.05, ease: "power3.out" }, "-=0.3");
     return () => timeline.kill();
-  }, [gradient, segments.length]);
+  }, [segments.length]);
 
   return (
     <div ref={cardRef} className={`${PANEL_CLASS} h-full p-6`}>
@@ -750,16 +1034,56 @@ const DonutCard: FunctionComponent<{
         </div>
         <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
           <div className="flex items-center justify-center">
-            <div
-              ref={wheelRef}
-              className="relative h-56 w-56 rounded-full border border-white/30 shadow-[inset_0_0_60px_rgba(255,255,255,0.12),0_24px_60px_rgba(15,23,42,0.12)] dark:border-white/[0.16] dark:shadow-[inset_0_0_60px_rgba(255,255,255,0.08),0_28px_60px_rgba(0,0,0,0.28)]"
-              style={{ backgroundImage: gradient }}
-            >
-              <div className="absolute inset-[18%] rounded-full border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(247,244,237,0.82))] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/[0.05] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,8,23,0.86))]" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{centerValue}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{centerLabel}</div>
-                <div className="mt-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">{segments.length} lanes</div>
+            <div className="relative h-60 w-60">
+              <svg
+                ref={wheelRef}
+                viewBox="0 0 240 240"
+                className="h-full w-full overflow-visible"
+              >
+                <defs>
+                  <filter id="stats-donut-glow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="8" result="blur" />
+                    <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.28 0" />
+                    <feBlend in="SourceGraphic" />
+                  </filter>
+                </defs>
+                <circle cx="120" cy="120" r="103" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" />
+                {slices.map((slice, index) => {
+                  const radians = ((slice.midAngle - 90) * Math.PI) / 180;
+                  const offsetX = hoveredIndex === index ? Math.cos(radians) * 7 : 0;
+                  const offsetY = hoveredIndex === index ? Math.sin(radians) * 7 : 0;
+                  return (
+                    <path
+                      data-donut-slice
+                      key={slice.label}
+                      d={slice.path}
+                      fill={slice.color}
+                      stroke="rgba(255,255,255,0.12)"
+                      strokeWidth={hoveredIndex === index ? 3 : 1.2}
+                      filter={hoveredIndex === index ? "url(#stats-donut-glow)" : undefined}
+                      style={{
+                        transform: `translate(${offsetX}px, ${offsetY}px)`,
+                        transformOrigin: "120px 120px",
+                        opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.58,
+                        transition: "transform 220ms ease, opacity 220ms ease, stroke-width 220ms ease",
+                      }}
+                      onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseLeave={() => setHoveredIndex(null)}
+                    />
+                  );
+                })}
+              </svg>
+              <div className="pointer-events-none absolute inset-[24%] rounded-full border border-black/[0.05] bg-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/[0.05] dark:bg-void-900/88 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_28px_rgba(0,0,0,0.28)]" />
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                  {activeSegment ? formatTokens(activeSegment.value) : centerValue}
+                </div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  {activeSegment ? activeSegment.label : centerLabel}
+                </div>
+                <div className="mt-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                  {activeSegment ? `${formatPercent(activeSegment.share)} of visible volume` : `${segments.length} lanes`}
+                </div>
               </div>
             </div>
           </div>
@@ -768,22 +1092,39 @@ const DonutCard: FunctionComponent<{
               <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-8 text-center text-sm text-slate-400 dark:border-white/[0.08]">
                 No telemetry landed in this composition yet.
               </div>
-            ) : segments.map((segment) => {
-              const share = total > 0 ? (segment.value / total) * 100 : 0;
+            ) : slices.map((segment, index) => {
               return (
-                <div key={segment.label} data-donut-item className={SUBPANEL_CLASS}>
+                <div
+                  key={segment.label}
+                  data-donut-item
+                  className={`${SUBPANEL_CLASS} transition-transform duration-300 ${hoveredIndex === index ? "translate-x-1 border-white/[0.12] dark:border-white/[0.12]" : ""}`}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
                         <span className={`truncate text-sm font-semibold ${segment.textClassName}`}>{segment.label}</span>
                       </div>
-                      <div className="mt-1 text-[11px] font-mono text-slate-400 dark:text-slate-500">{formatPercent(share)} of visible volume</div>
+                      <div className="mt-1 text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                        {formatPercent(segment.share)} of visible volume
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-black text-slate-900 dark:text-white">{formatTokens(segment.value)}</div>
                       <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">tokens</div>
                     </div>
+                  </div>
+                  <div className="mt-3 h-1.5 rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
+                    <div
+                      className="h-1.5 rounded-full"
+                      style={{
+                        width: `${Math.max(6, segment.share)}%`,
+                        backgroundColor: segment.color,
+                        opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.72,
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -850,9 +1191,8 @@ const StudioHeader: FunctionComponent<{
 
 const TrendStudio: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
-  window: ProjectStatsWindow;
   planningUsage: ExecutionStatsEntitySummary | null;
-}> = ({ stats, window, planningUsage }) => (
+}> = ({ stats, planningUsage }) => (
   <section className="space-y-6">
     <div className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
       <div className="flex flex-col gap-6">
@@ -862,7 +1202,7 @@ const TrendStudio: FunctionComponent<{
           title="Trend analysis"
           description="A single interactive telemetry surface for flow, peaks, and pacing across the selected window."
         />
-        <InteractiveUsageChart buckets={stats.buckets} window={window} />
+        <InteractiveUsageChart stats={stats} />
       </div>
     </div>
 
@@ -891,8 +1231,8 @@ const TrendStudio: FunctionComponent<{
           </div>
           <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             {stats.activeSprint
-              ? `Sprint ${stats.activeSprint.sprintNumber ?? "?"} is the live telemetry anchor for this project.`
-              : "No live sprint is active, so the dashboard is reading the selected historical window only."}
+                ? `Sprint ${stats.activeSprint.sprintNumber ?? "?"} is the live telemetry anchor for this project.`
+                : "No live sprint is active, so the dashboard is reading the selected historical window only."}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-4">
             <div className={SUBPANEL_CLASS}>
@@ -903,7 +1243,7 @@ const TrendStudio: FunctionComponent<{
             <div className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Providers</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{stats.providers.length}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active in {stats.window}</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active in {stats.range.label.toLowerCase()}</div>
             </div>
           </div>
         </div>
@@ -923,7 +1263,7 @@ const TrendStudio: FunctionComponent<{
             </div>
             <div className={SUBPANEL_CLASS}>
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Window</div>
-              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{getWindowLabel(stats.window)}</div>
+              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{stats.range.label}</div>
             </div>
           </div>
         </div>
@@ -1282,6 +1622,20 @@ const TelemetryLedger: FunctionComponent<{
                         </div>
 
                         <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className={SUBPANEL_CLASS}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
+                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
+                            </div>
+                            <div className={SUBPANEL_CLASS}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
+                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
+                            </div>
+                            <div className={SUBPANEL_CLASS}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
+                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{item.usage.invocationCount.toLocaleString()}</div>
+                            </div>
+                          </div>
                           <div>
                             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                               <span>Token share</span>
@@ -1399,9 +1753,16 @@ function createStatsSegments(stats: ProjectExecutionStatsSnapshot | null, usage:
 export const StatsPage: FunctionComponent = () => {
   const rootRef = useRef<HTMLDivElement>(null);
   const { selectedProject } = useProjectData();
-  const [window, setWindow] = useState<ProjectStatsWindow>("7d");
+  const today = useMemo(() => new Date(), []);
+  const [activeQuery, setActiveQuery] = useState<ProjectStatsQuery>({ window: "7d" });
+  const [customFrom, setCustomFrom] = useState(() => {
+    const from = new Date();
+    from.setDate(from.getDate() - 6);
+    return toDateInputValue(from.toISOString());
+  });
+  const [customTo, setCustomTo] = useState(() => toDateInputValue(today.toISOString()));
   const [visualMode, setVisualMode] = useState<StatsVisualMode>("trend");
-  const { stats, loading, error } = useProjectStats(selectedProject?.id || null, window);
+  const { stats, loading, error } = useProjectStats(selectedProject?.id || null, activeQuery);
 
   useLayoutEffect(() => {
     if (!rootRef.current) {
@@ -1419,6 +1780,7 @@ export const StatsPage: FunctionComponent = () => {
   const activeTimeSeries = useMemo(() => createSeries(stats?.buckets || [], (bucket) => bucket.usage.activeTimeMs / 1000), [stats?.buckets]);
   const wallTimeSeries = useMemo(() => createSeries(stats?.buckets || [], (bucket) => bucket.usage.wallTimeMs / 1000), [stats?.buckets]);
   const planningUsage = useMemo(() => stats?.purposes.find((purpose) => purpose.id === "planning") || null, [stats?.purposes]);
+  const activeWindow = activeQuery.window;
 
   const completionConfidence = useMemo(() => {
     if (!stats) {
@@ -1440,6 +1802,21 @@ export const StatsPage: FunctionComponent = () => {
     () => createStatsSegments(stats, usage),
     [stats, usage],
   );
+
+  const applyPresetWindow = (window: Exclude<ProjectStatsWindow, "custom">) => {
+    setActiveQuery({ window });
+  };
+
+  const applyCustomRange = () => {
+    if (!customFrom || !customTo) {
+      return;
+    }
+    setActiveQuery({
+      window: "custom",
+      from: customFrom,
+      to: customTo,
+    });
+  };
 
   return (
     <div ref={rootRef} className="mx-auto flex max-w-[2400px] flex-col gap-16 px-8 py-20 md:px-20">
@@ -1467,10 +1844,23 @@ export const StatsPage: FunctionComponent = () => {
               <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
                 Generated {stats ? formatDateTime(stats.generatedAt) : "--"}
               </div>
+              {stats ? (
+                <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                  {stats.range.resolutionLabel}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-col items-start gap-4 xl:items-end">
-            <RangeToggle window={window} onChange={setWindow} />
+            <RangeToggle
+              activeWindow={activeWindow}
+              customFrom={customFrom}
+              customTo={customTo}
+              onSelectPreset={applyPresetWindow}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+              onApplyCustom={applyCustomRange}
+            />
             <ViewToggle value={visualMode} onChange={setVisualMode} />
           </div>
         </div>
@@ -1541,7 +1931,7 @@ export const StatsPage: FunctionComponent = () => {
           </section>
 
           {visualMode === "trend" ? (
-            <TrendStudio stats={stats} window={window} planningUsage={planningUsage} />
+            <TrendStudio stats={stats} planningUsage={planningUsage} />
           ) : null}
 
           {visualMode === "composition" ? (

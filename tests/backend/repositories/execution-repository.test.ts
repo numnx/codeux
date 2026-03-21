@@ -909,4 +909,153 @@ describe("ExecutionRepository", () => {
     ]));
     expect(statsSnapshot.buckets).toHaveLength(24);
   });
+
+  it("supports 30d, all-time, and custom project stats windows", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Windowed Stats Project",
+      sourceType: "local",
+      sourceRef: "/workspace/windowed-stats-project",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Windowed Sprint",
+      number: 4,
+      status: "running",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Measure time windows",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "completed",
+    });
+
+    const now = Date.now();
+    const olderStartedAt = new Date(now - 20 * 24 * 60 * 60 * 1000).toISOString();
+    const olderFinishedAt = new Date(now - 20 * 24 * 60 * 60 * 1000 + 180_000).toISOString();
+    const recentStartedAt = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const recentFinishedAt = new Date(now - 2 * 24 * 60 * 60 * 1000 + 240_000).toISOString();
+
+    executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "codex",
+      state: "completed",
+      sessionId: "windowed-task-run-1",
+      startedAt: olderStartedAt,
+      finishedAt: olderFinishedAt,
+      durationMs: 180_000,
+    });
+    executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      provider: "claude-code",
+      state: "completed",
+      sessionId: "windowed-task-run-2",
+      startedAt: recentStartedAt,
+      finishedAt: recentFinishedAt,
+      durationMs: 240_000,
+    });
+
+    const olderInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      sessionId: "windowed-task-run-1",
+      provider: "codex",
+      purpose: "task_coding",
+      model: "gpt-5.3-codex",
+      startedAt: olderStartedAt,
+      promptChars: 180,
+    });
+    executionRepository.updateProviderInvocationUsage(olderInvocation.id, {
+      status: "completed",
+      finishedAt: olderFinishedAt,
+      durationMs: 180_000,
+      transcriptChars: 90,
+      inputTokens: 300,
+      cachedInputTokens: 20,
+      outputTokens: 110,
+      reasoningOutputTokens: 10,
+      totalTokens: 440,
+      usageSource: "reported",
+      rawUsageJson: { provider: "codex" },
+    });
+
+    const recentInvocation = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      dispatchId: dispatch.id,
+      sessionId: "windowed-task-run-2",
+      provider: "claude-code",
+      purpose: "merge_conflict",
+      model: "claude-sonnet-4-6",
+      startedAt: recentStartedAt,
+      promptChars: 210,
+    });
+    executionRepository.updateProviderInvocationUsage(recentInvocation.id, {
+      status: "completed",
+      finishedAt: recentFinishedAt,
+      durationMs: 240_000,
+      transcriptChars: 120,
+      inputTokens: 420,
+      cachedInputTokens: 0,
+      outputTokens: 140,
+      reasoningOutputTokens: 0,
+      totalTokens: 560,
+      usageSource: "estimated",
+      rawUsageJson: null,
+    });
+
+    const thirtyDaySnapshot = executionRepository.getProjectStatsSnapshot(project.id, "30d");
+    expect(thirtyDaySnapshot.window).toBe("30d");
+    expect(thirtyDaySnapshot.range.resolution).toBe("day");
+    expect(thirtyDaySnapshot.range.bucketCount).toBe(30);
+    expect(thirtyDaySnapshot.usage.totalTokens).toBe(1_000);
+
+    const allTimeSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "all");
+    expect(allTimeSnapshot.window).toBe("all");
+    expect(allTimeSnapshot.range.isCustom).toBe(false);
+    expect(allTimeSnapshot.usage.totalTokens).toBe(1_000);
+    expect(allTimeSnapshot.tasks[0]?.lastActivityAt).toBe(recentFinishedAt);
+
+    const customSnapshot = executionRepository.getProjectStatsSnapshot(project.id, {
+      window: "custom",
+      from: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      to: new Date(now).toISOString().slice(0, 10),
+    });
+    expect(customSnapshot.window).toBe("custom");
+    expect(customSnapshot.query).toMatchObject({
+      window: "custom",
+    });
+    expect(customSnapshot.range.isCustom).toBe(true);
+    expect(customSnapshot.usage.totalTokens).toBe(560);
+    expect(customSnapshot.providers).toEqual([
+      expect.objectContaining({
+        id: "claude-code",
+        usage: expect.objectContaining({ totalTokens: 560 }),
+      }),
+    ]);
+  });
 });

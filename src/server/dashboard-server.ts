@@ -11,6 +11,7 @@ import type {
     JulesActivity,
     OverviewTelemetrySnapshot,
     ProjectExecutionStatsSnapshot,
+    ProjectStatsQuery,
     ProjectStatsWindow,
     ReadinessProbeStatus,
   } from "../contracts/app-types.js";
@@ -62,7 +63,7 @@ export interface DashboardServerOptions {
   getStatus: () => unknown;
   getExecutionSnapshot: () => ExecutionDashboardSnapshot;
   getProjectExecutionSnapshot: (projectId: string) => ExecutionDashboardSnapshot;
-  getProjectStatsSnapshot: (projectId: string, window?: ProjectStatsWindow) => ProjectExecutionStatsSnapshot;
+  getProjectStatsSnapshot: (projectId: string, query?: ProjectStatsQuery) => ProjectExecutionStatsSnapshot;
   claimAttentionItem?: (
     projectId: string,
     attentionItemId: string,
@@ -271,8 +272,8 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 
   app.get("/api/projects/:projectId/stats", (req, res) => {
     try {
-      const window = req.query.window === "24h" ? "24h" : "7d";
-      res.json(options.getProjectStatsSnapshot(String(req.params.projectId || "").trim(), window));
+      const query = parseProjectStatsQuery(req.query);
+      res.json(options.getProjectStatsSnapshot(String(req.params.projectId || "").trim(), query));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to load project stats snapshot") });
     }
@@ -859,4 +860,30 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 function toErrorMessage(error: unknown, prefix: string): string {
   const message = error instanceof Error ? error.message : String(error);
   return `${prefix}: ${message}`;
+}
+
+function parseProjectStatsQuery(query: Record<string, unknown>): ProjectStatsQuery {
+  const requestedWindow = typeof query.window === "string" ? query.window.trim() : "";
+  const window: ProjectStatsWindow = (
+    requestedWindow === "24h"
+    || requestedWindow === "7d"
+    || requestedWindow === "30d"
+    || requestedWindow === "all"
+    || requestedWindow === "custom"
+  )
+    ? requestedWindow
+    : "7d";
+
+  const from = typeof query.from === "string" && query.from.trim().length > 0 ? query.from.trim() : undefined;
+  const to = typeof query.to === "string" && query.to.trim().length > 0 ? query.to.trim() : undefined;
+
+  if (window === "custom" && (!from || !to)) {
+    throw new Error("Custom stats windows require both from and to query parameters.");
+  }
+
+  return {
+    window,
+    from,
+    to,
+  };
 }

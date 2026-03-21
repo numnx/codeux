@@ -302,12 +302,32 @@ export interface ExecutionStatsEntitySummary {
   lastActivityAt: string | null;
 }
 
-export type ProjectStatsWindow = "24h" | "7d";
+export type ProjectStatsWindow = "24h" | "7d" | "30d" | "all" | "custom";
+export type ProjectStatsResolution = "hour" | "day" | "week";
+
+export interface ProjectStatsQuery {
+  window: ProjectStatsWindow;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface ProjectStatsRangeSummary {
+  window: ProjectStatsWindow;
+  label: string;
+  resolution: ProjectStatsResolution;
+  resolutionLabel: string;
+  from: string;
+  to: string;
+  bucketCount: number;
+  isCustom: boolean;
+}
 
 export interface ProjectExecutionStatsSnapshot {
   projectId: string;
   projectName: string;
   window: ProjectStatsWindow;
+  query: ProjectStatsQuery;
+  range: ProjectStatsRangeSummary;
   generatedAt: string;
   usage: ExecutionUsageTotals;
   activeSprint: {
