@@ -33,7 +33,10 @@ import {
   dashboardSettingsToProjectSettings,
   getFieldSource,
   getFieldSourceLabel,
-  AI_MODEL_CATALOG,
+  getProviderModelOptions,
+  PROVIDER_CARD_TOKENS,
+  providerSupportsModelSelection,
+  providerSupportsThinkingMode,
 } from "./lib/settings-view-models.js";
 
 type SettingsScope = "system" | "project";
@@ -143,20 +146,42 @@ const SelectInput: FunctionComponent<{
   options: Array<{ value: string; label: string }>;
   disabled?: boolean;
 }> = ({ value, onChange, options, disabled }) => (
-  <div className="relative">
+  <div className="relative w-full">
     <select
       value={value}
       onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}
       disabled={disabled}
-      className="min-w-[150px] cursor-pointer appearance-none rounded-xl border border-black/[0.06] bg-black/[0.04] px-3 py-2 pr-8 text-sm font-mono text-slate-700 transition-colors duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-200"
+      className="w-full min-w-[150px] cursor-pointer appearance-none rounded-xl border border-black/[0.07] bg-white/52 px-3 py-2 pr-10 text-sm font-mono text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-[border-color,background-color,color,box-shadow] duration-200 focus:border-signal-500/35 focus:bg-white/68 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.08] dark:bg-white/[0.045] dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.18)] dark:[color-scheme:dark] dark:focus:border-signal-400/35 dark:focus:bg-white/[0.07]"
     >
       {options.map((option) => (
-        <option key={option.value} value={option.value}>{option.label}</option>
+        <option
+          key={option.value}
+          value={option.value}
+          className="bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+        >
+          {option.label}
+        </option>
       ))}
     </select>
-    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" strokeWidth={2} />
+    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400/90" strokeWidth={2} />
   </div>
 );
+
+const ProviderLogo: FunctionComponent<{
+  providerId: keyof ProjectSettings["aiProvider"]["providers"];
+  disabled?: boolean;
+}> = ({ providerId, disabled = false }) => {
+  const token = PROVIDER_CARD_TOKENS[providerId];
+
+  return (
+    <div
+      className={`flex h-11 w-11 items-center justify-center rounded-[1rem] border border-black/[0.08] bg-[#F9F8F4] font-display text-sm font-black tracking-[0.16em] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${disabled ? "opacity-60" : ""}`}
+      aria-hidden
+    >
+      {token.logoLabel}
+    </div>
+  );
+};
 
 const TextInput: FunctionComponent<{
   value: string;
@@ -271,7 +296,7 @@ const SectionCard: FunctionComponent<{
       ) : null}
     </div>
 
-    <div className="relative z-10 px-7">
+    <div className="relative z-10 px-7 py-6">
       {children}
     </div>
   </div>
@@ -876,159 +901,58 @@ export const SettingsPage: FunctionComponent = () => {
       return null;
     }
 
+    const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
+    const virtualWorkerModeEnabled = editableSettings.workers.executionMode === "VIRTUAL";
+    const connectedState = systemSettings ? {
+      jules: Boolean(systemSettings.integrations.julesApiKey.trim()),
+      gemini: Boolean(systemSettings.integrations.geminiApiKey.trim() || editableSettings.cliWorkflow.containerMountGeminiAuth),
+      codex: Boolean(systemSettings.integrations.codexApiKey.trim() || editableSettings.cliWorkflow.containerMountCodexAuth),
+      "claude-code": Boolean(systemSettings.integrations.claudeCodeApiKey.trim() || editableSettings.cliWorkflow.containerMountClaudeCodeAuth),
+    } : null;
+
+    const getProviderAuthLabel = (
+      providerId: keyof ProjectSettings["aiProvider"]["providers"],
+    ): string | null => {
+      if (!systemSettings) {
+        return null;
+      }
+
+      if (providerId === "jules") {
+        return systemSettings.integrations.julesApiKey.trim() ? "API key" : null;
+      }
+
+      const apiKeyPresent = providerId === "gemini"
+        ? Boolean(systemSettings.integrations.geminiApiKey.trim())
+        : providerId === "codex"
+          ? Boolean(systemSettings.integrations.codexApiKey.trim())
+          : Boolean(systemSettings.integrations.claudeCodeApiKey.trim());
+
+      const localAuthEnabled = dockerExecutionEnabled && (
+        providerId === "gemini"
+          ? editableSettings.cliWorkflow.containerMountGeminiAuth
+          : providerId === "codex"
+            ? editableSettings.cliWorkflow.containerMountCodexAuth
+            : editableSettings.cliWorkflow.containerMountClaudeCodeAuth
+      );
+
+      if (localAuthEnabled && apiKeyPresent) {
+        return "Local auth + API key";
+      }
+      if (localAuthEnabled) {
+        return "Local auth";
+      }
+      if (apiKeyPresent) {
+        return "API key";
+      }
+      return null;
+    };
+
+    const visibleProviders = Object.entries(editableSettings.aiProvider.providers).filter(([providerId]) => (
+      connectedState ? connectedState[providerId as keyof typeof connectedState] : true
+    ));
+
     return (
       <div className="flex flex-col gap-5">
-        <SectionCard title="Provider Routing" watermark="MDL" badge={getBadge("aiProvider")}>
-          <Row label="Primary provider" description="Default provider when routing strategy is manual." badge={getFieldBadge("aiProvider.provider")}>
-            <SelectInput
-              value={editableSettings.aiProvider.provider}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                aiProvider: {
-                  ...current.aiProvider,
-                  provider: value as ProjectSettings["aiProvider"]["provider"],
-                },
-              }))}
-              options={[
-                { value: "jules", label: "Jules" },
-                { value: "gemini", label: "Gemini" },
-                { value: "codex", label: "Codex" },
-                { value: "claude-code", label: "Claude Code" },
-              ]}
-            />
-          </Row>
-          <Row label="Routing strategy" description="Manual pins one provider, weighted distributes tasks, orchestrator can decide at runtime." badge={getFieldBadge("aiProvider.strategy")} last>
-            <SelectInput
-              value={editableSettings.aiProvider.strategy}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                aiProvider: {
-                  ...current.aiProvider,
-                  strategy: value as ProjectSettings["aiProvider"]["strategy"],
-                },
-              }))}
-              options={[
-                { value: "MANUAL", label: "Manual" },
-                { value: "WEIGHTED", label: "Weighted" },
-                { value: "ORCHESTRATOR", label: "Orchestrator" },
-              ]}
-            />
-          </Row>
-        </SectionCard>
-
-        <SectionCard title="Provider Pool" watermark="POOL" badge={getBadge("aiProvider")}>
-          <div className="grid gap-4 xl:grid-cols-2">
-            {Object.entries(editableSettings.aiProvider.providers).map(([providerId, provider]) => (
-              <div
-                key={providerId}
-                className="rounded-[1.35rem] border border-black/[0.05] bg-black/[0.02] p-4 dark:border-white/[0.05] dark:bg-white/[0.02]"
-              >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        {providerLabels[providerId as keyof typeof providerLabels]}
-                      </div>
-                      {getFieldBadge(`aiProvider.providers.${providerId}.enabled`) ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
-                          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
-                            !
-                          </span>
-                          {getFieldBadge(`aiProvider.providers.${providerId}.enabled`)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-0.5 text-xs font-medium text-slate-400">
-                      Enabled state, pinned model, weighting, and thinking mode.
-                    </div>
-                  </div>
-                  <Toggle
-                    value={provider.enabled}
-                    onChange={() => updateEditableSettings((current) => updateProviderSettings(current, providerId as keyof ProjectSettings["aiProvider"]["providers"], {
-                      enabled: !provider.enabled,
-                    }))}
-                  />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      <span>Model</span>
-                      {getFieldBadge(`aiProvider.providers.${providerId}.model`) ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
-                          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
-                            !
-                          </span>
-                          {getFieldBadge(`aiProvider.providers.${providerId}.model`)}
-                        </span>
-                      ) : null}
-                    </div>
-                    {AI_MODEL_CATALOG[providerId] ? (
-                      <SelectInput
-                        value={provider.model}
-                        onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerId as keyof ProjectSettings["aiProvider"]["providers"], {
-                          model: value,
-                        }))}
-                        options={[
-                          ...AI_MODEL_CATALOG[providerId].map(m => ({ value: m, label: m })),
-                        ]}
-                      />
-                    ) : (
-                      <TextInput
-                        value={provider.model}
-                        onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerId as keyof ProjectSettings["aiProvider"]["providers"], {
-                          model: value,
-                        }))}
-                        mono
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      <span>Thinking mode</span>
-                      {getFieldBadge(`aiProvider.providers.${providerId}.thinkingMode`) ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
-                          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
-                            !
-                          </span>
-                          {getFieldBadge(`aiProvider.providers.${providerId}.thinkingMode`)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <SelectInput
-                      value={provider.thinkingMode}
-                      onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerId as keyof ProjectSettings["aiProvider"]["providers"], {
-                        thinkingMode: value as ThinkingMode,
-                      }))}
-                      options={thinkingModeOptions}
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      <span>Weight</span>
-                      {getFieldBadge(`aiProvider.providers.${providerId}.weight`) ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
-                          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
-                            !
-                          </span>
-                          {getFieldBadge(`aiProvider.providers.${providerId}.weight`)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <NumberInput
-                      value={provider.weight}
-                      onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerId as keyof ProjectSettings["aiProvider"]["providers"], {
-                        weight: value,
-                      }))}
-                      min={0}
-                      max={100}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
         <SectionCard title="Worker Runtime" watermark="WRK" badge={getBadge("workers")}>
           <Row label="Worker execution mode" description="Choose whether worker-owned dispatches and supervision run through connected MCP listeners or a short-lived internal virtual worker." badge={getFieldBadge("workers.executionMode")}>
             <SelectInput
@@ -1046,40 +970,44 @@ export const SettingsPage: FunctionComponent = () => {
               ]}
             />
           </Row>
-          <Row label="Virtual worker CLI" description="Preferred CLI provider for virtual workers. They start only when worker work exists, handle one cycle, then shut down. Jules is intentionally excluded." badge={getFieldBadge("workers.virtualWorkerProvider")}>
-            <SelectInput
-              value={editableSettings.workers.virtualWorkerProvider}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                workers: {
-                  ...current.workers,
-                  virtualWorkerProvider: value as ProjectSettings["workers"]["virtualWorkerProvider"],
-                  model: "default",
-                },
-              }))}
-              options={[
-                { value: "gemini", label: "Gemini" },
-                { value: "codex", label: "Codex" },
-                { value: "claude-code", label: "Claude Code" },
-              ]}
-            />
-          </Row>
-          <Row label="Worker model" description="Override the global model for virtual workers. If set to 'Default', the global model for the selected CLI provider is used." badge={getFieldBadge("workers.model")}>
-            <SelectInput
-              value={editableSettings.workers.model || "default"}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                workers: {
-                  ...current.workers,
-                  model: value,
-                },
-              }))}
-              options={[
-                { value: "default", label: `Default (${editableSettings.aiProvider.providers[editableSettings.workers.virtualWorkerProvider].model})` },
-                ...(AI_MODEL_CATALOG[editableSettings.workers.virtualWorkerProvider] || []).map(m => ({ value: m, label: m })),
-              ]}
-            />
-          </Row>
+          {virtualWorkerModeEnabled ? (
+            <>
+              <Row label="Virtual worker CLI" description="Preferred CLI provider for virtual workers. They start only when worker work exists, handle one cycle, then shut down. Jules is intentionally excluded." badge={getFieldBadge("workers.virtualWorkerProvider")}>
+                <SelectInput
+                  value={editableSettings.workers.virtualWorkerProvider}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    workers: {
+                      ...current.workers,
+                      virtualWorkerProvider: value as ProjectSettings["workers"]["virtualWorkerProvider"],
+                      model: "default",
+                    },
+                  }))}
+                  options={[
+                    { value: "gemini", label: "Gemini" },
+                    { value: "codex", label: "Codex" },
+                    { value: "claude-code", label: "Claude Code" },
+                  ]}
+                />
+              </Row>
+              <Row label="Worker model" description="Override the global model for virtual workers. If set to 'Default', the global model for the selected CLI provider is used." badge={getFieldBadge("workers.model")}>
+                <SelectInput
+                  value={editableSettings.workers.model || "default"}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    workers: {
+                      ...current.workers,
+                      model: value,
+                    },
+                  }))}
+                  options={[
+                    { value: "default", label: `Default (${editableSettings.aiProvider.providers[editableSettings.workers.virtualWorkerProvider].model})` },
+                    ...getProviderModelOptions(editableSettings.workers.virtualWorkerProvider),
+                  ]}
+                />
+              </Row>
+            </>
+          ) : null}
           <Row label="Max concurrency" description="Maximum number of parallel tasks a worker can handle simultaneously." badge={getFieldBadge("workers.maxConcurrency")}>
             <NumberInput
               value={editableSettings.workers.maxConcurrency}
@@ -1109,6 +1037,200 @@ export const SettingsPage: FunctionComponent = () => {
             />
           </Row>
         </SectionCard>
+
+        <SectionCard title="Provider Routing" watermark="MDL" badge={getBadge("aiProvider")}>
+          <Row label="Routing strategy" description="Manual pins one provider, weighted distributes tasks, orchestrator can decide at runtime." badge={getFieldBadge("aiProvider.strategy")} last={editableSettings.aiProvider.strategy !== "MANUAL"}>
+            <SelectInput
+              value={editableSettings.aiProvider.strategy}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                aiProvider: {
+                  ...current.aiProvider,
+                  strategy: value as ProjectSettings["aiProvider"]["strategy"],
+                },
+              }))}
+              options={[
+                { value: "MANUAL", label: "Manual" },
+                { value: "WEIGHTED", label: "Weighted" },
+                { value: "ORCHESTRATOR", label: "Orchestrator" },
+              ]}
+            />
+          </Row>
+          {editableSettings.aiProvider.strategy === "MANUAL" ? (
+            <Row label="Primary provider" description="Default provider when routing strategy is manual." badge={getFieldBadge("aiProvider.provider")} last>
+              <SelectInput
+                value={editableSettings.aiProvider.provider}
+                onChange={(value) => updateEditableSettings((current) => ({
+                  ...current,
+                  aiProvider: {
+                    ...current.aiProvider,
+                    provider: value as ProjectSettings["aiProvider"]["provider"],
+                  },
+                }))}
+                options={[
+                  { value: "jules", label: "Jules" },
+                  { value: "gemini", label: "Gemini" },
+                  { value: "codex", label: "Codex" },
+                  { value: "claude-code", label: "Claude Code" },
+                ]}
+              />
+            </Row>
+          ) : null}
+          <div className="mt-6">
+            {visibleProviders.length === 0 ? (
+              <NoticePanel title="No available providers">
+                Configure a provider in Integrations first. The provider pool only shows backends that are currently available from system credentials or Docker auth mounts.
+              </NoticePanel>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {visibleProviders.map(([providerId, provider]) => {
+                  const providerKey = providerId as keyof ProjectSettings["aiProvider"]["providers"];
+                  const supportsModelSelection = providerSupportsModelSelection(providerKey);
+                  const supportsThinkingMode = providerSupportsThinkingMode(providerKey);
+                  const modelOptions = getProviderModelOptions(providerKey);
+                  const cardTokens = PROVIDER_CARD_TOKENS[providerKey];
+                  const authLabel = getProviderAuthLabel(providerKey);
+
+                  return (
+                  <div
+                    key={providerId}
+                    className={`group relative overflow-hidden rounded-[1.6rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_10px_24px_rgba(15,23,42,0.045)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/65 dark:shadow-[0_12px_28px_rgba(0,0,0,0.2)] ${provider.enabled ? "" : "opacity-60"}`}
+                  >
+                    <div aria-hidden className={`pointer-events-none absolute inset-0 ${cardTokens.glowClassName}`} />
+                    <div aria-hidden className={`absolute left-0 top-5 bottom-5 w-1 rounded-r-full ${cardTokens.railClassName}`} />
+                    <div aria-hidden className="pointer-events-none absolute -right-2 -top-3 select-none font-display text-[4.75rem] font-black leading-none tracking-tighter text-black/[0.035] dark:text-white/[0.03]">
+                      {cardTokens.watermark}
+                    </div>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="relative z-10 flex items-start gap-3">
+                        <ProviderLogo providerId={providerKey} disabled={!provider.enabled} />
+                        <div>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] ${cardTokens.badgeClassName}`}>
+                            {cardTokens.badgeLabel}
+                          </span>
+                          {authLabel ? (
+                            <span className="inline-flex items-center rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
+                              {authLabel}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {providerLabels[providerId as keyof typeof providerLabels]}
+                          </div>
+                          {getFieldBadge(`aiProvider.providers.${providerId}.enabled`) ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
+                              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
+                                !
+                              </span>
+                              {getFieldBadge(`aiProvider.providers.${providerId}.enabled`)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                          {providerId === "jules"
+                            ? "Enabled state and routing weight. Jules follows API-managed defaults for model behavior."
+                            : "Enabled state, pinned model, weighting, and thinking mode."}
+                        </div>
+                        </div>
+                      </div>
+                      <Toggle
+                        value={provider.enabled}
+                        onChange={() => updateEditableSettings((current) => updateProviderSettings(current, providerKey, {
+                          enabled: !provider.enabled,
+                        }))}
+                      />
+                    </div>
+                    {!supportsModelSelection || !supportsThinkingMode ? (
+                      <div className={`relative z-10 mb-3 rounded-2xl border px-4 py-3 text-xs font-medium leading-relaxed ${cardTokens.noteClassName}`}>
+                        Jules API currently does not expose model selection or thinking controls, so this provider uses Jules-managed defaults.
+                      </div>
+                    ) : null}
+                    <div className={`relative z-10 grid gap-3 ${supportsModelSelection && supportsThinkingMode ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+                      {supportsModelSelection ? (
+                      <div>
+                        <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                          <span>Model</span>
+                          {getFieldBadge(`aiProvider.providers.${providerId}.model`) ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
+                              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
+                                !
+                              </span>
+                              {getFieldBadge(`aiProvider.providers.${providerId}.model`)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {modelOptions.length > 0 ? (
+                          <SelectInput
+                            value={provider.model}
+                            onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerKey, {
+                              model: value,
+                            }))}
+                            options={modelOptions}
+                          />
+                        ) : (
+                          <TextInput
+                            value={provider.model}
+                            onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerKey, {
+                              model: value,
+                            }))}
+                            mono
+                          />
+                        )}
+                      </div>
+                      ) : null}
+                      {supportsThinkingMode ? (
+                      <div>
+                        <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                          <span>Thinking mode</span>
+                          {getFieldBadge(`aiProvider.providers.${providerId}.thinkingMode`) ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
+                              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
+                                !
+                              </span>
+                              {getFieldBadge(`aiProvider.providers.${providerId}.thinkingMode`)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <SelectInput
+                          value={provider.thinkingMode}
+                          onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerKey, {
+                            thinkingMode: value as ThinkingMode,
+                          }))}
+                          options={thinkingModeOptions}
+                        />
+                      </div>
+                      ) : null}
+                      <div>
+                        <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                          <span>Weight</span>
+                          {getFieldBadge(`aiProvider.providers.${providerId}.weight`) ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
+                              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
+                                !
+                              </span>
+                              {getFieldBadge(`aiProvider.providers.${providerId}.weight`)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <NumberInput
+                          value={provider.weight}
+                          onChange={(value) => updateEditableSettings((current) => updateProviderSettings(current, providerKey, {
+                            weight: value,
+                          }))}
+                          min={0}
+                          max={100}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )})}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
       </div>
     );
   };

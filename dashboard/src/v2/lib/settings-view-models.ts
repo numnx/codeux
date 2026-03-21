@@ -2,6 +2,7 @@ import type {
   DashboardSettings,
   ExternalSettingsHints,
   McpToolToggle,
+  ProviderId,
   ProjectSettings,
   SettingsValueSource,
   SkillToggle,
@@ -215,4 +216,73 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "gpt-5-codex-mini",
     "gpt-5",
   ],
+};
+
+const PROVIDER_MODEL_LABEL_OVERRIDES: Partial<Record<ProviderId, Record<string, string>>> = {
+  gemini: {
+    pro: "pro (recent)",
+    flash: "flash (recent)",
+    "flash-lite": "flash-lite (recent)",
+  },
+};
+
+export const providerSupportsModelSelection = (providerId: ProviderId): boolean => providerId !== "jules";
+
+export const providerSupportsThinkingMode = (providerId: ProviderId): boolean => providerId !== "jules";
+
+export const getProviderModelOptions = (
+  providerId: ProviderId,
+): Array<{ value: string; label: string }> => {
+  const labelOverrides = PROVIDER_MODEL_LABEL_OVERRIDES[providerId] || {};
+  return (AI_MODEL_CATALOG[providerId] || []).map((model) => ({
+    value: model,
+    label: labelOverrides[model] || model,
+  }));
+};
+
+export const PROVIDER_CARD_TOKENS: Record<ProviderId, {
+  watermark: string;
+  logoLabel: string;
+  badgeLabel: string;
+  badgeClassName: string;
+  glowClassName: string;
+  railClassName: string;
+  noteClassName: string;
+}> = {
+  jules: {
+    watermark: "JLS",
+    logoLabel: "J",
+    badgeLabel: "Hosted API",
+    badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  },
+  gemini: {
+    watermark: "GMN",
+    logoLabel: "G",
+    badgeLabel: "CLI",
+    badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  },
+  codex: {
+    watermark: "CDX",
+    logoLabel: "O",
+    badgeLabel: "CLI",
+    badgeClassName: "border-black/[0.08] bg-black/[0.04] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200",
+  },
+  "claude-code": {
+    watermark: "CLD",
+    logoLabel: "C",
+    badgeLabel: "CLI",
+    badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  },
 };
