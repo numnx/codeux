@@ -778,7 +778,7 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       return;
     }
     const ac = new AbortController();
-    req.on("close", () => ac.abort());
+    res.on("close", () => { if (!res.writableFinished) ac.abort(); });
     try {
       const projectId = String(req.params.projectId || "").trim();
       const input: ImprovePromptInput = {
@@ -801,7 +801,7 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       return;
     }
     const ac = new AbortController();
-    req.on("close", () => ac.abort());
+    res.on("close", () => { if (!res.writableFinished) ac.abort(); });
     try {
       const projectId = String(req.params.projectId || "").trim();
       const sprintId = String(req.params.sprintId || "").trim();
