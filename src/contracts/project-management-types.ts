@@ -120,17 +120,20 @@ export interface PlanningOverrides {
   workerId?: string;
   virtualProvider?: VirtualWorkerProvider;
   virtualModel?: string;
+  planningAgentPresetId?: string;
 }
 
 export interface ImprovePromptInput {
   name: string;
   goal: string;
+  planningAgentPresetId?: string;
   overrides?: PlanningOverrides;
 }
 
 export interface PlanSprintOptions {
   autoStart: boolean;
   replan?: boolean;
+  planningAgentPresetId?: string;
   overrides?: PlanningOverrides;
 }
 
