@@ -24,10 +24,11 @@ import {
 } from "lucide-preact";
 import { SprintBubble } from "./components/ui/SprintBubble.js";
 import { HumanInterventionBadge } from "./components/ui/HumanInterventionBadge.js";
-import { SprintComposer, type SprintSubmitMode } from "./components/ui/SprintComposer.js";
+import { SprintComposer } from "./components/ui/SprintComposer.js";
+import type { SprintSubmitMode, PlanningRouteOption } from "./lib/sprint-composer-state.js";
 import { SprintMarkdownModal } from "./components/ui/SprintMarkdownModal.js";
 import { SprintSettingsOverrideModal } from "./components/ui/SprintSettingsOverrideModal.js";
-import type { Sprint, SprintStatus } from "./types.js";
+import type { Sprint, SprintStatus, ImprovePromptInput } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
 import { useProjectSprints } from "./hooks/use-project-sprints.js";
 import { useProjectExecution } from "./hooks/use-project-execution.js";
@@ -527,20 +528,48 @@ export const SprintsPage: FunctionComponent = () => {
     });
   };
 
+  const virtualProviders = useMemo(() => (
+    Object.entries(VIRTUAL_PROVIDER_LABELS).map(([id, label]) => ({ id, label }))
+  ), []);
+
   const handleSubmitSprint = async (payload: {
     name: string;
     goal: string;
+    originalPrompt: string | null;
     submitMode: SprintSubmitMode;
+    routeOverride: PlanningRouteOption | null;
+    modelOverride: string | null;
   }): Promise<void> => {
     if (!selectedProject) {
       return;
     }
 
+    const overrides = payload.routeOverride || payload.modelOverride ? {
+      workerId: payload.routeOverride?.type === 'connected' ? payload.routeOverride.id : undefined,
+      virtualModel: payload.routeOverride?.type === 'virtual' ? (payload.modelOverride || undefined) : undefined,
+    } : undefined;
+
     if (editingSprint) {
       await updateSprint(editingSprint.id, {
         name: payload.name,
         goal: payload.goal,
+        originalPrompt: payload.originalPrompt,
       });
+
+      if (payload.submitMode === "plan_only" || payload.submitMode === "replan") {
+        await planSprint(selectedProject.id, editingSprint.id, { 
+          autoStart: false, 
+          replan: payload.submitMode === "replan",
+          overrides,
+        });
+      } else if (payload.submitMode === "plan_and_start") {
+        await planSprint(selectedProject.id, editingSprint.id, { 
+          autoStart: true,
+          replan: false,
+          overrides,
+        });
+      }
+
       await refresh();
       setEditingSprint(null);
       return;
@@ -549,6 +578,7 @@ export const SprintsPage: FunctionComponent = () => {
     const created = await createSprint(selectedProject.id, {
       name: payload.name,
       goal: payload.goal,
+      originalPrompt: payload.originalPrompt,
       number: nextSprintNumber,
       status: "idle",
       showcasePinned: true,
@@ -557,18 +587,18 @@ export const SprintsPage: FunctionComponent = () => {
     });
 
     if (payload.submitMode === "plan_only") {
-      await planSprint(selectedProject.id, created.id, { autoStart: false });
+      await planSprint(selectedProject.id, created.id, { autoStart: false, overrides });
     } else if (payload.submitMode === "plan_and_start") {
-      await planSprint(selectedProject.id, created.id, { autoStart: true });
+      await planSprint(selectedProject.id, created.id, { autoStart: true, overrides });
     }
 
     await Promise.all([refresh(), refreshExecution()]);
     animateLatestCell();
   };
 
-  const handleImprovePrompt = async (draft: { name: string; goal: string }): Promise<string> => {
+  const handleImprovePrompt = async (draft: ImprovePromptInput): Promise<string> => {
     if (!selectedProject) {
-      throw new Error("Select a project before using Improve with AI.");
+      throw new Error("Select a project before using Plan ahead with AI.");
     }
     const response = await improveSprintPrompt(selectedProject.id, draft);
     return response.goal;
@@ -816,12 +846,13 @@ export const SprintsPage: FunctionComponent = () => {
                   <SprintComposer
                     nextId={nextId}
                     initialSprint={editingSprint}
-                    planningRouteLabel={planningRoute.label}
+                    connections={execution.connections}
+                    virtualProviders={virtualProviders}
                     onClose={() => {
                       setShowCreateComposer(false);
                       setEditingSprint(null);
                     }}
-                    onImprovePrompt={editingSprint ? undefined : handleImprovePrompt}
+                    onImprovePrompt={handleImprovePrompt}
                     onSubmit={(payload) => handleSubmitSprint(payload)}
                   />
                 </div>
