@@ -41,10 +41,18 @@ function float32ToBuffer(arr: Float32Array): Buffer {
   return buf;
 }
 
+export interface ReembedProgress {
+  active: boolean;
+  completed: number;
+  total: number;
+  projectId: string;
+}
+
 export class MemoryService {
   private readonly memoryRepository: MemoryRepository;
   private readonly embeddingService: EmbeddingService;
   private readonly logger: Logger;
+  private reembedProgress: ReembedProgress | null = null;
 
   constructor(
     memoryRepository: MemoryRepository,
@@ -171,8 +179,57 @@ export class MemoryService {
     return completed;
   }
 
+  startReembedProject(projectId: string): void {
+    if (!this.embeddingService.isLoaded()) {
+      throw new Error("No embedding model loaded");
+    }
+    if (this.reembedProgress?.active) {
+      throw new Error("Re-embedding already in progress");
+    }
+
+    const memories = this.memoryRepository.listByProject(projectId, undefined, 10000);
+    this.reembedProgress = { active: true, completed: 0, total: memories.length, projectId };
+
+    const run = async () => {
+      let completed = 0;
+      for (const memory of memories) {
+        if (!this.reembedProgress?.active) break;
+        try {
+          await this.embedMemory(memory);
+          completed++;
+        } catch (error) {
+          this.logger.warn(`Failed to re-embed memory ${memory.id}: ${error}`);
+        }
+        if (this.reembedProgress) {
+          this.reembedProgress.completed = completed;
+        }
+      }
+      if (this.reembedProgress) {
+        this.reembedProgress.active = false;
+        this.reembedProgress.completed = completed;
+      }
+    };
+
+    run().catch((error) => {
+      this.logger.warn(`Re-embed failed: ${error}`);
+      if (this.reembedProgress) {
+        this.reembedProgress.active = false;
+      }
+    });
+  }
+
+  getReembedProgress(): ReembedProgress | null {
+    return this.reembedProgress;
+  }
+
   countByScope(projectId: string, scope: MemoryScope): number {
     return this.memoryRepository.countByScope(projectId, scope);
+  }
+
+  countStaleEmbeddings(projectId: string): number {
+    const modelId = this.embeddingService.getLoadedModelId();
+    if (!modelId) return 0;
+    return this.memoryRepository.countStaleEmbeddings(projectId, modelId);
   }
 
   private async embedMemory(record: MemoryRecord): Promise<void> {

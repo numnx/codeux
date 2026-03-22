@@ -17,9 +17,9 @@ export const EMBEDDING_MODEL_CATALOG: Record<EmbeddingModelId, EmbeddingModelInf
   "Qwen3-Embedding-0.6B": {
     id: "Qwen3-Embedding-0.6B",
     displayName: "Qwen3 Embedding 0.6B",
-    description: "Multilingual embedding model. Higher quality, larger footprint (~1.2 GB). 1024 dimensions.",
+    description: "Multilingual embedding model. Higher quality, larger footprint (~567 MB quantized). 1024 dimensions.",
     dimension: 1024,
-    sizeBytes: 1_200_000_000,
+    sizeBytes: 567_000_000,
     language: "Multilingual",
     files: [
       "model.onnx",
@@ -32,12 +32,16 @@ export const EMBEDDING_MODEL_CATALOG: Record<EmbeddingModelId, EmbeddingModelInf
 export function getModelDownloadUrl(modelId: EmbeddingModelId, fileName: string): string {
   const repoMap: Record<EmbeddingModelId, string> = {
     "bge-small-en-v1.5": "BAAI/bge-small-en-v1.5",
-    "Qwen3-Embedding-0.6B": "Qwen/Qwen3-Embedding-0.6B",
+    "Qwen3-Embedding-0.6B": "onnx-community/Qwen3-Embedding-0.6B-ONNX",
   };
 
   const repo = repoMap[modelId];
-  const branch = modelId === "Qwen3-Embedding-0.6B" ? "main" : "main";
-  const onnxPath = fileName === "model.onnx" ? "onnx/model.onnx" : fileName;
 
-  return `https://huggingface.co/${repo}/resolve/${branch}/${onnxPath}`;
+  if (fileName === "model.onnx") {
+    // Qwen3 uses the quantized ONNX variant from the onnx-community repo
+    const onnxFile = modelId === "Qwen3-Embedding-0.6B" ? "onnx/model_q4f16.onnx" : "onnx/model.onnx";
+    return `https://huggingface.co/${repo}/resolve/main/${onnxFile}`;
+  }
+
+  return `https://huggingface.co/${repo}/resolve/main/${fileName}`;
 }

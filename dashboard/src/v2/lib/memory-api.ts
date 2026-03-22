@@ -147,8 +147,19 @@ export const getModelStatus = async (modelId: string): Promise<EmbeddingModelSta
 
 // --- Re-embed ---
 
-export const reembedProject = async (projectId: string): Promise<{ reembedded: number }> => {
+export const startReembed = async (projectId: string): Promise<{ status: string }> => {
   return fetchJson(`/api/projects/${projectId}/memories/reembed`, { method: "POST" });
+};
+
+export interface ReembedProgress {
+  active: boolean;
+  completed: number;
+  total: number;
+  projectId?: string;
+}
+
+export const getReembedProgress = async (projectId: string): Promise<ReembedProgress> => {
+  return fetchJson(`/api/projects/${projectId}/memories/reembed/progress`);
 };
 
 // --- Stats ---
@@ -158,6 +169,7 @@ export interface MemoryStats {
   agent: number;
   project: number;
   activeModel: string | null;
+  staleEmbeddings: number;
 }
 
 export const getMemoryStats = async (projectId: string): Promise<MemoryStats> => {

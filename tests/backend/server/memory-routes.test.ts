@@ -41,7 +41,10 @@ function createMockDeps(): MemoryRouteDependencies {
       listByAgent: vi.fn().mockReturnValue([]),
       search: vi.fn().mockResolvedValue([]),
       reembedProject: vi.fn().mockResolvedValue(5),
+      startReembedProject: vi.fn(),
+      getReembedProgress: vi.fn().mockReturnValue(null),
       countByScope: vi.fn().mockReturnValue(10),
+      countStaleEmbeddings: vi.fn().mockReturnValue(0),
     } as any,
     memoryPromotionService: {
       analyzeForPromotion: vi.fn().mockResolvedValue([]),
@@ -79,7 +82,7 @@ describe("memory-routes", () => {
   });
 
   it("registers all expected routes", () => {
-    expect(app.get).toHaveBeenCalledTimes(4); // list, embedding-models, model status, stats
+    expect(app.get).toHaveBeenCalledTimes(5); // list, embedding-models, model status, reembed progress, stats
     expect(app.post).toHaveBeenCalledTimes(8); // create, search, promotion analyze/execute, download, cancel, select, reembed
     expect(app.patch).toHaveBeenCalledTimes(1); // update
     expect(app.delete).toHaveBeenCalledTimes(2); // delete memory, delete model
@@ -295,11 +298,11 @@ describe("memory-routes", () => {
   });
 
   describe("POST /api/projects/:projectId/memories/reembed", () => {
-    it("re-embeds and returns count", async () => {
+    it("starts re-embed and returns status", () => {
       const handler = routes["POST:/api/projects/:projectId/memories/reembed"].handler;
       const res = createMockRes();
-      await handler({ params: { projectId: "p1" } }, res);
-      expect(res.json).toHaveBeenCalledWith({ reembedded: 5 });
+      handler({ params: { projectId: "p1" } }, res);
+      expect(res.json).toHaveBeenCalledWith({ status: "started" });
     });
   });
 
@@ -313,6 +316,7 @@ describe("memory-routes", () => {
         agent: 10,
         project: 10,
         activeModel: null,
+        staleEmbeddings: 0,
       });
     });
   });

@@ -277,13 +277,26 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   // --- Re-embed ---
 
-  app.post("/api/projects/:projectId/memories/reembed", async (req, res) => {
+  app.post("/api/projects/:projectId/memories/reembed", (req, res) => {
     try {
       const projectId = String(req.params.projectId).trim();
-      const count = await memoryService.reembedProject(projectId);
-      res.json({ reembedded: count });
+      memoryService.startReembedProject(projectId);
+      res.json({ status: "started" });
     } catch (error) {
-      res.status(400).json({ error: toError(error, "Failed to re-embed") });
+      res.status(400).json({ error: toError(error, "Failed to start re-embed") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/memories/reembed/progress", (req, res) => {
+    try {
+      const progress = memoryService.getReembedProgress();
+      if (!progress) {
+        res.json({ active: false, completed: 0, total: 0 });
+        return;
+      }
+      res.json(progress);
+    } catch (error) {
+      res.status(400).json({ error: toError(error, "Failed to get re-embed progress") });
     }
   });
 
@@ -297,6 +310,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
         agent: memoryService.countByScope(projectId, "agent"),
         project: memoryService.countByScope(projectId, "project"),
         activeModel: embeddingService.getLoadedModelId(),
+        staleEmbeddings: memoryService.countStaleEmbeddings(projectId),
       });
     } catch (error) {
       res.status(400).json({ error: toError(error, "Failed to get memory stats") });
