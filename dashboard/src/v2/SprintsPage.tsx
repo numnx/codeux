@@ -569,9 +569,6 @@ export const SprintsPage: FunctionComponent = () => {
   };
 
   const handleToggleShowcase = async (sprint: Sprint) => {
-    if (sprint.status === "completed") {
-      return;
-    }
     const actionId = `sprint-showcase:${sprint.id}`;
     if (pendingActionIds.has(actionId)) {
       return;
@@ -738,6 +735,7 @@ export const SprintsPage: FunctionComponent = () => {
                   {showcaseSprints.map((sprint, index) => {
                     const activeRun = activeRunsBySprintId.get(sprint.id);
                     const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
+                    const pinActionId = `sprint-showcase:${sprint.id}`;
                     return (
                       <SprintBubble
                         key={sprint.id}
@@ -745,6 +743,7 @@ export const SprintsPage: FunctionComponent = () => {
                         isEven={index % 2 === 0}
                         accentColor={ACCENT_CYCLE[index % ACCENT_CYCLE.length]}
                         primaryBusy={pendingActionIds.has(pendingActionId)}
+                        showcaseBusy={pendingActionIds.has(pinActionId)}
                         humanIntervention={interventionBySprintId.get(sprint.id) || null}
                         onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
                         onEdit={() => {
@@ -829,7 +828,7 @@ export const SprintsPage: FunctionComponent = () => {
                     All sprints, fully sortable.
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-                    The showcase above reflects the sprints marked with the heart. New sprints are showcased by default, and completed ones drop out automatically.
+                    The showcase above reflects the sprints marked with the heart. New sprints are showcased by default.
                   </p>
                 </div>
                 <div className="text-xs font-mono text-slate-400">{tableSprints.length} total</div>
@@ -931,7 +930,7 @@ export const SprintsPage: FunctionComponent = () => {
                               <button
                                 type="button"
                                 onClick={() => { void handleToggleShowcase(sprint); }}
-                                disabled={pendingActionIds.has(pinActionId) || sprint.status === "completed"}
+                                disabled={pendingActionIds.has(pinActionId)}
                                 className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
                                   sprint.showcasePinned
                                     ? "border-status-red/20 bg-status-red/10 text-status-red"
@@ -1084,7 +1083,7 @@ export const SprintsPage: FunctionComponent = () => {
                 setRowMenu(null);
                 void handleToggleShowcase(activeRowMenuSprint);
               }}
-              disabled={activeRowMenuSprint.status === "completed"}
+              disabled={pendingActionIds.has(`sprint-showcase:${activeRowMenuSprint.id}`)}
               className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
             >
               <Heart className="h-3.5 w-3.5" fill={activeRowMenuSprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
