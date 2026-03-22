@@ -735,6 +735,7 @@ export const SprintsPage: FunctionComponent = () => {
                   {showcaseSprints.map((sprint, index) => {
                     const activeRun = activeRunsBySprintId.get(sprint.id);
                     const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
+                    const pinActionId = `sprint-showcase:${sprint.id}`;
                     return (
                       <SprintBubble
                         key={sprint.id}
@@ -742,6 +743,7 @@ export const SprintsPage: FunctionComponent = () => {
                         isEven={index % 2 === 0}
                         accentColor={ACCENT_CYCLE[index % ACCENT_CYCLE.length]}
                         primaryBusy={pendingActionIds.has(pendingActionId)}
+                        showcaseBusy={pendingActionIds.has(pinActionId)}
                         humanIntervention={interventionBySprintId.get(sprint.id) || null}
                         onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
                         onEdit={() => {
