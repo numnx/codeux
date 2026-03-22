@@ -5,6 +5,7 @@ import type { Server } from "http";
 import { createServer } from "http";
 import type {
   ExecutionAttentionItemSummary,
+  ExecutionAssignedWorkerSummary,
   ExecutionDashboardSnapshot,
   ExternalSettingsHints,
     GitTrackingStatus,
@@ -40,6 +41,8 @@ import type {
   CreateProjectInput,
   CreateSprintInput,
   CreateTaskInput,
+  ImprovePromptInput,
+  PlanSprintOptions,
   ProjectCollectionResponse,
   ProjectSummary,
   SprintMarkdownExportBundle,
@@ -64,6 +67,17 @@ export interface DashboardServerOptions {
   getExecutionSnapshot: () => ExecutionDashboardSnapshot;
   getProjectExecutionSnapshot: (projectId: string) => ExecutionDashboardSnapshot;
   getProjectStatsSnapshot: (projectId: string, query?: ProjectStatsQuery) => ProjectExecutionStatsSnapshot;
+  setPreferredWorker?: (
+    projectId: string,
+    input?: {
+      workerConnectionId?: string | null;
+      workerEndpointId?: string | null;
+      workerEndpointKey?: string | null;
+    },
+  ) => {
+    primaryAssignedWorker: ExecutionAssignedWorkerSummary | null;
+    overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];
+  };
   claimAttentionItem?: (
     projectId: string,
     attentionItemId: string,
@@ -121,8 +135,8 @@ export interface DashboardServerOptions {
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
   rerunTask: (taskId: string) => Promise<unknown>;
   orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;
-  improveSprintPrompt?: (projectId: string, input: { name: string; goal: string }) => Promise<unknown>;
-  planSprint?: (projectId: string, sprintId: string, input: { autoStart: boolean }) => Promise<unknown>;
+  improveSprintPrompt?: (projectId: string, input: ImprovePromptInput) => Promise<unknown>;
+  planSprint?: (projectId: string, sprintId: string, options: PlanSprintOptions) => Promise<unknown>;
   pauseSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   cancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   forceCancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
@@ -276,6 +290,26 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(options.getProjectStatsSnapshot(String(req.params.projectId || "").trim(), query));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to load project stats snapshot") });
+    }
+  });
+
+  app.put("/api/projects/:projectId/preferred-worker", (req, res) => {
+    if (!options.setPreferredWorker) {
+      res.status(501).json({ error: "Preferred worker assignment is not enabled." });
+      return;
+    }
+
+    try {
+      res.json(options.setPreferredWorker(
+        String(req.params.projectId || "").trim(),
+        {
+          workerConnectionId: parseNullableTrimmedString(req.body?.workerConnectionId),
+          workerEndpointId: parseNullableTrimmedString(req.body?.workerEndpointId),
+          workerEndpointKey: parseNullableTrimmedString(req.body?.workerEndpointKey),
+        },
+      ));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update preferred worker") });
     }
   });
 
@@ -745,9 +779,12 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
     try {
       const projectId = String(req.params.projectId || "").trim();
-      const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-      const goal = typeof req.body?.goal === "string" ? req.body.goal : "";
-      res.status(202).json(await improveSprintPrompt(projectId, { name, goal }));
+      const input: ImprovePromptInput = {
+        name: typeof req.body?.name === "string" ? req.body.name.trim() : "",
+        goal: typeof req.body?.goal === "string" ? req.body.goal : "",
+        overrides: req.body?.overrides,
+      };
+      res.status(202).json(await improveSprintPrompt(projectId, input));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to improve sprint prompt") });
     }
@@ -761,8 +798,12 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     try {
       const projectId = String(req.params.projectId || "").trim();
       const sprintId = String(req.params.sprintId || "").trim();
-      const autoStart = Boolean(req.body?.autoStart);
-      res.status(202).json(await planSprint(projectId, sprintId, { autoStart }));
+      const options: PlanSprintOptions = {
+        autoStart: Boolean(req.body?.autoStart),
+        replan: Boolean(req.body?.replan),
+        overrides: req.body?.overrides,
+      };
+      res.status(202).json(await planSprint(projectId, sprintId, options));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to plan sprint") });
     }
@@ -886,4 +927,16 @@ function parseProjectStatsQuery(query: Record<string, unknown>): ProjectStatsQue
     from,
     to,
   };
+}
+
+function parseNullableTrimmedString(value: unknown): string | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

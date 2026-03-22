@@ -2,6 +2,8 @@ import type {
   CreateProjectInput,
   CreateSprintInput,
   CreateTaskInput,
+  ImprovePromptInput,
+  PlanSprintOptions,
   ProjectCollectionResponse,
   ProjectSummary,
   SprintMarkdownExportBundle,
@@ -13,6 +15,7 @@ import type {
   UpdateTaskInput,
 } from "../types.js";
 import type {
+  ExecutionAssignedWorkerSummary,
   ExecutionDashboardSnapshot,
   ProjectExecutionStatsSnapshot,
   ProjectStatsQuery,
@@ -63,6 +66,27 @@ export const selectProject = async (projectId: string): Promise<string | null> =
   return response.selectedProjectId;
 };
 
+export const setProjectPreferredWorker = async (
+  projectId: string,
+  input: {
+    workerConnectionId?: string | null;
+    workerEndpointId?: string | null;
+    workerEndpointKey?: string | null;
+  },
+): Promise<{
+  primaryAssignedWorker: ExecutionAssignedWorkerSummary | null;
+  overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];
+}> => {
+  return fetchJson<{
+    primaryAssignedWorker: ExecutionAssignedWorkerSummary | null;
+    overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];
+  }>(`/api/projects/${encodeURIComponent(projectId)}/preferred-worker`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+};
+
 export const fetchSprints = async (projectId: string): Promise<SprintRecord[]> => {
   return fetchJson<SprintRecord[]>(`/api/projects/${encodeURIComponent(projectId)}/sprints`);
 };
@@ -99,7 +123,7 @@ export const createSprint = async (projectId: string, input: CreateSprintInput):
 
 export const improveSprintPrompt = async (
   projectId: string,
-  input: { name: string; goal: string },
+  input: ImprovePromptInput,
 ): Promise<{ goal: string; threadId: string; agentId: string; workerConnectionId: string | null }> => {
   return fetchJson(`/api/projects/${encodeURIComponent(projectId)}/planning/improve-sprint-prompt`, {
     method: "POST",
@@ -111,7 +135,7 @@ export const improveSprintPrompt = async (
 export const planSprint = async (
   projectId: string,
   sprintId: string,
-  input: { autoStart: boolean },
+  input: PlanSprintOptions,
 ): Promise<{ ok: true; threadId: string; agentId: string; createdTaskIds: string[]; started: boolean }> => {
   return fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/plan`, {
     method: "POST",
