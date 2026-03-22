@@ -113,6 +113,19 @@ const closeServer = async (server: Server): Promise<void> => {
   });
 };
 
+const DASHBOARD_PORT_RANGE_START = 41000;
+const DASHBOARD_PORT_RANGE_END = 46000;
+let nextDashboardPort = DASHBOARD_PORT_RANGE_START + ((process.pid % 997) % (DASHBOARD_PORT_RANGE_END - DASHBOARD_PORT_RANGE_START));
+
+const allocateDashboardPort = (): number => {
+  const port = nextDashboardPort;
+  nextDashboardPort += 17;
+  if (nextDashboardPort > DASHBOARD_PORT_RANGE_END) {
+    nextDashboardPort = DASHBOARD_PORT_RANGE_START;
+  }
+  return port;
+};
+
 afterEach(async () => {
   while (serversToClose.length > 0) {
     const server = serversToClose.pop();
@@ -180,10 +193,11 @@ async function createServerHandle(): Promise<{
   };
 
   const app = express();
+  const port = allocateDashboardPort();
   const handle = await setupDashboardServer({
     app,
     dashboardDir: "dashboard",
-    port: 39100,
+    port,
     liveActivityCacheMs: 1000,
     getStatus: () => runtimeRepository.getSelectedProjectStatus(),
     getExecutionSnapshot: () => {
