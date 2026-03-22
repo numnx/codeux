@@ -1,13 +1,14 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { HeaderStats } from "./components/HeaderStats.js";
-import { OverviewTelemetry } from "./components/OverviewTelemetry.js";
-import { SourcesGrid } from "./components/SourcesGrid.js";
-import { TasksList } from "./components/TasksList.js";
+import { OverviewHero } from "./pages/overview/OverviewHero.js";
+import { OverviewGrid } from "./pages/overview/OverviewGrid.js";
+import { useOverviewPageData } from "./pages/overview/use-overview-page-data.js";
 
 export const DashboardV2: FunctionComponent = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
+    const pageState = useOverviewPageData();
 
     useLayoutEffect(() => {
         if (mainContentRef.current) {
@@ -22,28 +23,11 @@ export const DashboardV2: FunctionComponent = () => {
     return (
         <div ref={mainContentRef} className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-24">
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between w-full gap-6">
-                <div>
-                    <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-slate-900 dark:text-white mb-4 font-display leading-[0.95]">
-                        Overview.
-                    </h2>
-                    <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl leading-relaxed">
-                        Real-time metrics and operational intelligence across your cluster.
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="px-5 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border border-signal-500/15 dark:border-signal-500/20 flex items-center gap-2.5 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-md">
-                        <span className="w-2 h-2 rounded-full bg-signal-500 relative">
-                            <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />
-                        </span>
-                        Cluster Optimal
-                    </div>
-                </div>
-            </div>
+            <OverviewHero />
 
             {/* Metrics Section */}
             <section className="w-full relative z-20">
-                <HeaderStats />
+                <HeaderStats stats={pageState.stats} selectedProjectName={pageState.selectedProjectName} />
             </section>
 
             {/* Section Divider */}
@@ -55,26 +39,7 @@ export const DashboardV2: FunctionComponent = () => {
             </div>
 
             {/* Main Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-20 flex-grow relative z-20">
-                {/* Sources and Tasks */}
-                <div className="xl:col-span-8 flex flex-col gap-24">
-                    <section className="w-full relative">
-                        {/* Subtle signal glow — very restrained */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-signal-500/3 dark:bg-signal-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
-                        <SourcesGrid />
-                    </section>
-
-                    <section className="w-full relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[130%] bg-ember-500/3 dark:bg-ember-500/4 rounded-full blur-[80px] pointer-events-none -z-10" />
-                        <TasksList />
-                    </section>
-                </div>
-
-                {/* Live Telemetry */}
-                <div className="xl:col-span-4 h-full relative">
-                    <OverviewTelemetry />
-                </div>
-            </div>
+            <OverviewGrid state={pageState} />
         </div>
     );
 };
