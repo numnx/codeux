@@ -37,6 +37,7 @@ export const DEFAULT_CI_INTELLIGENCE_SETTINGS: CiIntelligenceSettings = {
 export const DEFAULT_AUTOMATION_INTERVENTIONS_SETTINGS: AutomationInterventionsSettings = {
   autoApprovePlan: true,
   autoAnswerClarification: false,
+  autoAnswerClarificationMode: "TEMPLATE",
   autoResumePaused: false,
   clarificationAnswerTemplate:
     "Proceed with the safest implementation path using repository conventions. If multiple valid options exist, choose the smallest-scope option and continue without waiting for clarification.",
