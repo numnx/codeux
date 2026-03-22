@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { Activity, AlertTriangle, FolderKanban, Radio } from "lucide-preact";
-import { useOverviewTelemetry } from "../../hooks/use-overview-telemetry.js";
 import { formatTime } from "../../lib/time.js";
+import type { OverviewTelemetrySnapshot } from "../../types.js";
 
 const describeEvent = (eventType: string): string => {
   switch (eventType) {
@@ -28,8 +28,12 @@ const describeEvent = (eventType: string): string => {
   }
 };
 
-export const OverviewTelemetry: FunctionComponent = () => {
-  const { telemetry, error } = useOverviewTelemetry();
+interface OverviewTelemetryProps {
+    telemetry: OverviewTelemetrySnapshot;
+    error: string | null;
+}
+
+export const OverviewTelemetry: FunctionComponent<OverviewTelemetryProps> = ({ telemetry, error }) => {
   const hasActiveProjects = telemetry.activeProjects.length > 0;
   const hasAttentionProjects = telemetry.attentionProjects.length > 0;
   const hasRuntimeSignal = hasActiveProjects || hasAttentionProjects;

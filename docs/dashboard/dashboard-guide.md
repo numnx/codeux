@@ -206,6 +206,7 @@ Legacy runtime:
   - redesigned task and sprint ledgers with search, sort-by-recency/tokens/time/input/output/name, and richer token/time breakdowns
 - The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to polling so usage graphs and tables stay current during active sprint execution
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface
+- The Overview page uses a "thin shell" state management pattern where `DashboardV2` calls shared resource hooks once via `useOverviewPageData()` and passes precomputed props down to presentational components (`HeaderStats`, `SourcesGrid`, `TasksList`, `OverviewTelemetry`).
 - Agents page is DB-backed and manages project-scoped agents (`name`, `labels`, `instruction markdown`)
 - Agents are auto-imported from project and home `.sprint-os/agents/*.md` when first discovered
 - Project-local markdown mirroring is enabled by default through project settings, so dashboard edits create/update `.sprint-os/agents/*.md` in the selected repo without touching shipped defaults

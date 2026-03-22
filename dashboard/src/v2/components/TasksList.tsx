@@ -3,20 +3,19 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { TaskRow } from "./ui/TaskRow.js";
 import { FilterStrip } from "./ui/FilterStrip.js";
-import { useProjectData } from "../context/project-data.js";
-import { useProjectSprints } from "../hooks/use-project-sprints.js";
-import { useProjectTasks } from "../hooks/use-project-tasks.js";
+import type { Task } from "../types.js";
 
 type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
 
 const FILTER_OPTIONS = ["All Tasks", "Running", "Queued", "Completed"] as const;
 
-export const TasksList: FunctionComponent = () => {
+interface TasksListProps {
+    tasks: Task[];
+}
+
+export const TasksList: FunctionComponent<TasksListProps> = ({ tasks }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
-    const { projects, selectedProject } = useProjectData();
-    const { sprints } = useProjectSprints(selectedProject?.id || null);
-    const { tasks } = useProjectTasks(selectedProject?.id || null, projects, sprints);
 
     useLayoutEffect(() => {
         if (listRef.current) {

@@ -4,11 +4,14 @@ import gsap from "gsap";
 import { Activity } from "lucide-preact";
 import { SectionHeader } from "./ui/SectionHeader.js";
 import { SourceCell } from "./ui/SourceCell.js";
-import { useProjectData } from "../context/project-data.js";
+import type { Source } from "../types.js";
 
-export const SourcesGrid: FunctionComponent = () => {
+interface SourcesGridProps {
+    recentSources: Source[];
+}
+
+export const SourcesGrid: FunctionComponent<SourcesGridProps> = ({ recentSources }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { projects } = useProjectData();
 
     useLayoutEffect(() => {
         if (containerRef.current) {
@@ -27,10 +30,6 @@ export const SourcesGrid: FunctionComponent = () => {
             );
         }
     }, []);
-
-    const recentSources = [...projects].sort((a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    ).slice(0, 6);
 
     return (
         <div className="w-full relative z-10">

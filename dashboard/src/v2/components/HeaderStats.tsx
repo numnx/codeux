@@ -3,16 +3,15 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { MetricCard } from "./ui/MetricCard.js";
 import { Sparkline } from "./ui/Sparkline.js";
-import { useProjectData } from "../context/project-data.js";
-import { useProjectSprints } from "../hooks/use-project-sprints.js";
-import { useProjectTasks } from "../hooks/use-project-tasks.js";
-import { computeOverviewStats } from "../lib/overview-stats.js";
+import type { OverviewStats } from "../lib/overview-stats.js";
 
-export const HeaderStats: FunctionComponent = () => {
+interface HeaderStatsProps {
+    stats: OverviewStats;
+    selectedProjectName: string | null;
+}
+
+export const HeaderStats: FunctionComponent<HeaderStatsProps> = ({ stats, selectedProjectName }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { projects, selectedProject } = useProjectData();
-    const { sprints } = useProjectSprints(selectedProject?.id || null);
-    const { tasks } = useProjectTasks(selectedProject?.id || null, projects, sprints);
 
     useLayoutEffect(() => {
         if (containerRef.current) {
@@ -23,8 +22,6 @@ export const HeaderStats: FunctionComponent = () => {
             );
         }
     }, []);
-
-    const stats = computeOverviewStats(projects, sprints, tasks);
 
     return (
         <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
@@ -47,7 +44,7 @@ export const HeaderStats: FunctionComponent = () => {
                         </div>
                         <div className="flex justify-between items-center text-xs font-mono font-medium">
                             <span className="text-slate-400">SELECTED</span>
-                            <span className="text-slate-700 dark:text-slate-300">{selectedProject?.name || "None"}</span>
+                            <span className="text-slate-700 dark:text-slate-300">{selectedProjectName || "None"}</span>
                         </div>
                     </div>
                 </div>
