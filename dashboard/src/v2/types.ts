@@ -25,9 +25,11 @@ import type {
   ExecutionUsageTotals,
   ExecutionUsageBucketSummary,
   ExecutionStatsEntitySummary,
+  ExecutionConnectionSummary,
   ProjectExecutionStatsSnapshot,
   ProjectStatsQuery,
   ProjectStatsWindow,
+  ProviderId,
 } from "../../../src/contracts/app-types.js";
 import type {
   CreateProjectInput,
@@ -119,6 +121,7 @@ export type {
   ExecutionUsageTotals,
   ExecutionUsageBucketSummary,
   ExecutionStatsEntitySummary,
+  ExecutionConnectionSummary,
   ProjectExecutionStatsSnapshot,
   ProjectStatsQuery,
   ProjectStatsWindow,
@@ -132,4 +135,5 @@ export type {
   UpdateProjectInput,
   UpdateSprintInput,
   UpdateTaskInput,
+  ProviderId,
 };
