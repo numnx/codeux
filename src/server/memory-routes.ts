@@ -300,6 +300,23 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
     }
   });
 
+  // --- Embedding map (2D projection + similarity edges) ---
+
+  app.get("/api/projects/:projectId/memories/embedding-map", (req, res) => {
+    try {
+      const projectId = String(req.params.projectId).trim();
+      const scope = req.query.scope as MemoryScope | undefined;
+      const sprintId = req.query.sprintId as string | undefined;
+      const agentPresetId = req.query.agentPresetId as string | undefined;
+      const result = memoryService.getEmbeddingMap(
+        projectId, scope, sprintId, agentPresetId,
+      );
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: toError(error, "Failed to get embedding map") });
+    }
+  });
+
   // --- Memory stats ---
 
   app.get("/api/projects/:projectId/memories/stats", (req, res) => {

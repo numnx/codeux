@@ -99,7 +99,7 @@ export interface MemorySearchResult {
 
 export interface EmbeddingRecord {
   id: string;
-  embeddingBlob: Buffer;
+  embeddingBlob: Buffer | Uint8Array;
   embeddingDimension: number;
 }
 

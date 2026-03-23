@@ -45,6 +45,7 @@ function createMockDeps(): MemoryRouteDependencies {
       getReembedProgress: vi.fn().mockReturnValue(null),
       countByScope: vi.fn().mockReturnValue(10),
       countStaleEmbeddings: vi.fn().mockReturnValue(0),
+      getEmbeddingMap: vi.fn().mockReturnValue({ nodes: [], edges: [], hasEmbeddings: false }),
     } as any,
     memoryPromotionService: {
       analyzeForPromotion: vi.fn().mockResolvedValue([]),
@@ -82,7 +83,7 @@ describe("memory-routes", () => {
   });
 
   it("registers all expected routes", () => {
-    expect(app.get).toHaveBeenCalledTimes(5); // list, embedding-models, model status, reembed progress, stats
+    expect(app.get).toHaveBeenCalledTimes(6); // list, embedding-models, model status, reembed progress, embedding-map, stats
     expect(app.post).toHaveBeenCalledTimes(8); // create, search, promotion analyze/execute, download, cancel, select, reembed
     expect(app.patch).toHaveBeenCalledTimes(1); // update
     expect(app.delete).toHaveBeenCalledTimes(2); // delete memory, delete model
@@ -303,6 +304,23 @@ describe("memory-routes", () => {
       const res = createMockRes();
       handler({ params: { projectId: "p1" } }, res);
       expect(res.json).toHaveBeenCalledWith({ status: "started" });
+    });
+  });
+
+  describe("GET /api/projects/:projectId/memories/embedding-map", () => {
+    it("returns embedding map data", () => {
+      const handler = routes["GET:/api/projects/:projectId/memories/embedding-map"].handler;
+      const res = createMockRes();
+      handler({ params: { projectId: "p1" }, query: {} }, res);
+      expect(deps.memoryService.getEmbeddingMap).toHaveBeenCalledWith("p1", undefined, undefined, undefined);
+      expect(res.json).toHaveBeenCalledWith({ nodes: [], edges: [], hasEmbeddings: false });
+    });
+
+    it("passes scope query parameter", () => {
+      const handler = routes["GET:/api/projects/:projectId/memories/embedding-map"].handler;
+      const res = createMockRes();
+      handler({ params: { projectId: "p1" }, query: { scope: "project" } }, res);
+      expect(deps.memoryService.getEmbeddingMap).toHaveBeenCalledWith("p1", "project", undefined, undefined);
     });
   });
 

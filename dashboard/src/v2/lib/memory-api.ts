@@ -162,6 +162,33 @@ export const getReembedProgress = async (projectId: string): Promise<ReembedProg
   return fetchJson(`/api/projects/${projectId}/memories/reembed/progress`);
 };
 
+// --- Embedding map ---
+
+export interface EmbeddingMapNode {
+  id: string;
+  x: number;
+  y: number;
+}
+
+export interface EmbeddingMapEdge {
+  source: string;
+  target: string;
+  similarity: number;
+}
+
+export interface EmbeddingMapResult {
+  nodes: EmbeddingMapNode[];
+  edges: EmbeddingMapEdge[];
+  hasEmbeddings: boolean;
+}
+
+export const getEmbeddingMap = async (projectId: string, scope?: string): Promise<EmbeddingMapResult> => {
+  const qs = new URLSearchParams();
+  if (scope) qs.set("scope", scope);
+  const query = qs.toString();
+  return fetchJson(`/api/projects/${projectId}/memories/embedding-map${query ? `?${query}` : ""}`);
+};
+
 // --- Stats ---
 
 export interface MemoryStats {

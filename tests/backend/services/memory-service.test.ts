@@ -392,4 +392,80 @@ describe("MemoryService", () => {
       expect(mockRepo.countStaleEmbeddings).toHaveBeenCalledWith("proj-1", "bge-small-en-v1.5");
     });
   });
+
+  describe("getEmbeddingMap", () => {
+    it("returns empty result when no model loaded", () => {
+      mockEmbeddingService.getLoadedModelId.mockReturnValue(null);
+      const result = service.getEmbeddingMap("proj-1");
+      expect(result).toEqual({ nodes: [], edges: [], hasEmbeddings: false });
+    });
+
+    it("returns empty result when no dimension", () => {
+      mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
+      mockEmbeddingService.getDimension.mockReturnValue(null);
+      const result = service.getEmbeddingMap("proj-1");
+      expect(result).toEqual({ nodes: [], edges: [], hasEmbeddings: false });
+    });
+
+    it("returns empty result when no embeddings in scope", () => {
+      mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
+      mockEmbeddingService.getDimension.mockReturnValue(3);
+      mockRepo.loadEmbeddingsForScope.mockReturnValue([]);
+      const result = service.getEmbeddingMap("proj-1");
+      expect(result).toEqual({ nodes: [], edges: [], hasEmbeddings: false });
+    });
+
+    it("projects embeddings to 2D and computes similarity edges", () => {
+      mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
+      mockEmbeddingService.getDimension.mockReturnValue(3);
+
+      // Three vectors: first two are similar (close), third is different
+      mockRepo.loadEmbeddingsForScope.mockReturnValue([
+        { id: "m1", embeddingBlob: makeFloat32Buffer([1, 0, 0]), embeddingDimension: 3 },
+        { id: "m2", embeddingBlob: makeFloat32Buffer([0.9, 0.1, 0]), embeddingDimension: 3 },
+        { id: "m3", embeddingBlob: makeFloat32Buffer([0, 0, 1]), embeddingDimension: 3 },
+      ]);
+
+      const result = service.getEmbeddingMap("proj-1");
+
+      expect(result.hasEmbeddings).toBe(true);
+      expect(result.nodes).toHaveLength(3);
+      expect(result.nodes[0].id).toBe("m1");
+      expect(result.nodes[1].id).toBe("m2");
+      expect(result.nodes[2].id).toBe("m3");
+
+      // Each node should have numeric x,y coordinates
+      for (const n of result.nodes) {
+        expect(typeof n.x).toBe("number");
+        expect(typeof n.y).toBe("number");
+        expect(Number.isFinite(n.x)).toBe(true);
+        expect(Number.isFinite(n.y)).toBe(true);
+      }
+
+      // m1 and m2 are very similar (cosine ≈ 0.994), should produce an edge
+      const m1m2Edge = result.edges.find(
+        e => (e.source === "m1" && e.target === "m2") || (e.source === "m2" && e.target === "m1"),
+      );
+      expect(m1m2Edge).toBeDefined();
+      expect(m1m2Edge!.similarity).toBeGreaterThan(0.9);
+
+      // m1 and m3 are orthogonal (cosine = 0), should NOT produce an edge at default threshold
+      const m1m3Edge = result.edges.find(
+        e => (e.source === "m1" && e.target === "m3") || (e.source === "m3" && e.target === "m1"),
+      );
+      expect(m1m3Edge).toBeUndefined();
+    });
+
+    it("passes scope parameters to repository", () => {
+      mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
+      mockEmbeddingService.getDimension.mockReturnValue(3);
+      mockRepo.loadEmbeddingsForScope.mockReturnValue([]);
+
+      service.getEmbeddingMap("proj-1", "project", "s1", "a1");
+
+      expect(mockRepo.loadEmbeddingsForScope).toHaveBeenCalledWith(
+        "proj-1", "bge-small-en-v1.5", "project", "s1", "a1",
+      );
+    });
+  });
 });
