@@ -125,4 +125,116 @@ describe("live session runtime state", () => {
     expect(state.hasSprintContext).toBe(true);
     expect(state.pausedInterventionRun?.id).toBe("run-2");
   });
+
+  it("respects selectedSprintId when finding live sprint runs", () => {
+    const execution = createExecution({
+      sprintRuns: [
+        {
+          id: "run-1",
+          projectId: "project-1",
+          sprintId: "sprint-1",
+          sprintName: "Sprint 1",
+          sprintNumber: 1,
+          status: "running",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2026-03-15T10:00:00.000Z",
+          finishedAt: null,
+          lastHeartbeatAt: null,
+          createdAt: "2026-03-15T10:00:00.000Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        },
+        {
+          id: "run-2",
+          projectId: "project-1",
+          sprintId: "sprint-2",
+          sprintName: "Sprint 2",
+          sprintNumber: 2,
+          status: "queued",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2026-03-15T10:05:00.000Z",
+          finishedAt: null,
+          lastHeartbeatAt: null,
+          createdAt: "2026-03-15T10:05:00.000Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        },
+      ],
+    });
+
+    const state = deriveLiveSessionRuntimeState(createStatus(), execution, "sprint-2");
+
+    expect(state.hasActiveSprint).toBe(true);
+    expect(state.hasSprintContext).toBe(true);
+    expect(state.liveSprintRun?.id).toBe("run-2");
+  });
+
+  it("respects selectedSprintId when finding paused intervention runs", () => {
+    const execution = createExecution({
+      sprintRuns: [
+        {
+          id: "run-1",
+          projectId: "project-1",
+          sprintId: "sprint-1",
+          sprintName: "Sprint 1",
+          sprintNumber: 1,
+          status: "paused",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2026-03-15T10:00:00.000Z",
+          finishedAt: null,
+          lastHeartbeatAt: null,
+          createdAt: "2026-03-15T10:00:00.000Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: {
+            title: "Needs action",
+            reason: "manual_attention",
+            instructions: "Investigate the blocker.",
+            attentionType: "manual_attention",
+            severity: "high",
+            ownerType: "human",
+          },
+        },
+        {
+          id: "run-2",
+          projectId: "project-1",
+          sprintId: "sprint-2",
+          sprintName: "Sprint 2",
+          sprintNumber: 2,
+          status: "paused",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2026-03-15T10:05:00.000Z",
+          finishedAt: null,
+          lastHeartbeatAt: null,
+          createdAt: "2026-03-15T10:05:00.000Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: {
+            title: "Needs action 2",
+            reason: "manual_attention",
+            instructions: "Investigate the blocker.",
+            attentionType: "manual_attention",
+            severity: "high",
+            ownerType: "human",
+          },
+        },
+      ],
+    });
+
+    const state = deriveLiveSessionRuntimeState(createStatus(), execution, "sprint-2");
+
+    expect(state.hasActiveSprint).toBe(false);
+    expect(state.hasSprintContext).toBe(true);
+    expect(state.pausedInterventionRun?.id).toBe("run-2");
+  });
 });
