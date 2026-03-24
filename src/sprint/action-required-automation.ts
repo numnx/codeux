@@ -113,6 +113,7 @@ export interface ApplyActionRequiredAutomationArgs {
     sourceEventKey?: string;
     payload: Record<string, unknown>;
   }) => void;
+  lastAutoReplyTimestamps?: Map<string, number>;
 }
 
 export const applyActionRequiredAutomation = async (
@@ -197,6 +198,22 @@ export const applyActionRequiredAutomation = async (
         continue;
       }
 
+      if (task.session_state === "AWAITING_USER_FEEDBACK" || task.session_state === "PAUSED") {
+        const cooldownMs = (args.settings.clarificationCooldownSeconds ?? 300) * 1000;
+        const lastReplyAt = args.lastAutoReplyTimestamps?.get(sessionId);
+        if (lastReplyAt !== undefined && cooldownMs > 0 && (Date.now() - lastReplyAt) < cooldownMs) {
+          const remainingSec = Math.ceil((cooldownMs - (Date.now() - lastReplyAt)) / 1000);
+          task.intervention_owner = "AGENT";
+          task.intervention_hint = `Clarification cooldown active; next auto-reply in ${remainingSec}s.`;
+          emitTaskEvent(task, "action_required_cooldown", {
+            sessionId,
+            sessionState: task.session_state || null,
+            cooldownRemainingSeconds: remainingSec,
+          }, `cooldown:${sessionId}`);
+          continue;
+        }
+      }
+
       if (task.session_state === "AWAITING_USER_FEEDBACK") {
         let reply: string;
         if (args.settings.autoAnswerClarificationMode === "WORKER" && args.generateWorkerClarificationReply) {
@@ -211,6 +228,7 @@ export const applyActionRequiredAutomation = async (
         }
 
         await args.sendSessionMessage(sessionId, reply);
+        args.lastAutoReplyTimestamps?.set(sessionId, Date.now());
         task.status = "RUNNING";
         emitTaskEvent(task, "action_required_auto_replied", {
           sessionId,
@@ -226,6 +244,7 @@ export const applyActionRequiredAutomation = async (
           sessionId,
           "Continue execution using the current plan and repository conventions. Resume work and report progress."
         );
+        args.lastAutoReplyTimestamps?.set(sessionId, Date.now());
         task.status = "RUNNING";
         emitTaskEvent(task, "action_required_auto_resumed", {
           sessionId,

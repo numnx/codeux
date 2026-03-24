@@ -452,6 +452,7 @@ export interface AutomationInterventionsSettings {
   autoAnswerClarificationMode: "TEMPLATE" | "WORKER";
   autoResumePaused: boolean;
   clarificationAnswerTemplate: string;
+  clarificationCooldownSeconds: number;
 }
 
 export interface ProviderSettings {

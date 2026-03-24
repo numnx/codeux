@@ -77,6 +77,7 @@ const createMockContext = (): PipelineContext => {
         autoAnswerClarification: true,
         autoResumePaused: true,
         clarificationAnswerTemplate: "",
+        clarificationCooldownSeconds: 300,
       },
       ciIntelligence: {
         enabled: true,

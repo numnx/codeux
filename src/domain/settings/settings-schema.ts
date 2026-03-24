@@ -317,6 +317,11 @@ const validateAutomationInterventions = (
   }
   if (typeof value.autoResumePaused !== "boolean") issues.push({ path: `${path}.autoResumePaused`, message: "Expected a boolean" });
   if (typeof value.clarificationAnswerTemplate !== "string") issues.push({ path: `${path}.clarificationAnswerTemplate`, message: "Expected a string" });
+  if (value.clarificationCooldownSeconds !== undefined) {
+    if (typeof value.clarificationCooldownSeconds !== "number" || value.clarificationCooldownSeconds < 0) {
+      issues.push({ path: `${path}.clarificationCooldownSeconds`, message: "Expected a non-negative number (seconds)" });
+    }
+  }
 };
 
 const validateMemory = (

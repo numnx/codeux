@@ -152,6 +152,11 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
       interventionInput.clarificationAnswerTemplate,
       DEFAULT_DASHBOARD_SETTINGS.automationInterventions.clarificationAnswerTemplate
     ).trim() || DEFAULT_DASHBOARD_SETTINGS.automationInterventions.clarificationAnswerTemplate,
+    clarificationCooldownSeconds: Math.max(0,
+      typeof interventionInput.clarificationCooldownSeconds === "number" && Number.isFinite(interventionInput.clarificationCooldownSeconds)
+        ? interventionInput.clarificationCooldownSeconds
+        : DEFAULT_DASHBOARD_SETTINGS.automationInterventions.clarificationCooldownSeconds
+    ),
   };
 
   const aiProvider = sanitizeAiProvider(input, externalHints);

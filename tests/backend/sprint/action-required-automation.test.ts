@@ -33,6 +33,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
       isJulesApiConfigured: () => true,
@@ -58,6 +59,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
       isJulesApiConfigured: () => true,
@@ -88,6 +90,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => false,
       isJulesApiConfigured: () => true,
@@ -110,6 +113,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => false,
@@ -133,6 +137,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -156,6 +161,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -179,6 +185,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -202,6 +209,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: false,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -233,6 +241,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "Here is your answer",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -266,6 +275,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "Here is your answer",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -290,6 +300,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -315,6 +326,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "TEMPLATE",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -343,6 +355,7 @@ describe("action-required-automation", () => {
         autoAnswerClarificationMode: "WORKER",
         autoResumePaused: true,
         clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
       isJulesApiConfigured: () => true,
@@ -358,5 +371,105 @@ describe("action-required-automation", () => {
     }));
     expect(sendMessage).toHaveBeenCalledWith("abc123", "Worker generated answer");
     expect(result.subtasks[0].status).toBe("RUNNING");
+  });
+
+  it("skips auto-reply when clarification cooldown is active", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({});
+    const lastAutoReplyTimestamps = new Map<string, number>();
+    const task = createTask({ session_state: "AWAITING_USER_FEEDBACK" });
+
+    const commonArgs = {
+      projectId: "p1",
+      sprintGoal: "test goal",
+      automationLevel: "FULL" as const,
+      settings: {
+        autoApprovePlan: true,
+        autoAnswerClarification: true,
+        autoAnswerClarificationMode: "TEMPLATE" as const,
+        autoResumePaused: true,
+        clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
+      },
+      isActionRequiredState: () => true,
+      isJulesApiConfigured: () => true,
+      approveSessionPlan: vi.fn(),
+      sendSessionMessage: sendMessage,
+      lastAutoReplyTimestamps,
+    };
+
+    // First call — should send the message
+    const result1 = await applyActionRequiredAutomation([{ ...task }], commonArgs);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(result1.subtasks[0].status).toBe("RUNNING");
+
+    // Second call (still within cooldown) — should NOT send
+    const result2 = await applyActionRequiredAutomation([{ ...task }], commonArgs);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(result2.subtasks[0].intervention_owner).toBe("AGENT");
+    expect(result2.subtasks[0].intervention_hint).toContain("Clarification cooldown active");
+  });
+
+  it("sends auto-reply again after cooldown expires", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({});
+    const lastAutoReplyTimestamps = new Map<string, number>();
+    // Simulate a reply sent 301 seconds ago
+    lastAutoReplyTimestamps.set("abc123", Date.now() - 301_000);
+
+    const task = createTask({ session_state: "AWAITING_USER_FEEDBACK" });
+    const result = await applyActionRequiredAutomation([task], {
+      projectId: "p1",
+      sprintGoal: "test goal",
+      automationLevel: "FULL",
+      settings: {
+        autoApprovePlan: true,
+        autoAnswerClarification: true,
+        autoAnswerClarificationMode: "TEMPLATE",
+        autoResumePaused: true,
+        clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
+      },
+      isActionRequiredState: () => true,
+      isJulesApiConfigured: () => true,
+      approveSessionPlan: vi.fn(),
+      sendSessionMessage: sendMessage,
+      lastAutoReplyTimestamps,
+    });
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(result.subtasks[0].status).toBe("RUNNING");
+  });
+
+  it("applies cooldown to paused session auto-resume too", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({});
+    const lastAutoReplyTimestamps = new Map<string, number>();
+    const task = createTask({ session_state: "PAUSED" });
+
+    const commonArgs = {
+      projectId: "p1",
+      sprintGoal: "test goal",
+      automationLevel: "FULL" as const,
+      settings: {
+        autoApprovePlan: true,
+        autoAnswerClarification: true,
+        autoAnswerClarificationMode: "TEMPLATE" as const,
+        autoResumePaused: true,
+        clarificationAnswerTemplate: "template",
+        clarificationCooldownSeconds: 300,
+      },
+      isActionRequiredState: () => true,
+      isJulesApiConfigured: () => true,
+      approveSessionPlan: vi.fn(),
+      sendSessionMessage: sendMessage,
+      lastAutoReplyTimestamps,
+    };
+
+    // First call — sends resume
+    await applyActionRequiredAutomation([{ ...task }], commonArgs);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // Second call within cooldown — skips
+    const result2 = await applyActionRequiredAutomation([{ ...task }], commonArgs);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(result2.subtasks[0].intervention_hint).toContain("Clarification cooldown active");
   });
 });
