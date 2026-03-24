@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ExecutionDashboardSnapshot, DashboardRealtimeServerMessage } from "../../types.js";
 import { fetchProjectExecution } from "../lib/project-api.js";
+import { areExecutionSnapshotsEqual, shouldUseForegroundLoading } from "./project-resource-utils.js";
 import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
+
+const executionCache = new Map<string, ExecutionDashboardSnapshot>();
 
 const EMPTY_SNAPSHOT: ExecutionDashboardSnapshot = {
   projectId: null,
@@ -25,29 +28,61 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
   const [execution, setExecution] = useState<ExecutionDashboardSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const refreshInternal = useCallback(async (options?: { silent?: boolean }): Promise<void> => {
     if (!projectId) {
       setExecution(EMPTY_SNAPSHOT);
       setError(null);
       setLoading(false);
+      hasLoadedRef.current = false;
       return;
     }
 
-    setLoading(true);
+    const shouldUseForegroundState = shouldUseForegroundLoading(hasLoadedRef.current, options?.silent);
+    if (shouldUseForegroundState) {
+      setLoading(true);
+    }
+
     try {
-      setExecution(await fetchProjectExecution(projectId));
+      const nextExecution = await fetchProjectExecution(projectId);
+      executionCache.set(projectId, nextExecution);
+      setExecution((current) => areExecutionSnapshotsEqual(current, nextExecution) ? current : nextExecution);
+      hasLoadedRef.current = true;
       setError(null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
-      setLoading(false);
+      if (shouldUseForegroundState) {
+        setLoading(false);
+      }
     }
   }, [projectId]);
 
+  const refresh = useCallback(async (): Promise<void> => {
+    await refreshInternal({ silent: true });
+  }, [refreshInternal]);
+
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!projectId) {
+      hasLoadedRef.current = false;
+      void refreshInternal();
+      return;
+    }
+
+    const cachedExecution = executionCache.get(projectId);
+    if (cachedExecution) {
+      setExecution(cachedExecution);
+      setLoading(false);
+      setError(null);
+      hasLoadedRef.current = true;
+      void refreshInternal({ silent: true });
+      return;
+    }
+
+    hasLoadedRef.current = false;
+    void refreshInternal();
+  }, [projectId, refreshInternal]);
 
   useEffect(() => {
     if (!projectId) {
@@ -63,20 +98,20 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
       }
 
       if (message.type === "snapshot_required") {
-        void refresh();
+        void refreshInternal({ silent: true });
       }
     });
-  }, [projectId, refresh]);
+  }, [projectId, refreshInternal]);
 
   useEffect(() => {
     if (!projectId || pollIntervalMs <= 0) {
       return;
     }
     const intervalId = window.setInterval(() => {
-      void refresh();
+      void refreshInternal({ silent: true });
     }, pollIntervalMs);
     return () => window.clearInterval(intervalId);
-  }, [projectId, pollIntervalMs, refresh]);
+  }, [projectId, pollIntervalMs, refreshInternal]);
 
   return useMemo(() => ({
     execution,
