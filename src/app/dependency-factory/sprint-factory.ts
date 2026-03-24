@@ -58,7 +58,7 @@ export function createSprintDependencies(
     }
 
     const settings = { ...effective.settings };
-    const sources = effective.sources;
+    const sources = effective.sources || {};
 
     if (projectId && sources["git.defaultBranch"] === "system") {
       const project = projectManagementRepository.getProject(projectId);

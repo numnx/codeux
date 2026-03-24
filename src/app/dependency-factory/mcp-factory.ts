@@ -55,7 +55,7 @@ export function createMcpDependencies(
     }
 
     const settings = { ...effective.settings };
-    const sources = effective.sources;
+    const sources = effective.sources || {};
 
     // If git.defaultBranch is from system, allow project metadata to override it.
     if (scope?.projectId && sources["git.defaultBranch"] === "system") {
@@ -107,6 +107,7 @@ export function createMcpDependencies(
       coreDeps.projectWorkerAssignmentRepository,
       coreDeps.projectAttentionRepository,
       executionRepository,
+      getDashboardSettings,
       resolveWorkerExecutionMode,
     ),
     resolveWorkerExecutionMode,
