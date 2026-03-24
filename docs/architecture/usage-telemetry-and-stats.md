@@ -136,6 +136,8 @@ It focuses on:
 - hourly windows keep one-hour hover buckets while rendering visible axis labels every three hours
 - redesigned task and sprint ledgers with search, recency, richer token breakdowns, and client-side sorting by date and usage dimensions
 - animated donut charts now expose slice-level hover focus with center-detail readouts instead of only static composition rings
+- Heavy list views, such as the scrollable lazy-loaded task and sprint ledgers, are backed by a page-scoped progressive list strategy (`useProgressiveList`) that renders items in batches to optimize performance.
+- Backend read-model optimizations efficiently supply data to these page-scoped modules, ensuring fast telemetry rendering while **API contracts and routes remain completely unchanged**.
 
 This page is intentionally separate from the live execution view so the live dashboard can stay optimized for orchestration while the Stats page handles historical analysis.
 

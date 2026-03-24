@@ -44,6 +44,7 @@ Use this page as the main entrypoint.
 29. [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
 30. [Instruction Template System](./instructions/markdown-template-system.md)
 31. [Configuration and Storage](./settings/configuration-and-storage.md)
+32. [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
 
 ### Path 3: MCP integrator (tool contracts and runtime expectations)
 1. [Quickstart](./getting-started/quickstart.md)
@@ -68,6 +69,7 @@ Use this page as the main entrypoint.
 - [Dashboard Realtime Foundation](./architecture/dashboard-realtime-foundation.md)
 - [Execution Runtime Event Timeline](./architecture/execution-runtime-event-timeline.md)
 - [Usage Telemetry And Stats](./architecture/usage-telemetry-and-stats.md)
+- [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
 - [Unified Runtime Event Stream](./architecture/unified-runtime-event-stream.md)
 - [Execution Dashboard Controls](./architecture/execution-dashboard-controls.md)
 - [Project Management Implementation](./architecture/project-management-implementation.md)
