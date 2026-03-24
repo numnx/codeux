@@ -6,6 +6,8 @@ import { toTaskViewModel } from "../lib/view-models.js";
 import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
 import { areTaskRecordListsEqual, shouldUseForegroundLoading } from "./project-resource-utils.js";
 
+const taskCache = new Map<string, TaskRecord[]>();
+
 interface UseProjectTasksResult {
   tasks: Task[];
   loading: boolean;
@@ -39,6 +41,8 @@ export function useProjectTasks(
     }
     try {
       const nextTaskRecords = await fetchTasks(projectId, sprintId || undefined);
+      const cacheKey = `${projectId}:${sprintId || 'all'}`;
+      taskCache.set(cacheKey, nextTaskRecords);
       setTaskRecords((current) => (areTaskRecordListsEqual(current, nextTaskRecords) ? current : nextTaskRecords));
       hasLoadedRef.current = true;
       setError(null);
@@ -52,6 +56,24 @@ export function useProjectTasks(
   }, [projectId, sprintId]);
 
   useEffect(() => {
+    if (!projectId) {
+      hasLoadedRef.current = false;
+      void refreshInternal();
+      return;
+    }
+
+    const cacheKey = `${projectId}:${sprintId || 'all'}`;
+    const cachedTasks = taskCache.get(cacheKey);
+
+    if (cachedTasks) {
+      setTaskRecords(cachedTasks);
+      setLoading(false);
+      setError(null);
+      hasLoadedRef.current = true;
+      void refreshInternal({ silent: true });
+      return;
+    }
+
     hasLoadedRef.current = false;
     void refreshInternal();
   }, [projectId, sprintId, refreshInternal]);

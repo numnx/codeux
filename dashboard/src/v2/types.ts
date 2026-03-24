@@ -21,6 +21,7 @@ import type {
   UpdateMcpConnectionInput,
 } from "../../../src/contracts/connection-chat-types.js";
 import type {
+  ExecutionDashboardSnapshot,
   ExecutionHumanInterventionSummary,
   ExecutionUsageTotals,
   ExecutionUsageBucketSummary,
@@ -96,6 +97,7 @@ export interface Task {
 }
 
 export type {
+  ExecutionDashboardSnapshot,
   AgentPresetRecord,
   CreateProjectInput,
   CreateAgentPresetInput,

@@ -1,4 +1,4 @@
-import type { Sprint, TaskRecord } from "../types.js";
+import type { ExecutionDashboardSnapshot, Source, Sprint, TaskRecord } from "../types.js";
 
 export function shouldUseForegroundLoading(hasLoaded: boolean, silent = false): boolean {
   return !silent && !hasLoaded;
@@ -84,6 +84,44 @@ export function areTaskRecordListsEqual(current: TaskRecord[], next: TaskRecord[
       if (left.dependsOnTaskIds[dependencyIndex] !== right.dependsOnTaskIds[dependencyIndex]) {
         return false;
       }
+    }
+  }
+
+  return true;
+}
+
+
+export function areExecutionSnapshotsEqual(current: ExecutionDashboardSnapshot, next: ExecutionDashboardSnapshot): boolean {
+  if (current === next) {
+    return true;
+  }
+  return current.projectId === next.projectId && current.updatedAt === next.updatedAt;
+}
+
+export function areProjectListsEqual(current: Source[], next: Source[]): boolean {
+  if (current === next) {
+    return true;
+  }
+
+  if (current.length !== next.length) {
+    return false;
+  }
+
+  for (let index = 0; index < current.length; index += 1) {
+    const left = current[index];
+    const right = next[index];
+    if (
+      left.id !== right.id ||
+      left.slug !== right.slug ||
+      left.name !== right.name ||
+      left.status !== right.status ||
+      left.sprintsCount !== right.sprintsCount ||
+      left.openTasks !== right.openTasks ||
+      left.completedTasks !== right.completedTasks ||
+      left.isRunning !== right.isRunning ||
+      left.updatedAt !== right.updatedAt
+    ) {
+      return false;
     }
   }
 

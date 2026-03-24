@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Sprint, TaskRecord } from "../../../dashboard/src/v2/types.js";
+import type { ExecutionDashboardSnapshot, Source, Sprint, TaskRecord } from "../../../dashboard/src/v2/types.js";
 import {
+  areExecutionSnapshotsEqual,
+  areProjectListsEqual,
   areSprintListsEqual,
   areTaskRecordListsEqual,
   shouldUseForegroundLoading,
@@ -85,5 +87,63 @@ describe("project-resource-utils", () => {
     const next = [createSprint({ status: "running" })];
 
     expect(areSprintListsEqual(current, next)).toBe(false);
+  });
+});
+
+
+describe("areExecutionSnapshotsEqual", () => {
+  const baseSnapshot: ExecutionDashboardSnapshot = {
+    projectId: "proj-1",
+    projectName: "Project 1",
+    sprintRuns: [],
+    taskDispatches: [],
+    connections: [],
+    primaryAssignedWorker: null,
+    overflowAssignedWorkers: [],
+    attentionItems: [],
+    recentEvents: [],
+    updatedAt: "2026-03-10T00:00:00.000Z",
+  };
+
+  it("treats identical snapshots as equal", () => {
+    expect(areExecutionSnapshotsEqual(baseSnapshot, { ...baseSnapshot })).toBe(true);
+  });
+
+  it("detects changes in updatedAt", () => {
+    const nextSnapshot = { ...baseSnapshot, updatedAt: "2026-03-10T00:00:01.000Z" };
+    expect(areExecutionSnapshotsEqual(baseSnapshot, nextSnapshot)).toBe(false);
+  });
+});
+
+describe("areProjectListsEqual", () => {
+  const baseProject: Source = {
+    id: "proj-1",
+    slug: "proj-1",
+    name: "Project 1",
+    baseDir: "/path",
+    repoUrl: null,
+    sourceType: "local",
+    sourceRef: "main",
+    defaultBranch: "main",
+    featureBranchPrefix: null,
+    status: "active",
+    sprintsCount: 1,
+    openTasks: 5,
+    completedTasks: 10,
+    isRunning: false,
+    createdAt: "2026-03-10T00:00:00.000Z",
+    updatedAt: "2026-03-10T00:00:00.000Z",
+  };
+
+  it("treats identical project lists as equal", () => {
+    expect(areProjectListsEqual([baseProject], [{ ...baseProject }])).toBe(true);
+  });
+
+  it("detects changes in project status or stats", () => {
+    const nextProject = { ...baseProject, status: "archived" as any };
+    expect(areProjectListsEqual([baseProject], [nextProject])).toBe(false);
+
+    const nextProjectStats = { ...baseProject, openTasks: 6 };
+    expect(areProjectListsEqual([baseProject], [nextProjectStats])).toBe(false);
   });
 });
