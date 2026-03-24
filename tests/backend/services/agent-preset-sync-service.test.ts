@@ -15,7 +15,7 @@ afterEach(async () => {
 });
 
 describe("AgentPresetSyncService", () => {
-  it("imports project markdown agents and detects out-of-sync changes", async () => {
+  it("imports project markdown agents and auto-syncs content on change", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-agent-sync-"));
     tempDirs.push(dir);
 
@@ -54,12 +54,8 @@ describe("AgentPresetSyncService", () => {
     await fs.writeFile(agentPath, "Updated planning instructions.\n", "utf8");
 
     const drifted = await syncService.listAgentPresets(project.id);
-    expect(drifted[0]?.syncStatus).toBe("out_of_sync");
-    expect(drifted[0]?.instructionMarkdown).toContain("Initial planning instructions");
-
-    const reimported = await syncService.importAgentPresetFromMarkdown(drifted[0]!.id);
-    expect(reimported.syncStatus).toBe("synced");
-    expect(reimported.instructionMarkdown).toContain("Updated planning instructions");
+    expect(drifted[0]?.syncStatus).toBe("synced");
+    expect(drifted[0]?.instructionMarkdown).toContain("Updated planning instructions");
   });
 
   it("writes dashboard-created and updated agents into the project agent directory", async () => {

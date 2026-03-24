@@ -153,9 +153,23 @@ export class AgentPresetSyncService {
           sourcePath: source.sourcePath,
           sourceScope: source.sourceScope,
           sourceUpdatedAt: source.sourceUpdatedAt,
+          sourceImportedAt: source.sourceUpdatedAt,
         });
-        presetsById.set(linked.id, linked);
-        presetsByName.set(source.normalizedName, linked);
+
+        const contentChanged = source.instructionMarkdown.trim() !== existing.instructionMarkdown.trim();
+        const nameChanged = source.normalizedName !== this.normalizeName(existing.name);
+        if (contentChanged || nameChanged) {
+          const imported = this.deps.agentPresetRepository.importLinkedAgentPreset(existing.id, {
+            name: source.sourceScope === "project" ? existing.name : source.name,
+            instructionMarkdown: source.instructionMarkdown,
+            sourceUpdatedAt: source.sourceUpdatedAt,
+          });
+          presetsById.set(imported.id, imported);
+          presetsByName.set(source.normalizedName, imported);
+        } else {
+          presetsById.set(linked.id, linked);
+          presetsByName.set(source.normalizedName, linked);
+        }
       }
     }
   }
