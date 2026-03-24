@@ -349,6 +349,8 @@ export const TasksPage: FunctionComponent = () => {
   const {
     sprints,
     loading: sprintsLoading,
+    selectedSprintId,
+    selectSprint,
     refresh: refreshSprints,
   } = useProjectSprints(selectedProject?.id || null);
   const locationSearch = useRouterState({ select: (state) => state.location.searchStr });
@@ -356,7 +358,6 @@ export const TasksPage: FunctionComponent = () => {
     const params = new URLSearchParams(locationSearch);
     return params.get("sprint");
   }, [locationSearch]);
-  const [selectedSprint, setSelectedSprint] = useState<string | null>(initialSprint);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [listWindow, setListWindow] = useState<ListWindowOption>(DEFAULT_LIST_WINDOW);
@@ -367,7 +368,7 @@ export const TasksPage: FunctionComponent = () => {
     selectedProject?.id || null,
     projects,
     sprints,
-    selectedSprint
+    selectedSprintId
   );
 
   useLayoutEffect(() => {
@@ -388,36 +389,31 @@ export const TasksPage: FunctionComponent = () => {
         delay: 0.2,
       });
     }
-  }, [selectedProject?.id, selectedSprint, statusFilter, priorityFilter]);
+  }, [selectedProject?.id, selectedSprintId, statusFilter, priorityFilter]);
 
   useEffect(() => {
-    if (!selectedProject) {
-      setSelectedSprint(null);
+    if (!selectedProject || sprintsLoading) {
       return;
     }
 
-    if (!initialSprint) {
-      setSelectedSprint(null);
-      return;
+    if (initialSprint) {
+      if (sprints.some((sprint) => sprint.id === initialSprint)) {
+        if (initialSprint !== selectedSprintId) {
+          void selectSprint(initialSprint);
+        }
+      } else {
+        if (selectedSprintId !== null) {
+          void selectSprint(null);
+        }
+      }
     }
-
-    if (sprintsLoading) {
-      return;
-    }
-
-    if (sprints.some((sprint) => sprint.id === initialSprint)) {
-      setSelectedSprint(initialSprint);
-      return;
-    }
-
-    setSelectedSprint(null);
-  }, [initialSprint, selectedProject, sprints, sprintsLoading]);
+  }, [initialSprint, selectedProject, sprints, sprintsLoading, selectedSprintId, selectSprint]);
 
   const { filteredTasks, visibleTasks, stats, columns } = useMemo(() => {
     return deriveTaskBoardState(tasks, statusFilter, priorityFilter, listWindow);
   }, [tasks, statusFilter, priorityFilter, listWindow]);
 
-  const selectedSprintModel = selectedSprint ? sprints.find((sprint) => sprint.id === selectedSprint) || null : null;
+  const selectedSprintModel = selectedSprintId ? sprints.find((sprint) => sprint.id === selectedSprintId) || null : null;
 
   const handleTaskSubmit = async (draft: {
     sprintId: string;
@@ -509,7 +505,7 @@ export const TasksPage: FunctionComponent = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
-        <SprintSelector sprints={sprints} selectedId={selectedSprint} onSelect={setSelectedSprint} />
+        <SprintSelector sprints={sprints} selectedId={selectedSprintId} onSelect={(id) => void selectSprint(id)} />
 
         <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl">
           {[
@@ -613,8 +609,9 @@ export const TasksPage: FunctionComponent = () => {
         <AddTaskModal
           sprints={sprints}
           availableTasks={tasks}
+          defaultSprintId={selectedSprintId}
           initialTask={editingTask}
-          initialSprintId={selectedSprint}
+          initialSprintId={selectedSprintId}
           onClose={() => {
             setShowTaskModal(false);
             setEditingTask(null);
