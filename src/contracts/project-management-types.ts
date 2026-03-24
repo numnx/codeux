@@ -67,6 +67,11 @@ export interface TaskRecord {
   updatedAt: string;
 }
 
+export interface SprintCollectionResponse {
+  sprints: SprintRecord[];
+  selectedSprintId: string | null;
+}
+
 export interface ProjectCollectionResponse {
   projects: ProjectSummary[];
   selectedProjectId: string | null;

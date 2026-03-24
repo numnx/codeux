@@ -44,6 +44,7 @@ import type {
   ImprovePromptInput,
   PlanSprintOptions,
   ProjectCollectionResponse,
+  SprintCollectionResponse,
   ProjectSummary,
   SprintMarkdownExportBundle,
   SprintMarkdownImportInput,
@@ -109,7 +110,8 @@ export interface DashboardServerOptions {
   updateProject: (projectId: string, input: UpdateProjectInput) => ProjectSummary;
   deleteProject: (projectId: string) => void;
   selectProject: (projectId: string | null) => string | null;
-  listSprints: (projectId: string) => SprintRecord[];
+  selectSprint: (projectId: string, sprintId: string | null) => string | null;
+  listSprints: (projectId: string) => SprintCollectionResponse;
   createSprint: (projectId: string, input: CreateSprintInput) => SprintRecord;
   updateSprint: (sprintId: string, input: UpdateSprintInput) => SprintRecord;
   deleteSprint: (sprintId: string) => void;
@@ -471,6 +473,18 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json({ selectedProjectId: options.selectProject(projectId || null) });
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to select project") });
+    }
+  });
+
+    app.put("/api/projects/:projectId/selected-sprint", (req, res) => {
+    try {
+      const projectId = String(req.params.projectId || "").trim();
+      const sprintId = typeof req.body?.sprintId === "string" && req.body.sprintId.trim()
+        ? req.body.sprintId.trim()
+        : null;
+      res.json({ selectedSprintId: options.selectSprint(projectId, sprintId) });
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to select sprint") });
     }
   });
 

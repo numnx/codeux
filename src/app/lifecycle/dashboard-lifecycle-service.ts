@@ -503,6 +503,15 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
       deps.projectManagementRepository.notifyProjectsUpdated();
       return selectedProjectId;
     },
+    selectSprint: (projectId, sprintId) => {
+      const selectedSprintId = deps.projectManagementRepository.setSelectedSprintId(projectId, sprintId);
+      deps.dashboardRealtimeService.scheduleProjectExecutionRefresh(projectId, {
+        includeOverview: false,
+        includeProjects: false,
+      });
+      deps.dashboardRealtimeService.scheduleProjectStructureRefresh(projectId, { includeProjects: true });
+      return selectedSprintId;
+    },
     listSprints: (projectId) => deps.projectManagementRepository.listSprints(projectId),
     createSprint: (projectId, input) => deps.projectManagementRepository.createSprint(projectId, input),
     updateSprint: (sprintId, input) => deps.projectManagementRepository.updateSprint(sprintId, input),
