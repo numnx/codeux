@@ -33,6 +33,7 @@ import {
   formatPercent,
   formatDateTime,
   sumUsage,
+  createSeries,
 } from "./stats-utils.js";
 import { useStatsPageData } from "./use-stats-page-data.js";
 

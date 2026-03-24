@@ -116,7 +116,7 @@ export function groupSegments(
       "text-rose-600 dark:text-rose-400",
       "text-emerald-600 dark:text-emerald-400",
     ][index % 5] || "text-slate-600 dark:text-slate-300",
-  ]));
+  }));
 
   if (tail.length > 0) {
     segments.push({
