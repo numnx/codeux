@@ -36,6 +36,7 @@ import {
   deleteSprint,
   exportSprintMarkdown,
   fetchProjectExecution,
+  fetchProjectStats,
   fetchTasks,
   importSprintMarkdown,
   improveSprintPrompt,
@@ -45,9 +46,11 @@ import {
 import { fetchAgentPresets } from "./lib/agent-preset-api.js";
 import { buildTaskBundle, parseTaskBundle } from "./lib/markdown-transfer.js";
 import { toTaskViewModel } from "./lib/view-models.js";
+import { derivePlanningETA } from "./lib/planning-telemetry.js";
 import { fetchProjectEffectiveSettings } from "./lib/settings-api.js";
 import { cancelSprintRun, orchestrateSprint } from "../lib/api/dashboard-api.js";
 import { getSprintHumanInterventionBySprintId } from "../lib/execution-intervention.js";
+import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "./lib/list-window.js";
 import type { AgentPreset } from "./types.js";
 
 const ACCENT_CYCLE = ["text-signal-500", "text-ember-500", "text-status-green"] as const;
@@ -104,8 +107,10 @@ export const SprintsPage: FunctionComponent = () => {
     virtualWorkerProvider: string;
   }>(null);
   const [agentPresets, setAgentPresets] = useState<AgentPreset[]>([]);
+  const [planningEta, setPlanningEta] = useState(180000);
+  const [listWindow, setListWindow] = useState<ListWindowOption>(DEFAULT_LIST_WINDOW);
   const { selectedProject } = useProjectData();
-  const { sprints, refresh } = useProjectSprints(selectedProject?.id || null);
+  const { sprints, loading: sprintsLoading, refresh } = useProjectSprints(selectedProject?.id || null);
   const { execution, refresh: refreshExecution } = useProjectExecution(selectedProject?.id || null);
 
   useEffect(() => {
@@ -144,6 +149,24 @@ export const SprintsPage: FunctionComponent = () => {
     }
     createStageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [editingSprint, showCreateComposer]);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setPlanningEta(180000);
+      return;
+    }
+    let cancelled = false;
+    void fetchProjectStats(selectedProject.id, "all")
+      .then((stats) => {
+        if (!cancelled) setPlanningEta(derivePlanningETA(stats));
+      })
+      .catch((error) => {
+        console.error("Failed to fetch project stats for ETA", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProject?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -770,6 +793,7 @@ export const SprintsPage: FunctionComponent = () => {
                     connections={execution.connections}
                     virtualProviders={virtualProviders}
                     planningPresets={planningPresets}
+                    planningEta={planningEta}
                     onClose={() => {
                       setShowCreateComposer(false);
                       setEditingSprint(null);
@@ -785,6 +809,9 @@ export const SprintsPage: FunctionComponent = () => {
             <div className="rounded-[2.2rem] border border-black/[0.06] bg-white/70 shadow-[0_12px_36px_rgba(15,23,42,0.05)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/62 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <SprintLedger
                 sprints={displaySprints}
+                isLoading={sprintsLoading}
+                listWindow={listWindow}
+                onListWindowChange={setListWindow}
                 activeRunsBySprintId={activeRunsBySprintId}
                 interventionBySprintId={interventionBySprintId}
                 pendingActionIds={pendingActionIds}
