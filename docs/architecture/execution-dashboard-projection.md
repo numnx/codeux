@@ -129,6 +129,10 @@ The v2 live page now renders an execution runtime panel showing:
 
 That makes multi-sprint and worker execution visible without reconstructing state from task markdown or process-local globals.
 
+## Backend Read-Model Optimizations
+
+To support the dashboard resource layer and page-scoped module boundaries, the backend read-model optimizations project data efficiently without altering the underlying data structures. **API routes and backend contracts remain unchanged.**
+
 The v2 stats page reads the adjacent project statistics snapshot and renders:
 
 - adaptive hourly, daily, or weekly usage graphs for `24h`, `7d`, `30d`, `all time`, and custom windows

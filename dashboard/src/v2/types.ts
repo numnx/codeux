@@ -56,6 +56,13 @@ import type {
   UpdateTaskInput,
 } from "../../../src/contracts/project-management-types.js";
 
+export interface SegmentDefinition {
+  label: string;
+  value: number;
+  color: string;
+  textClassName: string;
+}
+
 export type SourceStatus = ProjectStatus;
 export type Source = ProjectSummary;
 export type AgentConnection = McpConnectionRecord;
