@@ -15,6 +15,7 @@
 - [Dashboard Realtime Foundation](./architecture/dashboard-realtime-foundation.md)
 - [Execution Runtime Event Timeline](./architecture/execution-runtime-event-timeline.md)
 - [Usage Telemetry And Stats](./architecture/usage-telemetry-and-stats.md)
+- [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
 - [Unified Runtime Event Stream](./architecture/unified-runtime-event-stream.md)
 - [Execution Dashboard Controls](./architecture/execution-dashboard-controls.md)
 - [Project Management Implementation](./architecture/project-management-implementation.md)
