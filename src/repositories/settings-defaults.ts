@@ -137,6 +137,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     autoAnswerClarificationMode: "TEMPLATE",
     autoResumePaused: false,
     clarificationAnswerTemplate: "Proceed with the safest implementation path using repository conventions. If multiple valid options exist, choose the smallest-scope option and continue without waiting for clarification.",
+    clarificationCooldownSeconds: 300,
   },
   aiProvider: {
     provider: "jules",

@@ -66,6 +66,7 @@ describe("SettingsRepository", () => {
           autoAnswerClarification: true,
           autoResumePaused: false,
           clarificationAnswerTemplate: "Proceed.",
+          clarificationCooldownSeconds: 300,
         },
         aiProvider: {
           provider: "gemini",
@@ -270,6 +271,7 @@ describe("SettingsRepository", () => {
         autoAnswerClarification: true,
         autoResumePaused: true,
         clarificationAnswerTemplate: "Legacy template",
+        clarificationCooldownSeconds: 300,
       },
       aiProvider: {
         provider: "codex",
