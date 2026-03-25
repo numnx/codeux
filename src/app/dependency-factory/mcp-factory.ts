@@ -8,6 +8,8 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
+import type { DashboardDependencies } from "./dashboard-factory.js";
+
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -17,7 +19,8 @@ export interface McpDependencies {
 export function createMcpDependencies(
   context: ServerContext,
   coreDeps: CoreDependencies,
-  sprintDeps: SprintDependencies
+  sprintDeps: SprintDependencies,
+  dashDeps: DashboardDependencies
 ): McpDependencies {
   const {
     logger,
@@ -114,6 +117,7 @@ export function createMcpDependencies(
     logger: logger.child({ component: "core-tool-handler" }),
   });
 
+
   const agentToolHandler = new AgentToolHandler({
     workerDispatchExecutionService: new WorkerDispatchExecutionService(
       executionRepository,
@@ -125,6 +129,8 @@ export function createMcpDependencies(
       logger.child({ component: "worker-dispatch-execution-service" }),
     ),
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
+    sprintService: sprintDeps.sprintService,
+    executionControlService: dashDeps.executionControlService,
   });
 
   return {

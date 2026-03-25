@@ -7,6 +7,8 @@ import { SprintExecutionStateService } from "../../services/sprint-execution-sta
 import { SprintTaskDispatchService } from "../../services/sprint-task-dispatch-service.js";
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { VirtualWorkerService } from "../../services/virtual-worker-service.js";
+import { SprintService } from "../../domain/sprint/sprint-service.js";
+import { SprintRepository } from "../../infrastructure/repositories/sprint-repository.js";
 import { SprintOrchestrator } from "../../sprint/sprint-orchestrator.js";
 import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
 import type { DashboardSettings, DashboardSettingsScope } from "../../contracts/app-types.js";
@@ -20,6 +22,7 @@ export interface SprintDependencies {
   virtualWorkerService: VirtualWorkerService;
   workerInboxReplyService: WorkerInboxReplyService;
   sprintOrchestrator: SprintOrchestrator;
+  sprintService: SprintService;
 }
 
 export function createSprintDependencies(
@@ -159,6 +162,11 @@ export function createSprintDependencies(
     virtualWorkerService.scheduleProject(projectId, "worker_attention_opened");
   });
 
+  const sprintService = new SprintService(
+    coreDeps.projectManagementRepository,
+    new SprintRepository()
+  );
+
   const sprintOrchestrator = new SprintOrchestrator({
     settings: context.runtimeContext.settings,
     dashboardPort: options.appConfig.dashboardPort,
@@ -214,6 +222,7 @@ export function createSprintDependencies(
     sprintTaskDispatchService,
     virtualWorkerService,
     workerInboxReplyService,
+    sprintService,
     sprintOrchestrator,
   };
 }

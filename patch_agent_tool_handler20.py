@@ -1,18 +1,9 @@
-import type { SprintService } from "../domain/sprint/sprint-service.js";
-import type { ExecutionControlService } from "../services/execution-control-service.js";
-import type { SprintAgentToolArgs } from "../api/mcp/tool-registry.js";
-import type { WorkerDispatchExecutionService } from "../services/worker-dispatch-execution-service.js";
-import type { WorkerInboxReplyService } from "../services/worker-inbox-reply-service.js";
+import re
 
-interface AgentToolHandlerDependencies {
-  workerDispatchExecutionService: WorkerDispatchExecutionService;
-  workerInboxReplyService: WorkerInboxReplyService;
-  sprintService?: SprintService;
-  executionControlService?: ExecutionControlService;
-}
+with open("src/mcp/agent-tool-handler.ts", "r") as f:
+    content = f.read()
 
-export class AgentToolHandler {
-  constructor(private readonly deps: AgentToolHandlerDependencies) {}
+new_method = """
   async handleSprintAgent(args: SprintAgentToolArgs) {
     if (!this.deps.sprintService || !this.deps.executionControlService) {
       return { isError: true, content: [{ type: "text", text: "SprintService and ExecutionControlService must be provided to use sprint_agent" }] };
@@ -51,30 +42,11 @@ export class AgentToolHandler {
 
     return { content: [{ type: "text", text: `Action ${args.action} is not supported.` }] };
   }
+"""
 
+# Replace the existing handleSprintAgent method
+pattern = r"\s*async handleSprintAgent\([^)]+\) \{[\s\S]*?\}\s*?(?=\s*async handleExecuteWorkerDispatch)"
+content = re.sub(pattern, new_method, content, count=1)
 
-  async handleExecuteWorkerDispatch(args: { dispatch_id: string }) {
-    const result = await this.deps.workerDispatchExecutionService.executeDispatch(args.dispatch_id);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-
-  async handleCancelLocalDispatch(args: { dispatch_id: string; reason?: string }) {
-    const result = await this.deps.workerDispatchExecutionService.cancelLocalDispatch(args.dispatch_id, args.reason);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-
-  async handleGenerateDashboardReply(args: {
-    project_id: string;
-    thread_id: string;
-    thread_title?: string;
-    body_markdown: string;
-  }) {
-    const result = await this.deps.workerInboxReplyService.generateReply({
-      projectId: args.project_id,
-      threadId: args.thread_id,
-      threadTitle: args.thread_title,
-      bodyMarkdown: args.body_markdown,
-    });
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-}
+with open("src/mcp/agent-tool-handler.ts", "w") as f:
+    f.write(content)

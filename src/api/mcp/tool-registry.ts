@@ -106,7 +106,23 @@ export interface ReportAttentionOutcomeArgs {
   thread_title?: string;
 }
 
+
+export interface SprintAgentToolArgs {
+  sprint_number?: number;
+  sprint_id?: string;
+  project_id?: string;
+  repo_path?: string;
+  source_id?: string;
+  feature_branch?: string;
+  action: "status" | "orchestrate" | "plan" | "execute_task";
+  wait?: boolean;
+  retry_failed?: boolean;
+  goal?: string;
+  instructions?: string;
+}
+
 export interface McpToolArgsByName {
+  sprint_agent: SprintAgentToolArgs;
   get_session: GetSessionArgs;
   execute_worker_dispatch: ExecuteWorkerDispatchArgs;
   cancel_local_dispatch: CancelLocalDispatchArgs;

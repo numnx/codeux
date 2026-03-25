@@ -2,6 +2,28 @@ export type McpRuntimeRole = "project_manager" | "worker_host" | "worker_gateway
 
 export const TOOL_DEFINITIONS = [
   {
+    name: "sprint_agent",
+    runtimeRoles: ["project_manager", "worker_host", "worker_gateway"],
+    description: "The core orchestrator tool for planning and executing complex multi-task sprints.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_number: { type: "number" },
+        sprint_id: { type: "string" },
+        project_id: { type: "string" },
+        repo_path: { type: "string" },
+        source_id: { type: "string" },
+        feature_branch: { type: "string" },
+        action: { type: "string", enum: ["status", "orchestrate", "plan", "execute_task"] },
+        wait: { type: "boolean" },
+        retry_failed: { type: "boolean" },
+        goal: { type: "string", description: "The sprint goal (required for execute_task)." },
+        instructions: { type: "string", description: "The task instructions (required for execute_task)." },
+      },
+      required: ["action"],
+    },
+  },
+  {
     name: "get_session",
     runtimeRoles: ["project_manager", "worker_host", "worker_gateway"],
     description: "Get the current status, state, and outputs of a tracked or active execution session.",

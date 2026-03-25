@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMcpDependencies } from "../../../../src/app/dependency-factory/mcp-factory.js";
+import { createDashboardDependencies } from "../../../../src/app/dependency-factory/dashboard-factory.js";
 import { ServerContext } from "../../../../src/app/dependency-factory.js";
 import { CoreDependencies } from "../../../../src/app/dependency-factory/core-factory.js";
 import { SprintDependencies } from "../../../../src/app/dependency-factory/sprint-factory.js";
@@ -89,10 +90,8 @@ describe("MCP Factory", () => {
 
   it("should create mcp dependencies and wire them correctly", () => {
     const result = createMcpDependencies(
-      mockContext as unknown as ServerContext,
-      mockCoreDeps as unknown as CoreDependencies,
-      mockSprintDeps as unknown as SprintDependencies
-    );
+      mockContext as unknown as ServerContext, mockCoreDeps as unknown as CoreDependencies, mockSprintDeps as unknown as SprintDependencies
+    , { executionControlService: {} } as any);
 
     expect(result.coreToolHandler).toBeDefined();
     expect(result.agentToolHandler).toBeDefined();
@@ -139,10 +138,8 @@ describe("MCP Factory", () => {
     mockContext.runtimeContext.dashboardSettings = undefined;
 
     createMcpDependencies(
-      mockContext as unknown as ServerContext,
-      mockCoreDeps as unknown as CoreDependencies,
-      mockSprintDeps as unknown as SprintDependencies
-    );
+      mockContext as unknown as ServerContext, mockCoreDeps as unknown as CoreDependencies, mockSprintDeps as unknown as SprintDependencies
+    , { executionControlService: {} } as any);
 
     const agentArgs = vi.mocked(AgentToolHandler).mock.calls[0][0];
     expect(agentArgs.workerDispatchExecutionService).toBeDefined();

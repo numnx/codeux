@@ -42,4 +42,30 @@ describe("AgentToolHandler", () => {
         });
         expect((res as any).content[0].text).toContain("reply");
     });
+
+    it("handleSprintAgent calls createSingleTaskSprint and orchestrateSprint for execute_task", async () => {
+        const sprintServiceMock = { createSingleTaskSprint: vi.fn().mockResolvedValue({}) };
+        const executionControlServiceMock = { orchestrateSprint: vi.fn().mockResolvedValue({}) };
+
+        const deps = {
+            ...defaultDeps,
+            sprintService: sprintServiceMock as any,
+            executionControlService: executionControlServiceMock as any,
+        };
+        const handler = new AgentToolHandler(deps);
+
+        const res = await handler.handleSprintAgent({
+            action: "execute_task",
+            project_id: "p1",
+            sprint_id: "s1",
+            goal: "test goal",
+            instructions: "test instructions",
+            repo_path: "/path",
+        });
+
+        expect(sprintServiceMock.createSingleTaskSprint).toHaveBeenCalledWith("p1", "s1", "test goal", "test instructions", "/path");
+        expect(executionControlServiceMock.orchestrateSprint).toHaveBeenCalledWith("p1", "s1");
+        expect((res as any).content[0].text).toContain("Successfully created and started");
+    });
+
 });

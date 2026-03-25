@@ -34,6 +34,7 @@ export const registerMcpRequestHandlers = (args: McpRequestRouterArgs): void => 
     .register("claim_attention_item", (input) => args.coreToolHandler.handleClaimAttentionItem(input))
     .register("resolve_attention_item", (input) => args.coreToolHandler.handleResolveAttentionItem(input))
     .register("report_attention_outcome", (input) => args.coreToolHandler.handleReportAttentionOutcome(input))
+    .register("sprint_agent", async (input) => (await args.agentToolHandler.handleSprintAgent(input)) as McpToolResponse)
     .register("execute_worker_dispatch", async (input) => (await args.agentToolHandler.handleExecuteWorkerDispatch(input)) as McpToolResponse)
     .register("cancel_local_dispatch", async (input) => (await args.agentToolHandler.handleCancelLocalDispatch(input)) as McpToolResponse)
     .register("generate_dashboard_reply", async (input) => (await args.agentToolHandler.handleGenerateDashboardReply(input)) as McpToolResponse);
