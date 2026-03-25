@@ -60,6 +60,7 @@ export interface IProviderRunner {
     githubToken?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
+    continueSessionId?: string | null;
   }): Promise<ProviderRunResult & { text: string }>;
 }
 
@@ -94,6 +95,7 @@ export class ProviderRunner implements IProviderRunner {
     githubToken?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
+    continueSessionId?: string | null;
   }): Promise<ProviderRunResult & { text: string }> {
     const outputPath = input.provider === "codex"
       ? path.join(getRepoSprintOsPath(input.repoPath, "tmp"), `provider-last-message-${input.sessionId}.txt`)
@@ -107,6 +109,7 @@ export class ProviderRunner implements IProviderRunner {
       const result = await this.runProviderInternal({
         ...input,
         codexOutputPath: outputPath,
+        continueSessionId: input.continueSessionId,
       });
 
       const capturedText = outputPath
@@ -137,10 +140,11 @@ export class ProviderRunner implements IProviderRunner {
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     codexOutputPath?: string | null;
+    continueSessionId?: string | null;
   }): Promise<ProviderRunResult> {
     const { provider, prompt, cwd, model, apiKey, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
     const providerEnv = this.withProviderEnv(provider, model, apiKey, workflowSettings, githubToken);
-    const nativeSessionId = provider === "claude-code" ? randomUUID() : null;
+    const nativeSessionId = input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const spec = this.buildCommandSpec(provider, model, prompt, input.codexOutputPath, nativeSessionId);
     const { command, args } = spec;
