@@ -166,6 +166,17 @@ export const SprintsPage: FunctionComponent = () => {
     ? sortedSprints.find((sprint) => sprint.id === rowMenu.sprintId) || null
     : null, [rowMenu, sortedSprints]);
 
+  const handleToggleShowcaseWithSprint = useCallback((sprint: any) => {
+    void handleToggleShowcase(sprint);
+  }, [handleToggleShowcase]);
+
+  const handleBulkStart = useCallback((ids: string[]) => {
+    for (const id of ids) handleSprintToggle(id);
+  }, [handleSprintToggle]);
+
+  const handleBulkDelete = useCallback((ids: string[]) => {
+    for (const id of ids) void handleDeleteSprint(id);
+  }, [handleDeleteSprint]);
 
   return (
     <>
