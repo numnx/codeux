@@ -26,19 +26,24 @@ export const processDashboardTasks = (
 
   const processedTasks: Subtask[] = [];
 
-  for (const task of tasks) {
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
     const phase = getTaskProgressPhase(task);
+    
+    // Stats calculation
     if (phase === "RUNNING") stats.running++;
     else if (phase === "CODING_COMPLETED") stats.codingCompleted++;
     else if (phase === "COMPLETED") stats.completed++;
     else if (phase === "FAILED") stats.failed++;
 
-    if (task.merge_indicator === "CI") stats.ci++;
-    if (task.merge_indicator === "AUTOMERGE") stats.automerge++;
-    if (task.merge_indicator === "MERGED" || task.is_merged) stats.merged++;
-    if (task.merge_indicator === "MERGE_BLOCKED") stats.mergeBlocked++;
-    if (task.merge_indicator === "MERGE_CONFLICT") stats.mergeConflicts++;
+    const indicator = task.merge_indicator;
+    if (indicator === "CI") stats.ci++;
+    else if (indicator === "AUTOMERGE") stats.automerge++;
+    else if (indicator === "MERGED" || task.is_merged) stats.merged++;
+    else if (indicator === "MERGE_BLOCKED") stats.mergeBlocked++;
+    else if (indicator === "MERGE_CONFLICT") stats.mergeConflicts++;
 
+    // Live activities merging
     let finalTask = task;
     if (liveBySession) {
       const sessionName = normalizeSessionName(task);
