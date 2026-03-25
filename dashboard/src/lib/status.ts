@@ -39,9 +39,10 @@ export const processDashboardTasks = (
     const indicator = task.merge_indicator;
     if (indicator === "CI") stats.ci++;
     else if (indicator === "AUTOMERGE") stats.automerge++;
-    else if (indicator === "MERGED" || task.is_merged) stats.merged++;
+    else if (indicator === "MERGED") stats.merged++;
     else if (indicator === "MERGE_BLOCKED") stats.mergeBlocked++;
     else if (indicator === "MERGE_CONFLICT") stats.mergeConflicts++;
+    if (task.is_merged) stats.merged++;
 
     // Live activities merging
     let finalTask = task;
