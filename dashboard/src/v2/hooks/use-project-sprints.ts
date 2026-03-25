@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { Sprint, SprintCollectionResponse } from "../types.js";
 import type { DashboardRealtimeServerMessage } from "../../types.js";
 import { fetchSprints, selectSprint as apiSelectSprint } from "../lib/project-api.js";
@@ -113,9 +113,15 @@ export function useProjectSprints(projectId: string | null): UseProjectSprintsRe
     }
   }, [projectId]);
 
-  const sprints = collection ? collection.sprints.map(toSprintViewModel) : [];
+  const sprints = useMemo(
+    () => collection ? collection.sprints.map(toSprintViewModel) : [],
+    [collection],
+  );
   const selectedSprintId = collection?.selectedSprintId ?? null;
-  const selectedSprint = resolveSelectedSprint(sprints, selectedSprintId);
+  const selectedSprint = useMemo(
+    () => resolveSelectedSprint(sprints, selectedSprintId),
+    [sprints, selectedSprintId],
+  );
 
   return { sprints, selectedSprintId, selectedSprint, selectSprint, loading, error, refresh };
 }

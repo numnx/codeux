@@ -752,7 +752,7 @@ const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 export const LiveSessionPage: FunctionComponent = () => {
     const headerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
-    const { error, execution, gitStatus, gitStatusError, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
+    const { error, execution, gitStatus, gitStatusError, initialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
     const realtimeProjectId = execution.projectId || status.project_id || null;
     const { selectedSprintId } = useProjectSprints(realtimeProjectId);
 
@@ -801,7 +801,23 @@ export const LiveSessionPage: FunctionComponent = () => {
     const pausedInterventionRun = runtimeState.pausedInterventionRun;
     const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
     const hasLiveSprint = runtimeState.hasActiveSprint;
-    const hasSprintContext = runtimeState.hasSprintContext;
+
+    // Stabilize hasSprintContext: once true, hold it true for a grace period to
+    // prevent brief flickers when a poll/realtime update transiently loses context.
+    const rawHasSprintContext = runtimeState.hasSprintContext;
+    const sprintContextLastTrueAtRef = useRef<number>(0);
+    if (rawHasSprintContext) {
+        sprintContextLastTrueAtRef.current = Date.now();
+    }
+    const hasSprintContext = useMemo(() => {
+        if (rawHasSprintContext) return true;
+        // After initial load, keep context alive for 10s grace period to absorb transient gaps
+        if (initialLoadComplete && sprintContextLastTrueAtRef.current > 0) {
+            return Date.now() - sprintContextLastTrueAtRef.current < 10_000;
+        }
+        return false;
+    }, [rawHasSprintContext, initialLoadComplete]);
+
     const [nowIso, setNowIso] = useState(() => new Date().toISOString());
     const visibleTasksWithLiveActivities = useMemo(() => {
         if (!hasSprintContext) return EMPTY_TASKS;
@@ -985,8 +1001,10 @@ export const LiveSessionPage: FunctionComponent = () => {
         || '<p class="text-slate-400 dark:text-slate-600 italic">No active sprint protocol.</p>'
     ), [hasSprintContext, status.instructions]);
 
-    /* Connection error */
-    if (error) {
+    /* Connection error — only show full-page error if we have NO prior data.
+       If we already loaded sprint data, keep showing it with an inline warning
+       so the view doesn't flicker away on transient network blips. */
+    if (error && !hasSprintContext && !initialLoadComplete) {
         return (
             <div className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex items-center justify-center min-h-[60vh]">
                 <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-status-red/20 rounded-[1.75rem] p-12 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] text-center max-w-lg">
@@ -1005,6 +1023,14 @@ export const LiveSessionPage: FunctionComponent = () => {
 
     return (
         <div className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
+
+            {/* Inline connection warning — shown when we have prior data but lost connection */}
+            {error && (hasSprintContext || initialLoadComplete) && (
+                <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-status-red/15 bg-status-red/5 text-sm text-status-red font-medium backdrop-blur-md">
+                    <Zap className="w-4 h-4 shrink-0" strokeWidth={2} />
+                    <span>{error} — showing last known state, reconnecting...</span>
+                </div>
+            )}
 
             {/* ── Page Header ─────────────────────────────────────────── */}
             <div ref={headerRef} className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-8">
@@ -1042,8 +1068,10 @@ export const LiveSessionPage: FunctionComponent = () => {
                             : pausedIntervention
                                 ? pausedIntervention.instructions
                                 : hasSprintContext
-                                    ? "Loading the latest sprint telemetry snapshot."
-                                    : "Waiting for sprint to start."
+                                    ? "Viewing the latest sprint telemetry snapshot."
+                                    : !initialLoadComplete
+                                        ? "Connecting to orchestrator..."
+                                        : "Waiting for sprint to start."
                         }
                     </p>
                 </div>
@@ -1101,7 +1129,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : pausedIntervention ? "bg-status-amber" : "bg-slate-400"}`}>
                                 {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
                             </span>
-                            {hasLiveSprint ? `${visibleStats.running} Running` : pausedIntervention ? "Paused for intervention" : hasSprintContext ? "Snapshot loaded" : "Waiting"}
+                            {hasLiveSprint ? `${visibleStats.running} Running` : pausedIntervention ? "Paused for intervention" : hasSprintContext ? "Snapshot loaded" : !initialLoadComplete ? "Connecting" : "Waiting"}
                         </div>
                         {pausedIntervention && !hasLiveSprint && (
                             <HumanInterventionBadge summary={pausedIntervention} label="Needs you" align="right" />
@@ -1218,7 +1246,10 @@ export const LiveSessionPage: FunctionComponent = () => {
 
                 {/* Task cards */}
                 <div className="xl:col-span-8 flex flex-col gap-5">
-                    {!hasSprintContext ? (
+                    {!hasSprintContext && !initialLoadComplete ? (
+                        /* Initial load in progress — render nothing to avoid flashing idle placeholder */
+                        null
+                    ) : !hasSprintContext ? (
                         <IdleRuntimeState
                             title={pausedIntervention ? "Human Intervention Needed" : "Waiting for Sprint Start"}
                             subtitle={pausedIntervention
@@ -1263,7 +1294,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                         icon={Activity}
                         accentHex="#00E0A0"
                         content={hasSprintContext ? status.reportText : undefined}
-                        fallback={hasSprintContext ? "Waiting for activity..." : "Waiting for sprint to start."}
+                        fallback={hasSprintContext ? "Waiting for activity..." : !initialLoadComplete ? "Connecting..." : "Waiting for sprint to start."}
                     />
 
                     {/* 2. Git/CI — moved to top, always visible */}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ExecutionDashboardSnapshot, DashboardRealtimeServerMessage } from "../../types.js";
 import { fetchProjectExecution } from "../lib/project-api.js";
 import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
@@ -25,27 +25,40 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
   const [execution, setExecution] = useState<ExecutionDashboardSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const refresh = useCallback(async (options?: { silent?: boolean }): Promise<void> => {
     if (!projectId) {
       setExecution(EMPTY_SNAPSHOT);
       setError(null);
       setLoading(false);
+      hasLoadedRef.current = false;
       return;
     }
 
-    setLoading(true);
+    // Only show foreground loading on the very first fetch.
+    // Subsequent polls/realtime refreshes update data silently
+    // so the UI never flashes skeleton rows.
+    const isForeground = !options?.silent && !hasLoadedRef.current;
+    if (isForeground) {
+      setLoading(true);
+    }
     try {
-      setExecution(await fetchProjectExecution(projectId));
+      const next = await fetchProjectExecution(projectId);
+      setExecution((prev) => prev.updatedAt === next.updatedAt ? prev : next);
+      hasLoadedRef.current = true;
       setError(null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
-      setLoading(false);
+      if (isForeground) {
+        setLoading(false);
+      }
     }
   }, [projectId]);
 
   useEffect(() => {
+    hasLoadedRef.current = false;
     void refresh();
   }, [refresh]);
 
@@ -56,14 +69,14 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
 
     return subscribeToDashboardRealtime([`project:${projectId}`], (message: DashboardRealtimeServerMessage) => {
       if (message.type === "event" && message.event.eventType === "project.execution.updated") {
-        setExecution(message.event.payload as ExecutionDashboardSnapshot);
+        const next = message.event.payload as ExecutionDashboardSnapshot;
+        setExecution((prev) => prev.updatedAt === next.updatedAt ? prev : next);
         setError(null);
-        setLoading(false);
         return;
       }
 
       if (message.type === "snapshot_required") {
-        void refresh();
+        void refresh({ silent: true });
       }
     });
   }, [projectId, refresh]);
@@ -73,7 +86,7 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
       return;
     }
     const intervalId = window.setInterval(() => {
-      void refresh();
+      void refresh({ silent: true });
     }, pollIntervalMs);
     return () => window.clearInterval(intervalId);
   }, [projectId, pollIntervalMs, refresh]);
@@ -82,6 +95,6 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
     execution,
     loading,
     error,
-    refresh,
+    refresh: () => refresh({ silent: true }),
   }), [error, execution, loading, refresh]);
 }
