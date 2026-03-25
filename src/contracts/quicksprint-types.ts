@@ -8,6 +8,7 @@ export interface QuicksprintTemplateRecord {
   agentInstructionMarkdown: string;
   defaultTaskCount: number;
   isBuiltIn: boolean;
+  agentPresetId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +20,7 @@ export interface CreateQuicksprintTemplateInput {
   category: string;
   agentInstructionMarkdown: string;
   defaultTaskCount?: number;
+  agentPresetId?: string;
 }
 
 export interface UpdateQuicksprintTemplateInput {
@@ -28,6 +30,7 @@ export interface UpdateQuicksprintTemplateInput {
   category?: string;
   agentInstructionMarkdown?: string;
   defaultTaskCount?: number;
+  agentPresetId?: string;
 }
 
 export interface QuicksprintExecutionInput {
@@ -36,4 +39,6 @@ export interface QuicksprintExecutionInput {
   submitMode: "plan_only" | "plan_and_start";
   routeOverride?: string;
   modelOverride?: string;
+  agentPresetId?: string;
+  additionalPrompt?: string;
 }

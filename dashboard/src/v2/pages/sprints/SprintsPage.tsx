@@ -60,7 +60,11 @@ export const SprintsPage: FunctionComponent = () => {
     showQuicksprint, setShowQuicksprint,
     quicksprintTemplates,
     quicksprintLoading,
+    agentPresets,
     handleQuicksprintExecute,
+    handleCreateQuicksprintTemplate,
+    handleUpdateQuicksprintTemplate,
+    handleDeleteQuicksprintTemplate,
     refreshSprints,
     refreshExecution,
     handleSprintToggle,
@@ -370,16 +374,22 @@ export const SprintsPage: FunctionComponent = () => {
                 }`}
               >
                 <div className="relative">
-                  <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.08),transparent_46%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.12),transparent_46%)]" />
                   <QuicksprintPanel
                     projectId={selectedProject.id}
                     onClose={() => setShowQuicksprint(false)}
                     templates={quicksprintTemplates}
                     loading={quicksprintLoading}
-                    onExecute={async (templateId, taskCount, submitMode) => {
-                      await handleQuicksprintExecute(templateId, taskCount, submitMode);
+                    agentPresets={agentPresets}
+                    connections={execution.connections}
+                    virtualProviders={virtualProviders}
+                    planningEta={planningEta}
+                    onExecute={async (templateId, taskCount, submitMode, additionalPrompt) => {
+                      await handleQuicksprintExecute(templateId, taskCount, submitMode, additionalPrompt);
                       animateLatestCell();
                     }}
+                    onCreateTemplate={handleCreateQuicksprintTemplate}
+                    onUpdateTemplate={handleUpdateQuicksprintTemplate}
+                    onDeleteTemplate={handleDeleteQuicksprintTemplate}
                   />
                 </div>
               </div>

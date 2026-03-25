@@ -1,226 +1,882 @@
-import { useState, useMemo, useEffect, useRef } from "preact/hooks";
+import { useState, useMemo, useEffect, useRef, useCallback } from "preact/hooks";
 import type { FunctionComponent } from "preact";
-import { X, Plus } from "lucide-preact";
+import {
+  X, Plus, Trash2, ChevronLeft, Eye, EyeOff,
+  Sparkles, ShieldCheck, Accessibility, Zap,
+  Rocket, ClipboardList, Settings2,
+  Bug, Code2, Database, FileSearch, FlaskConical,
+  GitBranch, Globe, Hammer, Heart, Layers,
+  LayoutGrid, Lock, Microscope, Monitor,
+  Paintbrush, RefreshCw, Search, Server,
+  Shield, Terminal, TestTube2, Wrench,
+} from "lucide-preact";
 import gsap from "gsap";
 import type { QuicksprintTemplateRecord } from "../../../../../src/contracts/quicksprint-types.js";
-import { QuicksprintCard } from "./QuicksprintCard.js";
-import { QuicksprintPromptModal } from "./QuicksprintPromptModal.js";
+import type { AgentPreset, ExecutionConnectionSummary, VirtualWorkerProvider } from "../../types.js";
+import type { PlanningRouteOption } from "../../lib/sprint-composer-state.js";
+import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
+import { getProviderModelOptions } from "../../lib/settings-view-models.js";
+import { getPlanningFeedback } from "../../lib/sprint-planning-feedback.js";
+import { ContainerShip } from "../ui/PlanningShip.js";
+
+/* ─── Icon Map ──────────────────────────────────────────────────────── */
+const IconMap: Record<string, FunctionComponent<any>> = {
+  Sparkles, ShieldCheck, Accessibility, Zap,
+  Bug, Code2, Database, FileSearch, FlaskConical,
+  GitBranch, Globe, Hammer, Heart, Layers,
+  LayoutGrid, Lock, Microscope, Monitor,
+  Paintbrush, RefreshCw, Search, Server,
+  Shield, Terminal, TestTube2, Wrench,
+};
+
+const CATEGORY_STYLES: Record<string, string> = {
+  engineering: "bg-signal-500/10 text-signal-500",
+  security:    "bg-ember-500/10 text-ember-500",
+  design:      "bg-purple-400/10 text-purple-400",
+};
+
+const ICON_OPTIONS: ReadonlyArray<{ value: string; Icon: FunctionComponent<any> }> = [
+  { value: "Sparkles", Icon: Sparkles },
+  { value: "ShieldCheck", Icon: ShieldCheck },
+  { value: "Accessibility", Icon: Accessibility },
+  { value: "Zap", Icon: Zap },
+  { value: "Bug", Icon: Bug },
+  { value: "Code2", Icon: Code2 },
+  { value: "Database", Icon: Database },
+  { value: "FileSearch", Icon: FileSearch },
+  { value: "FlaskConical", Icon: FlaskConical },
+  { value: "GitBranch", Icon: GitBranch },
+  { value: "Globe", Icon: Globe },
+  { value: "Hammer", Icon: Hammer },
+  { value: "Heart", Icon: Heart },
+  { value: "Layers", Icon: Layers },
+  { value: "LayoutGrid", Icon: LayoutGrid },
+  { value: "Lock", Icon: Lock },
+  { value: "Microscope", Icon: Microscope },
+  { value: "Monitor", Icon: Monitor },
+  { value: "Paintbrush", Icon: Paintbrush },
+  { value: "RefreshCw", Icon: RefreshCw },
+  { value: "Search", Icon: Search },
+  { value: "Server", Icon: Server },
+  { value: "Shield", Icon: Shield },
+  { value: "Terminal", Icon: Terminal },
+  { value: "TestTube2", Icon: TestTube2 },
+  { value: "Wrench", Icon: Wrench },
+];
+
+const CATEGORY_OPTIONS = [
+  { value: "engineering", label: "Engineering" },
+  { value: "security", label: "Security" },
+  { value: "design", label: "Design" },
+] as const;
+
+/* ─── Types ─────────────────────────────────────────────────────────── */
+type Phase = "browse" | "configure" | "editor";
 
 interface QuicksprintPanelProps {
   projectId: string;
   onClose: () => void;
-  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start") => Promise<void>;
+  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string) => Promise<void>;
   templates: QuicksprintTemplateRecord[];
   loading?: boolean;
+  agentPresets?: AgentPreset[];
+  connections?: ExecutionConnectionSummary[];
+  virtualProviders?: Array<{ id: VirtualWorkerProvider; label: string }>;
+  planningEta?: number;
+  onCreateTemplate?: (data: {
+    name: string;
+    description: string;
+    icon: string;
+    category: string;
+    agentInstructionMarkdown: string;
+    defaultTaskCount: number;
+    agentPresetId?: string;
+  }) => Promise<void>;
+  onUpdateTemplate?: (templateId: string, data: {
+    name: string;
+    description: string;
+    icon: string;
+    category: string;
+    agentInstructionMarkdown: string;
+    defaultTaskCount: number;
+    agentPresetId?: string;
+  }) => Promise<void>;
+  onDeleteTemplate?: (templateId: string) => Promise<void>;
 }
 
+/* ─── Main Component ───────────────────────────────────────────────── */
 export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   projectId,
   onClose,
   onExecute,
   templates,
   loading = false,
+  agentPresets = [],
+  connections = [],
+  virtualProviders = [],
+  planningEta = 180_000,
+  onCreateTemplate,
+  onUpdateTemplate,
+  onDeleteTemplate,
 }) => {
-  const panelRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
+
+  /* ── Phase / Navigation ─────────────────────────────────────────── */
+  const [phase, setPhase] = useState<Phase>("browse");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [taskCount, setTaskCount] = useState<number>(5);
-  const [showPromptModal, setShowPromptModal] = useState(false);
+
+  /* ── Configure state ────────────────────────────────────────────── */
+  const [taskCount, setTaskCount] = useState(5);
+  const [routeOverride, setRouteOverride] = useState<PlanningRouteOption | null>(null);
+  const [modelOverride, setModelOverride] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [additionalPrompt, setAdditionalPrompt] = useState("");
+
+  /* ── Editor state ───────────────────────────────────────────────── */
+  const [editorTemplate, setEditorTemplate] = useState<QuicksprintTemplateRecord | null>(null);
+  const [edName, setEdName] = useState("");
+  const [edDescription, setEdDescription] = useState("");
+  const [edIcon, setEdIcon] = useState("Zap");
+  const [edCategory, setEdCategory] = useState("engineering");
+  const [edInstruction, setEdInstruction] = useState("");
+  const [edTaskCount, setEdTaskCount] = useState(5);
+  const [edAgentPresetId, setEdAgentPresetId] = useState("");
+  const [edSaving, setEdSaving] = useState(false);
+  const [edConfirmDelete, setEdConfirmDelete] = useState(false);
+
+  /* ── Execution state ────────────────────────────────────────────── */
   const [executingMode, setExecutingMode] = useState<"plan_only" | "plan_and_start" | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const isBusy = executingMode !== null;
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId) || null,
-    [templates, selectedTemplateId]
+    [templates, selectedTemplateId],
   );
 
-  useEffect(() => {
-    if (selectedTemplate) {
-      setTaskCount(selectedTemplate.defaultTaskCount || 5);
-    }
-  }, [selectedTemplateId, selectedTemplate]);
+  /* ── Combined prompt preview (agent + template + additional) ────── */
+  const combinedPrompt = useMemo(() => {
+    if (!selectedTemplate) return "";
+    const parts: string[] = [];
 
-  useEffect(() => {
-    if (panelRef.current) {
-      gsap.fromTo(
-        panelRef.current,
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
-      );
+    const effectiveAgentPresetId = selectedTemplate.agentPresetId;
+    if (effectiveAgentPresetId) {
+      const agent = agentPresets.find((p) => p.id === effectiveAgentPresetId);
+      if (agent?.instructionMarkdown) {
+        parts.push(`## Agent Context\n\nYou are operating as the "${agent.name}" agent. Follow these agent-specific instructions:\n\n${agent.instructionMarkdown}\n\n---`);
+      }
     }
+
+    if (selectedTemplate.agentInstructionMarkdown) {
+      parts.push(selectedTemplate.agentInstructionMarkdown);
+    }
+
+    if (additionalPrompt.trim()) {
+      parts.push(`## Additional Instructions\n\n${additionalPrompt.trim()}`);
+    }
+
+    parts.push(`Produce exactly ${taskCount} subtasks.`);
+
+    return parts.join("\n\n");
+  }, [selectedTemplate, agentPresets, additionalPrompt, taskCount]);
+
+  /* ── Route options (matching SprintComposer) ────────────────────── */
+  const routeOptions = useMemo<PlanningRouteOption[]>(() => {
+    const opts: PlanningRouteOption[] = [];
+    for (const conn of connections) {
+      if (conn.status === "connected" || conn.status === "listening" || conn.status === "idle") {
+        opts.push({ type: "connected", id: conn.id, label: conn.displayName || conn.connectionKey });
+      }
+    }
+    for (const vp of virtualProviders) {
+      opts.push({ type: "virtual", id: vp.id, label: vp.label, provider: vp.id });
+    }
+    return opts;
+  }, [connections, virtualProviders]);
+
+  const showModelOverride = routeOverride?.type === "virtual";
+  const modelOptions = useMemo(
+    () => (showModelOverride && routeOverride?.provider ? getProviderModelOptions(routeOverride.provider) : []),
+    [showModelOverride, routeOverride],
+  );
+
+  /* ── Planning feedback / timer ──────────────────────────────────── */
+  useEffect(() => {
+    if (!isBusy) { setElapsedMs(0); return; }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsedMs(Date.now() - t0), 100);
+    return () => clearInterval(id);
+  }, [isBusy]);
+
+  const feedback = useMemo(
+    () => isBusy ? getPlanningFeedback(executingMode === "plan_and_start" ? "plan_and_start" : "plan_only", elapsedMs) : null,
+    [isBusy, executingMode, elapsedMs],
+  );
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+  /* ── Animations ─────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!cardRef.current) return;
+    gsap.fromTo(cardRef.current, { y: 28, opacity: 0, scale: 0.985 }, {
+      y: 0, opacity: 1, scale: 1, duration: 0.72, ease: "power4.out",
+    });
   }, []);
 
-  const handleExecute = async (submitMode: "plan_only" | "plan_and_start") => {
-    if (!selectedTemplate) return;
-    setExecutingMode(submitMode);
+  useEffect(() => {
+    if (!fieldsRef.current) return;
+    const items = fieldsRef.current.querySelectorAll("[data-qs-stagger]");
+    if (!items.length) return;
+    gsap.fromTo(items, { y: 18, opacity: 0 }, {
+      y: 0, opacity: 1, stagger: 0.055, duration: 0.5, ease: "power3.out",
+    });
+  }, [phase]);
+
+  /* ── Select template → configure ────────────────────────────────── */
+  const handleSelectTemplate = useCallback((t: QuicksprintTemplateRecord) => {
+    setSelectedTemplateId(t.id);
+    setTaskCount(t.defaultTaskCount || 5);
+    setRouteOverride(null);
+    setModelOverride(null);
+    setShowPrompt(false);
+    setAdditionalPrompt("");
+    setPhase("configure");
+  }, []);
+
+  /* ── Open editor ────────────────────────────────────────────────── */
+  const openEditor = useCallback((t: QuicksprintTemplateRecord | null) => {
+    setEditorTemplate(t);
+    setEdName(t?.name || "");
+    setEdDescription(t?.description || "");
+    setEdIcon(t?.icon || "Zap");
+    setEdCategory(t?.category || "engineering");
+    setEdInstruction(t?.agentInstructionMarkdown || "");
+    setEdTaskCount(t?.defaultTaskCount || 5);
+    setEdAgentPresetId("");
+    setEdSaving(false);
+    setEdConfirmDelete(false);
+    setPhase("editor");
+  }, []);
+
+  /* ── Editor save ────────────────────────────────────────────────── */
+  const handleEditorSave = useCallback(async () => {
+    if (!edName.trim() || (!edInstruction.trim() && !edAgentPresetId)) return;
+    setEdSaving(true);
     try {
-      await onExecute(selectedTemplate.id, taskCount, submitMode);
+      const data = {
+        name: edName.trim(),
+        description: edDescription.trim(),
+        icon: edIcon,
+        category: edCategory,
+        agentInstructionMarkdown: edInstruction.trim(),
+        defaultTaskCount: edTaskCount,
+        agentPresetId: edAgentPresetId || undefined,
+      };
+      if (editorTemplate) {
+        await onUpdateTemplate?.(editorTemplate.id, data);
+      } else {
+        await onCreateTemplate?.(data);
+      }
+      setPhase("browse");
+    } finally {
+      setEdSaving(false);
+    }
+  }, [edName, edDescription, edIcon, edCategory, edInstruction, edTaskCount, edAgentPresetId, editorTemplate, onCreateTemplate, onUpdateTemplate]);
+
+  const handleEditorDelete = useCallback(async () => {
+    if (!edConfirmDelete) { setEdConfirmDelete(true); return; }
+    if (!editorTemplate) return;
+    await onDeleteTemplate?.(editorTemplate.id);
+    if (selectedTemplateId === editorTemplate.id) setSelectedTemplateId(null);
+    setPhase("browse");
+  }, [edConfirmDelete, editorTemplate, selectedTemplateId, onDeleteTemplate]);
+
+  /* ── Execute ────────────────────────────────────────────────────── */
+  const handleExecute = useCallback(async (mode: "plan_only" | "plan_and_start") => {
+    if (!selectedTemplate) return;
+    setExecutingMode(mode);
+    try {
+      await onExecute(selectedTemplate.id, taskCount, mode, additionalPrompt.trim() || undefined);
     } finally {
       setExecutingMode(null);
     }
-  };
-
-  const handleSliderChange = (e: any) => {
-    setTaskCount(parseInt(e.target.value, 10));
-  };
+  }, [selectedTemplate, taskCount, additionalPrompt, onExecute]);
 
   const builtinTemplates = templates.filter((t) => t.isBuiltIn);
   const customTemplates = templates.filter((t) => !t.isBuiltIn);
 
+  /* ─── Render ──────────────────────────────────────────────────── */
   return (
-    <div className="flex flex-col h-full bg-void-900 border border-white/[0.06] rounded-xl overflow-hidden" ref={panelRef}>
-      <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-        <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            Quicksprint
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-signal-500/10 text-signal-400">BETA</span>
-          </h2>
-          <p className="text-sm text-gray-400 mt-1">Select a template to rapidly bootstrap a new sprint plan.</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-2 text-gray-400 hover:text-white rounded-md hover:bg-white/10 transition-colors"
-          title="Close panel"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <section
+      ref={cardRef}
+      className="relative w-full overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)]"
+    >
+      {/* Radial accents */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.07),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.06),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.09),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.07),transparent_34%)]" />
 
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="w-8 h-8 border-2 border-signal-500 border-t-transparent rounded-full animate-spin"></div>
+      {/* ═══ Planning Overlay ═══ */}
+      {isBusy && feedback && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 p-8 backdrop-blur-xl dark:bg-void-900/80">
+          <div className="relative mb-12 flex h-32 w-full max-w-md items-center justify-center overflow-hidden">
+            <div className="absolute inset-x-0 bottom-8 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
+            <div
+              className="absolute transition-[left] duration-200 ease-linear"
+              style={{ left: `${feedback.shipProgress * 100}%`, transform: "translateX(-50%)" }}
+            >
+              <svg width="120" height="60" viewBox="-60 -30 120 60">
+                <ContainerShip accentColor="#FF6B00" isMoving={true} isDark={isDark} />
+              </svg>
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="mb-8">
-              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Built-in Templates</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {builtinTemplates.map((template) => (
-                  <QuicksprintCard
-                    key={template.id}
-                    template={template}
-                    selected={selectedTemplateId === template.id}
-                    onSelect={() => setSelectedTemplateId(template.id)}
-                  />
-                ))}
+
+          <div className="space-y-4 text-center">
+            <div className="inline-flex items-center gap-3 rounded-full border border-ember-500/20 bg-ember-500/[0.08] px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-ember-600 dark:text-ember-400">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ember-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-ember-500" />
+              </span>
+              Quicksprint in motion
+            </div>
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex flex-col items-center">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">ETA</div>
+                <div className="font-mono text-xl font-medium tracking-tight text-slate-900 dark:text-white">
+                  {Math.floor(Math.max(0, planningEta - elapsedMs) / 60000)}:{String(Math.floor((Math.max(0, planningEta - elapsedMs) % 60000) / 1000)).padStart(2, "0")}
+                </div>
+              </div>
+              <div className="h-8 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
+              <div className="flex flex-col items-center">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Elapsed</div>
+                <div className="font-mono text-xl font-medium tracking-tight text-slate-500">
+                  {Math.floor(elapsedMs / 60000)}:{String(Math.floor((elapsedMs % 60000) / 1000)).padStart(2, "0")}
+                </div>
               </div>
             </div>
+            <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              {feedback.text}
+            </h3>
+            <p className="mx-auto max-w-xs text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              The Planning agent is researching the codebase to decompose your quicksprint into grounded, atomic subtasks.
+            </p>
+          </div>
+        </div>
+      )}
 
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Custom Templates</h3>
-                <button
-                  className="flex items-center gap-1.5 text-xs font-medium text-signal-400 hover:text-signal-300 transition-colors px-2 py-1 rounded hover:bg-signal-500/10"
-                  onClick={() => console.log("Add Custom Flow triggered")}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Custom
-                </button>
+      {/* ═══ Content ═══ */}
+      <div ref={fieldsRef} className="relative z-10">
+        {/* ─── BROWSE PHASE ───────────────────────────────────────── */}
+        {phase === "browse" && (
+          <div className="p-6 sm:p-8 lg:p-10">
+            {/* Header */}
+            <div data-qs-stagger className="flex items-start justify-between gap-4">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 rounded-full border border-ember-500/15 bg-ember-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ember-600 dark:text-ember-400">
+                  <Zap className="h-3.5 w-3.5" strokeWidth={2.3} />
+                  Quicksprint
+                </div>
+                <div className="space-y-3">
+                  <h2 className="font-display text-[2rem] font-black leading-none tracking-tight text-slate-900 dark:text-white sm:text-[2.35rem]">
+                    Launch A Quicksprint.
+                  </h2>
+                  <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
+                    Select a template to rapidly bootstrap a new sprint. Built-in audits and your custom flows are ready to go.
+                  </p>
+                </div>
               </div>
-
-              {customTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 border border-dashed border-white/[0.08] rounded-xl bg-void-800/30">
-                  <p className="text-sm text-gray-500 mb-2">No custom templates yet.</p>
-                  <button className="text-sm text-signal-500 hover:underline">
-                    Create your first template
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {customTemplates.map((template) => (
-                    <QuicksprintCard
-                      key={template.id}
-                      template={template}
-                      selected={selectedTemplateId === template.id}
-                      onSelect={() => setSelectedTemplateId(template.id)}
-                      onEdit={() => console.log("Edit template", template.id)}
-                      onDelete={() => console.log("Delete template", template.id)}
-                    />
-                  ))}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+                aria-label="Close quicksprint"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          </>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-ember-500 border-t-transparent" />
+              </div>
+            ) : (
+              <>
+                {/* Built-in templates */}
+                <div data-qs-stagger className="mt-10">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-5">Built-in Templates</div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {builtinTemplates.map((t) => (
+                      <TemplateCard key={t.id} template={t} onSelect={() => handleSelectTemplate(t)} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom templates */}
+                <div data-qs-stagger className="mt-10">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Custom Templates</div>
+                    <button
+                      onClick={() => openEditor(null)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-ember-500/20 bg-ember-500/[0.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ember-600 transition-colors hover:bg-ember-500/[0.12] dark:text-ember-400"
+                    >
+                      <Plus className="h-3 w-3" strokeWidth={2.5} />
+                      New Template
+                    </button>
+                  </div>
+
+                  {customTemplates.length === 0 ? (
+                    <button
+                      onClick={() => openEditor(null)}
+                      className="w-full rounded-[1.4rem] border border-dashed border-black/[0.08] bg-black/[0.015] p-8 text-center transition-colors hover:border-ember-500/30 hover:bg-ember-500/[0.03] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-ember-500/30"
+                    >
+                      <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-ember-500/10">
+                        <Plus className="h-5 w-5 text-ember-500" />
+                      </div>
+                      <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Create your first custom template</div>
+                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">Combine agent presets with custom prompts for reusable sprint flows</div>
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {customTemplates.map((t) => (
+                        <TemplateCard key={t.id} template={t} onSelect={() => handleSelectTemplate(t)} onEdit={() => openEditor(t)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
-      </div>
 
-      {selectedTemplate && (
-        <div className="border-t border-white/[0.06] bg-void-800/80 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex-1 min-w-0 w-full">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-bold text-white truncate pr-4">
-                    {selectedTemplate.name}
-                  </h3>
-                  <button
-                    onClick={() => setShowPromptModal(true)}
-                    className="text-xs text-signal-400 hover:text-signal-300 underline underline-offset-2 whitespace-nowrap"
-                  >
-                    View Full Prompt
-                  </button>
+        {/* ─── CONFIGURE PHASE ────────────────────────────────────── */}
+        {phase === "configure" && selectedTemplate && (
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            {/* Left: Template preview */}
+            <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
+              <div data-qs-stagger className="flex items-center gap-3">
+                <button
+                  onClick={() => setPhase("browse")}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="inline-flex items-center gap-2 rounded-full border border-ember-500/15 bg-ember-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ember-600 dark:text-ember-400">
+                  <Zap className="h-3.5 w-3.5" strokeWidth={2.3} />
+                  Configure Quicksprint
+                </div>
+              </div>
+
+              <h2 data-qs-stagger className="mt-6 font-display text-[1.8rem] font-black leading-tight tracking-tight text-slate-900 dark:text-white sm:text-[2.1rem]">
+                {selectedTemplate.name}
+              </h2>
+              <p data-qs-stagger className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                {selectedTemplate.description}
+              </p>
+
+              {/* Planning Route + Model Override */}
+              <div data-qs-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Route</div>
+                  <div className="mt-2">
+                    <AvantgardeSelect
+                      variant="compact"
+                      value={routeOverride?.id || ""}
+                      onChange={(id) => {
+                        const opt = routeOptions.find((o) => o.id === id);
+                        setRouteOverride(opt || null);
+                        if (!opt || opt.type !== "virtual") setModelOverride(null);
+                      }}
+                      options={[
+                        { value: "", label: "Default Route" },
+                        ...routeOptions.map((opt) => ({ value: opt.id, label: opt.label })),
+                      ]}
+                      placeholder="Default Route"
+                    />
+                  </div>
                 </div>
 
-                <div className="bg-void-900 border border-white/[0.06] rounded-lg p-4 mt-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <label htmlFor="taskCountSlider" className="text-sm font-medium text-gray-300">
-                      Target Subtask Count
-                    </label>
-                    <div className="bg-void-800 px-3 py-1 rounded text-white font-mono text-sm border border-white/10">
-                      {taskCount} subtask{taskCount !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="relative pt-1">
-                    <input
-                      id="taskCountSlider"
-                      type="range"
-                      min="1"
-                      max="15"
-                      value={taskCount}
-                      onChange={handleSliderChange}
-                      aria-label="Target subtask count"
-                      aria-valuemin={1}
-                      aria-valuemax={15}
-                      aria-valuenow={taskCount}
-                      className="w-full h-2 bg-void-700 rounded-lg appearance-none cursor-pointer accent-signal-500 focus:outline-none focus:ring-2 focus:ring-signal-500/50"
+                <div className={`rounded-[1.4rem] border p-4 transition-all ${
+                  showModelOverride
+                    ? "border-signal-500/20 bg-signal-500/[0.04] dark:bg-signal-500/[0.08]"
+                    : "border-black/[0.06] bg-black/[0.025] opacity-40 dark:border-white/[0.06] dark:bg-white/[0.03]"
+                }`}>
+                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Model Override</div>
+                  <div className="mt-2">
+                    <AvantgardeSelect
+                      variant="compact"
+                      disabled={!showModelOverride}
+                      value={modelOverride || ""}
+                      onChange={(val) => setModelOverride(val || null)}
+                      options={[
+                        { value: "", label: "Default Model" },
+                        ...modelOptions.map((opt) => ({ value: opt.value, label: opt.label })),
+                      ]}
+                      placeholder="Default Model"
                     />
-                    <div className="flex justify-between text-[10px] text-gray-500 mt-2 px-1">
-                      <span>1</span>
-                      <span>5</span>
-                      <span>10</span>
-                      <span>15</span>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto mt-4 md:mt-0 pt-2 md:pt-0">
+              {/* Additional prompt for this run */}
+              <div data-qs-stagger className="mt-8 space-y-2">
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Additional Instructions (optional)</label>
+                <textarea
+                  value={additionalPrompt}
+                  onInput={(e) => setAdditionalPrompt((e.target as HTMLTextAreaElement).value)}
+                  placeholder="Add extra context or requirements for this specific run — e.g. 'Focus only on the auth module' or 'Include migration scripts'..."
+                  rows={4}
+                  className="w-full rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 text-sm leading-relaxed text-slate-700 outline-none transition-all placeholder:text-slate-300 focus:border-ember-500/40 focus:shadow-[0_0_0_1px_rgba(255,107,0,0.16),0_0_30px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:placeholder:text-slate-600 resize-y"
+                />
+              </div>
+
+              {/* Prompt preview */}
+              <div data-qs-stagger className="mt-6">
                 <button
-                  onClick={() => handleExecute("plan_only")}
-                  disabled={executingMode !== null}
-                  className="px-5 py-2.5 rounded-lg border border-white/[0.12] text-white font-medium hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+                  onClick={() => setShowPrompt(!showPrompt)}
+                  className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                  {executingMode === "plan_only" ? "Planning..." : "Plan Only"}
+                  {showPrompt ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showPrompt ? "Hide Combined Prompt" : "View Combined Prompt"}
                 </button>
+
+                <div
+                  className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    showPrompt ? "mt-4 max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div className="rounded-[1.4rem] border border-black/[0.05] bg-black/[0.02] p-5 dark:border-white/[0.05] dark:bg-white/[0.02]">
+                    <pre className="max-h-80 overflow-y-auto text-xs font-mono leading-relaxed text-slate-500 dark:text-slate-400 whitespace-pre-wrap break-words scrollbar-thin scrollbar-thumb-black/10 dark:scrollbar-thumb-white/10">
+                      {combinedPrompt}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Configuration sidebar */}
+            <div className="flex flex-col p-6 sm:p-8">
+              {/* Subtask count */}
+              <div data-qs-stagger>
+                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">Subtask Count</div>
+                <SubtaskSlider value={taskCount} onChange={setTaskCount} />
+              </div>
+
+              {/* Spacer */}
+              <div className="mt-auto pt-8" />
+
+              {/* Action buttons */}
+              <div data-qs-stagger className="space-y-3">
                 <button
                   onClick={() => handleExecute("plan_and_start")}
-                  disabled={executingMode !== null}
-                  className="px-5 py-2.5 rounded-lg bg-signal-600 hover:bg-signal-500 text-white font-medium shadow-[0_0_15px_rgba(var(--color-signal-500),0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                  disabled={isBusy}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-[1.35rem] bg-ember-600 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_0_20px_rgba(255,107,0,0.25)] transition-all hover:bg-ember-500 hover:shadow-[0_0_28px_rgba(255,107,0,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {executingMode === "plan_and_start" ? "Starting..." : "Plan & Start"}
+                  <Rocket className="h-4 w-4" />
+                  Plan & Start
+                </button>
+                <button
+                  onClick={() => handleExecute("plan_only")}
+                  disabled={isBusy}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-[1.35rem] border border-black/[0.08] bg-white/66 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-black/[0.04] disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06]"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Plan Only
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ─── EDITOR PHASE ───────────────────────────────────────── */}
+        {phase === "editor" && (
+          <div className="p-6 sm:p-8 lg:p-10">
+            <div data-qs-stagger className="flex items-center gap-3">
+              <button
+                onClick={() => setPhase("browse")}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="inline-flex items-center gap-2 rounded-full border border-ember-500/15 bg-ember-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ember-600 dark:text-ember-400">
+                <Settings2 className="h-3.5 w-3.5" strokeWidth={2.3} />
+                {editorTemplate ? "Edit Template" : "New Template"}
+              </div>
+            </div>
+
+            {/* Name */}
+            <label data-qs-stagger className="mt-8 block space-y-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Template Name</span>
+              <input
+                type="text"
+                value={edName}
+                onInput={(e) => setEdName((e.target as HTMLInputElement).value)}
+                placeholder="API Integration Tests"
+                className="w-full border-0 border-b-2 border-black/[0.08] bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-ember-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem]"
+                autoFocus
+              />
+            </label>
+
+            {/* Description */}
+            <label data-qs-stagger className="mt-6 block space-y-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</span>
+              <input
+                type="text"
+                value={edDescription}
+                onInput={(e) => setEdDescription((e.target as HTMLInputElement).value)}
+                placeholder="What this template does in one line"
+                className="w-full border-0 border-b-2 border-black/[0.06] bg-transparent pb-2 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-ember-500/60 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
+              />
+            </label>
+
+            {/* Category + Default Tasks */}
+            <div data-qs-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Category</div>
+                <AvantgardeSelect
+                  variant="compact"
+                  value={edCategory}
+                  onChange={(val) => setEdCategory(val)}
+                  options={CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
+              </div>
+
+              <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Default Tasks</div>
+                <div className="font-mono text-2xl font-black tracking-tight text-slate-900 dark:text-white">{edTaskCount}</div>
+                <input
+                  type="range" min="1" max="15" value={edTaskCount}
+                  onInput={(e) => setEdTaskCount(parseInt((e.target as HTMLInputElement).value, 10))}
+                  className="mt-2 w-full h-1.5 bg-black/[0.06] rounded-full appearance-none cursor-pointer accent-ember-500 dark:bg-white/[0.08]"
+                />
+              </div>
+            </div>
+
+            {/* Icon picker */}
+            <div data-qs-stagger className="mt-6">
+              <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Icon</div>
+                <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
+                  {ICON_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setEdIcon(opt.value)}
+                      title={opt.value}
+                      className={`flex items-center justify-center rounded-xl p-2 border transition-all ${
+                        edIcon === opt.value
+                          ? "border-ember-500/40 bg-ember-500/10 text-ember-500 shadow-[0_0_12px_rgba(255,107,0,0.15)]"
+                          : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-black/[0.03] dark:hover:text-slate-300 dark:hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <opt.Icon className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Agent Preset */}
+            {agentPresets.length > 0 && (
+              <div data-qs-stagger className="mt-6">
+                <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Agent Preset (optional)</div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
+                    Attach an agent's instructions to this template. The agent's prompt will be prepended to the template instructions.
+                  </p>
+                  <AvantgardeSelect
+                    variant="compact"
+                    value={edAgentPresetId}
+                    onChange={(val) => setEdAgentPresetId(val)}
+                    options={[
+                      { value: "", label: "No Agent" },
+                      ...agentPresets.map((p) => ({ value: p.id, label: `${p.name}${p.labels.length ? ` (${p.labels.join(", ")})` : ""}` })),
+                    ]}
+                    placeholder="No Agent"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Instructions */}
+            <div data-qs-stagger className="mt-6 space-y-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Agent Instructions</span>
+              <textarea
+                value={edInstruction}
+                onInput={(e) => setEdInstruction((e.target as HTMLTextAreaElement).value)}
+                placeholder="Write detailed instructions for the planning agent. Leave empty to use only the agent preset's instructions..."
+                rows={10}
+                className="w-full rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 text-sm font-mono leading-relaxed text-slate-700 outline-none transition-all placeholder:text-slate-300 focus:border-ember-500/40 focus:shadow-[0_0_0_1px_rgba(255,107,0,0.16),0_0_30px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:placeholder:text-slate-600 resize-y"
+              />
+            </div>
+
+            {/* Footer */}
+            <div data-qs-stagger className="mt-8 flex items-center justify-between">
+              <div>
+                {editorTemplate && !editorTemplate.isBuiltIn && (
+                  <button
+                    type="button"
+                    onClick={handleEditorDelete}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                      edConfirmDelete
+                        ? "bg-red-600 text-white hover:bg-red-500"
+                        : "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    }`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {edConfirmDelete ? "Confirm Delete" : "Delete"}
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={handleEditorSave}
+                disabled={edSaving || (!edName.trim() || (!edInstruction.trim() && !edAgentPresetId))}
+                className="inline-flex items-center gap-2 rounded-[1.35rem] bg-ember-600 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_0_20px_rgba(255,107,0,0.25)] transition-all hover:bg-ember-500 hover:shadow-[0_0_28px_rgba(255,107,0,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {edSaving ? "Saving..." : editorTemplate ? "Save Changes" : "Create Template"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════════ */
+/*  Template Card                                                       */
+/* ═════════════════════════════════════════════════════════════════════ */
+const TemplateCard: FunctionComponent<{
+  template: QuicksprintTemplateRecord;
+  onSelect: () => void;
+  onEdit?: () => void;
+}> = ({ template, onSelect, onEdit }) => {
+  const Icon = IconMap[template.icon] || Zap;
+  const badge = CATEGORY_STYLES[template.category] || "bg-black/5 text-slate-500";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="group relative flex flex-col rounded-[1.4rem] border border-black/[0.06] bg-white/60 p-5 text-left transition-all hover:border-ember-500/30 hover:shadow-[0_0_24px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-white/[0.025] dark:hover:border-ember-500/30"
+    >
+      {!template.isBuiltIn && onEdit && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-ember-500/10 hover:text-ember-500 dark:text-slate-500"
+          title="Edit template"
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+        </button>
       )}
 
-      {showPromptModal && selectedTemplate && (
-        <QuicksprintPromptModal
-          template={selectedTemplate}
-          onClose={() => setShowPromptModal(false)}
-        />
-      )}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500/[0.08] text-ember-500 transition-colors group-hover:bg-ember-500/[0.14]">
+          <Icon className="h-4.5 w-4.5" />
+        </div>
+        <h3 className="flex-1 text-sm font-bold text-slate-900 dark:text-white leading-tight pr-6">{template.name}</h3>
+      </div>
+
+      <p className="flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 mb-4">{template.description}</p>
+
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full ${badge}`}>
+          {template.category}
+        </span>
+        <span className="text-[10px] font-medium text-slate-400">
+          {template.defaultTaskCount} subtask{template.defaultTaskCount !== 1 ? "s" : ""}
+        </span>
+      </div>
+    </button>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════════ */
+/*  Subtask Count Slider                                                */
+/* ═════════════════════════════════════════════════════════════════════ */
+const SubtaskSlider: FunctionComponent<{
+  value: number;
+  onChange: (v: number) => void;
+}> = ({ value, onChange }) => {
+  const min = 1;
+  const max = 15;
+  const pct = ((value - min) / (max - min)) * 100;
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const handlePointer = useCallback((e: PointerEvent) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    onChange(Math.round(min + x * (max - min)));
+  }, [onChange]);
+
+  const handlePointerDown = useCallback((e: PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    handlePointer(e);
+  }, [handlePointer]);
+
+  return (
+    <div className="select-none">
+      {/* Large number display */}
+      <div className="flex items-baseline gap-2 mb-6">
+        <span className="font-mono text-[3.5rem] font-black leading-none tracking-tighter text-slate-900 dark:text-white tabular-nums">
+          {String(value).padStart(2, "0")}
+        </span>
+        <span className="text-sm font-medium text-slate-400">
+          subtask{value !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Track */}
+      <div
+        ref={trackRef}
+        className="relative h-10 cursor-pointer touch-none"
+        onPointerDown={handlePointerDown as any}
+        onPointerMove={(e: any) => { if (e.buttons === 1) handlePointer(e); }}
+      >
+        {/* Background track */}
+        <div className="absolute top-1/2 left-0 right-0 h-2 -translate-y-1/2 rounded-full bg-black/[0.06] dark:bg-white/[0.06] overflow-hidden">
+          {/* Fill */}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-ember-500 to-ember-400 transition-[width] duration-75"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Notches */}
+        <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 flex justify-between px-[2px]">
+          {Array.from({ length: max - min + 1 }, (_, i) => {
+            const n = min + i;
+            const isActive = n <= value;
+            const isMajor = n === 1 || n === 5 || n === 10 || n === 15;
+            return (
+              <div
+                key={n}
+                className={`rounded-full transition-all ${
+                  isMajor ? "h-3 w-1" : "h-1.5 w-0.5"
+                } ${isActive ? "bg-ember-500/60" : "bg-black/[0.08] dark:bg-white/[0.08]"}`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Thumb */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-[left] duration-75"
+          style={{ left: `${pct}%` }}
+        >
+          <div className="relative">
+            <div className="h-6 w-6 rounded-full border-[3px] border-ember-500 bg-white shadow-[0_0_12px_rgba(255,107,0,0.3)] dark:bg-void-800" />
+            <div className="absolute -inset-2 rounded-full bg-ember-500/10 animate-pulse" style={{ animationDuration: "2s" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Labels */}
+      <div className="mt-2 flex justify-between text-[10px] font-bold tracking-wider text-slate-300 dark:text-slate-600">
+        <span>1</span>
+        <span>5</span>
+        <span>10</span>
+        <span>15</span>
+      </div>
     </div>
   );
 };

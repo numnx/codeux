@@ -132,7 +132,34 @@ export function extractJsonLikeBlock(bodyMarkdown: string): string {
     return null;
   };
 
-  return findBalancedJson("{", "}") || findBalancedJson("[", "]") || trimmed;
+  const candidate = findBalancedJson("{", "}") || findBalancedJson("[", "]") || trimmed;
+
+  // Unwrap wrapper objects that contain the real payload inside a stringified
+  // "response" field (common with Gemini/virtual worker session envelopes like
+  // `{ "session_id": "...", "response": "{...actual JSON...}", "stats": {...} }`).
+  try {
+    const parsed = JSON.parse(candidate);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      typeof parsed.response === "string"
+    ) {
+      const inner = parsed.response.trim();
+      if (inner.startsWith("{") || inner.startsWith("[")) {
+        try {
+          JSON.parse(inner);
+          return inner;
+        } catch {
+          // inner response isn't valid JSON on its own — fall through
+        }
+      }
+    }
+  } catch {
+    // candidate isn't valid JSON — return as-is for caller to handle
+  }
+
+  return candidate;
 }
 
 export class PlanningAgentService {

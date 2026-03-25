@@ -9,12 +9,14 @@ import type {
 } from "../contracts/quicksprint-types.js";
 import { BUILTIN_QUICKSPRINT_TEMPLATES } from "../domain/quicksprint/quicksprint-catalog.js";
 import type { CreateSprintInput, PlanSprintOptions, SprintRecord } from "../contracts/project-management-types.js";
+import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 
 export class QuicksprintService {
   constructor(
     private readonly projectBaseDirResolver: (projectId: string) => string,
     private readonly createSprint: (projectId: string, input: CreateSprintInput) => SprintRecord,
-    private readonly planSprint: (projectId: string, sprintId: string, options: PlanSprintOptions, signal?: AbortSignal) => Promise<unknown>
+    private readonly planSprint: (projectId: string, sprintId: string, options: PlanSprintOptions, signal?: AbortSignal) => Promise<unknown>,
+    private readonly resolveAgentPreset?: (agentPresetId: string) => AgentPresetRecord | null,
   ) {}
 
   private getQuicksprintsDir(projectId: string): string {
@@ -119,8 +121,21 @@ export class QuicksprintService {
       throw new Error(`Template ${input.templateId} not found`);
     }
 
+    let agentContext = "";
+    const effectiveAgentPresetId = input.agentPresetId || template.agentPresetId;
+    if (effectiveAgentPresetId && this.resolveAgentPreset) {
+      const agent = this.resolveAgentPreset(effectiveAgentPresetId);
+      if (agent?.instructionMarkdown) {
+        agentContext = `## Agent Context\n\nYou are operating as the "${agent.name}" agent. Follow these agent-specific instructions:\n\n${agent.instructionMarkdown}\n\n---\n\n`;
+      }
+    }
+
+    const additionalContext = input.additionalPrompt
+      ? `\n\n## Additional Instructions\n\n${input.additionalPrompt}`
+      : "";
+
     const sprintName = `QS: ${template.name}`;
-    const sprintGoal = `${template.agentInstructionMarkdown}\n\nProduce exactly ${input.taskCount} subtasks.`;
+    const sprintGoal = `${agentContext}${template.agentInstructionMarkdown}${additionalContext}\n\nProduce exactly ${input.taskCount} subtasks.`;
 
     const sprint = this.createSprint(projectId, {
       name: sprintName,

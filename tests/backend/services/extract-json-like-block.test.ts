@@ -70,4 +70,49 @@ describe("extractJsonLikeBlock", () => {
     const input = "No JSON here at all.";
     expect(extractJsonLikeBlock(input)).toBe(input);
   });
+
+  it("unwraps a virtual worker session envelope with stringified response", () => {
+    const planJson = JSON.stringify({
+      goal: "SPR-27: Code Quality Audit",
+      tasks: [{ key: "T01", title: "Optimize sync", description: "d", promptMarkdown: "p", priority: "high", executorType: "auto", dependsOn: [] }],
+    });
+    const envelope = JSON.stringify({
+      session_id: "f0a53b65-5620-4f9c-9ced-02bcc0a7490e",
+      response: planJson,
+      stats: { models: {} },
+    });
+    const input = `MCP issues detected. Run /mcp list for status.${envelope} YOLO mode is enabled.`;
+    const parsed = JSON.parse(extractJsonLikeBlock(input));
+    expect(parsed.goal).toBe("SPR-27: Code Quality Audit");
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0].key).toBe("T01");
+  });
+
+  it("unwraps envelope even when response contains escaped JSON", () => {
+    const innerJson = '{"goal":"Test","tasks":[{"key":"T01","title":"Task","description":"d","promptMarkdown":"## Obj\\nDo stuff","priority":"medium","executorType":"auto","dependsOn":[]}]}';
+    const envelope = JSON.stringify({ session_id: "abc", response: innerJson });
+    const parsed = JSON.parse(extractJsonLikeBlock(envelope));
+    expect(parsed.goal).toBe("Test");
+  });
+
+  it("does not unwrap when response field is not JSON", () => {
+    const input = JSON.stringify({ session_id: "abc", response: "just a text response" });
+    const parsed = JSON.parse(extractJsonLikeBlock(input));
+    expect(parsed.session_id).toBe("abc");
+    expect(parsed.response).toBe("just a text response");
+  });
+
+  it("handles MCP errors and grep errors surrounding the envelope", () => {
+    const planJson = JSON.stringify({ goal: "Plan", tasks: [{ key: "T01", title: "T", description: "d", promptMarkdown: "p", priority: "low", executorType: "auto", dependsOn: [] }] });
+    const envelope = JSON.stringify({ session_id: "x", response: planJson, stats: {} });
+    const input = [
+      "MCP issues detected. Run /mcp list for status.",
+      envelope,
+      "YOLO mode is enabled. All tool calls will be automatically approved.",
+      "[MCP error] Error during discovery for MCP server 'jules': spawn jules-agent ENOENT",
+      'Error during GrepLogic execution: Error: Process exited with code 2: regex parse error',
+    ].join("\n");
+    const parsed = JSON.parse(extractJsonLikeBlock(input));
+    expect(parsed.goal).toBe("Plan");
+  });
 });

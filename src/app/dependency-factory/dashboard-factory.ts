@@ -161,6 +161,7 @@ export function createDashboardDependencies(
     },
     (projectId, input) => projectManagementRepository.createSprint(projectId, input),
     (projectId, sprintId, options, signal) => planningAgentService.planSprint(projectId, sprintId, options, signal),
+    (agentPresetId) => coreDeps.agentPresetRepository.getAgentPreset(agentPresetId),
   );
 
   return {
