@@ -48,6 +48,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
   const [gitStatusError, setGitStatusError] = useState<string | null>(null);
   const gitRefreshTimerRef = useRef<number | null>(null);
   const initialFetchDoneRef = useRef(false);
+  const lastRealtimeEventAtRef = useRef<number>(0);
 
   const refreshRuntimeStatusAction = useCallback(async (): Promise<void> => {
     // First call uses combined /api/live endpoint (single HTTP roundtrip)
@@ -55,8 +56,8 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
       initialFetchDoneRef.current = true;
       try {
         const data = await fetchLivePayload();
-        setStatus(data.status);
-        setExecution(data.execution);
+        setStatus(prev => prev?.timestamp === data.status.timestamp ? prev : data.status);
+        setExecution(prev => prev?.updatedAt === data.execution.updatedAt ? prev : data.execution);
         setError(null);
         return;
       } catch {
@@ -70,10 +71,10 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     ]);
 
     if (statusResult.status === "fulfilled") {
-      setStatus(statusResult.value);
+      setStatus(prev => prev?.timestamp === statusResult.value.timestamp ? prev : statusResult.value);
     }
     if (executionResult.status === "fulfilled") {
-      setExecution(executionResult.value);
+      setExecution(prev => prev?.updatedAt === executionResult.value.updatedAt ? prev : executionResult.value);
     }
 
     if (statusResult.status === "fulfilled" || executionResult.status === "fulfilled") {
@@ -113,9 +114,14 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     }, Math.max(0, delayMs));
   }, [refreshGitStatusAction]);
 
+  const shouldSkipPoll = useCallback(() => {
+    return Date.now() - lastRealtimeEventAtRef.current < RUNTIME_POLL_INTERVAL_MS;
+  }, []);
+
   useDashboardPollManager({
     intervalMs: RUNTIME_POLL_INTERVAL_MS,
     onPoll: [refreshRuntimeStatusAction],
+    shouldSkip: shouldSkipPoll,
   });
 
   useDashboardPollManager({
@@ -140,19 +146,24 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
 
     return subscribeToDashboardRealtime([`project:${realtimeProjectId}`], (message: DashboardRealtimeServerMessage) => {
       if (message.type === "event" && message.event.eventType === "project.execution.updated") {
-        setExecution(message.event.payload as ExecutionDashboardSnapshot);
+        lastRealtimeEventAtRef.current = Date.now();
+        const payload = message.event.payload as ExecutionDashboardSnapshot;
+        setExecution(prev => prev?.updatedAt === payload.updatedAt ? prev : payload);
         setError(null);
         scheduleGitStatusRefresh();
         return;
       }
 
       if (message.type === "event" && message.event.eventType === "project.runtime_status.updated") {
-        setStatus(message.event.payload as DashboardStatus);
+        lastRealtimeEventAtRef.current = Date.now();
+        const payload = message.event.payload as DashboardStatus;
+        setStatus(prev => prev?.timestamp === payload.timestamp ? prev : payload);
         setError(null);
         return;
       }
 
       if (message.type === "event" && message.event.eventType === "project.structure.updated") {
+        lastRealtimeEventAtRef.current = Date.now();
         void refreshRuntimeStatusAction();
         scheduleGitStatusRefresh();
         return;
