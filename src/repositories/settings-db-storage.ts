@@ -27,12 +27,6 @@ export class SettingsDbStorage {
     fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
     this.db = openSqliteDatabase(resolvedDbPath);
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS app_settings (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        payload TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-
       CREATE TABLE IF NOT EXISTS system_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         payload TEXT NOT NULL,
@@ -51,15 +45,6 @@ export class SettingsDbStorage {
         updated_at TEXT NOT NULL
       );
     `);
-  }
-
-  readLegacyPayload(): string | null {
-    const row = this.db.prepare("SELECT payload FROM app_settings WHERE id = 1").get() as PayloadRow | undefined;
-    return row?.payload ?? null;
-  }
-
-  deleteLegacyPayload(): void {
-    this.db.prepare("DELETE FROM app_settings WHERE id = 1").run();
   }
 
   readSystemPayload(): string | null {
@@ -117,7 +102,6 @@ export class SettingsDbStorage {
 
   resetAllData(): void {
     this.db.exec(`
-      DELETE FROM app_settings;
       DELETE FROM system_settings;
       DELETE FROM project_settings;
       DELETE FROM sprint_settings;

@@ -467,7 +467,6 @@ export class AppDbStorage {
     this.ensureIndex("idx_task_dispatches_sprint_run", "task_dispatches", "sprint_run_id, status, queued_at ASC");
     this.ensureIndex("idx_task_dispatches_project_status", "task_dispatches", "project_id, status, priority DESC, queued_at ASC");
     this.ensureIndex("idx_task_dispatches_task", "task_dispatches", "task_id, created_at DESC");
-    this.ensureIndex("idx_execution_leases_scope", "execution_leases", "scope_type, scope_id");
     this.ensureIndex("idx_task_run_events_task_run_created", "task_run_events", "task_run_id, created_at DESC");
     this.ensureUniqueIndex("idx_task_run_events_source_event", "task_run_events", "task_run_id, source_event_key");
     this.ensureIndex("idx_sprint_run_events_sprint_run_created", "sprint_run_events", "sprint_run_id, created_at DESC");
@@ -481,7 +480,6 @@ export class AppDbStorage {
     this.ensureIndex("idx_memories_embedding_model", "memories", "embedding_model, project_id");
     this.ensureIndex("idx_agent_presets_project_updated", "agent_presets", "project_id, updated_at DESC");
     this.ensureIndex("idx_agent_presets_project_name", "agent_presets", "project_id, name");
-    this.ensureUniqueIndex("idx_worker_endpoints_connection", "worker_endpoints", "connection_id");
     this.ensureIndex("idx_worker_endpoints_type_status", "worker_endpoints", "endpoint_type, status, updated_at DESC");
     this.ensureIndex("idx_project_worker_assignments_project_status", "project_worker_assignments", "project_id, status, assignment_role, last_affinity_at DESC");
     this.ensureIndex("idx_project_worker_assignments_worker_status", "project_worker_assignments", "worker_endpoint_id, status, last_affinity_at DESC");
