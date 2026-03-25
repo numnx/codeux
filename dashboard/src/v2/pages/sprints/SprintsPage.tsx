@@ -92,12 +92,7 @@ export const SprintsPage: FunctionComponent = () => {
     );
   }, []);
 
-  useEffect(() => {
-    if ((!showCreateComposer && !editingSprint) || !createStageRef.current) {
-      return;
-    }
-    createStageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [editingSprint, showCreateComposer]);
+  // No auto-scroll when opening the sprint composer — keep viewport stable.
 
   useEffect(() => {
     if (!rowMenu) {

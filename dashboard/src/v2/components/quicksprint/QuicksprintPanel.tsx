@@ -314,7 +314,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   return (
     <section
       ref={cardRef}
-      className="relative w-full overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)]"
+      className={`relative w-full rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)] ${showIconPicker || showColorPicker ? "" : "overflow-hidden"}`}
     >
       {/* Radial accents */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.07),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.06),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.09),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.07),transparent_34%)]" />
@@ -641,7 +641,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                     type="button"
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setPickerPos({ top: rect.bottom + 8, left: rect.left });
+                      const container = cardRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+                      setPickerPos({ top: rect.bottom - container.top + 8, left: rect.left - container.left });
                       setShowIconPicker(!showIconPicker);
                       setShowColorPicker(false);
                     }}
@@ -656,7 +657,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                     type="button"
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setPickerPos({ top: rect.bottom + 8, left: rect.left });
+                      const container = cardRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+                      setPickerPos({ top: rect.bottom - container.top + 8, left: rect.left - container.left });
                       setShowColorPicker(!showColorPicker);
                       setShowIconPicker(false);
                     }}
@@ -704,11 +706,11 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               </div>
             </div>
 
-            {/* Fixed-position picker popups (escape overflow-hidden) */}
+            {/* Picker popups (absolute to section, overflow toggled) */}
             {showIconPicker && (<>
               <div className="fixed inset-0 z-[9998] cursor-default" onClick={() => setShowIconPicker(false)} />
               <div
-                className="fixed z-[9999] w-[17rem] rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
+                className="absolute z-[9999] w-[17rem] rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
                 style={{ top: pickerPos.top, left: pickerPos.left, animation: "qs-picker-in 0.2s cubic-bezier(0.22,1,0.36,1)" }}
               >
                 <div className="grid grid-cols-6 gap-1">
@@ -737,7 +739,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             {showColorPicker && (<>
               <div className="fixed inset-0 z-[9998] cursor-default" onClick={() => setShowColorPicker(false)} />
               <div
-                className="fixed z-[9999] w-52 rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
+                className="absolute z-[9999] w-52 rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
                 style={{ top: pickerPos.top, left: pickerPos.left, animation: "qs-picker-in 0.2s cubic-bezier(0.22,1,0.36,1)" }}
               >
                 <div className="grid grid-cols-5 gap-2">
