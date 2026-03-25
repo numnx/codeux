@@ -134,6 +134,7 @@ export interface PlanSprintOptions {
   autoStart: boolean;
   replan?: boolean;
   planningAgentPresetId?: string;
+  quicksprintTemplateId?: string;
   overrides?: PlanningOverrides;
 }
 
