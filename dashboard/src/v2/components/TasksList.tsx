@@ -6,7 +6,7 @@ import { FilterStrip } from "./ui/FilterStrip.js";
 import { SkeletonRow } from "./ui/ListSkeletons.js";
 import { deriveActiveSprintIds, filterTasksToActiveSprints } from "../lib/overview-streams.js";
 import { useProjectData } from "../context/project-data.js";
-import { useProjectSprints } from "../hooks/use-project-sprints.js";
+import { useSprints } from "../../hooks/useSprints.js";
 import { useProjectTasks } from "../hooks/use-project-tasks.js";
 
 type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
@@ -17,7 +17,7 @@ export const TasksList: FunctionComponent = () => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
     const { projects, selectedProject, loading: projectsLoading } = useProjectData();
-    const { sprints, loading: sprintsLoading } = useProjectSprints(selectedProject?.id || null);
+    const { data: sprints, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
     const { tasks, loading: tasksLoading } = useProjectTasks(selectedProject?.id || null, projects, sprints);
 
     const isLoading = projectsLoading || sprintsLoading || tasksLoading;

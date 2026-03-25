@@ -13,7 +13,7 @@ import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { HumanInterventionBadge } from "./components/ui/HumanInterventionBadge.js";
 import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js";
-import { useProjectSprints } from "./hooks/use-project-sprints.js";
+import { useSprints } from "../hooks/useSprints.js";
 import { useLiveSessionActions } from "./hooks/use-live-session-actions.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
@@ -752,9 +752,10 @@ const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 export const LiveSessionPage: FunctionComponent = () => {
     const headerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
-    const { error, execution, gitStatus, gitStatusError, initialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
+    const { error, execution, gitStatus, gitStatusError, initialLoadComplete: legacyInitialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
     const realtimeProjectId = execution.projectId || status.project_id || null;
-    const { selectedSprintId } = useProjectSprints(realtimeProjectId);
+    const { selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
+    const initialLoadComplete = legacyInitialLoadComplete && !sprintsLoading;
 
     const {
         rerunningIds,

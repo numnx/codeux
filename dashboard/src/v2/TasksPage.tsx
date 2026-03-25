@@ -23,9 +23,9 @@ import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { TaskComposer } from "./components/ui/TaskComposer.js";
 import { buildDependentTasksMap, type DependentTaskMetadata } from "./lib/task-relations.js";
-import type { Task, TaskPriority, TaskStatus } from "./types.js";
+import type { Sprint, Task, TaskPriority, TaskStatus } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
-import { useProjectSprints } from "./hooks/use-project-sprints.js";
+import { useSprints } from "../hooks/useSprints.js";
 import { useProjectTasks } from "./hooks/use-project-tasks.js";
 import { createTask, deleteTask, updateTask } from "./lib/project-api.js";
 import { deriveTaskBoardState } from "./lib/task-board-state.js";
@@ -231,12 +231,12 @@ const ColumnHeader: FunctionComponent<{ status: TaskStatus; count: number }> = m
 });
 
 const SprintSelector: FunctionComponent<{
-  sprints: Array<{ id: string; name: string; date: string; status: string; completion: number; tasksCount: number }>;
+  sprints: Sprint[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
 }> = memo(({ sprints, selectedId, onSelect }) => {
   const [open, setOpen] = useState(false);
-  const selected = selectedId ? sprints.find((sprint) => sprint.id === selectedId) : null;
+  const selected = selectedId ? sprints.find((sprint: Sprint) => sprint.id === selectedId) : null;
 
   return (
     <div className="relative">
@@ -373,12 +373,12 @@ export const TasksPage: FunctionComponent = () => {
   const boardRef = useRef<HTMLDivElement>(null);
   const { projects, selectedProject } = useProjectData();
   const {
-    sprints,
+    data: sprints,
     loading: sprintsLoading,
     selectedSprintId,
     selectSprint,
-    refresh: refreshSprints,
-  } = useProjectSprints(selectedProject?.id || null);
+    refetch: refreshSprints,
+  } = useSprints(selectedProject?.id || null);
   const locationSearch = useRouterState({ select: (state) => state.location.searchStr });
   const initialSprint = useMemo(() => {
     const params = new URLSearchParams(locationSearch);
@@ -424,7 +424,7 @@ export const TasksPage: FunctionComponent = () => {
     }
 
     if (initialSprint) {
-      if (sprints.some((sprint) => sprint.id === initialSprint)) {
+      if (sprints.some((sprint: Sprint) => sprint.id === initialSprint)) {
         if (initialSprint !== selectedSprintId) {
           void selectSprint(initialSprint);
         }
@@ -442,7 +442,7 @@ export const TasksPage: FunctionComponent = () => {
     return deriveTaskBoardState(tasks, statusFilter, priorityFilter, listWindow);
   }, [tasks, statusFilter, priorityFilter, listWindow]);
 
-  const selectedSprintModel = selectedSprintId ? sprints.find((sprint) => sprint.id === selectedSprintId) || null : null;
+  const selectedSprintModel = selectedSprintId ? sprints.find((sprint: Sprint) => sprint.id === selectedSprintId) || null : null;
 
   const handleTaskSubmit = async (draft: {
     sprintId: string;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "preact/hooks";
 import { computeStats, processDashboardTasks } from "../lib/status.js";
 import { fetchExecutionSnapshot, fetchGitTrackingStatus, fetchLivePayload, fetchRuntimeStatus, fetchLiveActivities } from "../lib/api/dashboard-api.js";
+import { useExecutions } from "./useExecutions.js";
 import type {
   DashboardStatus,
   ExecutionDashboardSnapshot,
@@ -225,6 +226,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
   });
 
   const realtimeProjectId = state.execution.projectId || state.status.project_id || null;
+  const { data: executionData } = useExecutions(realtimeProjectId);
 
   useEffect(() => {
     return () => {
@@ -283,7 +285,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     refreshGitStatus: refreshGitStatusAction,
     refreshRuntimeStatus: refreshRuntimeStatusAction,
     status: state.status,
-    execution: state.execution,
+    execution: executionData,
     stats,
     tasksWithLiveActivities,
   };
