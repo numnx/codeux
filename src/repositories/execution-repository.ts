@@ -366,7 +366,7 @@ export class ExecutionRepository {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    this.db.prepare(`
+    this.getCachedStatement(`
       INSERT INTO sprint_runs (
         id, project_id, sprint_id, status, trigger_type, triggered_by, executor_mode,
         started_at, finished_at, last_heartbeat_at, created_at, updated_at
@@ -394,13 +394,13 @@ export class ExecutionRepository {
   listSprintRuns(projectId: string, sprintId?: string): SprintRunRecord[] {
     this.requireProject(projectId);
     const rows = sprintId
-      ? this.db.prepare(`
+      ? this.getCachedStatement(`
         SELECT *
         FROM sprint_runs
         WHERE project_id = ? AND sprint_id = ?
         ORDER BY created_at DESC, rowid DESC
       `).all(projectId, sprintId)
-      : this.db.prepare(`
+      : this.getCachedStatement(`
         SELECT *
         FROM sprint_runs
         WHERE project_id = ?
@@ -410,7 +410,7 @@ export class ExecutionRepository {
   }
 
   getSprintRun(runId: string): SprintRunRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM sprint_runs
       WHERE id = ?
@@ -421,7 +421,7 @@ export class ExecutionRepository {
   findActiveSprintRun(projectId: string, sprintId: string): SprintRunRecord | null {
     this.requireProject(projectId);
     this.requireSprint(sprintId, projectId);
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM sprint_runs
       WHERE project_id = ? AND sprint_id = ? AND status IN ('queued', 'running', 'paused', 'cancel_requested')
@@ -434,7 +434,7 @@ export class ExecutionRepository {
   updateSprintRun(runId: string, input: UpdateSprintRunInput): SprintRunRecord {
     const current = this.requireSprintRun(runId);
     const now = new Date().toISOString();
-    this.db.prepare(`
+    this.getCachedStatement(`
       UPDATE sprint_runs
       SET status = ?, executor_mode = ?, started_at = ?, finished_at = ?, last_heartbeat_at = ?, updated_at = ?
       WHERE id = ?
@@ -466,7 +466,7 @@ export class ExecutionRepository {
     const id = randomUUID();
     const now = new Date().toISOString();
     const queuedAt = input.queuedAt || now;
-    this.db.prepare(`
+    this.getCachedStatement(`
       INSERT INTO task_dispatches (
         id, project_id, sprint_id, task_id, sprint_run_id, connection_id, executor_type, status, priority,
         queued_at, claimed_at, started_at, finished_at, last_heartbeat_at, error_message, created_at, updated_at
@@ -524,7 +524,7 @@ export class ExecutionRepository {
   }
 
   listStaleCancelRequestedDispatches(cutoffIso: string): TaskDispatchRecord[] {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT *
       FROM task_dispatches
       WHERE status = 'cancel_requested'
@@ -541,7 +541,7 @@ export class ExecutionRepository {
       this.requireConnection(input.connectionId);
     }
     const now = new Date().toISOString();
-    this.db.prepare(`
+    this.getCachedStatement(`
       UPDATE task_dispatches
       SET connection_id = ?, status = ?, claimed_at = ?, started_at = ?, finished_at = ?, last_heartbeat_at = ?, error_message = ?, updated_at = ?
       WHERE id = ?
@@ -578,7 +578,7 @@ export class ExecutionRepository {
     }
 
     const id = randomUUID();
-    this.db.prepare(`
+    this.getCachedStatement(`
       INSERT INTO task_runs (
         id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, connection_id, provider, mode,
         session_id, session_name, state, worker_branch, pr_url, started_at, finished_at, duration_ms
@@ -628,7 +628,7 @@ export class ExecutionRepository {
 
     const id = randomUUID();
     const now = new Date().toISOString();
-    this.db.prepare(`
+    this.getCachedStatement(`
       INSERT INTO provider_invocations (
         id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id,
         session_id, provider, purpose, status, model, native_session_id, started_at, finished_at, duration_ms,
@@ -674,7 +674,7 @@ export class ExecutionRepository {
   updateProviderInvocationUsage(invocationId: string, input: UpdateProviderInvocationUsageInput): ProviderInvocationUsageRecord {
     const current = this.requireProviderInvocationUsage(invocationId);
     const now = new Date().toISOString();
-    this.db.prepare(`
+    this.getCachedStatement(`
       UPDATE provider_invocations
       SET status = ?, model = ?, native_session_id = ?, finished_at = ?, duration_ms = ?, transcript_chars = ?,
         input_tokens = ?, cached_input_tokens = ?, output_tokens = ?, reasoning_output_tokens = ?, total_tokens = ?,
@@ -706,7 +706,7 @@ export class ExecutionRepository {
   }
 
   getTaskRun(taskRunId: string): TaskRunRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM task_runs
       WHERE id = ?
@@ -715,7 +715,7 @@ export class ExecutionRepository {
   }
 
   getProviderInvocationUsage(invocationId: string): ProviderInvocationUsageRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM provider_invocations
       WHERE id = ?
@@ -728,7 +728,7 @@ export class ExecutionRepository {
     if (!normalizedSessionId) {
       return null;
     }
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM task_runs
       WHERE session_id = ?
@@ -739,7 +739,7 @@ export class ExecutionRepository {
   }
 
   getTaskDispatch(dispatchId: string): TaskDispatchRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM task_dispatches
       WHERE id = ?
@@ -748,7 +748,7 @@ export class ExecutionRepository {
   }
 
   getTaskRunByDispatchId(dispatchId: string): TaskRunRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM task_runs
       WHERE dispatch_id = ?
@@ -760,27 +760,34 @@ export class ExecutionRepository {
 
   getLatestTaskRun(taskId: string, sprintRunId?: string): TaskRunRecord | null {
     this.requireTask(taskId);
-    const runClause = sprintRunId ? "AND sprint_run_id = ?" : "";
-    const row = this.db.prepare(`
-      SELECT *
-      FROM task_runs
-      WHERE task_id = ?
-      ${runClause}
-      ORDER BY rowid DESC
-      LIMIT 1
-    `).get(taskId, ...(sprintRunId ? [sprintRunId] : [])) as TaskRunRow | undefined;
+    const row = sprintRunId
+      ? this.getCachedStatement(`
+        SELECT *
+        FROM task_runs
+        WHERE task_id = ?
+        AND sprint_run_id = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+      `).get(taskId, sprintRunId) as TaskRunRow | undefined
+      : this.getCachedStatement(`
+        SELECT *
+        FROM task_runs
+        WHERE task_id = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+      `).get(taskId) as TaskRunRow | undefined;
     return row ? this.mapTaskRunRow(row) : null;
   }
 
   getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {
     this.requireProject(projectId);
-    const projectRow = this.db.prepare(`
+    const projectRow = this.getCachedStatement(`
       SELECT id, name
       FROM projects
       WHERE id = ?
     `).get(projectId) as { id: string; name: string } | undefined;
 
-    const sprintRuns = this.db.prepare(`
+    const sprintRuns = this.getCachedStatement(`
       SELECT
         sr.id,
         sr.project_id,
@@ -810,7 +817,7 @@ export class ExecutionRepository {
     `).all(projectId) as unknown as ExecutionSprintRunSummaryRow[];
     const focusSprintRunId = sprintRuns[0]?.id ?? null;
 
-    const recentTaskDispatches = this.db.prepare(`
+    const recentTaskDispatches = this.getCachedStatement(`
       SELECT
         td.id,
         td.project_id,
@@ -866,7 +873,7 @@ export class ExecutionRepository {
     `).all(projectId) as unknown as ExecutionTaskDispatchSummaryRow[];
 
     const focusSprintTaskDispatches = focusSprintRunId
-      ? this.db.prepare(`
+      ? this.getCachedStatement(`
         SELECT
           td.id,
           td.project_id,
@@ -924,7 +931,7 @@ export class ExecutionRepository {
     }
     const taskDispatches = [...taskDispatchById.values()].sort((left, right) => this.compareExecutionTaskDispatchSummaryRows(left, right));
 
-    const recentEvents = this.db.prepare(`
+    const recentEvents = this.getCachedStatement(`
       SELECT *
       FROM (
         SELECT
@@ -1003,7 +1010,7 @@ export class ExecutionRepository {
     `).all(projectId, projectId) as unknown as ExecutionRuntimeEventSummaryRow[];
 
     const focusSprintTaskEvents = focusSprintRunId
-      ? this.db.prepare(`
+      ? this.getCachedStatement(`
         SELECT
           tre.id,
           'task_run' AS scope_type,
@@ -1087,7 +1094,7 @@ export class ExecutionRepository {
     input: ProjectStatsQuery | ProjectStatsWindow = "7d",
   ): ProjectExecutionStatsSnapshot {
     this.requireProject(projectId);
-    const projectRow = this.db.prepare(`
+    const projectRow = this.getCachedStatement(`
       SELECT id, name
       FROM projects
       WHERE id = ?
@@ -1096,7 +1103,7 @@ export class ExecutionRepository {
     const normalized = this.normalizeProjectStatsQuery(projectId, input, now);
     const rangeStartIso = normalized.range.from;
     const rangeEndIso = normalized.range.to;
-    const invocations = this.db.prepare(`
+    const invocations = this.getCachedStatement(`
       SELECT *
       FROM provider_invocations
       WHERE project_id = ?
@@ -1147,7 +1154,7 @@ export class ExecutionRepository {
     }
     usage.wallTimeMs = Array.from(wallTimeByTaskId.values()).reduce((sum, value) => sum + value, 0);
 
-    const activeSprintRow = this.db.prepare(`
+    const activeSprintRow = this.getCachedStatement(`
       SELECT sr.sprint_id, s.name AS sprint_name, s.number AS sprint_number
       FROM sprint_runs sr
       INNER JOIN sprints s ON s.id = sr.sprint_id
@@ -1203,7 +1210,7 @@ export class ExecutionRepository {
   }
 
   getOverviewTelemetrySnapshot(): OverviewTelemetrySnapshot {
-    const activeProjects = this.db.prepare(`
+    const activeProjects = this.getCachedStatement(`
       SELECT
         sr.project_id,
         p.name AS project_name,
@@ -1233,7 +1240,7 @@ export class ExecutionRepository {
       LIMIT 24
     `).all() as unknown as OverviewTelemetryProjectSummaryRow[];
 
-    const pausedProjects = this.db.prepare(`
+    const pausedProjects = this.getCachedStatement(`
       SELECT
         sr.project_id,
         p.name AS project_name,
@@ -1377,7 +1384,7 @@ export class ExecutionRepository {
 
   updateTaskRun(taskRunId: string, input: UpdateTaskRunInput): TaskRunRecord {
     const current = this.requireTaskRun(taskRunId);
-    this.db.prepare(`
+    this.getCachedStatement(`
       UPDATE task_runs
       SET connection_id = ?, provider = ?, mode = ?, session_id = ?, session_name = ?, state = ?, worker_branch = ?,
           pr_url = ?, started_at = ?, finished_at = ?, duration_ms = ?
@@ -1438,7 +1445,7 @@ export class ExecutionRepository {
     options?: { createdAt?: string; sourceEventKey?: string | null },
   ): boolean {
     this.requireTaskRun(taskRunId);
-    const result = this.db.prepare(`
+    const result = this.getCachedStatement(`
       INSERT OR IGNORE INTO task_run_events (id, task_run_id, event_type, originator, payload_json, source_event_key, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -1488,7 +1495,7 @@ export class ExecutionRepository {
 
   listTaskRunEvents(taskRunId: string, limit: number = 50): TaskRunEventRecord[] {
     this.requireTaskRun(taskRunId);
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT *
       FROM task_run_events
       WHERE task_run_id = ?
@@ -1500,7 +1507,7 @@ export class ExecutionRepository {
 
   listSprintRunEvents(sprintRunId: string, limit: number = 50): SprintRunEventRecord[] {
     this.requireSprintRun(sprintRunId);
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT *
       FROM sprint_run_events
       WHERE sprint_run_id = ?
@@ -1538,7 +1545,7 @@ export class ExecutionRepository {
   }
 
   listWorkerProjectAffinity(connectionId: string): string[] {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT
         project_id,
         SUM(CASE WHEN status IN ('claimed', 'running', 'cancel_requested') THEN 1 ELSE 0 END) AS active_count,
@@ -1564,7 +1571,7 @@ export class ExecutionRepository {
     }
 
     if (existing) {
-      this.db.prepare(`
+      this.getCachedStatement(`
         UPDATE execution_leases
         SET owner_key = ?, lease_token = ?, acquired_at = ?, expires_at = ?, last_heartbeat_at = ?
         WHERE scope_type = ? AND scope_id = ?
@@ -1583,7 +1590,7 @@ export class ExecutionRepository {
     }
 
     const id = randomUUID();
-    this.db.prepare(`
+    this.getCachedStatement(`
       INSERT INTO execution_leases (id, scope_type, scope_id, owner_key, lease_token, acquired_at, expires_at, last_heartbeat_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -1607,7 +1614,7 @@ export class ExecutionRepository {
       throw new Error(`Lease token mismatch for ${input.scopeType}:${input.scopeId}`);
     }
     const now = new Date().toISOString();
-    this.db.prepare(`
+    this.getCachedStatement(`
       UPDATE execution_leases
       SET expires_at = ?, last_heartbeat_at = ?
       WHERE scope_type = ? AND scope_id = ? AND lease_token = ?
@@ -1618,7 +1625,7 @@ export class ExecutionRepository {
   releaseLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string, leaseToken?: string): void {
     const projectId = this.resolveLeaseProjectId(scopeType, scopeId);
     if (leaseToken) {
-      this.db.prepare(`
+      this.getCachedStatement(`
         DELETE FROM execution_leases
         WHERE scope_type = ? AND scope_id = ? AND lease_token = ?
       `).run(scopeType, scopeId, leaseToken);
@@ -1628,7 +1635,7 @@ export class ExecutionRepository {
       return;
     }
 
-    this.db.prepare(`
+    this.getCachedStatement(`
       DELETE FROM execution_leases
       WHERE scope_type = ? AND scope_id = ?
     `).run(scopeType, scopeId);
@@ -1661,7 +1668,7 @@ export class ExecutionRepository {
   }
 
   getLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): ExecutionLeaseRecord | null {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT *
       FROM execution_leases
       WHERE scope_type = ? AND scope_id = ?
@@ -1672,14 +1679,14 @@ export class ExecutionRepository {
   listExpiredLeases(scopeType?: ExecutionLeaseRecord["scopeType"], now = new Date()): ExecutionLeaseRecord[] {
     const nowIso = now.toISOString();
     const rows = scopeType
-      ? this.db.prepare(`
+      ? this.getCachedStatement(`
         SELECT *
         FROM execution_leases
         WHERE scope_type = ?
           AND expires_at <= ?
         ORDER BY expires_at ASC
       `).all(scopeType, nowIso)
-      : this.db.prepare(`
+      : this.getCachedStatement(`
         SELECT *
         FROM execution_leases
         WHERE expires_at <= ?
@@ -1690,7 +1697,7 @@ export class ExecutionRepository {
   }
 
   hasActiveTaskDispatches(sprintRunId: string): boolean {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT COUNT(*) AS total
       FROM task_dispatches
       WHERE sprint_run_id = ?
@@ -1841,7 +1848,7 @@ export class ExecutionRepository {
   }
 
   private getWallTimeTotalsByTaskIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string): Map<string, number> {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT task_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms
       FROM task_runs
       WHERE project_id = ?
@@ -1854,7 +1861,7 @@ export class ExecutionRepository {
   }
 
   private getWallTimeTotalsBySprintRunIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string): Map<string, number> {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT sprint_run_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms
       FROM task_runs
       WHERE project_id = ?
@@ -1867,7 +1874,7 @@ export class ExecutionRepository {
   }
 
   private getTaskMetadata(projectId: string): Map<string, StatsEntityMetadata> {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT t.id, t.task_key, t.title, t.status, s.name AS sprint_name
       FROM tasks t
       INNER JOIN sprints s ON s.id = t.sprint_id
@@ -1884,7 +1891,7 @@ export class ExecutionRepository {
   }
 
   private getSprintMetadata(projectId: string): Map<string, StatsEntityMetadata> {
-    const rows = this.db.prepare(`
+    const rows = this.getCachedStatement(`
       SELECT s.id AS sprint_id, sr.id AS sprint_run_id, s.name, s.number, sr.status
       FROM sprints s
       LEFT JOIN sprint_runs sr ON sr.sprint_id = s.id
@@ -2030,7 +2037,7 @@ export class ExecutionRepository {
       });
     }
 
-    const firstInvocationRow = this.db.prepare(`
+    const firstInvocationRow = this.getCachedStatement(`
       SELECT MIN(started_at) AS first_started_at
       FROM provider_invocations
       WHERE project_id = ?
@@ -2271,7 +2278,7 @@ export class ExecutionRepository {
   }
 
   private requireTask(taskId: string, projectId?: string, sprintId?: string): void {
-    const row = this.db.prepare(`
+    const row = this.getCachedStatement(`
       SELECT id, project_id, sprint_id
       FROM tasks
       WHERE id = ?
@@ -2546,7 +2553,7 @@ export class ExecutionRepository {
   }
 
   private listActiveAttentionRowsForProject(projectId: string): ProjectAttentionSummaryRow[] {
-    return this.db.prepare(`
+    return this.getCachedStatement(`
       SELECT
         id,
         project_id,
@@ -2971,7 +2978,7 @@ export class ExecutionRepository {
 
   private resolveLeaseProjectId(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): string | null {
     if (scopeType === "sprint") {
-      const row = this.db.prepare(`
+      const row = this.getCachedStatement(`
         SELECT project_id
         FROM sprints
         WHERE id = ?
@@ -2980,7 +2987,7 @@ export class ExecutionRepository {
     }
 
     if (scopeType === "task_dispatch") {
-      const row = this.db.prepare(`
+      const row = this.getCachedStatement(`
         SELECT project_id
         FROM task_dispatches
         WHERE id = ?
