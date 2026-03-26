@@ -1,4 +1,4 @@
-import type { Subtask } from "../contracts/app-types.js";
+import type { ProviderId, Subtask } from "../contracts/app-types.js";
 import type { StartSprintDispatchResult } from "./sprint-task-dispatch-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 
@@ -10,6 +10,11 @@ export interface TaskRerunContext {
   sourceId?: string;
   repoPath: string;
   featureBranch: string;
+}
+
+export interface TaskRerunOptions {
+  provider?: ProviderId;
+  clearWorktree?: boolean;
 }
 
 export interface TaskRerunServiceDependencies {
@@ -34,6 +39,9 @@ export interface TaskRerunServiceDependencies {
   resolveSessionName: (session: { id?: string; name?: string }) => string | undefined;
   extractSessionId: (session: { id?: string; name?: string }) => string | undefined;
   persistMergedFlag: (args: { taskId: string; merged: boolean }) => Promise<void>;
+  clearTaskWorktree?: (args: { taskId: string; repoPath: string }) => Promise<void>;
+  updateTaskExecutorOverride?: (taskId: string, provider: ProviderId) => void;
+  cancelActiveDispatch?: (taskId: string, projectId: string) => Promise<void>;
   logger?: Logger;
 }
 
@@ -43,6 +51,7 @@ const resetTaskState = (task: Subtask): Subtask => ({
   session_id: undefined,
   session_name: undefined,
   session_state: undefined,
+  provider: undefined,
   worker_branch: undefined,
   pr_url: undefined,
   activities: [],
@@ -55,13 +64,45 @@ const resetTaskState = (task: Subtask): Subtask => ({
 export class TaskRerunService {
   constructor(private readonly deps: TaskRerunServiceDependencies) {}
 
-  async rerunTask(taskId: string): Promise<Subtask> {
+  async rerunTask(taskId: string, options?: TaskRerunOptions): Promise<Subtask> {
     const context = this.deps.resolveTaskContext(taskId);
     if (!context) {
       throw new Error("Cannot rerun task: sprint context is incomplete. Run orchestration/status first.");
     }
 
+    // Cancel any active dispatch for this task before rerunning
+    if (this.deps.cancelActiveDispatch) {
+      try {
+        await this.deps.cancelActiveDispatch(context.task.record_id || taskId, context.projectId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.deps.logger?.warn("Failed to cancel active dispatch during rerun", { taskId, message });
+      }
+    }
+
+    // Apply provider override if requested
+    if (options?.provider && this.deps.updateTaskExecutorOverride) {
+      this.deps.updateTaskExecutorOverride(context.task.record_id || taskId, options.provider);
+    }
+
+    // Clear worktree if requested
+    if (options?.clearWorktree && this.deps.clearTaskWorktree) {
+      try {
+        await this.deps.clearTaskWorktree({
+          taskId: context.task.record_id || taskId,
+          repoPath: context.repoPath,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.deps.logger?.warn("Failed to clear worktree during rerun", { taskId, message });
+      }
+    }
+
     const resetTask = resetTaskState(context.task);
+    // Apply provider override to the reset task so dispatch picks it up
+    if (options?.provider) {
+      resetTask.provider = options.provider;
+    }
     this.deps.updateTaskPlanningStatus(resetTask.record_id || taskId, "pending");
 
     try {

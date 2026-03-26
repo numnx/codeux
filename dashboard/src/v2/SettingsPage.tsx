@@ -1531,7 +1531,7 @@ export const SettingsPage: FunctionComponent = () => {
               },
             }))} />
           </Row>
-          <Row label="Resume failed task in same workspace" description="Reuse the same workspace for a retry instead of provisioning a fresh one." badge={getFieldBadge("cliWorkflow.resumeFailedTaskInSameWorkspace")} last>
+          <Row label="Resume failed task in same workspace" description="Reuse the same workspace for a retry instead of provisioning a fresh one." badge={getFieldBadge("cliWorkflow.resumeFailedTaskInSameWorkspace")}>
             <Toggle value={editableSettings.cliWorkflow.resumeFailedTaskInSameWorkspace} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
@@ -1539,6 +1539,20 @@ export const SettingsPage: FunctionComponent = () => {
                 resumeFailedTaskInSameWorkspace: !current.cliWorkflow.resumeFailedTaskInSameWorkspace,
               },
             }))} />
+          </Row>
+          <Row label="Max quota retries without timer" description="When a provider reports quota exhaustion without an exact reset time, retry up to this many times before failing the task." badge={getFieldBadge("cliWorkflow.maxQuotaRetriesWithoutTimer")} last>
+            <NumberInput
+              value={editableSettings.cliWorkflow.maxQuotaRetriesWithoutTimer}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                cliWorkflow: {
+                  ...current.cliWorkflow,
+                  maxQuotaRetriesWithoutTimer: value,
+                },
+              }))}
+              min={1}
+              max={20}
+            />
           </Row>
         </SectionCard>
 

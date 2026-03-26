@@ -11,6 +11,7 @@ import {
     rerunTask,
     retryTaskDispatch,
 } from "../../lib/api/dashboard-api.js";
+import type { RerunTaskOptions } from "../../lib/api/dashboard-api.js";
 
 export function useLiveSessionActions(
     refreshRuntimeStatus: () => Promise<void>,
@@ -19,10 +20,10 @@ export function useLiveSessionActions(
     const [rerunningIds, setRerunningIds] = useState<Set<string>>(new Set());
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
 
-    const handleRerun = useCallback(async (taskId: string) => {
+    const handleRerun = useCallback(async (taskId: string, options?: RerunTaskOptions) => {
         setRerunningIds(prev => new Set(prev).add(taskId));
         try {
-            await rerunTask(taskId);
+            await rerunTask(taskId, options);
             await refreshRuntimeStatus();
             await refreshGitStatus();
         } catch (err) {

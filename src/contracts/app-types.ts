@@ -528,6 +528,7 @@ export interface CliWorkflowSettings {
   containerCodexAuthPath: string;
   containerClaudeCodeAuthPath: string;
   maxPlanningJsonRetries: number;
+  maxQuotaRetriesWithoutTimer: number;
 }
 
 export interface WorkerSettings {

@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { memo } from "preact/compat";
+import { memo, createPortal } from "preact/compat";
 import { useEffect, useRef, useState, useMemo, useCallback } from "preact/hooks";
 import {
     Clock, ChevronDown, ChevronRight, Eye, EyeOff,
@@ -21,6 +21,7 @@ import {
     deriveLiveDurationDisplay,
     type LiveDurationDispatchTiming,
 } from "../lib/live-duration-display.js";
+import { RerunTaskModal } from "./ui/RerunTaskModal.js";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -115,11 +116,16 @@ export const TaskDuration: FunctionComponent<{
 
 /* ─── LiveTaskCard ───────────────────────────────────────────────────────── */
 
+export interface RerunOptions {
+    provider?: string;
+    clearWorktree?: boolean;
+}
+
 export interface LiveTaskCardProps {
     task: Subtask;
     taskTiming?: LiveTaskTimingSummary | null;
     events?: ExecutionRuntimeEventSummary[];
-    onRerun: (id: string) => void;
+    onRerun: (id: string, options?: RerunOptions) => void;
     isRerunning: boolean;
     dispatchError?: string | null;
     dispatchStartedAt?: string | null;
@@ -140,6 +146,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
 }) => {
     const [expanded, setExpanded] = useState(false);
     const [showFeed, setShowFeed] = useState(false);
+    const [showRerunModal, setShowRerunModal] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const taskPhase = getTaskProgressPhase(task);
     const cfg = getTaskCfg(taskPhase);
@@ -148,9 +155,16 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     const mergeCfg = task.merge_indicator ? MERGE_INDICATOR_CFG[task.merge_indicator] : null;
     const sessionLabel = (task.session_id || task.session_name || "").replace(/^sessions\//, "");
 
-    const handleRerun = useCallback(() => {
-        const confirmed = window.confirm(`Rerun task "${task.id}"?\n\nThis resets the task state and discards current progress.`);
-        if (confirmed) onRerun(task.record_id || task.id);
+    const handleRerunClick = useCallback(() => {
+        setShowRerunModal(true);
+    }, []);
+
+    const handleRerunConfirm = useCallback((options: { provider?: string; clearWorktree: boolean }) => {
+        setShowRerunModal(false);
+        onRerun(task.record_id || task.id, {
+            provider: options.provider,
+            clearWorktree: options.clearWorktree,
+        });
     }, [task.id, task.record_id, onRerun]);
 
     const renderedPrompt = useMemo(() => renderMarkdown(task.prompt), [task.prompt]);
@@ -338,7 +352,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         </button>
                         <button
                             type="button"
-                            onClick={handleRerun}
+                            onClick={handleRerunClick}
                             disabled={isRerunning}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border border-transparent hover:text-status-amber hover:border-status-amber/15 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
                         >
@@ -360,6 +374,17 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                     )}
                 </div>
             </div>
+
+            {showRerunModal && createPortal(
+                <RerunTaskModal
+                    taskId={task.id}
+                    taskTitle={task.title}
+                    currentProvider={task.provider}
+                    onClose={() => setShowRerunModal(false)}
+                    onConfirm={handleRerunConfirm}
+                />,
+                document.body,
+            )}
         </div>
     );
 });
