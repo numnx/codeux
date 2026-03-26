@@ -10,7 +10,11 @@ import type {
 } from "../types.js";
 import { useDashboardPollManager } from "./use-dashboard-poll-manager.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
-import { stabilizeExecutionSnapshot, stabilizeStatusSnapshot } from "../lib/runtime-snapshot-stability.js";
+import {
+  areExecutionSnapshotsEquivalent,
+  stabilizeExecutionSnapshot,
+  stabilizeStatusSnapshot,
+} from "../lib/runtime-snapshot-stability.js";
 
 const RUNTIME_POLL_INTERVAL_MS = 5_000;
 const GIT_STATUS_POLL_INTERVAL_MS = 30_000;
@@ -89,83 +93,6 @@ function areStatusSnapshotsEquivalent(left: DashboardStatus, right: DashboardSta
   return true;
 }
 
-function areExecutionSnapshotsEquivalent(left: ExecutionDashboardSnapshot, right: ExecutionDashboardSnapshot): boolean {
-  if (
-    left.updatedAt !== right.updatedAt
-    || left.projectId !== right.projectId
-    || left.sprintRuns.length !== right.sprintRuns.length
-    || left.taskDispatches.length !== right.taskDispatches.length
-    || left.connections.length !== right.connections.length
-    || left.attentionItems.length !== right.attentionItems.length
-    || left.recentEvents.length !== right.recentEvents.length
-  ) {
-    return false;
-  }
-
-  for (let index = 0; index < left.sprintRuns.length; index += 1) {
-    const leftRun = left.sprintRuns[index];
-    const rightRun = right.sprintRuns[index];
-    if (
-      leftRun.id !== rightRun.id
-      || leftRun.status !== rightRun.status
-      || leftRun.lastHeartbeatAt !== rightRun.lastHeartbeatAt
-      || leftRun.finishedAt !== rightRun.finishedAt
-    ) {
-      return false;
-    }
-  }
-
-  for (let index = 0; index < left.taskDispatches.length; index += 1) {
-    const leftDispatch = left.taskDispatches[index];
-    const rightDispatch = right.taskDispatches[index];
-    if (
-      leftDispatch.id !== rightDispatch.id
-      || leftDispatch.status !== rightDispatch.status
-      || leftDispatch.taskRunState !== rightDispatch.taskRunState
-      || leftDispatch.lastHeartbeatAt !== rightDispatch.lastHeartbeatAt
-      || leftDispatch.finishedAt !== rightDispatch.finishedAt
-      || leftDispatch.errorMessage !== rightDispatch.errorMessage
-    ) {
-      return false;
-    }
-  }
-
-  for (let index = 0; index < left.connections.length; index += 1) {
-    const leftConnection = left.connections[index];
-    const rightConnection = right.connections[index];
-    if (
-      leftConnection.id !== rightConnection.id
-      || leftConnection.status !== rightConnection.status
-      || leftConnection.lastHeartbeatAt !== rightConnection.lastHeartbeatAt
-    ) {
-      return false;
-    }
-  }
-
-  for (let index = 0; index < left.attentionItems.length; index += 1) {
-    const leftItem = left.attentionItems[index];
-    const rightItem = right.attentionItems[index];
-    if (
-      leftItem.id !== rightItem.id
-      || leftItem.status !== rightItem.status
-      || leftItem.updatedAt !== rightItem.updatedAt
-    ) {
-      return false;
-    }
-  }
-
-  for (let index = 0; index < left.recentEvents.length; index += 1) {
-    if (left.recentEvents[index]?.id !== right.recentEvents[index]?.id) {
-      return false;
-    }
-  }
-
-  return (
-    left.primaryAssignedWorker?.workerEndpointId === right.primaryAssignedWorker?.workerEndpointId
-    && left.overflowAssignedWorkers.length === right.overflowAssignedWorkers.length
-  );
-}
-
 function runtimeReducer(state: RuntimeState, action: RuntimeAction): RuntimeState {
   switch (action.type) {
     case "SET_LIVE_PAYLOAD": {
@@ -241,7 +168,7 @@ export interface UseDashboardRuntimeDataResult {
   tasksWithLiveActivities: DashboardStatus["subtasks"];
 }
 
-export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
+export const useDashboardRuntimeData = (projectIdHint: string | null = null): UseDashboardRuntimeDataResult => {
   const [state, dispatch] = useReducer(runtimeReducer, initialState);
   const [gitState, dispatchGit] = useReducer(
     (prev: { gitStatus: GitTrackingStatus | null; gitStatusError: string | null }, action: { gitStatus?: GitTrackingStatus; gitStatusError?: string | null }) => {
@@ -340,7 +267,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
     onPoll: [refreshGitStatusAction],
   });
 
-  const realtimeProjectId = state.execution.projectId || state.status.project_id || null;
+  const realtimeProjectId = projectIdHint || state.execution.projectId || state.status.project_id || null;
 
   useEffect(() => {
     return () => {
@@ -381,7 +308,7 @@ export const useDashboardRuntimeData = (): UseDashboardRuntimeDataResult => {
         scheduleGitStatusRefresh(0);
       }
     });
-  }, [realtimeProjectId, refreshRuntimeStatusAction, scheduleGitStatusRefresh]);
+  }, [projectIdHint, realtimeProjectId, refreshRuntimeStatusAction, scheduleGitStatusRefresh]);
 
   const { tasksWithLiveActivities, stats } = useMemo(() => {
     const result = processDashboardTasks(state.status.subtasks || [], state.liveActivities?.activitiesBySession);

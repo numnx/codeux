@@ -34,6 +34,9 @@ import { LiveTaskCard, TaskDuration, QuotaCountdown } from "./components/LiveTas
 import { RuntimeEventFeed } from "./components/RuntimeEventFeed.js";
 import { GitCIStatusPanel } from "./components/GitCIStatusPanel.js";
 import { deriveLiveDurationDisplay } from "./lib/live-duration-display.js";
+import { useProjectData } from "./context/project-data.js";
+import { useProjectTasks } from "./hooks/use-project-tasks.js";
+import { buildLiveSessionTasks } from "./lib/live-session-task-structure.js";
 
 const statusTone = (value: string | null): string => {
     if (!value) return "text-slate-400";
@@ -728,7 +731,6 @@ const FILTER_STATUS_MAP: Record<TaskFilter, string | null> = {
 };
 
 const TASK_FILTERS: TaskFilter[] = ["All", "Running", "Completed", "Failed", "Pending"];
-const EMPTY_TASKS: Subtask[] = [];
 const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
@@ -736,9 +738,11 @@ const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 export const LiveSessionPage: FunctionComponent = () => {
     const headerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
-    const { error, execution, gitStatus, gitStatusError, initialLoadComplete: legacyInitialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
-    const realtimeProjectId = execution.projectId || status.project_id || null;
-    const { selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
+    const { projects, selectedProjectId } = useProjectData();
+    const { error, execution, gitStatus, gitStatusError, initialLoadComplete: legacyInitialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData(selectedProjectId);
+    const realtimeProjectId = selectedProjectId || execution.projectId || status.project_id || null;
+    const { data: sprints, selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
+    const { tasks: projectTasks } = useProjectTasks(realtimeProjectId, projects, sprints, selectedSprintId);
     const initialLoadComplete = legacyInitialLoadComplete && !sprintsLoading;
 
     const {
@@ -787,29 +791,33 @@ export const LiveSessionPage: FunctionComponent = () => {
     const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
     const hasLiveSprint = runtimeState.hasActiveSprint;
 
-    // Stabilize hasSprintContext: once true, hold it true for a grace period to
-    // prevent brief flickers when a poll/realtime update transiently loses context.
     const rawHasSprintContext = runtimeState.hasSprintContext;
-    const sprintContextLastTrueAtRef = useRef<number>(0);
-    if (rawHasSprintContext) {
-        sprintContextLastTrueAtRef.current = Date.now();
-    }
-    const hasSprintContext = useMemo(() => {
-        if (rawHasSprintContext) return true;
-        // After initial load, keep context alive for 10s grace period to absorb transient gaps
-        if (initialLoadComplete && sprintContextLastTrueAtRef.current > 0) {
-            return Date.now() - sprintContextLastTrueAtRef.current < 10_000;
-        }
-        return false;
-    }, [rawHasSprintContext, initialLoadComplete]);
+    const visibleTasksWithLiveActivities = useMemo(
+        () => buildLiveSessionTasks(projectTasks, tasksWithLiveActivities, realtimeProjectId),
+        [projectTasks, realtimeProjectId, tasksWithLiveActivities],
+    );
+
+    const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
 
     const [nowIso, setNowIso] = useState(() => new Date().toISOString());
-    const visibleTasksWithLiveActivities = useMemo(() => {
-        if (!hasSprintContext) return EMPTY_TASKS;
+
+    const sprintDispatches = useMemo(() => {
         return selectedSprintId
-            ? tasksWithLiveActivities.filter((t) => t.sprint_id === selectedSprintId)
-            : tasksWithLiveActivities;
-    }, [hasSprintContext, tasksWithLiveActivities, selectedSprintId]);
+            ? execution.taskDispatches.filter((d) => d.sprintId === selectedSprintId)
+            : execution.taskDispatches;
+    }, [execution.taskDispatches, selectedSprintId]);
+
+    const sprintEvents = useMemo(() => {
+        return selectedSprintId
+            ? execution.recentEvents.filter((e) => e.sprintId === selectedSprintId)
+            : execution.recentEvents;
+    }, [execution.recentEvents, selectedSprintId]);
+
+    const sprintRuns = useMemo(() => {
+        return selectedSprintId
+            ? execution.sprintRuns.filter((r) => r.sprintId === selectedSprintId)
+            : execution.sprintRuns;
+    }, [execution.sprintRuns, selectedSprintId]);
 
     const visibleStats = useMemo(() => {
         if (!hasSprintContext) return EMPTY_RUNTIME_STATS;
@@ -832,24 +840,6 @@ export const LiveSessionPage: FunctionComponent = () => {
             total: visibleTasksWithLiveActivities.length,
         };
     }, [hasSprintContext, visibleTasksWithLiveActivities, stats]);
-
-    const sprintDispatches = useMemo(() => {
-        return selectedSprintId
-            ? execution.taskDispatches.filter((d) => d.sprintId === selectedSprintId)
-            : execution.taskDispatches;
-    }, [execution.taskDispatches, selectedSprintId]);
-
-    const sprintEvents = useMemo(() => {
-        return selectedSprintId
-            ? execution.recentEvents.filter((e) => e.sprintId === selectedSprintId)
-            : execution.recentEvents;
-    }, [execution.recentEvents, selectedSprintId]);
-
-    const sprintRuns = useMemo(() => {
-        return selectedSprintId
-            ? execution.sprintRuns.filter((r) => r.sprintId === selectedSprintId)
-            : execution.sprintRuns;
-    }, [execution.sprintRuns, selectedSprintId]);
 
     const { sprintTiming, taskTimings, taskTimingMap } = useLiveTaskTimingSummaries({
         tasks: visibleTasksWithLiveActivities,

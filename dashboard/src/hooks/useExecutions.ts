@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import type { ExecutionDashboardSnapshot, DashboardRealtimeServerMessage } from "../types.js";
 import { fetchProjectExecution } from "../v2/lib/project-api.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
+import {
+  areExecutionSnapshotsEquivalent,
+  stabilizeExecutionSnapshot,
+} from "../lib/runtime-snapshot-stability.js";
 
 const EMPTY_SNAPSHOT: ExecutionDashboardSnapshot = {
   projectId: null,
@@ -46,7 +50,10 @@ export function useExecutions(projectId: string | null, pollIntervalMs: number =
     try {
       const next = await fetchProjectExecution(projectId, options?.signal);
       if (!options?.signal?.aborted) {
-        setData((prev) => prev.updatedAt === next.updatedAt ? prev : next);
+        setData((prev) => {
+          const stabilized = stabilizeExecutionSnapshot(prev, next);
+          return areExecutionSnapshotsEquivalent(prev, stabilized) ? prev : stabilized;
+        });
         hasLoadedRef.current = true;
         setError(null);
       }
@@ -75,7 +82,10 @@ export function useExecutions(projectId: string | null, pollIntervalMs: number =
     return subscribeToDashboardRealtime([`project:${projectId}`], (message: DashboardRealtimeServerMessage) => {
       if (message.type === "event" && message.event.eventType === "project.execution.updated") {
         const next = message.event.payload as ExecutionDashboardSnapshot;
-        setData((prev) => prev.updatedAt === next.updatedAt ? prev : next);
+        setData((prev) => {
+          const stabilized = stabilizeExecutionSnapshot(prev, next);
+          return areExecutionSnapshotsEquivalent(prev, stabilized) ? prev : stabilized;
+        });
         setError(null);
         return;
       }

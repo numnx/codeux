@@ -48,6 +48,101 @@ export function hasActiveExecutionSnapshot(snapshot: ExecutionDashboardSnapshot)
   );
 }
 
+export function areExecutionSnapshotsEquivalent(
+  left: ExecutionDashboardSnapshot,
+  right: ExecutionDashboardSnapshot,
+): boolean {
+  if (
+    left.projectId !== right.projectId
+    || left.projectName !== right.projectName
+    || left.sprintRuns.length !== right.sprintRuns.length
+    || left.taskDispatches.length !== right.taskDispatches.length
+    || left.connections.length !== right.connections.length
+    || left.attentionItems.length !== right.attentionItems.length
+    || left.recentEvents.length !== right.recentEvents.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < left.sprintRuns.length; index += 1) {
+    const leftRun = left.sprintRuns[index];
+    const rightRun = right.sprintRuns[index];
+    if (
+      leftRun.id !== rightRun.id
+      || leftRun.status !== rightRun.status
+      || leftRun.lastHeartbeatAt !== rightRun.lastHeartbeatAt
+      || leftRun.finishedAt !== rightRun.finishedAt
+      || leftRun.humanIntervention?.title !== rightRun.humanIntervention?.title
+      || leftRun.humanIntervention?.reason !== rightRun.humanIntervention?.reason
+      || leftRun.humanIntervention?.instructions !== rightRun.humanIntervention?.instructions
+    ) {
+      return false;
+    }
+  }
+
+  for (let index = 0; index < left.taskDispatches.length; index += 1) {
+    const leftDispatch = left.taskDispatches[index];
+    const rightDispatch = right.taskDispatches[index];
+    if (
+      leftDispatch.id !== rightDispatch.id
+      || leftDispatch.status !== rightDispatch.status
+      || leftDispatch.taskRunState !== rightDispatch.taskRunState
+      || leftDispatch.lastHeartbeatAt !== rightDispatch.lastHeartbeatAt
+      || leftDispatch.finishedAt !== rightDispatch.finishedAt
+      || leftDispatch.errorMessage !== rightDispatch.errorMessage
+      || leftDispatch.sessionId !== rightDispatch.sessionId
+      || leftDispatch.provider !== rightDispatch.provider
+      || leftDispatch.prUrl !== rightDispatch.prUrl
+      || leftDispatch.workerBranch !== rightDispatch.workerBranch
+    ) {
+      return false;
+    }
+  }
+
+  for (let index = 0; index < left.connections.length; index += 1) {
+    const leftConnection = left.connections[index];
+    const rightConnection = right.connections[index];
+    if (
+      leftConnection.id !== rightConnection.id
+      || leftConnection.status !== rightConnection.status
+      || leftConnection.lastHeartbeatAt !== rightConnection.lastHeartbeatAt
+      || leftConnection.pendingInboxCount !== rightConnection.pendingInboxCount
+      || leftConnection.activeDispatchCount !== rightConnection.activeDispatchCount
+    ) {
+      return false;
+    }
+  }
+
+  for (let index = 0; index < left.attentionItems.length; index += 1) {
+    const leftItem = left.attentionItems[index];
+    const rightItem = right.attentionItems[index];
+    if (
+      leftItem.id !== rightItem.id
+      || leftItem.status !== rightItem.status
+      || leftItem.updatedAt !== rightItem.updatedAt
+    ) {
+      return false;
+    }
+  }
+
+  for (let index = 0; index < left.recentEvents.length; index += 1) {
+    const leftEvent = left.recentEvents[index];
+    const rightEvent = right.recentEvents[index];
+    if (
+      leftEvent?.id !== rightEvent?.id
+      || leftEvent?.createdAt !== rightEvent?.createdAt
+      || leftEvent?.eventType !== rightEvent?.eventType
+    ) {
+      return false;
+    }
+  }
+
+  return (
+    left.primaryAssignedWorker?.workerEndpointId === right.primaryAssignedWorker?.workerEndpointId
+    && left.overflowAssignedWorkers.length === right.overflowAssignedWorkers.length
+  );
+}
+
 export function stabilizeExecutionSnapshot(
   previous: ExecutionDashboardSnapshot,
   next: ExecutionDashboardSnapshot,

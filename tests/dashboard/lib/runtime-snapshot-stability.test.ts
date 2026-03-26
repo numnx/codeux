@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardStatus, ExecutionDashboardSnapshot } from "../../../dashboard/src/types.js";
 import {
+  areExecutionSnapshotsEquivalent,
   hasActiveExecutionSnapshot,
   stabilizeExecutionSnapshot,
   stabilizeStatusSnapshot,
@@ -188,5 +189,35 @@ describe("runtime snapshot stability", () => {
     });
 
     expect(stabilizeExecutionSnapshot(previousExecution, nextExecution)).toBe(nextExecution);
+  });
+
+  it("treats execution snapshots with only fetch timestamp changes as equivalent", () => {
+    const previousExecution = createExecution({
+      updatedAt: "2026-03-26T10:00:00.000Z",
+      sprintRuns: [{
+        id: "run-1",
+        projectId: "project-1",
+        sprintId: "sprint-1",
+        sprintName: "Sprint 1",
+        sprintNumber: 1,
+        status: "running",
+        triggerType: "manual",
+        triggeredBy: null,
+        executorMode: "mixed",
+        startedAt: "2026-03-26T10:00:00.000Z",
+        finishedAt: null,
+        lastHeartbeatAt: null,
+        createdAt: "2026-03-26T10:00:00.000Z",
+        activeLeaseOwnerKey: null,
+        activeLeaseExpiresAt: null,
+        humanIntervention: null,
+      }],
+    });
+    const nextExecution = createExecution({
+      ...previousExecution,
+      updatedAt: "2026-03-26T10:00:05.000Z",
+    });
+
+    expect(areExecutionSnapshotsEquivalent(previousExecution, nextExecution)).toBe(true);
   });
 });
