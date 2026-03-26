@@ -6,8 +6,8 @@ import { Link } from "@tanstack/react-router";
 import { StatusDot } from "./ui/StatusDot.js";
 import { AddProjectModal } from "./ui/AddProjectModal.js";
 import { useProjectData } from "../context/project-data.js";
-import { useProjectExecution } from "../hooks/use-project-execution.js";
-import { useProjectSprints } from "../hooks/use-project-sprints.js";
+import { useExecutions } from "../../hooks/useExecutions.js";
+import { useSprints } from "../../hooks/useSprints.js";
 import { dashboardSettingsToProjectSettings } from "../lib/settings-view-models.js";
 import {
     getProjectWorkerOptions,
@@ -116,8 +116,8 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
         loading,
     } = useProjectData();
 
-    const { execution, loading: executionLoading, refresh: refreshExecution } = useProjectExecution(selectedProject?.id || null);
-    const { sprints, selectedSprintId, selectedSprint, selectSprint, loading: sprintsLoading } = useProjectSprints(selectedProject?.id || null);
+    const { data: execution, loading: executionLoading, refetch: refreshExecution } = useExecutions(selectedProject?.id || null);
+    const { data: sprints, selectedSprintId, selectedSprint, selectSprint, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
     const { options: workerOptions, selectedOption: selectedWorker } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
 
     const projectKb = useDropdownKeyboard(dropdownOpen, setDropdownOpen, dropdownRef);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { ExecutionDashboardSnapshot, DashboardRealtimeServerMessage } from "../../types.js";
-import { fetchProjectExecution } from "../lib/project-api.js";
-import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
+import type { ExecutionDashboardSnapshot, DashboardRealtimeServerMessage } from "../types.js";
+import { fetchProjectExecution } from "../v2/lib/project-api.js";
+import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
 
 const EMPTY_SNAPSHOT: ExecutionDashboardSnapshot = {
   projectId: null,
@@ -16,20 +16,20 @@ const EMPTY_SNAPSHOT: ExecutionDashboardSnapshot = {
   updatedAt: null,
 };
 
-export function useProjectExecution(projectId: string | null, pollIntervalMs: number = 30000): {
-  execution: ExecutionDashboardSnapshot;
+export function useExecutions(projectId: string | null, pollIntervalMs: number = 30000): {
+  data: ExecutionDashboardSnapshot;
   loading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refetch: () => Promise<void>;
 } {
-  const [execution, setExecution] = useState<ExecutionDashboardSnapshot>(EMPTY_SNAPSHOT);
+  const [data, setData] = useState<ExecutionDashboardSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const refresh = useCallback(async (options?: { silent?: boolean }): Promise<void> => {
+  const refreshInternal = useCallback(async (options?: { silent?: boolean; signal?: AbortSignal }): Promise<void> => {
     if (!projectId) {
-      setExecution(EMPTY_SNAPSHOT);
+      setData(EMPTY_SNAPSHOT);
       setError(null);
       setLoading(false);
       hasLoadedRef.current = false;
@@ -44,14 +44,17 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
       setLoading(true);
     }
     try {
-      const next = await fetchProjectExecution(projectId);
-      setExecution((prev) => prev.updatedAt === next.updatedAt ? prev : next);
-      hasLoadedRef.current = true;
-      setError(null);
-    } catch (fetchError) {
+      const next = await fetchProjectExecution(projectId, options?.signal);
+      if (!options?.signal?.aborted) {
+        setData((prev) => prev.updatedAt === next.updatedAt ? prev : next);
+        hasLoadedRef.current = true;
+        setError(null);
+      }
+    } catch (fetchError: any) {
+      if (fetchError.name === "AbortError") return;
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
-      if (isForeground) {
+      if (isForeground && !options?.signal?.aborted) {
         setLoading(false);
       }
     }
@@ -59,8 +62,10 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
 
   useEffect(() => {
     hasLoadedRef.current = false;
-    void refresh();
-  }, [refresh]);
+    const controller = new AbortController();
+    void refreshInternal({ signal: controller.signal });
+    return () => controller.abort();
+  }, [refreshInternal]);
 
   useEffect(() => {
     if (!projectId) {
@@ -70,31 +75,31 @@ export function useProjectExecution(projectId: string | null, pollIntervalMs: nu
     return subscribeToDashboardRealtime([`project:${projectId}`], (message: DashboardRealtimeServerMessage) => {
       if (message.type === "event" && message.event.eventType === "project.execution.updated") {
         const next = message.event.payload as ExecutionDashboardSnapshot;
-        setExecution((prev) => prev.updatedAt === next.updatedAt ? prev : next);
+        setData((prev) => prev.updatedAt === next.updatedAt ? prev : next);
         setError(null);
         return;
       }
 
       if (message.type === "snapshot_required") {
-        void refresh({ silent: true });
+        void refreshInternal({ silent: true });
       }
     });
-  }, [projectId, refresh]);
+  }, [projectId, refreshInternal]);
 
   useEffect(() => {
     if (!projectId || pollIntervalMs <= 0) {
       return;
     }
     const intervalId = window.setInterval(() => {
-      void refresh({ silent: true });
+      void refreshInternal({ silent: true });
     }, pollIntervalMs);
     return () => window.clearInterval(intervalId);
-  }, [projectId, pollIntervalMs, refresh]);
+  }, [projectId, pollIntervalMs, refreshInternal]);
 
   return useMemo(() => ({
-    execution,
+    data,
     loading,
     error,
-    refresh: () => refresh({ silent: true }),
-  }), [error, execution, loading, refresh]);
+    refetch: () => refreshInternal({ silent: true }),
+  }), [error, data, loading, refreshInternal]);
 }
