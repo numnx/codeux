@@ -143,20 +143,54 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
 
   const selected = options.find((o) => o.value === value);
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (disabled) return;
+
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+
+      const currentIndex = options.findIndex((o) => o.value === value);
+      let nextIndex = currentIndex;
+
+      if (e.key === "ArrowDown") {
+        nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+      } else {
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+      }
+
+      const nextOption = options[nextIndex];
+      if (nextOption) {
+        onChange(nextOption.value);
+      }
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen(!open);
+    } else if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+  };
+
   const triggerClass =
     variant === "compact"
-      ? `flex w-full items-center justify-between gap-2 bg-transparent py-1 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-colors ${
+      ? `flex w-full items-center justify-between gap-2 bg-transparent py-1 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-signal-500 rounded ${
           disabled
             ? "cursor-not-allowed text-slate-400"
             : "cursor-pointer text-signal-600 hover:text-signal-500 dark:text-signal-300 dark:hover:text-signal-200"
         }`
       : variant === "card"
-        ? `flex w-full items-center justify-between gap-2 rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-all ${
+        ? `flex w-full items-center justify-between gap-2 rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-all focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:border-transparent ${
             disabled
               ? "cursor-not-allowed text-slate-400 opacity-60"
               : "cursor-pointer text-signal-600 hover:border-black/[0.1] dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-signal-300 dark:hover:border-white/[0.1]"
           }`
-        : `flex w-full items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium outline-none transition-all ${
+        : `flex w-full items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:border-transparent ${
             disabled
               ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-400 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
               : "cursor-pointer border-black/[0.07] bg-white/52 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl hover:border-black/[0.12] dark:border-white/[0.08] dark:bg-white/[0.045] dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.18)] dark:hover:border-white/[0.12]"
@@ -177,18 +211,24 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
           }}
           className="overflow-hidden rounded-2xl border border-black/[0.06] bg-white/[0.97] shadow-[0_20px_40px_rgba(0,0,0,0.12),0_0_0_1px_rgba(0,0,0,0.03)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/[0.97] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.04)]"
         >
-          <div className="max-h-[17rem] overflow-y-auto overscroll-contain py-1.5">
+          <div
+            className="max-h-[17rem] overflow-y-auto overscroll-contain py-1.5"
+            role="listbox"
+          >
             {options.map((option) => {
               const isActive = option.value === value;
               return (
                 <button
                   key={option.value}
                   type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  tabIndex={-1}
                   onClick={() => {
                     onChange(option.value);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors outline-none ${
                     isActive
                       ? "bg-signal-500/8 font-semibold text-signal-600 dark:text-signal-400"
                       : "text-slate-700 hover:bg-signal-500/5 dark:text-slate-300 dark:hover:bg-signal-500/5"
@@ -217,8 +257,11 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
         ref={triggerRef}
         type="button"
         onClick={() => !disabled && setOpen(!open)}
+        onKeyDown={handleKeyDown}
         className={triggerClass}
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
         <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown
