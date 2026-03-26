@@ -162,6 +162,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
     <div
       ref={backdropRef}
       onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-task-modal-title"
       className="fixed inset-0 z-[200] flex items-center justify-center px-6 bg-black/55 dark:bg-black/75 backdrop-blur-xl"
     >
       <div
@@ -192,7 +195,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
         <div className="flex-1 bg-white/98 dark:bg-void-800/98 p-8 flex flex-col">
           <div className="flex items-start justify-between mb-8">
             <div>
-              <h2 className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
+              <h2 id="add-task-modal-title" className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
                 {initialTask ? "Edit Task." : "Create Task."}
               </h2>
               <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
@@ -201,6 +204,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
