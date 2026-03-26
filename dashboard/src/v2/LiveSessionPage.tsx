@@ -734,8 +734,8 @@ const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
 export const LiveSessionPage: FunctionComponent = () => {
-    const headerRef = useRef<HTMLDivElement>(null);
-    const contentRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLElement>(null);
+    const contentRef = useRef<HTMLElement>(null);
     const { error, execution, gitStatus, gitStatusError, initialLoadComplete: legacyInitialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData();
     const realtimeProjectId = execution.projectId || status.project_id || null;
     const { selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
@@ -1007,22 +1007,22 @@ export const LiveSessionPage: FunctionComponent = () => {
     }
 
     return (
-        <div className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
+        <main aria-label="Live Session Pipeline" className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
 
             {/* Inline connection warning — shown when we have prior data but lost connection */}
             {error && (hasSprintContext || initialLoadComplete) && (
                 <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-status-red/15 bg-status-red/5 text-sm text-status-red font-medium backdrop-blur-md">
-                    <Zap className="w-4 h-4 shrink-0" strokeWidth={2} />
+                    <Zap aria-hidden="true" className="w-4 h-4 shrink-0" strokeWidth={2} />
                     <span>{error} — showing last known state, reconnecting...</span>
                 </div>
             )}
 
             {/* ── Page Header ─────────────────────────────────────────── */}
-            <div ref={headerRef} className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-8">
+            <header ref={headerRef} className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-8">
                 <div className="flex flex-col gap-5">
                     {/* Eyebrow */}
                     <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
-                        <Radio className="w-3.5 h-3.5 text-status-red" strokeWidth={2.5} />
+                        <Radio aria-hidden="true" className="w-3.5 h-3.5 text-status-red" strokeWidth={2.5} />
                         <span className="text-status-red">Live Session</span>
                         {(liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber) != null && (
                             <span className="text-slate-400 ml-1">· Sprint {liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber}</span>
@@ -1075,7 +1075,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                                         : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                                 }`}
                             >
-                                <BarChart3 className="w-3 h-3" strokeWidth={2} />
+                                <BarChart3 aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                 Stats
                             </button>
                             <button
@@ -1087,7 +1087,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                                         : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                                 }`}
                             >
-                                <Ship className="w-3 h-3" strokeWidth={2} />
+                                <Ship aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                 Race
                             </button>
                             <button
@@ -1099,7 +1099,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                                         : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                                 }`}
                             >
-                                <Workflow className="w-3 h-3" strokeWidth={2} />
+                                <Workflow aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                 DAG
                             </button>
                         </div>
@@ -1136,14 +1136,14 @@ export const LiveSessionPage: FunctionComponent = () => {
                         </span>
                     )}
                 </div>
-            </div>
+            </header>
 
             {pausedIntervention && !hasLiveSprint && (
                 <div className="relative overflow-hidden rounded-[1.75rem] border border-status-amber/18 bg-status-amber/8 p-6 shadow-[0_12px_30px_rgba(245,158,11,0.08)]">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-status-amber">
-                                <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.2} />
+                                <AlertTriangle aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={2.2} />
                                 Sprint Paused For Human Intervention
                             </div>
                             <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white font-display">
@@ -1202,7 +1202,7 @@ export const LiveSessionPage: FunctionComponent = () => {
             </div>
 
             {/* ── Filter Strip ────────────────────────────────────────── */}
-            <div className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+            <nav aria-label="Task filters" className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
                 {TASK_FILTERS.map((filter) => (
                     <button
                         key={filter}
@@ -1224,10 +1224,10 @@ export const LiveSessionPage: FunctionComponent = () => {
                         </span>
                     </button>
                 ))}
-            </div>
+            </nav>
 
             {/* ── Main Content Grid ───────────────────────────────────── */}
-            <div ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:gap-16">
+            <section aria-label="Live session content" ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:gap-16">
 
                 {/* Task cards */}
                 <div className="xl:col-span-8 flex flex-col gap-5">
@@ -1244,7 +1244,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                     ) : taskCardItems.length === 0 ? (
                         <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border-2 border-dashed border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-16 text-center">
                             <div className="relative z-10">
-                                <Play className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
+                                <Play aria-hidden="true" className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
                                 <p className="text-sm text-slate-400 dark:text-slate-600 font-medium">
                                     {activeFilter === "All"
                                         ? "Awaiting sprint decomposition..."
@@ -1323,7 +1323,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                         />
                     </CollapsiblePanel>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
     );
 };
