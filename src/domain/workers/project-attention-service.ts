@@ -91,11 +91,7 @@ export class ProjectAttentionService {
     if (current.ownerType !== "worker") {
       throw new Error(`Attention item ${itemId} is not worker-claimable.`);
     }
-    if (
-      current.assignedWorkerEndpointId
-      && current.assignedWorkerEndpointId !== workerEndpointId
-      && !this.isAssignedWorkerEndpointRecoverable(current.projectId, current.assignedWorkerEndpointId)
-    ) {
+    if (current.assignedWorkerEndpointId && current.assignedWorkerEndpointId !== workerEndpointId) {
       throw new Error(`Attention item ${itemId} is assigned to another worker endpoint.`);
     }
     return this.projectAttentionRepository.claimAttentionItem(itemId, {
@@ -135,17 +131,6 @@ export class ProjectAttentionService {
       throw new Error(`Project attention item not found: ${itemId}`);
     }
     return item;
-  }
-
-  private isAssignedWorkerEndpointRecoverable(projectId: string, workerEndpointId: string): boolean {
-    const assignments = this.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, {
-      activeOnly: true,
-    });
-    return !assignments.some((assignment) => (
-      assignment.workerEndpointId === workerEndpointId
-      && assignment.capabilities.canSuperviseProjects
-      && isAssignableWorkerStatus(assignment.workerStatus)
-    ));
   }
 
   private resolveAssignedWorkerEndpointId(
