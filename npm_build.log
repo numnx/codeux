@@ -1,0 +1,38 @@
+
+> jules-subagents@1.2.0 build
+> tsc && tsc -p dashboard/tsconfig.json --noEmit && vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 1918 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               1.04 kB │ gzip:   0.58 kB
+dist/assets/index-WQYI97Pq.css              210.37 kB │ gzip:  27.04 kB
+dist/assets/check-BXqPsBV9.js                 0.12 kB │ gzip:   0.13 kB
+dist/assets/arrow-up-CDuDgi-3.js              0.16 kB │ gzip:   0.16 kB
+dist/assets/arrow-up-right-BauL7Vab.js        0.16 kB │ gzip:   0.16 kB
+dist/assets/target-y1ygliin.js                0.22 kB │ gzip:   0.16 kB
+dist/assets/refresh-cw-CMCtHOGj.js            0.32 kB │ gzip:   0.23 kB
+dist/assets/loader-circle-0Kdltt1H.js         0.32 kB │ gzip:   0.24 kB
+dist/assets/save-BgavwVie.js                  0.32 kB │ gzip:   0.23 kB
+dist/assets/trash-2-p09PhE1K.js               0.33 kB │ gzip:   0.21 kB
+dist/assets/shield-check-DTvJRHZJ.js          0.51 kB │ gzip:   0.33 kB
+dist/assets/brain-CppJr-nA.js                 0.57 kB │ gzip:   0.31 kB
+dist/assets/agent-preset-api-BG2pzFjA.js      0.88 kB │ gzip:   0.37 kB
+dist/assets/ListWindowSelector-CjvuVr_w.js    2.00 kB │ gzip:   0.94 kB
+dist/assets/SettingsSurface-C2aZU4Es.js       8.32 kB │ gzip:   3.02 kB
+dist/assets/OverviewTelemetry-DzmkCanA.js     9.56 kB │ gzip:   2.52 kB
+dist/assets/ProjectsPage-DnNJtrv_.js         13.52 kB │ gzip:   3.51 kB
+dist/assets/AgentsPage-DLUjBFG7.js           14.50 kB │ gzip:   4.09 kB
+dist/assets/SprintDag-CFjoTwOD.js            20.53 kB │ gzip:   6.20 kB
+dist/assets/ChatPage-CiNc0iom.js             23.38 kB │ gzip:   6.71 kB
+dist/assets/vendor-BExK0d70.js               25.01 kB │ gzip:   9.60 kB
+dist/assets/SprintBoatRace-Cae2AcDc.js       29.33 kB │ gzip:   8.76 kB
+dist/assets/TasksPage-CgHoH919.js            34.94 kB │ gzip:   8.91 kB
+dist/assets/MemoryPage-CTk4loJD.js           41.19 kB │ gzip:  11.79 kB
+dist/assets/StatsPage-Cz92Jivo.js            56.91 kB │ gzip:  13.37 kB
+dist/assets/SettingsPage-CIk5AiVn.js         69.36 kB │ gzip:  16.28 kB
+dist/assets/SprintsPage-C0rKLrmb.js         153.84 kB │ gzip:  37.64 kB
+dist/assets/index-kJqowKsA.js               404.73 kB │ gzip: 117.94 kB
+✓ built in 4.92s
