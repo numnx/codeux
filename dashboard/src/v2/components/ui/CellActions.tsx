@@ -28,7 +28,7 @@ export const CellActions: FunctionComponent<CellActionsProps> = ({
                     ? "bg-status-red/[0.12] hover:bg-status-red/[0.18] shadow-[0_0_18px_rgba(227,0,15,0.16)]"
                     : "bg-signal-500/[0.12] hover:bg-signal-500/[0.18] shadow-[0_0_18px_rgba(0,224,160,0.16)]"
             } disabled:opacity-60 disabled:cursor-not-allowed`}
-            title={isRunning ? "Stop" : "Play"}
+            aria-label={isRunning ? "Stop" : "Play"}
             disabled={!onPrimaryAction || primaryBusy}
             onClick={(e: any) => {
                 e.stopPropagation();
@@ -49,7 +49,7 @@ export const CellActions: FunctionComponent<CellActionsProps> = ({
         </Link>
         <button
             className="flex items-center justify-center w-9 h-9 bg-black/[0.06] dark:bg-white/[0.07] hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-slate-800 dark:text-white transition-colors"
-            title="Settings"
+            aria-label="Settings"
             onClick={(e: any) => e.stopPropagation()}
         >
             <Settings className="w-3.5 h-3.5" />
