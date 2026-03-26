@@ -75,8 +75,18 @@ const ProjectCard: FunctionComponent<{
 
     return (
         <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Open project ${source.name}`}
             ref={cardRef}
             onClick={onSelect}
+            onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelect();
+                }
+            }}
             onMouseEnter={onEnter}
             onMouseLeave={onLeave}
             className="group relative flex flex-col
@@ -86,7 +96,7 @@ const ProjectCard: FunctionComponent<{
                        rounded-[1.75rem]
                        p-7
                        shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
-                       overflow-hidden cursor-pointer"
+                       overflow-hidden cursor-pointer focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-ember-500"
             style={{
                 borderColor: isSelected ? "rgba(255,184,0,0.45)" : undefined,
                 boxShadow: isSelected ? "0 0 0 1px rgba(255,184,0,0.18), 0 8px 30px rgba(255,184,0,0.08)" : undefined,
@@ -113,7 +123,7 @@ const ProjectCard: FunctionComponent<{
             <div className="flex items-start justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-11 h-11 rounded-2xl bg-ember-500/[0.08] dark:bg-ember-500/[0.1] flex items-center justify-center group-hover:bg-ember-500/[0.18] transition-colors duration-300 shrink-0">
-                        <FolderOpen className="w-5 h-5 text-ember-600 dark:text-ember-400" strokeWidth={1.75} />
+                        <FolderOpen aria-hidden="true" className="w-5 h-5 text-ember-600 dark:text-ember-400" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
                         <h3 className="font-bold text-[15px] text-slate-900 dark:text-white tracking-tight truncate leading-snug">
@@ -180,11 +190,12 @@ const ProjectCard: FunctionComponent<{
                 {/* Actions — slide up on hover */}
                 <div
                     className="flex items-center gap-1
-                               opacity-0 group-hover:opacity-100
-                               translate-y-1.5 group-hover:translate-y-0
+                               opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
+                               translate-y-1.5 group-hover:translate-y-0 group-focus-within:translate-y-0
                                transition-[opacity,transform] duration-300"
                 >
-                    <button className="w-7 h-7 flex items-center justify-center rounded-xl
+                    <button aria-label="Open project"
+                            className="w-7 h-7 flex items-center justify-center rounded-xl
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                                        text-slate-400 hover:text-slate-900 dark:hover:text-white
@@ -193,9 +204,10 @@ const ProjectCard: FunctionComponent<{
                                 event.stopPropagation();
                                 onSelect();
                             }}>
-                        <ExternalLink className="w-3 h-3" strokeWidth={2} />
+                        <ExternalLink aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                     </button>
-                    <button className="w-7 h-7 flex items-center justify-center rounded-xl
+                    <button aria-label="Project settings"
+                            className="w-7 h-7 flex items-center justify-center rounded-xl
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                                        text-slate-400 hover:text-slate-900 dark:hover:text-white
@@ -204,9 +216,10 @@ const ProjectCard: FunctionComponent<{
                                 event.stopPropagation();
                                 onSelect();
                             }}>
-                        <Settings className="w-3 h-3" strokeWidth={2} />
+                        <Settings aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                     </button>
-                    <button className="w-7 h-7 flex items-center justify-center rounded-xl
+                    <button aria-label="Delete project"
+                            className="w-7 h-7 flex items-center justify-center rounded-xl
                                        bg-black/[0.04] dark:bg-white/[0.04]
                                        hover:bg-status-red/[0.1]
                                        text-slate-400 hover:text-status-red
@@ -215,7 +228,7 @@ const ProjectCard: FunctionComponent<{
                                 event.stopPropagation();
                                 onDelete();
                             }}>
-                        <Trash2 className="w-3 h-3" strokeWidth={2} />
+                        <Trash2 aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                     </button>
                 </div>
             </div>
@@ -227,12 +240,13 @@ const ProjectCard: FunctionComponent<{
 
 const AddCard: FunctionComponent<{ onClick: () => void }> = ({ onClick }) => (
     <button
+        aria-label="Add new project"
         onClick={onClick}
         className="group relative flex flex-col items-center justify-center gap-5
                    border-2 border-dashed border-ember-500/20 hover:border-ember-500/50
                    rounded-[1.75rem] min-h-[260px]
                    transition-colors duration-500
-                   hover:bg-ember-500/[0.02] cursor-pointer"
+                   hover:bg-ember-500/[0.02] cursor-pointer focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-ember-500"
     >
         {/* Morphing organic icon */}
         <div
@@ -246,6 +260,7 @@ const AddCard: FunctionComponent<{ onClick: () => void }> = ({ onClick }) => (
                            transition-colors duration-300 animate-organic-reverse"
             />
             <Plus
+                aria-hidden="true"
                 className="w-6 h-6 text-ember-500/40 group-hover:text-ember-500
                            group-hover:rotate-90 transition-all duration-400 relative z-10"
                 strokeWidth={2}
@@ -269,7 +284,7 @@ const AddCard: FunctionComponent<{ onClick: () => void }> = ({ onClick }) => (
 /* ─── Projects Page ─────────────────────────────────────────────────────── */
 
 export const ProjectsPage: FunctionComponent = () => {
-    const mainRef      = useRef<HTMLDivElement>(null);
+    const mainRef      = useRef<HTMLElement>(null);
     const [showModal, setShowModal]   = useState(false);
     const [activeFilter, setActiveFilter] = useState<Filter>('All');
     const {
@@ -320,7 +335,8 @@ export const ProjectsPage: FunctionComponent = () => {
 
     return (
         <>
-            <div
+            <main
+                aria-label="Manage Projects"
                 ref={mainRef}
                 className="max-w-[1920px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10"
             >
@@ -336,11 +352,11 @@ export const ProjectsPage: FunctionComponent = () => {
                 </div>
 
                 {/* ── Page Header ─────────────────────────────────────── */}
-                <div className="flex items-end justify-between gap-8">
+                <header className="flex items-end justify-between gap-8">
                     <div className="flex flex-col gap-5">
                         {/* Eyebrow */}
                         <div className="flex items-center gap-2.5 text-ember-500 font-bold tracking-[0.2em] uppercase text-[10px] font-mono">
-                            <FolderOpen className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            <FolderOpen aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={2.5} />
                             Source Repositories
                         </div>
 
@@ -388,7 +404,7 @@ export const ProjectsPage: FunctionComponent = () => {
                                            bg-black/[0.04] dark:bg-white/[0.04] text-slate-500
                                            border border-black/[0.06] dark:border-white/[0.06]
                                            flex items-center gap-2">
-                                <FolderOpen className="w-3 h-3" strokeWidth={2} />
+                                <FolderOpen aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                 {sources.length} Total
                             </div>
                         </div>
@@ -404,14 +420,14 @@ export const ProjectsPage: FunctionComponent = () => {
                                        hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)]
                                        hover:-translate-y-px transition-[background-color,box-shadow,transform]"
                         >
-                            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
+                            <Plus aria-hidden="true" className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
                             Add Project
                         </button>
                     </div>
-                </div>
+                </header>
 
                 {/* ── Filter Tab Strip ────────────────────────────────── */}
-                <div className="-mt-4 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+                <nav aria-label="Project filters" className="-mt-4 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
                     {(['All', 'Running', 'Idle', 'Failed'] as Filter[]).map(f => (
                         <button
                             key={f}
@@ -432,10 +448,10 @@ export const ProjectsPage: FunctionComponent = () => {
                             </span>
                         </button>
                     ))}
-                </div>
+                </nav>
 
                 {/* ── Cards Grid ──────────────────────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <section aria-label="Projects grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {filtered.map(source => (
                         <ProjectCard
                             key={source.id}
@@ -446,8 +462,8 @@ export const ProjectsPage: FunctionComponent = () => {
                         />
                     ))}
                     <AddCard onClick={() => setShowModal(true)} />
-                </div>
-            </div>
+                </section>
+            </main>
 
             {showModal && (
                 <AddProjectModal
