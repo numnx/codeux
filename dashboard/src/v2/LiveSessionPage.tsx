@@ -18,7 +18,7 @@ import { useLiveSessionActions } from "./hooks/use-live-session-actions.js";
 import { formatTime } from "../lib/time.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import type { Subtask, ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary } from "../types.js";
-import { deriveLiveSessionRuntimeState } from "./lib/live-session-runtime.js";
+import { deriveLiveSessionRuntimeState, resolveLiveSessionSprintScopeId } from "./lib/live-session-runtime.js";
 import { getTaskProgressPhase } from "../lib/task-progress.js";
 
 import { IntelPanel } from "./components/ui/IntelPanel.js";
@@ -732,6 +732,12 @@ const FILTER_STATUS_MAP: Record<TaskFilter, string | null> = {
 
 const TASK_FILTERS: TaskFilter[] = ["All", "Running", "Completed", "Failed", "Pending"];
 const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
+const EMPTY_LIVE_SESSION_RUNTIME_STATE = {
+    liveSprintRun: null,
+    pausedInterventionRun: null,
+    hasActiveSprint: false,
+    hasSprintContext: false,
+} as const;
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
@@ -742,7 +748,22 @@ export const LiveSessionPage: FunctionComponent = () => {
     const { error, execution, gitStatus, gitStatusError, initialLoadComplete: legacyInitialLoadComplete, refreshRuntimeStatus, refreshGitStatus, status, stats, tasksWithLiveActivities } = useDashboardRuntimeData(selectedProjectId);
     const realtimeProjectId = selectedProjectId || execution.projectId || status.project_id || null;
     const { data: sprints, selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
-    const { tasks: projectTasks } = useProjectTasks(realtimeProjectId, projects, sprints, selectedSprintId);
+    const sprintScopeId = useMemo(
+        () => resolveLiveSessionSprintScopeId(status, selectedSprintId),
+        [selectedSprintId, status],
+    );
+    const sprintScopeReady = Boolean(
+        selectedSprintId
+        || sprintScopeId
+        || (legacyInitialLoadComplete && !sprintsLoading)
+    );
+    const { tasks: projectTasks } = useProjectTasks(
+        realtimeProjectId,
+        projects,
+        sprints,
+        sprintScopeReady ? sprintScopeId : undefined,
+        { enabled: sprintScopeReady },
+    );
     const initialLoadComplete = legacyInitialLoadComplete && !sprintsLoading;
 
     const {
@@ -783,8 +804,10 @@ export const LiveSessionPage: FunctionComponent = () => {
     }, []);
 
     const runtimeState = useMemo(
-        () => deriveLiveSessionRuntimeState(status, execution, selectedSprintId),
-        [status, execution, selectedSprintId],
+        () => sprintScopeReady
+            ? deriveLiveSessionRuntimeState(status, execution, sprintScopeId)
+            : EMPTY_LIVE_SESSION_RUNTIME_STATE,
+        [execution, sprintScopeId, sprintScopeReady, status],
     );
     const liveSprintRun = runtimeState.liveSprintRun;
     const pausedInterventionRun = runtimeState.pausedInterventionRun;
@@ -802,22 +825,31 @@ export const LiveSessionPage: FunctionComponent = () => {
     const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
     const sprintDispatches = useMemo(() => {
-        return selectedSprintId
-            ? execution.taskDispatches.filter((d) => d.sprintId === selectedSprintId)
+        if (!sprintScopeReady) {
+            return [];
+        }
+        return sprintScopeId
+            ? execution.taskDispatches.filter((d) => d.sprintId === sprintScopeId)
             : execution.taskDispatches;
-    }, [execution.taskDispatches, selectedSprintId]);
+    }, [execution.taskDispatches, sprintScopeId, sprintScopeReady]);
 
     const sprintEvents = useMemo(() => {
-        return selectedSprintId
-            ? execution.recentEvents.filter((e) => e.sprintId === selectedSprintId)
+        if (!sprintScopeReady) {
+            return [];
+        }
+        return sprintScopeId
+            ? execution.recentEvents.filter((e) => e.sprintId === sprintScopeId)
             : execution.recentEvents;
-    }, [execution.recentEvents, selectedSprintId]);
+    }, [execution.recentEvents, sprintScopeId, sprintScopeReady]);
 
     const sprintRuns = useMemo(() => {
-        return selectedSprintId
-            ? execution.sprintRuns.filter((r) => r.sprintId === selectedSprintId)
+        if (!sprintScopeReady) {
+            return [];
+        }
+        return sprintScopeId
+            ? execution.sprintRuns.filter((r) => r.sprintId === sprintScopeId)
             : execution.sprintRuns;
-    }, [execution.sprintRuns, selectedSprintId]);
+    }, [execution.sprintRuns, sprintScopeId, sprintScopeReady]);
 
     const visibleStats = useMemo(() => {
         if (!hasSprintContext) return EMPTY_RUNTIME_STATS;
