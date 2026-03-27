@@ -34,6 +34,7 @@ import type { TaskRerunService } from "../../services/task-rerun-service.js";
 import type { ExecutionControlService } from "../../services/execution-control-service.js";
 import type { DashboardRealtimeService } from "../../services/dashboard-realtime-service.js";
 import type { PlanningAgentService } from "../../services/planning-agent-service.js";
+import type { ChatThreadRuntimeService } from "../../services/chat-thread-runtime-service.js";
 import type { QuicksprintService } from "../../services/quicksprint-service.js";
 import type { MemoryService } from "../../services/memory-service.js";
 import type { MemoryPromotionService } from "../../services/memory-promotion-service.js";
@@ -65,6 +66,7 @@ export interface BootDashboardDeps {
   executionControlService: ExecutionControlService;
   planningAgentService: PlanningAgentService;
   quicksprintService: QuicksprintService;
+  chatThreadRuntimeService: ChatThreadRuntimeService;
   dashboardRealtimeService: DashboardRealtimeService;
   logger: Logger;
   getLiveActivitiesForActiveTasks: () => Promise<Record<string, JulesActivity[]>>;
@@ -537,9 +539,11 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     listConversationThreads: (projectId) => deps.connectionChatRepository.listThreads(projectId),
     createConversationThread: (projectId, input) => deps.connectionChatRepository.createThread(projectId, input),
     updateConversationThread: (threadId, input) => deps.connectionChatRepository.updateThread(threadId, input),
+    updateThreadRoute: (threadId, input) => deps.chatThreadRuntimeService.updateThreadRoute(threadId, input),
+    compactThreadSession: (threadId) => deps.chatThreadRuntimeService.compactThreadSession(threadId),
     deleteConversationThread: (threadId) => deps.connectionChatRepository.deleteThread(threadId),
     listConversationMessages: (threadId) => deps.connectionChatRepository.listMessages(threadId),
-    postConversationMessage: (projectId, input) => deps.connectionChatRepository.postDashboardMessage(projectId, input),
+    postConversationMessage: (projectId, input) => deps.chatThreadRuntimeService.postMessage(projectId, input),
 
     listProjectInvocations: (projectId) => deps.executionRepository.listExecutionInvocations({ projectId }),
     listInvocationMessages: (invocationId) => deps.executionRepository.listExecutionInvocationMessages(invocationId),
