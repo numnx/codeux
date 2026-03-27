@@ -23,6 +23,7 @@ import type {
   StartListenInput,
   StartListenResponse,
   UpdateConversationThreadInput,
+  UpdateConversationThreadRouteInput,
   UpdateMcpConnectionInput,
 } from "../../../src/contracts/connection-chat-types.js";
 import type {
@@ -143,6 +144,7 @@ export type {
   ProjectStatsQuery,
   ProjectStatsWindow,
   UpdateConversationThreadInput,
+  UpdateConversationThreadRouteInput,
   TaskExecutorType,
   TaskPriority,
   TaskRecord,

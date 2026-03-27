@@ -159,6 +159,13 @@ export interface UpdateConversationThreadInput {
   runtimeState?: ConversationRuntimeState | null;
 }
 
+export interface UpdateConversationThreadRouteInput {
+  routeKind: "worker" | "virtual";
+  virtualProvider?: string;
+  virtualModel?: string;
+  workerEndpointId?: string;
+}
+
 export interface StartListenResponse {
   connection: McpConnectionRecord;
   inbox: ConnectionInboxMessage[];
