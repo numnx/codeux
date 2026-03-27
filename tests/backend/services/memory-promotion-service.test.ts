@@ -42,7 +42,7 @@ describe("MemoryPromotionService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    memoryService = { search: vi.fn().mockResolvedValue([]) };
+    memoryService = { search: vi.fn().mockResolvedValue([]), triggerEmbedding: vi.fn().mockResolvedValue(undefined) };
     memoryRepository = {
       listBySprint: vi.fn().mockReturnValue([]),
       getMemory: vi.fn(),
@@ -104,7 +104,7 @@ describe("MemoryPromotionService", () => {
   });
 
   describe("promoteMemories", () => {
-    it("creates project-scoped copies with promotedFromId", () => {
+    it("creates project-scoped copies with promotedFromId and triggers embedding generation", () => {
       const source = makeMemory({ id: "src-1" });
       const promoted = makeMemory({
         id: "promoted-1",
@@ -114,6 +114,9 @@ describe("MemoryPromotionService", () => {
       });
       memoryRepository.getMemory.mockReturnValue(source);
       memoryRepository.createPromotedMemory.mockReturnValue(promoted);
+
+      const triggerEmbeddingMock = vi.fn().mockResolvedValue(undefined);
+      (memoryService as any).triggerEmbedding = triggerEmbeddingMock;
 
       const result = service.promoteMemories("proj-1", ["src-1"], "Manual promotion");
 
@@ -127,6 +130,7 @@ describe("MemoryPromotionService", () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.stringContaining("Promoted memory src-1"),
       );
+      expect(triggerEmbeddingMock).toHaveBeenCalledWith(promoted);
     });
   });
 

@@ -135,6 +135,9 @@ describe("MemoryService", () => {
 
       const result = await service.createMemory("proj-1", input);
 
+      // Wait a tick for async embedding catch block to execute
+      await new Promise(resolve => setTimeout(resolve, 0));
+
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to embed memory mem-fail"));
       expect(result).toEqual(created);
     });
@@ -164,6 +167,50 @@ describe("MemoryService", () => {
 
       expect(service.updateMemory("mem-1", input)).toEqual(updated);
       expect(mockRepo.updateMemory).toHaveBeenCalledWith("mem-1", input);
+    });
+
+    it("triggers embedding asynchronously for project-scoped memories when model is loaded", async () => {
+      const updated = makeMemoryRecord({ id: "mem-proj", scope: "project", content: "updated proj content" });
+      const input: UpdateMemoryInput = { content: "updated proj content" };
+
+      mockRepo.updateMemory.mockReturnValue(updated);
+      mockEmbeddingService.isLoaded.mockReturnValue(true);
+      mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
+      mockEmbeddingService.getDimension.mockReturnValue(384);
+      mockEmbeddingService.embed.mockResolvedValue(new Float32Array(384));
+
+      const result = service.updateMemory("mem-proj", input);
+
+      expect(result).toEqual(updated);
+      expect(mockRepo.updateMemory).toHaveBeenCalledWith("mem-proj", input);
+
+      // Wait a tick for async embedding to be called
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockEmbeddingService.embed).toHaveBeenCalledWith("updated proj content");
+      expect(mockRepo.saveEmbedding).toHaveBeenCalledWith(
+        "mem-proj",
+        "bge-small-en-v1.5",
+        384,
+        expect.any(Buffer)
+      );
+    });
+
+    it("does not trigger embedding for sprint-scoped memories", async () => {
+      const updated = makeMemoryRecord({ id: "mem-sprint", scope: "sprint", content: "updated sprint content" });
+      const input: UpdateMemoryInput = { content: "updated sprint content" };
+
+      mockRepo.updateMemory.mockReturnValue(updated);
+      mockEmbeddingService.isLoaded.mockReturnValue(true);
+
+      const result = service.updateMemory("mem-sprint", input);
+
+      expect(result).toEqual(updated);
+      expect(mockRepo.updateMemory).toHaveBeenCalledWith("mem-sprint", input);
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockEmbeddingService.embed).not.toHaveBeenCalled();
     });
   });
 
