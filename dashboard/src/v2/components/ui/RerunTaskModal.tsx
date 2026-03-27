@@ -5,6 +5,7 @@ import { X, RotateCcw, Trash2 } from "lucide-preact";
 
 const PROVIDER_OPTIONS = [
     { value: "", label: "Auto (use current setting)" },
+    { value: "jules", label: "Jules" },
     { value: "gemini", label: "Gemini" },
     { value: "claude-code", label: "Claude Code" },
     { value: "codex", label: "Codex" },
