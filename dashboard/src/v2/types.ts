@@ -118,6 +118,7 @@ export type {
   ConnectionInboxMessage,
   ConversationMessageRecord,
   ConversationThreadRecord,
+  ConversationRuntimeState,
   McpConnectionCapabilities,
   McpConnectionRecord,
   McpConnectionRole,
