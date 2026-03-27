@@ -209,6 +209,34 @@ describe("ProjectManagementRepository", () => {
     expect(updated3.showcasePinned).toBe(true);
   });
 
+  it("persists and retrieves sprintKey", async () => {
+    const { repository } = await createRepository();
+
+    const project = repository.createProject({
+      name: "Sprint Key Project",
+      sourceType: "local",
+      sourceRef: "/workspace/sprint-key-project",
+    });
+
+    const sprint = repository.createSprint(project.id, {
+      name: "Sprint with Key",
+      sprintKey: "SK-123",
+    });
+
+    expect(sprint.sprintKey).toBe("SK-123");
+
+    const retrievedSprint = repository.getSprint(sprint.id);
+    expect(retrievedSprint?.sprintKey).toBe("SK-123");
+
+    const updatedSprint = repository.updateSprint(sprint.id, {
+      sprintKey: "SK-456",
+    });
+    expect(updatedSprint.sprintKey).toBe("SK-456");
+
+    const listRetrieved = repository.listSprints(project.id).sprints[0];
+    expect(listRetrieved.sprintKey).toBe("SK-456");
+  });
+
   it("imports and exports sprint markdown against the database model", async () => {
     const { repository, markdownService } = await createRepository();
 
