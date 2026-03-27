@@ -1,4 +1,4 @@
-import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask } from "../../../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask, ThinkingMode } from "../../../contracts/app-types.js";
 import type { IWorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
 import type { IPrService } from "../../../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../../../infrastructure/providers/cli/provider-runner.js";
@@ -27,6 +27,11 @@ export interface PipelineContext {
   featureBranch: string;
   task: Subtask;
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+  providerSettingsOverride?: {
+    model: string;
+    thinkingMode: ThinkingMode;
+    apiKey: string;
+  };
   title: string;
   repoPath: string;
   worktreePath: string;

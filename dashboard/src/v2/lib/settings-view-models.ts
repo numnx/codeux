@@ -11,6 +11,22 @@ import type {
 
 const cloneSkills = (skills: SkillToggle[]): SkillToggle[] => skills.map((skill) => ({ ...skill }));
 const cloneMcpTools = (tools: McpToolToggle[]): McpToolToggle[] => tools.map((tool) => ({ ...tool }));
+const cloneInvocationRouting = (
+  routing: ProjectSettings["aiProvider"]["invocationRouting"],
+): ProjectSettings["aiProvider"]["invocationRouting"] => (
+  Object.fromEntries(
+    Object.entries(routing).map(([routeId, route]) => [
+      routeId,
+      {
+        ...route,
+        allowedProviders: [...route.allowedProviders],
+        providers: Object.fromEntries(
+          Object.entries(route.providers).map(([providerId, overrides]) => [providerId, { ...overrides }]),
+        ),
+      },
+    ]),
+  ) as ProjectSettings["aiProvider"]["invocationRouting"]
+);
 
 export const dashboardSettingsToProjectSettings = (settings: DashboardSettings): ProjectSettings => ({
   automationLevel: settings.automationLevel,
@@ -46,6 +62,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
         thinkingMode: settings.aiProvider.providers["claude-code"].thinkingMode,
       },
     },
+    invocationRouting: cloneInvocationRouting(settings.aiProvider.invocationRouting),
   },
   git: {
     githubMode: settings.git.githubMode,
@@ -88,6 +105,7 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
       codex: { ...settings.aiProvider.providers.codex },
       "claude-code": { ...settings.aiProvider.providers["claude-code"] },
     },
+    invocationRouting: cloneInvocationRouting(settings.aiProvider.invocationRouting),
   },
   git: {
     ...settings.git,

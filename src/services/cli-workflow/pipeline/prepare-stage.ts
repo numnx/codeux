@@ -1,6 +1,7 @@
 import { buildProviderPrompt } from "../../cli-workflow-utils.js";
 import type { PipelineContext } from "./pipeline-context.js";
 import type { MemoryRecord } from "../../../contracts/memory-types.js";
+import { resolveProviderForInvocation } from "../../provider-routing.js";
 
 function formatMemoryContext(shortTerm: MemoryRecord[], longTerm: MemoryRecord[]): string {
   if (shortTerm.length === 0 && longTerm.length === 0) return "";
@@ -20,7 +21,10 @@ export async function executePrepareStage(
   ctx: PipelineContext,
   resumeFromFailedSessionId?: string
 ): Promise<{ worktreePath: string; initialHead: string; providerPrompt: string }> {
-  const providerSettings = ctx.settings.aiProvider.providers[ctx.provider];
+  const providerSettings = ctx.providerSettingsOverride || resolveProviderForInvocation(ctx.settings, {
+    invocation: "task_coding",
+    task: ctx.task,
+  }).providers[ctx.provider];
 
   const workerGuide = await ctx.deps.getWorkerInstruction(ctx.repoPath);
 

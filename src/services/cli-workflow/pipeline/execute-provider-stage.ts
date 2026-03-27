@@ -1,12 +1,14 @@
 import type { PipelineContext } from "./pipeline-context.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "../../cli-workflow-text-utils.js";
 import { classifyProviderError, ProviderQuotaError } from "../../../shared/providers/provider-error-classifier.js";
+import { resolveProviderForInvocation } from "../../provider-routing.js";
 
 export async function executeProviderStage(ctx: PipelineContext, providerPrompt: string): Promise<void> {
-  const providerSettings = ctx.settings.aiProvider.providers[ctx.provider];
-  const model = ctx.provider === ctx.settings.workers.virtualWorkerProvider && ctx.settings.workers.model && ctx.settings.workers.model !== "default"
-    ? ctx.settings.workers.model
-    : providerSettings.model;
+  const providerSettings = ctx.providerSettingsOverride || resolveProviderForInvocation(ctx.settings, {
+    invocation: "task_coding",
+    task: ctx.task,
+  }).providers[ctx.provider];
+  const model = providerSettings.model;
   const taskRun = ctx.taskRunId && ctx.deps.executionRepository
     ? ctx.deps.executionRepository.getTaskRun(ctx.taskRunId)
     : null;

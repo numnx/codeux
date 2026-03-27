@@ -45,7 +45,8 @@ Use this page as the main entrypoint.
 29. [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
 30. [Instruction Template System](./instructions/markdown-template-system.md)
 31. [Configuration and Storage](./settings/configuration-and-storage.md)
-32. [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
+32. [Provider Routing](./settings/provider-routing.md)
+33. [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
 
 ### Path 3: MCP integrator (tool contracts and runtime expectations)
 1. [Quickstart](./getting-started/quickstart.md)
@@ -95,6 +96,7 @@ Use this page as the main entrypoint.
 - [Instruction Template System](./instructions/markdown-template-system.md)
 - [Dashboard Guide](./dashboard/dashboard-guide.md)
 - [Configuration and Storage](./settings/configuration-and-storage.md)
+- [Provider Routing](./settings/provider-routing.md)
 - [Operations Runbook](./operations/runbook.md)
 - [Logging and Correlation IDs](./operations/logging-and-correlation.md)
 - [Testing and Quality](./development/testing-and-quality.md)

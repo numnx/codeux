@@ -124,6 +124,11 @@ The effective endpoints return:
 Dashboard behavior:
 - project settings now render a per-setting override badge only when a control is actually overridden at project scope
 - sprint override dialogs use the same field-level source metadata and show override badges only for sprint-local overrides
+- the v2 settings page includes a quick-find field (keyboard shortcut `/`) that filters categories without changing the scoped settings model
+- AI provider configuration now uses compact focused workspaces instead of only long card grids:
+  - one provider is edited at a time in the provider deck detail panel
+  - invocation routing is edited in a split-pane route workspace with resolved default, provider-pool, and override summaries
+- common 2-3 option settings such as routing strategy, worker execution mode, execution runtime, and merge mode use pill controls for faster scanning than dropdown-heavy forms
 
 `aiProvider` contains:
 - `provider` (`jules|gemini|codex|claude-code`)
@@ -132,6 +137,33 @@ Dashboard behavior:
   - Jules remains routable with `enabled` and `weight`, but the current Jules REST API does not expose model-selection or thinking controls.
   - Dashboard settings editors therefore hide `model` and `thinkingMode` for Jules and show an informational note instead.
   - Gemini alias entries `pro`, `flash`, and `flash-lite` are labeled as recent aliases in selects so it is clear they track the latest model target.
+- `invocationRouting` map
+  - route ids:
+    - `task_coding`
+    - `planning`
+    - `dashboard_reply`
+    - `clarification_reply`
+    - `ci_fix`
+    - `merge_conflict`
+  - each route contains:
+    - `profile` (`GLOBAL|WORKER`)
+      - `GLOBAL`: inherit the top-level `aiProvider.provider`, `aiProvider.strategy`, and per-provider defaults
+      - `WORKER`: inherit the worker runtime preference (`workers.virtualWorkerProvider`) and worker model override (`workers.model`) as the default baseline for that invocation
+    - `strategy` (`MANUAL|WEIGHTED|ORCHESTRATOR`)
+    - `provider` (`ProviderId|null`)
+      - `null` means "inherit the profile default provider"
+    - `allowedProviders` (`ProviderId[]`)
+      - empty means "all enabled providers remain eligible"
+    - `providers` sparse override map
+      - supports per-invocation overrides for `enabled`, `model`, `weight`, and `thinkingMode`
+  - default profiles:
+    - `task_coding`: `GLOBAL`
+    - `planning`: `WORKER`
+    - `dashboard_reply`: `GLOBAL`
+    - `clarification_reply`: `WORKER`
+    - `ci_fix`: `WORKER`
+    - `merge_conflict`: `WORKER`
+  - clarification auto-answer in `WORKER` mode now follows the preferred worker CLI provider/model by default instead of accidentally inheriting whichever global CLI provider happened to match.
 
 `automationInterventions` contains:
 - `autoApprovePlan` (default `true`): auto-approve `AWAITING_PLAN_APPROVAL` sessions in `SEMI_AUTO`

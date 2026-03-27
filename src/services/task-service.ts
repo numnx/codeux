@@ -1,6 +1,13 @@
 import type { JulesApiClient, JulesCreateSessionRequest } from "../integrations/jules-api-client.js";
-import { chooseProviderForTask } from "./provider-routing.js";
-import type { DashboardSettings, DashboardSettingsScope, JulesSession, ProviderId, Subtask } from "../contracts/app-types.js";
+import { resolveProviderForInvocation, type ResolvedProviderRoute } from "./provider-routing.js";
+import type {
+  DashboardSettings,
+  DashboardSettingsScope,
+  InvocationRoutingId,
+  JulesSession,
+  ProviderId,
+  Subtask,
+} from "../contracts/app-types.js";
 import type { CliWorkflowService } from "./cli-workflow-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import { buildTaskRunTag } from "./task-run-key.js";
@@ -27,27 +34,48 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
-  selectProviderForTask(task: Subtask, scope?: DashboardSettingsScope): ProviderId {
-    const settings = this.deps.getDashboardSettings(scope);
-    const chosen = chooseProviderForTask(settings, task);
-    if (chosen === "jules" && !this.deps.isJulesApiConfigured()) {
-      const fallback = (["gemini", "codex", "claude-code"] as const).find((provider) => settings.aiProvider.providers[provider].enabled);
-      if (fallback) {
-        return fallback;
+  resolveInvocationProvider(
+    invocation: InvocationRoutingId,
+    task: Subtask,
+    options?: {
+      scope?: DashboardSettingsScope;
+      cliOnly?: boolean;
+      providerPool?: ProviderId[];
+    },
+  ): ResolvedProviderRoute {
+    const settings = this.deps.getDashboardSettings(options?.scope);
+    const buildRoute = (providerPool?: ProviderId[]) => resolveProviderForInvocation(settings, {
+      invocation,
+      task,
+      providerPool,
+    });
+
+    const pooledProviders = options?.providerPool;
+    let resolved = buildRoute(pooledProviders);
+
+    if (resolved.provider === "jules" && !this.deps.isJulesApiConfigured()) {
+      const fallbackPool = resolved.enabledProviders.filter((provider) => provider !== "jules");
+      if (fallbackPool.length > 0) {
+        resolved = buildRoute(fallbackPool);
       }
     }
-    return chosen;
+
+    if (options?.cliOnly && resolved.provider === "jules") {
+      const fallbackPool = resolved.enabledProviders.filter((provider) => provider !== "jules");
+      if (fallbackPool.length > 0) {
+        resolved = buildRoute(fallbackPool);
+      }
+    }
+
+    return resolved;
+  }
+
+  selectProviderForTask(task: Subtask, scope?: DashboardSettingsScope): ProviderId {
+    return this.resolveInvocationProvider("task_coding", task, { scope }).provider;
   }
 
   selectCliProviderForTask(task: Subtask, scope?: DashboardSettingsScope): Exclude<ProviderId, "jules"> {
-    const selected = this.selectProviderForTask(task, scope);
-    if (selected !== "jules") {
-      return selected;
-    }
-
-    const settings = this.deps.getDashboardSettings(scope);
-    const fallback = (["gemini", "codex", "claude-code"] as const).find((provider) => settings.aiProvider.providers[provider].enabled);
-    return fallback || "codex";
+    return this.resolveInvocationProvider("task_coding", task, { scope, cliOnly: true }).provider as Exclude<ProviderId, "jules">;
   }
 
   private async buildPrompt(repoPath: string, sectionTitle: string, taskPrompt: string): Promise<string> {
@@ -69,11 +97,17 @@ export class TaskService {
       is_independent: true,
       status: "PENDING",
     };
-    const provider = this.selectProviderForTask(pseudoTask);
+    const route = this.resolveInvocationProvider("task_coding", pseudoTask);
+    const provider = route.provider;
 
     if (provider !== "jules") {
       return await this.deps.cliWorkflowService.startTask({
         provider,
+        providerSettingsOverride: {
+          model: route.providers[provider].model,
+          thinkingMode: route.providers[provider].thinkingMode,
+          apiKey: route.providers[provider].apiKey,
+        },
         task: {
           ...pseudoTask,
           prompt: args.prompt,
@@ -120,11 +154,17 @@ export class TaskService {
     taskRunId?: string,
   ): Promise<JulesSession> {
     // Respect task.provider if already set (e.g. from a rerun with provider override)
-    const provider = task.provider || this.selectProviderForTask(task, settingsScope);
+    const route = this.resolveInvocationProvider("task_coding", task, { scope: settingsScope });
+    const provider = task.provider || route.provider;
 
     if (provider !== "jules") {
       const session = await this.deps.cliWorkflowService.startTask({
         provider,
+        providerSettingsOverride: {
+          model: route.providers[provider].model,
+          thinkingMode: route.providers[provider].thinkingMode,
+          apiKey: route.providers[provider].apiKey,
+        },
         task,
         repoPath,
         featureBranch: baseBranch,

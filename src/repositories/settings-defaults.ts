@@ -2,6 +2,9 @@ import type {
   CliExecutionMode,
   DashboardSettings,
   FeaturePrAutoMergeMode,
+  InvocationRoutingId,
+  InvocationRoutingProfile,
+  InvocationRoutingSettings,
   ProviderId,
   ProviderSettings,
   ProviderStrategy,
@@ -31,6 +34,15 @@ export const DEFAULT_SKILLS: SkillToggle[] = INTERNAL_SKILL_NAMES.map((name) => 
 export const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex", "claude-code"];
 export const THINKING_MODES: ThinkingMode[] = ["SMALL", "MEDIUM", "HIGH"];
 export const PROVIDER_STRATEGIES: ProviderStrategy[] = ["MANUAL", "WEIGHTED", "ORCHESTRATOR"];
+export const INVOCATION_ROUTING_PROFILES: InvocationRoutingProfile[] = ["GLOBAL", "WORKER"];
+export const INVOCATION_ROUTING_IDS: InvocationRoutingId[] = [
+  "task_coding",
+  "planning",
+  "dashboard_reply",
+  "clarification_reply",
+  "ci_fix",
+  "merge_conflict",
+];
 export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["HOST", "DOCKER"];
 export const FEATURE_PR_AUTOMERGE_MODES: FeaturePrAutoMergeMode[] = ["OFF", "WHEN_GREEN", "ALWAYS"];
 export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["CONNECTED_MCP", "VIRTUAL"];
@@ -127,6 +139,51 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
   },
 };
 
+export const DEFAULT_INVOCATION_ROUTING: Record<InvocationRoutingId, InvocationRoutingSettings> = {
+  task_coding: {
+    profile: "GLOBAL",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+  planning: {
+    profile: "WORKER",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+  dashboard_reply: {
+    profile: "GLOBAL",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+  clarification_reply: {
+    profile: "WORKER",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+  ci_fix: {
+    profile: "WORKER",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+  merge_conflict: {
+    profile: "WORKER",
+    strategy: "MANUAL",
+    provider: null,
+    allowedProviders: [],
+    providers: {},
+  },
+};
+
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   dashboardPort: 4444,
   enableDebugLogFile: false,
@@ -147,6 +204,14 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
       gemini: { ...DEFAULT_PROVIDER_SETTINGS.gemini },
       codex: { ...DEFAULT_PROVIDER_SETTINGS.codex },
       "claude-code": { ...DEFAULT_PROVIDER_SETTINGS["claude-code"] },
+    },
+    invocationRouting: {
+      task_coding: { ...DEFAULT_INVOCATION_ROUTING.task_coding, allowedProviders: [], providers: {} },
+      planning: { ...DEFAULT_INVOCATION_ROUTING.planning, allowedProviders: [], providers: {} },
+      dashboard_reply: { ...DEFAULT_INVOCATION_ROUTING.dashboard_reply, allowedProviders: [], providers: {} },
+      clarification_reply: { ...DEFAULT_INVOCATION_ROUTING.clarification_reply, allowedProviders: [], providers: {} },
+      ci_fix: { ...DEFAULT_INVOCATION_ROUTING.ci_fix, allowedProviders: [], providers: {} },
+      merge_conflict: { ...DEFAULT_INVOCATION_ROUTING.merge_conflict, allowedProviders: [], providers: {} },
     },
     julesApiKey: "",
   },
