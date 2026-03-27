@@ -215,6 +215,7 @@ describe("WorkerInboxReplyService", () => {
       projectId: "project-1",
       sprintGoal: "Ship the fix",
       subtasks: [{
+        record_id: "task-123",
         id: "T1",
         title: "Fix clarification handling",
         prompt: "Repair the Jules clarification flow.",
@@ -224,6 +225,7 @@ describe("WorkerInboxReplyService", () => {
         session_state: "AWAITING_USER_FEEDBACK",
       }],
       task: {
+        record_id: "task-123",
         id: "T1",
         title: "Fix clarification handling",
         prompt: "Repair the Jules clarification flow.",
@@ -244,5 +246,12 @@ describe("WorkerInboxReplyService", () => {
       role: "assistant",
       contentMarkdown: "Only the clarification answer.",
     });
+    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        taskId: "task-123",
+        type: "worker_reply",
+      }),
+    );
   });
 });

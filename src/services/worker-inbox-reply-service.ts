@@ -137,6 +137,9 @@ export class WorkerInboxReplyService {
     const settings = this.deps.getDashboardSettings();
     const provider = this.chooseProvider(args.task.prompt || args.task.title, settings);
     const providerSettings = settings.aiProvider.providers[provider];
+    const invocationTaskId = typeof args.task.record_id === "string" && args.task.record_id.trim().length > 0
+      ? args.task.record_id.trim()
+      : null;
 
     const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(args.projectId))
       .instructionMarkdown
@@ -182,7 +185,7 @@ export class WorkerInboxReplyService {
       providerInvocationId: null,
       sprintId: null,
       sprintRunId: null,
-      taskId: args.task.id,
+      taskId: invocationTaskId,
       taskRunId: null,
     });
 
