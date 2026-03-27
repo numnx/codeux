@@ -6,6 +6,7 @@ import { TaskRerunService } from "../../services/task-rerun-service.js";
 import { ExecutionControlService } from "../../services/execution-control-service.js";
 import { PlanningAgentService } from "../../services/planning-agent-service.js";
 import { QuicksprintService } from "../../services/quicksprint-service.js";
+import { WorkspaceManager } from "../../infrastructure/providers/cli/workspace-manager.js";
 
 export interface DashboardDependencies {
   activityCacheService: ActivityCacheService;
@@ -62,18 +63,31 @@ export function createDashboardDependencies(
       }
       const runtimeStatus = projectRuntimeRepository.getProjectStatus(taskRecord.projectId);
       const runtimeTask = (runtimeStatus.subtasks || []).find((task) => task.record_id === taskId || task.id === taskRecord.taskKey);
-      const featureBranch = runtimeStatus.feature_branch || sprint.featureBranch || null;
-      const repoPath = runtimeStatus.repo_path || project.baseDir || null;
-      const sprintNumber = typeof runtimeStatus.sprint_number === "number"
-        ? runtimeStatus.sprint_number
-        : sprint.number;
+      // Prefer sprint record data — runtime status may be stale from a different sprint
+      const featureBranch = sprint.featureBranch || runtimeStatus.feature_branch || null;
+      const repoPath = project.baseDir || runtimeStatus.repo_path || null;
+      const sprintNumber = sprint.number ?? runtimeStatus.sprint_number ?? null;
 
-      if (!runtimeTask || !featureBranch || !repoPath || sprintNumber === null || sprintNumber === undefined) {
+      if (!featureBranch || !repoPath || sprintNumber === null || sprintNumber === undefined) {
         return null;
       }
 
+      // Build synthetic subtask from project management data when runtime task is not available
+      const resolvedTask: import("../../contracts/app-types.js").Subtask = runtimeTask ?? {
+        id: taskRecord.taskKey,
+        record_id: taskRecord.id,
+        project_id: taskRecord.projectId,
+        sprint_id: taskRecord.sprintId,
+        title: taskRecord.title,
+        prompt: taskRecord.promptMarkdown || taskRecord.description,
+        depends_on: taskRecord.dependsOnTaskIds,
+        status: "PENDING",
+        is_independent: taskRecord.isIndependent,
+        is_merged: taskRecord.isMerged,
+      };
+
       return {
-        task: runtimeTask,
+        task: resolvedTask,
         projectId: taskRecord.projectId,
         sprintId: taskRecord.sprintId,
         sprintNumber,
@@ -125,6 +139,35 @@ export function createDashboardDependencies(
         isMerged: args.merged,
         mergeIndicator: args.merged ? "MERGED" : null,
       });
+    },
+    clearTaskWorktree: async ({ taskId, repoPath }) => {
+      const latestRun = executionRepository.getLatestTaskRun(taskId);
+      const sessionId = latestRun?.sessionId;
+      if (!sessionId) return;
+      const wsManager = new WorkspaceManager();
+      const worktreePath = wsManager.buildWorktreePath(repoPath, sessionId, "HOST");
+      await wsManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
+    },
+    updateTaskExecutorOverride: (taskId, provider) => {
+      const executorType = provider === "jules" ? "jules" : "docker_cli";
+      projectManagementRepository.updateTask(taskId, { executorType });
+    },
+    cancelActiveDispatch: async (taskId, projectId) => {
+      const dispatches = executionRepository.listTaskDispatches({ projectId, taskId });
+      const active = dispatches.filter((d) =>
+        d.status === "queued" || d.status === "claimed" || d.status === "running" || d.status === "cancel_requested"
+      );
+      for (const dispatch of active) {
+        if (dispatch.status === "running") {
+          await activeDispatchRegistry.requestStop(dispatch.id, "Task rerun requested from dashboard.").catch(() => undefined);
+        }
+        const now = new Date().toISOString();
+        executionRepository.updateTaskDispatch(dispatch.id, {
+          status: "cancelled",
+          finishedAt: now,
+          errorMessage: "Cancelled: task rerun requested.",
+        });
+      }
     },
     logger: logger.child({ component: "task-rerun-service" }),
   });

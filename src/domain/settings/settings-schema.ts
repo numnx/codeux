@@ -198,6 +198,7 @@ const validateCliWorkflow = (
   if (typeof value.cleanupWorktreeOnFailure !== "boolean") issues.push({ path: `${path}.cleanupWorktreeOnFailure`, message: "Expected a boolean" });
   if (typeof value.retryOnReadFileNotFound !== "boolean") issues.push({ path: `${path}.retryOnReadFileNotFound`, message: "Expected a boolean" });
   if (typeof value.maxPlanningJsonRetries !== "number" || !Number.isFinite(value.maxPlanningJsonRetries) || value.maxPlanningJsonRetries < 0) issues.push({ path: `${path}.maxPlanningJsonRetries`, message: "Expected a non-negative integer" });
+  if (typeof value.maxQuotaRetriesWithoutTimer !== "number" || !Number.isFinite(value.maxQuotaRetriesWithoutTimer) || value.maxQuotaRetriesWithoutTimer < 1) issues.push({ path: `${path}.maxQuotaRetriesWithoutTimer`, message: "Expected a positive integer" });
   if (typeof value.resumeFailedTaskInSameWorkspace !== "boolean") issues.push({ path: `${path}.resumeFailedTaskInSameWorkspace`, message: "Expected a boolean" });
   if (typeof value.executionMode !== "string" || !CLI_EXECUTION_MODES.includes(value.executionMode as CliExecutionMode)) {
     issues.push({ path: `${path}.executionMode`, message: `Expected one of: ${CLI_EXECUTION_MODES.join(", ")}` });

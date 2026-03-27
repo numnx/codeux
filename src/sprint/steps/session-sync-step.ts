@@ -175,9 +175,18 @@ const syncExecutionRunState = (
     }
   }
 
-  deps.projectManagementRepository?.updateTask(task.record_id, {
-    status: mapTaskRunStateToPlanningStatus(nextRunState),
-  });
+  const nextPlanningStatus = mapTaskRunStateToPlanningStatus(nextRunState);
+  const skipStatusUpdate = task.status === "COMPLETED" && (nextPlanningStatus as string) !== "completed";
+
+  if (!skipStatusUpdate) {
+    const updatePayload: Record<string, any> = {
+      status: nextPlanningStatus,
+    };
+    if (task.is_merged) {
+      updatePayload.is_merged = true;
+    }
+    deps.projectManagementRepository?.updateTask(task.record_id, updatePayload);
+  }
 
   const sessionSyncKey = [
     "session-sync",
@@ -223,7 +232,7 @@ export const runSessionSyncStep = async (
   subtasks: Subtask[],
   deps: SessionSyncDependencies,
   retryFailed: boolean,
-  context: { repoPath: string; sprintNumber: number },
+  context: { repoPath: string; sprintNumber: number; maxQuotaRetriesWithoutTimer?: number },
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
@@ -314,7 +323,9 @@ export const runSessionSyncStep = async (
     );
 
     if (match.state === "COMPLETED") {
-      task.status = "CODING_COMPLETED";
+      if (task.status !== "COMPLETED") {
+        task.status = "CODING_COMPLETED";
+      }
       continue;
     }
 
@@ -330,6 +341,7 @@ export const runSessionSyncStep = async (
     if (match.state === "QUOTA") {
       // Check if the quota cooldown has expired by looking at the latest dispatch error
       let cooldownActive = true;
+      let quotaRetriesWithoutTimer = 0;
       if (task.record_id && task.project_id && deps.executionRepository) {
         const dispatches = deps.executionRepository.listTaskDispatches({
           projectId: task.project_id,
@@ -338,10 +350,22 @@ export const runSessionSyncStep = async (
         const withError = dispatches.filter((d) => d.errorMessage);
         const latestError = withError.length > 0 ? withError[withError.length - 1].errorMessage : null;
         cooldownActive = isQuotaCooldownActive(latestError);
+
+        // Count consecutive quota dispatches without a reset timer
+        if (!cooldownActive && latestError) {
+          for (let i = withError.length - 1; i >= 0; i--) {
+            const err = withError[i].errorMessage;
+            if (!err || !err.toLowerCase().includes("quota")) break;
+            if (isQuotaCooldownActive(err)) break;
+            quotaRetriesWithoutTimer++;
+          }
+        }
       }
+
+      const maxRetries = context.maxQuotaRetriesWithoutTimer ?? 5;
       if (cooldownActive) {
         task.status = "QUOTA";
-      } else if (retryFailed) {
+      } else if (retryFailed && quotaRetriesWithoutTimer < maxRetries) {
         task.status = "PENDING";
       } else {
         task.status = "FAILED";

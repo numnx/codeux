@@ -19,6 +19,7 @@ export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   containerCodexAuthPath: "~/.codex",
   containerClaudeCodeAuthPath: "~/.claude",
   maxPlanningJsonRetries: 3,
+  maxQuotaRetriesWithoutTimer: 5,
 };
 
 export const CONTAINER_SETUP_SCRIPT = "/opt/jules/setup.sh";

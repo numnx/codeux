@@ -205,6 +205,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     containerCodexAuthPath: "~/.codex",
     containerClaudeCodeAuthPath: "~/.claude",
     maxPlanningJsonRetries: 3,
+    maxQuotaRetriesWithoutTimer: 5,
   },
   workers: {
     executionMode: "CONNECTED_MCP",

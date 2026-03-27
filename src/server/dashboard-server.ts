@@ -143,7 +143,7 @@ export interface DashboardServerOptions {
   deleteConversationThread: (threadId: string) => void;
   listConversationMessages: (threadId: string) => ConversationMessageRecord[];
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
-  rerunTask: (taskId: string) => Promise<unknown>;
+  rerunTask: (taskId: string, options?: { provider?: string; clearWorktree?: boolean }) => Promise<unknown>;
   orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;
 
   improveSprintPrompt?: (projectId: string, input: ImprovePromptInput, signal?: AbortSignal) => Promise<unknown>;
@@ -778,7 +778,11 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
         res.status(400).json({ error: "Missing task id." });
         return;
       }
-      const task = await rerunTask(taskId);
+      const body = req.body as { provider?: string; clearWorktree?: boolean } | undefined;
+      const task = await rerunTask(taskId, {
+        provider: typeof body?.provider === "string" ? body.provider : undefined,
+        clearWorktree: body?.clearWorktree === true,
+      });
       res.json({ ok: true, task });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
