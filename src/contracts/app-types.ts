@@ -51,6 +51,14 @@ export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCK
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code";
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
+export type InvocationRoutingProfile = "GLOBAL" | "WORKER";
+export type InvocationRoutingId =
+  | "task_coding"
+  | "planning"
+  | "dashboard_reply"
+  | "clarification_reply"
+  | "ci_fix"
+  | "merge_conflict";
 export type CliExecutionMode = "HOST" | "DOCKER";
 export type FeaturePrAutoMergeMode = "OFF" | "WHEN_GREEN" | "ALWAYS";
 export type WorkerExecutionMode = "CONNECTED_MCP" | "VIRTUAL";
@@ -463,10 +471,26 @@ export interface ProviderSettings {
   apiKey: string;
 }
 
+export interface InvocationProviderOverrideSettings {
+  enabled?: boolean;
+  model?: string;
+  weight?: number;
+  thinkingMode?: ThinkingMode;
+}
+
+export interface InvocationRoutingSettings {
+  profile: InvocationRoutingProfile;
+  strategy: ProviderStrategy;
+  provider: ProviderId | null;
+  allowedProviders: ProviderId[];
+  providers: Partial<Record<ProviderId, InvocationProviderOverrideSettings>>;
+}
+
 export interface AiProviderSettings {
   provider: ProviderId;
   strategy: ProviderStrategy;
   providers: Record<ProviderId, ProviderSettings>;
+  invocationRouting: Record<InvocationRoutingId, InvocationRoutingSettings>;
   julesApiKey: string;
 }
 

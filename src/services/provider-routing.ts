@@ -1,9 +1,35 @@
-import type { DashboardSettings, ProviderId, Subtask } from "../contracts/app-types.js";
+import type {
+  DashboardSettings,
+  InvocationRoutingId,
+  ProviderId,
+  ProviderSettings,
+  ProviderStrategy,
+  Subtask,
+} from "../contracts/app-types.js";
+import { DEFAULT_INVOCATION_ROUTING } from "../repositories/settings-defaults.js";
 
 const PROVIDER_ORDER: ProviderId[] = ["jules", "gemini", "codex", "claude-code"];
 
+interface RoutingDecisionContext {
+  strategy: ProviderStrategy;
+  manualProvider: ProviderId | null;
+  providers: Record<ProviderId, ProviderSettings>;
+  enabledProviders: ProviderId[];
+}
+
+export interface ResolvedProviderRoute extends RoutingDecisionContext {
+  invocation: InvocationRoutingId;
+  provider: ProviderId;
+}
+
+export interface ResolveProviderForInvocationInput {
+  invocation: InvocationRoutingId;
+  task: Subtask;
+  providerPool?: ProviderId[];
+}
+
 export interface ProviderRoutingStrategy {
-  choose(settings: DashboardSettings, task: Subtask, enabledProviders: ProviderId[]): ProviderId;
+  choose(context: RoutingDecisionContext, task: Subtask): ProviderId;
 }
 
 const hashString = (value: string): number => {
@@ -14,32 +40,103 @@ const hashString = (value: string): number => {
   return hash;
 };
 
-const getEnabledProviders = (settings: DashboardSettings): ProviderId[] => {
-  return PROVIDER_ORDER.filter((provider) => settings.aiProvider.providers[provider]?.enabled);
+const resolveWeightedSeed = (task: Subtask): string => `${task.id}:${task.prompt}`;
+
+const buildRouteProviders = (
+  settings: DashboardSettings,
+  invocation: InvocationRoutingId,
+): { manualProvider: ProviderId; providers: Record<ProviderId, ProviderSettings> } => {
+  const route = settings.aiProvider.invocationRouting?.[invocation] || DEFAULT_INVOCATION_ROUTING[invocation];
+  const providers: Record<ProviderId, ProviderSettings> = {
+    jules: { ...settings.aiProvider.providers.jules },
+    gemini: { ...settings.aiProvider.providers.gemini },
+    codex: { ...settings.aiProvider.providers.codex },
+    "claude-code": { ...settings.aiProvider.providers["claude-code"] },
+  };
+
+  const manualProvider = route.profile === "WORKER"
+    ? settings.workers.virtualWorkerProvider
+    : settings.aiProvider.provider;
+
+  if (route.profile === "WORKER") {
+    providers[manualProvider] = {
+      ...providers[manualProvider],
+      enabled: true,
+      model: settings.workers.model && settings.workers.model !== "default"
+        ? settings.workers.model
+        : providers[manualProvider].model,
+    };
+  }
+
+  for (const providerId of PROVIDER_ORDER) {
+    const overrides = route.providers[providerId];
+    if (!overrides) {
+      continue;
+    }
+    providers[providerId] = {
+      ...providers[providerId],
+      ...(typeof overrides.enabled === "boolean" ? { enabled: overrides.enabled } : {}),
+      ...(typeof overrides.model === "string" ? { model: overrides.model } : {}),
+      ...(typeof overrides.weight === "number" ? { weight: overrides.weight } : {}),
+      ...(typeof overrides.thinkingMode === "string" ? { thinkingMode: overrides.thinkingMode } : {}),
+    };
+  }
+
+  return { manualProvider, providers };
+};
+
+const getEnabledProviders = (
+  settings: DashboardSettings,
+  input: ResolveProviderForInvocationInput,
+  providers: Record<ProviderId, ProviderSettings>,
+): ProviderId[] => {
+  const route = settings.aiProvider.invocationRouting?.[input.invocation] || DEFAULT_INVOCATION_ROUTING[input.invocation];
+  const allowedProviders = route.allowedProviders.length > 0
+    ? new Set(route.allowedProviders)
+    : null;
+  const providerPool = input.providerPool ? new Set(input.providerPool) : null;
+
+  return PROVIDER_ORDER.filter((provider) => {
+    if (!providers[provider]?.enabled) {
+      return false;
+    }
+    if (allowedProviders && !allowedProviders.has(provider)) {
+      return false;
+    }
+    if (providerPool && !providerPool.has(provider)) {
+      return false;
+    }
+    return true;
+  });
 };
 
 export class ManualRoutingStrategy implements ProviderRoutingStrategy {
-  choose(settings: DashboardSettings, _task: Subtask, enabledProviders: ProviderId[]): ProviderId {
-    if (enabledProviders.length === 0) return "jules";
-    return enabledProviders.includes(settings.aiProvider.provider)
-      ? settings.aiProvider.provider
-      : enabledProviders[0];
+  choose(context: RoutingDecisionContext, _task: Subtask): ProviderId {
+    if (context.enabledProviders.length === 0) {
+      return "jules";
+    }
+    return context.manualProvider && context.enabledProviders.includes(context.manualProvider)
+      ? context.manualProvider
+      : context.enabledProviders[0];
   }
 }
 
 export class WeightedRoutingStrategy implements ProviderRoutingStrategy {
-  choose(settings: DashboardSettings, task: Subtask, enabledProviders: ProviderId[]): ProviderId {
-    if (enabledProviders.length === 0) return "jules";
-    
-    const seed = task.prompt;
-    const weighted = enabledProviders.map((provider) => ({
+  choose(context: RoutingDecisionContext, task: Subtask): ProviderId {
+    if (context.enabledProviders.length === 0) {
+      return "jules";
+    }
+
+    const weighted = context.enabledProviders.map((provider) => ({
       provider,
-      weight: Math.max(0, settings.aiProvider.providers[provider].weight),
+      weight: Math.max(0, context.providers[provider].weight),
     }));
     const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-    if (totalWeight <= 0) return enabledProviders[0];
+    if (totalWeight <= 0) {
+      return context.enabledProviders[0];
+    }
 
-    let cursor = hashString(seed) % totalWeight;
+    let cursor = hashString(resolveWeightedSeed(task)) % totalWeight;
     for (const entry of weighted) {
       cursor -= entry.weight;
       if (cursor < 0) {
@@ -51,10 +148,12 @@ export class WeightedRoutingStrategy implements ProviderRoutingStrategy {
 }
 
 export class OrchestratedRoutingStrategy implements ProviderRoutingStrategy {
-  private weightedFallback = new WeightedRoutingStrategy();
+  private readonly weightedFallback = new WeightedRoutingStrategy();
 
-  choose(settings: DashboardSettings, task: Subtask, enabledProviders: ProviderId[]): ProviderId {
-    if (enabledProviders.length === 0) return "jules";
+  choose(context: RoutingDecisionContext, task: Subtask): ProviderId {
+    if (context.enabledProviders.length === 0) {
+      return "jules";
+    }
 
     const prompt = task.prompt.toLowerCase();
     const dependencyCount = task.depends_on.length;
@@ -62,52 +161,62 @@ export class OrchestratedRoutingStrategy implements ProviderRoutingStrategy {
     const longPrompt = task.prompt.length > 800;
     const simplePrompt = task.prompt.length < 260;
 
-    if ((complexKeyword || longPrompt || dependencyCount > 1) && enabledProviders.includes("claude-code")) {
+    if ((complexKeyword || longPrompt || dependencyCount > 1) && context.enabledProviders.includes("claude-code")) {
       return "claude-code";
     }
-    if ((complexKeyword || longPrompt || dependencyCount > 1) && enabledProviders.includes("codex")) {
+    if ((complexKeyword || longPrompt || dependencyCount > 1) && context.enabledProviders.includes("codex")) {
       return "codex";
     }
-    if (simplePrompt && dependencyCount === 0 && enabledProviders.includes("gemini")) {
+    if (simplePrompt && dependencyCount === 0 && context.enabledProviders.includes("gemini")) {
       return "gemini";
     }
-    if (enabledProviders.includes("jules")) {
+    if (context.enabledProviders.includes("jules")) {
       return "jules";
     }
 
-    // Fallback to weighted if no orchestration rule matches but we have enabled providers
-    const legacySeed = `${task.id}:${task.title}:${task.prompt}`;
-    const legacyTask: Subtask = { ...task, prompt: legacySeed };
-    return this.weightedFallback.choose(settings, legacyTask, enabledProviders);
+    return this.weightedFallback.choose(context, task);
   }
 }
 
-export const chooseProviderForTask = (settings: DashboardSettings, task: Subtask): ProviderId => {
-  const enabledProviders = getEnabledProviders(settings);
-  if (enabledProviders.length === 0) {
-    return "jules";
-  }
-
-  let strategy: ProviderRoutingStrategy;
-
-  switch (settings.aiProvider.strategy) {
+const resolveStrategy = (strategy: ProviderStrategy): ProviderRoutingStrategy => {
+  switch (strategy) {
     case "MANUAL":
-      strategy = new ManualRoutingStrategy();
-      break;
+      return new ManualRoutingStrategy();
     case "WEIGHTED":
-      {
-        strategy = new WeightedRoutingStrategy();
-        // Ensure we use the correct seed format for WEIGHTED strategy
-        const weightedTask: Subtask = { ...task, prompt: `${task.id}:${task.prompt}` };
-        return strategy.choose(settings, weightedTask, enabledProviders);
-      }
+      return new WeightedRoutingStrategy();
     case "ORCHESTRATOR":
-      strategy = new OrchestratedRoutingStrategy();
-      break;
     default:
-      strategy = new OrchestratedRoutingStrategy();
-      break;
+      return new OrchestratedRoutingStrategy();
   }
+};
 
-  return strategy.choose(settings, task, enabledProviders);
+export const resolveProviderForInvocation = (
+  settings: DashboardSettings,
+  input: ResolveProviderForInvocationInput,
+): ResolvedProviderRoute => {
+  const route = settings.aiProvider.invocationRouting?.[input.invocation] || DEFAULT_INVOCATION_ROUTING[input.invocation];
+  const base = buildRouteProviders(settings, input.invocation);
+  const manualProvider = route.provider ?? base.manualProvider;
+  const enabledProviders = getEnabledProviders(settings, input, base.providers);
+  const context: RoutingDecisionContext = {
+    strategy: route.strategy,
+    manualProvider,
+    providers: base.providers,
+    enabledProviders,
+  };
+
+  const provider = resolveStrategy(route.strategy).choose(context, input.task);
+
+  return {
+    invocation: input.invocation,
+    provider,
+    ...context,
+  };
+};
+
+export const chooseProviderForTask = (settings: DashboardSettings, task: Subtask): ProviderId => {
+  return resolveProviderForInvocation(settings, {
+    invocation: "task_coding",
+    task,
+  }).provider;
 };

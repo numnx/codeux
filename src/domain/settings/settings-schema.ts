@@ -11,6 +11,8 @@ import type {
   McpToolToggle,
   VirtualWorkerProvider,
   WorkerExecutionMode,
+  InvocationRoutingId,
+  InvocationRoutingProfile,
 } from "../../contracts/app-types.js";
 import { EMBEDDING_MODEL_IDS } from "../../contracts/memory-types.js";
 import type { EmbeddingModelId } from "../../contracts/memory-types.js";
@@ -22,6 +24,8 @@ import {
   FEATURE_PR_AUTOMERGE_MODES,
   VIRTUAL_WORKER_PROVIDERS,
   WORKER_EXECUTION_MODES,
+  INVOCATION_ROUTING_IDS,
+  INVOCATION_ROUTING_PROFILES,
 } from "../../repositories/settings-defaults.js";
 import { INSTRUCTION_TEMPLATE_IDS } from "../../instructions/instruction-template-catalog.js";
 
@@ -104,6 +108,64 @@ const validateAiProvider = (
         validateProviderSettings(providers[id], `${path}.providers.${id}`, issues);
       } else {
         issues.push({ path: `${path}.providers.${id}`, message: "Missing provider settings" });
+      }
+    }
+  }
+
+  const invocationRouting = value.invocationRouting;
+  if (!isRecord(invocationRouting)) {
+    issues.push({ path: `${path}.invocationRouting`, message: "Expected an object" });
+  } else {
+    for (const routeId of INVOCATION_ROUTING_IDS) {
+      const route = invocationRouting[routeId];
+      const routePath = `${path}.invocationRouting.${routeId}`;
+      if (!isRecord(route)) {
+        issues.push({ path: routePath, message: "Expected an object" });
+        continue;
+      }
+      if (typeof route.profile !== "string" || !INVOCATION_ROUTING_PROFILES.includes(route.profile as InvocationRoutingProfile)) {
+        issues.push({ path: `${routePath}.profile`, message: `Expected one of: ${INVOCATION_ROUTING_PROFILES.join(", ")}` });
+      }
+      if (typeof route.strategy !== "string" || !PROVIDER_STRATEGIES.includes(route.strategy as ProviderStrategy)) {
+        issues.push({ path: `${routePath}.strategy`, message: `Expected one of: ${PROVIDER_STRATEGIES.join(", ")}` });
+      }
+      if (route.provider !== null && (typeof route.provider !== "string" || !PROVIDER_IDS.includes(route.provider as ProviderId))) {
+        issues.push({ path: `${routePath}.provider`, message: `Expected null or one of: ${PROVIDER_IDS.join(", ")}` });
+      }
+      if (!Array.isArray(route.allowedProviders)) {
+        issues.push({ path: `${routePath}.allowedProviders`, message: "Expected an array" });
+      } else {
+        route.allowedProviders.forEach((provider, index) => {
+          if (typeof provider !== "string" || !PROVIDER_IDS.includes(provider as ProviderId)) {
+            issues.push({ path: `${routePath}.allowedProviders[${index}]`, message: `Expected one of: ${PROVIDER_IDS.join(", ")}` });
+          }
+        });
+      }
+      if (!isRecord(route.providers)) {
+        issues.push({ path: `${routePath}.providers`, message: "Expected an object" });
+        continue;
+      }
+      for (const [providerId, override] of Object.entries(route.providers)) {
+        if (!PROVIDER_IDS.includes(providerId as ProviderId)) {
+          issues.push({ path: `${routePath}.providers.${providerId}`, message: `Expected provider id to be one of: ${PROVIDER_IDS.join(", ")}` });
+          continue;
+        }
+        if (!isRecord(override)) {
+          issues.push({ path: `${routePath}.providers.${providerId}`, message: "Expected an object" });
+          continue;
+        }
+        if ("enabled" in override && typeof override.enabled !== "boolean") {
+          issues.push({ path: `${routePath}.providers.${providerId}.enabled`, message: "Expected a boolean" });
+        }
+        if ("model" in override && typeof override.model !== "string") {
+          issues.push({ path: `${routePath}.providers.${providerId}.model`, message: "Expected a string" });
+        }
+        if ("weight" in override && typeof override.weight !== "number") {
+          issues.push({ path: `${routePath}.providers.${providerId}.weight`, message: "Expected a number" });
+        }
+        if ("thinkingMode" in override && (typeof override.thinkingMode !== "string" || !THINKING_MODES.includes(override.thinkingMode as ThinkingMode))) {
+          issues.push({ path: `${routePath}.providers.${providerId}.thinkingMode`, message: `Expected one of: ${THINKING_MODES.join(", ")}` });
+        }
       }
     }
   }

@@ -40,6 +40,7 @@
 - [Instruction Template System](./instructions/markdown-template-system.md)
 - [Dashboard Guide](./dashboard/dashboard-guide.md)
 - [Configuration and Storage](./settings/configuration-and-storage.md)
+- [Provider Routing](./settings/provider-routing.md)
 - [Operations Runbook](./operations/runbook.md)
 - [Logging and Correlation IDs](./operations/logging-and-correlation.md)
 - [Testing and Quality](./development/testing-and-quality.md)

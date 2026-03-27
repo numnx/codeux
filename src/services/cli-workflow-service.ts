@@ -8,6 +8,7 @@ import type {
   JulesSession,
   ProviderId,
   Subtask,
+  ThinkingMode,
 } from "../contracts/app-types.js";
 import type { UpdateTaskDispatchInput, UpdateTaskRunInput } from "../contracts/execution-types.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -55,6 +56,11 @@ interface CliWorkflowServiceDependencies {
 
 interface StartCliTaskInput {
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+  providerSettingsOverride?: {
+    model: string;
+    thinkingMode: ThinkingMode;
+    apiKey: string;
+  };
   task: Subtask;
   repoPath: string;
   featureBranch: string;
@@ -130,6 +136,7 @@ export class CliWorkflowService {
       taskRunId: input.taskRunId,
       workerBranch,
       title,
+      providerSettingsOverride: input.providerSettingsOverride,
       resumeFromFailedSessionId: resumeTarget?.sessionId,
       resumeWorktreePath,
     });
@@ -143,6 +150,7 @@ export class CliWorkflowService {
     taskRunId?: string;
     workerBranch: string;
     title: string;
+    providerSettingsOverride?: StartCliTaskInput["providerSettingsOverride"];
     resumeFromFailedSessionId?: string;
     resumeWorktreePath?: string;
   }): Promise<void> {
@@ -168,6 +176,7 @@ export class CliWorkflowService {
       workspaceManager: this.workspaceManager,
       prService: this.prService,
       providerRunner: this.providerRunner,
+      providerSettingsOverride: args.providerSettingsOverride,
       deps: {
         ...this.deps,
         getWorkerInstruction: async (repoPath: string) => (

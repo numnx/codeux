@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 import type { MemoryService } from "./memory-service.js";
-import type { CliWorkflowSettings, DashboardSettings } from "../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, Subtask } from "../contracts/app-types.js";
 import type {
   TaskExecutorType,
   TaskPriority,
@@ -22,6 +22,7 @@ import { buildReadFileRetryPrompt, isReadFileNotFoundToolError } from "./cli-wor
 import { ProviderRunner, type IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { classifyProviderError, ProviderQuotaError } from "../shared/providers/provider-error-classifier.js";
+import { resolveProviderForInvocation } from "./provider-routing.js";
 
 interface PlanningAgentServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
@@ -535,8 +536,21 @@ export class PlanningAgentService {
     overrides?: PlanningOverrides;
     signal?: AbortSignal;
   }): Promise<VirtualPlanningResult> {
-    const provider = args.overrides?.virtualProvider || args.settings.workers.virtualWorkerProvider;
-    const providerSettings = { ...args.settings.aiProvider.providers[provider] };
+    const routingTask: Subtask = {
+      id: args.sprintId || "planning",
+      title: "Planning request",
+      prompt: args.rawPrompt,
+      depends_on: [],
+      is_independent: true,
+      status: "PENDING",
+    };
+    const route = resolveProviderForInvocation(args.settings, {
+      invocation: "planning",
+      task: routingTask,
+      providerPool: ["gemini", "codex", "claude-code"],
+    });
+    const provider = (args.overrides?.virtualProvider || route.provider) as DashboardSettings["workers"]["virtualWorkerProvider"];
+    const providerSettings = { ...route.providers[provider] };
     if (!providerSettings) {
       throw new Error(`Virtual worker provider "${provider}" is not configured. Check AI Provider settings.`);
     }

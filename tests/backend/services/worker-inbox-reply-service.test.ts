@@ -10,6 +10,7 @@ import { runCommandStrict } from "../../../src/services/cli-process-runner.js";
 describe("WorkerInboxReplyService", () => {
   const settings = {
     aiProvider: {
+      invocationRouting: {},
       providers: {
         jules: { enabled: true, model: "default", weight: 0, thinkingMode: "MEDIUM", apiKey: "" },
         gemini: { enabled: true, model: "gemini-2.5-pro", weight: 10, thinkingMode: "SMALL", apiKey: "g-key" },
@@ -18,6 +19,13 @@ describe("WorkerInboxReplyService", () => {
       },
     },
   } as any;
+  const geminiRoute = {
+    provider: "gemini",
+    providers: settings.aiProvider.providers,
+    enabledProviders: ["gemini"],
+    strategy: "MANUAL",
+    manualProvider: "gemini",
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +48,7 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
@@ -103,7 +111,7 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
@@ -149,7 +157,7 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
@@ -195,7 +203,7 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({

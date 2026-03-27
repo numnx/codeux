@@ -5,6 +5,10 @@ import type {
   CiIntelligenceSettings,
   CliWorkflowSettings,
   DashboardSettings,
+  InvocationProviderOverrideSettings,
+  InvocationRoutingId,
+  InvocationRoutingProfile,
+  ProviderStrategy,
   McpToolToggle,
   ProviderId,
   SkillToggle,
@@ -25,8 +29,17 @@ export interface ProjectProviderSettings {
 
 export interface ProjectAiProviderSettings {
   provider: ProviderId;
-  strategy: DashboardSettings["aiProvider"]["strategy"];
+  strategy: ProviderStrategy;
   providers: Record<ProviderId, ProjectProviderSettings>;
+  invocationRouting: Record<InvocationRoutingId, ProjectInvocationRoutingSettings>;
+}
+
+export interface ProjectInvocationRoutingSettings {
+  profile: InvocationRoutingProfile;
+  strategy: ProviderStrategy;
+  provider: ProviderId | null;
+  allowedProviders: ProviderId[];
+  providers: Partial<Record<ProviderId, InvocationProviderOverrideSettings>>;
 }
 
 export interface ProjectGitSettings {

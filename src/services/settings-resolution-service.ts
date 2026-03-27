@@ -38,6 +38,23 @@ function cloneInstructionTemplates(
   return { ...templates };
 }
 
+function cloneInvocationRouting(
+  routing: ProjectSettings["aiProvider"]["invocationRouting"],
+): ProjectSettings["aiProvider"]["invocationRouting"] {
+  return Object.fromEntries(
+    Object.entries(routing).map(([routeId, route]) => [
+      routeId,
+      {
+        ...route,
+        allowedProviders: [...route.allowedProviders],
+        providers: Object.fromEntries(
+          Object.entries(route.providers).map(([providerId, overrides]) => [providerId, { ...overrides }]),
+        ),
+      },
+    ]),
+  ) as ProjectSettings["aiProvider"]["invocationRouting"];
+}
+
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -219,6 +236,7 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
           thinkingMode: aiProvider.providers["claude-code"].thinkingMode,
         },
       },
+      invocationRouting: cloneInvocationRouting(aiProvider.invocationRouting),
     },
     git: {
       githubMode: git.githubMode,
@@ -308,6 +326,7 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
           thinkingMode: aiProvider.providers["claude-code"].thinkingMode,
         },
       },
+      invocationRouting: cloneInvocationRouting(aiProvider.invocationRouting),
     },
     git: {
       githubMode: git.githubMode,
@@ -399,6 +418,7 @@ function applyIntegrations(settings: ProjectSettings, integrations: SystemIntegr
         apiKey: integrations.claudeCodeApiKey,
       },
     },
+    invocationRouting: cloneInvocationRouting(settings.aiProvider.invocationRouting),
     julesApiKey: integrations.julesApiKey,
   };
 }
