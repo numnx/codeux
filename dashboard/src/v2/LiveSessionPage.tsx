@@ -803,25 +803,6 @@ export const LiveSessionPage: FunctionComponent = () => {
         }
     }, []);
 
-    const runtimeState = useMemo(
-        () => sprintScopeReady
-            ? deriveLiveSessionRuntimeState(status, execution, sprintScopeId)
-            : EMPTY_LIVE_SESSION_RUNTIME_STATE,
-        [execution, sprintScopeId, sprintScopeReady, status],
-    );
-    const liveSprintRun = runtimeState.liveSprintRun;
-    const pausedInterventionRun = runtimeState.pausedInterventionRun;
-    const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
-    const hasLiveSprint = runtimeState.hasActiveSprint;
-
-    const rawHasSprintContext = runtimeState.hasSprintContext;
-    const visibleTasksWithLiveActivities = useMemo(
-        () => buildLiveSessionTasks(projectTasks, tasksWithLiveActivities, realtimeProjectId),
-        [projectTasks, realtimeProjectId, tasksWithLiveActivities],
-    );
-
-    const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
-
     const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
     const sprintDispatches = useMemo(() => {
@@ -841,6 +822,31 @@ export const LiveSessionPage: FunctionComponent = () => {
             ? execution.recentEvents.filter((e) => e.sprintId === sprintScopeId)
             : execution.recentEvents;
     }, [execution.recentEvents, sprintScopeId, sprintScopeReady]);
+
+    const runtimeState = useMemo(
+        () => sprintScopeReady
+            ? deriveLiveSessionRuntimeState(status, execution, sprintScopeId)
+            : EMPTY_LIVE_SESSION_RUNTIME_STATE,
+        [execution, sprintScopeId, sprintScopeReady, status],
+    );
+    const liveSprintRun = runtimeState.liveSprintRun;
+    const pausedInterventionRun = runtimeState.pausedInterventionRun;
+    const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
+    const hasLiveSprint = runtimeState.hasActiveSprint;
+
+    const rawHasSprintContext = runtimeState.hasSprintContext;
+    const visibleTasksWithLiveActivities = useMemo(
+        () => buildLiveSessionTasks(
+            projectTasks,
+            tasksWithLiveActivities,
+            sprintDispatches,
+            sprintEvents,
+            realtimeProjectId
+        ),
+        [projectTasks, realtimeProjectId, tasksWithLiveActivities, sprintDispatches, sprintEvents],
+    );
+
+    const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
 
     const sprintRuns = useMemo(() => {
         if (!sprintScopeReady) {

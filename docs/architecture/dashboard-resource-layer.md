@@ -42,3 +42,16 @@ Heavy list views, such as the sprint registry or stats ledgers, utilize a progre
 - Lists render an initial lightweight viewport of items.
 - As the user scrolls, an intersection observer triggers progressive unrolling of the remaining items in batches.
 - This prevents main-thread blocking when rendering hundreds of tasks or sprint rows, while still allowing the full dataset to be available for client-side search and sorting.
+
+## Live Session Projection
+
+The dashboard relies on a `buildLiveSessionProjection` helper to construct the live session view. This function derives the visible runtime model for the selected project and sprint by aggregating data from the project task structure alongside `/api/status` and `/api/execution` payloads.
+
+During active sprints, when transient gaps or sparse payloads occur in `/api/status`, `buildLiveSessionProjection` deliberately preserves the last-known-good task metadata and scoped runtime context. This avoids UI flashing or dropping states.
+
+The projection accurately merges and hydrates runtime task fields from three primary sources:
+1. Status tasks (`status.subtasks`)
+2. Execution dispatches
+3. Runtime events
+
+This ensures that essential metadata such as `session_id`, `provider`, `worker_branch`, `pr_url`, and merge state remain stable, even if one source lags behind or temporarily omits those fields during updates.
