@@ -754,4 +754,85 @@ describe("CycleRunner attention sync", () => {
       mergeIndicator: "CI",
     });
   });
+
+  it("captures CI failure memory with importance of 0.7", async () => {
+    const deps = buildDeps();
+    const mockMemoryService = {
+      createMemory: vi.fn().mockResolvedValue({}),
+      search: vi.fn(),
+    };
+    deps.memoryService = mockMemoryService as any;
+
+    const runner = new CycleRunner(deps);
+    vi.mocked(deps.sprintExecutionStateService.loadSubtasks).mockResolvedValue([
+      {
+        id: "T1",
+        record_id: "task-1",
+        title: "Waiting task",
+        prompt: "wait for CI",
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+        is_merged: false,
+        worker_branch: "worker/T1",
+        pr_url: "https://example.com/pr/101",
+        merge_indicator: "CI",
+      },
+    ] as any);
+
+    // Provide the pre-gate states map with old states so that hasMergeStateChanges resolves to false if needed,
+    // but the task transition to "CI" wasn't "CI" in the old state.
+    const preGateStates = new Map<string, any>();
+    preGateStates.set("T1", { mergeIndicator: "AUTOMERGE", isMerged: false, status: "RUNNING" });
+
+    // Mock getDashboardSettings on the deps to ensure settings.memory.enabled is true.
+    deps.getDashboardSettings = vi.fn().mockReturnValue({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      memory: {
+        enabled: true,
+        autoCaptureSprint: true,
+      }
+    });
+
+    // Directly call the private method using any cast
+    (runner as any).captureCiFailureMemories(
+      [
+        {
+          id: "T1",
+          record_id: "task-1",
+          title: "Waiting task",
+          prompt: "wait for CI",
+          depends_on: [],
+          is_independent: true,
+          status: "RUNNING",
+          is_merged: false,
+          worker_branch: "worker/T1",
+          pr_url: "https://example.com/pr/101",
+          merge_indicator: "CI",
+        }
+      ],
+      preGateStates,
+      {
+        executionContext: {
+          project: { id: "project-1", name: "Project 1" } as any,
+          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
+          sprintNumber: 1,
+          repoPath: "/repo/project-1",
+          featureBranch: "feature/sprint-1",
+          defaultBranch: "main",
+        },
+        loopSteps: {},
+      } as any
+    );
+
+    // Give the unawaited promise returned by createMemory inside catch block a chance to resolve.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockMemoryService.createMemory).toHaveBeenCalledWith("project-1", expect.objectContaining({
+      category: "error",
+      strength: 0.7,
+      content: expect.stringContaining("CI failure detected for task T1"),
+      source: expect.objectContaining({ originType: "ci_failure" }),
+    }));
+  });
 });
