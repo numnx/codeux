@@ -28,6 +28,8 @@ import {
   fetchProjectConnections,
   postConversationMessage,
   updateConversationThread,
+  updateThreadRoute,
+  compactThreadSession,
 } from "./lib/connection-api.js";
 import {
   isDetailLoading,
@@ -38,6 +40,10 @@ import { upsertChatThread } from "./lib/chat-thread-utils.js";
 import { fetchInvocationMessages, fetchProjectInvocations } from "./lib/invocation-api.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
+import { ChatThreadHeader } from "./components/chat/ChatThreadHeader.js";
+import { useExecutions } from "../hooks/useExecutions.js";
+import { getProjectWorkerOptions, type WorkerRoutingPreference } from "./lib/project-worker-options.js";
+import { fetchProjectEffectiveSettings } from "./lib/settings-api.js";
 import { ChatPageShell } from "./components/chat/ChatPageShell.js";
 import { ChatRail } from "./components/chat/ChatRail.js";
 import { ThreadListCard } from "./components/chat/ThreadListCard.js";
@@ -269,6 +275,31 @@ export const ChatPage: FunctionComponent = () => {
   const activationTokenRef = useRef(0);
   const { selectedProject } = useProjectData();
 
+  const { data: execution, loading: executionLoading } = useExecutions(selectedProject?.id || null);
+  const [workerRouting, setWorkerRouting] = useState<WorkerRoutingPreference | null>(null);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setWorkerRouting(null);
+      return;
+    }
+    let isMounted = true;
+    fetchProjectEffectiveSettings(selectedProject.id)
+      .then((response) => {
+        if (!isMounted) return;
+        setWorkerRouting({
+          executionMode: response.settings.workers.executionMode,
+          virtualWorkerProvider: response.settings.workers.virtualWorkerProvider,
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to fetch effective settings", err);
+      });
+    return () => { isMounted = false; };
+  }, [selectedProject]);
+
+  const { options: workerOptions } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
+
   const [chatMode, setChatMode] = useState<"threads" | "invocations">("threads");
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [invocations, setInvocations] = useState<ExecutionInvocationRecord[]>([]);
@@ -283,6 +314,8 @@ export const ChatPage: FunctionComponent = () => {
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [assigningRoute, setAssigningRoute] = useState(false);
+  const [compacting, setCompacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedThread = useMemo(
@@ -800,15 +833,27 @@ export const ChatPage: FunctionComponent = () => {
     return thread;
   }, [activateThread, selectedProject, setThreadsSnapshot]);
 
-  const handleAssignThread = useCallback(async (connectionId: string): Promise<void> => {
+  const handleAssignRoute = useCallback(async (option: { id: string, label: string, status: string, isPrimary: boolean, type: string, isSelectable: boolean, connectionId?: string | null, workerEndpointId?: string | null, providerId?: string }): Promise<void> => {
     if (!selectedThread) {
       return;
     }
 
+    setAssigningRoute(true);
     try {
-      const updated = await updateConversationThread(selectedThread.id, {
-        connectionId: connectionId || null,
-      });
+      let updated: ChatThread;
+      if (!option.id) {
+         updated = await updateConversationThread(selectedThread.id, {
+           connectionId: null,
+         });
+      } else {
+        const routeKind = option.type === "virtual" ? "virtual" : "worker";
+        updated = await updateThreadRoute(selectedThread.id, {
+          routeKind,
+          virtualProvider: routeKind === "virtual" ? option.providerId : undefined,
+          workerEndpointId: routeKind === "worker" ? (option.workerEndpointId || option.connectionId || undefined) : undefined,
+        });
+      }
+
       const nextThreads = (threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current).map((thread) => (
         thread.id === updated.id ? updated : thread
       ));
@@ -820,8 +865,34 @@ export const ChatPage: FunctionComponent = () => {
       setError(null);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : String(updateError));
+    } finally {
+      setAssigningRoute(false);
     }
   }, [refreshMessages, selectedProject, selectedThread, setThreadsSnapshot]);
+
+  const handleCompactThread = useCallback(async (): Promise<void> => {
+    if (!selectedThread) {
+      return;
+    }
+
+    setCompacting(true);
+    try {
+      const updated = await compactThreadSession(selectedThread.id);
+      const nextThreads = (threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current).map((thread) => (
+        thread.id === updated.id ? updated : thread
+      ));
+      if (selectedProject) {
+        threadCacheRef.current.set(selectedProject.id, nextThreads);
+      }
+      setThreadsSnapshot(nextThreads);
+      await refreshMessages(updated.id);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCompacting(false);
+    }
+  }, [selectedThread, selectedProject, setThreadsSnapshot, refreshMessages]);
 
   const handleSend = useCallback(async (): Promise<void> => {
     const bodyMarkdown = input.trim();
@@ -831,7 +902,26 @@ export const ChatPage: FunctionComponent = () => {
 
     setSending(true);
     try {
-      const thread = selectedThread || await createThreadForCompose();
+      let thread = selectedThread || await createThreadForCompose();
+
+      if (thread.messageCount === 0 && !thread.connectionId && !thread.runtimeState?.virtualProvider && !thread.runtimeState?.workerEndpointId) {
+        const { options: defaultOptions, selectedOption } = getProjectWorkerOptions(execution, workerRouting, false);
+        const hasActiveRoute = selectedOption !== null;
+
+        if (hasActiveRoute && selectedOption) {
+          try {
+            const routeKind = selectedOption.type === "virtual" ? "virtual" : "worker";
+            thread = await updateThreadRoute(thread.id, {
+              routeKind,
+              virtualProvider: routeKind === "virtual" ? selectedOption.providerId : undefined,
+              workerEndpointId: routeKind === "worker" ? (selectedOption.workerEndpointId || selectedOption.connectionId || undefined) : undefined,
+            });
+          } catch (err) {
+            console.warn("Failed to set default route for thread before sending", err);
+          }
+        }
+      }
+
       const created = await postConversationMessage(selectedProject.id, {
         threadId: thread.id,
         bodyMarkdown,
@@ -955,35 +1045,14 @@ export const ChatPage: FunctionComponent = () => {
     if (chatMode === "threads") {
       return (
         <>
-          <div className="shrink-0 border-b border-black/[0.05] px-6 py-5 dark:border-white/[0.05]">
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500">Active Thread</div>
-                <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                  {selectedThread?.title || "No Thread Selected"}
-                </h2>
-              </div>
-              <div className="text-right text-[10px] font-mono text-slate-400">
-                <div className="mb-2">{selectedThread ? `${selectedThread.messageCount} messages` : "0 messages"}</div>
-                <label className="inline-flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
-                  <select
-                    value={selectedThread?.connectionId || ""}
-                    onChange={(event) => void handleAssignThread(event.currentTarget.value)}
-                    disabled={!selectedThread}
-                    className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
-                  >
-                    <option value="">Unassigned</option>
-                    {connections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.displayName} · {connection.status}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-          </div>
+          <ChatThreadHeader
+            thread={selectedThread}
+            workerOptions={workerOptions}
+            isAssigning={assigningRoute}
+            onAssignRoute={(option) => void handleAssignRoute(option)}
+            onCompact={() => void handleCompactThread()}
+            isCompacting={compacting}
+          />
 
           <div ref={messagesRef} className="flex-1 min-h-0 space-y-6 overflow-y-auto px-6 py-6">
             {threadsLoading ? (
