@@ -47,6 +47,7 @@ import type {
   CreateDashboardConversationMessageInput,
   McpConnectionRecord,
   UpdateConversationThreadInput,
+  UpdateConversationThreadRouteInput,
   UpdateMcpConnectionInput,
 } from "../contracts/connection-chat-types.js";
 import type {
@@ -144,6 +145,8 @@ export interface DashboardServerOptions {
   listConversationThreads: (projectId: string) => ConversationThreadRecord[];
   createConversationThread: (projectId: string, input: CreateConversationThreadInput) => ConversationThreadRecord;
   updateConversationThread: (threadId: string, input: UpdateConversationThreadInput) => ConversationThreadRecord;
+  updateThreadRoute: (threadId: string, input: UpdateConversationThreadRouteInput) => ConversationThreadRecord;
+  compactThreadSession: (threadId: string) => ConversationThreadRecord;
   deleteConversationThread: (threadId: string) => void;
   listConversationMessages: (threadId: string) => ConversationMessageRecord[];
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => Promise<ConversationMessageRecord> | ConversationMessageRecord;
@@ -756,6 +759,39 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(options.updateConversationThread(String(req.params.threadId || "").trim(), req.body as UpdateConversationThreadInput));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to update conversation thread") });
+    }
+  });
+
+  app.put("/api/conversations/threads/:threadId/route", (req, res) => {
+    if (!options.updateThreadRoute) {
+      res.status(404).json({ error: "Thread routing is not enabled." });
+      return;
+    }
+    try {
+      const input = {
+        routeKind: req.body?.routeKind as "worker" | "virtual",
+        virtualProvider: typeof req.body?.virtualProvider === "string" ? req.body.virtualProvider.trim() : undefined,
+        virtualModel: typeof req.body?.virtualModel === "string" ? req.body.virtualModel.trim() : undefined,
+        workerEndpointId: typeof req.body?.workerEndpointId === "string" ? req.body.workerEndpointId.trim() : undefined,
+      };
+      if (input.routeKind !== "worker" && input.routeKind !== "virtual") {
+        throw new Error("Invalid routeKind. Must be 'worker' or 'virtual'.");
+      }
+      res.json(options.updateThreadRoute(String(req.params.threadId || "").trim(), input));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to update thread route") });
+    }
+  });
+
+  app.post("/api/conversations/threads/:threadId/compact", (req, res) => {
+    if (!options.compactThreadSession) {
+      res.status(404).json({ error: "Thread compaction is not enabled." });
+      return;
+    }
+    try {
+      res.json(options.compactThreadSession(String(req.params.threadId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to compact thread session") });
     }
   });
 

@@ -8,7 +8,7 @@ import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import type { Logger } from "../shared/logging/logger.js";
-import type { CreateDashboardConversationMessageInput, ConversationThreadRecord, ConversationMessageRecord, ConversationRuntimeState } from "../contracts/connection-chat-types.js";
+import type { CreateDashboardConversationMessageInput, ConversationThreadRecord, ConversationMessageRecord, ConversationRuntimeState, UpdateConversationThreadRouteInput } from "../contracts/connection-chat-types.js";
 import { buildProviderPrompt } from "./cli-workflow-utils.js";
 
 interface ChatThreadRuntimeServiceDependencies {
@@ -74,6 +74,64 @@ export class ChatThreadRuntimeService {
       apiKey: route.providers[providerId].apiKey,
       thinkingMode: route.providers[providerId].thinkingMode,
     };
+  }
+
+  public updateThreadRoute(threadId: string, input: UpdateConversationThreadRouteInput): ConversationThreadRecord {
+    const thread = this.deps.connectionChatRepository.getThread(threadId);
+    let connectionId: string | null = null;
+
+    if (input.routeKind === "worker") {
+      if (!input.workerEndpointId) {
+        throw new Error("workerEndpointId is required for worker route.");
+      }
+      const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(thread.projectId, { activeOnly: true });
+      const worker = assignments.find((a) => a.workerEndpointId === input.workerEndpointId);
+      if (!worker) {
+        throw new Error(`Worker not found or not active: ${input.workerEndpointId}`);
+      }
+      if (worker.workerStatus === "offline" || worker.workerStatus === "stale") {
+        throw new Error(`Worker is unavailable: ${input.workerEndpointId}`);
+      }
+      connectionId = worker.connectionId;
+    } else if (input.routeKind === "virtual") {
+      if (!input.virtualProvider) {
+        throw new Error("virtualProvider is required for virtual route.");
+      }
+      const validProviders = ["gemini", "codex", "claude-code"];
+      if (!validProviders.includes(input.virtualProvider)) {
+        throw new Error(`Virtual provider is not configured or unavailable: ${input.virtualProvider}`);
+      }
+    } else {
+      throw new Error(`Invalid route kind: ${input.routeKind}`);
+    }
+
+    const newRuntimeState: ConversationRuntimeState = {
+      ...thread.runtimeState,
+      routeKind: input.routeKind,
+      virtualProvider: input.virtualProvider,
+      modelLabel: input.virtualModel,
+      workerEndpointId: input.workerEndpointId,
+      replayRequired: true,
+    };
+
+    return this.deps.connectionChatRepository.updateThread(thread.id, {
+      connectionId,
+      runtimeState: newRuntimeState,
+    });
+  }
+
+  public compactThreadSession(threadId: string): ConversationThreadRecord {
+    const thread = this.deps.connectionChatRepository.getThread(threadId);
+
+    const newRuntimeState: ConversationRuntimeState = {
+      ...thread.runtimeState,
+      replayRequired: true,
+      sessionIds: [],
+    };
+
+    return this.deps.connectionChatRepository.updateThread(thread.id, {
+      runtimeState: newRuntimeState,
+    });
   }
 
   async postMessage(projectId: string, input: CreateDashboardConversationMessageInput): Promise<ConversationMessageRecord> {

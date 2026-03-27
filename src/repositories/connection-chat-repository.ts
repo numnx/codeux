@@ -432,6 +432,10 @@ export class ConnectionChatRepository {
     return rows.map((row) => this.mapMessageRow(row));
   }
 
+  getThread(threadId: string): ConversationThreadRecord {
+    return this.requireThread(threadId);
+  }
+
   updateThread(threadId: string, input: UpdateConversationThreadInput): ConversationThreadRecord {
     const thread = this.requireThread(threadId);
     const now = new Date().toISOString();
