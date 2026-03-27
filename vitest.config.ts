@@ -4,10 +4,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     exclude: ["dist/**", "dashboard/dist/**", "node_modules/**"],
-    environmentMatchGlobs: [
-      ['tests/dashboard/**', 'jsdom'],
-      ['tests/backend/**', 'node'],
-    ],
+    environment: "node",
     coverage: {
         provider: "v8",
         reporter: ["text", "json", "html"],
@@ -16,6 +13,7 @@ export default defineConfig({
             functions: 55,
             branches: 55,
             statements: 65,
+            // Specifically enforce 80% on activity-cache-service.ts as per task requirement
             "src/server/activity-cache-service.ts": {
                 lines: 80,
             }
