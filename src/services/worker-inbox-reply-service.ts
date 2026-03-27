@@ -10,6 +10,7 @@ import { getRepoSprintOsPath } from "../shared/config/sprint-os-paths.js";
 import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
+import type { ExecutionRepository } from "../repositories/execution-repository.js";
 
 export interface GenerateDashboardReplyInput {
   projectId: string;
@@ -28,6 +29,7 @@ interface WorkerInboxReplyServiceDependencies {
   projectManagementRepository: ProjectManagementRepository;
   taskService: TaskService;
   agentPresetSyncService: AgentPresetSyncService;
+  executionRepository: ExecutionRepository;
   getDashboardSettings: () => DashboardSettings;
   getGithubToken: () => string | undefined;
   logger?: Logger;
@@ -42,9 +44,7 @@ export class WorkerInboxReplyService {
       throw new Error(`Project not found: ${input.projectId}`);
     }
 
-    const settings = this.deps.getDashboardSettings();
-    const provider = this.chooseProvider(input.bodyMarkdown, settings);
-    const providerSettings = settings.aiProvider.providers[provider];
+    const route = this.resolveProviderRoute("dashboard_reply", input.bodyMarkdown);
     const rawPrompt = await this.buildPrompt({
       projectId: input.projectId,
       repoPath: project.baseDir,
@@ -53,31 +53,71 @@ export class WorkerInboxReplyService {
       threadTitle: input.threadTitle,
       bodyMarkdown: input.bodyMarkdown,
     });
-    const prompt = buildProviderPrompt(rawPrompt, providerSettings.thinkingMode);
+    const prompt = buildProviderPrompt(rawPrompt, route.providers[route.provider].thinkingMode);
 
-    const output = await this.runProvider({
-      provider,
-      prompt,
-      repoPath: project.baseDir,
-      model: providerSettings.model,
-      apiKey: providerSettings.apiKey,
-      githubToken: this.deps.getGithubToken(),
+    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
+      projectId: input.projectId,
+      type: "worker_reply",
+      provider: route.provider,
+      model: route.providers[route.provider].model,
+      startedAt: new Date().toISOString(),
+      attentionItemId: null,
+      dispatchId: null,
+      providerInvocationId: null,
+      sprintId: null,
+      sprintRunId: null,
+      taskId: null,
+      taskRunId: null,
     });
+
+    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+      role: "user",
+      contentMarkdown: rawPrompt,
+    });
+
+    let output: string;
+    try {
+      output = await this.runProvider({
+        provider: route.provider,
+        prompt,
+        repoPath: project.baseDir,
+        model: route.providers[route.provider].model,
+        apiKey: route.providers[route.provider].apiKey,
+        githubToken: this.deps.getGithubToken(),
+      });
+    } catch (err) {
+      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+      });
+      throw err;
+    }
+
     const bodyMarkdown = this.normalizeProviderReply(output);
+
+    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+      role: "assistant",
+      contentMarkdown: bodyMarkdown,
+    });
+    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+    });
+
     if (!bodyMarkdown) {
-      throw new Error(`Provider ${provider} returned an empty dashboard reply.`);
+      throw new Error(`Provider ${route.provider} returned an empty dashboard reply.`);
     }
 
     this.deps.logger?.info("Generated dashboard reply for worker connection", {
-      provider,
+      provider: route.provider,
       projectId: input.projectId,
       threadId: input.threadId,
     });
 
     return {
       bodyMarkdown,
-      provider,
-      model: providerSettings.model,
+      provider: route.provider,
+      model: route.providers[route.provider].model,
     };
   }
 
@@ -92,9 +132,10 @@ export class WorkerInboxReplyService {
       throw new Error(`Project not found: ${args.projectId}`);
     }
 
-    const settings = this.deps.getDashboardSettings();
-    const provider = this.chooseProvider(args.task.prompt || args.task.title, settings);
-    const providerSettings = settings.aiProvider.providers[provider];
+    const route = this.resolveProviderRoute("clarification_reply", args.task.prompt || args.task.title);
+    const invocationTaskId = typeof args.task.record_id === "string" && args.task.record_id.trim().length > 0
+      ? args.task.record_id.trim()
+      : null;
 
     const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(args.projectId))
       .instructionMarkdown
@@ -127,20 +168,59 @@ export class WorkerInboxReplyService {
       "Answer the agent so they can continue implementation immediately.",
     ].filter(Boolean).join("\n");
 
-    const prompt = buildProviderPrompt(fullContextPrompt, providerSettings.thinkingMode);
+    const prompt = buildProviderPrompt(fullContextPrompt, route.providers[route.provider].thinkingMode);
 
-    const output = await this.runProvider({
-      provider,
-      prompt,
-      repoPath: project.baseDir,
-      model: providerSettings.model,
-      apiKey: providerSettings.apiKey,
-      githubToken: this.deps.getGithubToken(),
+    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
+      projectId: args.projectId,
+      type: "worker_reply",
+      provider: route.provider,
+      model: route.providers[route.provider].model,
+      startedAt: new Date().toISOString(),
+      attentionItemId: null,
+      dispatchId: null,
+      providerInvocationId: null,
+      sprintId: null,
+      sprintRunId: null,
+      taskId: invocationTaskId,
+      taskRunId: null,
     });
 
+    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+      role: "user",
+      contentMarkdown: fullContextPrompt,
+    });
+
+    let output: string;
+    try {
+      output = await this.runProvider({
+        provider: route.provider,
+        prompt,
+        repoPath: project.baseDir,
+        model: route.providers[route.provider].model,
+        apiKey: route.providers[route.provider].apiKey,
+        githubToken: this.deps.getGithubToken(),
+      });
+    } catch (err) {
+      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+      });
+      throw err;
+    }
+
     const reply = this.normalizeProviderReply(output);
+
+    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+      role: "assistant",
+      contentMarkdown: reply,
+    });
+    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+    });
+
     if (!reply) {
-      throw new Error(`Provider ${provider} returned an empty clarification reply.`);
+      throw new Error(`Provider ${route.provider} returned an empty clarification reply.`);
     }
 
     return reply;
@@ -163,7 +243,13 @@ export class WorkerInboxReplyService {
     return "";
   }
 
-  private chooseProvider(bodyMarkdown: string, settings: DashboardSettings): Extract<ProviderId, "gemini" | "codex" | "claude-code"> {
+  private resolveProviderRoute(
+    invocation: "dashboard_reply" | "clarification_reply",
+    bodyMarkdown: string,
+  ): {
+    provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+    providers: Record<ProviderId, DashboardSettings["aiProvider"]["providers"][ProviderId]>;
+  } {
     const pseudoTask: Subtask = {
       id: "dashboard-reply",
       title: "Dashboard reply",
@@ -173,7 +259,13 @@ export class WorkerInboxReplyService {
       status: "PENDING",
     };
 
-    return this.deps.taskService.selectCliProviderForTask(pseudoTask);
+    const route = this.deps.taskService.resolveInvocationProvider(invocation, pseudoTask, {
+      cliOnly: true,
+    });
+    return {
+      ...route,
+      provider: route.provider as Extract<ProviderId, "gemini" | "codex" | "claude-code">,
+    };
   }
 
   private async buildPrompt(args: {

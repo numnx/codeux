@@ -78,9 +78,16 @@ export const fetchExternalSettingsHints = async (): Promise<ExternalSettingsHint
   return fetchJson<ExternalSettingsHints>("/api/settings/import-sources");
 };
 
-export const rerunTask = async (taskId: string): Promise<void> => {
+export interface RerunTaskOptions {
+  provider?: string;
+  clearWorktree?: boolean;
+}
+
+export const rerunTask = async (taskId: string, options?: RerunTaskOptions): Promise<void> => {
   await fetchJson<{ ok: boolean }>(`/api/tasks/${encodeURIComponent(taskId)}/rerun`, {
     method: "POST",
+    headers: options ? { "Content-Type": "application/json" } : undefined,
+    body: options ? JSON.stringify(options) : undefined,
   });
 };
 

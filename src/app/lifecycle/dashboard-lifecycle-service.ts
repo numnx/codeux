@@ -538,8 +538,15 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     deleteConversationThread: (threadId) => deps.connectionChatRepository.deleteThread(threadId),
     listConversationMessages: (threadId) => deps.connectionChatRepository.listMessages(threadId),
     postConversationMessage: (projectId, input) => deps.connectionChatRepository.postDashboardMessage(projectId, input),
-    rerunTask: async (taskId: string) => {
-      const task = await deps.taskRerunService.rerunTask(taskId);
+
+    listProjectInvocations: (projectId) => deps.executionRepository.listExecutionInvocations({ projectId }),
+    listInvocationMessages: (invocationId) => deps.executionRepository.listExecutionInvocationMessages(invocationId),
+
+    rerunTask: async (taskId: string, options?: { provider?: string; clearWorktree?: boolean }) => {
+      const task = await deps.taskRerunService.rerunTask(taskId, {
+        provider: options?.provider as import("../../contracts/app-types.js").ProviderId | undefined,
+        clearWorktree: options?.clearWorktree,
+      });
       deps.activityCacheService.invalidateGitStatusCache();
       return task;
     },

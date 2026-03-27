@@ -175,8 +175,29 @@ describe("Dashboard Factory", () => {
     expect(activityCacheArgs.getSubtasks()).toEqual([]);
   });
 
-  it("resolveTaskContext returns null when runtime task context is unavailable", () => {
+  it("resolveTaskContext builds synthetic task when runtime task is unavailable", () => {
     mockCoreDeps.projectRuntimeRepository.getProjectStatus.mockReturnValue({ subtasks: [] });
+    createDashboardDependencies(
+      mockContext as unknown as ServerContext,
+      mockCoreDeps as unknown as CoreDependencies,
+      mockSprintDeps as unknown as SprintDependencies
+    );
+
+    const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
+    const ctx = taskRerunArgs.resolveTaskContext("task1");
+    expect(ctx).not.toBeNull();
+    expect(ctx!.task.id).toBe("T1");
+    expect(ctx!.task.record_id).toBe("task1");
+    expect(ctx!.task.status).toBe("PENDING");
+    expect(ctx!.featureBranch).toBe("feature/sprint3");
+    expect(ctx!.repoPath).toBe("/repo");
+    expect(ctx!.sprintNumber).toBe(3);
+  });
+
+  it("resolveTaskContext returns null when feature branch and repo path are both unavailable", () => {
+    mockCoreDeps.projectRuntimeRepository.getProjectStatus.mockReturnValue({ subtasks: [] });
+    mockCoreDeps.projectManagementRepository.getSprint.mockReturnValue({ id: "sprint-1", projectId: "project-1", number: 3 });
+    mockCoreDeps.projectManagementRepository.getProject.mockReturnValue({ id: "project-1" });
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
       mockCoreDeps as unknown as CoreDependencies,

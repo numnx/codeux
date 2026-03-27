@@ -1,6 +1,10 @@
 import type {
   DashboardSettings,
   ExternalSettingsHints,
+  InvocationProviderOverrideSettings,
+  InvocationRoutingId,
+  InvocationRoutingProfile,
+  InvocationRoutingSettings,
   ProviderId,
   ProviderSettings,
   ProviderStrategy,
@@ -8,7 +12,10 @@ import type {
 } from "../../../contracts/app-types.js";
 import {
   DEFAULT_DASHBOARD_SETTINGS,
+  DEFAULT_INVOCATION_ROUTING,
   DEFAULT_PROVIDER_SETTINGS,
+  INVOCATION_ROUTING_IDS,
+  INVOCATION_ROUTING_PROFILES,
   PROVIDER_IDS,
   PROVIDER_STRATEGIES,
   THINKING_MODES,
@@ -57,6 +64,76 @@ const normalizeProviderSettings = (
   return result;
 };
 
+const normalizeInvocationProviderOverride = (
+  input: unknown,
+): InvocationProviderOverrideSettings | undefined => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return undefined;
+  }
+
+  const source = input as Partial<InvocationProviderOverrideSettings>;
+  const result: InvocationProviderOverrideSettings = {};
+
+  if (typeof source.enabled === "boolean") {
+    result.enabled = source.enabled;
+  }
+  if (typeof source.model === "string" && source.model.trim().length > 0) {
+    result.model = source.model.trim();
+  }
+  if (typeof source.weight === "number" && Number.isFinite(source.weight)) {
+    result.weight = Math.max(0, Math.round(source.weight));
+  }
+  if (THINKING_MODES.includes(source.thinkingMode as ThinkingMode)) {
+    result.thinkingMode = source.thinkingMode as ThinkingMode;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+};
+
+const normalizeInvocationRouting = (
+  input: Partial<Record<InvocationRoutingId, Partial<InvocationRoutingSettings>>> | undefined,
+): Record<InvocationRoutingId, InvocationRoutingSettings> => {
+  const result = {} as Record<InvocationRoutingId, InvocationRoutingSettings>;
+
+  for (const routeId of INVOCATION_ROUTING_IDS) {
+    const source = input?.[routeId];
+    const defaults = DEFAULT_INVOCATION_ROUTING[routeId];
+    const providers: Partial<Record<ProviderId, InvocationProviderOverrideSettings>> = {};
+    const sourceProviders = source?.providers && typeof source.providers === "object" && !Array.isArray(source.providers)
+      ? source.providers
+      : {};
+
+    for (const providerId of PROVIDER_IDS) {
+      const normalizedOverride = normalizeInvocationProviderOverride(sourceProviders[providerId]);
+      if (normalizedOverride) {
+        providers[providerId] = normalizedOverride;
+      }
+    }
+
+    const allowedProviders = Array.isArray(source?.allowedProviders)
+      ? source.allowedProviders.filter((value): value is ProviderId => PROVIDER_IDS.includes(value as ProviderId))
+      : defaults.allowedProviders;
+
+    result[routeId] = {
+      profile: INVOCATION_ROUTING_PROFILES.includes(source?.profile as InvocationRoutingProfile)
+        ? source?.profile as InvocationRoutingProfile
+        : defaults.profile,
+      strategy: PROVIDER_STRATEGIES.includes(source?.strategy as ProviderStrategy)
+        ? source?.strategy as ProviderStrategy
+        : defaults.strategy,
+      provider: source?.provider === null
+        ? null
+        : PROVIDER_IDS.includes(source?.provider as ProviderId)
+          ? source?.provider as ProviderId
+          : defaults.provider,
+      allowedProviders: [...allowedProviders],
+      providers,
+    };
+  }
+
+  return result;
+};
+
 export const sanitizeAiProvider = (
   input: Partial<DashboardSettings> | undefined,
   externalHints?: ExternalSettingsHints
@@ -84,6 +161,7 @@ export const sanitizeAiProvider = (
     provider: normalizedProvider,
     strategy: normalizedStrategy,
     providers,
+    invocationRouting: normalizeInvocationRouting(aiProviderInput.invocationRouting),
     julesApiKey: providers.jules.apiKey,
   };
 };

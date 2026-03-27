@@ -37,6 +37,10 @@ import type {
   UpdateAgentPresetInput,
 } from "../contracts/agent-preset-types.js";
 import type {
+  ExecutionInvocationRecord,
+  ExecutionInvocationMessageRecord,
+} from "../contracts/invocation-types.js";
+import type {
   ConversationMessageRecord,
   ConversationThreadRecord,
   CreateConversationThreadInput,
@@ -143,7 +147,11 @@ export interface DashboardServerOptions {
   deleteConversationThread: (threadId: string) => void;
   listConversationMessages: (threadId: string) => ConversationMessageRecord[];
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => ConversationMessageRecord;
-  rerunTask: (taskId: string) => Promise<unknown>;
+
+  listProjectInvocations: (projectId: string) => ExecutionInvocationRecord[];
+  listInvocationMessages: (invocationId: string) => ExecutionInvocationMessageRecord[];
+
+  rerunTask: (taskId: string, options?: { provider?: string; clearWorktree?: boolean }) => Promise<unknown>;
   orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;
 
   improveSprintPrompt?: (projectId: string, input: ImprovePromptInput, signal?: AbortSignal) => Promise<unknown>;
@@ -704,6 +712,22 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
   });
 
+  app.get("/api/projects/:projectId/execution/invocations", (req, res) => {
+    try {
+      res.json(options.listProjectInvocations(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list project invocations") });
+    }
+  });
+
+  app.get("/api/execution/invocations/:invocationId/messages", (req, res) => {
+    try {
+      res.json(options.listInvocationMessages(String(req.params.invocationId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list invocation messages") });
+    }
+  });
+
   app.get("/api/projects/:projectId/conversations/threads", (req, res) => {
     try {
       res.json(options.listConversationThreads(String(req.params.projectId || "").trim()));
@@ -778,7 +802,11 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
         res.status(400).json({ error: "Missing task id." });
         return;
       }
-      const task = await rerunTask(taskId);
+      const body = req.body as { provider?: string; clearWorktree?: boolean } | undefined;
+      const task = await rerunTask(taskId, {
+        provider: typeof body?.provider === "string" ? body.provider : undefined,
+        clearWorktree: body?.clearWorktree === true,
+      });
       res.json({ ok: true, task });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -10,6 +10,7 @@ import { runCommandStrict } from "../../../src/services/cli-process-runner.js";
 describe("WorkerInboxReplyService", () => {
   const settings = {
     aiProvider: {
+      invocationRouting: {},
       providers: {
         jules: { enabled: true, model: "default", weight: 0, thinkingMode: "MEDIUM", apiKey: "" },
         gemini: { enabled: true, model: "gemini-2.5-pro", weight: 10, thinkingMode: "SMALL", apiKey: "g-key" },
@@ -18,6 +19,13 @@ describe("WorkerInboxReplyService", () => {
       },
     },
   } as any;
+  const geminiRoute = {
+    provider: "gemini",
+    providers: settings.aiProvider.providers,
+    enabledProviders: ["gemini"],
+    strategy: "MANUAL",
+    manualProvider: "gemini",
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,12 +48,17 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Always answer with operational clarity.",
         }),
+      } as any,
+      executionRepository: {
+        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-1" }),
+        appendExecutionInvocationMessage: vi.fn(),
+        updateExecutionInvocation: vi.fn(),
       } as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => "gh-token",
@@ -59,6 +72,15 @@ describe("WorkerInboxReplyService", () => {
     });
 
     expect(result.bodyMarkdown).toBe("Current status: one task is running.");
+    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalled();
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-1", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("What is the current worker status?"),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-1", {
+      role: "assistant",
+      contentMarkdown: "Current status: one task is running.",
+    });
     expect(result.provider).toBe("gemini");
     expect(runCommandStrict).toHaveBeenCalledWith(
       "gemini",
@@ -89,12 +111,17 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Worker guide fallback",
         }),
+      } as any,
+      executionRepository: {
+        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-2" }),
+        appendExecutionInvocationMessage: vi.fn(),
+        updateExecutionInvocation: vi.fn(),
       } as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
@@ -130,12 +157,17 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Worker guide fallback",
         }),
+      } as any,
+      executionRepository: {
+        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-3" }),
+        appendExecutionInvocationMessage: vi.fn(),
+        updateExecutionInvocation: vi.fn(),
       } as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
@@ -171,12 +203,17 @@ describe("WorkerInboxReplyService", () => {
         }),
       } as any,
       taskService: {
-        selectCliProviderForTask: vi.fn().mockReturnValue("gemini"),
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Worker guide fallback",
         }),
+      } as any,
+      executionRepository: {
+        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-4" }),
+        appendExecutionInvocationMessage: vi.fn(),
+        updateExecutionInvocation: vi.fn(),
       } as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
@@ -186,6 +223,7 @@ describe("WorkerInboxReplyService", () => {
       projectId: "project-1",
       sprintGoal: "Ship the fix",
       subtasks: [{
+        record_id: "task-123",
         id: "T1",
         title: "Fix clarification handling",
         prompt: "Repair the Jules clarification flow.",
@@ -195,6 +233,7 @@ describe("WorkerInboxReplyService", () => {
         session_state: "AWAITING_USER_FEEDBACK",
       }],
       task: {
+        record_id: "task-123",
         id: "T1",
         title: "Fix clarification handling",
         prompt: "Repair the Jules clarification flow.",
@@ -206,5 +245,21 @@ describe("WorkerInboxReplyService", () => {
     });
 
     expect(result).toBe("Only the clarification answer.");
+    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalled();
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("Repair the Jules clarification flow."),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "assistant",
+      contentMarkdown: "Only the clarification answer.",
+    });
+    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        taskId: "task-123",
+        type: "worker_reply",
+      }),
+    );
   });
 });

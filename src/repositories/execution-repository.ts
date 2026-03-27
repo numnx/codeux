@@ -1,6 +1,15 @@
 import { randomUUID } from "crypto";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
 import { AppDbStorage } from "./app-db-storage.js";
+
+import type {
+  ExecutionInvocationRecord,
+  ExecutionInvocationMessageRecord,
+  CreateExecutionInvocationInput,
+  UpdateExecutionInvocationInput,
+  AppendExecutionInvocationMessageInput
+} from "../contracts/execution-types.js";
+
 import type {
   AcquireExecutionLeaseInput,
   CreateProviderInvocationUsageInput,
@@ -358,6 +367,288 @@ export class ExecutionRepository {
       this.cachedStatements.set(sql, stmt);
     }
     return stmt;
+  }
+
+
+  createExecutionInvocation(input: CreateExecutionInvocationInput): ExecutionInvocationRecord {
+    this.requireProject(input.projectId);
+    if (input.sprintId) {
+      this.requireSprint(input.sprintId, input.projectId);
+    }
+    if (input.taskId) {
+      this.requireTask(input.taskId, input.projectId, input.sprintId || undefined);
+    }
+    if (input.sprintRunId) {
+      this.requireSprintRun(input.sprintRunId);
+    }
+    if (input.dispatchId) {
+      this.requireTaskDispatch(input.dispatchId);
+    }
+    if (input.taskRunId) {
+      this.requireTaskRun(input.taskRunId);
+    }
+
+    const id = `xi_${randomUUID().replace(/-/g, "")}`;
+    const now = new Date().toISOString();
+    const startedAt = input.startedAt || now;
+
+    const record: ExecutionInvocationRecord = {
+      id,
+      projectId: input.projectId,
+      sprintId: input.sprintId || null,
+      taskId: input.taskId || null,
+      sprintRunId: input.sprintRunId || null,
+      dispatchId: input.dispatchId || null,
+      taskRunId: input.taskRunId || null,
+      attentionItemId: input.attentionItemId || null,
+      providerInvocationId: input.providerInvocationId || null,
+      type: input.type,
+      status: input.status || "running",
+      provider: input.provider || null,
+      model: input.model || null,
+      systemPrompt: input.systemPrompt || null,
+      startedAt,
+      finishedAt: input.finishedAt || null,
+      errorMessage: input.errorMessage || null,
+      messageCount: 0,
+      lastMessageAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const stmt = this.getCachedStatement(`
+      INSERT INTO execution_invocations (
+        id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
+        type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
+        created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      record.id,
+      record.projectId,
+      record.sprintId,
+      record.taskId,
+      record.sprintRunId,
+      record.dispatchId,
+      record.taskRunId,
+      record.attentionItemId,
+      record.providerInvocationId,
+      record.type,
+      record.status,
+      record.provider,
+      record.model,
+      record.systemPrompt,
+      record.startedAt,
+      record.finishedAt,
+      record.errorMessage,
+      record.messageCount,
+      record.lastMessageAt,
+      record.createdAt,
+      record.updatedAt
+    );
+
+    this.realtimeNotifier?.scheduleProjectExecutionRefresh(record.projectId, { includeOverview: true });
+    return record;
+  }
+
+  updateExecutionInvocation(id: string, input: UpdateExecutionInvocationInput): ExecutionInvocationRecord {
+    const existing = this.getExecutionInvocation(id);
+    if (!existing) {
+      throw new Error(`Execution invocation not found: ${id}`);
+    }
+
+    const now = new Date().toISOString();
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (input.status !== undefined) {
+      updates.push("status = ?");
+      values.push(input.status);
+      existing.status = input.status;
+    }
+    if (input.providerInvocationId !== undefined) {
+      updates.push("provider_invocation_id = ?");
+      values.push(input.providerInvocationId);
+      existing.providerInvocationId = input.providerInvocationId;
+    }
+    if (input.provider !== undefined) {
+      updates.push("provider = ?");
+      values.push(input.provider);
+      existing.provider = input.provider;
+    }
+    if (input.model !== undefined) {
+      updates.push("model = ?");
+      values.push(input.model);
+      existing.model = input.model;
+    }
+    if (input.finishedAt !== undefined) {
+      updates.push("finished_at = ?");
+      values.push(input.finishedAt);
+      existing.finishedAt = input.finishedAt;
+    }
+    if (input.errorMessage !== undefined) {
+      updates.push("error_message = ?");
+      values.push(input.errorMessage);
+      existing.errorMessage = input.errorMessage;
+    }
+
+    if (updates.length > 0) {
+      updates.push("updated_at = ?");
+      values.push(now);
+      existing.updatedAt = now;
+
+      values.push(id);
+      const sql = `UPDATE execution_invocations SET ${updates.join(", ")} WHERE id = ?`;
+      const stmt = this.getCachedStatement(sql);
+      stmt.run(...values);
+
+      this.realtimeNotifier?.scheduleProjectExecutionRefresh(existing.projectId, { includeOverview: true });
+    }
+
+    return existing;
+  }
+
+  getExecutionInvocation(id: string): ExecutionInvocationRecord | null {
+    const row = this.getCachedStatement(`
+      SELECT *
+      FROM execution_invocations
+      WHERE id = ?
+    `).get(id) as any;
+
+    if (!row) return null;
+    return this.mapExecutionInvocationRow(row);
+  }
+
+  listExecutionInvocations(params: {
+    projectId: string;
+    sprintRunId?: string;
+    taskRunId?: string;
+    limit?: number;
+    offset?: number;
+  }): ExecutionInvocationRecord[] {
+    const conditions = ["project_id = ?"];
+    const values: any[] = [params.projectId];
+
+    if (params.sprintRunId) {
+      conditions.push("sprint_run_id = ?");
+      values.push(params.sprintRunId);
+    }
+
+    if (params.taskRunId) {
+      conditions.push("task_run_id = ?");
+      values.push(params.taskRunId);
+    }
+
+    const limit = params.limit ?? 100;
+    const offset = params.offset ?? 0;
+
+    const sql = `
+      SELECT *
+      FROM execution_invocations
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY started_at DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const rows = this.getCachedStatement(sql).all(...values, limit, offset) as any[];
+    return rows.map(this.mapExecutionInvocationRow);
+  }
+
+  listExecutionInvocationMessages(invocationId: string): ExecutionInvocationMessageRecord[] {
+    const sql = `
+      SELECT *
+      FROM execution_invocation_messages
+      WHERE invocation_id = ?
+      ORDER BY created_at ASC
+    `;
+    const rows = this.getCachedStatement(sql).all(invocationId) as any[];
+    return rows.map(this.mapExecutionInvocationMessageRow);
+  }
+
+  appendExecutionInvocationMessage(invocationId: string, input: AppendExecutionInvocationMessageInput): ExecutionInvocationMessageRecord {
+    const invocation = this.getExecutionInvocation(invocationId);
+    if (!invocation) {
+      throw new Error(`Execution invocation not found: ${invocationId}`);
+    }
+
+    const id = `xim_${randomUUID().replace(/-/g, "")}`;
+    const now = input.createdAt || new Date().toISOString();
+
+    const record: ExecutionInvocationMessageRecord = {
+      id,
+      invocationId,
+      role: input.role,
+      contentMarkdown: input.contentMarkdown,
+      toolCallsJson: input.toolCallsJson || null,
+      createdAt: now,
+    };
+
+    const stmt = this.getCachedStatement(`
+      INSERT INTO execution_invocation_messages (
+        id, invocation_id, role, content_markdown, tool_calls_json, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      record.id,
+      record.invocationId,
+      record.role,
+      record.contentMarkdown,
+      record.toolCallsJson ? JSON.stringify(record.toolCallsJson) : null,
+      record.createdAt
+    );
+
+    const updateStmt = this.getCachedStatement(`
+      UPDATE execution_invocations
+      SET message_count = message_count + 1,
+          last_message_at = ?,
+          updated_at = ?
+      WHERE id = ?
+    `);
+    updateStmt.run(now, now, invocationId);
+
+    this.realtimeNotifier?.scheduleProjectExecutionRefresh(invocation.projectId, { includeOverview: false });
+    return record;
+  }
+
+  private mapExecutionInvocationRow(row: any): ExecutionInvocationRecord {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      sprintId: row.sprint_id,
+      taskId: row.task_id,
+      sprintRunId: row.sprint_run_id,
+      dispatchId: row.dispatch_id,
+      taskRunId: row.task_run_id,
+      attentionItemId: row.attention_item_id,
+      providerInvocationId: row.provider_invocation_id,
+      type: row.type,
+      status: row.status,
+      provider: row.provider,
+      model: row.model,
+      systemPrompt: row.system_prompt,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      errorMessage: row.error_message,
+      messageCount: row.message_count,
+      lastMessageAt: row.last_message_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private mapExecutionInvocationMessageRow(row: any): ExecutionInvocationMessageRecord {
+    return {
+      id: row.id,
+      invocationId: row.invocation_id,
+      role: row.role,
+      contentMarkdown: row.content_markdown,
+      toolCallsJson: row.tool_calls_json ? JSON.parse(row.tool_calls_json) : null,
+      createdAt: row.created_at,
+    };
   }
 
   createSprintRun(input: CreateSprintRunInput): SprintRunRecord {

@@ -11,6 +11,8 @@ export type TokenUsageSource = "reported" | "estimated" | "unsupported" | "unava
 
 export type ExecutionLeaseScopeType = "project" | "sprint" | "sprint_run" | "task_dispatch";
 
+export * from "./invocation-types.js";
+
 export interface SprintRunRecord {
   id: string;
   projectId: string;

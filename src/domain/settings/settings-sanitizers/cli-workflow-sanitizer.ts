@@ -88,5 +88,9 @@ export const sanitizeCliWorkflow = (
       cliInput.maxPlanningJsonRetries,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.maxPlanningJsonRetries
     ))),
+    maxQuotaRetriesWithoutTimer: Math.max(1, Math.min(20, readInteger(
+      cliInput.maxQuotaRetriesWithoutTimer,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.maxQuotaRetriesWithoutTimer
+    ))),
   };
 };

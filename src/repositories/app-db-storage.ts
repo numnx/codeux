@@ -414,6 +414,49 @@ export class AppDbStorage {
         updated_at TEXT NOT NULL
       );
 
+
+      CREATE TABLE IF NOT EXISTS execution_invocations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        sprint_id TEXT,
+        task_id TEXT,
+        sprint_run_id TEXT,
+        dispatch_id TEXT,
+        task_run_id TEXT,
+        attention_item_id TEXT,
+        provider_invocation_id TEXT,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        provider TEXT,
+        model TEXT,
+        system_prompt TEXT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        error_message TEXT,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        last_message_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE CASCADE,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (sprint_run_id) REFERENCES sprint_runs(id) ON DELETE CASCADE,
+        FOREIGN KEY (dispatch_id) REFERENCES task_dispatches(id) ON DELETE CASCADE,
+        FOREIGN KEY (task_run_id) REFERENCES task_runs(id) ON DELETE CASCADE,
+        FOREIGN KEY (attention_item_id) REFERENCES project_attention_items(id) ON DELETE CASCADE,
+        FOREIGN KEY (provider_invocation_id) REFERENCES provider_invocations(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS execution_invocation_messages (
+        id TEXT PRIMARY KEY,
+        invocation_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content_markdown TEXT NOT NULL,
+        tool_calls_json TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (invocation_id) REFERENCES execution_invocations(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS dashboard_realtime_events (
         sequence INTEGER PRIMARY KEY AUTOINCREMENT,
         scope_type TEXT NOT NULL,
@@ -472,6 +515,13 @@ export class AppDbStorage {
     this.ensureUniqueIndex("idx_task_run_events_source_event", "task_run_events", "task_run_id, source_event_key");
     this.ensureIndex("idx_sprint_run_events_sprint_run_created", "sprint_run_events", "sprint_run_id, created_at DESC");
     this.ensureUniqueIndex("idx_sprint_run_events_source_event", "sprint_run_events", "sprint_run_id, source_event_key");
+
+    this.ensureIndex("idx_execution_invocations_project_started", "execution_invocations", "project_id, started_at DESC");
+    this.ensureIndex("idx_execution_invocations_sprint_started", "execution_invocations", "sprint_id, started_at DESC");
+    this.ensureIndex("idx_execution_invocations_task_started", "execution_invocations", "task_id, started_at DESC");
+    this.ensureIndex("idx_execution_invocations_sprint_run_started", "execution_invocations", "sprint_run_id, started_at DESC");
+    this.ensureIndex("idx_execution_invocations_task_run_started", "execution_invocations", "task_run_id, started_at DESC");
+    this.ensureIndex("idx_execution_invocation_messages_invocation_created", "execution_invocation_messages", "invocation_id, created_at ASC");
     this.ensureIndex("idx_dashboard_realtime_events_scope_sequence", "dashboard_realtime_events", "scope_type, scope_id, is_replayable, sequence DESC");
     this.ensureIndex("idx_memories_project_scope", "memories", "project_id, scope, updated_at DESC");
     this.ensureIndex("idx_memories_project_sprint", "memories", "project_id, sprint_id, created_at DESC");

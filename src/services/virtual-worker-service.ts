@@ -21,6 +21,7 @@ import { ProjectAttentionService } from "../domain/workers/project-attention-ser
 import { ProjectWorkerAssignmentService } from "../domain/workers/project-worker-assignment-service.js";
 import { WorkerTaskDispatchService } from "./worker-task-dispatch-service.js";
 import { CliWorkflowService } from "./cli-workflow-service.js";
+import { resolveProviderForInvocation } from "./provider-routing.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
@@ -229,6 +230,7 @@ export class VirtualWorkerService {
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);
     const provider = settings.workers.virtualWorkerProvider;
+    const providerSettings = settings.aiProvider.providers[provider];
     const taskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
     if (!taskRun) {
       throw new Error(`Task run not found for dispatch ${claim.dispatch.id}`);
@@ -236,6 +238,13 @@ export class VirtualWorkerService {
 
     const session = await this.deps.cliWorkflowService.startTask({
       provider,
+      providerSettingsOverride: {
+        model: settings.workers.model && settings.workers.model !== "default"
+          ? settings.workers.model
+          : providerSettings.model,
+        thinkingMode: providerSettings.thinkingMode,
+        apiKey: providerSettings.apiKey,
+      },
       task: {
         record_id: claim.task.id,
         project_id: claim.project.id,
@@ -361,8 +370,20 @@ export class VirtualWorkerService {
 
   private async resolveMergeConflictAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
-    const provider = settings.workers.virtualWorkerProvider;
-    const providerSettings = settings.aiProvider.providers[provider];
+    const route = resolveProviderForInvocation(settings, {
+      invocation: "merge_conflict",
+      task: {
+        id: item.taskId || item.id,
+        title: item.title,
+        prompt: item.summaryMarkdown,
+        depends_on: [],
+        is_independent: true,
+        status: "PENDING",
+      },
+      providerPool: ["gemini", "codex", "claude-code"],
+    });
+    const provider = route.provider as DashboardSettings["workers"]["virtualWorkerProvider"];
+    const providerSettings = route.providers[provider];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -408,13 +429,13 @@ export class VirtualWorkerService {
           workflowSettings,
           repoPath,
           worktreePath: finalWorktreePath,
-          sessionId,
-          attentionItem: item,
-          purpose: "merge_conflict",
-          model: settings.workers.model && settings.workers.model !== "default" ? settings.workers.model : providerSettings.model,
-          apiKey: providerSettings.apiKey,
-          githubToken: settings.git.githubToken,
-        });
+        sessionId,
+        attentionItem: item,
+        purpose: "merge_conflict",
+        model: providerSettings.model,
+        apiKey: providerSettings.apiKey,
+        githubToken: settings.git.githubToken,
+      });
       }
       await this.ensureMergeConflictResolved(finalWorktreePath);
       await this.finalizeMergeCommit(finalWorktreePath, sourceBranch, targetBranch);
@@ -482,8 +503,20 @@ export class VirtualWorkerService {
 
   private async resolveCiFixAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
-    const provider = settings.workers.virtualWorkerProvider;
-    const providerSettings = settings.aiProvider.providers[provider];
+    const route = resolveProviderForInvocation(settings, {
+      invocation: "ci_fix",
+      task: {
+        id: item.taskId || item.id,
+        title: item.title,
+        prompt: item.summaryMarkdown,
+        depends_on: [],
+        is_independent: true,
+        status: "PENDING",
+      },
+      providerPool: ["gemini", "codex", "claude-code"],
+    });
+    const provider = route.provider as DashboardSettings["workers"]["virtualWorkerProvider"];
+    const providerSettings = route.providers[provider];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -532,7 +565,7 @@ export class VirtualWorkerService {
         sessionId,
         attentionItem: item,
         purpose: "ci_fix",
-        model: settings.workers.model && settings.workers.model !== "default" ? settings.workers.model : providerSettings.model,
+        model: providerSettings.model,
         apiKey: providerSettings.apiKey,
         githubToken: settings.git.githubToken,
       });
@@ -668,8 +701,40 @@ export class VirtualWorkerService {
     apiKey: string;
     githubToken: string;
   }): Promise<void> {
-    const runProvider = async (prompt: string) => {
+    let execInvocation: { id: string } | undefined = undefined;
+
+    const runProvider = async (prompt: string, retrySystemMessage?: string) => {
       const startedAt = new Date().toISOString();
+
+      if (!execInvocation) {
+        execInvocation = this.deps.executionRepository.createExecutionInvocation({
+          projectId: args.attentionItem.projectId,
+          sprintId: args.attentionItem.sprintId,
+          taskId: args.attentionItem.taskId,
+          sprintRunId: args.attentionItem.sprintRunId,
+          dispatchId: args.attentionItem.dispatchId,
+          attentionItemId: args.attentionItem.id,
+          type: args.purpose,
+          provider: args.provider,
+          model: args.model,
+          startedAt,
+        });
+      }
+
+      if (execInvocation && retrySystemMessage) {
+        this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+          role: "system",
+          contentMarkdown: retrySystemMessage,
+        });
+      }
+
+      if (execInvocation) {
+        this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+          role: "user",
+          contentMarkdown: prompt,
+        });
+      }
+
       const invocation = this.deps.executionRepository.createProviderInvocationUsage({
         projectId: args.attentionItem.projectId,
         sprintId: args.attentionItem.sprintId,
@@ -684,6 +749,11 @@ export class VirtualWorkerService {
         startedAt,
         promptChars: prompt.length,
       });
+
+      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+        providerInvocationId: invocation.id,
+      });
+
       const startedMs = Date.now();
       const result = await this.providerRunner.runProvider({
         provider: args.provider,
@@ -717,6 +787,25 @@ export class VirtualWorkerService {
         usageSource: result.usageTelemetry.usageSource,
         rawUsageJson: result.usageTelemetry.rawUsageJson,
       });
+
+      if (execInvocation) {
+        this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+          status: result.ok ? "completed" : "failed",
+          finishedAt: new Date().toISOString(),
+        });
+        if (!result.ok) {
+          this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+            role: "tool",
+            contentMarkdown: result.stderr || result.stdout || "Provider failed without output.",
+          });
+        } else {
+          this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+            role: "assistant",
+            contentMarkdown: result.usageTelemetry.transcriptText,
+          });
+        }
+      }
+
       return result;
     };
 
@@ -726,7 +815,7 @@ export class VirtualWorkerService {
         originator: "system",
         description: "Retrying merge-conflict resolution with file-discovery guidance.",
       });
-      result = await runProvider(buildReadFileRetryPrompt(args.providerPrompt));
+      result = await runProvider(buildReadFileRetryPrompt(args.providerPrompt), "Retrying merge-conflict resolution with file-discovery guidance.");
     }
     if (!result.ok) {
       const classification = classifyProviderError(args.provider, result);

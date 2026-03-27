@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Subtask } from "../../../dashboard/src/types.js";
+import type {
+  ExecutionRuntimeEventSummary,
+  ExecutionTaskDispatchSummary,
+  Subtask,
+} from "../../../dashboard/src/types.js";
 import type { Task } from "../../../dashboard/src/v2/types.js";
 import { buildLiveSessionTasks } from "../../../dashboard/src/v2/lib/live-session-task-structure.js";
 
@@ -38,9 +42,78 @@ function createRuntimeTask(overrides: Partial<Subtask> = {}): Subtask {
     depends_on: [],
     status: "RUNNING",
     session_id: "session-1",
-    provider: "gemini-cli",
+    provider: "gemini",
     is_independent: true,
     is_merged: false,
+    ...overrides,
+  };
+}
+
+function createDispatch(overrides: Partial<ExecutionTaskDispatchSummary> = {}): ExecutionTaskDispatchSummary {
+  return {
+    id: "dispatch-1",
+    projectId: "project-1",
+    sprintId: "sprint-1",
+    sprintRunId: "run-1",
+    sprintName: "Sprint 1",
+    sprintNumber: 1,
+    taskId: "task-record-1",
+    taskKey: "TASK-1",
+    taskTitle: "Ship it",
+    status: "blocked",
+    executorType: "docker_cli",
+    priority: 10,
+    connectionId: null,
+    connectionDisplayName: null,
+    connectionRole: null,
+    taskRunId: "task-run-1",
+    taskRunState: "BLOCKED",
+    provider: "codex",
+    sessionId: "dispatch-session-1",
+    sessionName: "sessions/dispatch-session-1",
+    workerBranch: "feature/task-1",
+    prUrl: "https://example.com/pr/1",
+    queuedAt: "2026-03-27T10:00:00.000Z",
+    claimedAt: "2026-03-27T10:01:00.000Z",
+    startedAt: "2026-03-27T10:02:00.000Z",
+    finishedAt: "2026-03-27T10:03:00.000Z",
+    lastHeartbeatAt: "2026-03-27T10:03:00.000Z",
+    errorMessage: "Blocked waiting for review",
+    activeLeaseOwnerKey: null,
+    activeLeaseExpiresAt: null,
+    ...overrides,
+  };
+}
+
+function createEvent(overrides: Partial<ExecutionRuntimeEventSummary> = {}): ExecutionRuntimeEventSummary {
+  return {
+    id: "event-1",
+    scopeType: "task_run",
+    taskRunId: "task-run-1",
+    sprintRunId: "run-1",
+    dispatchId: "dispatch-1",
+    projectId: "project-1",
+    sprintId: "sprint-1",
+    sprintName: "Sprint 1",
+    sprintNumber: 1,
+    sprintRunStatus: "running",
+    taskId: "task-record-1",
+    taskKey: "TASK-1",
+    taskTitle: "Ship it",
+    taskRunState: "BLOCKED",
+    eventType: "run_blocked",
+    originator: "system",
+    sourceEventKey: null,
+    provider: "codex",
+    sessionId: "dispatch-session-1",
+    sessionName: "sessions/dispatch-session-1",
+    workerBranch: "feature/task-1",
+    prUrl: "https://example.com/pr/1",
+    connectionId: null,
+    connectionDisplayName: null,
+    connectionRole: null,
+    createdAt: "2026-03-27T10:03:00.000Z",
+    payload: null,
     ...overrides,
   };
 }
@@ -74,9 +147,38 @@ describe("live-session-task-structure", () => {
     const result = buildLiveSessionTasks([
       createTask(),
     ], [
-      createRuntimeTask({ record_id: undefined, status: "CODING_COMPLETED", id: "TASK-1" }),
+      createRuntimeTask({ record_id: undefined, status: "CODING_COMPLETED", id: "TASK-1", worker_branch: "feature/task-1" }),
     ], "project-1");
 
     expect(result[0]?.status).toBe("CODING_COMPLETED");
+  });
+
+  it("overlays dispatch runtime metadata so cards keep session and provider context", () => {
+    const result = buildLiveSessionTasks([
+      createTask({ status: "pending" }),
+    ], [
+      createRuntimeTask({ status: "PENDING", session_id: undefined, provider: undefined }),
+    ], "project-1", [
+      createDispatch(),
+    ]);
+
+    expect(result[0]?.status).toBe("BLOCKED");
+    expect(result[0]?.provider).toBe("codex");
+    expect(result[0]?.session_id).toBe("dispatch-session-1");
+    expect(result[0]?.worker_branch).toBe("feature/task-1");
+    expect(result[0]?.pr_url).toBe("https://example.com/pr/1");
+    expect(result[0]?.session_state).toBe("BLOCKED");
+  });
+
+  it("uses terminal runtime events to keep the live task phase monotonic", () => {
+    const result = buildLiveSessionTasks([
+      createTask({ status: "pending" }),
+    ], [
+      createRuntimeTask({ status: "PENDING", session_id: undefined, provider: undefined }),
+    ], "project-1", [], [
+      createEvent(),
+    ]);
+
+    expect(result[0]?.status).toBe("BLOCKED");
   });
 });

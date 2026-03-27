@@ -32,6 +32,86 @@ afterEach(async () => {
 });
 
 describe("ExecutionRepository", () => {
+
+  it("creates, updates, lists, and appends messages to execution invocations", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Invocation Project",
+      sourceType: "local",
+      sourceRef: "/workspace/invocation-project",
+    });
+
+    // Create an invocation
+    const invocation1 = executionRepository.createExecutionInvocation({
+      projectId: project.id,
+      type: "planning",
+      status: "running",
+      provider: "openai",
+      model: "gpt-4",
+      systemPrompt: "You are a helpful planner.",
+    });
+
+    expect(invocation1.id).toMatch(/^xi_/);
+    expect(invocation1.projectId).toBe(project.id);
+    expect(invocation1.type).toBe("planning");
+    expect(invocation1.status).toBe("running");
+    expect(invocation1.messageCount).toBe(0);
+
+    // Update the invocation
+    const updatedInvocation = executionRepository.updateExecutionInvocation(invocation1.id, {
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+    });
+    expect(updatedInvocation.status).toBe("completed");
+    expect(updatedInvocation.finishedAt).not.toBeNull();
+
+    // Append messages
+    const message1 = executionRepository.appendExecutionInvocationMessage(invocation1.id, {
+      role: "user",
+      contentMarkdown: "What should we do next?",
+    });
+
+    expect(message1.id).toMatch(/^xim_/);
+    expect(message1.role).toBe("user");
+    expect(message1.contentMarkdown).toBe("What should we do next?");
+    expect(message1.toolCallsJson).toBeNull();
+
+    const toolCalls = { calls: [{ name: "search", arguments: "{}" }] };
+    const message2 = executionRepository.appendExecutionInvocationMessage(invocation1.id, {
+      role: "assistant",
+      contentMarkdown: "",
+      toolCallsJson: toolCalls,
+    });
+    expect(message2.toolCallsJson).toEqual(toolCalls);
+
+    // Fetch the updated invocation state directly from DB to check messageCount/lastMessageAt
+    const fetchedInvocation = executionRepository.getExecutionInvocation(invocation1.id);
+    expect(fetchedInvocation?.messageCount).toBe(2);
+    expect(fetchedInvocation?.lastMessageAt).toBe(message2.createdAt);
+
+    // List messages and check ordering
+    const messages = executionRepository.listExecutionInvocationMessages(invocation1.id);
+    expect(messages.length).toBe(2);
+    expect(messages[0]!.id).toBe(message1.id);
+    expect(messages[1]!.id).toBe(message2.id);
+
+    // Create a second invocation to check sorting and listing
+    // We explicitly delay to ensure a different startedAt
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const invocation2 = executionRepository.createExecutionInvocation({
+      projectId: project.id,
+      type: "coding",
+      status: "running",
+    });
+
+    const list = executionRepository.listExecutionInvocations({ projectId: project.id });
+    expect(list.length).toBe(2);
+    // ordered by startedAt DESC
+    expect(list[0]!.id).toBe(invocation2.id);
+    expect(list[1]!.id).toBe(invocation1.id);
+  });
+
   it("creates sprint runs and queues task dispatches against project/sprint tasks", async () => {
     const { projectRepository, executionRepository } = await createRepositories();
     const project = projectRepository.createProject({

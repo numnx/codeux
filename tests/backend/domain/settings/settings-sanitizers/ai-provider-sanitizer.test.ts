@@ -34,4 +34,29 @@ describe("sanitizeAiProvider", () => {
     expect(result.julesApiKey).toBe("explicit-jules-key");
     expect(result.providers.gemini.apiKey).toBe("explicit-gemini-key");
   });
+
+  it("normalizes invocation routing with sparse provider overrides", () => {
+    const result = sanitizeAiProvider({
+      aiProvider: {
+        invocationRouting: {
+          clarification_reply: {
+            profile: "WORKER",
+            strategy: "MANUAL",
+            provider: null,
+            allowedProviders: ["gemini"],
+            providers: {
+              gemini: {
+                model: "gemini-2.5-flash",
+              },
+            },
+          },
+        },
+      },
+    } as any);
+
+    expect(result.invocationRouting.clarification_reply.profile).toBe("WORKER");
+    expect(result.invocationRouting.clarification_reply.allowedProviders).toEqual(["gemini"]);
+    expect(result.invocationRouting.clarification_reply.providers.gemini?.model).toBe("gemini-2.5-flash");
+    expect(result.invocationRouting.planning.profile).toBeDefined();
+  });
 });

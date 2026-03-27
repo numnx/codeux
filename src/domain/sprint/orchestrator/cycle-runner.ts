@@ -112,6 +112,10 @@ export class CycleRunner {
         {
           repoPath: args.repoPath,
           sprintNumber: args.executionContext.sprintNumber,
+          maxQuotaRetriesWithoutTimer: this.deps.getDashboardSettings({
+            projectId: args.executionContext.project.id,
+            sprintId: args.executionContext.sprint.id,
+          }).cliWorkflow.maxQuotaRetriesWithoutTimer,
         },
       );
       subtasks = syncResult.subtasks;

@@ -215,6 +215,9 @@ Legacy runtime:
 - Markdown-backed agents now show sync state and support both manual single-agent re-import and bulk `Sync All`
 - The first built-in role is `Planning agent`, which is editable under Agents like any other DB-backed agent
 - Chat page is DB-backed and stores project conversation threads/messages in sqlite
+- Chat page now provides a `Threads / Invocations` toggle to switch between human conversation threads and read-only execution invocations.
+- Chat page filters the "Threads" mode to show user-facing conversation threads (`scope === "project"`).
+- Chat page "Invocations" mode provides a read-only list with metadata for active/completed execution invocations without cluttering the main thread rail.
 - Chat page now receives websocket updates for thread assignment changes and incoming thread messages in the active thread
 - Chat page now shows a live "working" bubble once a listener has picked up a dashboard message and is preparing a reply
 - Chat threads can now be deleted directly from the history rail; deletion is realtime-aware and removes the thread across open dashboard views
@@ -242,6 +245,11 @@ Legacy runtime:
 - The execution runtime panel now also exposes the active attention queue, including worker claim, resolve, and dismiss controls for open project blockers
 - The Live page now keeps the Git/CI/PR card in a dedicated `GitCIStatusPanel` component so the page shell stays focused on wiring runtime state, controls, and layout
 - Live task stats, filter counts, the active filtered task list, and per-card runtime payloads are memoized from the selected project's runtime snapshot so high-frequency realtime updates do not repeatedly recompute unchanged projections
+- Live task cards, the DAG, and timing summaries now render from the same projected task model:
+  - stable task ordering and dependencies still come from the project task store
+  - `/api/status` continues to provide task-level runtime state and live activities
+  - execution dispatches and runtime events now fill session/provider/branch/PR metadata gaps and can promote visible task phase to `BLOCKED`, `FAILED`, `QUOTA`, or terminal completion before the legacy status snapshot catches up
+- Background `/api/status` refreshes now keep the last known session/provider/branch/PR metadata for active tasks when a transient poll returns the same task without those runtime fields, preventing cards from briefly dropping CLI/session context
 - Live Session now shows a clear paused-for-human-intervention banner, repeats the reason/instructions in the hero state, and surfaces the same guidance inside paused sprint run cards
 - worker-owned merge conflicts are now excluded from that human-intervention projection; they remain visible in the attention queue and realtime runtime feed, but they no longer tell the operator to merge or resume while the worker is handling them
 - Worker mode is now explicit in settings:

@@ -130,6 +130,7 @@ Action-required Jules sessions (`AWAITING_PLAN_APPROVAL`, `AWAITING_USER_FEEDBAC
 - `FULL`: auto-intervene for all supported action-required states.
 - `SEMI_AUTO`: obey `automationInterventions` toggles.
 - `ALWAYS_ASK`: no auto-intervention.
+- Worker-generated clarification replies are tracked against the persisted task record id (`record_id`) when available, not the display task key (`T01`, `T02`, ...), so auto-intervention does not fail during execution-invocation logging.
 
 When auto-intervention fails, tasks are routed to `AGENT INTERVENTION NEEDED` with context.
 
