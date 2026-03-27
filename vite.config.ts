@@ -5,6 +5,14 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   root: "dashboard",
   plugins: [preact(), tailwindcss()],
+  resolve: {
+    alias: {
+      "react": "preact/compat",
+      "react-dom/test-utils": "preact/test-utils",
+      "react-dom": "preact/compat",
+      "react/jsx-runtime": "preact/jsx-runtime",
+    }
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
