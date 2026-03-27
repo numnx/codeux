@@ -137,18 +137,16 @@ export class WorkerInboxReplyService {
       ? args.task.record_id.trim()
       : null;
 
-    const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(args.projectId))
+    const projectManagerInstructions = (await this.deps.agentPresetSyncService.getProjectManagerAgent(args.projectId))
       .instructionMarkdown
       .trim();
 
-    const latestAgentPrompt = this.getLatestAgentPrompt(args.task);
+    const clarificationRequest = this.getLatestClarificationRequest(args.task);
 
     const fullContextPrompt = [
-      workerInstructions ? `## WORKER INSTRUCTIONS\n\n${workerInstructions}` : "",
-      "## ROLE",
-      "You are a Sprint OS automated assistant answering a clarification request from an implementation agent.",
-      "Your goal is to provide a helpful, technically accurate answer based on the full sprint context.",
-      "Reply in concise markdown.",
+      projectManagerInstructions ? `## PROJECT MANAGER INSTRUCTIONS\n\n${projectManagerInstructions}` : "",
+      "## CLARIFICATION TASK",
+      "Answer Jules' clarification request for the current task using the sprint context below.",
       "",
       "## SPRINT CONTEXT",
       `Project: ${project.name}`,
@@ -161,7 +159,9 @@ export class WorkerInboxReplyService {
       `Task ID: ${args.task.id}`,
       `Title: ${args.task.title}`,
       `Original Prompt: ${args.task.prompt}`,
-      latestAgentPrompt ? `\n## LATEST CLARIFICATION REQUEST FROM AGENT\n${latestAgentPrompt}` : "",
+      "",
+      "## JULES CLARIFICATION REQUEST",
+      clarificationRequest,
       "",
       "## REQUIRED OUTPUT",
       "Return only the answer body in markdown. No JSON. No code fences unless the reply truly needs them.",
@@ -226,7 +226,7 @@ export class WorkerInboxReplyService {
     return reply;
   }
 
-  private getLatestAgentPrompt(task: Subtask): string {
+  private getLatestClarificationRequest(task: Subtask): string {
     const activities = Array.isArray(task.activities) ? task.activities : [];
     for (let index = activities.length - 1; index >= 0; index -= 1) {
       const entry = activities[index] as Record<string, unknown>;
@@ -237,10 +237,10 @@ export class WorkerInboxReplyService {
       }
       const description = typeof entry.description === "string" ? entry.description.trim() : "";
       if (description.length > 0) {
-        return description;
+        return `No explicit Jules clarification message was captured. Latest related activity summary: ${description}`;
       }
     }
-    return "";
+    return "No explicit Jules clarification message was captured in recent session activities.";
   }
 
   private resolveProviderRoute(

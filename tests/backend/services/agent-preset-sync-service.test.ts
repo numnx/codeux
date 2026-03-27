@@ -58,6 +58,46 @@ describe("AgentPresetSyncService", () => {
     expect(drifted[0]?.instructionMarkdown).toContain("Updated planning instructions");
   });
 
+  it("normalizes project_manager sources and resolves the Project manager agent", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-project-manager-agent-"));
+    tempDirs.push(dir);
+
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(repoPath, ".sprint-os", "agents"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoPath, ".sprint-os", "agents", "project_manager.md"),
+      "Answer Jules clarification requests.\n",
+      "utf8",
+    );
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Project Manager Project",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    const presets = await syncService.listAgentPresets(project.id);
+    expect(presets.find((preset) => preset.name === "Project manager")).toMatchObject({
+      sourceScope: "project",
+      syncStatus: "synced",
+    });
+
+    const resolved = await syncService.getProjectManagerAgent(project.id);
+    expect(resolved.name).toBe("Project manager");
+    expect(resolved.instructionMarkdown).toContain("Answer Jules clarification requests.");
+  });
+
   it("repairs stale DB content when source metadata already matches", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-agent-stale-content-"));
     tempDirs.push(dir);

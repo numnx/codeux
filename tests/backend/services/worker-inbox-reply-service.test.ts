@@ -54,6 +54,9 @@ describe("WorkerInboxReplyService", () => {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Always answer with operational clarity.",
         }),
+        getProjectManagerAgent: vi.fn().mockResolvedValue({
+          instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
+        }),
       } as any,
       executionRepository: {
         createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-1" }),
@@ -117,6 +120,9 @@ describe("WorkerInboxReplyService", () => {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Worker guide fallback",
         }),
+        getProjectManagerAgent: vi.fn().mockResolvedValue({
+          instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
+        }),
       } as any,
       executionRepository: {
         createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-2" }),
@@ -163,6 +169,9 @@ describe("WorkerInboxReplyService", () => {
         getWorkerAgent: vi.fn().mockResolvedValue({
           instructionMarkdown: "Worker guide fallback",
         }),
+        getProjectManagerAgent: vi.fn().mockResolvedValue({
+          instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
+        }),
       } as any,
       executionRepository: {
         createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-3" }),
@@ -182,7 +191,7 @@ describe("WorkerInboxReplyService", () => {
     expect(result.bodyMarkdown).toBe("Only the markdown reply body.");
   });
 
-  it("unwraps provider response envelopes for clarification replies", async () => {
+  it("builds clarification replies from the editable project manager agent and the latest Jules request", async () => {
     vi.mocked(runCommandStrict).mockResolvedValue({
       ok: true,
       code: 0,
@@ -206,8 +215,8 @@ describe("WorkerInboxReplyService", () => {
         resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
       } as any,
       agentPresetSyncService: {
-        getWorkerAgent: vi.fn().mockResolvedValue({
-          instructionMarkdown: "Worker guide fallback",
+        getProjectManagerAgent: vi.fn().mockResolvedValue({
+          instructionMarkdown: "Project manager guide fallback",
         }),
       } as any,
       executionRepository: {
@@ -231,6 +240,13 @@ describe("WorkerInboxReplyService", () => {
         is_independent: true,
         status: "BLOCKED",
         session_state: "AWAITING_USER_FEEDBACK",
+        activities: [
+          {
+            agentMessaged: {
+              agentMessage: "Should I preserve the current session semantics or replace them?",
+            },
+          },
+        ],
       }],
       task: {
         record_id: "task-123",
@@ -241,6 +257,13 @@ describe("WorkerInboxReplyService", () => {
         is_independent: true,
         status: "BLOCKED",
         session_state: "AWAITING_USER_FEEDBACK",
+        activities: [
+          {
+            agentMessaged: {
+              agentMessage: "Should I preserve the current session semantics or replace them?",
+            },
+          },
+        ],
       },
     });
 
@@ -249,6 +272,26 @@ describe("WorkerInboxReplyService", () => {
     expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
       role: "user",
       contentMarkdown: expect.stringContaining("Repair the Jules clarification flow."),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("## PROJECT MANAGER INSTRUCTIONS"),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("Project manager guide fallback"),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("## JULES CLARIFICATION REQUEST"),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("Should I preserve the current session semantics or replace them?"),
+    });
+    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).not.toHaveBeenCalledWith("exec-inv-4", {
+      role: "user",
+      contentMarkdown: expect.stringContaining("## WORKER INSTRUCTIONS"),
     });
     expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
       role: "assistant",
@@ -261,5 +304,80 @@ describe("WorkerInboxReplyService", () => {
         type: "worker_reply",
       }),
     );
+  });
+
+  it("falls back to the latest activity summary when Jules did not emit an explicit clarification message", async () => {
+    vi.mocked(runCommandStrict).mockResolvedValue({
+      ok: true,
+      code: 0,
+      stdout: "Use the persisted session semantics.",
+      stderr: "",
+    });
+
+    const appendMessage = vi.fn();
+    const service = new WorkerInboxReplyService({
+      projectManagementRepository: {
+        getProject: vi.fn().mockReturnValue({
+          id: "project-1",
+          name: "Sprint OS",
+          baseDir: "/repo",
+        }),
+      } as any,
+      taskService: {
+        resolveInvocationProvider: vi.fn().mockReturnValue(geminiRoute),
+      } as any,
+      agentPresetSyncService: {
+        getProjectManagerAgent: vi.fn().mockResolvedValue({
+          instructionMarkdown: "Project manager guide fallback",
+        }),
+      } as any,
+      executionRepository: {
+        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-5" }),
+        appendExecutionInvocationMessage: appendMessage,
+        updateExecutionInvocation: vi.fn(),
+      } as any,
+      getDashboardSettings: () => settings,
+      getGithubToken: () => undefined,
+    });
+
+    await service.generateClarificationReply({
+      projectId: "project-1",
+      sprintGoal: "Ship the fix",
+      subtasks: [{
+        id: "T1",
+        title: "Fix clarification handling",
+        prompt: "Repair the Jules clarification flow.",
+        depends_on: [],
+        is_independent: true,
+        status: "BLOCKED",
+        session_state: "AWAITING_USER_FEEDBACK",
+        activities: [
+          {
+            description: "Jules is asking whether the new service should preserve session lineage.",
+          },
+        ],
+      }],
+      task: {
+        id: "T1",
+        title: "Fix clarification handling",
+        prompt: "Repair the Jules clarification flow.",
+        depends_on: [],
+        is_independent: true,
+        status: "BLOCKED",
+        session_state: "AWAITING_USER_FEEDBACK",
+        activities: [
+          {
+            description: "Jules is asking whether the new service should preserve session lineage.",
+          },
+        ],
+      },
+    });
+
+    expect(appendMessage).toHaveBeenCalledWith("exec-inv-5", {
+      role: "user",
+      contentMarkdown: expect.stringContaining(
+        "No explicit Jules clarification message was captured. Latest related activity summary: Jules is asking whether the new service should preserve session lineage.",
+      ),
+    });
   });
 });

@@ -171,6 +171,8 @@ Dashboard behavior:
 - `autoResumePaused` (default `false`): auto-send resume nudge for `PAUSED` sessions in `SEMI_AUTO`
 - `clarificationAnswerTemplate`: default response body used for clarification auto-replies
 - `clarificationCooldownSeconds` (default `300`): wait time after an auto-reply/resume before Sprint OS sends another clarification nudge; during this cooldown the task stays in automated recovery and does not open a fresh `action_required` human-escalation path
+- when `autoAnswerClarificationMode = WORKER`, Sprint OS now composes the clarification-answer prompt from the editable `Project manager` agent preset instead of prepending worker instructions
+- worker-routed clarification prompts now include a dedicated Jules clarification section so the latest explicit `agentMessaged.agentMessage` is passed through when available instead of only broad sprint context
 
 `cliWorkflow` contains:
 - Retry/cleanup toggles:
@@ -194,6 +196,7 @@ Dashboard behavior:
 - `saveToProjectDirectory` (default `true`)
   - when enabled, dashboard agent create/update writes project-local markdown companions under `.sprint-os/agents`
   - mirrored filenames use lowercase underscore-safe slugs such as `planning_agent.md`
+  - clarification auto-answer can read project-local `project_manager.md` as the editable instruction source for worker-routed Jules clarification replies
   - default/home markdown sources are never modified by dashboard edits; Sprint OS creates a project-level override file instead
   - `containerMountGeminiAuth`
   - `containerMountCodexAuth`

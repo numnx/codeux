@@ -224,6 +224,10 @@ export class AgentPresetSyncService {
     return await this.getRequiredAgent(projectId, "Worker", "worker.md");
   }
 
+  async getProjectManagerAgent(projectId: string): Promise<AgentPresetRecord> {
+    return await this.getRequiredAgent(projectId, "Project manager", "project_manager.md");
+  }
+
   async getOptionalWorkerAgentForRepoPath(repoPath: string): Promise<AgentPresetRecord | null> {
     return await this.getOptionalAgentForRepoPath(repoPath, "Worker");
   }
@@ -419,6 +423,10 @@ export class AgentPresetSyncService {
 
     if (this.normalizeName(normalized) === "planning agent") {
       return "Planning agent";
+    }
+
+    if (this.normalizeName(normalized) === "project manager") {
+      return "Project manager";
     }
 
     return normalized.length > 0 ? normalized : "Unnamed agent";
