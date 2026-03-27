@@ -1,5 +1,10 @@
-import type { Subtask } from "../../types.js";
+import type {
+  ExecutionRuntimeEventSummary,
+  ExecutionTaskDispatchSummary,
+  Subtask,
+} from "../../types.js";
 import type { Task, TaskStatus } from "../types.js";
+import { projectLiveTask } from "./live-task-runtime.js";
 
 function mapTaskStatusToRuntimeStatus(status: TaskStatus): Subtask["status"] {
   switch (status) {
@@ -32,6 +37,8 @@ export function buildLiveSessionTasks(
   tasks: Task[],
   runtimeTasks: Subtask[],
   projectId: string | null,
+  dispatches: ExecutionTaskDispatchSummary[] = [],
+  events: ExecutionRuntimeEventSummary[] = [],
 ): Subtask[] {
   const taskKeyByRecordId = new Map(tasks.map((task) => [task.recordId, task.id]));
   const runtimeByRecordId = new Map(
@@ -43,7 +50,7 @@ export function buildLiveSessionTasks(
 
   return tasks.map((task) => {
     const runtimeTask = runtimeByRecordId.get(task.recordId) || runtimeByTaskKey.get(task.id);
-    return {
+    const baseTask: Subtask = {
       record_id: task.recordId,
       project_id: runtimeTask?.project_id ?? projectId ?? undefined,
       sprint_id: runtimeTask?.sprint_id ?? task.sprintId,
@@ -63,5 +70,7 @@ export function buildLiveSessionTasks(
       is_merged: runtimeTask?.is_merged ?? task.isMerged,
       merge_indicator: runtimeTask?.merge_indicator ?? toMergeIndicator(task.mergeIndicator),
     };
+
+    return projectLiveTask(baseTask, dispatches, events);
   });
 }

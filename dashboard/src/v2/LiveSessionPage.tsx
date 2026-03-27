@@ -815,15 +815,6 @@ export const LiveSessionPage: FunctionComponent = () => {
     const hasLiveSprint = runtimeState.hasActiveSprint;
 
     const rawHasSprintContext = runtimeState.hasSprintContext;
-    const visibleTasksWithLiveActivities = useMemo(
-        () => buildLiveSessionTasks(projectTasks, tasksWithLiveActivities, realtimeProjectId),
-        [projectTasks, realtimeProjectId, tasksWithLiveActivities],
-    );
-
-    const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
-
-    const [nowIso, setNowIso] = useState(() => new Date().toISOString());
-
     const sprintDispatches = useMemo(() => {
         if (!sprintScopeReady) {
             return [];
@@ -850,6 +841,21 @@ export const LiveSessionPage: FunctionComponent = () => {
             ? execution.sprintRuns.filter((r) => r.sprintId === sprintScopeId)
             : execution.sprintRuns;
     }, [execution.sprintRuns, sprintScopeId, sprintScopeReady]);
+
+    const visibleTasksWithLiveActivities = useMemo(
+        () => buildLiveSessionTasks(
+            projectTasks,
+            tasksWithLiveActivities,
+            realtimeProjectId,
+            sprintDispatches,
+            sprintEvents,
+        ),
+        [projectTasks, realtimeProjectId, sprintDispatches, sprintEvents, tasksWithLiveActivities],
+    );
+
+    const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
+
+    const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
     const visibleStats = useMemo(() => {
         if (!hasSprintContext) return EMPTY_RUNTIME_STATS;

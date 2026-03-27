@@ -9,6 +9,11 @@ import {
   getTaskProgressPhase,
   type TaskProgressPhase,
 } from "../../lib/task-progress.js";
+import {
+  findLatestTerminalTaskSignal,
+  getTaskEventsForLiveTask,
+  pickLatestTaskDispatch,
+} from "./live-task-runtime.js";
 
 export const LIVE_TASK_STAGE_ORDER = ["queued", "coding", "ci", "autofix", "merge"] as const;
 
@@ -116,95 +121,6 @@ function getDispatchMoment(dispatch: ExecutionTaskDispatchSummary, field: "queue
   return dispatch[field] ?? null;
 }
 
-function getDispatchRecency(dispatch: ExecutionTaskDispatchSummary): string {
-  return (
-    getDispatchMoment(dispatch, "finishedAt")
-    || getDispatchMoment(dispatch, "startedAt")
-    || getDispatchMoment(dispatch, "claimedAt")
-    || getDispatchMoment(dispatch, "queuedAt")
-    || ""
-  );
-}
-
-function taskScopeMatchesDispatch(task: Subtask, dispatch: ExecutionTaskDispatchSummary): boolean {
-  if (task.project_id && dispatch.projectId !== task.project_id) {
-    return false;
-  }
-  if (task.sprint_id && dispatch.sprintId !== task.sprint_id) {
-    return false;
-  }
-  return true;
-}
-
-function taskScopeMatchesEvent(task: Subtask, event: ExecutionRuntimeEventSummary): boolean {
-  if (task.project_id && event.projectId !== task.project_id) {
-    return false;
-  }
-  if (task.sprint_id && event.sprintId !== task.sprint_id) {
-    return false;
-  }
-  return true;
-}
-
-function pickLatestDispatch(
-  task: Subtask,
-  dispatches: ExecutionTaskDispatchSummary[],
-): ExecutionTaskDispatchSummary | null {
-  const recordId = typeof task.record_id === "string" ? task.record_id : null;
-  const scopedDispatches = dispatches.filter((dispatch) => taskScopeMatchesDispatch(task, dispatch));
-  const latestByRecency = (items: ExecutionTaskDispatchSummary[]): ExecutionTaskDispatchSummary | null => (
-    items.length === 0
-      ? null
-      : [...items].sort((left, right) => compareIsoAsc(getDispatchRecency(left), getDispatchRecency(right))).at(-1) ?? null
-  );
-
-  if (recordId) {
-    const exactMatches = scopedDispatches.filter((dispatch) => dispatch.taskId === recordId);
-    if (exactMatches.length > 0) {
-      return latestByRecency(exactMatches);
-    }
-    return null;
-  }
-
-  return latestByRecency(scopedDispatches.filter((dispatch) => dispatch.taskKey === task.id));
-}
-
-function getTaskEvents(
-  task: Subtask,
-  dispatch: ExecutionTaskDispatchSummary | null,
-  events: ExecutionRuntimeEventSummary[],
-): ExecutionRuntimeEventSummary[] {
-  const recordId = typeof task.record_id === "string" ? task.record_id : null;
-  const scopedEvents = events.filter((event) => taskScopeMatchesEvent(task, event));
-  const sortEvents = (items: ExecutionRuntimeEventSummary[]): ExecutionRuntimeEventSummary[] => {
-    const deduped = new Map<string, ExecutionRuntimeEventSummary>();
-    for (const event of items) {
-      deduped.set(event.id, event);
-    }
-    return [...deduped.values()].sort((left, right) => compareIsoAsc(left.createdAt, right.createdAt));
-  };
-
-  if (dispatch?.taskRunId) {
-    const taskRunMatches = scopedEvents.filter((event) => event.taskRunId === dispatch.taskRunId);
-    if (taskRunMatches.length > 0) {
-      return sortEvents(taskRunMatches);
-    }
-  }
-
-  if (dispatch?.id) {
-    const dispatchMatches = scopedEvents.filter((event) => event.dispatchId === dispatch.id);
-    if (dispatchMatches.length > 0) {
-      return sortEvents(dispatchMatches);
-    }
-  }
-
-  if (recordId) {
-    return sortEvents(scopedEvents.filter((event) => event.taskId === recordId));
-  }
-
-  return sortEvents(scopedEvents.filter((event) => event.taskKey === task.id));
-}
-
 function taskHasMergeEvidence(task: Pick<Subtask, "worker_branch" | "pr_url">): boolean {
   const workerBranch = typeof task.worker_branch === "string" ? task.worker_branch.trim() : "";
   const prUrl = typeof task.pr_url === "string" ? task.pr_url.trim() : "";
@@ -223,12 +139,6 @@ type StageSignal = {
   stage: LiveTaskStageKey;
   terminal?: boolean;
 } | null;
-
-interface TerminalTaskSignal {
-  at: string;
-  phase: TaskProgressPhase;
-  mergeSettled?: boolean;
-}
 
 function resolveCiGateStage(event: ExecutionRuntimeEventSummary): StageSignal {
   const payload = event.payload || {};
@@ -319,69 +229,6 @@ function resolveEventStage(
   }
 }
 
-function resolveTerminalEventSignal(
-  task: Subtask,
-  event: ExecutionRuntimeEventSummary,
-): TerminalTaskSignal | null {
-  const payload = event.payload || {};
-  const ciGateState = String(payload.state || "").toLowerCase();
-
-  switch (event.eventType) {
-    case "ci_gate_status":
-      if (ciGateState === "merge_confirmed" || ciGateState === "automerge_succeeded") {
-        return {
-          at: event.createdAt,
-          phase: "COMPLETED",
-          mergeSettled: true,
-        };
-      }
-      return null;
-    case "cli_git_no_changes":
-    case "cli_workflow_completed":
-    case "run_completed":
-      return {
-        at: event.createdAt,
-        phase: "COMPLETED",
-      };
-    case "run_failed":
-    case "dispatch_failed":
-    case "cli_workflow_failed":
-      return {
-        at: event.createdAt,
-        phase: "FAILED",
-      };
-    case "run_blocked":
-    case "dispatch_cancelled":
-    case "worker_cancelled":
-    case "action_required_auto_failed":
-      return {
-        at: event.createdAt,
-        phase: "BLOCKED",
-      };
-    case "cli_workflow_quota":
-      return {
-        at: event.createdAt,
-        phase: "QUOTA",
-      };
-    default:
-      return null;
-  }
-}
-
-function findLatestTerminalEventSignal(
-  task: Subtask,
-  events: ExecutionRuntimeEventSummary[],
-): TerminalTaskSignal | null {
-  let latestSignal: TerminalTaskSignal | null = null;
-  for (const event of events) {
-    const signal = resolveTerminalEventSignal(task, event);
-    if (signal) {
-      latestSignal = signal;
-    }
-  }
-  return latestSignal;
-}
-
 function findLatestStageSignal(
   task: Subtask,
   events: ExecutionRuntimeEventSummary[],
@@ -468,7 +315,7 @@ function deriveTaskEndAt(args: {
   const latestEventAt = args.events.length > 0 ? args.events[args.events.length - 1]?.createdAt ?? null : null;
   const runtimeTerminalAt = maxIso(
     resolveDispatchTerminalAt(args.dispatch),
-    findLatestTerminalEventSignal(args.task, args.events)?.at,
+    findLatestTerminalTaskSignal(args.events)?.at,
   );
   const latestStageSignal = findLatestStageSignal(args.task, args.events, args.dispatch);
   const codingCompletedAt = maxIso(
@@ -534,9 +381,9 @@ export function buildLiveTaskTimingSummary(args: {
   nowIso?: string;
 }): LiveTaskTimingSummary {
   const nowIso = args.nowIso || new Date().toISOString();
-  const dispatch = pickLatestDispatch(args.task, args.dispatches);
-  const taskEvents = getTaskEvents(args.task, dispatch, args.events);
-  const terminalEvent = findLatestTerminalEventSignal(args.task, taskEvents);
+  const dispatch = pickLatestTaskDispatch(args.task, args.dispatches);
+  const taskEvents = getTaskEventsForLiveTask(args.task, dispatch, args.events);
+  const terminalEvent = findLatestTerminalTaskSignal(taskEvents);
   const phase = getLiveTaskProgressPhase({
     task: args.task,
     dispatch,

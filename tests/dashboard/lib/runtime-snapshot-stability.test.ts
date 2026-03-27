@@ -124,6 +124,77 @@ describe("runtime snapshot stability", () => {
     expect(stabilizeStatusSnapshot(previousStatus, nextStatus, createExecution())).toBe(nextStatus);
   });
 
+  it("keeps prior runtime metadata when an active status refresh drops ephemeral task fields", () => {
+    const previousStatus = createStatus({
+      subtasks: [{
+        record_id: "task-record-1",
+        id: "TASK-1",
+        title: "Ship it",
+        prompt: "Do the work",
+        depends_on: [],
+        status: "RUNNING",
+        session_id: "session-1",
+        session_name: "sessions/session-1",
+        session_state: "RUNNING",
+        provider: "codex",
+        worker_branch: "feature/task-1",
+        pr_url: "https://example.com/pr/1",
+        is_independent: true,
+      }],
+    });
+    const nextStatus = createStatus({
+      subtasks: [{
+        record_id: "task-record-1",
+        id: "TASK-1",
+        title: "Ship it",
+        prompt: "Do the work",
+        depends_on: [],
+        status: "RUNNING",
+        is_independent: true,
+      }],
+      timestamp: "2026-03-26T10:00:05.000Z",
+    });
+    const execution = createExecution({
+      taskDispatches: [{
+        id: "dispatch-1",
+        projectId: "project-1",
+        sprintId: "sprint-1",
+        sprintRunId: "run-1",
+        sprintName: "Sprint 1",
+        sprintNumber: 1,
+        taskId: "task-record-1",
+        taskKey: "TASK-1",
+        taskTitle: "Ship it",
+        status: "running",
+        executorType: "docker_cli",
+        priority: 10,
+        connectionId: null,
+        connectionDisplayName: null,
+        connectionRole: null,
+        taskRunId: "task-run-1",
+        taskRunState: "RUNNING",
+        provider: "codex",
+        sessionId: "session-1",
+        sessionName: "sessions/session-1",
+        workerBranch: "feature/task-1",
+        prUrl: "https://example.com/pr/1",
+        queuedAt: "2026-03-26T10:00:00.000Z",
+        claimedAt: "2026-03-26T10:00:01.000Z",
+        startedAt: "2026-03-26T10:00:02.000Z",
+        finishedAt: null,
+        lastHeartbeatAt: "2026-03-26T10:00:05.000Z",
+        errorMessage: null,
+        activeLeaseOwnerKey: null,
+        activeLeaseExpiresAt: null,
+      }],
+    });
+
+    expect(stabilizeStatusSnapshot(previousStatus, nextStatus, execution)).toEqual({
+      ...nextStatus,
+      subtasks: previousStatus.subtasks,
+    });
+  });
+
   it("keeps the previous execution snapshot when a transient empty payload arrives mid-sprint", () => {
     const previousExecution = createExecution({
       sprintRuns: [{

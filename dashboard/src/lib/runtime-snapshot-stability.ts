@@ -1,4 +1,4 @@
-import type { DashboardStatus, ExecutionDashboardSnapshot } from "../types.js";
+import type { DashboardStatus, ExecutionDashboardSnapshot, Subtask } from "../types.js";
 
 const ACTIVE_SPRINT_RUN_STATUSES = new Set([
   "queued",
@@ -23,6 +23,64 @@ const ACTIVE_ATTENTION_STATUSES = new Set([
 function normalizeValue(value: string | null | undefined): string | null {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length > 0 ? normalized : null;
+}
+
+function resolveTaskIdentity(task: Subtask): string | null {
+  return normalizeValue(task.record_id) ?? normalizeValue(task.id);
+}
+
+function mergeMissingTaskRuntimeMetadata(
+  previous: DashboardStatus,
+  next: DashboardStatus,
+): DashboardStatus {
+  const previousById = new Map<string, Subtask>();
+
+  for (const task of previous.subtasks) {
+    const identity = resolveTaskIdentity(task);
+    if (identity) {
+      previousById.set(identity, task);
+    }
+  }
+
+  let changed = false;
+  const subtasks = next.subtasks.map((task) => {
+    const identity = resolveTaskIdentity(task);
+    const previousTask = identity ? previousById.get(identity) : null;
+    if (!previousTask) {
+      return task;
+    }
+
+    const sessionId = normalizeValue(task.session_id) ?? normalizeValue(previousTask.session_id) ?? undefined;
+    const sessionName = normalizeValue(task.session_name) ?? normalizeValue(previousTask.session_name) ?? undefined;
+    const sessionState = normalizeValue(task.session_state) ?? normalizeValue(previousTask.session_state) ?? undefined;
+    const workerBranch = normalizeValue(task.worker_branch) ?? normalizeValue(previousTask.worker_branch) ?? undefined;
+    const prUrl = normalizeValue(task.pr_url) ?? normalizeValue(previousTask.pr_url) ?? undefined;
+    const provider = task.provider ?? previousTask.provider;
+
+    if (
+      sessionId === task.session_id
+      && sessionName === task.session_name
+      && sessionState === task.session_state
+      && workerBranch === task.worker_branch
+      && prUrl === task.pr_url
+      && provider === task.provider
+    ) {
+      return task;
+    }
+
+    changed = true;
+    return {
+      ...task,
+      session_id: sessionId,
+      session_name: sessionName,
+      session_state: sessionState,
+      provider,
+      worker_branch: workerBranch,
+      pr_url: prUrl,
+    };
+  });
+
+  return changed ? { ...next, subtasks } : next;
 }
 
 function isEmptyExecutionSnapshot(snapshot: ExecutionDashboardSnapshot): boolean {
@@ -165,7 +223,7 @@ export function stabilizeStatusSnapshot(
   next: DashboardStatus,
   execution: ExecutionDashboardSnapshot,
 ): DashboardStatus {
-  if (previous.subtasks.length === 0 || next.subtasks.length > 0 || !hasActiveExecutionSnapshot(execution)) {
+  if (previous.subtasks.length === 0 || !hasActiveExecutionSnapshot(execution)) {
     return next;
   }
 
@@ -181,5 +239,9 @@ export function stabilizeStatusSnapshot(
     return next;
   }
 
-  return previous;
+  if (next.subtasks.length === 0) {
+    return previous;
+  }
+
+  return mergeMissingTaskRuntimeMetadata(previous, next);
 }

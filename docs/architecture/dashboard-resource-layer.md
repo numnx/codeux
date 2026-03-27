@@ -16,6 +16,8 @@ Data fetching is governed by a unified resource layer rather than ad-hoc `useEff
 - Stale data is preserved during background refreshes to prevent UI flashing.
 - Live runtime polling keeps the last non-empty sprint status and execution snapshot while active work is still present, preventing the live page from flashing into the empty "Awaiting sprint decomposition" state during transient refresh gaps.
 - Live runtime status aggregation and task activity hydration run through the same `processDashboardTasks` projection so counters, task cards, and race placement stay phase-consistent during post-coding polling.
+- Live task cards, DAG nodes, filter counts, and timing summaries now share one runtime projection that merges stable project task structure with `/api/status`, execution dispatches, and terminal runtime events before rendering.
+- Active status refreshes preserve prior session/provider/branch/PR metadata when a transient `/api/status` poll returns the same task without those ephemeral runtime fields, preventing live cards from dropping context between updates.
 - The Live page now waits for the resolved sprint scope from the header selection before loading sprint-filtered task data; while that selection is still hydrating, it uses the runtime status `sprint_id` as the fallback scope instead of widening to project-wide "All Sprints".
 - Cache invalidation is coordinated through realtime websocket events.
 
