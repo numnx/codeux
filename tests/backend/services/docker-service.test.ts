@@ -118,6 +118,57 @@ describe("DockerService", () => {
 
       vi.mocked(runCommandStrict).mockResolvedValue({
         exitCode: 0,
+        stdout: `\n${dockerOutputLine1}\n${malformedLine}\n\n`, // Adding blank lines to test branch coverage
+        stderr: "",
+        durationMs: 10,
+      });
+
+      const containers = await dockerService.listContainers();
+
+      expect(containers).toHaveLength(1);
+      expect(containers[0].id).toBe("e2c4587a829f");
+      expect(containers[0].names).toBe("valid-container");
+    });
+
+    it("should map empty strings for missing optional properties", async () => {
+      const incompleteContainer = JSON.stringify({
+        ID: "some-id",
+        Labels: "justakey,", // Tests labels[pair] = "" and trailing commas
+      });
+
+      vi.mocked(runCommandStrict).mockResolvedValue({
+        exitCode: 0,
+        stdout: `${incompleteContainer}\n`,
+        stderr: "",
+        durationMs: 10,
+      });
+
+      const containers = await dockerService.listContainers();
+
+      expect(containers).toHaveLength(1);
+      expect(containers[0]).toEqual({
+        id: "some-id",
+        names: "",
+        image: "",
+        status: "",
+        state: "",
+        runningFor: "",
+        labels: {
+          justakey: "",
+        },
+      });
+    });
+
+    it("should handle error parsing individual JSON lines", async () => {
+      const dockerOutputLine1 = JSON.stringify({
+        ID: "e2c4587a829f",
+        Names: "valid-container",
+      });
+      // The catch block intercepts the parsing error
+      const malformedLine = "{ invalid json }";
+
+      vi.mocked(runCommandStrict).mockResolvedValue({
+        exitCode: 0,
         stdout: `${dockerOutputLine1}\n${malformedLine}\n`,
         stderr: "",
         durationMs: 10,
