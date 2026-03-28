@@ -372,9 +372,10 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             </div>
           </div>
 
-          <label data-composer-stagger className="mt-8 block space-y-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Name</span>
+          <div data-composer-stagger className="mt-8 block space-y-2">
+            <label htmlFor="sprint-composer-name" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Sprint Name</label>
             <input
+              id="sprint-composer-name"
               type="text"
               value={state.name}
               onInput={(event) => state.setName((event.target as HTMLInputElement).value)}
@@ -383,7 +384,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               required
               autoFocus
             />
-          </label>
+          </div>
 
           <div data-composer-stagger className="mt-8 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -406,6 +407,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   : "border-black/[0.07] dark:border-white/[0.08]"
               }`}>
                 <textarea
+                  aria-label="Describe the goal of the sprint"
                   value={state.goal}
                   onInput={(event) => state.setGoal((event.target as HTMLTextAreaElement).value)}
                   placeholder="Describe the outcome, affected systems, and what done looks like when this sprint lands."
@@ -474,7 +476,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
           <div data-composer-stagger className="mt-auto flex flex-col gap-3 pt-2">
             {submitError && (
-              <div className="rounded-xl border border-status-red/20 bg-status-red/[0.06] px-4 py-3 text-xs leading-relaxed text-status-red">
+              <div aria-live="assertive" className="rounded-xl border border-red-500/20 bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/10 dark:text-red-400">
                 {submitError}
               </div>
             )}

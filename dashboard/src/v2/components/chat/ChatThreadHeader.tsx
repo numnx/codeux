@@ -98,9 +98,10 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
                 {isCompacting ? "Compacting..." : "Compact"}
               </button>
             )}
-            <label className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
+            <div className="inline-flex items-center gap-2">
+              <label htmlFor="thread-worker-select" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</label>
               <select
+                id="thread-worker-select"
                 value={selectedRouteId}
                 onChange={(event) => {
                   const val = event.currentTarget.value;
@@ -121,7 +122,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
         </div>
       </div>

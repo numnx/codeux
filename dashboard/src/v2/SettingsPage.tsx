@@ -1,5 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from "preact";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { isValidElement, cloneElement } from "preact/compat";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from "preact/hooks";
 import gsap from "gsap";
 import {
   AlertTriangle,
@@ -153,9 +154,15 @@ const Toggle: FunctionComponent<{
   onChange: () => void;
   danger?: boolean;
   disabled?: boolean;
-}> = ({ value, onChange, danger, disabled }) => (
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, danger, disabled, id, ...aria }) => (
   <button
+    id={id}
     type="button"
+    role="switch"
+    aria-checked={value}
     onClick={onChange}
     disabled={disabled}
     className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-[background-color,box-shadow,border-color] duration-300 focus:outline-none focus:ring-2 focus:ring-signal-500/20 disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -184,9 +191,12 @@ const SelectInput: FunctionComponent<{
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
   disabled?: boolean;
-}> = ({ value, onChange, options, disabled }) => (
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, options, disabled, id, ...aria }) => (
   <div className="min-w-[220px]">
-    <AvantgardeSelect value={value} onChange={onChange} options={options} disabled={disabled} />
+    <AvantgardeSelect id={id} value={value} onChange={onChange} options={options} disabled={disabled} {...aria} />
   </div>
 );
 
@@ -245,8 +255,12 @@ const TextInput: FunctionComponent<{
   placeholder?: string;
   mono?: boolean;
   disabled?: boolean;
-}> = ({ value, onChange, placeholder, mono, disabled }) => (
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, placeholder, mono, disabled, id, ...aria }) => (
   <input
+    id={id}
     type="text"
     value={value}
     placeholder={placeholder}
@@ -255,6 +269,7 @@ const TextInput: FunctionComponent<{
     className={`min-w-[220px] rounded-[1rem] border border-black/[0.07] bg-white/88 px-3.5 py-2.5 text-sm text-slate-700 placeholder-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-white/[0.05] dark:text-slate-200 ${
       mono ? "font-mono" : "font-sans"
     }`}
+    {...aria}
   />
 );
 
@@ -263,13 +278,18 @@ const TextAreaInput: FunctionComponent<{
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
-}> = ({ value, onChange, placeholder, rows = 12 }) => (
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, placeholder, rows = 12, id, ...aria }) => (
   <textarea
+    id={id}
     value={value}
     rows={rows}
     placeholder={placeholder}
     onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
     className="min-h-[320px] w-full rounded-[1.3rem] border border-black/[0.06] bg-black/[0.04] px-4 py-3 text-sm leading-relaxed text-slate-700 placeholder-slate-400 transition-colors duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-200"
+    {...aria}
   />
 );
 
@@ -280,8 +300,12 @@ const NumberInput: FunctionComponent<{
   max?: number;
   step?: number;
   disabled?: boolean;
-}> = ({ value, onChange, min, max, step = 1, disabled }) => (
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, min, max, step = 1, disabled, id, ...aria }) => (
   <input
+    id={id}
     type="number"
     value={value}
     min={min}
@@ -290,6 +314,7 @@ const NumberInput: FunctionComponent<{
     disabled={disabled}
     onInput={(event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
     className="w-32 rounded-[1rem] border border-black/[0.07] bg-white/88 px-3.5 py-2.5 text-sm font-mono text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-white/[0.05] dark:text-slate-200"
+    {...aria}
   />
 );
 
@@ -320,31 +345,51 @@ const Row: FunctionComponent<{
   children: ComponentChildren;
   last?: boolean;
   badge?: string;
-}> = ({ label, description, children, last, badge }) => (
-  <div
-    className={`flex flex-col gap-4 rounded-[1.35rem] border border-black/[0.05] bg-black/[0.02] px-4 py-4 md:flex-row md:items-start md:justify-between ${!last ? "" : ""} dark:border-white/[0.05] dark:bg-white/[0.02]`}
-  >
-    <div className="min-w-0 flex-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="text-sm font-semibold leading-snug text-slate-800 dark:text-slate-100">{label}</div>
-        {badge ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
-            <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
-              !
+  error?: string;
+}> = ({ label, description, children, last, badge, error }) => {
+  const rowId = useId();
+  const inputId = `input-${rowId}`;
+  const errorId = `error-${rowId}`;
+
+  const childrenWithId = isValidElement(children)
+    ? cloneElement(children as any, {
+        id: inputId,
+        "aria-invalid": !!error,
+        "aria-describedby": error ? errorId : undefined
+      })
+    : children;
+
+  return (
+    <div
+      className={`flex flex-col gap-4 rounded-[1.35rem] border border-black/[0.05] bg-black/[0.02] px-4 py-4 md:flex-row md:items-start md:justify-between ${!last ? "" : ""} dark:border-white/[0.05] dark:bg-white/[0.02]`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={inputId} className="text-sm font-semibold leading-snug text-slate-800 dark:text-slate-100">{label}</label>
+          {badge ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/14 dark:text-amber-200">
+              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black leading-none text-white dark:bg-amber-300 dark:text-void-900">
+                !
+              </span>
+              {badge}
             </span>
-            {badge}
-          </span>
+          ) : null}
+        </div>
+        {description ? (
+          <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400">{description}</div>
         ) : null}
+        {error && (
+          <div id={errorId} aria-live="polite" className="mt-2 text-xs font-semibold text-red-500 dark:text-red-400">
+            {error}
+          </div>
+        )}
       </div>
-      {description ? (
-        <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400">{description}</div>
-      ) : null}
+      <div className="shrink-0 rounded-[1.15rem] border border-black/[0.05] bg-white/75 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-white/[0.05] dark:bg-white/[0.04]">
+        {childrenWithId}
+      </div>
     </div>
-    <div className="shrink-0 rounded-[1.15rem] border border-black/[0.05] bg-white/75 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-white/[0.05] dark:bg-white/[0.04]">
-      {children}
-    </div>
-  </div>
-);
+  );
+};
 
 const SectionCard: FunctionComponent<{
   title: string;

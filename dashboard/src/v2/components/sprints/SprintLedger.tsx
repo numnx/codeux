@@ -193,6 +193,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" strokeWidth={2.2} />
             <input
+              aria-label="Search sprints"
               type="text"
               value={searchQuery}
               onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}

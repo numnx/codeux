@@ -18,6 +18,10 @@ interface AvantgardeSelectProps {
   /** Compact variant for inline/card usage (smaller text, no border bg) */
   variant?: "default" | "compact" | "card";
   className?: string;
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+  "aria-labelledby"?: string;
 }
 
 interface DropdownPosition {
@@ -51,6 +55,10 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   placeholder = "Select\u2026",
   variant = "default",
   className = "",
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedby,
+  "aria-labelledby": ariaLabelledby,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -214,6 +222,10 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   return (
     <div className={`relative ${className}`}>
       <button
+        id={id}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedby}
+        aria-labelledby={ariaLabelledby}
         ref={triggerRef}
         type="button"
         onClick={() => !disabled && setOpen(!open)}

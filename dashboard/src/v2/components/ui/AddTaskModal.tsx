@@ -207,8 +207,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint</label>
+                <label htmlFor="add-task-sprint" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Sprint</label>
                 <select
+                  id="add-task-sprint"
                   value={sprintId}
                   onInput={(event) => setSprintId((event.target as HTMLSelectElement).value)}
                   className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500"
@@ -222,8 +223,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
 
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Title</label>
+                <label htmlFor="add-task-title" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Title</label>
                 <input
+                  id="add-task-title"
                   type="text"
                   value={title}
                   onInput={(event) => setTitle((event.target as HTMLInputElement).value)}
@@ -301,8 +303,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</label>
+              <label htmlFor="add-task-description" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Description</label>
               <textarea
+                id="add-task-description"
                 value={description}
                 onInput={(event) => setDescription((event.target as HTMLTextAreaElement).value)}
                 className="mt-2.5 w-full min-h-[110px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none"
@@ -311,8 +314,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Prompt</label>
+              <label htmlFor="add-task-prompt" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Execution Prompt</label>
               <textarea
+                id="add-task-prompt"
                 value={promptMarkdown}
                 onInput={(event) => setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
                 className="mt-2.5 w-full min-h-[150px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none font-mono"

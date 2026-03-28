@@ -524,8 +524,9 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
               {/* Additional prompt for this run */}
               <div data-qs-stagger className="mt-8 space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Additional Instructions (optional)</label>
+                <label htmlFor="qs-additional-prompt" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Additional Instructions (optional)</label>
                 <textarea
+                  id="qs-additional-prompt"
                   value={additionalPrompt}
                   onInput={(e) => setAdditionalPrompt((e.target as HTMLTextAreaElement).value)}
                   placeholder="Add extra context or requirements for this specific run — e.g. 'Focus only on the auth module' or 'Include migration scripts'..."
@@ -609,9 +610,10 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             </div>
 
             {/* Name */}
-            <label data-qs-stagger className="mt-8 block space-y-2">
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Template Name</span>
+            <div data-qs-stagger className="mt-8 block space-y-2">
+              <label htmlFor="qs-template-name-input" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Template Name</label>
               <input
+                id="qs-template-name-input"
                 type="text"
                 value={edName}
                 onInput={(e) => setEdName((e.target as HTMLInputElement).value)}
@@ -619,19 +621,20 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 className="w-full border-0 border-b-2 border-black/[0.08] bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-ember-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem]"
                 autoFocus
               />
-            </label>
+            </div>
 
             {/* Description */}
-            <label data-qs-stagger className="mt-6 block space-y-2">
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</span>
+            <div data-qs-stagger className="mt-6 block space-y-2">
+              <label htmlFor="qs-template-desc-input" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Description</label>
               <input
+                id="qs-template-desc-input"
                 type="text"
                 value={edDescription}
                 onInput={(e) => setEdDescription((e.target as HTMLInputElement).value)}
                 placeholder="What this template does in one line"
                 className="w-full border-0 border-b-2 border-black/[0.06] bg-transparent pb-2 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-ember-500/60 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
               />
-            </label>
+            </div>
 
             {/* Icon + Color + Category Tag + Default Tasks */}
             <div data-qs-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -675,6 +678,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
                   {/* Category text field */}
                   <input
+                    id="qs-category-input"
+                    aria-label="Category name"
                     type="text"
                     value={edCategory}
                     onInput={(e) => setEdCategory((e.target as HTMLInputElement).value)}
@@ -698,9 +703,10 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               </div>
 
               <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Default Tasks</div>
+                <label htmlFor="qs-default-tasks-range" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2 block">Default Tasks</label>
                 <div className="font-mono text-2xl font-black tracking-tight text-slate-900 dark:text-white">{edTaskCount}</div>
                 <input
+                  id="qs-default-tasks-range"
                   type="range" min="1" max="15" value={edTaskCount}
                   onInput={(e) => setEdTaskCount(parseInt((e.target as HTMLInputElement).value, 10))}
                   className="mt-2 w-full h-1.5 bg-black/[0.06] rounded-full appearance-none cursor-pointer accent-ember-500 dark:bg-white/[0.08]"
@@ -776,11 +782,12 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             {agentPresets.length > 0 && (
               <div data-qs-stagger className="mt-6">
                 <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Agent Preset (optional)</div>
+                  <div id="qs-agent-preset-label" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Agent Preset (optional)</div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
                     Attach an agent's instructions to this template. The agent's prompt will be prepended to the template instructions.
                   </p>
                   <AvantgardeSelect
+                    aria-labelledby="qs-agent-preset-label"
                     variant="compact"
                     value={edAgentPresetId}
                     onChange={(val) => setEdAgentPresetId(val)}
@@ -796,8 +803,9 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
             {/* Instructions */}
             <div data-qs-stagger className="mt-6 space-y-2">
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Agent Instructions</span>
+              <label htmlFor="qs-agent-instructions-textarea" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Agent Instructions</label>
               <textarea
+                id="qs-agent-instructions-textarea"
                 value={edInstruction}
                 onInput={(e) => setEdInstruction((e.target as HTMLTextAreaElement).value)}
                 placeholder="Write detailed instructions for the planning agent. Leave empty to use only the agent preset's instructions..."

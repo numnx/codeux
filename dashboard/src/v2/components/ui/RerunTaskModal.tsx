@@ -125,14 +125,15 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                     </div>
 
                     {/* Clear worktree checkbox */}
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="flex items-start gap-3">
                         <input
+                            id="rerun-clear-worktree"
                             type="checkbox"
                             checked={clearWorktree}
                             onChange={(e) => setClearWorktree((e.target as HTMLInputElement).checked)}
                             className="mt-0.5 h-4 w-4 rounded border-black/[0.15] dark:border-white/[0.15] text-status-amber focus:ring-signal-500 focus:ring-offset-0 cursor-pointer"
                         />
-                        <div>
+                        <label htmlFor="rerun-clear-worktree" className="cursor-pointer group">
                             <div className="flex items-center gap-1.5">
                                 <Trash2 className="w-3 h-3 text-slate-400 group-hover:text-status-amber transition-colors" strokeWidth={2} />
                                 <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
@@ -142,8 +143,8 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                             <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
                                 Remove the existing worktree directory before rerunning. Use this for a completely fresh start.
                             </p>
-                        </div>
-                    </label>
+                        </label>
+                    </div>
                 </div>
 
                 {/* Footer */}

@@ -1,5 +1,6 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
 import type { ProjectSettings, SettingsValueSource, ThinkingMode } from "../../../types.js";
+import { useId, cloneElement, isValidElement } from "preact/compat";
 import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
 import {
   getFieldSource,
@@ -50,54 +51,82 @@ const OverrideBadge: FunctionComponent<{ label: string }> = ({ label }) => (
   </span>
 );
 
-const Row: FunctionComponent<{ label: string; description: string; children: ComponentChildren; badge?: string }> = ({
+const Row: FunctionComponent<{ label: string; description: string; children: ComponentChildren; badge?: string; error?: string }> = ({
   label,
   description,
   children,
   badge,
-}) => (
-  <div className="flex flex-col gap-3 rounded-[1.35rem] border border-black/[0.05] bg-black/[0.015] px-4 py-4 dark:border-white/[0.05] dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
-    <div className="max-w-2xl">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</div>
-        {badge ? <OverrideBadge label={badge} /> : null}
-      </div>
-      <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
-    </div>
-    <div className="flex shrink-0 items-center gap-3">{children}</div>
-  </div>
-);
+  error,
+}) => {
+  const rowId = useId();
+  const inputId = `input-${rowId}`;
+  const errorId = `error-${rowId}`;
 
-const TextField: FunctionComponent<{ value: string; onChange: (value: string) => void; mono?: boolean }> = ({ value, onChange, mono }) => (
+  const childrenWithId = isValidElement(children)
+    ? cloneElement(children as any, {
+        id: inputId,
+        "aria-invalid": !!error,
+        "aria-describedby": error ? errorId : undefined
+      })
+    : children;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[1.35rem] border border-black/[0.05] bg-black/[0.015] px-4 py-4 dark:border-white/[0.05] dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
+      <div className="max-w-2xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={inputId} className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</label>
+          {badge ? <OverrideBadge label={badge} /> : null}
+        </div>
+        <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
+        {error && (
+          <div id={errorId} aria-live="polite" className="mt-2 text-xs font-semibold text-red-500 dark:text-red-400">
+            {error}
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">{childrenWithId}</div>
+    </div>
+  );
+};
+
+const TextField: FunctionComponent<{ value: string; onChange: (value: string) => void; mono?: boolean; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }> = ({ value, onChange, mono, id, ...aria }) => (
   <input
+    id={id}
     type="text"
     value={value}
     onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
     className={`h-11 rounded-xl border border-black/[0.08] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-200 ${mono ? "font-mono" : ""}`}
+    {...aria}
   />
 );
 
-const TextAreaField: FunctionComponent<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => (
+const TextAreaField: FunctionComponent<{ value: string; onChange: (value: string) => void; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }> = ({ value, onChange, id, ...aria }) => (
   <textarea
+    id={id}
     value={value}
     onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
     className="min-h-[112px] w-full rounded-2xl border border-black/[0.08] bg-white px-3 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-200"
+    {...aria}
   />
 );
 
-const NumberField: FunctionComponent<{ value: number; onChange: (value: number) => void; min?: number; max?: number }> = ({
+const NumberField: FunctionComponent<{ value: number; onChange: (value: number) => void; min?: number; max?: number; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }> = ({
   value,
   onChange,
   min,
   max,
+  id,
+  ...aria
 }) => (
   <input
+    id={id}
     type="number"
     value={value}
     min={min}
     max={max}
     onInput={(event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
     className="h-11 w-28 rounded-xl border border-black/[0.08] bg-white px-3 font-mono text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-200"
+    {...aria}
   />
 );
 
@@ -105,8 +134,11 @@ const SelectField: FunctionComponent<{
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
-}> = ({ value, onChange, options }) => (
-  <AvantgardeSelect value={value} onChange={onChange} options={options} />
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, options, id, ...aria }) => (
+  <AvantgardeSelect id={id} value={value} onChange={onChange} options={options} {...aria} />
 );
 
 const ProviderLogo: FunctionComponent<{
@@ -125,11 +157,15 @@ const ProviderLogo: FunctionComponent<{
   );
 };
 
-const ToggleField: FunctionComponent<{ checked: boolean; onChange: (checked: boolean) => void }> = ({ checked, onChange }) => (
+const ToggleField: FunctionComponent<{ checked: boolean; onChange: (checked: boolean) => void; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }> = ({ checked, onChange, id, ...aria }) => (
   <button
+    id={id}
     type="button"
+    role="switch"
+    aria-checked={checked}
     onClick={() => onChange(!checked)}
     className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-700"}`}
+    {...aria}
   >
     <span
       className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`}

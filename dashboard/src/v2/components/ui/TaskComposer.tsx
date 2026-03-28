@@ -108,8 +108,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
           <div data-composer-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Sprint</div>
+              <label htmlFor="task-composer-sprint" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2 block">Sprint</label>
               <select
+                id="task-composer-sprint"
                 value={state.sprintId}
                 onInput={(event) => state.setSprintId((event.target as HTMLSelectElement).value)}
                 className="w-full bg-transparent text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg px-1 py-0.5 -ml-1"
@@ -143,9 +144,10 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </div>
           </div>
 
-          <label data-composer-stagger className="mt-8 block space-y-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Title</span>
+          <div data-composer-stagger className="mt-8 block space-y-2">
+            <label htmlFor="task-composer-title" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block">Task Title</label>
             <input
+              id="task-composer-title"
               type="text"
               value={state.title}
               onInput={(event) => state.setTitle((event.target as HTMLInputElement).value)}
@@ -154,7 +156,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               required
               autoFocus
             />
-          </label>
+          </div>
 
           <div data-composer-stagger className="mt-8 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -164,6 +166,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
                 <textarea
+                  aria-label="Summary description"
                   value={state.description}
                   onInput={(event) => state.setDescription((event.target as HTMLTextAreaElement).value)}
                   placeholder="Summarize the intent and outcome."
@@ -173,6 +176,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
               <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
                 <textarea
+                  aria-label="Detailed markdown instructions"
                   value={state.promptMarkdown}
                   onInput={(event) => state.setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
                   placeholder="Detailed markdown instructions for the agent."
