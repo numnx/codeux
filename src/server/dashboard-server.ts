@@ -16,6 +16,8 @@ import type {
     ProjectStatsQuery,
     ProjectStatsWindow,
     ReadinessProbeStatus,
+    SprintPreviewScript,
+    SprintPreviewSession,
   } from "../contracts/app-types.js";
 import type {
   EffectiveSettingsResponse,
@@ -173,6 +175,20 @@ export interface DashboardServerOptions {
   isReady?: () => ReadinessProbeStatus;
   isHealthy?: () => ReadinessProbeStatus;
   listDockerContainers: () => Promise<DockerContainer[]>;
+  listSprintPreviewSessions?: (projectId: string) => Promise<SprintPreviewSession[]> | SprintPreviewSession[];
+  startSprintPreviewSession?: (projectId: string, sprintId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
+  rebuildSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
+  stopSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
+  getSprintPreviewScript?: (projectId: string, sprintId: string) => Promise<SprintPreviewScript> | SprintPreviewScript;
+  saveSprintPreviewScript?: (projectId: string, sprintId: string, content: string) => Promise<SprintPreviewScript> | SprintPreviewScript;
+  getSprintPreviewLogs?: (sessionId: string, tail?: number) => Promise<{ logs: string }> | { logs: string };
+  proxySprintPreviewRequest?: (args: {
+    sessionId: string;
+    method: string;
+    path: string;
+    headers?: Record<string, string | undefined>;
+    body?: Buffer;
+  }) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>;
 }
 
 export interface DashboardServerHandle {
@@ -245,6 +261,14 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     logger,
     isReady,
     listDockerContainers,
+    listSprintPreviewSessions,
+    startSprintPreviewSession,
+    rebuildSprintPreviewSession,
+    stopSprintPreviewSession,
+    getSprintPreviewScript,
+    saveSprintPreviewScript,
+    getSprintPreviewLogs,
+    proxySprintPreviewRequest,
   } = options;
 
   const dashboardLogger = logger ?? createLogger({ bindings: { component: "dashboard-server" } });
@@ -297,6 +321,128 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(containers);
     } catch (error) {
       res.json([]);
+    }
+  });
+
+  app.get("/api/projects/:projectId/preview/sessions", async (req, res) => {
+    try {
+      if (!listSprintPreviewSessions) {
+        res.json([]);
+        return;
+      }
+      res.json(await listSprintPreviewSessions(String(req.params.projectId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to list sprint preview sessions") });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sprints/:sprintId/preview/start", async (req, res) => {
+    try {
+      if (!startSprintPreviewSession) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      res.json(await startSprintPreviewSession(
+        String(req.params.projectId || "").trim(),
+        String(req.params.sprintId || "").trim(),
+      ));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to start sprint preview session") });
+    }
+  });
+
+  app.post("/api/browser/sessions/:sessionId/rebuild", async (req, res) => {
+    try {
+      if (!rebuildSprintPreviewSession) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      res.json(await rebuildSprintPreviewSession(String(req.params.sessionId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to rebuild sprint preview session") });
+    }
+  });
+
+  app.post("/api/browser/sessions/:sessionId/stop", async (req, res) => {
+    try {
+      if (!stopSprintPreviewSession) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      res.json(await stopSprintPreviewSession(String(req.params.sessionId || "").trim()));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to stop sprint preview session") });
+    }
+  });
+
+  app.get("/api/projects/:projectId/sprints/:sprintId/preview/script", async (req, res) => {
+    try {
+      if (!getSprintPreviewScript) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      res.json(await getSprintPreviewScript(
+        String(req.params.projectId || "").trim(),
+        String(req.params.sprintId || "").trim(),
+      ));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to load sprint preview script") });
+    }
+  });
+
+  app.put("/api/projects/:projectId/sprints/:sprintId/preview/script", async (req, res) => {
+    try {
+      if (!saveSprintPreviewScript) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      res.json(await saveSprintPreviewScript(
+        String(req.params.projectId || "").trim(),
+        String(req.params.sprintId || "").trim(),
+        typeof req.body?.content === "string" ? req.body.content : "",
+      ));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to save sprint preview script") });
+    }
+  });
+
+  app.get("/api/browser/sessions/:sessionId/logs", async (req, res) => {
+    try {
+      if (!getSprintPreviewLogs) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      const tail = typeof req.query.tail === "string" ? Number(req.query.tail) : undefined;
+      res.json(await getSprintPreviewLogs(String(req.params.sessionId || "").trim(), tail));
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to load sprint preview logs") });
+    }
+  });
+
+  app.all("/api/browser/sessions/:sessionId/proxy{*rest}", async (req, res) => {
+    try {
+      if (!proxySprintPreviewRequest) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      const sessionId = String(req.params.sessionId || "").trim();
+      const prefix = `/api/browser/sessions/${sessionId}/proxy`;
+      const pathWithQuery = req.originalUrl.startsWith(prefix)
+        ? req.originalUrl.slice(prefix.length) || "/"
+        : "/";
+      const body = req.body
+        ? Buffer.isBuffer(req.body)
+          ? req.body
+          : Buffer.from(JSON.stringify(req.body))
+        : undefined;
+      const proxied = await proxySprintPreviewRequest({
+        sessionId,
+        method: req.method,
+        path: pathWithQuery,
+        headers: Object.fromEntries(
+          Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : value]),
+        ),
+        body,
+      });
+      for (const [key, value] of Object.entries(proxied.headers)) {
+        res.setHeader(key, value);
+      }
+      res.status(proxied.status).send(proxied.body);
+    } catch (error) {
+      res.status(502).json({ error: toErrorMessage(error, "Failed to proxy sprint preview request") });
     }
   });
 
