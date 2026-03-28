@@ -104,9 +104,9 @@ export interface UpdateProjectInput {
 
 export interface CreateSprintInput {
   name: string;
+  sprintKey?: string;
   originalPrompt?: string | null;
   goal?: string;
-  sprintKey?: string | null;
   number?: number;
   status?: SprintStatus;
   showcasePinned?: boolean;
@@ -117,9 +117,9 @@ export interface CreateSprintInput {
 
 export interface UpdateSprintInput {
   name?: string;
+  sprintKey?: string | null;
   originalPrompt?: string | null;
   goal?: string;
-  sprintKey?: string | null;
   number?: number | null;
   status?: SprintStatus;
   showcasePinned?: boolean;

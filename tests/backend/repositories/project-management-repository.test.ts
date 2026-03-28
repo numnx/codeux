@@ -210,31 +210,45 @@ describe("ProjectManagementRepository", () => {
   });
 
   it("persists and retrieves sprintKey", async () => {
-    const { repository } = await createRepository();
+    const { repository: pmRepository } = await createRepository();
+    const project1 = pmRepository.createProject({ name: "Project 1", sourceType: "local", sourceRef: "/path/to/project1" });
 
-    const project = repository.createProject({
-      name: "Sprint Key Project",
-      sourceType: "local",
-      sourceRef: "/workspace/sprint-key-project",
-    });
-
-    const sprint = repository.createSprint(project.id, {
-      name: "Sprint with Key",
+    // 1. Create with sprintKey
+    const sprint = pmRepository.createSprint(project1.id, {
+      name: "Sprint X",
       sprintKey: "SK-123",
     });
-
     expect(sprint.sprintKey).toBe("SK-123");
 
-    const retrievedSprint = repository.getSprint(sprint.id);
+    // 2. Retrieve the sprint, verify sprintKey is returned
+    const retrievedSprint = pmRepository.findSprintByProjectAndNumber(project1.id, sprint.number!);
     expect(retrievedSprint?.sprintKey).toBe("SK-123");
 
-    const updatedSprint = repository.updateSprint(sprint.id, {
+    // 3. Update the sprintKey
+    const updatedSprint = pmRepository.updateSprint(sprint.id, {
       sprintKey: "SK-456",
     });
     expect(updatedSprint.sprintKey).toBe("SK-456");
 
-    const listRetrieved = repository.listSprints(project.id).sprints[0];
+    // 4. Verify in list retrieval
+    const listRetrieved = pmRepository.listSprints(project1.id).sprints.find((s) => s.id === sprint.id)!;
     expect(listRetrieved.sprintKey).toBe("SK-456");
+  });
+
+  it("handles null and undefined sprintKey on update correctly", async () => {
+    const { repository: pmRepository } = await createRepository();
+    const project1 = pmRepository.createProject({ name: "Project 1", sourceType: "local", sourceRef: "/path/to/project1" });
+
+    const sprint = pmRepository.createSprint(project1.id, { name: "Sprint X", sprintKey: "SK-X" });
+    expect(sprint.sprintKey).toBe("SK-X");
+
+    // Undefined should preserve the value
+    const updatedUndefined = pmRepository.updateSprint(sprint.id, { name: "Sprint Y" });
+    expect(updatedUndefined.sprintKey).toBe("SK-X");
+
+    // Null should clear the value
+    const updatedNull = pmRepository.updateSprint(sprint.id, { sprintKey: null });
+    expect(updatedNull.sprintKey).toBeNull();
   });
 
   it("imports and exports sprint markdown against the database model", async () => {
@@ -323,6 +337,43 @@ describe("ProjectManagementRepository", () => {
       status: "cancelled",
     });
   });
+
+  it("finds project by base dir", async () => {
+    const { repository: pmRepository } = await createRepository();
+    const project1 = pmRepository.createProject({ name: "Project 1", sourceType: "local", sourceRef: "/path/to/project1" });
+
+    // Matching exact path
+    const foundProject = pmRepository.findProjectByBaseDir("/path/to/project1");
+    expect(foundProject?.id).toBe(project1.id);
+
+    // Mismatched path
+    const notFoundProject = pmRepository.findProjectByBaseDir("/path/to/unknown");
+    expect(notFoundProject).toBeNull();
+  });
+
+  it("updates a project completely", async () => {
+    const { repository: pmRepository } = await createRepository();
+    const project1 = pmRepository.createProject({ name: "Project 1", sourceType: "local", sourceRef: "/path/to/project1" });
+
+    const updated = pmRepository.updateProject(project1.id, {
+      name: "Project 1 Updated",
+      sourceType: "git",
+      sourceRef: "https://github.com/repo",
+      baseDir: "/path/to/project1-updated",
+      defaultBranch: "main",
+      featureBranchPrefix: "feat/",
+      status: "archived",
+    });
+
+    expect(updated.name).toBe("Project 1 Updated");
+    expect(updated.sourceType).toBe("git");
+    expect(updated.sourceRef).toBe("https://github.com/repo");
+    expect(updated.baseDir).toBe("/path/to/project1-updated");
+    expect(updated.defaultBranch).toBe("main");
+    expect(updated.featureBranchPrefix).toBe("feat/");
+    expect(updated.status).toBe("archived");
+  });
+
 
   it("publishes project collection and structure refreshes on project mutations", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-project-repo-realtime-"));

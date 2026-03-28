@@ -1050,6 +1050,7 @@ describe("ExecutionRepository", () => {
     });
     const sprint = projectRepository.createSprint(project.id, {
       name: "Windowed Sprint",
+      sprintKey: "SK-999",
       number: 4,
       status: "running",
     });
@@ -1163,6 +1164,7 @@ describe("ExecutionRepository", () => {
     expect(thirtyDaySnapshot.window).toBe("30d");
     expect(thirtyDaySnapshot.range.resolution).toBe("day");
     expect(thirtyDaySnapshot.range.bucketCount).toBe(30);
+    expect(thirtyDaySnapshot.sprints[0]!.label).toBe("SK-999 · Windowed Sprint");
     expect(thirtyDaySnapshot.usage.totalTokens).toBe(1_000);
 
     const allTimeSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "all");

@@ -2197,12 +2197,13 @@ export class ExecutionRepository {
 
   private getSprintMetadata(projectId: string): Map<string, StatsEntityMetadata> {
     const rows = this.getCachedStatement(`
-      SELECT s.id AS sprint_id, sr.id AS sprint_run_id, s.name, s.number, sr.status
+      SELECT s.id AS sprint_id, s.sprint_key, sr.id AS sprint_run_id, s.name, s.number, sr.status
       FROM sprints s
       LEFT JOIN sprint_runs sr ON sr.sprint_id = s.id
       WHERE s.project_id = ?
     `).all(projectId) as unknown as Array<{
       sprint_id: string;
+      sprint_key: string | null;
       sprint_run_id: string | null;
       name: string;
       number: number | string | null;
@@ -2212,8 +2213,15 @@ export class ExecutionRepository {
     const map = new Map<string, StatsEntityMetadata>();
 
     for (const row of rows) {
+      let label = row.name;
+      if (row.sprint_key) {
+        label = `${row.sprint_key} · ${row.name}`;
+      } else if (row.number !== null) {
+        label = `Sprint ${toNumber(row.number)} · ${row.name}`;
+      }
+
       const summary = {
-        label: row.number === null ? row.name : `Sprint ${toNumber(row.number)} · ${row.name}`,
+        label,
         secondaryLabel: null,
         status: row.status,
         provider: null,

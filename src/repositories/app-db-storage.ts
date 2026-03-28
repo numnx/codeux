@@ -67,6 +67,7 @@ export class AppDbStorage {
       CREATE TABLE IF NOT EXISTS sprints (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
+        sprint_key TEXT,
         number INTEGER,
         slug TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -483,9 +484,9 @@ export class AppDbStorage {
     this.ensureColumn("task_runs", "dispatch_id", "TEXT");
     this.ensureColumn("tasks", "executor_type", "TEXT NOT NULL DEFAULT 'auto'");
     this.ensureColumn("task_run_events", "source_event_key", "TEXT");
+    this.ensureColumn("sprints", "sprint_key", "TEXT");
     this.ensureColumn("sprints", "showcase_pinned", "INTEGER NOT NULL DEFAULT 0");
     this.ensureColumn("sprints", "original_prompt", "TEXT");
-    this.ensureColumn("sprints", "sprint_key", "TEXT");
     this.ensureColumn("agent_presets", "source_path", "TEXT");
     this.ensureColumn("agent_presets", "source_scope", "TEXT");
     this.ensureColumn("agent_presets", "source_updated_at", "TEXT");
