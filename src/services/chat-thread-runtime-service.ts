@@ -273,6 +273,10 @@ export class ChatThreadRuntimeService {
 
       const replyMarkdown = this.normalizeProviderReply(result.text);
 
+      this.deps.connectionChatRepository.markDashboardMessagesProcessed(thread.id, {
+        upToMessageId: latestMessage.id,
+      });
+
       this.deps.connectionChatRepository.postSystemMessage(projectId, {
         threadId: thread.id,
         bodyMarkdown: replyMarkdown,

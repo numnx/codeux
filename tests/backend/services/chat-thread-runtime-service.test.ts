@@ -12,6 +12,7 @@ describe("ChatThreadRuntimeService", () => {
         listThreads: vi.fn(),
         updateThread: vi.fn(),
         listMessages: vi.fn(),
+        markDashboardMessagesProcessed: vi.fn(),
         postSystemMessage: vi.fn(),
       },
       projectWorkerAssignmentRepository: {
@@ -44,7 +45,7 @@ describe("ChatThreadRuntimeService", () => {
     deps.projectWorkerAssignmentRepository.listAssignmentsForProject.mockReturnValue([
       { assignmentRole: "primary", capabilities: { canSuperviseProjects: true }, workerStatus: "online", connectionId: "live-conn-1" },
     ]);
-    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ threadId: "t1", bodyMarkdown: "hello" });
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-1", threadId: "t1", bodyMarkdown: "hello" });
     deps.connectionChatRepository.listThreads.mockReturnValue([{ id: "t1", connectionId: null }]);
     deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj" });
 
@@ -55,7 +56,7 @@ describe("ChatThreadRuntimeService", () => {
   });
 
   it("runs virtual provider and replays history on provider switch", async () => {
-    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ threadId: "t1", bodyMarkdown: "hello" });
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-2", threadId: "t1", bodyMarkdown: "hello" });
     deps.connectionChatRepository.listThreads.mockReturnValue([{
       id: "t1",
       connectionId: null,
@@ -88,10 +89,13 @@ describe("ChatThreadRuntimeService", () => {
         sessionIds: ["new-session"],
       })
     }));
+    expect(deps.connectionChatRepository.markDashboardMessagesProcessed).toHaveBeenCalledWith("t1", {
+      upToMessageId: "msg-2",
+    });
   });
 
   it("continues with continueSessionId if same provider", async () => {
-    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ threadId: "t1", bodyMarkdown: "hello" });
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-3", threadId: "t1", bodyMarkdown: "hello" });
     deps.connectionChatRepository.listThreads.mockReturnValue([{
       id: "t1",
       connectionId: null,
@@ -116,7 +120,7 @@ describe("ChatThreadRuntimeService", () => {
   });
 
   it("honors an explicitly routed virtual provider before falling back to global routing", async () => {
-    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ threadId: "t1", bodyMarkdown: "hello" });
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-4", threadId: "t1", bodyMarkdown: "hello" });
     deps.connectionChatRepository.listThreads.mockReturnValue([{
       id: "t1",
       connectionId: null,

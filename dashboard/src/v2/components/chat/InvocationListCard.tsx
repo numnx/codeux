@@ -1,17 +1,8 @@
 import type { FunctionComponent } from "preact";
 import type { ExecutionInvocationRecord } from "../../types.js";
+import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
-
-const relativeTime = (iso: string | null): string => {
-  if (!iso) return "No messages";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.max(0, Math.floor(diffMs / 60000));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-};
 
 export const InvocationListCard: FunctionComponent<{
   invocations: ExecutionInvocationRecord[];
@@ -55,10 +46,10 @@ export const InvocationListCard: FunctionComponent<{
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${invocation.status === "failed" ? "text-status-red" : invocation.status === "completed" ? "text-signal-500" : "text-slate-500"}`}>
+            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${invocation.status === "failed" ? "text-status-red" : invocation.status === "completed" ? "text-signal-500" : "text-slate-500"}`}>
                 {invocation.status}
               </div>
-              <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(invocation.lastMessageAt || invocation.createdAt)}</div>
+              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(invocation.lastMessageAt || invocation.createdAt)}</div>
             </div>
           </div>
         </button>

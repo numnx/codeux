@@ -2,12 +2,9 @@ import { type FunctionComponent } from "preact";
 import type { ExecutionInvocationMessageRecord } from "../../types.js";
 import { renderMarkdown } from "../../../lib/markdown.js";
 import { getInvocationWidgetData } from "../../lib/chat-widget-view-models.js";
+import { formatChatTime } from "../../lib/chat-time.js";
 import { PlanningRequestWidget } from "./widgets/PlanningRequestWidget.js";
 import { ChatAvatar, type AvatarRole } from "./ChatAvatar.js";
-
-const formatTime = (iso: string): string => (
-  new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-);
 
 export interface InvocationMessageBubbleProps {
   message: ExecutionInvocationMessageRecord;
@@ -30,6 +27,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
 
   const senderName = (fromUser || fromTool) ? "User" : (message.metadata?.agentName as string) || "Assistant";
   const providerLabel = message.metadata?.provider as string | undefined;
+  const createdAtLabel = formatChatTime(message.createdAt);
 
   return (
     <div className={`flex ${fromUser || fromTool ? "justify-end" : "justify-start"}`}>
@@ -51,7 +49,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
                 {providerLabel}
               </span>
             )}
-            <span>{formatTime(message.createdAt)}</span>
+            {createdAtLabel && <span>{createdAtLabel}</span>}
           </div>
 
           {/* Message Body */}

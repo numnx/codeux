@@ -34,6 +34,23 @@ describe("Chat Message Bubbles", () => {
       expect(container.innerHTML).toContain("Hello world");
     });
 
+    it("does not render Invalid Date when the timestamp is missing or malformed", () => {
+      const message: ChatMessageRecord = {
+        id: "msg_invalid",
+        threadId: "thread_1",
+        direction: "connection_to_dashboard",
+        authorType: "connection",
+        authorConnectionId: "conn_1",
+        bodyMarkdown: "No timestamp",
+        deliveryStatus: "processed",
+        createdAt: "",
+        metadata: null,
+      };
+
+      const { container } = render(<ChatMessageBubble message={message} />);
+      expect(container.textContent).not.toContain("Invalid Date");
+    });
+
     it("renders a planning widget when planning metadata is present", () => {
       const message: ChatMessageRecord = {
         id: "msg_2",
@@ -71,6 +88,20 @@ describe("Chat Message Bubbles", () => {
       const { container } = render(<InvocationMessageBubble message={message} />);
       expect(container.innerHTML).toContain("Using tool");
       expect(container.innerHTML).toContain('"tool": "test"');
+    });
+
+    it("does not render Invalid Date for malformed invocation timestamps", () => {
+      const message: ExecutionInvocationMessageRecord = {
+        id: "msg_invalid",
+        invocationId: "inv_1",
+        role: "assistant",
+        contentMarkdown: "Still valid",
+        toolCallsJson: null,
+        createdAt: "",
+      };
+
+      const { container } = render(<InvocationMessageBubble message={message} />);
+      expect(container.textContent).not.toContain("Invalid Date");
     });
 
     it("renders a planning widget when metadata indicates virtual route", () => {

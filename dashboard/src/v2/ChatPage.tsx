@@ -44,6 +44,7 @@ import { ChatThreadHeader } from "./components/chat/ChatThreadHeader.js";
 import { useExecutions } from "../hooks/useExecutions.js";
 import { getProjectWorkerOptions, type WorkerRoutingPreference } from "./lib/project-worker-options.js";
 import { fetchProjectEffectiveSettings } from "./lib/settings-api.js";
+import { toChatTimestampMs } from "./lib/chat-time.js";
 import { ChatPageShell } from "./components/chat/ChatPageShell.js";
 import { ChatRail } from "./components/chat/ChatRail.js";
 import { ThreadListCard } from "./components/chat/ThreadListCard.js";
@@ -64,7 +65,7 @@ const isWorkingMessage = (
   return !allMessages.some((candidate) => (
     candidate.threadId === message.threadId
     && candidate.direction === "connection_to_dashboard"
-    && new Date(candidate.createdAt).getTime() >= new Date(message.createdAt).getTime()
+    && toChatTimestampMs(candidate.createdAt) >= toChatTimestampMs(message.createdAt)
   ));
 };
 
@@ -74,7 +75,7 @@ const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRe
   }
 
   return [...messages, nextMessage].sort((left, right) => {
-    const byCreatedAt = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+    const byCreatedAt = toChatTimestampMs(left.createdAt) - toChatTimestampMs(right.createdAt);
     if (byCreatedAt !== 0) {
       return byCreatedAt;
     }
@@ -666,6 +667,9 @@ export const ChatPage: FunctionComponent = () => {
         const nextThreads = upsertChatThread(currentThreads, thread);
         threadCacheRef.current.set(selectedProject.id, nextThreads);
         setThreadsSnapshot(nextThreads);
+        if (thread.id === selectedThreadIdRef.current) {
+          void refreshMessages(thread.id, { force: true });
+        }
         if (!selectedThreadIdRef.current) {
           void activateThread(thread.id, { preferredThread: thread });
         }

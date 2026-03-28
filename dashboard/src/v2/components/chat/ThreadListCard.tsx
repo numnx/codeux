@@ -1,18 +1,9 @@
 import type { FunctionComponent } from "preact";
 import { RefreshCw, Trash2, MessageCircle } from "lucide-preact";
 import type { ChatThread } from "../../types.js";
+import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
-
-const relativeTime = (iso: string | null): string => {
-  if (!iso) return "No messages";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.max(0, Math.floor(diffMs / 60000));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-};
 
 const statusTone = (pendingCount: number): string => (
   pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
@@ -58,7 +49,7 @@ export const ThreadListCard: FunctionComponent<{
               <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
                 {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
               </div>
-              <div className="mt-1 text-[10px] font-mono text-slate-400">{relativeTime(thread.lastMessageAt)}</div>
+              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(thread.lastMessageAt)}</div>
             </div>
           </div>
         </button>

@@ -220,6 +220,8 @@ Legacy runtime:
 - Chat page "Invocations" mode provides a read-only list with metadata for active/completed execution invocations without cluttering the main thread rail.
 - Chat page now receives websocket updates for thread assignment changes and incoming thread messages in the active thread
 - Chat page now shows a live "working" bubble once a listener has picked up a dashboard message and is preparing a reply
+- Chat page now force-refreshes the selected thread when realtime thread updates arrive, so virtual replies clear stale `pending` delivery badges and sidebar counts as soon as the reply lands
+- Chat message and thread timestamp chrome now suppresses malformed timestamps instead of rendering `Invalid Date`
 - Chat threads can now be deleted directly from the history rail; deletion is realtime-aware and removes the thread across open dashboard views
 - New thread creation now deduplicates optimistic UI insertion against realtime thread updates, so the sidebar count no longer briefly overstates the number of chats
 - Chat page now hydrates thread lists and conversation panes from cache first, so revisiting a project or switching between already-seen threads is immediate instead of blocking on a fresh fetch

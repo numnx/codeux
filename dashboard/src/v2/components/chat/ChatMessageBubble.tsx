@@ -2,12 +2,9 @@ import { type FunctionComponent } from "preact";
 import type { ChatMessageRecord } from "../../types.js";
 import { renderMarkdown } from "../../../lib/markdown.js";
 import { getChatWidgetData } from "../../lib/chat-widget-view-models.js";
+import { formatChatTime } from "../../lib/chat-time.js";
 import { PlanningRequestWidget } from "./widgets/PlanningRequestWidget.js";
 import { ChatAvatar, type AvatarRole } from "./ChatAvatar.js";
-
-const formatTime = (iso: string): string => (
-  new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-);
 
 export interface ChatMessageBubbleProps {
   message: ChatMessageRecord;
@@ -28,6 +25,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({ m
 
   const senderName = fromDashboard ? "User" : (message.metadata?.agentName as string) || "Assistant";
   const providerLabel = message.metadata?.provider as string | undefined;
+  const createdAtLabel = formatChatTime(message.createdAt);
 
   return (
     <div className={`flex ${fromDashboard ? "justify-end" : "justify-start"}`}>
@@ -49,7 +47,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({ m
                 {providerLabel}
               </span>
             )}
-            <span>{formatTime(message.createdAt)}</span>
+            {createdAtLabel && <span>{createdAtLabel}</span>}
           </div>
 
           {/* Message Body */}
