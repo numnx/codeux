@@ -1057,6 +1057,7 @@ describe("dashboard project management API", () => {
     });
     const sprint = repository.createSprint(project.id, {
       name: "Initial Sprint",
+      sprintKey: "PLAN-KEY",
       goal: "Initial Goal",
     });
 
