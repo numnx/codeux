@@ -853,6 +853,7 @@ export class JulesAgentServer {
         isHealthy: () => this.isHealthy(),
         listDockerContainers: () => this.dockerService.listContainers(),
         listSprintPreviewSessions: (projectId) => this.sprintPreviewService.listSessions(projectId),
+        getSprintPreviewSession: (sessionId: string) => this.sprintPreviewService.getSession(sessionId),
         startSprintPreviewSession: (projectId, sprintId) => this.sprintPreviewService.startSession(projectId, sprintId),
         rebuildSprintPreviewSession: (sessionId) => this.sprintPreviewService.rebuildSession(sessionId),
         stopSprintPreviewSession: (sessionId) => this.sprintPreviewService.stopSession(sessionId),

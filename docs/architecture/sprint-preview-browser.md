@@ -85,19 +85,21 @@ The setup script configured in `cliWorkflow.containerSetupScriptPath` still prep
 
 ## Browser Delivery
 
-The dashboard does not iframe raw `http://127.0.0.1:<port>` URLs directly.
+The browser now serves each preview session on its own local origin:
+- `http://preview-<sessionId>.localhost:<dashboardPort>/...`
 
-Instead it proxies preview traffic through:
-- `/api/browser/sessions/:sessionId/proxy/*`
+The dashboard server routes that host to the matching preview container by session id. This replaces the older path-proxy page delivery model and gives each preview its own origin by default.
 
-This keeps the preview same-origin with the dashboard so the in-app browser can support:
-- back/forward navigation
-- refresh
-- editable address field
-- open-in-new-tab behavior
-- iframe location tracking after navigation
+Benefits:
+- relative `/api/...` and websocket calls stay inside the preview container instead of hitting the main dashboard APIs
+- cookies, local storage, and service workers stay isolated per preview session
+- open-in-new-tab uses the preview origin directly instead of a rewritten proxy path
 
-Body and asset rewriting is best-effort for preview-oriented HTTP traffic and is primarily intended for static/frontend app builds.
+The dashboard injects a small preview bridge script into proxied HTML responses. The bridge:
+- reports `location` and `title` changes to the parent browser page via `postMessage`
+- accepts back/forward/reload/navigate commands from the parent browser chrome
+
+Host-based preview routing also proxies websocket upgrades so preview apps that derive websocket URLs from `window.location` continue to work on their own preview origin.
 
 ## Automation
 
@@ -141,9 +143,11 @@ Preview endpoints are implemented in `src/server/dashboard-server.ts`.
 - `GET /api/browser/sessions/:sessionId/logs`
 - `ALL /api/browser/sessions/:sessionId/proxy/*`
 
+The legacy path-proxy endpoint remains available for compatibility and diagnostics, but the production browser surface should prefer the preview host origin.
+
 ## Current Boundaries
 
 Current intentional limits:
 - one persisted preview session row per project+sprint pair
-- same-origin proxy rewriting is tuned for app-preview traffic, not arbitrary authenticated web browsing
+- preview host routing assumes projects use relative URLs or origin-derived absolute URLs for API/websocket traffic
 - script detection prefers production-style preview/start commands and does not automatically fall back to `dev`

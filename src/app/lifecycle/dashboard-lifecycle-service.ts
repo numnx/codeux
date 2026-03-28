@@ -77,6 +77,7 @@ export interface BootDashboardDeps {
   isHealthy: () => ReadinessProbeStatus;
   listDockerContainers: () => Promise<DockerContainer[]>;
   listSprintPreviewSessions: (projectId: string) => Promise<SprintPreviewSession[]>;
+  getSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession | null>;
   startSprintPreviewSession: (projectId: string, sprintId: string) => Promise<SprintPreviewSession>;
   rebuildSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession>;
   stopSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession>;
@@ -602,6 +603,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     isHealthy: deps.isHealthy,
     listDockerContainers: deps.listDockerContainers,
     listSprintPreviewSessions: deps.listSprintPreviewSessions,
+    getSprintPreviewSession: deps.getSprintPreviewSession,
     startSprintPreviewSession: deps.startSprintPreviewSession,
     rebuildSprintPreviewSession: deps.rebuildSprintPreviewSession,
     stopSprintPreviewSession: deps.stopSprintPreviewSession,

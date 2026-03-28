@@ -27,6 +27,9 @@ import {
   stopPreviewSession,
 } from "./lib/browser-api.js";
 
+const PREVIEW_MESSAGE_TYPE = "sprint-preview:state";
+const PREVIEW_NAVIGATION_TYPE = "sprint-preview:navigate";
+
 const normalizePath = (value: string | null | undefined): string => {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "/";
@@ -67,6 +70,16 @@ const formatPortMapping = (session: SprintPreviewSession): string => {
     return `pending -> :${routedPort}`;
   }
   return "port pending";
+};
+
+const buildPreviewOrigin = (sessionId: string): string => {
+  const protocol = window.location.protocol;
+  const port = window.location.port ? `:${window.location.port}` : "";
+  const currentHost = window.location.hostname;
+  const host = currentHost === "localhost" || currentHost === "127.0.0.1"
+    ? `preview-${sessionId}.localhost`
+    : `preview-${sessionId}.${currentHost}`;
+  return `${protocol}//${host}${port}`;
 };
 
 export const BrowserPage: FunctionComponent = () => {
@@ -189,24 +202,40 @@ export const BrowserPage: FunctionComponent = () => {
     return () => window.clearInterval(timer);
   }, [selectedSession?.id]);
 
-  const currentFrameSrc = selectedSession
-    ? `/api/browser/sessions/${selectedSession.id}/proxy${normalizePath(currentPath)}`
-    : "";
-
-  const handleFrameLoad = () => {
-    if (!selectedSession || !frameRef.current) return;
-    try {
-      const frameLocation = frameRef.current.contentWindow?.location;
-      if (!frameLocation) return;
-      const proxyPrefix = `/api/browser/sessions/${selectedSession.id}/proxy`;
-      const nextPath = normalizePath(
-        `${frameLocation.pathname.startsWith(proxyPrefix) ? frameLocation.pathname.slice(proxyPrefix.length) || "/" : frameLocation.pathname}${frameLocation.search}${frameLocation.hash}`,
-      );
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!selectedSession) {
+        return;
+      }
+      if (event.origin !== buildPreviewOrigin(selectedSession.id)) {
+        return;
+      }
+      const payload = event.data as { type?: string; path?: string } | null;
+      if (!payload || payload.type !== PREVIEW_MESSAGE_TYPE) {
+        return;
+      }
+      const nextPath = normalizePath(payload.path || "/");
       setCurrentPath(nextPath);
       setAddressValue(nextPath);
-    } catch {
-      // Same-origin proxy should make this readable. Ignore if a navigation escapes.
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, [selectedSession?.id]);
+
+  const currentFrameSrc = selectedSession
+    ? `${buildPreviewOrigin(selectedSession.id)}${normalizePath(currentPath)}`
+    : "";
+
+  const postNavigationCommand = (action: "back" | "forward" | "reload" | "push", path?: string) => {
+    if (!selectedSession || !frameRef.current?.contentWindow) {
+      return;
     }
+    frameRef.current.contentWindow.postMessage({
+      type: PREVIEW_NAVIGATION_TYPE,
+      action,
+      path,
+    }, buildPreviewOrigin(selectedSession.id));
   };
 
   const handleStart = async () => {
@@ -267,6 +296,7 @@ export const BrowserPage: FunctionComponent = () => {
     const nextPath = normalizePath(addressValue);
     setCurrentPath(nextPath);
     setAddressValue(nextPath);
+    postNavigationCommand("push", nextPath);
   };
 
   const sessionCards = sessions.filter((session) => !selectedProject || session.projectId === selectedProject.id);
@@ -443,21 +473,21 @@ export const BrowserPage: FunctionComponent = () => {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => frameRef.current?.contentWindow?.history.back()}
+                onClick={() => postNavigationCommand("back")}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
               </button>
               <button
                 type="button"
-                onClick={() => frameRef.current?.contentWindow?.history.forward()}
+                onClick={() => postNavigationCommand("forward")}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
               >
                 <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
               </button>
               <button
                 type="button"
-                onClick={() => frameRef.current?.contentWindow?.location.reload()}
+                onClick={() => postNavigationCommand("reload")}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
               >
                 <RefreshCw className="h-4 w-4" strokeWidth={2.2} />
@@ -483,7 +513,6 @@ export const BrowserPage: FunctionComponent = () => {
                 ref={frameRef}
                 title={`Sprint preview ${selectedSession.sprintName}`}
                 src={currentFrameSrc}
-                onLoad={handleFrameLoad}
                 className="h-full w-full border-0 bg-white"
               />
             ) : (
