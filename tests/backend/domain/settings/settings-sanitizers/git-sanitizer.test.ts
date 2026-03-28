@@ -19,4 +19,12 @@ describe("sanitizeGit", () => {
     });
     expect(result.githubToken).toBe("explicit-gh-token");
   });
+
+  it("prioritizes input defaultSprintKey and falls back to default", () => {
+    const defaultResult = sanitizeGit({});
+    expect(defaultResult.defaultSprintKey).toBe("SPR");
+
+    const inputResult = sanitizeGit({ git: { defaultSprintKey: "DEV" } });
+    expect(inputResult.defaultSprintKey).toBe("DEV");
+  });
 });
