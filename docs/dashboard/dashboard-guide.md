@@ -399,6 +399,7 @@ Live view behavior:
 - `project.structure.updated` triggers a silent background reload for structural changes that are not already embedded in the execution payload
 - attention queue changes now flow through the same realtime execution snapshot path, so merge-conflict escalation, worker claims, and resolution actions appear without waiting for a poll tick
 - provider-backed runtime feeds now render the persisted agent/user message text from `provider_activity` events, so clarification requests and other Jules messages show up directly instead of collapsing to a generic provider label
+- A live preview link is displayed in the header when the active or selected sprint has a running preview session.
 
 The old legacy settings hook remains outside the active v2 flow; the live dashboard now uses the scoped settings API above.
 

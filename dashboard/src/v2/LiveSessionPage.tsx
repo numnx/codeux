@@ -37,6 +37,9 @@ import { GitCIStatusPanel } from "./components/GitCIStatusPanel.js";
 import { deriveLiveDurationDisplay } from "./lib/live-duration-display.js";
 import { useProjectData } from "./context/project-data.js";
 import { useProjectTasks } from "./hooks/use-project-tasks.js";
+import { usePreviewSessions } from "./hooks/use-preview-sessions.js";
+import { LivePreviewLink } from "./components/ui/LivePreviewLink.js";
+
 import { buildLiveSessionTasks } from "./lib/live-session-task-structure.js";
 
 const statusTone = (value: string | null): string => {
@@ -765,6 +768,11 @@ export const LiveSessionPage: FunctionComponent = () => {
         sprintScopeReady ? sprintScopeId : undefined,
         { enabled: sprintScopeReady },
     );
+    const { selectedSession } = usePreviewSessions({
+        projectId: realtimeProjectId,
+        selectedSprintId: sprintScopeReady ? sprintScopeId : undefined,
+    });
+
     const initialLoadComplete = legacyInitialLoadComplete && !sprintsLoading;
 
     const {
@@ -1076,6 +1084,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 {/* Right: pills + view toggle + timestamp */}
                 <div className="flex flex-col items-start lg:items-end gap-4 shrink-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
+                        <LivePreviewLink session={selectedSession} />
                         {/* ── View Toggle ─────────────────────────────── */}
                         <div className="flex gap-0.5 p-0.5 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl backdrop-blur-md">
                             <button
