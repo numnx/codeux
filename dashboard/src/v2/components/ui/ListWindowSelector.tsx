@@ -44,7 +44,7 @@ export const ListWindowSelector: FunctionComponent<ListWindowSelectorProps> = ({
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-semibold tracking-wide text-slate-600 transition-colors hover:border-signal-500/50 hover:bg-signal-500/[0.02] dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-300 dark:hover:border-signal-500/50"
+        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-semibold tracking-wide text-slate-600 transition-colors hover:border-signal-500/50 hover:bg-signal-500/[0.02] dark:border-white/[0.08] dark:bg-void-900 dark:text-slate-300 dark:hover:border-signal-500/50 touch-target"
       >
         <ListFilter className="h-3.5 w-3.5 opacity-60" />
         <span className="opacity-60">{label}</span>
@@ -68,7 +68,7 @@ export const ListWindowSelector: FunctionComponent<ListWindowSelectorProps> = ({
                 value === option
                   ? "bg-signal-500/10 text-signal-600 dark:bg-signal-500/20 dark:text-signal-400"
                   : "text-slate-600 hover:bg-black/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.03]"
-              }`}
+              } touch-target`}
             >
               <span className="font-mono">{option}</span>
               {value === option && (

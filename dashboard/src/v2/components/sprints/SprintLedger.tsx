@@ -203,7 +203,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 touch-target"
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2.2} />
               </button>
@@ -225,7 +225,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
             <button
               type="button"
               onClick={handleBulkStart}
-              className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/20 dark:text-signal-300"
+              className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/20 dark:text-signal-300 touch-target"
             >
               <Play className="h-3 w-3" fill="currentColor" />
               Start
@@ -233,7 +233,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
             <button
               type="button"
               onClick={handleBulkDelete}
-              className="inline-flex items-center gap-1.5 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/20"
+              className="inline-flex items-center gap-1.5 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/20 touch-target"
             >
               <Trash2 className="h-3 w-3" />
               Delete
@@ -241,7 +241,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
             <button
               type="button"
               onClick={() => setSelectedIds(deselectAll())}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 touch-target"
             >
               Clear
             </button>
@@ -258,7 +258,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={handleToggleSelectAll}
-                  className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                   title={allFilteredSelected ? "Deselect all" : "Select all visible"}
                 >
                   {allFilteredSelected
@@ -270,7 +270,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("showcasePinned")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Showcase
                   {renderSortIndicator("showcasePinned")}
@@ -280,7 +280,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("sprintKey")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Sprint ID
                   {renderSortIndicator("sprintKey")}
@@ -290,7 +290,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("name")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Sprint
                   {renderSortIndicator("name")}
@@ -300,7 +300,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("status")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Status
                   {renderSortIndicator("status")}
@@ -310,7 +310,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("tasksCount")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Tasks
                   {renderSortIndicator("tasksCount")}
@@ -320,7 +320,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("completion")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Completion
                   {renderSortIndicator("completion")}
@@ -330,7 +330,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSort("createdAt")}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-slate-700 dark:hover:text-slate-200 touch-target"
                 >
                   Created
                   {renderSortIndicator("createdAt")}
@@ -381,7 +381,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                       <button
                         type="button"
                         onClick={() => handleToggleRow(sprint.id)}
-                        className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-signal-500"
+                        className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-signal-500 touch-target"
                       >
                         {isSelected
                           ? <CheckSquare className="h-4 w-4 text-signal-500" strokeWidth={2.2} />
@@ -393,11 +393,11 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                         type="button"
                         onClick={() => onToggleShowcase(sprint)}
                         disabled={pendingActionIds.has(pinActionId)}
-                        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+                        className={`touch-target ${`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
                           sprint.showcasePinned
                             ? "border-status-red/20 bg-status-red/10 text-status-red"
                             : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
-                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                        } disabled:cursor-not-allowed disabled:opacity-50`}`}
                       >
                         <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
                       </button>
@@ -464,11 +464,11 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                           type="button"
                           onClick={() => onSprintToggle(sprint.id)}
                           disabled={pendingActionIds.has(pendingActionId)}
-                          className={`inline-flex h-10 min-w-[5.5rem] items-center justify-center gap-2 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                          className={`touch-target ${`inline-flex h-10 min-w-[5.5rem] items-center justify-center gap-2 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                             activeRun
                               ? "border-status-red/20 bg-status-red/[0.1] text-status-red hover:bg-status-red/[0.14]"
                               : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
-                          } disabled:cursor-not-allowed disabled:opacity-50`}
+                          } disabled:cursor-not-allowed disabled:opacity-50`}`}
                         >
                           {activeRun ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
                           {activeRun ? "Stop" : "Start"}
@@ -483,7 +483,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                         <button
                           type="button"
                           onClick={(event) => onOpenRowMenu(event, sprint.id)}
-                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white"
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white touch-target"
                         >
                           <MoreVertical className="h-3.5 w-3.5" />
                         </button>

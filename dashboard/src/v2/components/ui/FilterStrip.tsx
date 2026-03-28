@@ -23,7 +23,7 @@ export function FilterStrip<T extends string>({
                         active === option
                             ? 'bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]'
                             : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
+                    } touch-target`}
                 >
                     {option}
                 </button>

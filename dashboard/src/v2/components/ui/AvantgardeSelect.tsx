@@ -192,7 +192,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
                     isActive
                       ? "bg-signal-500/8 font-semibold text-signal-600 dark:text-signal-400"
                       : "text-slate-700 hover:bg-signal-500/5 dark:text-slate-300 dark:hover:bg-signal-500/5"
-                  }`}
+                  } touch-target`}
                 >
                   {option.icon && <span className="flex-shrink-0">{option.icon}</span>}
                   <span className="truncate">{option.label}</span>
@@ -217,7 +217,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
         ref={triggerRef}
         type="button"
         onClick={() => !disabled && setOpen(!open)}
-        className={triggerClass}
+        className={`touch-target ${triggerClass}`}
         disabled={disabled}
       >
         <span className="truncate">{selected?.label || placeholder}</span>

@@ -121,7 +121,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0 touch-target"
             >
               <X className="w-4 h-4" />
             </button>
@@ -137,7 +137,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}.md`, sprintText)}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors touch-target"
                       >
                         <Download className="w-3 h-3" />
                         Download
@@ -145,7 +145,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => { void handleCopy("sprint", sprintText); }}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors touch-target"
                       >
                         {copiedField === "sprint" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedField === "sprint" ? "Copied" : "Copy"}
@@ -170,7 +170,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}-tasks.md`, tasksText)}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ember-600 hover:text-ember-500 transition-colors touch-target"
                       >
                         <Download className="w-3 h-3" />
                         Download
@@ -178,7 +178,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => { void handleCopy("tasks", tasksText); }}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors touch-target"
                       >
                         {copiedField === "tasks" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedField === "tasks" ? "Copied" : "Copy"}
@@ -204,7 +204,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                 <button
                   type="button"
                   onClick={onClose}
-                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors touch-target"
                 >
                   Close
                 </button>

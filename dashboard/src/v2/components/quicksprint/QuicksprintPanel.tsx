@@ -393,7 +393,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex min-h-[44px] min-w-[44px] h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white touch-target"
                 aria-label="Close quicksprint"
               >
                 <X className="h-4 w-4" />
@@ -422,7 +422,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                     <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Custom Templates</div>
                     <button
                       onClick={() => openEditor(null)}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ember-500/20 bg-ember-500/[0.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ember-600 transition-colors hover:bg-ember-500/[0.12] dark:text-ember-400"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ember-500/20 bg-ember-500/[0.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ember-600 transition-colors hover:bg-ember-500/[0.12] dark:text-ember-400 touch-target"
                     >
                       <Plus className="h-3 w-3" strokeWidth={2.5} />
                       New Template
@@ -432,7 +432,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                   {customTemplates.length === 0 ? (
                     <button
                       onClick={() => openEditor(null)}
-                      className="w-full rounded-[1.4rem] border border-dashed border-black/[0.08] bg-black/[0.015] p-8 text-center transition-colors hover:border-ember-500/30 hover:bg-ember-500/[0.03] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-ember-500/30"
+                      className="w-full rounded-[1.4rem] border border-dashed border-black/[0.08] bg-black/[0.015] p-8 text-center transition-colors hover:border-ember-500/30 hover:bg-ember-500/[0.03] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-ember-500/30 touch-target"
                     >
                       <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-ember-500/10">
                         <Plus className="h-5 w-5 text-ember-500" />
@@ -461,7 +461,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               <div data-qs-stagger className="flex items-center gap-3">
                 <button
                   onClick={() => setPhase("browse")}
-                  className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+                  className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white touch-target"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -538,7 +538,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               <div data-qs-stagger className="mt-6">
                 <button
                   onClick={() => setShowPrompt(!showPrompt)}
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300 touch-target"
                 >
                   {showPrompt ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   {showPrompt ? "Hide Combined Prompt" : "View Combined Prompt"}
@@ -598,7 +598,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             <div data-qs-stagger className="flex items-center gap-3">
               <button
                 onClick={() => setPhase("browse")}
-                className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white touch-target"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -648,7 +648,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                       setShowIconPicker(!showIconPicker);
                       setShowColorPicker(false);
                     }}
-                    className="flex min-h-[44px] min-w-[44px] h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-black/[0.08] bg-white/80 text-slate-600 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md hover:border-ember-500/30 hover:text-ember-500 active:scale-95 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:text-ember-400"
+                    className="flex min-h-[44px] min-w-[44px] h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-black/[0.08] bg-white/80 text-slate-600 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md hover:border-ember-500/30 hover:text-ember-500 active:scale-95 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:text-ember-400 touch-target"
                     title="Pick icon"
                   >
                     {(() => { const Ic = IconMap[edIcon] || Zap; return <Ic className="h-5 w-5" />; })()}
@@ -664,7 +664,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                       setShowColorPicker(!showColorPicker);
                       setShowIconPicker(false);
                     }}
-                    className="flex min-h-[44px] min-w-[44px] h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-black/[0.08] bg-white/80 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95 dark:border-white/[0.08] dark:bg-white/[0.05]"
+                    className="flex min-h-[44px] min-w-[44px] h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-black/[0.08] bg-white/80 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95 dark:border-white/[0.08] dark:bg-white/[0.05] touch-target"
                     title="Pick tag color"
                   >
                     <span
@@ -728,7 +728,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                           isActive
                             ? "bg-ember-500/20 text-ember-500 shadow-[0_0_10px_rgba(255,107,0,0.15)] scale-110"
                             : "text-slate-400 hover:bg-white/[0.08] hover:text-white hover:scale-110"
-                        }`}
+                        } touch-target`}
                       >
                         <opt.Icon className="h-4 w-4" />
                       </button>
@@ -752,7 +752,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                         key={color}
                         type="button"
                         onClick={() => { setEdCategoryColor(color); setShowColorPicker(false); }}
-                        className="group flex min-h-[44px] min-w-[44px] h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-125 active:scale-95"
+                        className="group flex min-h-[44px] min-w-[44px] h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-125 active:scale-95 touch-target"
                       >
                         <span
                           className="block rounded-full transition-all duration-200"
@@ -817,7 +817,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                       edConfirmDelete
                         ? "bg-red-600 text-white hover:bg-red-500"
                         : "text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    }`}
+                    } touch-target`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     {edConfirmDelete ? "Confirm Delete" : "Delete"}
@@ -860,7 +860,7 @@ const TemplateCard: FunctionComponent<{
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          className="absolute top-4 right-4 rounded-lg min-h-[44px] min-w-[44px] p-1.5 text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-ember-500/10 hover:text-ember-500 dark:text-slate-500"
+          className="absolute top-4 right-4 rounded-lg min-h-[44px] min-w-[44px] p-1.5 text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-ember-500/10 hover:text-ember-500 dark:text-slate-500 touch-target"
           title="Edit template"
         >
           <Settings2 className="h-3.5 w-3.5" />

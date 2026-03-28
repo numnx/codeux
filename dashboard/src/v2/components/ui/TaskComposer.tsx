@@ -99,7 +99,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white touch-target"
               aria-label="Close task composer"
             >
               <X className="h-4 w-4" />
@@ -134,7 +134,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                       state.status === option
                         ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
+                    } touch-target`}
                   >
                     {option.replace("_", " ")}
                   </button>
@@ -232,7 +232,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     state.priority === option
                       ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400"
                       : "border-black/[0.06] bg-black/[0.025] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
-                  }`}
+                  } touch-target`}
                 >
                   {option}
                 </button>

@@ -198,7 +198,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <button
               onClick={onClose}
               aria-label="Close"
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0 touch-target"
             >
               <X className="w-4 h-4" />
             </button>
@@ -247,7 +247,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                         status === option
                           ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                      } touch-target`}
                     >
                       {option.replace("_", " ")}
                     </button>
@@ -267,7 +267,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                         priority === option
                           ? "bg-ember-500 text-void-900 shadow-[0_2px_12px_rgba(255,184,0,0.3)]"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                      } touch-target`}
                     >
                       {option}
                     </button>
@@ -360,7 +360,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors touch-target"
               >
                 Cancel
               </button>
