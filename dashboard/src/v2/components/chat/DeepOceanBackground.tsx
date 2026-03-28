@@ -90,16 +90,16 @@ const causticFrag = /* glsl */ `
     darkColor = mix(darkColor, dDeep,   c * 0.7);
     darkColor = mix(darkColor, dBright, c * c * 0.08);
 
-    /* ── light palette: warm ivory + golden jade caustics ── */
-    vec3 lBase   = vec3(0.965, 0.960, 0.945);         /* warm off-white #F7F5F0 */
-    vec3 lPool   = vec3(0.88, 0.95, 0.94);             /* pale aqua tint */
-    vec3 lBright = vec3(0.0, 0.75, 0.55);              /* muted jade */
-    vec3 lGold   = vec3(0.98, 0.88, 0.60);             /* warm gold */
+    /* ── light palette: visible pool caustics on warm surface ── */
+    vec3 lBase   = vec3(0.955, 0.948, 0.930);         /* warm cream */
+    vec3 lPool   = vec3(0.78, 0.92, 0.90);             /* aqua tint */
+    vec3 lJade   = vec3(0.0, 0.72, 0.52);              /* jade accent */
+    vec3 lGold   = vec3(0.95, 0.82, 0.45);             /* warm gold */
 
     vec3 lightColor = lBase;
-    lightColor = mix(lightColor, lPool,   c * 0.35);
-    lightColor = mix(lightColor, lGold,   c * c * 0.12);
-    lightColor = mix(lightColor, lBright, c * c * c * 0.06);
+    lightColor = mix(lightColor, lPool,   c * 0.8);
+    lightColor = mix(lightColor, lGold,   c * c * 0.35);
+    lightColor = mix(lightColor, lJade,   c * c * 0.15);
 
     /* ── blend by mode ── */
     vec3 color = mix(lightColor, darkColor, uDark);
@@ -146,14 +146,15 @@ const particleFrag = /* glsl */ `
 
   void main() {
     float d = length(gl_PointCoord - 0.5);
-    float a = 1.0 - smoothstep(0.3, 0.5, d);
+    float a = 1.0 - smoothstep(0.15, 0.5, d);
+    a *= a;  /* softer falloff — no hard bright center */
 
     /* dark: jade glow, light: warm gold-jade shimmer */
     vec3 darkCol  = vec3(0.0, 0.88, 0.63);
-    vec3 lightCol = vec3(0.55, 0.78, 0.62);
+    vec3 lightCol = vec3(0.3, 0.7, 0.5);
     vec3 col = mix(lightCol, darkCol, uDark);
 
-    float opacity = mix(0.18, 0.35, uDark);
+    float opacity = mix(0.25, 0.22, uDark);
     gl_FragColor = vec4(col, a * vAlpha * opacity);
   }
 `;
@@ -227,8 +228,8 @@ export const DeepOceanBackground = () => {
       offsets[i * 3]     = (Math.random() - 0.5) * 3;
       offsets[i * 3 + 1] = (Math.random() - 0.5) * 2;
       offsets[i * 3 + 2] = (Math.random() - 0.5) * 2;
-      sizes[i]  = 1.5 + Math.random() * 3;
-      alphas[i] = 0.2 + Math.random() * 0.8;
+      sizes[i]  = 1.0 + Math.random() * 1.8;
+      alphas[i] = 0.15 + Math.random() * 0.45;
     }
 
     const pGeo = new THREE.BufferGeometry();
@@ -246,7 +247,7 @@ export const DeepOceanBackground = () => {
       },
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
     });
     particleScene.add(new THREE.Points(pGeo, pMat));
 
@@ -258,7 +259,9 @@ export const DeepOceanBackground = () => {
 
     /* ── animation loop ── */
     let animId = 0;
-    const startTime = performance.now();
+    /* offset by 200s so the caustic noise is already in a dispersed state
+       (at t=0 all fbm warping terms collapse, producing a uniform bright flash) */
+    const startTime = performance.now() - 200_000;
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -314,7 +317,7 @@ export const DeepOceanBackground = () => {
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="fixed inset-0 overflow-hidden"
+      className="fixed inset-0 overflow-hidden bg-[#F9F8F4] dark:bg-[#060a0d]"
       style={{ zIndex: 0 }}
     />
   );

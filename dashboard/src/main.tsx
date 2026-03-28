@@ -34,8 +34,11 @@ const rootRoute = createRootRoute({
 
     useEffect(() => {
       const root = window.document.documentElement;
+      const bg = isDark ? "#0d0f12" : "#F9F8F4";
       if (isDark) root.classList.add("dark");
       else root.classList.remove("dark");
+      root.style.background = bg;
+      document.body.style.background = bg;
     }, [isDark]);
 
     const toggleTheme = () => setIsDark(!isDark);
