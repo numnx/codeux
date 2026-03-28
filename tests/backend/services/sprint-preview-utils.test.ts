@@ -36,7 +36,7 @@ describe("sprint-preview-utils", () => {
     await expect(detectPackageManager(repoDir)).resolves.toBe("pnpm");
   });
 
-  it("uses a no-frozen-lockfile fallback for pnpm preview installs", async () => {
+  it("uses no-frozen-lockfile for pnpm preview installs", async () => {
     const repoDir = await createTempRepo();
     await fs.writeFile(path.join(repoDir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n", "utf8");
     await fs.writeFile(path.join(repoDir, "package.json"), JSON.stringify({
@@ -47,7 +47,8 @@ describe("sprint-preview-utils", () => {
 
     const detection = await detectSprintPreviewCommands(repoDir);
 
-    expect(detection.installCommand).toContain("pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile");
+    expect(detection.installCommand).toContain("pnpm install --no-frozen-lockfile");
+    expect(detection.installCommand).not.toContain("--frozen-lockfile");
   });
 
   it("prefers a preview script and matching package-manager commands", async () => {

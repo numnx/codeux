@@ -83,11 +83,13 @@ export class SprintPreviewService {
   async startSession(projectId: string, sprintId: string, options?: { rebuild?: boolean }): Promise<SprintPreviewSession> {
     const project = this.requireProject(projectId);
     const sprint = this.requireSprint(projectId, sprintId);
-    const settings = this.resolveSettings(projectId, sprintId).sprintPreview;
     const effectiveSettings = this.resolveSettings(projectId, sprintId);
+    const settings = effectiveSettings.sprintPreview;
     const preparedScript = await this.prepareStartupScript(project.baseDir, settings);
     const featureBranch = sprint.featureBranch?.trim() || this.resolveSprintFeatureBranch(projectId, sprintId);
+    const defaultBranch = effectiveSettings.git.defaultBranch?.trim() || project.defaultBranch?.trim() || "main";
     const worktreePath = this.workspaceManager.buildWorktreePath(project.baseDir, `preview-${sprintId}`, "DOCKER");
+    await this.ensurePreviewBranchExists(project.baseDir, featureBranch, defaultBranch);
     await this.workspaceManager.prepareWorktree(project.baseDir, worktreePath, featureBranch, featureBranch);
 
     const existing = this.deps.sprintPreviewRepository.getSessionByProjectSprint(projectId, sprintId);
@@ -581,6 +583,77 @@ export class SprintPreviewService {
       buildCommand: detected.buildCommand,
       runCommand: detected.runCommand,
     };
+  }
+
+  private async ensurePreviewBranchExists(repoPath: string, featureBranch: string, defaultBranch: string): Promise<void> {
+    await this.fetchOriginIfAvailable(repoPath);
+
+    if (await this.localBranchExists(repoPath, featureBranch)) {
+      return;
+    }
+    if (await this.remoteBranchExists(repoPath, featureBranch)) {
+      return;
+    }
+
+    const baseRef = await this.resolvePreviewBranchBaseRef(repoPath, defaultBranch);
+    try {
+      await runCommandStrict("git", ["branch", featureBranch, baseRef], repoPath);
+    } catch (error) {
+      if (!(await this.localBranchExists(repoPath, featureBranch))) {
+        throw error;
+      }
+    }
+  }
+
+  private async fetchOriginIfAvailable(repoPath: string): Promise<void> {
+    try {
+      await runCommandStrict("git", ["remote", "get-url", "origin"], repoPath);
+    } catch {
+      return;
+    }
+
+    try {
+      await runCommandStrict("git", ["fetch", "origin"], repoPath);
+    } catch {
+      // Worktree preparation will retry fetch with stale-git repair if needed.
+    }
+  }
+
+  private async resolvePreviewBranchBaseRef(repoPath: string, defaultBranch: string): Promise<string> {
+    if (await this.localBranchExists(repoPath, defaultBranch)) {
+      return defaultBranch;
+    }
+    if (await this.remoteTrackingRefExists(repoPath, defaultBranch)) {
+      return `origin/${defaultBranch}`;
+    }
+    return "HEAD";
+  }
+
+  private async localBranchExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      await runCommandStrict("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], repoPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async remoteTrackingRefExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      await runCommandStrict("git", ["show-ref", "--verify", "--quiet", `refs/remotes/origin/${branch}`], repoPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async remoteBranchExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      const result = await runCommandStrict("git", ["ls-remote", "--heads", "origin", branch], repoPath);
+      return result.stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
   }
 
   private countCompletedTasks(projectId: string, sprintId: string): number {

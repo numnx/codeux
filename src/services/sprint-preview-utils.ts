@@ -150,7 +150,7 @@ export async function readOptionalSprintPreviewScript(scriptPath: string): Promi
 function buildInstallCommand(packageManager: SprintPreviewPackageManager): string | null {
   switch (packageManager) {
     case "pnpm":
-      return `${commandExistsSnippet("pnpm")}; pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile`;
+      return `${commandExistsSnippet("pnpm")}; pnpm install --no-frozen-lockfile`;
     case "yarn":
       return "corepack enable >/dev/null 2>&1 || true; yarn install --frozen-lockfile || yarn install";
     case "bun":
