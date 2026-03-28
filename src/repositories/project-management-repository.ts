@@ -300,6 +300,7 @@ export class ProjectManagementRepository {
         s.project_id,
         s.number,
         s.slug,
+        s.sprint_key,
         s.name,
         s.original_prompt,
         s.goal,
@@ -343,13 +344,14 @@ export class ProjectManagementRepository {
 
     this.db.prepare(`
       INSERT INTO sprints (
-        id, project_id, number, slug, name, original_prompt, goal, status, showcase_pinned, start_date, end_date, feature_branch, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, project_id, number, slug, sprint_key, name, original_prompt, goal, status, showcase_pinned, start_date, end_date, feature_branch, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       projectId,
       number,
       slug,
+      input.sprintKey?.trim() || null,
       name,
       input.originalPrompt?.trim() || null,
       input.goal?.trim() || "",
@@ -377,11 +379,12 @@ export class ProjectManagementRepository {
 
     this.db.prepare(`
       UPDATE sprints
-      SET number = ?, slug = ?, name = ?, original_prompt = ?, goal = ?, status = ?, showcase_pinned = ?, start_date = ?, end_date = ?, feature_branch = ?, updated_at = ?
+      SET number = ?, slug = ?, sprint_key = ?, name = ?, original_prompt = ?, goal = ?, status = ?, showcase_pinned = ?, start_date = ?, end_date = ?, feature_branch = ?, updated_at = ?
       WHERE id = ?
     `).run(
       input.number === undefined ? current.number : input.number,
       nextSlug,
+      input.sprintKey === undefined ? current.sprintKey : (input.sprintKey?.trim() || null),
       nextName,
       input.originalPrompt === undefined ? current.originalPrompt : input.originalPrompt,
       input.goal === undefined ? current.goal : input.goal,
@@ -656,6 +659,7 @@ export class ProjectManagementRepository {
         s.project_id,
         s.number,
         s.slug,
+        s.sprint_key,
         s.name,
         s.original_prompt,
         s.goal,
@@ -707,6 +711,7 @@ export class ProjectManagementRepository {
         s.project_id,
         s.number,
         s.slug,
+        s.sprint_key,
         s.name,
         s.original_prompt,
         s.goal,

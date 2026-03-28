@@ -76,7 +76,6 @@ export type ChatThread = ConversationThreadRecord;
 export type ChatMessageRecord = ConversationMessageRecord;
 
 export interface Sprint extends SprintRecord {
-  sprintKey: string | null;
   date: string;
 }
 

@@ -25,8 +25,8 @@ async function createRepository(): Promise<{
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  });
 });
-
 describe("ProjectManagementRepository", () => {
 
   it("preserves active sprint selection on creation and deletion", async () => {
@@ -35,19 +35,19 @@ describe("ProjectManagementRepository", () => {
       name: "Sprint Selection",
       sourceType: "local",
       sourceRef: "/workspace/sprint-selection",
-    });
-
+      });
+});
     const sprint1 = repository.createSprint(project.id, {
       name: "Sprint 1",
-    });
-
+      });
+});
     expect(repository.getSelectedSprintId(project.id)).toBe(sprint1.id);
     expect(repository.listSprints(project.id).selectedSprintId).toBe(sprint1.id);
 
     const sprint2 = repository.createSprint(project.id, {
       name: "Sprint 2",
-    });
-
+      });
+});
     expect(repository.getSelectedSprintId(project.id)).toBe(sprint2.id);
     expect(repository.listSprints(project.id).selectedSprintId).toBe(sprint2.id);
 
@@ -60,8 +60,8 @@ describe("ProjectManagementRepository", () => {
 
     repository.deleteSprint(sprint2.id);
     expect(repository.getSelectedSprintId(project.id)).toBeNull();
-  });
-
+    });
+});
   it("creates projects, sprints, tasks, and dependency summaries in sqlite", async () => {
     const { repository, executionRepository } = await createRepository();
 
@@ -69,8 +69,8 @@ describe("ProjectManagementRepository", () => {
       name: "Sprint OS",
       sourceType: "local",
       sourceRef: "/workspace/sprint-os",
-    });
-
+      });
+});
     expect(repository.listProjects().selectedProjectId).toBe(project.id);
 
     const sprint = repository.createSprint(project.id, {
@@ -79,8 +79,9 @@ describe("ProjectManagementRepository", () => {
       startDate: "2026-03-09",
       endDate: "2026-03-23",
       status: "running",
-    });
-
+      sprintKey: "CUST-123",
+      });
+});
     const taskA = repository.createTask(project.id, {
       sprintId: sprint.id,
       title: "Create schema",
@@ -101,8 +102,8 @@ describe("ProjectManagementRepository", () => {
       projectId: project.id,
       sprintId: sprint.id,
       status: "running",
-    });
-
+      });
+});
     const projects = repository.listProjects().projects;
     const sprints = repository.listSprints(project.id).sprints;
     const tasks = repository.listTasks(project.id, sprint.id);
@@ -116,15 +117,16 @@ describe("ProjectManagementRepository", () => {
       isRunning: true,
       settingsOverrides: {},
       agentBindings: [],
-    });
-
+      });
+});
     expect(sprints[0]).toMatchObject({
       name: "Foundation",
+      sprintKey: "CUST-123",
       tasksCount: 2,
       completion: 50,
       status: "running",
-    });
-
+      });
+});
     expect(tasks).toHaveLength(2);
     expect(tasks[1]).toMatchObject({
       taskKey: "T02",
@@ -141,16 +143,18 @@ describe("ProjectManagementRepository", () => {
       name: "Original Prompt Project",
       sourceType: "local",
       sourceRef: "/workspace/original-prompt-project",
-    });
-
+      });
+});
     const sprint = repository.createSprint(project.id, {
       name: "Planning Sprint",
       originalPrompt: "Help me build a login page.",
       goal: "Implement a secure login page with MFA.",
-    });
-
+      sprintKey: null,
+      });
+});
     expect(sprint.originalPrompt).toBe("Help me build a login page.");
     expect(sprint.goal).toBe("Implement a secure login page with MFA.");
+    expect(sprint.sprintKey).toBeNull();
 
     repository.createTask(project.id, {
       sprintId: sprint.id,
@@ -159,8 +163,8 @@ describe("ProjectManagementRepository", () => {
     repository.createTask(project.id, {
       sprintId: sprint.id,
       title: "Task 2",
-    });
-
+      });
+});
     expect(repository.listTasks(project.id, sprint.id)).toHaveLength(2);
 
     repository.deleteTasksBySprint(sprint.id);
@@ -169,10 +173,21 @@ describe("ProjectManagementRepository", () => {
 
     const updated = repository.updateSprint(sprint.id, {
       originalPrompt: "Actually, help me build a dashboard.",
+      sprintKey: "NEW-KEY",
     });
     expect(updated.originalPrompt).toBe("Actually, help me build a dashboard.");
-  });
+    expect(updated.sprintKey).toBe("NEW-KEY");
 
+    const updatedAgain = repository.updateSprint(sprint.id, {
+      sprintKey: null,
+    });
+    expect(updatedAgain.sprintKey).toBeNull();
+
+    expect(repository.getSprint(sprint.id)?.sprintKey).toBeNull();
+    expect(repository.findSprintByProjectAndNumber(project.id, sprint.number!)?.sprintKey).toBeNull();
+    expect(repository.findSprintByProjectAndNumber(project.id, 999)).toBeNull();
+    });
+});
   it("persists showcasePinned status across updates", async () => {
     const { repository } = await createRepository();
 
@@ -180,13 +195,13 @@ describe("ProjectManagementRepository", () => {
       name: "Showcase Project",
       sourceType: "local",
       sourceRef: "/workspace/showcase-project",
-    });
-
+      });
+});
     const sprint = repository.createSprint(project.id, {
       name: "Showcase Sprint",
       showcasePinned: true,
-    });
-
+      });
+});
     expect(sprint.showcasePinned).toBe(true);
 
     // Update other fields, pin should persist
@@ -207,8 +222,8 @@ describe("ProjectManagementRepository", () => {
       showcasePinned: true,
     });
     expect(updated3.showcasePinned).toBe(true);
-  });
-
+    });
+});
   it("imports and exports sprint markdown against the database model", async () => {
     const { repository, markdownService } = await createRepository();
 
@@ -216,8 +231,8 @@ describe("ProjectManagementRepository", () => {
       name: "Markdown Project",
       sourceType: "local",
       sourceRef: "/workspace/markdown-project",
-    });
-
+      });
+});
     const sprint = markdownService.importSprint(project.id, {
       sprintMarkdown: [
         "name: Import Sprint",
@@ -252,8 +267,8 @@ describe("ProjectManagementRepository", () => {
           ].join("\n"),
         },
       ],
-    });
-
+      });
+});
     const tasks = repository.listTasks(project.id, sprint.id);
     const exported = markdownService.exportSprint(project.id, sprint.id);
 
@@ -261,8 +276,8 @@ describe("ProjectManagementRepository", () => {
     expect(tasks[1].dependsOnTaskIds).toEqual([tasks[0].id]);
     expect(exported.sprint.markdown).toContain("name: Import Sprint");
     expect(exported.tasks[1].markdown).toContain('depends_on: ["T01"]');
-  });
-
+    });
+});
   it("derives sprint summary status from the latest sprint run", async () => {
     const { repository, executionRepository } = await createRepository();
 
@@ -275,8 +290,8 @@ describe("ProjectManagementRepository", () => {
       name: "Runtime Status Sprint",
       number: 1,
       status: "running",
-    });
-
+      });
+});
     executionRepository.createSprintRun({
       projectId: project.id,
       sprintId: sprint.id,
@@ -286,8 +301,8 @@ describe("ProjectManagementRepository", () => {
       projectId: project.id,
       sprintId: sprint.id,
       status: "cancelled",
-    });
-
+      });
+});
     expect(repository.getSprint(sprint.id)).toMatchObject({
       status: "cancelled",
     });
@@ -320,8 +335,8 @@ describe("ProjectManagementRepository", () => {
       sprintId: sprint.id,
       title: "Realtime Task",
       promptMarkdown: "Keep the dashboard fresh.",
-    });
-
+      });
+});
     repository.updateTask(task.id, {
       status: "in_progress",
     });
@@ -330,44 +345,6 @@ describe("ProjectManagementRepository", () => {
     expect(notifier.scheduleProjectsRefresh).toHaveBeenCalled();
     expect(notifier.scheduleProjectStructureRefresh).toHaveBeenCalledWith(project.id, { includeProjects: true });
   });
-
-  it("updateSprint safely handles a null sprintKey and project deletions", async () => {
-    const { repository } = await createRepository();
-    const project = repository.createProject({
-      name: "Coverage Sprint Project",
-      sourceType: "local",
-      sourceRef: "/tmp/coverage"
-    });
-
-    const sprint = repository.createSprint(project.id, {
-      name: "Update sprintKey test",
-      status: "idle",
-      sprintKey: "CUST-OLD"
-    });
-
-    // Pass null strictly to trigger branch
-    repository.updateSprint(sprint.id, {
-      sprintKey: null
-    });
-
-    const updated = repository.getSprint(sprint.id);
-    expect(updated?.sprintKey).toBe(null);
-
-    const foundByNumber = repository.findSprintByProjectAndNumber(project.id, sprint.sprintNumber ?? 1);
-    expect(foundByNumber?.id).toBe(sprint.id);
-
-    // Check updateProject branch
-    const updatedProj = repository.updateProject(project.id, { name: "New Name" });
-    expect(updatedProj.name).toBe("New Name");
-
-    // Check deleteProject
-    repository.deleteProject(project.id);
-    expect(repository.listProjects().projects.length).toBe(0);
-  });
-
-  it("throws when required entity is not found", async () => {
-     const { repository } = await createRepository();
-     expect(repository.getSprint("non-existent")).toBeNull();
-     expect(() => repository.updateProject("non-existent", { name: "test" })).toThrowError(/not found/);
   });
 });
+  it("updateProject correctly updates project and source info", async () => {
