@@ -2062,6 +2062,38 @@ export const SettingsPage: FunctionComponent = () => {
               },
             }))} />
           </Row>
+          <Row label="Retry after quota reset" description="When a provider reports a concrete quota reset time, wait for that reset and retry automatically." badge={getFieldBadge("cliWorkflow.retryOnQuotaReset")}>
+            <Toggle value={editableSettings.cliWorkflow.retryOnQuotaReset} onChange={() => updateEditableSettings((current) => ({
+              ...current,
+              cliWorkflow: {
+                ...current.cliWorkflow,
+                retryOnQuotaReset: !current.cliWorkflow.retryOnQuotaReset,
+              },
+            }))} />
+          </Row>
+          <Row label="Retry on rate limit" description="Keep retrying transient rate-limit failures after a fixed delay instead of failing immediately." badge={getFieldBadge("cliWorkflow.retryOnRateLimit")}>
+            <Toggle value={editableSettings.cliWorkflow.retryOnRateLimit} onChange={() => updateEditableSettings((current) => ({
+              ...current,
+              cliWorkflow: {
+                ...current.cliWorkflow,
+                retryOnRateLimit: !current.cliWorkflow.retryOnRateLimit,
+              },
+            }))} />
+          </Row>
+          <Row label="Rate limit retry delay" description="Seconds to wait before retrying a rate-limited provider call." badge={getFieldBadge("cliWorkflow.rateLimitRetryDelaySeconds")}>
+            <NumberInput
+              value={editableSettings.cliWorkflow.rateLimitRetryDelaySeconds}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                cliWorkflow: {
+                  ...current.cliWorkflow,
+                  rateLimitRetryDelaySeconds: value,
+                },
+              }))}
+              min={1}
+              max={3600}
+            />
+          </Row>
           <Row label="Resume failed task in same workspace" description="Reuse the same workspace for a retry instead of provisioning a fresh one." badge={getFieldBadge("cliWorkflow.resumeFailedTaskInSameWorkspace")}>
             <Toggle value={editableSettings.cliWorkflow.resumeFailedTaskInSameWorkspace} onChange={() => updateEditableSettings((current) => ({
               ...current,

@@ -11,10 +11,12 @@ import { SettingsRepository } from "../../../src/repositories/settings-repositor
 import { AgentPresetSyncService } from "../../../src/services/agent-preset-sync-service.js";
 import { PlanningAgentService } from "../../../src/services/planning-agent-service.js";
 import type { IProviderRunner } from "../../../src/infrastructure/providers/cli/provider-runner.js";
+import * as providerRetryPolicy from "../../../src/shared/providers/provider-retry-policy.js";
 
 const tempDirs: string[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
@@ -380,6 +382,135 @@ describe("PlanningAgentService", () => {
         }),
       }),
     ]));
+  });
+
+  it("retries virtual planning on rate limit and records invocation error metadata", async () => {
+    vi.spyOn(providerRetryPolicy, "sleepWithSignal").mockResolvedValue();
+
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-rate-limit-"));
+    tempDirs.push(dir);
+
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(repoPath, ".sprint-os", "agents"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoPath, ".sprint-os", "agents", "planning_agent.md"),
+      "Turn sprint goals into concrete executable tasks.\n",
+      "utf8",
+    );
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const connectionRepository = new ConnectionChatRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+    const providerRunner: IProviderRunner = {
+      runProvider: vi.fn(),
+      runProviderForText: vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          stdout: "",
+          stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
+          code: 1,
+          signal: null,
+          nativeSessionId: null,
+          usageTelemetry: {
+            inputTokens: 0,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: 0,
+            usageSource: "unavailable",
+            rawUsageJson: {},
+            transcriptText: "",
+            nativeSessionId: null,
+          },
+          text: "",
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          stdout: "",
+          stderr: "",
+          code: 0,
+          signal: null,
+          nativeSessionId: "native-ok",
+          usageTelemetry: {
+            inputTokens: 10,
+            cachedInputTokens: 0,
+            outputTokens: 10,
+            reasoningOutputTokens: 0,
+            totalTokens: 20,
+            usageSource: "reported",
+            rawUsageJson: {},
+            transcriptText: '{"goal":"Recovered after rate limit."}',
+            nativeSessionId: "native-ok",
+          },
+          text: '{"goal":"Recovered after rate limit."}',
+        }),
+    };
+
+    const service = new PlanningAgentService({
+      projectManagementRepository: projectRepository,
+      connectionChatRepository: connectionRepository,
+      executionRepository,
+      settingsRepository,
+      agentPresetSyncService: syncService,
+      executionControlService: { orchestrateSprint: vi.fn() } as any,
+      providerRunner,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Rate Limited Planning Project",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: {
+        executionMode: "VIRTUAL",
+        virtualWorkerProvider: "gemini",
+      },
+      cliWorkflow: {
+        retryOnRateLimit: true,
+        rateLimitRetryDelaySeconds: 1,
+      },
+    });
+
+    const improvePromise = service.improveSprintPrompt(project.id, {
+      name: "Retry sprint",
+      goal: "Retry on rate limit",
+    });
+
+    const improved = await improvePromise;
+
+    expect(improved.goal).toBe("Recovered after rate limit.");
+    expect(providerRunner.runProviderForText).toHaveBeenCalledTimes(2);
+
+    const [invocation] = executionRepository.listExecutionInvocations({ projectId: project.id });
+    expect(invocation).toMatchObject({
+      status: "completed",
+      provider: "gemini",
+      model: expect.any(String),
+      lastErrorCategory: "RATE_LIMITED",
+      lastErrorMessage: expect.stringContaining("rate-limited"),
+    });
+
+    const messages = executionRepository.listExecutionInvocationMessages(invocation.id);
+    expect(messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          errorCategory: "RATE_LIMITED",
+          model: invocation.model,
+        }),
+      }),
+    ]));
+    expect(providerRetryPolicy.sleepWithSignal).toHaveBeenCalledWith(1_000, undefined);
   });
 
   it("accepts loose virtual planning JSON with prose, subtasks, prompt, and dependencies fields", async () => {

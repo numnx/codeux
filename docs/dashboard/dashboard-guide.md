@@ -241,6 +241,8 @@ Legacy runtime:
 - Chat page logs invocation activity explicitly in the background, providing observable execution artifacts directly in the chat view.
 - Chat page filters the "Threads" mode to show user-facing conversation threads (`scope === "project"`).
 - Chat page "Invocations" mode provides a read-only list with metadata for active/completed execution invocations without cluttering the main thread rail.
+- Invocation cards and detail headers now show the resolved provider model when available, so planning runs expose the same model visibility as worker cards.
+- Invocation cards and the invocation message stream now surface classified provider errors such as `Rate limit` and `Quota reset`, including retry wait information when Sprint OS is backing off automatically.
 - Chat page now receives websocket updates for thread assignment changes and incoming thread messages in the active thread
 - Chat page now shows a live "working" bubble once a listener has picked up a dashboard message and is preparing a reply
 - Chat page now force-refreshes the selected thread when realtime thread updates arrive, so virtual replies clear stale `pending` delivery badges and sidebar counts as soon as the reply lands
@@ -353,6 +355,10 @@ Runtime scoping:
 - The integrations view now owns provider API keys plus GitHub token and GitHub workflow settings, rather than splitting those across separate categories
 - The integrations view uses a registry-style list with per-integration `Configure` actions so additional integrations can be added without turning the page into one long form
 - Individual MCP tool toggles and skill toggles are intentionally not exposed in the current user-facing settings surface
+- CLI workflow settings now expose provider throttle controls in addition to workspace cleanup:
+  - `Retry after quota reset`
+  - `Retry on rate limit`
+  - `Rate limit retry delay`
 - The settings surface is regrouped into smaller operational cards so GitHub integration, provider credentials, merge gates, loop control, and execution runtime are separated cleanly
 - Danger Zone now supports project deletion in project scope and full database reset in system scope
 - Project saves operate on the effective form but persist only sparse diffs relative to the current system defaults

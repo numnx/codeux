@@ -34,6 +34,18 @@ export const sanitizeCliWorkflow = (
       cliInput.retryOnReadFileNotFound,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.retryOnReadFileNotFound
     ),
+    retryOnQuotaReset: readBoolean(
+      cliInput.retryOnQuotaReset,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.retryOnQuotaReset
+    ),
+    retryOnRateLimit: readBoolean(
+      cliInput.retryOnRateLimit,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.retryOnRateLimit
+    ),
+    rateLimitRetryDelaySeconds: Math.max(1, Math.min(3600, readInteger(
+      cliInput.rateLimitRetryDelaySeconds,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.rateLimitRetryDelaySeconds
+    ))),
     resumeFailedTaskInSameWorkspace: readBoolean(
       cliInput.resumeFailedTaskInSameWorkspace,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.resumeFailedTaskInSameWorkspace

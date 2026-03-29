@@ -140,6 +140,25 @@ The planning contract is now intentionally strict so the planner emits database-
 
 This keeps planning quality deterministic across providers and reduces executor ambiguity when Sprint OS converts the plan into DB task records.
 
+### Provider Throttling And Quota Recovery
+
+Virtual planning now classifies retryable provider failures before deciding whether to fail the invocation:
+
+- `QUOTA_EXHAUSTED` means the provider reported a real quota window, optionally with a reset time.
+- `RATE_LIMITED` means the provider rejected the request transiently, including Gemini `429` no-capacity responses.
+
+Planning follows the shared CLI workflow retry controls:
+
+- `cliWorkflow.retryOnQuotaReset` (default `true`)
+- `cliWorkflow.retryOnRateLimit` (default `true`)
+- `cliWorkflow.rateLimitRetryDelaySeconds` (default `10`)
+
+When a retryable provider error occurs, Sprint OS appends an explicit system event to the execution invocation, records the classified error on the invocation row, waits for the configured backoff/reset, and retries. That makes the dashboard invocation rail and message history show:
+
+- which error type occurred
+- whether Sprint OS is waiting on quota reset or rate-limit backoff
+- which virtual model the planning agent actually used
+
 If `autoStart` is enabled, Sprint OS starts orchestration after the tasks are created.
 
 ## Worker Agent Flow

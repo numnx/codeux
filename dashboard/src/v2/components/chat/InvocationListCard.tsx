@@ -4,6 +4,23 @@ import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
 
+const formatErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
+  switch (value) {
+    case "RATE_LIMITED":
+      return "Rate limit";
+    case "QUOTA_EXHAUSTED":
+      return "Quota";
+    case "AUTH_FAILURE":
+      return "Auth";
+    case "PROVIDER_NOT_FOUND":
+      return "Provider";
+    case "UNKNOWN":
+      return "Error";
+    default:
+      return null;
+  }
+};
+
 export const InvocationListCard: FunctionComponent<{
   invocations: ExecutionInvocationRecord[];
   selectedInvocationId: string | null;
@@ -37,6 +54,11 @@ export const InvocationListCard: FunctionComponent<{
                   {(invocation.sprintId || invocation.taskId) && (
                     <div className="shrink-0 rounded border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
                       {invocation.taskId ? "Task" : "Sprint"}
+                    </div>
+                  )}
+                  {formatErrorCategory(invocation.lastErrorCategory) && (
+                    <div className="shrink-0 rounded border border-status-amber/30 bg-status-amber/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-status-amber">
+                      {formatErrorCategory(invocation.lastErrorCategory)}
                     </div>
                   )}
                 </div>

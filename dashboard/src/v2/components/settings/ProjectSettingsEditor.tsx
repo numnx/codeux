@@ -839,6 +839,8 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["cleanupWorktreeOnSuccess", "Cleanup worktree on success"],
             ["cleanupWorktreeOnFailure", "Cleanup worktree on failure"],
             ["retryOnReadFileNotFound", "Retry missing file reads"],
+            ["retryOnQuotaReset", "Retry after quota reset"],
+            ["retryOnRateLimit", "Retry on rate limit"],
             ["resumeFailedTaskInSameWorkspace", "Resume failed tasks in same workspace"],
             ["containerMountGitConfig", "Mount git config"],
             ["containerMountGithubAuth", "Mount GitHub auth"],
@@ -860,6 +862,19 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
           ))}
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
+          <Row label="Rate limit retry delay" description="Seconds to wait before retrying a rate-limited provider call." badge={getBadge("cliWorkflow.rateLimitRetryDelaySeconds")}>
+            <NumberField
+              value={settings.cliWorkflow.rateLimitRetryDelaySeconds}
+              min={1}
+              max={3600}
+              onChange={(value) => update({
+                cliWorkflow: {
+                  ...settings.cliWorkflow,
+                  rateLimitRetryDelaySeconds: value,
+                },
+              })}
+            />
+          </Row>
           {[
             ["containerGithubAuthPath", "GitHub auth path"],
             ["containerGeminiAuthPath", "Gemini auth path"],

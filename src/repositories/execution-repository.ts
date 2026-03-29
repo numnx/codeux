@@ -410,6 +410,9 @@ export class ExecutionRepository {
       startedAt,
       finishedAt: input.finishedAt || null,
       errorMessage: input.errorMessage || null,
+      lastErrorCategory: input.lastErrorCategory || null,
+      lastErrorMessage: input.lastErrorMessage || null,
+      lastRetryAfterIso: input.lastRetryAfterIso || null,
       messageCount: 0,
       lastMessageAt: null,
       createdAt: now,
@@ -420,9 +423,10 @@ export class ExecutionRepository {
       INSERT INTO execution_invocations (
         id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
         type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
+        last_error_category, last_error_message, last_retry_after_iso,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -440,13 +444,16 @@ export class ExecutionRepository {
       record.provider,
       record.model,
       record.systemPrompt,
-      record.startedAt,
-      record.finishedAt,
-      record.errorMessage,
-      record.messageCount,
-      record.lastMessageAt,
-      record.createdAt,
-      record.updatedAt
+        record.startedAt,
+        record.finishedAt,
+        record.errorMessage,
+        record.messageCount,
+        record.lastMessageAt,
+        record.lastErrorCategory,
+        record.lastErrorMessage,
+        record.lastRetryAfterIso,
+        record.createdAt,
+        record.updatedAt
     );
 
     this.realtimeNotifier?.scheduleProjectExecutionRefresh(record.projectId, { includeOverview: true });
@@ -492,6 +499,21 @@ export class ExecutionRepository {
       updates.push("error_message = ?");
       values.push(input.errorMessage);
       existing.errorMessage = input.errorMessage;
+    }
+    if (input.lastErrorCategory !== undefined) {
+      updates.push("last_error_category = ?");
+      values.push(input.lastErrorCategory);
+      existing.lastErrorCategory = input.lastErrorCategory;
+    }
+    if (input.lastErrorMessage !== undefined) {
+      updates.push("last_error_message = ?");
+      values.push(input.lastErrorMessage);
+      existing.lastErrorMessage = input.lastErrorMessage;
+    }
+    if (input.lastRetryAfterIso !== undefined) {
+      updates.push("last_retry_after_iso = ?");
+      values.push(input.lastRetryAfterIso);
+      existing.lastRetryAfterIso = input.lastRetryAfterIso;
     }
 
     if (updates.length > 0) {
@@ -635,6 +657,9 @@ export class ExecutionRepository {
       startedAt: row.started_at,
       finishedAt: row.finished_at,
       errorMessage: row.error_message,
+      lastErrorCategory: row.last_error_category,
+      lastErrorMessage: row.last_error_message,
+      lastRetryAfterIso: row.last_retry_after_iso,
       messageCount: row.message_count,
       lastMessageAt: row.last_message_at,
       createdAt: row.created_at,

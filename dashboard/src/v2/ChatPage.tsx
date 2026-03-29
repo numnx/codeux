@@ -54,6 +54,23 @@ import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
 import { WorkingBubble } from "./components/chat/WorkingBubble.js";
 
+const formatInvocationErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
+  switch (value) {
+    case "RATE_LIMITED":
+      return "Rate limit";
+    case "QUOTA_EXHAUSTED":
+      return "Quota reset";
+    case "AUTH_FAILURE":
+      return "Auth failure";
+    case "PROVIDER_NOT_FOUND":
+      return "Provider missing";
+    case "UNKNOWN":
+      return "Error";
+    default:
+      return null;
+  }
+};
+
 const isWorkingMessage = (
   message: ChatMessageRecord,
   allMessages: ChatMessageRecord[],
@@ -1022,10 +1039,46 @@ export const ChatPage: FunctionComponent = () => {
         <div className="shrink-0 border-b border-black/[0.05] px-6 py-5 dark:border-white/[0.05]">
           <div className="flex items-start justify-between gap-6">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500">Active Invocation</div>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500">
+                <span>Active Invocation</span>
+                {formatInvocationErrorCategory(selectedInvocation?.lastErrorCategory || null) && (
+                  <span className="rounded border border-status-amber/30 bg-status-amber/10 px-1.5 py-0.5 text-[9px] tracking-[0.14em] text-status-amber">
+                    {formatInvocationErrorCategory(selectedInvocation?.lastErrorCategory || null)}
+                  </span>
+                )}
+              </div>
               <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white capitalize">
                 {selectedInvocation?.type || "No Invocation Selected"}
               </h2>
+              {selectedInvocation && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  {selectedInvocation.provider && (
+                    <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2 py-1 font-mono dark:border-white/[0.06] dark:bg-white/[0.03]">
+                      {selectedInvocation.provider}
+                    </span>
+                  )}
+                  {selectedInvocation.model && (
+                    <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2 py-1 font-mono dark:border-white/[0.06] dark:bg-white/[0.03]">
+                      {selectedInvocation.model}
+                    </span>
+                  )}
+                  <span className={`rounded-full border px-2 py-1 font-mono ${
+                    selectedInvocation.status === "failed"
+                      ? "border-status-red/30 bg-status-red/10 text-status-red"
+                      : selectedInvocation.status === "completed"
+                        ? "border-signal-500/20 bg-signal-500/10 text-signal-500"
+                        : "border-black/[0.06] bg-black/[0.03] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
+                  }`}>
+                    {selectedInvocation.status}
+                  </span>
+                </div>
+              )}
+              {selectedInvocation?.lastErrorMessage && (
+                <div className="mt-3 max-w-2xl text-sm leading-relaxed text-status-amber">
+                  {selectedInvocation.lastErrorMessage}
+                  {selectedInvocation.lastRetryAfterIso && ` Retry at ${selectedInvocation.lastRetryAfterIso}.`}
+                </div>
+              )}
             </div>
             <div className="text-right text-[10px] font-mono text-slate-400">
               <div className="mb-2">{selectedInvocation ? `${selectedInvocation.messageCount} messages` : "0 messages"}</div>

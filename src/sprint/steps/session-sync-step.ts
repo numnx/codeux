@@ -2,7 +2,11 @@ import type { JulesActivity, JulesSession, Subtask } from "../../contracts/app-t
 import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../contracts/execution-types.js";
 import type { SessionSyncDependencies } from "../sprint-types.js";
 import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
-import { isQuotaCooldownActive } from "../../shared/providers/provider-error-classifier.js";
+import {
+  extractProviderErrorCategory,
+  isQuotaCooldownActive,
+  isRetryAfterActive,
+} from "../../shared/providers/provider-error-classifier.js";
 
 const mapSessionStateToTaskRunState = (
   sessionState: string | undefined,
@@ -15,6 +19,9 @@ const mapSessionStateToTaskRunState = (
     return "FAILED";
   }
   if (sessionState === "QUOTA") {
+    return "QUOTA";
+  }
+  if (sessionState === "RATE_LIMITED") {
     return "QUOTA";
   }
   if (isActionRequiredState(sessionState)) {
@@ -249,7 +256,7 @@ export const runSessionSyncStep = async (
   subtasks: Subtask[],
   deps: SessionSyncDependencies,
   retryFailed: boolean,
-  context: { repoPath: string; sprintNumber: number; maxQuotaRetriesWithoutTimer?: number },
+  context: { repoPath: string; sprintNumber: number; maxQuotaRetriesWithoutTimer?: number; retryOnRateLimit?: boolean },
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
@@ -355,6 +362,30 @@ export const runSessionSyncStep = async (
       continue;
     }
 
+    if (match.state === "RATE_LIMITED") {
+      let retryDelayActive = true;
+      if (task.record_id && task.project_id && deps.executionRepository) {
+        const dispatches = deps.executionRepository.listTaskDispatches({
+          projectId: task.project_id,
+          taskId: task.record_id,
+        });
+        const withError = dispatches.filter((d) => d.errorMessage);
+        const latestError = withError.length > 0 ? withError[withError.length - 1].errorMessage : null;
+        retryDelayActive = isRetryAfterActive(latestError);
+      }
+
+      if (!context.retryOnRateLimit) {
+        task.status = "FAILED";
+      } else if (retryDelayActive) {
+        task.status = "QUOTA";
+      } else if (retryFailed) {
+        task.status = "PENDING";
+      } else {
+        task.status = "FAILED";
+      }
+      continue;
+    }
+
     if (match.state === "QUOTA") {
       // Check if the quota cooldown has expired by looking at the latest dispatch error
       let cooldownActive = true;
@@ -369,10 +400,11 @@ export const runSessionSyncStep = async (
         cooldownActive = isQuotaCooldownActive(latestError);
 
         // Count consecutive quota dispatches without a reset timer
-        if (!cooldownActive && latestError) {
+        if (!cooldownActive && latestError && extractProviderErrorCategory(latestError) !== "RATE_LIMITED") {
           for (let i = withError.length - 1; i >= 0; i--) {
             const err = withError[i].errorMessage;
             if (!err || !err.toLowerCase().includes("quota")) break;
+            if (extractProviderErrorCategory(err) === "RATE_LIMITED") break;
             if (isQuotaCooldownActive(err)) break;
             quotaRetriesWithoutTimer++;
           }

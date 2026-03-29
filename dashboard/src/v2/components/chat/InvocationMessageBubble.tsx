@@ -6,6 +6,23 @@ import { formatChatTime } from "../../lib/chat-time.js";
 import { PlanningRequestWidget } from "./widgets/PlanningRequestWidget.js";
 import { ChatAvatar, type AvatarRole } from "./ChatAvatar.js";
 
+const formatErrorCategory = (value: unknown): string | null => {
+  switch (value) {
+    case "RATE_LIMITED":
+      return "Rate limit";
+    case "QUOTA_EXHAUSTED":
+      return "Quota";
+    case "AUTH_FAILURE":
+      return "Auth failure";
+    case "PROVIDER_NOT_FOUND":
+      return "Provider missing";
+    case "UNKNOWN":
+      return "Error";
+    default:
+      return null;
+  }
+};
+
 export interface InvocationMessageBubbleProps {
   message: ExecutionInvocationMessageRecord;
 }
@@ -27,6 +44,8 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
 
   const senderName = (fromUser || fromTool) ? "User" : (message.metadata?.agentName as string) || "Assistant";
   const providerLabel = message.metadata?.provider as string | undefined;
+  const modelLabel = message.metadata?.model as string | undefined;
+  const errorLabel = formatErrorCategory(message.metadata?.errorCategory);
   const createdAtLabel = formatChatTime(message.createdAt);
 
   return (
@@ -47,6 +66,16 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
             {providerLabel && (
               <span className="px-1.5 py-0.5 rounded-sm bg-black/20 text-slate-300">
                 {providerLabel}
+              </span>
+            )}
+            {modelLabel && (
+              <span className="px-1.5 py-0.5 rounded-sm bg-black/20 text-slate-300">
+                {modelLabel}
+              </span>
+            )}
+            {errorLabel && (
+              <span className="rounded-sm border border-status-amber/30 bg-status-amber/10 px-1.5 py-0.5 text-status-amber">
+                {errorLabel}
               </span>
             )}
             {createdAtLabel && <span>{createdAtLabel}</span>}

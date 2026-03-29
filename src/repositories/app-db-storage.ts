@@ -435,6 +435,9 @@ export class AppDbStorage {
         started_at TEXT NOT NULL,
         finished_at TEXT,
         error_message TEXT,
+        last_error_category TEXT,
+        last_error_message TEXT,
+        last_retry_after_iso TEXT,
         message_count INTEGER NOT NULL DEFAULT 0,
         last_message_at TEXT,
         created_at TEXT NOT NULL,
@@ -529,6 +532,9 @@ export class AppDbStorage {
     this.ensureColumn("conversation_threads", "runtime_state_json", "TEXT");
     this.ensureColumn("conversation_messages", "metadata_json", "TEXT");
     this.ensureColumn("execution_invocation_messages", "metadata_json", "TEXT");
+    this.ensureColumn("execution_invocations", "last_error_category", "TEXT");
+    this.ensureColumn("execution_invocations", "last_error_message", "TEXT");
+    this.ensureColumn("execution_invocations", "last_retry_after_iso", "TEXT");
     this.ensureUniqueIndex("idx_tasks_sprint_key", "tasks", "sprint_id, task_key");
     this.ensureIndex("idx_sprint_runs_project_sprint", "sprint_runs", "project_id, sprint_id, created_at DESC");
     this.ensureIndex("idx_tasks_project_sprint_sort", "tasks", "project_id, sprint_id, sort_order ASC, created_at ASC, task_key ASC");

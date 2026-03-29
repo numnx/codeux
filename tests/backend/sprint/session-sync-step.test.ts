@@ -509,4 +509,66 @@ describe("runSessionSyncStep", () => {
     expect(updateTaskMock).toHaveBeenCalledWith("rec-cc", { status: "coding_completed" });
     expect(updateTaskMock).toHaveBeenCalledWith("rec-r", { status: "coding_completed" });
   });
+
+  it("holds a rate-limited task in QUOTA until the retry delay expires, then requeues it", async () => {
+    const subtasks: Subtask[] = [
+      {
+        id: "task-rate-limit",
+        record_id: "task-rec-1",
+        project_id: "project-1",
+        title: "Rate limited task",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+      },
+    ];
+
+    const dispatches = [
+      {
+        errorMessage: "Gemini rate-limited. Retry after a short wait. [ERROR_CATEGORY:RATE_LIMITED] [RETRY_AFTER:2999-01-01T00:00:00.000Z]",
+      },
+    ];
+
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "rate-limited-session",
+            name: "sessions/rate-limited-session",
+            title: "Sprint 1: [run:my-repo/s1/task-rate-limit] [task-rate-limit] Rate limited task",
+            state: "RATE_LIMITED",
+          },
+        ],
+      }),
+      resolveSessionName: (session: { name?: string }) => session.name,
+      extractSessionId: (session: { id?: string }) => session.id,
+      fetchRecentActivities: vi.fn().mockResolvedValue([]),
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      executionRepository: {
+        listTaskDispatches: vi.fn().mockReturnValue(dispatches),
+      },
+      logger: { warn: vi.fn() },
+    };
+
+    const waiting = await runSessionSyncStep(
+      subtasks.map((task) => ({ ...task })),
+      deps as any,
+      true,
+      { repoPath: "/tmp/my-repo", sprintNumber: 1, retryOnRateLimit: true },
+    );
+    expect(waiting.subtasks[0]?.status).toBe("QUOTA");
+
+    dispatches[0] = {
+      errorMessage: "Gemini rate-limited. Retry after a short wait. [ERROR_CATEGORY:RATE_LIMITED] [RETRY_AFTER:2000-01-01T00:00:00.000Z]",
+    };
+
+    const requeued = await runSessionSyncStep(
+      subtasks.map((task) => ({ ...task })),
+      deps as any,
+      true,
+      { repoPath: "/tmp/my-repo", sprintNumber: 1, retryOnRateLimit: true },
+    );
+    expect(requeued.subtasks[0]?.status).toBe("PENDING");
+  });
 });

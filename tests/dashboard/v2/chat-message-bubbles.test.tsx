@@ -6,8 +6,9 @@ import { render } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { ChatMessageBubble } from "../../../dashboard/src/v2/components/chat/ChatMessageBubble.js";
 import { InvocationMessageBubble } from "../../../dashboard/src/v2/components/chat/InvocationMessageBubble.js";
+import { InvocationListCard } from "../../../dashboard/src/v2/components/chat/InvocationListCard.js";
 import { WorkingBubble } from "../../../dashboard/src/v2/components/chat/WorkingBubble.js";
-import type { ChatMessageRecord, ExecutionInvocationMessageRecord, ConversationRuntimeState } from "../../../dashboard/src/v2/types.js";
+import type { ChatMessageRecord, ExecutionInvocationMessageRecord, ConversationRuntimeState, ExecutionInvocationRecord } from "../../../dashboard/src/v2/types.js";
 
 expect.extend(matchers);
 
@@ -121,6 +122,69 @@ describe("Chat Message Bubbles", () => {
       const { getByText } = render(<InvocationMessageBubble message={message} />);
       expect(getByText("Execution Plan")).toBeInTheDocument();
       expect(getByText("Preparing to plan...")).toBeInTheDocument();
+    });
+
+    it("renders a classified error badge when invocation metadata includes an error category", () => {
+      const message: ExecutionInvocationMessageRecord = {
+        id: "msg_3",
+        invocationId: "inv_1",
+        role: "system",
+        contentMarkdown: "Provider error (RATE_LIMITED): Gemini rate-limited.",
+        toolCallsJson: null,
+        createdAt: new Date().toISOString(),
+        metadata: {
+          provider: "gemini",
+          model: "default",
+          errorCategory: "RATE_LIMITED",
+        },
+      };
+
+      const { getByText } = render(<InvocationMessageBubble message={message} />);
+      expect(getByText("Rate limit")).toBeInTheDocument();
+      expect(getByText("default")).toBeInTheDocument();
+    });
+  });
+
+  describe("InvocationListCard", () => {
+    it("shows the model and latest error tag on invocation cards", () => {
+      const invocation: ExecutionInvocationRecord = {
+        id: "inv-1",
+        projectId: "project-1",
+        sprintId: null,
+        taskId: null,
+        sprintRunId: null,
+        dispatchId: null,
+        taskRunId: null,
+        attentionItemId: null,
+        providerInvocationId: null,
+        type: "planning",
+        status: "completed",
+        provider: "gemini",
+        model: "default",
+        systemPrompt: null,
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        errorMessage: null,
+        lastErrorCategory: "RATE_LIMITED",
+        lastErrorMessage: "Gemini rate-limited.",
+        lastRetryAfterIso: null,
+        messageCount: 2,
+        lastMessageAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const { container } = render(
+        <InvocationListCard
+          invocations={[invocation]}
+          selectedInvocationId={null}
+          onSelect={vi.fn()}
+        />
+      );
+
+      expect(container.textContent).toContain("Rate limit");
+      expect(container.textContent).toContain("gemini");
+      expect(container.textContent).toContain("default");
     });
   });
 

@@ -537,6 +537,9 @@ export interface CliWorkflowSettings {
   cleanupWorktreeOnSuccess: boolean;
   cleanupWorktreeOnFailure: boolean;
   retryOnReadFileNotFound: boolean;
+  retryOnQuotaReset: boolean;
+  retryOnRateLimit: boolean;
+  rateLimitRetryDelaySeconds: number;
   resumeFailedTaskInSameWorkspace: boolean;
   executionMode: CliExecutionMode;
   containerImage: string;

@@ -1,3 +1,5 @@
+import type { ProviderErrorCategory } from "../shared/providers/provider-error-classifier.js";
+
 export type ExecutionInvocationStatus = "running" | "completed" | "failed" | "cancelled" | "paused";
 
 export interface ExecutionInvocationRecord {
@@ -18,6 +20,9 @@ export interface ExecutionInvocationRecord {
   startedAt: string;
   finishedAt: string | null;
   errorMessage: string | null;
+  lastErrorCategory: ProviderErrorCategory | null;
+  lastErrorMessage: string | null;
+  lastRetryAfterIso: string | null;
   messageCount: number;
   lastMessageAt: string | null;
   createdAt: string;
@@ -51,6 +56,9 @@ export interface CreateExecutionInvocationInput {
   startedAt?: string;
   finishedAt?: string | null;
   errorMessage?: string | null;
+  lastErrorCategory?: ProviderErrorCategory | null;
+  lastErrorMessage?: string | null;
+  lastRetryAfterIso?: string | null;
 }
 
 export interface UpdateExecutionInvocationInput {
@@ -60,6 +68,9 @@ export interface UpdateExecutionInvocationInput {
   model?: string | null;
   finishedAt?: string | null;
   errorMessage?: string | null;
+  lastErrorCategory?: ProviderErrorCategory | null;
+  lastErrorMessage?: string | null;
+  lastRetryAfterIso?: string | null;
 }
 
 export interface AppendExecutionInvocationMessageInput {
