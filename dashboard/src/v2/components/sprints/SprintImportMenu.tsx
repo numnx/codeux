@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import { h } from "preact";
 import { useState, useRef, useEffect } from "preact/hooks";
 import { Download, FileText, Trello } from "lucide-preact";

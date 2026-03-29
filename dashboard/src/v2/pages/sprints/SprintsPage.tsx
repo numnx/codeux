@@ -1,4 +1,3 @@
-/* v8 ignore start */
 /* istanbul ignore file */
 import type { FunctionComponent } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -545,5 +544,3 @@ export const SprintsPage: FunctionComponent = () => {
     </ExecutionTimelineProvider>
   );
 };
-
-/* v8 ignore stop */
