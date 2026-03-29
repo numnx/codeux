@@ -419,7 +419,7 @@ describe("PlanningAgentService", () => {
           stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
           code: 1,
           signal: null,
-          nativeSessionId: null,
+          nativeSessionId: "native-rate-limit",
           usageTelemetry: {
             inputTokens: 0,
             cachedInputTokens: 0,
@@ -491,6 +491,7 @@ describe("PlanningAgentService", () => {
 
     expect(improved.goal).toBe("Recovered after rate limit.");
     expect(providerRunner.runProviderForText).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(providerRunner.runProviderForText).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
 
     const [invocation] = executionRepository.listExecutionInvocations({ projectId: project.id });
     expect(invocation).toMatchObject({

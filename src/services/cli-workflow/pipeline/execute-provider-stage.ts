@@ -16,7 +16,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
 
   let execInvocationId: string | null = null;
 
-  const runProvider = async (p: string, retrySystemMessage?: string) => {
+  const runProvider = async (p: string, retrySystemMessage?: string, continueSessionId?: string | null) => {
     const startedAt = new Date().toISOString();
 
     if (!execInvocationId) {
@@ -83,6 +83,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
       repoPath: ctx.repoPath,
       githubToken: ctx.deps.getGithubToken(),
       signal: ctx.abortSignal,
+      continueSessionId,
       onActivity: (desc, originator) =>
         ctx.deps.sessionTracking.appendActivity(ctx.sessionId, {
           description: desc,
@@ -148,11 +149,13 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
   let currentPrompt = providerPrompt;
   let providerResult: Awaited<ReturnType<typeof runProvider>>;
   let usedReadFileRetry = false;
+  let continueSessionId: string | null = null;
 
   while (true) {
     providerResult = await runProvider(
       currentPrompt,
       usedReadFileRetry ? "Retrying with file-discovery guidance." : undefined,
+      continueSessionId,
     );
 
     if (!providerResult.ok && ctx.workflowSettings.retryOnReadFileNotFound && !usedReadFileRetry && isReadFileNotFoundToolError(providerResult)) {
@@ -209,6 +212,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
           },
         });
       }
+      continueSessionId = providerResult.nativeSessionId || (ctx.provider === "claude-code" ? null : ctx.sessionId);
       await sleepWithSignal(retryDecision.delayMs, ctx.abortSignal);
       continue;
     }

@@ -496,7 +496,12 @@ export class PlanningAgentService {
       });
     }
 
-    const runProvider = async (prompt: string, currentSessionId: string, retry: boolean) => {
+    const runProvider = async (
+      prompt: string,
+      currentSessionId: string,
+      retry: boolean,
+      continueNativeSessionId?: string | null,
+    ) => {
       args.signal?.throwIfAborted();
       const startedAt = new Date().toISOString();
       const invocation = this.deps.executionRepository?.createProviderInvocationUsage({
@@ -521,6 +526,7 @@ export class PlanningAgentService {
         repoPath: args.repoPath,
         githubToken: args.settings.git.githubToken,
         signal: args.signal,
+        continueSessionId: continueNativeSessionId,
         onActivity: (description, originator) => {
           this.deps.logger?.debug(retry ? "Virtual planning worker retry activity" : "Virtual planning worker activity", {
             projectId: args.projectId,
@@ -556,8 +562,9 @@ export class PlanningAgentService {
     let currentPrompt = providerPrompt;
     let result: Awaited<ReturnType<typeof runProvider>>;
     let usedReadFileRetry = false;
+    let continueSessionId: string | null = null;
     while (true) {
-      result = await runProvider(currentPrompt, sessionId, usedReadFileRetry);
+      result = await runProvider(currentPrompt, sessionId, usedReadFileRetry, continueSessionId);
 
       if (!result.ok && workflowSettings.retryOnReadFileNotFound && !usedReadFileRetry && isReadFileNotFoundToolError(result)) {
         this.deps.logger?.info("Retrying virtual planning request with file-discovery guidance", {
@@ -630,6 +637,7 @@ export class PlanningAgentService {
             },
           });
         }
+        continueSessionId = result.nativeSessionId || (provider === "claude-code" ? null : sessionId);
         await sleepWithSignal(retryDecision.delayMs, args.signal);
         continue;
       }

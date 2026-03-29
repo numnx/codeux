@@ -153,7 +153,7 @@ Planning follows the shared CLI workflow retry controls:
 - `cliWorkflow.retryOnRateLimit` (default `true`)
 - `cliWorkflow.rateLimitRetryDelaySeconds` (default `10`)
 
-When a retryable provider error occurs, Sprint OS appends an explicit system event to the execution invocation, records the classified error on the invocation row, waits for the configured backoff/reset, and retries. That makes the dashboard invocation rail and message history show:
+When a retryable provider error occurs, Sprint OS appends an explicit system event to the execution invocation, records the classified error on the invocation row, waits for the configured backoff/reset, and retries. For providers that support native session continuation, that retry now resumes the prior provider session instead of starting a brand-new conversation. That makes the dashboard invocation rail and message history show:
 
 - which error type occurred
 - whether Sprint OS is waiting on quota reset or rate-limit backoff
