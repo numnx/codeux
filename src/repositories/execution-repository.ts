@@ -1385,9 +1385,10 @@ export class ExecutionRepository {
       runtimeEvents,
     );
     const usageBySprintRunId = this.getUsageTotalsBySprintRunIds(projectId, sprintRuns.map((row) => row.id));
+    const nowIso = new Date().toISOString();
     const usageByTaskId = this.getUsageTotalsByTaskIds(projectId, taskDispatches.map((row) => row.task_id));
-    const wallTimeBySprintRunId = this.getWallTimeTotalsBySprintRunIds(sprintRuns.map((row) => row.id));
-    const wallTimeByTaskId = this.getWallTimeTotalsByTaskIds(taskDispatches.map((row) => row.task_id));
+    const wallTimeBySprintRunId = this.getWallTimeTotalsBySprintRunIds(sprintRuns.map((row) => row.id), nowIso);
+    const wallTimeByTaskId = this.getWallTimeTotalsByTaskIds(taskDispatches.map((row) => row.task_id), nowIso);
 
     return {
       projectId: projectRow?.id || null,
@@ -1433,8 +1434,9 @@ export class ExecutionRepository {
       ORDER BY started_at ASC, id ASC
     `).all(projectId, rangeStartIso, rangeEndIso) as unknown as ProviderInvocationUsageRow[];
     const mappedInvocations = invocations.map((row) => this.mapProviderInvocationUsageRow(row));
-    const wallTimeByTaskId = this.getWallTimeTotalsByTaskIdsForRange(projectId, rangeStartIso, rangeEndIso);
-    const wallTimeBySprintRunId = this.getWallTimeTotalsBySprintRunIdsForRange(projectId, rangeStartIso, rangeEndIso);
+    const nowIso = now.toISOString();
+    const wallTimeByTaskId = this.getWallTimeTotalsByTaskIdsForRange(projectId, rangeStartIso, rangeEndIso, nowIso);
+    const wallTimeBySprintRunId = this.getWallTimeTotalsBySprintRunIdsForRange(projectId, rangeStartIso, rangeEndIso, nowIso);
     const buckets = this.createUsageBuckets(normalized.range, normalized.bucketSizeMs);
     const taskMeta = this.getTaskMetadata(projectId);
     const sprintMeta = this.getSprintMetadata(projectId);
@@ -1467,11 +1469,15 @@ export class ExecutionRepository {
       }
     }
 
-    for (const [taskId, total] of taskUsage) {
-      total.wallTimeMs = wallTimeByTaskId.get(taskId) || 0;
+    for (const [taskId, wallTime] of wallTimeByTaskId) {
+      const total = taskUsage.get(taskId) || createEmptyUsageTotals();
+      total.wallTimeMs = wallTime;
+      taskUsage.set(taskId, total);
     }
-    for (const [sprintKey, total] of sprintUsage) {
-      total.wallTimeMs = wallTimeBySprintRunId.get(sprintKey) || 0;
+    for (const [sprintKey, wallTime] of wallTimeBySprintRunId) {
+      const total = sprintUsage.get(sprintKey) || createEmptyUsageTotals();
+      total.wallTimeMs = wallTime;
+      sprintUsage.set(sprintKey, total);
     }
     usage.wallTimeMs = Array.from(wallTimeByTaskId.values()).reduce((sum, value) => sum + value, 0);
 
@@ -2156,54 +2162,96 @@ export class ExecutionRepository {
     return map;
   }
 
-  private getWallTimeTotalsByTaskIds(taskIds: string[]): Map<string, number> {
+  private getWallTimeTotalsByTaskIds(taskIds: string[], nowIso: string): Map<string, number> {
     if (taskIds.length === 0) {
       return new Map();
     }
     const rows = this.storage.executeChunkedInQuery<{ task_id: string; total_duration_ms: number | string }>({
-      sqlPrefix: "SELECT task_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms FROM task_runs WHERE task_id",
+      sqlPrefix: `
+      SELECT
+        task_id,
+        SUM(
+          CASE
+            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
+            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
+            ELSE 0
+          END
+        ) AS total_duration_ms
+      FROM task_runs
+      WHERE task_id`,
       sqlSuffix: "GROUP BY task_id",
       items: taskIds,
+      bindParamsBefore: [nowIso],
     });
-    return new Map(rows.map((row) => [row.task_id, toNumber(row.total_duration_ms)] as const));
+    return new Map(rows.map((row) => [row.task_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
   }
 
-  private getWallTimeTotalsBySprintRunIds(sprintRunIds: string[]): Map<string, number> {
+  private getWallTimeTotalsBySprintRunIds(sprintRunIds: string[], nowIso: string): Map<string, number> {
     if (sprintRunIds.length === 0) {
       return new Map();
     }
     const rows = this.storage.executeChunkedInQuery<{ sprint_run_id: string; total_duration_ms: number | string }>({
-      sqlPrefix: "SELECT sprint_run_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms FROM task_runs WHERE sprint_run_id",
+      sqlPrefix: `
+      SELECT
+        sprint_run_id,
+        SUM(
+          CASE
+            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
+            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
+            ELSE 0
+          END
+        ) AS total_duration_ms
+      FROM task_runs
+      WHERE sprint_run_id`,
       sqlSuffix: "GROUP BY sprint_run_id",
       items: sprintRunIds,
+      bindParamsBefore: [nowIso],
     });
-    return new Map(rows.map((row) => [row.sprint_run_id, toNumber(row.total_duration_ms)] as const));
+    return new Map(rows.map((row) => [row.sprint_run_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
   }
 
-  private getWallTimeTotalsByTaskIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string): Map<string, number> {
+  private getWallTimeTotalsByTaskIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string, nowIso: string): Map<string, number> {
     const rows = this.getCachedStatement(`
-      SELECT task_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms
+      SELECT
+        task_id,
+        SUM(
+          CASE
+            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
+            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
+            ELSE 0
+          END
+        ) AS total_duration_ms
       FROM task_runs
       WHERE project_id = ?
         AND task_id IS NOT NULL
         AND COALESCE(finished_at, started_at) >= ?
         AND COALESCE(finished_at, started_at) < ?
       GROUP BY task_id
-    `).all(projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ task_id: string; total_duration_ms: number | string }>;
-    return new Map(rows.map((row) => [row.task_id, toNumber(row.total_duration_ms)] as const));
+    `).all(nowIso, projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ task_id: string; total_duration_ms: number | string }>;
+
+    return new Map(rows.map((row) => [row.task_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
   }
 
-  private getWallTimeTotalsBySprintRunIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string): Map<string, number> {
+  private getWallTimeTotalsBySprintRunIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string, nowIso: string): Map<string, number> {
     const rows = this.getCachedStatement(`
-      SELECT sprint_run_id, SUM(COALESCE(duration_ms, 0)) AS total_duration_ms
+      SELECT
+        sprint_run_id,
+        SUM(
+          CASE
+            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
+            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
+            ELSE 0
+          END
+        ) AS total_duration_ms
       FROM task_runs
       WHERE project_id = ?
         AND sprint_run_id IS NOT NULL
         AND COALESCE(finished_at, started_at) >= ?
         AND COALESCE(finished_at, started_at) < ?
       GROUP BY sprint_run_id
-    `).all(projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ sprint_run_id: string; total_duration_ms: number | string }>;
-    return new Map(rows.map((row) => [row.sprint_run_id, toNumber(row.total_duration_ms)] as const));
+    `).all(nowIso, projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ sprint_run_id: string; total_duration_ms: number | string }>;
+
+    return new Map(rows.map((row) => [row.sprint_run_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
   }
 
   private getTaskMetadata(projectId: string): Map<string, StatsEntityMetadata> {
