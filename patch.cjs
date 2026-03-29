@@ -1,4 +1,6 @@
-/** @vitest-environment jsdom */
+const fs = require('fs');
+
+const code = `/** @vitest-environment jsdom */
 /** @jsx h */
 import { h } from "preact";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -147,3 +149,5 @@ describe("SprintsPage", () => {
     fireEvent.mouseDown(document.body);
   });
 });
+`
+fs.writeFileSync('tests/dashboard/v2/sprints-page.test.tsx', code);
