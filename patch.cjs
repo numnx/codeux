@@ -1,6 +1,10 @@
 const fs = require('fs');
+const path = 'tests/dashboard/v2/sprints-page.test.tsx';
+const content = fs.readFileSync(path, 'utf8');
+const fixedContent = content.replace(/  it\("closes the import menu on escape key press or outside click", \(\) => \{\n    vi.mocked\(useSprintsPageData\).mockReturnValue\(\{/g, `  it("closes the import menu on escape key press or outside click", () => {\n    vi.mocked(useSprintsPageData).mockReturnValue({`);
+// it seems it may have duplicate entries, so let's just rewrite the whole thing
 
-const code = `/** @vitest-environment jsdom */
+const correctContent = `/** @vitest-environment jsdom */
 /** @jsx h */
 import { h } from "preact";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -150,4 +154,4 @@ describe("SprintsPage", () => {
   });
 });
 `
-fs.writeFileSync('tests/dashboard/v2/sprints-page.test.tsx', code);
+fs.writeFileSync(path, correctContent);
