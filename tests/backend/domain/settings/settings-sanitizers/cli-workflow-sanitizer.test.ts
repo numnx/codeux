@@ -31,12 +31,15 @@ describe("sanitizeCliWorkflow", () => {
     expect(defaults.retryOnQuotaReset).toBe(true);
     expect(defaults.retryOnRateLimit).toBe(true);
     expect(defaults.rateLimitRetryDelaySeconds).toBe(10);
+    expect(defaults.maxRateLimitRetries).toBe(5);
 
     const clamped = sanitizeCliWorkflow({
       cliWorkflow: {
         rateLimitRetryDelaySeconds: 0,
+        maxRateLimitRetries: 0,
       },
     });
     expect(clamped.rateLimitRetryDelaySeconds).toBe(1);
+    expect(clamped.maxRateLimitRetries).toBe(1);
   });
 });

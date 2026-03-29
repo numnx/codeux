@@ -514,6 +514,114 @@ describe("PlanningAgentService", () => {
     expect(providerRetryPolicy.sleepWithSignal).toHaveBeenCalledWith(1_000, undefined);
   });
 
+  it("stops virtual planning rate-limit retries after the configured max", async () => {
+    const sleepSpy = vi.spyOn(providerRetryPolicy, "sleepWithSignal").mockResolvedValue();
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-rate-limit-max-"));
+    tempDirs.push(dir);
+
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(repoPath, ".sprint-os", "agents"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoPath, ".sprint-os", "agents", "planning_agent.md"),
+      "Turn sprint goals into concrete executable tasks.\n",
+      "utf8",
+    );
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const connectionRepository = new ConnectionChatRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+    const providerRunner: IProviderRunner = {
+      runProvider: vi.fn(),
+      runProviderForText: vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          stdout: "",
+          stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
+          code: 1,
+          signal: null,
+          nativeSessionId: "native-rate-limit",
+          usageTelemetry: {
+            inputTokens: 10,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: 10,
+            usageSource: "reported",
+            rawUsageJson: {},
+            transcriptText: "",
+            nativeSessionId: "native-rate-limit",
+          },
+          text: "",
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          stdout: "",
+          stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
+          code: 1,
+          signal: null,
+          nativeSessionId: "native-rate-limit",
+          usageTelemetry: {
+            inputTokens: 10,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: 10,
+            usageSource: "reported",
+            rawUsageJson: {},
+            transcriptText: "",
+            nativeSessionId: "native-rate-limit",
+          },
+          text: "",
+        }),
+    };
+
+    const service = new PlanningAgentService({
+      projectManagementRepository: projectRepository,
+      connectionChatRepository: connectionRepository,
+      executionRepository,
+      settingsRepository,
+      agentPresetSyncService: syncService,
+      executionControlService: { orchestrateSprint: vi.fn() } as any,
+      providerRunner,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Rate Limited Planning Project",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: {
+        executionMode: "VIRTUAL",
+        virtualWorkerProvider: "gemini",
+      },
+      cliWorkflow: {
+        retryOnRateLimit: true,
+        rateLimitRetryDelaySeconds: 1,
+        maxRateLimitRetries: 1,
+      },
+    });
+
+    await expect(service.improveSprintPrompt(project.id, {
+      name: "Retry sprint",
+      goal: "Retry on rate limit",
+    })).rejects.toThrow("rate-limited");
+
+    expect(providerRunner.runProviderForText).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(providerRunner.runProviderForText).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
+    expect(sleepSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("accepts loose virtual planning JSON with prose, subtasks, prompt, and dependencies fields", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-loose-"));
     tempDirs.push(dir);

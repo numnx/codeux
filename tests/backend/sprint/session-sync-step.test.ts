@@ -571,4 +571,52 @@ describe("runSessionSyncStep", () => {
     );
     expect(requeued.subtasks[0]?.status).toBe("PENDING");
   });
+
+  it("fails a rate-limited task after the configured max retry count is exceeded", async () => {
+    const subtasks: Subtask[] = [
+      {
+        id: "task-rate-limit",
+        record_id: "task-rate-limit-record",
+        project_id: "project-1",
+        title: "Rate limited task",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+      },
+    ];
+
+    const expiredRateLimitError = "Gemini rate-limited. Retry after a short wait. [ERROR_CATEGORY:RATE_LIMITED] [RETRY_AFTER:2000-01-01T00:00:00.000Z]";
+    const dispatches = Array.from({ length: 6 }, () => ({ errorMessage: expiredRateLimitError }));
+
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "rate-limited-session",
+            name: "sessions/rate-limited-session",
+            title: "Sprint 1: [run:my-repo/s1/task-rate-limit] [task-rate-limit] Rate limited task",
+            state: "RATE_LIMITED",
+          },
+        ],
+      }),
+      resolveSessionName: (session: { name?: string }) => session.name,
+      extractSessionId: (session: { id?: string }) => session.id,
+      fetchRecentActivities: vi.fn().mockResolvedValue([]),
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      executionRepository: {
+        listTaskDispatches: vi.fn().mockReturnValue(dispatches),
+      },
+      logger: { warn: vi.fn() },
+    };
+
+    const result = await runSessionSyncStep(
+      subtasks.map((task) => ({ ...task })),
+      deps as any,
+      true,
+      { repoPath: "/tmp/my-repo", sprintNumber: 1, retryOnRateLimit: true, maxRateLimitRetries: 5 },
+    );
+
+    expect(result.subtasks[0]?.status).toBe("FAILED");
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PipelineContext } from "../../../../../src/services/cli-workflow/pipeline/pipeline-context.js";
 import { executeProviderStage } from "../../../../../src/services/cli-workflow/pipeline/execute-provider-stage.js";
 import { executeGitFinalizeStage } from "../../../../../src/services/cli-workflow/pipeline/git-finalize-stage.js";
@@ -6,6 +6,10 @@ import { executePrepareStage } from "../../../../../src/services/cli-workflow/pi
 import { executePrFinalizeStage } from "../../../../../src/services/cli-workflow/pipeline/pr-finalize-stage.js";
 import { executeCleanupStage } from "../../../../../src/services/cli-workflow/pipeline/cleanup-stage.js";
 import * as providerRetryPolicy from "../../../../../src/shared/providers/provider-retry-policy.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const createMockContext = (): PipelineContext => {
   return {
@@ -18,15 +22,29 @@ const createMockContext = (): PipelineContext => {
     repoPath: "/repo",
     worktreePath: "/repo/worktree",
     workflowSettings: {
-      executionMode: "LOCAL",
+      executionMode: "HOST",
       resumeFailedTaskInSameWorkspace: false,
       retryOnReadFileNotFound: true,
       retryOnQuotaReset: true,
       retryOnRateLimit: true,
       rateLimitRetryDelaySeconds: 10,
+      maxRateLimitRetries: 5,
       cleanupWorktreeOnSuccess: true,
       cleanupWorktreeOnFailure: false,
       containerImage: "node:18",
+      containerSetupScriptPath: "",
+      containerCacheSetupScriptImage: false,
+      containerMountGitConfig: false,
+      containerMountGithubAuth: false,
+      containerMountGeminiAuth: false,
+      containerMountCodexAuth: false,
+      containerMountClaudeCodeAuth: false,
+      containerGithubAuthPath: "",
+      containerGeminiAuthPath: "",
+      containerCodexAuthPath: "",
+      containerClaudeCodeAuthPath: "",
+      maxPlanningJsonRetries: 3,
+      maxQuotaRetriesWithoutTimer: 5,
     },
     settings: {
       aiProvider: {
@@ -54,8 +72,9 @@ const createMockContext = (): PipelineContext => {
         retryOnQuotaReset: true,
         retryOnRateLimit: true,
         rateLimitRetryDelaySeconds: 10,
+        maxRateLimitRetries: 5,
         resumeFailedTaskInSameWorkspace: false,
-        executionMode: "LOCAL",
+        executionMode: "HOST",
         containerImage: "node:18",
         containerSetupScriptPath: "",
         containerCacheSetupScriptImage: false,
@@ -68,9 +87,11 @@ const createMockContext = (): PipelineContext => {
         containerGeminiAuthPath: "",
         containerCodexAuthPath: "",
         containerClaudeCodeAuthPath: "",
+        maxPlanningJsonRetries: 3,
+        maxQuotaRetriesWithoutTimer: 5,
       },
       workers: {
-        executionMode: "LOCAL",
+        executionMode: "CONNECTED_MCP",
         virtualWorkerProvider: "gemini",
         model: "default",
         maxConcurrency: 1,
@@ -263,6 +284,35 @@ describe("executeProviderStage", () => {
 
     expect(ctx.providerRunner.runProvider).toHaveBeenCalledTimes(2);
     expect(vi.mocked(ctx.providerRunner.runProvider).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
+  });
+
+  it("stops retrying rate-limited provider runs after the configured max", async () => {
+    const ctx = createMockContext();
+    ctx.workflowSettings.maxRateLimitRetries = 1;
+    vi.spyOn(providerRetryPolicy, "sleepWithSignal").mockResolvedValue();
+    vi.mocked(ctx.providerRunner.runProvider)
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 1,
+        stdout: "",
+        stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
+        nativeSessionId: "native-rate-limit",
+        usageTelemetry: { transcriptText: "" } as any,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 1,
+        stdout: "",
+        stderr: "code: 429, message: 'No capacity available for model gemini-3.1-pro-preview on the server'",
+        nativeSessionId: "native-rate-limit",
+        usageTelemetry: { transcriptText: "" } as any,
+      });
+
+    await expect(executeProviderStage(ctx, "prompt")).rejects.toThrow("rate-limited");
+
+    expect(ctx.providerRunner.runProvider).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(ctx.providerRunner.runProvider).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
+    expect(providerRetryPolicy.sleepWithSignal).toHaveBeenCalledTimes(1);
   });
 });
 

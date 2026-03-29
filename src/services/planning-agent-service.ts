@@ -563,6 +563,7 @@ export class PlanningAgentService {
     let result: Awaited<ReturnType<typeof runProvider>>;
     let usedReadFileRetry = false;
     let continueSessionId: string | null = null;
+    let rateLimitRetryCount = 0;
     while (true) {
       result = await runProvider(currentPrompt, sessionId, usedReadFileRetry, continueSessionId);
 
@@ -613,33 +614,46 @@ export class PlanningAgentService {
 
       const retryDecision = resolveProviderRetryDecision(classification, workflowSettings);
       if (retryDecision) {
-        this.deps.logger?.warn("Retrying virtual planning request after classified provider error", {
-          projectId: args.projectId,
-          invocationId: args.invocationId,
-          provider,
-          model: providerSettings.model,
-          errorCategory: classification.category,
-          retryAtIso: retryDecision.retryAtIso,
-          delayMs: retryDecision.delayMs,
-        });
-        if (args.invocationId) {
-          this.deps.executionRepository?.appendExecutionInvocationMessage(args.invocationId, {
-            role: "system",
-            contentMarkdown: retryDecision.kind === "quota_reset"
-              ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
-              : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`,
-            metadata: {
-              provider,
-              model: providerSettings.model,
-              errorCategory: classification.category,
-              retryAfterIso: retryDecision.retryAtIso,
-              routeKind: "virtual",
-            },
+        if (retryDecision.kind === "rate_limit" && rateLimitRetryCount >= workflowSettings.maxRateLimitRetries) {
+          this.deps.logger?.warn("Stopping virtual planning retries after hitting max rate-limit retries", {
+            projectId: args.projectId,
+            invocationId: args.invocationId,
+            provider,
+            model: providerSettings.model,
+            maxRateLimitRetries: workflowSettings.maxRateLimitRetries,
           });
+        } else {
+          if (retryDecision.kind === "rate_limit") {
+            rateLimitRetryCount += 1;
+          }
+          this.deps.logger?.warn("Retrying virtual planning request after classified provider error", {
+            projectId: args.projectId,
+            invocationId: args.invocationId,
+            provider,
+            model: providerSettings.model,
+            errorCategory: classification.category,
+            retryAtIso: retryDecision.retryAtIso,
+            delayMs: retryDecision.delayMs,
+          });
+          if (args.invocationId) {
+            this.deps.executionRepository?.appendExecutionInvocationMessage(args.invocationId, {
+              role: "system",
+              contentMarkdown: retryDecision.kind === "quota_reset"
+                ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
+                : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`,
+              metadata: {
+                provider,
+                model: providerSettings.model,
+                errorCategory: classification.category,
+                retryAfterIso: retryDecision.retryAtIso,
+                routeKind: "virtual",
+              },
+            });
+          }
+          continueSessionId = result.nativeSessionId || (provider === "claude-code" ? null : sessionId);
+          await sleepWithSignal(retryDecision.delayMs, args.signal);
+          continue;
         }
-        continueSessionId = result.nativeSessionId || (provider === "claude-code" ? null : sessionId);
-        await sleepWithSignal(retryDecision.delayMs, args.signal);
-        continue;
       }
 
       if (classification.category !== "UNKNOWN") {

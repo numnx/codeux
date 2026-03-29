@@ -258,6 +258,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     retryOnQuotaReset: true,
     retryOnRateLimit: true,
     rateLimitRetryDelaySeconds: 10,
+    maxRateLimitRetries: 5,
     resumeFailedTaskInSameWorkspace: true,
     executionMode: "HOST",
     containerImage: "node:24-bookworm",

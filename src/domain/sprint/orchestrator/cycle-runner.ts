@@ -116,6 +116,10 @@ export class CycleRunner {
             projectId: args.executionContext.project.id,
             sprintId: args.executionContext.sprint.id,
           }).cliWorkflow.maxQuotaRetriesWithoutTimer,
+          maxRateLimitRetries: this.deps.getDashboardSettings({
+            projectId: args.executionContext.project.id,
+            sprintId: args.executionContext.sprint.id,
+          }).cliWorkflow.maxRateLimitRetries,
           retryOnRateLimit: this.deps.getDashboardSettings({
             projectId: args.executionContext.project.id,
             sprintId: args.executionContext.sprint.id,

@@ -150,6 +150,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
   let providerResult: Awaited<ReturnType<typeof runProvider>>;
   let usedReadFileRetry = false;
   let continueSessionId: string | null = null;
+  let rateLimitRetryCount = 0;
 
   while (true) {
     providerResult = await runProvider(
@@ -193,28 +194,35 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
 
     const retryDecision = resolveProviderRetryDecision(classification, ctx.workflowSettings);
     if (retryDecision) {
-      const retryMessage = retryDecision.kind === "quota_reset"
-        ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
-        : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`;
-      ctx.deps.sessionTracking.appendActivity(ctx.sessionId, {
-        originator: "system",
-        description: retryMessage,
-      });
-      if (execInvocationId) {
-        ctx.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
-          role: "system",
-          contentMarkdown: retryMessage,
-          metadata: {
-            provider: ctx.provider,
-            model,
-            errorCategory: classification.category,
-            retryAfterIso: retryDecision.retryAtIso,
-          },
+      if (retryDecision.kind === "rate_limit" && rateLimitRetryCount >= ctx.workflowSettings.maxRateLimitRetries) {
+        // fall through to terminal classified error handling below
+      } else {
+        if (retryDecision.kind === "rate_limit") {
+          rateLimitRetryCount += 1;
+        }
+        const retryMessage = retryDecision.kind === "quota_reset"
+          ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
+          : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`;
+        ctx.deps.sessionTracking.appendActivity(ctx.sessionId, {
+          originator: "system",
+          description: retryMessage,
         });
+        if (execInvocationId) {
+          ctx.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+            role: "system",
+            contentMarkdown: retryMessage,
+            metadata: {
+              provider: ctx.provider,
+              model,
+              errorCategory: classification.category,
+              retryAfterIso: retryDecision.retryAtIso,
+            },
+          });
+        }
+        continueSessionId = providerResult.nativeSessionId || (ctx.provider === "claude-code" ? null : ctx.sessionId);
+        await sleepWithSignal(retryDecision.delayMs, ctx.abortSignal);
+        continue;
       }
-      continueSessionId = providerResult.nativeSessionId || (ctx.provider === "claude-code" ? null : ctx.sessionId);
-      await sleepWithSignal(retryDecision.delayMs, ctx.abortSignal);
-      continue;
     }
 
     if (classification.category !== "UNKNOWN") {

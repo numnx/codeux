@@ -7,6 +7,7 @@ export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   retryOnQuotaReset: true,
   retryOnRateLimit: true,
   rateLimitRetryDelaySeconds: 10,
+  maxRateLimitRetries: 5,
   resumeFailedTaskInSameWorkspace: true,
   executionMode: "HOST",
   containerImage: "node:24-bookworm",

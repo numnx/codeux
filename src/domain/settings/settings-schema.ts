@@ -262,6 +262,7 @@ const validateCliWorkflow = (
   if (typeof value.retryOnQuotaReset !== "boolean") issues.push({ path: `${path}.retryOnQuotaReset`, message: "Expected a boolean" });
   if (typeof value.retryOnRateLimit !== "boolean") issues.push({ path: `${path}.retryOnRateLimit`, message: "Expected a boolean" });
   if (typeof value.rateLimitRetryDelaySeconds !== "number" || !Number.isFinite(value.rateLimitRetryDelaySeconds) || value.rateLimitRetryDelaySeconds < 1) issues.push({ path: `${path}.rateLimitRetryDelaySeconds`, message: "Expected a positive integer" });
+  if (typeof value.maxRateLimitRetries !== "number" || !Number.isFinite(value.maxRateLimitRetries) || value.maxRateLimitRetries < 1) issues.push({ path: `${path}.maxRateLimitRetries`, message: "Expected a positive integer" });
   if (typeof value.maxPlanningJsonRetries !== "number" || !Number.isFinite(value.maxPlanningJsonRetries) || value.maxPlanningJsonRetries < 0) issues.push({ path: `${path}.maxPlanningJsonRetries`, message: "Expected a non-negative integer" });
   if (typeof value.maxQuotaRetriesWithoutTimer !== "number" || !Number.isFinite(value.maxQuotaRetriesWithoutTimer) || value.maxQuotaRetriesWithoutTimer < 1) issues.push({ path: `${path}.maxQuotaRetriesWithoutTimer`, message: "Expected a positive integer" });
   if (typeof value.resumeFailedTaskInSameWorkspace !== "boolean") issues.push({ path: `${path}.resumeFailedTaskInSameWorkspace`, message: "Expected a boolean" });

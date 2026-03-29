@@ -2071,7 +2071,7 @@ export const SettingsPage: FunctionComponent = () => {
               },
             }))} />
           </Row>
-          <Row label="Retry on rate limit" description="Keep retrying transient rate-limit failures after a fixed delay instead of failing immediately." badge={getFieldBadge("cliWorkflow.retryOnRateLimit")}>
+          <Row label="Retry on rate limit" description="Retry transient rate-limit failures after a fixed delay until the configured max retry count is reached." badge={getFieldBadge("cliWorkflow.retryOnRateLimit")}>
             <Toggle value={editableSettings.cliWorkflow.retryOnRateLimit} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
@@ -2092,6 +2092,20 @@ export const SettingsPage: FunctionComponent = () => {
               }))}
               min={1}
               max={3600}
+            />
+          </Row>
+          <Row label="Max rate limit retries" description="Maximum retry attempts for rate-limited provider calls before Sprint OS fails the invocation." badge={getFieldBadge("cliWorkflow.maxRateLimitRetries")}>
+            <NumberInput
+              value={editableSettings.cliWorkflow.maxRateLimitRetries}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                cliWorkflow: {
+                  ...current.cliWorkflow,
+                  maxRateLimitRetries: value,
+                },
+              }))}
+              min={1}
+              max={100}
             />
           </Row>
           <Row label="Resume failed task in same workspace" description="Reuse the same workspace for a retry instead of provisioning a fresh one." badge={getFieldBadge("cliWorkflow.resumeFailedTaskInSameWorkspace")}>

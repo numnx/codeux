@@ -875,6 +875,19 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
               })}
             />
           </Row>
+          <Row label="Max rate limit retries" description="Maximum rate-limit retries before the invocation fails instead of requeueing again." badge={getBadge("cliWorkflow.maxRateLimitRetries")}>
+            <NumberField
+              value={settings.cliWorkflow.maxRateLimitRetries}
+              min={1}
+              max={100}
+              onChange={(value) => update({
+                cliWorkflow: {
+                  ...settings.cliWorkflow,
+                  maxRateLimitRetries: value,
+                },
+              })}
+            />
+          </Row>
           {[
             ["containerGithubAuthPath", "GitHub auth path"],
             ["containerGeminiAuthPath", "Gemini auth path"],

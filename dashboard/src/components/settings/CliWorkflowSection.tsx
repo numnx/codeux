@@ -96,6 +96,22 @@ export const CliWorkflowSection: FunctionComponent<SettingsSectionProps> = ({ se
         />
       </div>
 
+      <div className="flex items-center justify-between py-2">
+        <label className="text-sm text-white/80">Max rate limit retries</label>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={settings.cliWorkflow.maxRateLimitRetries}
+          onChange={(e) =>
+            applyCliWorkflowUpdate({
+              maxRateLimitRetries: Math.max(1, Math.min(100, Number((e.target as HTMLInputElement).value) || 5)),
+            })
+          }
+          className="w-20 rounded bg-black/30 px-2 py-1 text-sm text-white border border-white/10"
+        />
+      </div>
+
       {settings.cliWorkflow.executionMode === "DOCKER" && (
         <DockerCredentialsSection
           workflow={settings.cliWorkflow}
