@@ -330,13 +330,14 @@ async function pipePreviewUpgradeRequest(args: {
     if (value === undefined) {
       continue;
     }
-    if (Array.isArray(value)) {
-      for (const item of value) {
+    const headerValue = key.toLowerCase() === "host" ? `127.0.0.1:${args.upstreamPort}` : value;
+    if (Array.isArray(headerValue)) {
+      for (const item of headerValue) {
         requestLines.push(`${key}: ${item}`);
       }
       continue;
     }
-    requestLines.push(`${key}: ${value}`);
+    requestLines.push(`${key}: ${headerValue}`);
   }
   requestLines.push("", "");
   const requestBuffer = Buffer.from(requestLines.join("\r\n"), "utf8");
@@ -481,8 +482,8 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 
     const headers = { ...req.headers } as Record<string, string | string[] | undefined>;
     delete headers["accept-encoding"];
-    headers.host = String(req.headers.host || "");
     headers["x-forwarded-host"] = String(req.headers.host || "");
+    headers.host = `127.0.0.1:${session.hostPort}`;
     headers["x-forwarded-proto"] = req.protocol || "http";
     if (req.socket.localPort) {
       headers["x-forwarded-port"] = String(req.socket.localPort);
