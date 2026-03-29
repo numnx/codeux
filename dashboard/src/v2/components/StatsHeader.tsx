@@ -3,8 +3,8 @@ import { memo } from "preact/compat";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { Radio, BarChart3, Ship, Workflow, AlertTriangle } from "lucide-preact";
-import type { DashboardStatus, ExecutionSprintRunSummary, DashboardHumanIntervention, PreviewSessionInfo } from "../types.js";
-import type { RuntimeStats } from "../../lib/status.js";
+import type { DashboardStatus, DashboardStats, ExecutionSprintRunSummary } from "../../types.js";
+
 import { formatTime } from "../../lib/time.js";
 import { LivePreviewLink } from "./ui/LivePreviewLink.js";
 import { HumanInterventionBadge } from "./ui/HumanInterventionBadge.js";
@@ -19,7 +19,7 @@ type HeaderView = "stats" | "race" | "dag";
 export interface StatsHeaderProps {
     headerView: HeaderView;
     setHeaderView: (view: HeaderView) => void;
-    visibleStats: RuntimeStats;
+    visibleStats: DashboardStats;
     hasSprintContext: boolean;
 }
 
