@@ -2752,7 +2752,7 @@ export class ExecutionRepository {
       cachedInputTokens: toNumber(row.cached_input_tokens),
       outputTokens: toNumber(row.output_tokens),
       reasoningOutputTokens: toNumber(row.reasoning_output_tokens),
-      totalTokens: toNumber(row.total_tokens),
+      totalTokens: toNumber(row.input_tokens) + toNumber(row.output_tokens),
       usageSource: row.usage_source as ProviderInvocationUsageRecord["usageSource"],
       rawUsageJson: parsePayloadJson(row.raw_usage_json),
       createdAt: row.created_at,

@@ -932,7 +932,7 @@ describe("ExecutionRepository", () => {
       cachedInputTokens: 90,
       outputTokens: 210,
       reasoningOutputTokens: 45,
-      totalTokens: 945,
+      totalTokens: 810,
       usageSource: "reported",
       rawUsageJson: { provider: "codex" },
     });
@@ -970,7 +970,7 @@ describe("ExecutionRepository", () => {
     const secondTaskUsage = executionSnapshot.taskDispatches.find((dispatch) => dispatch.taskId === secondTask.id)?.usage;
 
     expect(sprintUsage).toMatchObject({
-      totalTokens: 1_345,
+      totalTokens: 1_210,
       activeTimeMs: 420_000,
       wallTimeMs: 420_000,
       invocationCount: 2,
@@ -978,7 +978,7 @@ describe("ExecutionRepository", () => {
       estimatedInvocationCount: 1,
     });
     expect(firstTaskUsage).toMatchObject({
-      totalTokens: 945,
+      totalTokens: 810,
       activeTimeMs: 180_000,
       wallTimeMs: 180_000,
     });
@@ -990,7 +990,7 @@ describe("ExecutionRepository", () => {
 
     const statsSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "24h");
     expect(statsSnapshot.usage).toMatchObject({
-      totalTokens: 1_345,
+      totalTokens: 1_210,
       activeTimeMs: 420_000,
       wallTimeMs: 420_000,
       invocationCount: 2,
@@ -1005,19 +1005,19 @@ describe("ExecutionRepository", () => {
     expect(statsSnapshot.tasks[0]).toMatchObject({
       label: "T01 Track coding usage",
       usage: expect.objectContaining({
-        totalTokens: 945,
+        totalTokens: 810,
       }),
     });
     expect(statsSnapshot.sprints[0]).toMatchObject({
       label: "Sprint 7 · Telemetry Sprint",
       usage: expect.objectContaining({
-        totalTokens: 1_345,
+        totalTokens: 1_210,
       }),
     });
     expect(statsSnapshot.providers).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "codex",
-        usage: expect.objectContaining({ totalTokens: 945 }),
+        usage: expect.objectContaining({ totalTokens: 810 }),
       }),
       expect.objectContaining({
         id: "claude-code",
@@ -1027,7 +1027,7 @@ describe("ExecutionRepository", () => {
     expect(statsSnapshot.purposes).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "task_coding",
-        usage: expect.objectContaining({ totalTokens: 945 }),
+        usage: expect.objectContaining({ totalTokens: 810 }),
       }),
       expect.objectContaining({
         id: "merge_conflict",
@@ -1127,7 +1127,7 @@ describe("ExecutionRepository", () => {
       cachedInputTokens: 20,
       outputTokens: 110,
       reasoningOutputTokens: 10,
-      totalTokens: 440,
+      totalTokens: 410,
       usageSource: "reported",
       rawUsageJson: { provider: "codex" },
     });
@@ -1163,12 +1163,12 @@ describe("ExecutionRepository", () => {
     expect(thirtyDaySnapshot.window).toBe("30d");
     expect(thirtyDaySnapshot.range.resolution).toBe("day");
     expect(thirtyDaySnapshot.range.bucketCount).toBe(30);
-    expect(thirtyDaySnapshot.usage.totalTokens).toBe(1_000);
+    expect(thirtyDaySnapshot.usage.totalTokens).toBe(970);
 
     const allTimeSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "all");
     expect(allTimeSnapshot.window).toBe("all");
     expect(allTimeSnapshot.range.isCustom).toBe(false);
-    expect(allTimeSnapshot.usage.totalTokens).toBe(1_000);
+    expect(allTimeSnapshot.usage.totalTokens).toBe(970);
     expect(allTimeSnapshot.tasks[0]?.lastActivityAt).toBe(recentFinishedAt);
 
     const customSnapshot = executionRepository.getProjectStatsSnapshot(project.id, {

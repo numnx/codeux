@@ -808,7 +808,7 @@ describe("dashboard project management API", () => {
       cachedInputTokens: 40,
       outputTokens: 110,
       reasoningOutputTokens: 20,
-      totalTokens: 490,
+      totalTokens: 430,
       usageSource: "reported",
       rawUsageJson: { provider: "codex" },
     });
@@ -825,7 +825,7 @@ describe("dashboard project management API", () => {
       projectId: project.id,
       window: "24h",
       usage: {
-        totalTokens: 490,
+        totalTokens: 430,
         activeTimeMs: 90_000,
         wallTimeMs: 90_000,
       },
@@ -833,13 +833,13 @@ describe("dashboard project management API", () => {
     expect(statsSnapshot.tasks[0]).toMatchObject({
       label: "T01 Wire selected project state",
       usage: {
-        totalTokens: 490,
+        totalTokens: 430,
       },
     });
     expect(statsSnapshot.providers[0]).toMatchObject({
       id: "codex",
       usage: {
-        totalTokens: 490,
+        totalTokens: 430,
       },
     });
 
@@ -863,7 +863,7 @@ describe("dashboard project management API", () => {
         isCustom: true,
       },
       usage: {
-        totalTokens: 490,
+        totalTokens: 430,
       },
     });
 
