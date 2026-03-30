@@ -210,6 +210,7 @@ export class JulesAgentServer {
       projectManagementRepository: this.projectManagementRepository,
       sprintOrchestrator: this.sprintOrchestrator,
       logger: this.logger.child({ component: "runtime-startup-recovery-service" }),
+      dashboardRealtimeService: deps.dashboardRealtimeService,
     });
     this.dashboardRealtimeService = deps.dashboardRealtimeService;
     this.memoryService = deps.memoryService;
