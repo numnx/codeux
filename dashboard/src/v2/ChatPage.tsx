@@ -19,6 +19,7 @@ import type {
   ExecutionDashboardSnapshot,
   ExecutionConnectionSummary,
 } from "../types.js";
+import { useMessageCache } from "./hooks/useMessageCache.js";
 import { useProjectData } from "./context/project-data.js";
 import {
   createConversationThread,
@@ -180,11 +181,7 @@ export const ChatPage: FunctionComponent = () => {
   const selectedThreadIdRef = useRef<string | null>(null);
   const selectedInvocationIdRef = useRef<string | null>(null);
   const threadsRef = useRef<ChatThread[]>([]);
-  const messageCacheRef = useRef(new Map<string, ChatMessageRecord[]>());
-  const threadCacheRef = useRef(new Map<string, ChatThread[]>());
-  const connectionCacheRef = useRef(new Map<string, AgentConnection[]>());
-  const invocationCacheRef = useRef(new Map<string, ExecutionInvocationRecord[]>());
-  const invocationMessageCacheRef = useRef(new Map<string, ExecutionInvocationMessageRecord[]>());
+  const cache = useMessageCache();
   const inflightMessageFetchesRef = useRef(new Map<string, Promise<ChatMessageRecord[]>>());
   const inflightInvocationFetchesRef = useRef(new Map<string, Promise<ExecutionInvocationMessageRecord[]>>());
   const activationTokenRef = useRef(0);
@@ -276,7 +273,7 @@ export const ChatPage: FunctionComponent = () => {
   }, []);
 
   const ensureMessagesLoaded = useCallback(async (threadId: string): Promise<ChatMessageRecord[]> => {
-    const cachedMessages = messageCacheRef.current.get(threadId);
+    const cachedMessages = cache.getMessages(threadId);
     if (cachedMessages) {
       return cachedMessages;
     }
@@ -288,7 +285,7 @@ export const ChatPage: FunctionComponent = () => {
 
     const request = fetchConversationMessages(threadId)
       .then((nextMessages) => {
-        messageCacheRef.current.set(threadId, nextMessages);
+        cache.setMessages(threadId, nextMessages);
         return nextMessages;
       })
       .finally(() => {
@@ -300,7 +297,7 @@ export const ChatPage: FunctionComponent = () => {
   }, []);
 
   const ensureInvocationMessagesLoaded = useCallback(async (invocationId: string): Promise<ExecutionInvocationMessageRecord[]> => {
-    const cachedMessages = invocationMessageCacheRef.current.get(invocationId);
+    const cachedMessages = cache.getInvocationMessages(invocationId);
     if (cachedMessages) {
       return cachedMessages;
     }
@@ -312,7 +309,7 @@ export const ChatPage: FunctionComponent = () => {
 
     const request = fetchInvocationMessages(invocationId)
       .then((nextMessages) => {
-        invocationMessageCacheRef.current.set(invocationId, nextMessages);
+        cache.setInvocationMessages(invocationId, nextMessages);
         return nextMessages;
       })
       .finally(() => {
@@ -338,7 +335,7 @@ export const ChatPage: FunctionComponent = () => {
     }
 
     const targetThread = options?.preferredThread || threadsRef.current.find((thread) => thread.id === threadId) || null;
-    const cachedMessages = messageCacheRef.current.get(threadId);
+    const cachedMessages = cache.getMessages(threadId);
     if (cachedMessages) {
       setSelectedThreadId(threadId);
       setMessagesSnapshot(cachedMessages);
@@ -347,7 +344,7 @@ export const ChatPage: FunctionComponent = () => {
     }
 
     if ((targetThread?.messageCount || 0) === 0) {
-      messageCacheRef.current.set(threadId, []);
+      cache.setMessages(threadId, []);
       setSelectedThreadId(threadId);
       setMessagesSnapshot([]);
       setMessagesLoading(false);
@@ -393,8 +390,8 @@ export const ChatPage: FunctionComponent = () => {
       return;
     }
 
-    const targetInvocation = options?.preferredInvocation || invocationCacheRef.current.get(selectedProject?.id || "")?.find((inv) => inv.id === invocationId) || null;
-    const cachedMessages = invocationMessageCacheRef.current.get(invocationId);
+    const targetInvocation = options?.preferredInvocation || cache.getInvocations(selectedProject?.id || "")?.find((inv) => inv.id === invocationId) || null;
+    const cachedMessages = cache.getInvocationMessages(invocationId);
     if (cachedMessages) {
       setSelectedInvocationId(invocationId);
       setInvocationMessagesSnapshot(cachedMessages);
@@ -403,7 +400,7 @@ export const ChatPage: FunctionComponent = () => {
     }
 
     if ((targetInvocation?.messageCount || 0) === 0) {
-      invocationMessageCacheRef.current.set(invocationId, []);
+      cache.setInvocationMessages(invocationId, []);
       setSelectedInvocationId(invocationId);
       setInvocationMessagesSnapshot([]);
       setMessagesLoading(false);
@@ -452,7 +449,7 @@ export const ChatPage: FunctionComponent = () => {
     try {
       const nextMessages = options?.force
         ? await fetchConversationMessages(threadId).then((messagesResponse) => {
-          messageCacheRef.current.set(threadId, messagesResponse);
+          cache.setMessages(threadId, messagesResponse);
           return messagesResponse;
         })
         : await ensureMessagesLoaded(threadId);
@@ -486,7 +483,7 @@ export const ChatPage: FunctionComponent = () => {
     try {
       const nextMessages = options?.force
         ? await fetchInvocationMessages(invocationId).then((messagesResponse) => {
-          invocationMessageCacheRef.current.set(invocationId, messagesResponse);
+          cache.setInvocationMessages(invocationId, messagesResponse);
           return messagesResponse;
         })
         : await ensureInvocationMessagesLoaded(invocationId);
@@ -550,8 +547,8 @@ export const ChatPage: FunctionComponent = () => {
         const nextThreads = results[fetchThreadsIndex] as ChatThread[];
         const nextConnections = results[fetchConnectionsIndex] as AgentConnection[];
 
-        threadCacheRef.current.set(selectedProject.id, nextThreads);
-        connectionCacheRef.current.set(selectedProject.id, nextConnections);
+        cache.setThreads(selectedProject.id, nextThreads);
+        cache.setConnections(selectedProject.id, nextConnections);
 
         setThreadsSnapshot(nextThreads);
         setConnectionsSnapshot(nextConnections);
@@ -568,7 +565,7 @@ export const ChatPage: FunctionComponent = () => {
       if (fetchInvocationsIndex !== -1) {
         const nextInvocations = results[fetchInvocationsIndex] as ExecutionInvocationRecord[];
 
-        invocationCacheRef.current.set(selectedProject.id, nextInvocations);
+        cache.setInvocations(selectedProject.id, nextInvocations);
         setInvocationsSnapshot(nextInvocations);
 
         const nextSelectedInvocationId = resolveSelectedItemId(nextInvocations, selectedInvocationIdRef.current);
@@ -597,9 +594,9 @@ export const ChatPage: FunctionComponent = () => {
       return;
     }
 
-    const cachedThreads = threadCacheRef.current.get(selectedProject.id);
-    const cachedConnections = connectionCacheRef.current.get(selectedProject.id);
-    const cachedInvocations = invocationCacheRef.current.get(selectedProject.id);
+    const cachedThreads = cache.getThreads(selectedProject.id);
+    const cachedConnections = cache.getConnections(selectedProject.id);
+    const cachedInvocations = cache.getInvocations(selectedProject.id);
     if (cachedThreads && cachedInvocations) {
       setThreadsSnapshot(cachedThreads);
       setConnectionsSnapshot(cachedConnections || []);
@@ -668,7 +665,7 @@ export const ChatPage: FunctionComponent = () => {
       if (message.event.eventType === "project.execution.updated") {
         const payload = message.event.payload as ExecutionDashboardSnapshot;
         const nextConnections = (payload.connections || []).map((connection) => toAgentConnection(connection));
-        connectionCacheRef.current.set(selectedProject.id, nextConnections);
+        cache.setConnections(selectedProject.id, nextConnections);
         setConnectionsSnapshot(nextConnections);
 
         void refreshThreads({ mode: "invocations" });
@@ -680,9 +677,9 @@ export const ChatPage: FunctionComponent = () => {
         if (thread.projectId !== selectedProject.id) {
           return;
         }
-        const currentThreads = threadCacheRef.current.get(selectedProject.id) || threadsRef.current;
+        const currentThreads = cache.getThreads(selectedProject.id) || threadsRef.current;
         const nextThreads = upsertChatThread(currentThreads, thread);
-        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        cache.setThreads(selectedProject.id, nextThreads);
         setThreadsSnapshot(nextThreads);
         if (thread.id === selectedThreadIdRef.current) {
           void refreshMessages(thread.id, { force: true });
@@ -698,11 +695,11 @@ export const ChatPage: FunctionComponent = () => {
         if (payload.projectId !== selectedProject.id) {
           return;
         }
-        const currentThreads = threadCacheRef.current.get(selectedProject.id) || threadsRef.current;
+        const currentThreads = cache.getThreads(selectedProject.id) || threadsRef.current;
         const nextThreads = removeThread(currentThreads, payload.threadId);
-        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        cache.setThreads(selectedProject.id, nextThreads);
         setThreadsSnapshot(nextThreads);
-        messageCacheRef.current.delete(payload.threadId);
+        cache.deleteMessages(payload.threadId);
         if (selectedThreadIdRef.current === payload.threadId) {
           const userNextThreads = nextThreads.filter((t) => t.scope === "project");
           const nextSelection = resolveSelectedItemId(userNextThreads, null);
@@ -714,9 +711,9 @@ export const ChatPage: FunctionComponent = () => {
 
       if (message.event.eventType === "conversation.message.created") {
         const realtimeMessage = message.event.payload as ChatMessageRecord;
-        const cachedMessages = messageCacheRef.current.get(realtimeMessage.threadId) || [];
+        const cachedMessages = cache.getMessages(realtimeMessage.threadId) || [];
         const nextMessages = upsertMessage(cachedMessages, realtimeMessage);
-        messageCacheRef.current.set(realtimeMessage.threadId, nextMessages);
+        cache.setMessages(realtimeMessage.threadId, nextMessages);
         if (realtimeMessage.threadId === selectedThreadIdRef.current) {
           setMessagesSnapshot(nextMessages);
         }
@@ -743,9 +740,9 @@ export const ChatPage: FunctionComponent = () => {
     const thread = await createConversationThread(selectedProject.id, {
       title: `Project Chat ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
     });
-    const nextThreads = upsertChatThread(threadCacheRef.current.get(selectedProject.id) || threadsRef.current, thread);
-    threadCacheRef.current.set(selectedProject.id, nextThreads);
-    messageCacheRef.current.set(thread.id, []);
+    const nextThreads = upsertChatThread(cache.getThreads(selectedProject.id) || threadsRef.current, thread);
+    cache.setThreads(selectedProject.id, nextThreads);
+    cache.setMessages(thread.id, []);
     setThreadsSnapshot(nextThreads);
     await activateThread(thread.id, { preferredThread: thread });
     return thread;
@@ -772,11 +769,11 @@ export const ChatPage: FunctionComponent = () => {
         });
       }
 
-      const nextThreads = (threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current).map((thread) => (
+      const nextThreads = (cache.getThreads(selectedProject?.id || "") || threadsRef.current).map((thread) => (
         thread.id === updated.id ? updated : thread
       ));
       if (selectedProject) {
-        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        cache.setThreads(selectedProject.id, nextThreads);
       }
       setThreadsSnapshot(nextThreads);
       await refreshMessages(updated.id);
@@ -796,11 +793,11 @@ export const ChatPage: FunctionComponent = () => {
     setCompacting(true);
     try {
       const updated = await compactThreadSession(selectedThread.id);
-      const nextThreads = (threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current).map((thread) => (
+      const nextThreads = (cache.getThreads(selectedProject?.id || "") || threadsRef.current).map((thread) => (
         thread.id === updated.id ? updated : thread
       ));
       if (selectedProject) {
-        threadCacheRef.current.set(selectedProject.id, nextThreads);
+        cache.setThreads(selectedProject.id, nextThreads);
       }
       setThreadsSnapshot(nextThreads);
       await refreshMessages(updated.id);
@@ -848,8 +845,8 @@ export const ChatPage: FunctionComponent = () => {
       if (composerRef.current) {
         composerRef.current.style.height = "auto";
       }
-      const nextMessages = upsertMessage(messageCacheRef.current.get(thread.id) || [], created);
-      messageCacheRef.current.set(thread.id, nextMessages);
+      const nextMessages = upsertMessage(cache.getMessages(thread.id) || [], created);
+      cache.setMessages(thread.id, nextMessages);
       setMessagesSnapshot(nextMessages);
       await refreshThreads();
       setError(null);
@@ -865,36 +862,36 @@ export const ChatPage: FunctionComponent = () => {
   )).length;
 
   const hasWorkingReply = useMemo(() => messages.some((message) => isWorkingMessage(message, messages)), [messages]);
-  const hasProjectSnapshot = Boolean(selectedProject && threadCacheRef.current.has(selectedProject.id));
+  const hasProjectSnapshot = Boolean(selectedProject && cache.hasThreads(selectedProject.id));
   const hasThreadSnapshot = Boolean(
     selectedThreadId
-    && (messageCacheRef.current.has(selectedThreadId) || (selectedThread?.messageCount || 0) === 0)
+    && (cache.hasMessages(selectedThreadId) || (selectedThread?.messageCount || 0) === 0)
   );
   const threadsLoading = isListLoading(selectedProject?.id || null, hasProjectSnapshot, loading);
   const threadMessagesLoading = isDetailLoading(selectedThreadId, hasThreadSnapshot, messagesLoading);
 
-  const hasInvocationProjectSnapshot = Boolean(selectedProject && invocationCacheRef.current.has(selectedProject.id));
+  const hasInvocationProjectSnapshot = Boolean(selectedProject && cache.hasInvocations(selectedProject.id));
   const hasInvocationSnapshot = Boolean(
     selectedInvocationId
-    && (invocationMessageCacheRef.current.has(selectedInvocationId) || (selectedInvocation?.messageCount || 0) === 0)
+    && (cache.hasInvocationMessages(selectedInvocationId) || (selectedInvocation?.messageCount || 0) === 0)
   );
   const invocationsLoading = isListLoading(selectedProject?.id || null, hasInvocationProjectSnapshot, loading);
   const invocationMessagesLoading = isDetailLoading(selectedInvocationId, hasInvocationSnapshot, messagesLoading);
 
   const handleDeleteThread = useCallback(async (threadId: string): Promise<void> => {
-    const nextThreads = removeThread(threadCacheRef.current.get(selectedProject?.id || "") || threadsRef.current, threadId);
+    const nextThreads = removeThread(cache.getThreads(selectedProject?.id || "") || threadsRef.current, threadId);
     const userNextThreads = nextThreads.filter((t) => t.scope === "project");
     const nextSelection = resolveSelectedItemId(userNextThreads, selectedThreadId === threadId ? null : selectedThreadId);
     setDeletingThreadId(threadId);
     if (selectedProject) {
-      threadCacheRef.current.set(selectedProject.id, nextThreads);
+      cache.setThreads(selectedProject.id, nextThreads);
     }
     setThreadsSnapshot(nextThreads);
     if (selectedThreadId === threadId) {
       const nextSelectedThread = nextThreads.find((thread) => thread.id === nextSelection) || null;
       await activateThread(nextSelection, { preferredThread: nextSelectedThread });
     }
-    messageCacheRef.current.delete(threadId);
+    cache.deleteMessages(threadId);
 
     try {
       await deleteConversationThread(threadId);
