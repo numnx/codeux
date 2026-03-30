@@ -22,7 +22,6 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
 }) => {
   const backdropRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLElement | null>(null);
   const [sprintText, setSprintText] = useState(sprintMarkdown);
   const [tasksText, setTasksText] = useState(tasksMarkdown);
   const [copiedField, setCopiedField] = useState<"sprint" | "tasks" | null>(null);
@@ -33,53 +32,13 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
   }, []);
 
   useEffect(() => {
-    triggerRef.current = document.activeElement as HTMLElement | null;
-
-    const getFocusableElements = () => {
-        if (!cardRef.current) return [];
-        return Array.from(cardRef.current.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-    };
-
-    if (cardRef.current) {
-        const focusableElements = getFocusableElements();
-        if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-        }
-    }
-
     const handler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
-      } else if (event.key === "Tab") {
-        if (!cardRef.current) return;
-        const focusableElements = getFocusableElements();
-        if (focusableElements.length === 0) return;
-
-        const first = focusableElements[0];
-        const last = focusableElements[focusableElements.length - 1];
-
-        if (!cardRef.current.contains(document.activeElement)) {
-            event.preventDefault();
-            first.focus();
-            return;
-        }
-
-        if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-        }
       }
     };
     document.addEventListener("keydown", handler);
-    return () => {
-        document.removeEventListener("keydown", handler);
-        if (triggerRef.current) {
-            triggerRef.current.focus();
-        }
-    };
+    return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
   const handleBackdropClick = (event: MouseEvent) => {
@@ -162,8 +121,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
