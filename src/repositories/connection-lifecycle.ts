@@ -1,10 +1,10 @@
 import type { McpConnectionStatus } from "../contracts/connection-chat-types.js";
 import type { WorkerEndpointStatus } from "../contracts/worker-types.js";
 
-export const HEARTBEAT_WRITE_INTERVAL_MS = 5 * 1000;
-export const STALE_CONNECTION_THRESHOLD_MS = 90 * 1000;
-export const OFFLINE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
-export const PRUNE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const HEARTBEAT_WRITE_INTERVAL_MS = 5 * 1000;
+const STALE_CONNECTION_THRESHOLD_MS = 90 * 1000;
+const OFFLINE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const PRUNE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
 
 function deriveHeartbeatHealth(lastHeartbeatAt: string | null): "healthy" | "stale" | "offline" {
   if (!lastHeartbeatAt) {
