@@ -14,6 +14,7 @@
 - [Execution Invocation Tracking](./architecture/execution-invocation-tracking.md)
 - [Dashboard Realtime Transport Plan](./architecture/dashboard-realtime-transport-plan.md)
 - [Dashboard Realtime Foundation](./architecture/dashboard-realtime-foundation.md)
+- [Live Runtime Contract](./architecture/live-runtime-contract.md)
 - [Execution Runtime Event Timeline](./architecture/execution-runtime-event-timeline.md)
 - [Usage Telemetry And Stats](./architecture/usage-telemetry-and-stats.md)
 - [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)

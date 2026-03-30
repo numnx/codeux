@@ -45,6 +45,7 @@ import type { EmbeddingModelManager } from "../../services/embedding-model-manag
 import type { EmbeddingService } from "../../services/embedding-service.js";
 import type { MemoryRepository } from "../../repositories/memory-repository.js";
 import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config/sprint-os-paths.js";
+import { getProjectLiveSnapshot } from "../live/project-live-snapshot.js";
 
 export interface BootDashboardDeps {
   app: Express;
@@ -361,64 +362,17 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     return snapshot;
   };
 
-  const getProjectLiveSnapshot = async (projectIdHint?: string | null): Promise<ProjectLiveDashboardSnapshot> => {
-    const projectId = typeof projectIdHint === "string" && projectIdHint.trim().length > 0
-      ? projectIdHint.trim()
-      : deps.projectManagementRepository.getSelectedProjectId();
-
-    if (!projectId) {
-      return {
-        projectId: null,
-        selectedSprintId: null,
-        status: { subtasks: [], timestamp: null },
-        execution: {
-          projectId: null,
-          projectName: null,
-          sprintRuns: [],
-          taskDispatches: [],
-          connections: [],
-          primaryAssignedWorker: null,
-          overflowAssignedWorkers: [],
-          attentionItems: [],
-          recentEvents: [],
-          updatedAt: null,
-        },
-        gitStatus: null,
-        gitStatusError: null,
-        updatedAt: null,
-      };
-    }
-
-    const selectedSprintId = deps.projectManagementRepository.listSprints(projectId).selectedSprintId ?? null;
-    const status = deps.projectRuntimeRepository.getProjectStatus(projectId, selectedSprintId);
-    const execution = getProjectExecutionSnapshot(projectId);
-
-    let gitStatus: GitTrackingStatus | null = null;
-    let gitStatusError: string | null = null;
-    try {
-      gitStatus = await deps.getGitStatus();
-    } catch (error) {
-      gitStatusError = error instanceof Error
-        ? error.message
-        : "Unable to load git/ci/pr tracking.";
-    }
-
-    return {
-      projectId,
-      selectedSprintId,
-      status,
-      execution,
-      gitStatus,
-      gitStatusError,
-      updatedAt: new Date().toISOString(),
-    };
-  };
 
   deps.dashboardRealtimeService.setSnapshotLoaders({
     getProjectsSnapshot,
     getProjectExecutionSnapshot,
     getProjectStatusSnapshot: (projectId) => deps.projectRuntimeRepository.getProjectLiveStatus(projectId),
-    getProjectLiveSnapshot,
+    getProjectLiveSnapshot: (projectIdHint) => getProjectLiveSnapshot({
+      projectManagementRepository: deps.projectManagementRepository,
+      projectRuntimeRepository: deps.projectRuntimeRepository,
+      getProjectExecutionSnapshot,
+      getGitStatus: deps.getGitStatus
+    }, projectIdHint),
     getOverviewTelemetrySnapshot,
   });
 
@@ -442,7 +396,12 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
     getStatus: () => deps.projectRuntimeRepository.getSelectedProjectLiveStatus(),
-    getLiveSnapshot: getProjectLiveSnapshot,
+    getLiveSnapshot: (projectIdHint) => getProjectLiveSnapshot({
+      projectManagementRepository: deps.projectManagementRepository,
+      projectRuntimeRepository: deps.projectRuntimeRepository,
+      getProjectExecutionSnapshot,
+      getGitStatus: deps.getGitStatus
+    }, projectIdHint),
     getExecutionSnapshot: () => {
       const projectId = deps.projectManagementRepository.getSelectedProjectId();
       return projectId
