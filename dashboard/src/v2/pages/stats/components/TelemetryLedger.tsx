@@ -150,24 +150,20 @@ export const TelemetryLedger: FunctionComponent<{
                           </div>
                         </div>
 
-                        <div className="mt-4 grid gap-4 md:grid-cols-2">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className={SUBPANEL_CLASS}>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
                             </div>
-                            <div className={SUBPANEL_CLASS}>
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
                             </div>
-                            <div className={SUBPANEL_CLASS}>
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{item.usage.invocationCount.toLocaleString()}</div>
                             </div>
                           </div>
-
-
-                        </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
                           <TokenChip icon={ArrowDownRight} label="In" value={item.usage.inputTokens} tone="border-signal-500/16 bg-signal-500/8 text-signal-600 dark:text-signal-400" />
