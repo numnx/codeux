@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { requireRecord } from "./repository-utils.js";
 import type {
@@ -67,7 +67,7 @@ function parseAvatarConfig(value: string | null): AgentPresetRecord["avatarConfi
 }
 
 export class AgentPresetRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(storage: AppDbStorage = new AppDbStorage()) {
     this.db = storage.getDatabase();

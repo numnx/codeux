@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import type {
   DashboardRealtimeEvent,
@@ -106,7 +106,7 @@ export function parseDashboardRealtimeScope(scope: string): {
 }
 
 export class DashboardRealtimeEventRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(storage: AppDbStorage = new AppDbStorage()) {
     this.db = storage.getDatabase();

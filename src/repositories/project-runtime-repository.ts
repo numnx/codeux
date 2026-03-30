@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import * as path from "path";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import type { DashboardStatus, JulesActivity, Subtask, SubtaskMergeIndicator, SubtaskStatus } from "../contracts/app-types.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import type { DashboardRealtimeMutationNotifier } from "../services/dashboard-realtime-service.js";
@@ -201,7 +201,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 export class ProjectRuntimeRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
@@ -591,7 +591,7 @@ export class ProjectRuntimeRepository {
     this.db.prepare(`
       INSERT INTO app_settings (key, payload, updated_at)
       VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
+      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       runtimeContextKey(context.projectId, context.sprintId),
       JSON.stringify(context),
@@ -689,8 +689,8 @@ export class ProjectRuntimeRepository {
           tr.session_id,
           tr.session_name,
           tr.provider,
-          json_extract(tre.payload_json, '$.activityId') AS activity_id,
-          json_extract(tre.payload_json, '$.activityName') AS activity_name,
+          ${this.db.dialect.jsonExtract("tre.payload_json", "$.activityId")} AS activity_id,
+          ${this.db.dialect.jsonExtract("tre.payload_json", "$.activityName")} AS activity_name,
           tre.created_at,
           tre.originator,
           tre.payload_json,
