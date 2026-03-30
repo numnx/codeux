@@ -37,7 +37,7 @@ describe("UsageSeriesSidebar", () => {
 
     expect(screen.getAllByText("Usage").length).toBeGreaterThan(0);
     expect(screen.getByText("Details")).toBeInTheDocument();
-    expect(screen.getAllByText("Tokens").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Tokens")).not.toBeInTheDocument();
     expect(screen.getByText("Active Time")).toBeInTheDocument();
   });
 });
