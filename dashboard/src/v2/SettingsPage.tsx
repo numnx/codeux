@@ -522,7 +522,7 @@ export const SettingsPage: FunctionComponent = () => {
     return () => window.removeEventListener("keydown", handleKeydown);
   }, []);
 
-  const switchCategory = (categoryId: CategoryId): void => {
+  const switchCategory = useCallback((categoryId: CategoryId): void => {
     if (!contentRef.current || categoryId === activeCategory) {
       return;
     }
@@ -543,25 +543,25 @@ export const SettingsPage: FunctionComponent = () => {
         );
       },
     });
-  };
+  }, [activeCategory]);
 
-  const updateSystem = (recipe: (current: SystemSettings) => SystemSettings): void => {
+  const updateSystem = useCallback((recipe: (current: SystemSettings) => SystemSettings): void => {
     setSystemSettings((current) => (current ? recipe(current) : current));
-  };
+  }, []);
 
-  const updateProject = (recipe: (current: ProjectSettings) => ProjectSettings): void => {
+  const updateProject = useCallback((recipe: (current: ProjectSettings) => ProjectSettings): void => {
     setProjectSettings((current) => (current ? recipe(current) : current));
-  };
+  }, []);
 
-  const updateEditableSettings = (recipe: (current: ProjectSettings) => ProjectSettings): void => {
+  const updateEditableSettings = useCallback((recipe: (current: ProjectSettings) => ProjectSettings): void => {
     if (activeScope === "system") {
       updateSystem((current) => ({ ...current, defaults: recipe(current.defaults) }));
       return;
     }
     updateProject(recipe);
-  };
+  }, [activeScope, updateProject, updateSystem]);
 
-  const handleImportHints = async (): Promise<void> => {
+  const handleImportHints = useCallback(async (): Promise<void> => {
     if (!systemSettings) {
       return;
     }
@@ -577,9 +577,9 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setImportingHints(false);
     }
-  };
+  }, [systemSettings]);
 
-  const handleSave = async (): Promise<void> => {
+  const handleSave = useCallback(async (): Promise<void> => {
     if (activeScope === "system") {
       if (!systemSettings) {
         return;
@@ -627,9 +627,9 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setSavingProject(false);
     }
-  };
+  }, [activeScope, systemSettings, selectedProject, projectSettings]);
 
-  const handleResetProject = async (): Promise<void> => {
+  const handleResetProject = useCallback(async (): Promise<void> => {
     if (!selectedProject) {
       return;
     }
@@ -648,9 +648,9 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setResettingProject(false);
     }
-  };
+  }, [selectedProject]);
 
-  const handleDeleteProject = async (): Promise<void> => {
+  const handleDeleteProject = useCallback(async (): Promise<void> => {
     if (!selectedProject) {
       return;
     }
@@ -670,9 +670,9 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setDeletingProject(false);
     }
-  };
+  }, [selectedProject, deleteProject]);
 
-  const handleResetDatabase = async (): Promise<void> => {
+  const handleResetDatabase = useCallback(async (): Promise<void> => {
     if (!window.confirm("Reset the full database and scoped settings back to a clean development state? This deletes all projects, sprints, tasks, runtime state, chats, and saved settings.")) {
       return;
     }
@@ -690,7 +690,7 @@ export const SettingsPage: FunctionComponent = () => {
     } finally {
       setResettingDatabase(false);
     }
-  };
+  }, [loadSettings]);
 
   const activeDirty = activeScope === "system" ? systemDirty : projectDirty;
   const activeSaving = activeScope === "system" ? savingSystem : savingProject;
