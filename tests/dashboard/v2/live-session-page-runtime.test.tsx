@@ -122,3 +122,181 @@ describe("LiveSessionPage Runtime Status", () => {
     expect(screen.getByText("Some network failure")).toBeInTheDocument();
   });
 });
+
+describe("LiveSessionPage Integration Isolation", () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    vi.mocked(useProjectData).mockReturnValue({ selectedProjectId: "p1" } as any);
+  });
+
+  it("isolates task state rigidly to the explicitly selected sprint despite concurrent newer execution metadata", () => {
+    const execution = {
+      projectId: "p1",
+      projectName: "Project 1",
+      sprintRuns: [
+        {
+          id: "run-older",
+          projectId: "p1",
+          sprintId: "sprint-older",
+          sprintName: "Older Sprint",
+          sprintNumber: 1,
+          status: "completed",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2024-01-01T10:00:00Z",
+          finishedAt: "2024-01-01T10:30:00Z",
+          lastHeartbeatAt: "2024-01-01T10:30:00Z",
+          createdAt: "2024-01-01T10:00:00Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        },
+        {
+          id: "run-newer",
+          projectId: "p1",
+          sprintId: "sprint-newer",
+          sprintName: "Newer Sprint",
+          sprintNumber: 2,
+          status: "running",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2024-01-01T11:00:00Z",
+          finishedAt: null,
+          lastHeartbeatAt: "2024-01-01T11:05:00Z",
+          createdAt: "2024-01-01T11:00:00Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        },
+      ],
+      taskDispatches: [
+        {
+          id: "dispatch-older",
+          projectId: "p1",
+          sprintId: "sprint-older",
+          sprintRunId: "run-older",
+          sprintName: "Older Sprint",
+          sprintNumber: 1,
+          taskId: "task-rec-1",
+          taskKey: "T1",
+          taskTitle: "Task 1",
+          status: "completed",
+          executorType: "jules",
+          priority: 0,
+          connectionId: null,
+          connectionDisplayName: null,
+          connectionRole: null,
+          taskRunId: "task-run-older",
+          taskRunState: "COMPLETED",
+          provider: "gemini",
+          sessionId: "session-older",
+          sessionName: "session-older",
+          workerBranch: "older-branch",
+          prUrl: "https://pr.com/1",
+          queuedAt: "2024-01-01T10:00:00Z",
+          claimedAt: "2024-01-01T10:01:00Z",
+          startedAt: "2024-01-01T10:02:00Z",
+          finishedAt: "2024-01-01T10:30:00Z",
+          lastHeartbeatAt: "2024-01-01T10:30:00Z",
+          errorMessage: null,
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+        },
+        {
+          id: "dispatch-newer",
+          projectId: "p1",
+          sprintId: "sprint-newer",
+          sprintRunId: "run-newer",
+          sprintName: "Newer Sprint",
+          sprintNumber: 2,
+          taskId: "task-rec-2",
+          taskKey: "T1", // Same task key, different sprint
+          taskTitle: "Task 1 (New)",
+          status: "running",
+          executorType: "jules",
+          priority: 0,
+          connectionId: null,
+          connectionDisplayName: null,
+          connectionRole: null,
+          taskRunId: "task-run-newer",
+          taskRunState: "RUNNING",
+          provider: "gemini",
+          sessionId: "session-newer",
+          sessionName: "session-newer",
+          workerBranch: "newer-branch",
+          prUrl: "https://pr.com/2",
+          queuedAt: "2024-01-01T11:00:00Z",
+          claimedAt: "2024-01-01T11:01:00Z",
+          startedAt: "2024-01-01T11:02:00Z",
+          finishedAt: null,
+          lastHeartbeatAt: "2024-01-01T11:05:00Z",
+          errorMessage: null,
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+        },
+      ],
+      connections: [],
+      primaryAssignedWorker: null,
+      overflowAssignedWorkers: [],
+      attentionItems: [],
+      recentEvents: [],
+      updatedAt: "2024-01-01T11:05:00Z",
+    };
+
+    // We explicitly select the OLDER sprint
+    vi.mocked(useDashboardRuntimeData).mockReturnValue({
+      error: null,
+      gitStatus: null,
+      gitStatusError: null,
+      initialLoadComplete: true,
+      transportState: "connected",
+      isRecovering: false,
+      snapshotUpdatedAt: "2024-01-01T11:05:00Z",
+      refreshGitStatus: vi.fn(),
+      refreshRuntimeStatus: vi.fn(),
+      selectedSprintId: "sprint-older", // Scope is the older sprint
+      status: {
+        project_id: "p1",
+        sprint_id: "sprint-older",
+        sprint_number: 1,
+        timestamp: "2024-01-01T10:30:00Z",
+        subtasks: [
+          {
+            record_id: "task-rec-1",
+            id: "T1",
+            title: "Task 1",
+            prompt: "Older prompt",
+            depends_on: [],
+            is_independent: true,
+            status: "COMPLETED",
+          },
+        ],
+      },
+      execution,
+      stats: { total: 1, completed: 1, running: 0, failed: 0, not_started: 0, running_percent: 0, completed_percent: 100, failed_percent: 0 },
+      tasksWithLiveActivities: [
+        {
+          record_id: "task-rec-1",
+          id: "T1",
+          title: "Task 1",
+          prompt: "Older prompt",
+          depends_on: [],
+          is_independent: true,
+          status: "COMPLETED",
+        },
+      ],
+    });
+
+    render(<LiveSessionPage />);
+
+    // Since we are looking at the older sprint, the task T1 should be shown as COMPLETED.
+    // Even though there is a newer sprint running a task with the same key T1.
+    // Stats should show 1 completed, 0 running.
+    expect(screen.getByText("Task 1")).toBeInTheDocument();
+    expect(screen.getByText("COMPLETED")).toBeInTheDocument();
+    expect(screen.queryByText("Task 1 (New)")).not.toBeInTheDocument();
+  });
+});
