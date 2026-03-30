@@ -916,10 +916,10 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
     /* ─── Idle state ─────────────────────────────────────────────── */
     if (!hasLiveSprint || tasks.length === 0) {
         return (
-            <div className="relative boat-race-bleed">
+        <div role="img" aria-label="Sprint progress visualization showing tasks racing towards completion." className="relative boat-race-bleed">
                 <div className="relative overflow-hidden p-12">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <svg viewBox="0 0 600 120" className="absolute bottom-0 w-full opacity-[0.04]" preserveAspectRatio="none">
+                    <svg aria-hidden="true" viewBox="0 0 600 120" className="absolute bottom-0 w-full opacity-[0.04]" preserveAspectRatio="none">
                             <path d="M0 80 Q75 55 150 80 T300 80 T450 80 T600 80 V120 H0 Z" fill="currentColor">
                                 <animateTransform attributeName="transform" type="translate" values="0 0;-50 4;0 0" dur="8s" repeatCount="indefinite" />
                             </path>
@@ -951,7 +951,7 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
     const BADGE_OFFSET = TOW_LINE_LENGTH + 58; // tow line + half badge width
 
     return (
-        <div className="relative boat-race-bleed">
+        <div role="img" aria-label="Sprint Race Details" className="relative boat-race-bleed">
             <div className="relative overflow-hidden">
 
                 {/* ── Title bar ──────────────────────────────────────── */}
@@ -978,7 +978,7 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                     </div>
                 </div>
 
-                <svg
+                <svg aria-hidden="true"
                     ref={svgRef}
                     viewBox={`0 0 ${SVG_W} ${SVG_H}`}
                     className="w-full"
