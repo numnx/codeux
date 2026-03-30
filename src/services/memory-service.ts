@@ -202,16 +202,25 @@ export class MemoryService {
 
     const memories = this.memoryRepository.listByProject(projectId, undefined, 10000);
     let completed = 0;
+    let index = 0;
+    const concurrency = 5;
 
-    for (const memory of memories) {
-      try {
-        await this.triggerEmbedding(memory);
-        completed++;
-        onProgress?.(completed, memories.length);
-      } catch (error) {
-        this.logger.warn(`Failed to re-embed memory ${memory.id}: ${error}`);
+    const worker = async () => {
+      while (index < memories.length) {
+        const i = index++;
+        const memory = memories[i];
+        try {
+          await this.triggerEmbedding(memory);
+          completed++;
+          onProgress?.(completed, memories.length);
+        } catch (error) {
+          this.logger.warn(`Failed to re-embed memory ${memory.id}: ${error}`);
+        }
       }
-    }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, memories.length) }, () => worker());
+    await Promise.all(workers);
 
     return completed;
   }
@@ -229,18 +238,29 @@ export class MemoryService {
 
     const run = async () => {
       let completed = 0;
-      for (const memory of memories) {
-        if (!this.reembedProgress?.active) break;
-        try {
-          await this.triggerEmbedding(memory);
-          completed++;
-        } catch (error) {
-          this.logger.warn(`Failed to re-embed memory ${memory.id}: ${error}`);
+      let index = 0;
+      const concurrency = 5;
+
+      const worker = async () => {
+        while (index < memories.length) {
+          if (!this.reembedProgress?.active) break;
+          const i = index++;
+          const memory = memories[i];
+          try {
+            await this.triggerEmbedding(memory);
+            completed++;
+          } catch (error) {
+            this.logger.warn(`Failed to re-embed memory ${memory.id}: ${error}`);
+          }
+          if (this.reembedProgress) {
+            this.reembedProgress.completed = completed;
+          }
         }
-        if (this.reembedProgress) {
-          this.reembedProgress.completed = completed;
-        }
-      }
+      };
+
+      const workers = Array.from({ length: Math.min(concurrency, memories.length) }, () => worker());
+      await Promise.all(workers);
+
       if (this.reembedProgress) {
         this.reembedProgress.active = false;
         this.reembedProgress.completed = completed;
