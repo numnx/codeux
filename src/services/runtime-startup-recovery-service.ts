@@ -4,8 +4,6 @@ import type { ProjectManagementRepository } from "../repositories/project-manage
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
 import type { Logger } from "../shared/logging/logger.js";
-import type { DashboardLifecycleService } from "../app/lifecycle/dashboard-lifecycle-service.js";
-import { DashboardRealtimeService } from "./dashboard-realtime-service.js";
 
 const ACTIVE_SPRINT_RUN_STATUSES = ["queued", "running"] as const;
 const ACTIVE_DISPATCH_STATUSES = ["queued", "claimed", "running", "cancel_requested"] as const;
@@ -24,7 +22,6 @@ interface RuntimeStartupRecoveryServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
   sprintOrchestrator: SprintOrchestrator;
   logger?: Logger;
-  dashboardRealtimeService?: DashboardRealtimeService;
 }
 
 export class RuntimeStartupRecoveryService {
@@ -148,7 +145,6 @@ export class RuntimeStartupRecoveryService {
 
       recoveredSprintIds.add(sprintRun.sprintId);
       this.deps.executionRepository.releaseLease("sprint", sprintRun.sprintId);
-      this.deps.dashboardRealtimeService?.scheduleProjectLiveRefresh(sprintRun.projectId);
       resumedSprintRunIds.push(sprintRun.id);
 
       void this.deps.sprintOrchestrator.recoverSprintRun(sprintRun.id).catch((error) => {
