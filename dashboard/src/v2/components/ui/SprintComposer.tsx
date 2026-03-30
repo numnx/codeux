@@ -64,6 +64,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const [isImproving, setIsImproving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [elapsedMs, setElapsedMs] = useState(0);
 
   const state = useSprintComposerState(initialSprint);
@@ -112,7 +114,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       timeline.fromTo(
         cardRef.current,
         { y: 28, opacity: 0, scale: 0.985, filter: "blur(14px)" },
-        { y: 0, opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.72, ease: "power4.out" },
+        { y: 0, opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.72, ease: "power4." },
       );
     }
 
@@ -120,7 +122,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       timeline.fromTo(
         Array.from(fieldsRef.current.querySelectorAll("[data-composer-stagger]")),
         { y: 18, opacity: 0 },
-        { y: 0, opacity: 1, stagger: 0.055, duration: 0.5, ease: "power3.out" },
+        { y: 0, opacity: 1, stagger: 0.055, duration: 0.5, ease: "power3." },
         "-=0.45",
       );
     }
@@ -164,9 +166,17 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
-    if (!state.name.trim()) {
+
+    const newErrors: Record<string, string> = {};
+    if (!state.name.trim()) newErrors.name = "Sprint name is required.";
+    if (!state.goal.trim()) newErrors.goal = "Sprint prompt is required.";
+
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
       return;
     }
+
+    setFieldErrors({});
 
     if (state.submitMode === "append_tasks" && onAppendTasks) {
       onAppendTasks();
@@ -377,12 +387,24 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             <input
               type="text"
               value={state.name}
-              onInput={(event) => state.setName((event.target as HTMLInputElement).value)}
+              id="name"
+              onInput={(event) => { state.setName((event.target as HTMLInputElement).value); setFieldErrors(prev => ({...prev, name: ''})); }}
               placeholder="Runtime hardening"
-              className="w-full border-0 border-b-2 border-black/[0.08] bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem]"
-              required
+              className={`w-full border-0 border-b-2 bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900  transition-colors placeholder:text-slate-200 dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem] ${fieldErrors.name ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08] focus:border-signal-500'}`}
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={fieldErrors.name ? "name-error" : undefined}
               autoFocus
             />
+            {fieldErrors.name && (
+              <p id="name-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                <X className="w-3 h-3" /> {fieldErrors.name}
+              </p>
+            )}
+            {fieldErrors.name && (
+              <p id="name-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                <X className="w-3 h-3" /> {fieldErrors.name}
+              </p>
+            )}
           </label>
 
           <div data-composer-stagger className="mt-8 space-y-3">
@@ -407,11 +429,24 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               }`}>
                 <textarea
                   value={state.goal}
-                  onInput={(event) => state.setGoal((event.target as HTMLTextAreaElement).value)}
+                  id="goal"
+                  onInput={(event) => { state.setGoal((event.target as HTMLTextAreaElement).value); setFieldErrors(prev => ({...prev, goal: ''})); }}
                   placeholder="Describe the outcome, affected systems, and what done looks like when this sprint lands."
-                  className="min-h-[220px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-600 sm:min-h-[260px] sm:px-5"
+                  className={`min-h-[220px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700  placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-600 sm:min-h-[260px] sm:px-5 border ${fieldErrors.goal ? 'border-status-red focus:border-status-red' : 'border-transparent focus:border-signal-500/20'}`}
+                  aria-invalid={!!fieldErrors.goal}
+                  aria-describedby={fieldErrors.goal ? "goal-error" : undefined}
                 />
               </div>
+              {fieldErrors.goal && (
+                <p id="goal-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                  <X className="w-3 h-3" /> {fieldErrors.goal}
+                </p>
+              )}
+              {fieldErrors.goal && (
+                <p id="goal-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                  <X className="w-3 h-3" /> {fieldErrors.goal}
+                </p>
+              )}
 
               {state.originalPrompt && (
                 <div className="flex flex-col rounded-[1.7rem] border border-black/[0.05] bg-black/[0.01] p-5 dark:border-white/[0.05] dark:bg-white/[0.015]">

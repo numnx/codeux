@@ -55,10 +55,12 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   const [priority, setPriority] = useState<TaskPriority>(initialTask?.priority || "medium");
   const [executorType, setExecutorType] = useState<TaskExecutorType>(initialTask?.executorType || "auto");
   const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>(initialTask?.dependsOnTaskIds || []);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useLayoutEffect(() => {
-    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
-    gsap.fromTo(cardRef.current, { y: 40, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4.out" });
+    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2." });
+    gsap.fromTo(cardRef.current, { y: 40, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4." });
   }, []);
 
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -125,9 +127,16 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
-    if (!title.trim() || !sprintId) {
+    const newErrors: Record<string, string> = {};
+    if (!sprintId) newErrors.sprintId = "Please select a sprint.";
+    if (!title.trim()) newErrors.title = "Title is required.";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    setErrors({});
 
     await onSubmit({
       sprintId,
@@ -198,7 +207,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <button
               onClick={onClose}
               aria-label="Close"
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="touch-target w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -209,28 +218,52 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <div className="group/field">
                 <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint</label>
                 <select
+                  id="sprintId"
                   value={sprintId}
-                  onInput={(event) => setSprintId((event.target as HTMLSelectElement).value)}
-                  className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500"
-                  required
+                  onInput={(event) => { setSprintId((event.target as HTMLSelectElement).value); setErrors(prev => ({...prev, sprintId: ''})); }}
+                  className={`mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300  focus:border-signal-500 ${errors.sprintId ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08]'}`}
+                  aria-invalid={!!errors.sprintId}
+                  aria-describedby={errors.sprintId ? "sprintId-error" : undefined}
                 >
                   <option value="" disabled>Select sprint</option>
                   {sprints.map((sprint) => (
                     <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
                   ))}
                 </select>
+                {errors.sprintId && (
+                  <p id="sprintId-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
+                    <X className="w-3 h-3" /> {errors.sprintId}
+                  </p>
+                )}
+                {errors.sprintId && (
+                  <p id="sprintId-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
+                    <X className="w-3 h-3" /> {errors.sprintId}
+                  </p>
+                )}
               </div>
 
               <div className="group/field">
                 <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Title</label>
                 <input
+                  id="title"
                   type="text"
                   value={title}
-                  onInput={(event) => setTitle((event.target as HTMLInputElement).value)}
-                  className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500"
+                  onInput={(event) => { setTitle((event.target as HTMLInputElement).value); setErrors(prev => ({...prev, title: ''})); }}
+                  className={`mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300  focus:border-signal-500 ${errors.title ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08]'}`}
                   placeholder="Define the task scope"
-                  required
+                  aria-invalid={!!errors.title}
+                  aria-describedby={errors.title ? "title-error" : undefined}
                 />
+                {errors.title && (
+                  <p id="title-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
+                    <X className="w-3 h-3" /> {errors.title}
+                  </p>
+                )}
+                {errors.title && (
+                  <p id="title-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
+                    <X className="w-3 h-3" /> {errors.title}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -305,7 +338,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <textarea
                 value={description}
                 onInput={(event) => setDescription((event.target as HTMLTextAreaElement).value)}
-                className="mt-2.5 w-full min-h-[110px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none"
+                className="mt-2.5 w-full min-h-[110px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300  focus:border-signal-500 resize-none"
                 placeholder="Summarize the intent and outcome."
               />
             </div>
@@ -315,7 +348,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <textarea
                 value={promptMarkdown}
                 onInput={(event) => setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
-                className="mt-2.5 w-full min-h-[150px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none font-mono"
+                className="mt-2.5 w-full min-h-[150px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300  focus:border-signal-500 resize-none font-mono"
                 placeholder="Detailed markdown instructions for the agent."
               />
             </div>

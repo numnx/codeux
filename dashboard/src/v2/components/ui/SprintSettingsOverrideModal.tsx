@@ -58,8 +58,8 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
   };
 
   useLayoutEffect(() => {
-    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
-    gsap.fromTo(cardRef.current, { y: 42, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4.out" });
+    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2." });
+    gsap.fromTo(cardRef.current, { y: 42, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4." });
   }, []);
 
   useEffect(() => {

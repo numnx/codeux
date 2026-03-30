@@ -27,8 +27,8 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
   const [copiedField, setCopiedField] = useState<"sprint" | "tasks" | null>(null);
 
   useLayoutEffect(() => {
-    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
-    gsap.fromTo(cardRef.current, { y: 42, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4.out" });
+    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2." });
+    gsap.fromTo(cardRef.current, { y: 42, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4." });
   }, []);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="touch-target w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -157,7 +157,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                   value={sprintText}
                   onInput={(event) => setSprintText((event.target as HTMLTextAreaElement).value)}
                   readOnly={mode === "export"}
-                  className="w-full min-h-[180px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none font-mono"
+                  className="w-full min-h-[180px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300  focus:border-signal-500 resize-none font-mono"
                   placeholder="name: Sprint Name&#10;number: 1&#10;status: running&#10;goal:&#10;Describe the sprint scope."
                 />
               </div>
@@ -190,7 +190,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                   value={tasksText}
                   onInput={(event) => setTasksText((event.target as HTMLTextAreaElement).value)}
                   readOnly={mode === "export"}
-                  className="w-full min-h-[240px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 resize-none font-mono"
+                  className="w-full min-h-[240px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300  focus:border-signal-500 resize-none font-mono"
                   placeholder={'--- FILE: T01.md ---\ntitle: Task Title\ndepends_on: []\nis_independent: true\nmerged: false\nprompt:\nDetailed instructions'}
                 />
               </div>

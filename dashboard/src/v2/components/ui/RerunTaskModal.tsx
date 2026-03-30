@@ -33,10 +33,10 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
     const [clearWorktree, setClearWorktree] = useState(false);
 
     useLayoutEffect(() => {
-        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
+        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2." });
         gsap.fromTo(cardRef.current,
             { y: 36, opacity: 0, scale: 0.96 },
-            { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4.out", delay: 0.04 },
+            { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "power4.", delay: 0.04 },
         );
     }, []);
 
@@ -111,7 +111,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                             id="rerun-provider"
                             value={provider}
                             onChange={(e) => setProvider((e.target as HTMLSelectElement).value)}
-                            className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03] px-4 py-2.5 text-[13px] font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal-500 focus:border-transparent transition-shadow"
+                            className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03] px-4 py-2.5 text-[13px] font-medium text-slate-700 dark:text-slate-200  focus:ring-2 focus:ring-signal-500 focus:border-transparent transition-shadow"
                         >
                             {PROVIDER_OPTIONS.map(opt => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>

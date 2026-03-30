@@ -20,17 +20,19 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const [localPath, setLocalPath] = useState('');
     const [gitUrl, setGitUrl]       = useState('');
     const [cloneDir, setCloneDir]   = useState('');
+    const [errors, setErrors]       = useState<Record<string, string>>({});
+    const [errors, setErrors]       = useState<Record<string, string>>({});
 
     useLayoutEffect(() => {
-        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
+        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2." });
         gsap.fromTo(cardRef.current,
             { y: 48, opacity: 0, scale: 0.94 },
-            { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.out", delay: 0.05 }
+            { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.", delay: 0.05 }
         );
         if (fieldsRef.current) {
             gsap.fromTo(Array.from(fieldsRef.current.children),
                 { y: 18, opacity: 0 },
-                { y: 0, opacity: 1, stagger: 0.07, duration: 0.45, ease: "power3.out", delay: 0.25 }
+                { y: 0, opacity: 1, stagger: 0.07, duration: 0.45, ease: "power3.", delay: 0.25 }
             );
         }
     }, []);
@@ -52,8 +54,19 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
     const handleSubmit = (e: Event) => {
         e.preventDefault();
+        const newErrors: Record<string, string> = {};
         const path = sourceType === 'local' ? localPath.trim() : gitUrl.trim();
-        if (!name.trim() || !path) return;
+
+        if (!name.trim()) newErrors.name = "Project name is required.";
+        if (sourceType === 'local' && !localPath.trim()) newErrors.localPath = "Directory path is required.";
+        if (sourceType === 'git' && !gitUrl.trim()) newErrors.gitUrl = "Repository URL is required.";
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
+        setErrors({});
         onAdd({
             name: name.trim(),
             type: sourceType,
@@ -70,7 +83,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
             const conditionalFields = Array.from(fieldsRef.current.children).slice(2);
             gsap.fromTo(conditionalFields,
                 { y: 12, opacity: 0 },
-                { y: 0, opacity: 1, stagger: 0.06, duration: 0.35, ease: "power3.out" }
+                { y: 0, opacity: 1, stagger: 0.06, duration: 0.35, ease: "power3." }
             );
         }
     };
@@ -127,7 +140,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <button
                             onClick={handleClose}
                             aria-label="Close"
-                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+                            className="touch-target w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -145,12 +158,19 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                 <input
                                     type="text"
                                     value={name}
-                                    onInput={(e) => setName((e.target as HTMLInputElement).value)}
+                                    id="name"
+                                    onInput={(e) => { setName((e.target as HTMLInputElement).value); setErrors(prev => ({...prev, name: ''})); }}
                                     placeholder="My Awesome Project"
-                                    className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 focus:outline-none transition-colors font-display tracking-tight leading-none"
-                                    required
+                                    className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700  transition-colors font-display tracking-tight leading-none ${errors.name ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500'}`}
+                                    aria-invalid={!!errors.name}
+                                    aria-describedby={errors.name ? "name-error" : undefined}
                                     autoFocus
                                 />
+                                {errors.name && (
+                                    <p id="name-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                                        <X className="w-3 h-3" /> {errors.name}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Source Type Toggle */}
@@ -189,11 +209,18 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     <input
                                         type="text"
                                         value={localPath}
-                                        onInput={(e) => setLocalPath((e.target as HTMLInputElement).value)}
+                                        id="localPath"
+                                        onInput={(e) => { setLocalPath((e.target as HTMLInputElement).value); setErrors(prev => ({...prev, localPath: ''})); }}
                                         placeholder="/home/user/projects/my-project"
-                                        className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none transition-colors"
-                                        required
+                                        className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600  transition-colors ${errors.localPath ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500'}`}
+                                        aria-invalid={!!errors.localPath}
+                                        aria-describedby={errors.localPath ? "localPath-error" : undefined}
                                     />
+                                    {errors.localPath && (
+                                        <p id="localPath-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                                            <X className="w-3 h-3" /> {errors.localPath}
+                                        </p>
+                                    )}
                                 </div>
                             ) : (
                                 <>
@@ -204,11 +231,18 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         <input
                                             type="text"
                                             value={gitUrl}
-                                            onInput={(e) => setGitUrl((e.target as HTMLInputElement).value)}
+                                            id="gitUrl"
+                                            onInput={(e) => { setGitUrl((e.target as HTMLInputElement).value); setErrors(prev => ({...prev, gitUrl: ''})); }}
                                             placeholder="https://github.com/user/repo.git"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none transition-colors"
-                                            required
+                                            className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600  transition-colors ${errors.gitUrl ? 'border-status-red focus:border-status-red' : 'border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500'}`}
+                                            aria-invalid={!!errors.gitUrl}
+                                            aria-describedby={errors.gitUrl ? "gitUrl-error" : undefined}
                                         />
+                                        {errors.gitUrl && (
+                                            <p id="gitUrl-error" className="mt-2 text-xs text-status-red font-medium flex items-center gap-1">
+                                                <X className="w-3 h-3" /> {errors.gitUrl}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="group/field">
                                         <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
@@ -220,7 +254,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             value={cloneDir}
                                             onInput={(e) => setCloneDir((e.target as HTMLInputElement).value)}
                                             placeholder="/home/user/projects"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none transition-colors"
+                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600  transition-colors"
                                         />
                                     </div>
                                 </>

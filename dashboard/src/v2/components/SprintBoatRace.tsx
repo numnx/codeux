@@ -780,7 +780,7 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                     opacity: 1,
                     scale: 1,
                     duration: 1.6,
-                    ease: "power2.out",
+                    ease: "power2.",
                     delay: i * 0.12,
                 });
                 return;
