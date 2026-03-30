@@ -92,7 +92,7 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
     const inputTokens = toNumber(directTokens.input);
     const cachedInputTokens = toNumber(directTokens.cached);
     const outputTokens = toNumber(directTokens.candidates);
-    const totalTokens = inputTokens + cachedInputTokens + outputTokens;
+    const totalTokens = inputTokens + outputTokens;
     if (totalTokens > 0) {
       return {
         ...emptyTelemetry(),
@@ -120,7 +120,7 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
       cachedInputTokens += toNumber((tokens as Record<string, unknown>).cached);
       outputTokens += toNumber((tokens as Record<string, unknown>).candidates);
     }
-    const totalTokens = inputTokens + cachedInputTokens + outputTokens;
+    const totalTokens = inputTokens + outputTokens;
     if (totalTokens > 0) {
       return {
         ...emptyTelemetry(),
@@ -168,7 +168,7 @@ function parseCodexJsonLines(stdout: string): ProviderUsageTelemetry | null {
     cachedInputTokens: toNumber(latestUsage.cached_input_tokens),
     outputTokens: toNumber(latestUsage.output_tokens),
     reasoningOutputTokens: toNumber(latestUsage.reasoning_output_tokens),
-    totalTokens: toNumber(latestUsage.total_tokens),
+    totalTokens: toNumber(latestUsage.input_tokens) + toNumber(latestUsage.output_tokens),
     usageSource: "reported",
     rawUsageJson: latestUsage,
   };
@@ -217,7 +217,7 @@ async function parseClaudeSessionTelemetry(cwd: string, nativeSessionId: string)
     outputTokens += toNumber(usage.output_tokens);
   }
 
-  const totalTokens = inputTokens + cachedInputTokens + outputTokens;
+  const totalTokens = inputTokens + outputTokens;
   if (totalTokens === 0) {
     return {
       ...emptyTelemetry(),
