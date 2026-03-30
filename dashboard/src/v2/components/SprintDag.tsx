@@ -372,7 +372,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
 
   if (!hasSprintContext || tasks.length === 0) {
     return (
-      <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+      <div role="img" aria-label="Sprint Dependency Graph Empty State" className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
         <WaveFluid accentHex="#00E0A0" />
         <BorderTrace accentHex="#00E0A0" />
         <div className="relative z-10 flex min-h-[22rem] flex-col items-center justify-center text-center">
@@ -392,7 +392,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
   }
 
   return (
-    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6">
+    <div role="img" aria-label="Sprint Dependency Graph" className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6">
       <WaveFluid accentHex="#00E0A0" />
       <BorderTrace accentHex="#00E0A0" />
 
@@ -472,7 +472,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
             className="dag-scroll-shell h-[38rem] overflow-auto rounded-[1.35rem] border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(249,248,244,0.56))] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(24,20,17,0.88),rgba(8,6,5,0.76))] md:h-[46rem]"
           >
             <div className="relative" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
-              <svg
+              <svg aria-hidden="true"
                 className="absolute inset-0"
                 width={canvasWidth}
                 height={canvasHeight}

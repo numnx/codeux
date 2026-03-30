@@ -52,15 +52,15 @@ export const DashboardV2: FunctionComponent = () => {
             </section>
 
             {/* Section Divider */}
-            <div className="w-full flex items-center justify-center py-4 relative z-10 overflow-hidden">
+            <hr className="w-full flex items-center justify-center py-4 relative z-10 overflow-hidden border-0">
                 <div className="absolute inset-y-1/2 inset-x-0 h-px bg-gradient-to-r from-transparent via-black/[0.06] dark:via-white/[0.06] to-transparent" />
                 <div className="bg-[#F9F8F4] dark:bg-void-900 px-6 py-1.5 border border-black/[0.06] dark:border-white/[0.06] rounded-full shadow-sm relative z-10 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600">
                     Data Streams
                 </div>
-            </div>
+            </hr>
 
             {/* Main Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-20 flex-grow relative z-20">
+            <section aria-label="Dashboard Layout" className="grid grid-cols-1 xl:grid-cols-12 gap-20 flex-grow relative z-20">
                 {/* Sources and Tasks */}
                 <div className="xl:col-span-8 flex flex-col gap-24">
                     <section aria-label="Sources" className="w-full relative">
@@ -81,7 +81,7 @@ export const DashboardV2: FunctionComponent = () => {
                         <OverviewTelemetry />
                     </Suspense>
                 </aside>
-            </div>
+            </section>
         </main>
     );
 };
