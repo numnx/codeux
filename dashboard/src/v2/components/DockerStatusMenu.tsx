@@ -17,6 +17,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
     const [loading, setLoading] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
     const timeoutRef = useRef<number | null>(null);
 
     const fetchContainers = async () => {
@@ -68,12 +69,31 @@ export const DockerStatusMenu: FunctionComponent = () => {
             className="relative"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            onKeyDown={(e) => {
+                if (isHovered && e.key === "Escape") {
+                    e.preventDefault();
+                    setIsHovered(false);
+                    buttonRef.current?.focus();
+                }
+            }}
             ref={menuRef}
         >
             <button
+                ref={buttonRef}
                 aria-label="Docker Status"
                 aria-haspopup="dialog"
                 aria-expanded={isHovered}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsHovered((prev) => {
+                            if (!prev) {
+                                void fetchContainers();
+                            }
+                            return !prev;
+                        });
+                    }
+                }}
                 className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 ${
                     isHovered
                         ? "bg-black/[0.05] dark:bg-white/[0.05]"
