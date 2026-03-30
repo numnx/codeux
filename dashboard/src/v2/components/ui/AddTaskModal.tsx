@@ -56,7 +56,6 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   const [executorType, setExecutorType] = useState<TaskExecutorType>(initialTask?.executorType || "auto");
   const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>(initialTask?.dependsOnTaskIds || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useLayoutEffect(() => {
     gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2." });
@@ -69,8 +68,14 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
     triggerRef.current = document.activeElement as HTMLElement | null;
 
     // Initial focus setup
+    const getFocusableElements = () => {
+        if (!cardRef.current) return [];
+        return Array.from(cardRef.current.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
+    };
+
+    // Initial focus setup
     if (cardRef.current) {
-      const focusableElements = Array.from(cardRef.current.querySelectorAll(FOCUSABLE_SELECTOR)) as HTMLElement[];
+      const focusableElements = getFocusableElements();
       if (focusableElements.length > 0) {
         focusableElements[0].focus();
       }
@@ -82,7 +87,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
       } else if (event.key === "Tab") {
         if (!cardRef.current) return;
 
-        const focusableElements = Array.from(cardRef.current.querySelectorAll(FOCUSABLE_SELECTOR)) as HTMLElement[];
+        const focusableElements = getFocusableElements();
 
         if (focusableElements.length === 0) return;
 
@@ -207,7 +212,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <button
               onClick={onClose}
               aria-label="Close"
-              className="touch-target w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="touch-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -235,11 +240,6 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                     <X className="w-3 h-3" /> {errors.sprintId}
                   </p>
                 )}
-                {errors.sprintId && (
-                  <p id="sprintId-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
-                    <X className="w-3 h-3" /> {errors.sprintId}
-                  </p>
-                )}
               </div>
 
               <div className="group/field">
@@ -254,11 +254,6 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                   aria-invalid={!!errors.title}
                   aria-describedby={errors.title ? "title-error" : undefined}
                 />
-                {errors.title && (
-                  <p id="title-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
-                    <X className="w-3 h-3" /> {errors.title}
-                  </p>
-                )}
                 {errors.title && (
                   <p id="title-error" className="mt-1.5 text-xs text-status-red font-medium flex items-center gap-1">
                     <X className="w-3 h-3" /> {errors.title}
@@ -393,13 +388,13 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 rounded-sm text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="group/btn flex items-center gap-2.5 px-6 py-3 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.4)] hover:-translate-y-px"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 group/btn flex items-center gap-2.5 px-6 py-3 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.4)] hover:-translate-y-px"
               >
                 <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
                 {initialTask ? "Save Task" : "Create Task"}
