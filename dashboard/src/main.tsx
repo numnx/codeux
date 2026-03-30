@@ -47,12 +47,15 @@ const rootRoute = createRootRoute({
     return (
       <ProjectDataProvider>
         <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
+          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
+            Skip to main content
+          </a>
           <DeepOceanBackground />
 
           <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
             <TopNav isDark={isDark} toggleTheme={toggleTheme} />
 
-            <main aria-label="Main content" className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
+            <main id="main-content" tabIndex={-1} aria-label="Main content" className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
               <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
                 <Outlet />
               </Suspense>
@@ -60,6 +63,7 @@ const rootRoute = createRootRoute({
           </div>
 
           <KineticDock />
+          <footer className="sr-only">Dashboard Footer</footer>
         </div>
       </ProjectDataProvider>
     );

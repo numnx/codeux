@@ -341,6 +341,14 @@ export interface ProjectStatsRangeSummary {
   isCustom: boolean;
 }
 
+export interface ProjectExecutionStatsChartSeries {
+  id: string;
+  label: string;
+  grouping: string;
+  defaultEnabled: boolean;
+  data: number[];
+}
+
 export interface ProjectExecutionStatsSnapshot {
   projectId: string;
   projectName: string;
@@ -363,6 +371,7 @@ export interface ProjectExecutionStatsSnapshot {
     source: TokenUsageSource;
     count: number;
   }>;
+  chartSeries: ProjectExecutionStatsChartSeries[];
 }
 
 export interface OverviewTelemetryProjectSummary {

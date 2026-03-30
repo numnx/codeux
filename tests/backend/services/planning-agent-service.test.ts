@@ -260,7 +260,7 @@ describe("PlanningAgentService", () => {
             cachedInputTokens: 40,
             outputTokens: 80,
             reasoningOutputTokens: 15,
-            totalTokens: 355,
+            totalTokens: 300,
             usageSource: "reported",
             rawUsageJson: { provider: "codex", phase: "improve" },
             transcriptText: '{"goal":"Virtual worker improved sprint prompt."}',
@@ -280,7 +280,7 @@ describe("PlanningAgentService", () => {
             cachedInputTokens: 60,
             outputTokens: 190,
             reasoningOutputTokens: 20,
-            totalTokens: 810,
+            totalTokens: 730,
             usageSource: "reported",
             rawUsageJson: { provider: "codex", phase: "plan" },
             transcriptText: JSON.stringify({
@@ -366,18 +366,18 @@ describe("PlanningAgentService", () => {
     expect(createdTasks[0]?.title).toBe("Plan via virtual worker");
 
     const statsSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "24h");
-    expect(statsSnapshot.usage.totalTokens).toBe(1_165);
+    expect(statsSnapshot.usage.totalTokens).toBe(1_030);
     expect(statsSnapshot.sprints[0]).toMatchObject({
       label: "Sprint 1 · Virtual Planning Sprint",
       usage: expect.objectContaining({
-        totalTokens: 810,
+        totalTokens: 730,
       }),
     });
     expect(statsSnapshot.purposes).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "planning",
         usage: expect.objectContaining({
-          totalTokens: 1_165,
+          totalTokens: 1_030,
           invocationCount: 2,
         }),
       }),
