@@ -188,3 +188,20 @@ Frontend:
 - `dashboard/src/v2/hooks/use-project-tasks.ts`
 - `dashboard/src/v2/hooks/use-project-execution.ts`
 - `dashboard/src/v2/ChatPage.tsx`
+
+## Performance Baselines
+
+The live dashboard transport is designed to send updates as fast as mutations occur, making payload size and assembly speed critical to scalability.
+
+To measure current latency and payload sizes against a representative active-project fixture, run the benchmark harness:
+
+```bash
+node --loader ts-node/esm scripts/measure-live-snapshot.ts
+```
+
+This harness tracks:
+- Average build time
+- Size contribution by module (Project Management, Runtime Status, Execution State, Git Tracking)
+- Realtime background publisher publish cadence
+
+Any future optimization work involving `/api/live` should test regressions or improvements against this harness first.
