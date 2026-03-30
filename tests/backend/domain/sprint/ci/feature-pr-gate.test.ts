@@ -106,6 +106,25 @@ describe("FeaturePrGateService", () => {
     );
   });
 
+  it("marks task as completed with PR_ONLY indicator when featurePrAutoMergeMode is CREATE_PR", async () => {
+    // Override the autoMergeMode
+    context.ciIntelligence.featurePrAutoMergeMode = "CREATE_PR" as any;
+
+    const result = await service.evaluateCiGate(subtasks, context);
+
+    expect(result.subtasks[0].status).toBe("COMPLETED");
+    expect(result.subtasks[0].merge_indicator).toBe("PR_ONLY");
+    expect(context.autoMergeFeaturePr).not.toHaveBeenCalled();
+    expect(result.reportText).toContain("PR Created (no merge)");
+    expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
+      "run-1",
+      "ci_gate_status",
+      "system",
+      expect.objectContaining({ state: "pr_created_no_merge", prNumber: 101 }),
+      expect.any(Object),
+    );
+  });
+
   it("keeps task in RUNNING while GitHub has only armed auto-merge", async () => {
     context.ciIntelligence.featurePrAutoMergeMode = "WHEN_GREEN";
     context.autoMergeFeaturePr = vi.fn().mockResolvedValue({
