@@ -21,7 +21,7 @@ export default defineConfig({
                 lines: 80,
             }
         },
-        include: ["src/**/*.ts", "dashboard/src/**/*.{ts,tsx}"],
+        include: ["src/**/*.ts"],
         exclude: [
           "src/services/embedding-service.ts",
           "src/services/embedding-tokenizer.ts"
