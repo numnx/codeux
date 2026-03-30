@@ -127,7 +127,7 @@ Additional March 15, 2026 tuning:
 - lease updates still refresh the project execution surface, but they no longer churn overview telemetry
 - attention queue open/claim/resolve mutations now notify the live execution snapshot directly instead of waiting for a nearby side-effect refresh
 
-Production refinement shipped on March 30, 2026:
+Production refinement shipped on March 15, 2026:
 
 - project execution, runtime-status, and structure refresh scheduling now also fan into `project.live.updated`, so the Live page always receives a fresh combined snapshot after any committed runtime mutation
 - the server now performs a periodic background live-snapshot refresh for the selected project so git status and other slower-changing runtime metadata continue to stream even when no new task event is being written
@@ -190,4 +190,22 @@ Frontend:
 - `dashboard/src/v2/ChatPage.tsx`
 
 ## Degraded Mode and UI Reflection
+
 The frontend now drives a deterministic degraded UI mode based on websocket status. The transport state natively manages transitions between `connecting`, `connected`, `reconnecting`, and `disconnected`. The UI uses this state to clearly indicate degraded conditions without modifying the last-known snapshot data, preventing split-brain states when offline.
+
+## Performance Baselines
+
+The live dashboard transport is designed to send updates as fast as mutations occur, making payload size and assembly speed critical to scalability.
+
+To measure current latency and payload sizes against a representative active-project fixture, run the benchmark harness:
+
+```bash
+node --loader ts-node/esm scripts/measure-live-snapshot.ts
+```
+
+This harness tracks:
+- Average build time
+- Size contribution by module (Project Management, Runtime Status, Execution State, Git Tracking)
+- Realtime background publisher publish cadence
+
+Any future optimization work involving `/api/live` should test regressions or improvements against this harness first.
