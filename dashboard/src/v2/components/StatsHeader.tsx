@@ -43,6 +43,9 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
     const { selectedSprintId, loading: sprintsLoading } = useSprints(realtimeProjectId);
 
     const sprintScopeId = resolveLiveSessionSprintScopeId(status, execution, selectedSprintId);
+    const scopedFeatureBranch = status.sprint_id && sprintScopeId && status.sprint_id === sprintScopeId
+        ? status.feature_branch
+        : null;
 
     const { selectedSession } = usePreviewSessions({
         projectId: realtimeProjectId,
@@ -105,8 +108,8 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
 
                     <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
                         {hasLiveSprint
-                            ? status.feature_branch
-                                ? <>Monitoring <span className="font-mono text-signal-600 dark:text-signal-400">{status.feature_branch}</span> in real-time.</>
+                            ? scopedFeatureBranch
+                                ? <>Monitoring <span className="font-mono text-signal-600 dark:text-signal-400">{scopedFeatureBranch}</span> in real-time.</>
                                 : `Monitoring ${liveSprintRun?.sprintName || "the active sprint"} in real-time.`
                             : pausedIntervention
                                 ? pausedIntervention.instructions

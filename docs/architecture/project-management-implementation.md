@@ -108,7 +108,8 @@ The v2 dashboard now uses the selected project as the scope driver.
 
 Current behavior:
 - Top navigation project selector reads/writes the selected project in sqlite
-- Top navigation sprint selection remains a persisted management/view preference, but live runtime status now resolves from active sprint runs so stale selections do not hijack parallel sprint execution
+- Top navigation sprint selection remains a persisted management/view preference
+- The Live page now follows that selected sprint for display scope, but runtime execution still resolves from active sprint runs so the header selection does not interfere with parallel sprint execution
 - Projects page creates, lists, selects, and deletes projects
 - Sprints page creates and lists sprints for the selected project
 - Sprint list/status views derive their effective sprint state from the latest `sprint_run`, so paused or cancelled runs do not continue to render as running

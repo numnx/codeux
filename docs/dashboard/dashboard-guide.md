@@ -154,7 +154,8 @@ Legacy runtime:
 ### V2 project management
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
-- Live runtime pages no longer treat that persisted sprint selection as the source of truth when a different sprint run is currently active, which keeps parallel sprint execution stable
+- Live runtime pages now use the persisted top-nav sprint selection as the page scope, so the Live view follows the selected sprint from the header menu
+- That selection is view-only for the dashboard surface; it does not change which sprint run is actually executing in the backend
 - Creating a new sprint automatically updates the active sprint selection to that new sprint
 - The top-nav worker selector now always lists the built-in virtual workers even when no live MCP worker is connected
 - Selecting a virtual worker from the top nav switches the selected project into `workers.executionMode = VIRTUAL` with that provider
