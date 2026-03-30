@@ -1,4 +1,5 @@
 import type {
+  AgentAvatarConfig,
   AgentPresetRecord,
   CreateAgentPresetInput,
   UpdateAgentPresetInput,
@@ -106,6 +107,7 @@ export interface Task {
 export type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
+  AgentAvatarConfig,
   AgentPresetRecord,
   CreateProjectInput,
   CreateAgentPresetInput,
