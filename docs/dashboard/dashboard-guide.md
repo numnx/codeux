@@ -154,6 +154,8 @@ Legacy runtime:
 ### V2 project management
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
+- Live runtime pages now use the persisted top-nav sprint selection as the page scope, so the Live view follows the selected sprint from the header menu
+- That selection is view-only for the dashboard surface; it does not change which sprint run is actually executing in the backend
 - Creating a new sprint automatically updates the active sprint selection to that new sprint
 - The top-nav worker selector now always lists the built-in virtual workers even when no live MCP worker is connected
 - Selecting a virtual worker from the top nav switches the selected project into `workers.executionMode = VIRTUAL` with that provider
@@ -208,6 +210,7 @@ Legacy runtime:
 - Tasks page renders create/edit inline through the new `TaskComposer` replacing the modal flow.
 - Task cards now explicitly show downstream dependent tasks as readable metadata tags.
 - Navigating from a sprint cell into `View Tasks` now preselects that sprint instead of leaving the board on `All Sprints`
+- Tasks page sprint deep links are now local route filters; they no longer rewrite the project-wide selected sprint until the operator explicitly changes sprint scope from the selector
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
 - Tasks and sprints now refresh silently on background realtime invalidation, so opening the Tasks page no longer repeatedly flashes loading state when project metadata or structure updates arrive
 - Tasks board is now scoped to the active sprint selection when one is set, filtering the view to only tasks for that sprint
