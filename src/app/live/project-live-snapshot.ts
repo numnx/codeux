@@ -69,10 +69,19 @@ export async function getProjectLiveSnapshot(
     };
   }
 
+  const tMgmt = Date.now();
   const listSprintsResult = deps.projectManagementRepository.listSprints(projectId);
+  const projectMgmtMs = Date.now() - tMgmt;
+
   const selectedSprintId = listSprintsResult.selectedSprintId ?? null;
+
+  const tRuntime = Date.now();
   const status = deps.projectRuntimeRepository.getProjectStatus(projectId, selectedSprintId);
+  const runtimeMs = Date.now() - tRuntime;
+
+  const tExecution = Date.now();
   const execution = deps.getProjectExecutionSnapshot(projectId);
+  const executionMs = Date.now() - tExecution;
 
   if (!selectedSprintId && execution.sprintRuns.some(r => r.status === 'running' || r.status === 'queued')) {
     deps.logger.warn("selected_sprint_missing_while_active", {
@@ -97,6 +106,7 @@ export async function getProjectLiveSnapshot(
 
   let gitStatus: GitTrackingStatus | null = null;
   let gitStatusError: string | null = null;
+  const tGit = Date.now();
   try {
     gitStatus = await deps.getGitStatus();
   } catch (error) {
@@ -104,6 +114,11 @@ export async function getProjectLiveSnapshot(
       ? error.message
       : "Unable to load git/ci/pr tracking.";
   }
+  const gitMs = Date.now() - tGit;
+
+  const executionSizeBytes = Buffer.byteLength(JSON.stringify(execution), "utf8");
+  const gitSizeBytes = gitStatus ? Buffer.byteLength(JSON.stringify(gitStatus), "utf8") : 0;
+  const statusSizeBytes = Buffer.byteLength(JSON.stringify(status), "utf8");
 
   const snapshot: ProjectLiveDashboardSnapshot = {
     projectId,
@@ -118,6 +133,13 @@ export async function getProjectLiveSnapshot(
   deps.logger.info("project_live_snapshot_assembled", {
     projectId,
     buildTimeMs: Date.now() - startedAt,
+    projectMgmtMs,
+    runtimeMs,
+    executionMs,
+    gitMs,
+    executionSizeBytes,
+    gitSizeBytes,
+    statusSizeBytes,
     payloadSizeBytes: Buffer.byteLength(JSON.stringify(snapshot), "utf8"),
   });
 
