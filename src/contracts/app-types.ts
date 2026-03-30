@@ -101,13 +101,29 @@ export interface DashboardStatus {
   timestamp: string | null;
 }
 
+/**
+ * The authoritative contract for the Live page snapshot.
+ *
+ * Boundary Contract:
+ * - SQLite is the absolute source of truth.
+ * - The server assembles the snapshot (`getProjectLiveSnapshot` module).
+ * - Websockets transport committed snapshot changes.
+ * - The browser renders the snapshot without reconciling competing sources.
+ */
 export interface ProjectLiveDashboardSnapshot {
+  /** Owned by `ProjectManagementRepository`. Mutated when a project is selected or created. */
   projectId: string | null;
+  /** Owned by `ProjectManagementRepository`. Mutated when a sprint is selected or changed. */
   selectedSprintId: string | null;
+  /** Owned by `ProjectRuntimeRepository`. Mutated when task states change, a sprint is run, or orchestration loop updates progress. */
   status: DashboardStatus;
+  /** Owned by `ExecutionRepository` (via `getProjectExecutionSnapshot`). Mutated when sprint runs are dispatched, worker states change, or attention items are created/claimed. */
   execution: ExecutionDashboardSnapshot;
+  /** Owned by the external git system. Mutated when local branches or upstream changes are detected. */
   gitStatus: GitTrackingStatus | null;
+  /** Error state for git tracking. Mutated when external git/ci fails to load. */
   gitStatusError: string | null;
+  /** Owned by the server assembly module. Mutated upon every assembly call to track the snapshot timestamp. */
   updatedAt: string | null;
 }
 

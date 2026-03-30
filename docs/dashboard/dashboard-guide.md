@@ -15,7 +15,10 @@ Configured by:
 
 If the requested port is busy, startup automatically retries the next port (`+1`) until it finds a free port.
 
-## API Endpoints Used by Dashboard
+## Live Data Contracts
+All live fields rendered in the dashboard originate from the SQLite database, are assembled by the backend, and transported via HTTP/WebSockets. The browser does not reconcile competing states. See the [Live Runtime Contract](../architecture/live-runtime-contract.md) for details on ownership of fields like `projectId`, `status`, and `execution`.
+
+## API Endpoints
 
 Implemented in `src/server/dashboard-server.ts`.
 
@@ -376,7 +379,7 @@ Runtime scoping:
 ## Polling Behavior
 
 From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
-- Live view now does one initial `/api/live` fetch, then subscribes only to `project.live.updated` for selected-project runtime state.
+- Live view now does one initial `/api/live` fetch, then subscribes only to `project.live.updated` for selected-project runtime state. The UI explicitly reflects websocket degradation states (`connecting`, `reconnecting`, etc.) without altering the stable Live snapshot payload.
 - There is no steady-state client poll for status, execution, or git on the Live page anymore.
 - When the websocket reports `snapshot_required`, the browser re-fetches `/api/live` and replaces the whole live snapshot atomically.
 - Git status is refreshed server-side and folded into that same live snapshot stream, including a periodic background refresh owned by the server.

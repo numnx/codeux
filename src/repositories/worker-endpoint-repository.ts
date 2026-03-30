@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { requireRecord } from "./repository-utils.js";
 import { deriveWorkerEndpointStatus } from "./connection-lifecycle.js";
@@ -49,7 +49,7 @@ function parseCapabilities(value: string | null): WorkerEndpointCapabilities {
 }
 
 export class WorkerEndpointRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(storage: AppDbStorage = new AppDbStorage()) {
     this.db = storage.getDatabase();

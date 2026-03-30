@@ -18,7 +18,7 @@ export interface DashboardRealtimeSnapshotLoaders {
   getProjectsSnapshot: () => MaybePromise<ProjectCollectionResponse>;
   getProjectExecutionSnapshot: (projectId: string) => MaybePromise<ExecutionDashboardSnapshot>;
   getProjectStatusSnapshot: (projectId: string) => MaybePromise<DashboardStatus>;
-  getProjectLiveSnapshot?: (projectId: string) => MaybePromise<import("../contracts/app-types.js").ProjectLiveDashboardSnapshot>;
+  getProjectLiveSnapshot: (projectId: string) => MaybePromise<import("../contracts/app-types.js").ProjectLiveDashboardSnapshot>;
   getOverviewTelemetrySnapshot: () => MaybePromise<OverviewTelemetrySnapshot>;
 }
 
@@ -227,6 +227,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
             payload: projects,
             replayable: false,
           });
+          this.logger.info("realtime_background_refresh", { type: "projects" });
           this.projectsPublishedAt = now;
         } catch (error) {
           this.logger.error("Failed to publish projects realtime snapshot", {
@@ -237,9 +238,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
     }
 
     for (const projectId of projectLiveIds) {
-      if (!loaders.getProjectLiveSnapshot) {
-        continue;
-      }
+
 
       const lastPublishedAt = this.projectLivePublishedAt.get(projectId) ?? 0;
       const waitMs = this.getThrottleDelay(lastPublishedAt, PROJECT_LIVE_MIN_INTERVAL_MS, now);
@@ -251,6 +250,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
 
       try {
         const snapshot = await Promise.resolve(loaders.getProjectLiveSnapshot(projectId));
+        const payloadSizeBytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf8');
         this.publishRawEvent({
           scopeType: "project",
           scopeId: projectId,
@@ -261,6 +261,12 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
           sprintId: snapshot.selectedSprintId,
           payload: snapshot,
           replayable: false,
+        });
+        this.logger.info("realtime_snapshot_published", {
+          type: "project.live.updated",
+          sizeBytes: payloadSizeBytes,
+          projectId,
+          publishFrequencyMs: lastPublishedAt > 0 ? now - lastPublishedAt : 0
         });
         this.projectLivePublishedAt.set(projectId, now);
       } catch (error) {
@@ -380,6 +386,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
             payload: telemetry,
             replayable: false,
           });
+          this.logger.info("realtime_background_refresh", { type: "overview" });
           this.overviewPublishedAt = now;
         } catch (error) {
           this.logger.error("Failed to publish overview telemetry realtime snapshot", {

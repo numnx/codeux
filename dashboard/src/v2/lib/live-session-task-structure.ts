@@ -49,7 +49,12 @@ export function buildLiveSessionTasks(
   const runtimeByTaskKey = new Map(runtimeTasks.map((task) => [task.id, task]));
 
   return tasks.map((task) => {
-    const runtimeTask = runtimeByRecordId.get(task.recordId) || runtimeByTaskKey.get(task.id);
+
+    let candidateTask: Subtask | undefined = runtimeByRecordId.get(task.recordId);
+    if (!candidateTask || (candidateTask.sprint_id && candidateTask.sprint_id !== task.sprintId)) {
+      candidateTask = runtimeByTaskKey.get(task.id);
+    }
+    const runtimeTask = candidateTask?.sprint_id && candidateTask.sprint_id !== task.sprintId ? undefined : candidateTask;
     const baseTask: Subtask = {
       record_id: task.recordId,
       project_id: runtimeTask?.project_id ?? projectId ?? undefined,

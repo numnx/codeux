@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { getHomeSprintOsPath } from "../shared/config/sprint-os-paths.js";
-import { openSqliteDatabase } from "./sqlite-connection.js";
+import { SqliteDatabaseAdapter } from "./db/sqlite-database-adapter.js";
 
 interface PayloadRow {
   payload: string;
@@ -20,12 +20,12 @@ const resolveSettingsDbPath = (dbPath?: string): string => {
 };
 
 export class SettingsDbStorage {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(dbPath?: string) {
     const resolvedDbPath = resolveSettingsDbPath(dbPath);
     fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-    this.db = openSqliteDatabase(resolvedDbPath);
+    this.db = new SqliteDatabaseAdapter(resolvedDbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS app_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
