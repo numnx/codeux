@@ -26,6 +26,7 @@ import {
   formatAxisLabel,
 } from './StatsShared.js';
 import { UsageSeriesSidebar } from './UsageSeriesSidebar.js';
+import { ActiveUsageSeriesRail } from './ActiveUsageSeriesRail.js';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
@@ -380,6 +381,15 @@ export const InteractiveUsageChart: FunctionComponent<{
           </div>
 
           <div className="flex flex-col gap-4">
+            <ActiveUsageSeriesRail
+              series={stats.chartSeries}
+              enabledSeries={enabledSeries}
+              activeIndex={activeIndex}
+              onToggle={(id) => {
+                if (activeSeriesCount === 1 && enabledSeries[id]) return;
+                setEnabledSeries((curr) => ({ ...curr, [id]: !curr[id] }));
+              }}
+            />
             <UsageSeriesSidebar
               series={stats.chartSeries}
               enabledSeries={enabledSeries}
