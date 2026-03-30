@@ -32,9 +32,9 @@ export default {
         },
         // Semantic status colors
         status: {
-          green: "#008667",  // Running (Darkened to pass WCAG 4.5:1 on white)
-          red: "#D9000E",    // Failed (Darkened slightly)
-          amber: "#A66200",  // Intervention (Darkened to pass 4.5:1 on white)
+          green: "#008667",
+          red: "#E42A2B",
+          amber: "#AD6500",
           violet: "#8A00B5", // Legacy
         },
         // Backwards compat alias for any remaining obsidian refs
