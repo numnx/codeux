@@ -13,6 +13,8 @@ import type {
 import type {
   AcquireExecutionLeaseInput,
   CreateProviderInvocationUsageInput,
+  SprintRunStatus,
+  TaskDispatchStatus,
   CreateTaskRunInput,
   CreateSprintRunInput,
   CreateTaskDispatchInput,
@@ -728,6 +730,42 @@ export class ExecutionRepository {
     return (rows as unknown as SprintRunRow[]).map((row) => this.mapSprintRunRow(row));
   }
 
+  listSprintRunsByStatus(
+    statuses: SprintRunStatus[],
+    options?: { projectId?: string; sprintId?: string },
+  ): SprintRunRecord[] {
+    const normalizedStatuses = Array.from(new Set(statuses.map((status) => String(status || "").trim()).filter(Boolean)));
+    if (normalizedStatuses.length === 0) {
+      return [];
+    }
+
+    const clauses = [`status IN (${normalizedStatuses.map(() => "?").join(", ")})`];
+    const values: string[] = [...normalizedStatuses];
+
+    if (options?.projectId) {
+      this.requireProject(options.projectId);
+      clauses.push("project_id = ?");
+      values.push(options.projectId);
+    }
+
+    if (options?.sprintId) {
+      if (options.projectId) {
+        this.requireSprint(options.sprintId, options.projectId);
+      }
+      clauses.push("sprint_id = ?");
+      values.push(options.sprintId);
+    }
+
+    const rows = this.getCachedStatement(`
+      SELECT *
+      FROM sprint_runs
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY created_at DESC, rowid DESC
+    `).all(...values) as unknown as SprintRunRow[];
+
+    return rows.map((row) => this.mapSprintRunRow(row));
+  }
+
   getSprintRun(runId: string): SprintRunRecord | null {
     const row = this.getCachedStatement(`
       SELECT *
@@ -833,6 +871,50 @@ export class ExecutionRepository {
     }
 
     const rows = this.db.prepare(`
+      SELECT *
+      FROM task_dispatches
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY priority DESC, queued_at ASC, created_at ASC
+    `).all(...values) as unknown as TaskDispatchRow[];
+
+    return rows.map((row) => this.mapTaskDispatchRow(row));
+  }
+
+  listTaskDispatchesByStatus(
+    statuses: TaskDispatchStatus[],
+    options?: { projectId?: string; sprintId?: string; sprintRunId?: string; taskId?: string; executorType?: TaskDispatchRecord["executorType"] },
+  ): TaskDispatchRecord[] {
+    const normalizedStatuses = Array.from(new Set(statuses.map((status) => String(status || "").trim()).filter(Boolean)));
+    if (normalizedStatuses.length === 0) {
+      return [];
+    }
+
+    const clauses = [`status IN (${normalizedStatuses.map(() => "?").join(", ")})`];
+    const values: string[] = [...normalizedStatuses];
+
+    if (options?.projectId) {
+      this.requireProject(options.projectId);
+      clauses.push("project_id = ?");
+      values.push(options.projectId);
+    }
+    if (options?.sprintId) {
+      clauses.push("sprint_id = ?");
+      values.push(options.sprintId);
+    }
+    if (options?.sprintRunId) {
+      clauses.push("sprint_run_id = ?");
+      values.push(options.sprintRunId);
+    }
+    if (options?.taskId) {
+      clauses.push("task_id = ?");
+      values.push(options.taskId);
+    }
+    if (options?.executorType) {
+      clauses.push("executor_type = ?");
+      values.push(options.executorType);
+    }
+
+    const rows = this.getCachedStatement(`
       SELECT *
       FROM task_dispatches
       WHERE ${clauses.join(" AND ")}
@@ -1134,7 +1216,12 @@ export class ExecutionRepository {
         COALESCE(sr.last_heartbeat_at, sr.updated_at, sr.created_at) DESC
       LIMIT 12
     `).all(projectId) as unknown as ExecutionSprintRunSummaryRow[];
-    const focusSprintRunId = sprintRuns[0]?.id ?? null;
+    const expandedSprintRunIds = sprintRuns
+      .filter((row) => ["running", "queued", "paused", "cancel_requested"].includes(row.status))
+      .map((row) => row.id);
+    if (expandedSprintRunIds.length === 0 && sprintRuns[0]?.id) {
+      expandedSprintRunIds.push(sprintRuns[0].id);
+    }
 
     const recentTaskDispatches = this.getCachedStatement(`
       SELECT
@@ -1176,8 +1263,9 @@ export class ExecutionRepository {
       LIMIT 24
     `).all(projectId) as unknown as ExecutionTaskDispatchSummaryRow[];
 
-    const focusSprintTaskDispatches = focusSprintRunId
-      ? this.getCachedStatement(`
+    const expandedSprintTaskDispatches = expandedSprintRunIds.length > 0
+      ? this.storage.executeChunkedInQuery<ExecutionTaskDispatchSummaryRow>({
+        sqlPrefix: `
         SELECT
           td.id,
           td.project_id,
@@ -1210,12 +1298,15 @@ export class ExecutionRepository {
           ON el.scope_type = 'task_dispatch'
          AND el.scope_id = td.id
         WHERE td.project_id = ?
-          AND td.sprint_run_id = ?
-      `).all(projectId, focusSprintRunId) as unknown as ExecutionTaskDispatchSummaryRow[]
+          AND td.sprint_run_id`,
+        sqlSuffix: "",
+        items: expandedSprintRunIds,
+        bindParamsBefore: [projectId],
+      })
       : [];
 
     const taskDispatchById = new Map<string, ExecutionTaskDispatchSummaryRow>();
-    for (const row of [...focusSprintTaskDispatches, ...recentTaskDispatches]) {
+    for (const row of [...expandedSprintTaskDispatches, ...recentTaskDispatches]) {
       taskDispatchById.set(row.id, row);
     }
     const taskDispatches = [...taskDispatchById.values()].sort((left, right) => this.compareExecutionTaskDispatchSummaryRows(left, right));
@@ -1330,8 +1421,9 @@ export class ExecutionRepository {
       LIMIT 240
     `).all(projectId, projectId) as unknown as ExecutionRuntimeEventSummaryRow[];
 
-    const focusSprintTaskEvents = focusSprintRunId
-      ? this.getCachedStatement(`
+    const expandedSprintTaskEvents = expandedSprintRunIds.length > 0
+      ? this.storage.executeChunkedInQuery<ExecutionRuntimeEventSummaryRow>({
+        sqlPrefix: `
         SELECT
           tre.id,
           'task_run' AS scope_type,
@@ -1367,13 +1459,16 @@ export class ExecutionRepository {
         LEFT JOIN sprint_runs sr ON sr.id = tr.sprint_run_id
         LEFT JOIN mcp_connections c ON c.id = tr.connection_id
         WHERE tr.project_id = ?
-          AND tr.sprint_run_id = ?
-        ORDER BY tre.created_at DESC, tre.id DESC
-      `).all(projectId, focusSprintRunId) as unknown as ExecutionRuntimeEventSummaryRow[]
+          AND tr.sprint_run_id`,
+        sqlSuffix: `
+        ORDER BY tre.created_at DESC, tre.id DESC`,
+        items: expandedSprintRunIds,
+        bindParamsBefore: [projectId],
+      })
       : [];
 
     const recentEventById = new Map<string, ExecutionRuntimeEventSummaryRow>();
-    for (const row of [...focusSprintTaskEvents, ...recentEvents]) {
+    for (const row of [...expandedSprintTaskEvents, ...recentEvents]) {
       recentEventById.set(row.id, row);
     }
     const runtimeEvents = [...recentEventById.values()].sort((left, right) => this.compareExecutionRuntimeEventSummaryRows(left, right));
