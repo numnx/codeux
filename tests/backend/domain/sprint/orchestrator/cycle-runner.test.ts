@@ -795,7 +795,7 @@ describe("CycleRunner attention sync", () => {
     });
 
     // Directly call the private method using any cast
-    (runner as any).captureCiFailureMemories(
+    await (runner as any).captureCiFailureMemories(
       [
         {
           id: "T1",
@@ -857,7 +857,7 @@ describe("CycleRunner attention sync", () => {
       }
     });
 
-    (runner as any).captureCiFailureMemories(
+    await (runner as any).captureCiFailureMemories(
       [
         {
           id: "T1",
@@ -914,7 +914,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    (runner as any).captureTaskCompletionMemories(
+    await (runner as any).captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1027,7 +1027,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    (runner as any).captureTaskCompletionMemories(
+    await (runner as any).captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1084,7 +1084,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    (runner as any).captureTaskCompletionMemories(
+    await (runner as any).captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1141,7 +1141,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    (runner as any).captureTaskCompletionMemories(
+    await (runner as any).captureTaskCompletionMemories(
       [
         {
           id: "T1",
