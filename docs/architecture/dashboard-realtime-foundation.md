@@ -154,7 +154,7 @@ This is the first slice, not the final transport rollout.
 
 Still pending:
 
-- degraded-mode dashboard banners and richer reconnect diagnostics
+
 - broader polling reduction for non-Live dashboard surfaces once websocket behavior has been hardened longer
 
 ## Relationship To MCP Listen
@@ -188,3 +188,6 @@ Frontend:
 - `dashboard/src/v2/hooks/use-project-tasks.ts`
 - `dashboard/src/v2/hooks/use-project-execution.ts`
 - `dashboard/src/v2/ChatPage.tsx`
+
+## Degraded Mode and UI Reflection
+The frontend now drives a deterministic degraded UI mode based on websocket status. The transport state natively manages transitions between `connecting`, `connected`, `reconnecting`, and `disconnected`. The UI uses this state to clearly indicate degraded conditions without modifying the last-known snapshot data, preventing split-brain states when offline.
