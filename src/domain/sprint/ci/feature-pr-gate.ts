@@ -23,7 +23,7 @@ import type {
 } from "../../../contracts/app-types.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 import type { WorkerCiFixPayload } from "./feature-pr/ci-autofix-policy.js";
-import { isCompletedTaskAwaitingMerge, isCompletedTaskSettled, taskHasMergeEvidence } from "../task-merge-state.js";
+import { isCompletedTaskAwaitingMerge, isCompletedTaskSettled, taskHasMergeEvidence, isTaskCodeComplete } from "../task-merge-state.js";
 
 export interface CiGateContext {
   automationLevel: AutomationLevel;
@@ -159,6 +159,18 @@ export class FeaturePrGateService {
       );
 
       const autoMergeMode = context.ciIntelligence.featurePrAutoMergeMode;
+
+      if (autoMergeMode === "CREATE_PR" && isTaskCodeComplete(task)) {
+        task.status = "COMPLETED";
+        task.merge_indicator = "PR_ONLY";
+        this.appendCiGateEvent(task, context, "pr_created_no_merge", {
+          prNumber: pr.number,
+          prUrl: pr.url,
+        });
+        reportText += `- ✅ **PR Created (no merge):** Task \`${task.id}\` — PR #${pr.number} created. Task marked complete without automerge.\n`;
+        continue;
+      }
+
       const shouldAutoMergeAlways = autoMergeMode === "ALWAYS" && !waitForFeatureCi;
       const shouldAutoMergeWhenGreen = autoMergeMode === "WHEN_GREEN" || (autoMergeMode === "ALWAYS" && waitForFeatureCi);
 
