@@ -1,7 +1,8 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { X, Plus, FolderOpen, GitBranch, FolderInput, Link2 } from "lucide-preact";
+import { useFocusTrap } from "../../hooks/useFocusTrap.js";
 
 interface AddProjectModalProps {
     onClose: () => void;
@@ -40,11 +41,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         gsap.to(backdropRef.current, { opacity: 0, duration: 0.28, delay: 0.05, onComplete: onClose });
     };
 
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-        document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler);
-    }, []);
+    useFocusTrap(cardRef, handleClose);
 
     const handleBackdropClick = (e: MouseEvent) => {
         if (e.target === backdropRef.current) handleClose();

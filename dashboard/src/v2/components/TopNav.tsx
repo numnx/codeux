@@ -68,6 +68,8 @@ export function useDropdownKeyboard(
         }
     }, [isOpen, setIsOpen, containerRef]);
 
+    const wasOpen = useRef(isOpen);
+
     useEffect(() => {
         if (isOpen && containerRef.current) {
             // Give the DOM a moment to render the dropdown
@@ -83,9 +85,15 @@ export function useDropdownKeyboard(
                     focusableElements[0]?.focus();
                 }
             }, 0);
-        } else if (!isOpen && toggleRef.current && document.activeElement && containerRef.current?.contains(document.activeElement)) {
-            toggleRef.current.focus();
+        } else if (!isOpen && wasOpen.current && toggleRef.current) {
+            // If the active element is on the body (e.g., deleted button) or still inside the container,
+            // we return focus to the toggle button.
+            if (!document.activeElement || document.activeElement === document.body || containerRef.current?.contains(document.activeElement)) {
+                toggleRef.current.focus();
+            }
         }
+
+        wasOpen.current = isOpen;
     }, [isOpen, containerRef]);
 
     return { toggleRef, onToggleKeyDown, onContainerKeyDown };
