@@ -43,6 +43,7 @@ import { TaskRerunService } from "../services/task-rerun-service.js";
 import { ExecutionControlService } from "../services/execution-control-service.js";
 import { JulesSourceResolver } from "../services/jules-source-resolver.js";
 import { RuntimeCleanupService } from "../services/runtime-cleanup-service.js";
+import { RuntimeStartupRecoveryService } from "../services/runtime-startup-recovery-service.js";
 import { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
 import { AgentPresetSyncService } from "../services/agent-preset-sync-service.js";
 import { PlanningAgentService } from "../services/planning-agent-service.js";
@@ -141,6 +142,7 @@ export class JulesAgentServer {
   private quicksprintService: import("../services/quicksprint-service.js").QuicksprintService;
   private chatThreadRuntimeService: import("../services/chat-thread-runtime-service.js").ChatThreadRuntimeService;
   private runtimeCleanupService: RuntimeCleanupService;
+  private runtimeStartupRecoveryService: RuntimeStartupRecoveryService;
   private dashboardRealtimeService: DashboardRealtimeService;
   private memoryService: import("../services/memory-service.js").MemoryService;
   private memoryPromotionService: import("../services/memory-promotion-service.js").MemoryPromotionService;
@@ -200,6 +202,13 @@ export class JulesAgentServer {
     this.quicksprintService = deps.quicksprintService;
     this.chatThreadRuntimeService = deps.chatThreadRuntimeService;
     this.runtimeCleanupService = deps.runtimeCleanupService;
+    this.runtimeStartupRecoveryService = new RuntimeStartupRecoveryService({
+      sessionTracking: this.sessionTracking,
+      executionRepository: this.executionRepository,
+      projectManagementRepository: this.projectManagementRepository,
+      sprintOrchestrator: this.sprintOrchestrator,
+      logger: this.logger.child({ component: "runtime-startup-recovery-service" }),
+    });
     this.dashboardRealtimeService = deps.dashboardRealtimeService;
     this.memoryService = deps.memoryService;
     this.memoryPromotionService = deps.memoryPromotionService;
@@ -792,19 +801,6 @@ export class JulesAgentServer {
     });
     this.refreshJulesApiKey();
     try {
-      const recovery = this.sessionTracking.recoverInterruptedCliSessions();
-      if (recovery.recoveredCount > 0) {
-        const sample = recovery.sessionIds.slice(0, 5).join(", ");
-        this.logger.warn("Recovered interrupted CLI sessions", {
-          recoveredCount: recovery.recoveredCount,
-          sampleSessionIds: sample,
-          additionalRecoveredCount: Math.max(recovery.recoveredCount - 5, 0),
-        });
-      }
-    } catch (error) {
-      this.logger.error("Failed to recover interrupted CLI sessions on startup", { error });
-    }
-    try {
       const startupPrune = this.connectionChatRepository.pruneDisconnectedConnectionsOnStartup();
       if (startupPrune.prunedConnectionIds.length > 0) {
         this.logger.info("Pruned disconnected MCP connections on startup", {
@@ -818,6 +814,11 @@ export class JulesAgentServer {
       await this.sprintPreviewService.cleanupStaleContainersOnStartup();
     } catch (error) {
       this.logger.error("Failed to clean up stale sprint preview containers on startup", { error });
+    }
+    try {
+      await this.runtimeStartupRecoveryService.recover();
+    } catch (error) {
+      this.logger.error("Failed to recover runtime state on startup", { error });
     }
 
     if (this.isDashboardEnabled()) {
