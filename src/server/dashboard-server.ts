@@ -86,7 +86,7 @@ export interface DashboardServerOptions {
   port: number;
   liveActivityCacheMs: number;
   getStatus: () => unknown;
-  getLiveSnapshot?: (projectId?: string | null) => Promise<ProjectLiveDashboardSnapshot> | ProjectLiveDashboardSnapshot;
+  getLiveSnapshot: (projectId?: string | null) => Promise<ProjectLiveDashboardSnapshot> | ProjectLiveDashboardSnapshot;
   getExecutionSnapshot: () => ExecutionDashboardSnapshot;
   getProjectExecutionSnapshot: (projectId: string) => ExecutionDashboardSnapshot;
   getProjectStatsSnapshot: (projectId: string, query?: ProjectStatsQuery) => ProjectExecutionStatsSnapshot;
@@ -706,26 +706,7 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     try {
       const requestedProjectId = String(req.query.projectId || "").trim();
       const projectId = requestedProjectId.length > 0 ? requestedProjectId : null;
-      if (options.getLiveSnapshot) {
-        res.json(await options.getLiveSnapshot(projectId));
-        return;
-      }
-
-      const status = getStatus() as DashboardStatus;
-      const resolvedProjectId = projectId
-        || (typeof status?.project_id === "string" && status.project_id.trim().length > 0
-          ? status.project_id.trim()
-          : null);
-
-      res.json({
-        projectId: resolvedProjectId,
-        selectedSprintId: status?.sprint_id ?? null,
-        status,
-        execution: resolvedProjectId ? options.getProjectExecutionSnapshot(resolvedProjectId) : options.getExecutionSnapshot(),
-        gitStatus: null,
-        gitStatusError: null,
-        updatedAt: new Date().toISOString(),
-      } satisfies ProjectLiveDashboardSnapshot);
+      res.json(await options.getLiveSnapshot(projectId));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to load live snapshot") });
     }

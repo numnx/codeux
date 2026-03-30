@@ -18,7 +18,7 @@ export interface DashboardRealtimeSnapshotLoaders {
   getProjectsSnapshot: () => MaybePromise<ProjectCollectionResponse>;
   getProjectExecutionSnapshot: (projectId: string) => MaybePromise<ExecutionDashboardSnapshot>;
   getProjectStatusSnapshot: (projectId: string) => MaybePromise<DashboardStatus>;
-  getProjectLiveSnapshot?: (projectId: string) => MaybePromise<import("../contracts/app-types.js").ProjectLiveDashboardSnapshot>;
+  getProjectLiveSnapshot: (projectId: string) => MaybePromise<import("../contracts/app-types.js").ProjectLiveDashboardSnapshot>;
   getOverviewTelemetrySnapshot: () => MaybePromise<OverviewTelemetrySnapshot>;
 }
 
@@ -237,9 +237,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
     }
 
     for (const projectId of projectLiveIds) {
-      if (!loaders.getProjectLiveSnapshot) {
-        continue;
-      }
+
 
       const lastPublishedAt = this.projectLivePublishedAt.get(projectId) ?? 0;
       const waitMs = this.getThrottleDelay(lastPublishedAt, PROJECT_LIVE_MIN_INTERVAL_MS, now);

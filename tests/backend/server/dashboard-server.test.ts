@@ -213,7 +213,9 @@ describe("setupDashboardServer", () => {
       port: await getAvailablePort(),
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
-      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+
+    getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveSnapshot: () => ({ projectId: "project-1", selectedSprintId: null, status: { project_id: "project-1", timestamp: null, subtasks: [] }, execution: { projectId: "project-1", projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null }),
       getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
       getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
       getProjectStatsSnapshot: () => ({
@@ -735,6 +737,7 @@ describe("setupDashboardServer", () => {
         purposes: [],
         tokenSources: [],
       }),
+      getLiveSnapshot: () => ({ projectId: "project-1", selectedSprintId: null, status: { project_id: "project-1", timestamp: null, subtasks: [] }, execution: { projectId: "project-1", projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
       getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
       getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
