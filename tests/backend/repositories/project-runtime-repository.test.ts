@@ -130,7 +130,7 @@ describe("ProjectRuntimeRepository", () => {
       depends_on: ["T01"],
     });
 
-    const db = storage.getDatabase();
+    const db = storage.getDatabase().getRawDatabase();
     const runRows = db.prepare(`
       SELECT task_id, state, session_id, session_name
       FROM task_runs

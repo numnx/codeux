@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { requireRecord } from "./repository-utils.js";
 import type {
@@ -53,7 +53,7 @@ interface CountRow {
 }
 
 export class MemoryRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(storage: AppDbStorage) {
     this.db = storage.getDatabase();

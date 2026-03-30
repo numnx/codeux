@@ -1,6 +1,6 @@
 import * as path from "path";
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import type {
   CreateProjectInput,
   CreateSprintInput,
@@ -91,7 +91,7 @@ interface DependencyRow {
 }
 
 export class ProjectManagementRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
@@ -588,7 +588,7 @@ export class ProjectManagementRepository {
     this.db.prepare(`
       INSERT INTO app_settings (key, payload, updated_at)
       VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
+      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       `selected_sprint_id_${projectId}`,
       JSON.stringify({ sprintId }),
@@ -625,7 +625,7 @@ export class ProjectManagementRepository {
     this.db.prepare(`
       INSERT INTO app_settings (key, payload, updated_at)
       VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
+      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       SELECTED_PROJECT_KEY,
       JSON.stringify({ projectId }),
@@ -986,14 +986,7 @@ export class ProjectManagementRepository {
   }
 
   private runInTransaction(callback: () => void): void {
-    this.db.exec("BEGIN");
-    try {
-      callback();
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    this.db.transaction(callback);
   }
 
   private publishProjectStructureRefresh(projectId: string): void {
