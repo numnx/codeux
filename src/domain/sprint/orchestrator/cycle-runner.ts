@@ -135,7 +135,7 @@ export class CycleRunner {
         retryFailed: args.retryFailed,
         isActionRequiredState: this.deps.isActionRequiredState,
       });
-      this.captureTaskCompletionMemories(subtasks, preDerivationStates, args);
+      await this.captureTaskCompletionMemories(subtasks, preDerivationStates, args);
     }
 
     let reportText = "";
@@ -246,7 +246,7 @@ export class CycleRunner {
       });
       subtasks = ciAutofixResult.subtasks;
       reportText += ciAutofixResult.reportText;
-      this.captureCiFailureMemories(subtasks, taskStateBeforeCiGate, args);
+      await this.captureCiFailureMemories(subtasks, taskStateBeforeCiGate, args);
 
       this.persistCiGateTaskStateChanges(taskStateBeforeCiGate, subtasks);
 
@@ -334,11 +334,11 @@ export class CycleRunner {
     });
   }
 
-  private captureTaskCompletionMemories(
+  private async captureTaskCompletionMemories(
     subtasks: Subtask[],
     preDerivationStates: Map<string, Subtask["status"]>,
     args: CycleRunnerArgs,
-  ): void {
+  ): Promise<void> {
     const memoryService = this.deps.memoryService;
     const settings = this.deps.getDashboardSettings({
       projectId: args.executionContext.project.id,
@@ -346,6 +346,7 @@ export class CycleRunner {
     });
     if (!memoryService || !settings.memory?.enabled || !settings.memory.autoCaptureSprint) return;
 
+    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
     for (const task of subtasks) {
       const prev = preDerivationStates.get(task.id);
       if (prev === task.status) continue;
@@ -366,32 +367,40 @@ export class CycleRunner {
         continue;
       }
 
-      memoryService.createMemory(args.executionContext.project.id, {
-        scope: "sprint",
-        sprintId: args.executionContext.sprint.id,
-        agentPresetId: args.planningAgentPresetId ?? null,
-        content,
-        category,
-        strength,
-        source: {
-          type: "auto_capture",
-          originType: "task_status_change",
-          originId: task.record_id || task.id,
-        },
-      }).catch((err) => {
-        this.deps.logger.warn("Failed to auto-capture task memory", {
-          taskId: task.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+      pendingCaptures.push({
+        taskId: task.id,
+        promise: memoryService.createMemory(args.executionContext.project.id, {
+          scope: "sprint",
+          sprintId: args.executionContext.sprint.id,
+          agentPresetId: args.planningAgentPresetId ?? null,
+          content,
+          category,
+          strength,
+          source: {
+            type: "auto_capture",
+            originType: "task_status_change",
+            originId: task.record_id || task.id,
+          },
+        }).then(() => {}),
       });
     }
+
+    const results = await Promise.allSettled(pendingCaptures.map(p => p.promise));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        this.deps.logger.warn("Failed to auto-capture task memory", {
+          taskId: pendingCaptures[index].taskId,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    });
   }
 
-  private captureCiFailureMemories(
+  private async captureCiFailureMemories(
     subtasks: Subtask[],
     preGateStates: Map<string, TaskStateSnapshot>,
     args: CycleRunnerArgs,
-  ): void {
+  ): Promise<void> {
     const memoryService = this.deps.memoryService;
     const settings = this.deps.getDashboardSettings({
       projectId: args.executionContext.project.id,
@@ -399,6 +408,7 @@ export class CycleRunner {
     });
     if (!memoryService || !settings.memory?.enabled || !settings.memory.autoCaptureSprint) return;
 
+    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
     for (const task of subtasks) {
       if (task.merge_indicator !== "CI") continue;
       const prev = preGateStates.get(task.id);
@@ -406,25 +416,33 @@ export class CycleRunner {
 
       const content = `CI failure detected for task ${task.id} — ${task.title}. Branch: ${task.worker_branch || "unknown"}. PR: ${task.pr_url || "none"}.`;
 
-      memoryService.createMemory(args.executionContext.project.id, {
-        scope: "sprint",
-        sprintId: args.executionContext.sprint.id,
-        agentPresetId: args.planningAgentPresetId ?? null,
-        content,
-        category: "error",
-        strength: 0.7,
-        source: {
-          type: "auto_capture",
-          originType: "ci_failure",
-          originId: task.record_id || task.id,
-        },
-      }).catch((err) => {
-        this.deps.logger.warn("Failed to auto-capture CI failure memory", {
-          taskId: task.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+      pendingCaptures.push({
+        taskId: task.id,
+        promise: memoryService.createMemory(args.executionContext.project.id, {
+          scope: "sprint",
+          sprintId: args.executionContext.sprint.id,
+          agentPresetId: args.planningAgentPresetId ?? null,
+          content,
+          category: "error",
+          strength: 0.7,
+          source: {
+            type: "auto_capture",
+            originType: "ci_failure",
+            originId: task.record_id || task.id,
+          },
+        }).then(() => {}),
       });
     }
+
+    const results = await Promise.allSettled(pendingCaptures.map(p => p.promise));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        this.deps.logger.warn("Failed to auto-capture CI failure memory", {
+          taskId: pendingCaptures[index].taskId,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    });
   }
 
   private persistCiGateTaskStateChanges(
