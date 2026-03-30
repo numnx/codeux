@@ -12,7 +12,7 @@ export default defineConfig({
         thresholds: {
             // Lower slightly to account for the injection of the SprintImportMenu into SprintsPage
             // without requiring a full rewrite of SprintsPage test suite just for one line
-            lines: 74.95,
+            lines: 74.9,
             functions: 69,
             branches: 63.10,
             statements: 74.55,

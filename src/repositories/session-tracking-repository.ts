@@ -33,7 +33,7 @@ interface SessionIdRow {
   id: string;
 }
 
-export interface TrackedCliSessionRow {
+interface TrackedCliSessionRow {
   id: string;
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
   state: string;
@@ -41,7 +41,7 @@ export interface TrackedCliSessionRow {
   updateTime: string;
 }
 
-export interface FailedCliSessionResumeTarget {
+interface FailedCliSessionResumeTarget {
   sessionId: string;
   workerBranch: string;
 }
