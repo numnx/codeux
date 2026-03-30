@@ -22,6 +22,8 @@ import type { SprintExecutionContext } from "../../../services/sprint-execution-
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MemoryCategory } from "../../../contracts/memory-types.js";
+import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
+import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
 
 
 export interface CycleRunnerArgs {
@@ -47,14 +49,6 @@ interface TaskStateSnapshot {
   status: Subtask["status"];
   isMerged: boolean;
   mergeIndicator: Subtask["merge_indicator"];
-}
-
-interface MergeConflictTaskContext {
-  taskKey: string;
-  taskTitle: string;
-  taskPrompt: string;
-  workerBranch: string | null;
-  prUrl: string | null;
 }
 
 export class CycleRunner {
@@ -503,11 +497,11 @@ export class CycleRunner {
       );
       const mergedFeatureTasks = selectMergedFeatureTaskContexts(subtasks, taskId);
 
-      this.deps.projectAttentionService.openItem({
+      this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
         projectId,
         sprintId,
         taskId,
-        sprintRunId,
+        sprintRunId: sprintRunId || "",
         attentionType: mergeConflictDetected ? "merge_conflict" : "merge_required",
         severity: mergeConflictDetected || task.merge_indicator === "MERGE_BLOCKED" ? "high" : "medium",
         ownerType: "worker",
@@ -537,7 +531,7 @@ export class CycleRunner {
           currentTask: buildTaskContext(task),
           featureBranchTaskContexts: mergedFeatureTasks,
         },
-      });
+      }));
       this.deps.projectAttentionService.resolveItemsForTask(
         projectId,
         taskId,
@@ -554,11 +548,11 @@ export class CycleRunner {
       }
       actionTaskIds.add(taskId);
       const ownerType: ProjectAttentionOwnerType = task.intervention_owner === "AGENT" ? "worker" : "human";
-      this.deps.projectAttentionService.openItem({
+      this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
         projectId,
         sprintId,
         taskId,
-        sprintRunId,
+        sprintRunId: sprintRunId || "",
         attentionType: "action_required",
         severity: task.intervention_owner === "AGENT" ? "high" : "medium",
         ownerType,
@@ -575,7 +569,7 @@ export class CycleRunner {
           provider: task.provider || null,
           interventionOwner: task.intervention_owner || "HUMAN",
         },
-      });
+      }));
     }
 
     const ciFixTaskIds = new Set<string>();
@@ -728,10 +722,7 @@ function buildTaskContext(task: Subtask): MergeConflictTaskContext {
 }
 
 function selectMergedFeatureTaskContexts(subtasks: Subtask[], excludedTaskId: string): MergeConflictTaskContext[] {
-  return subtasks
-    .filter((candidate) => candidate.record_id?.trim() !== excludedTaskId && candidate.is_merged)
-    .slice(0, 5)
-    .map((candidate) => buildTaskContext(candidate));
+  return selectMergedTaskContexts(subtasks, { excludedTaskId, limit: 5 });
 }
 
 function buildMergeConflictSummary(
@@ -741,44 +732,20 @@ function buildMergeConflictSummary(
   mergedFeatureTasks: MergeConflictTaskContext[],
 ): string {
   const sourceBranch = task.worker_branch || pr?.headRefName || "the task worker branch";
-  const lines = [
-    `Task \`${task.id}\` completed, but the feature PR is reporting merge conflicts between \`${sourceBranch}\` and \`${args.defaultFeatureBranch}\`.`,
-    "",
-    "Resolve this directly on the connected worker so the sprint can continue without a manual dashboard merge handoff.",
-    "",
-    `Repo path: \`${args.repoPath}\``,
-    `Working directory: \`cd ${args.repoPath}\``,
-    `Conflicting branches: \`${sourceBranch}\` -> \`${args.defaultFeatureBranch}\``,
-  ];
-
-  if (pr?.url) {
-    lines.push(`Feature PR: ${pr.url}`);
-  }
-
-  lines.push(
-    "",
-    `Current task: \`${task.id}\` ${task.title}`,
-    "",
-    "Current task prompt:",
-    "```md",
-    task.prompt.trim() || "No prompt recorded.",
-    "```",
-  );
-
-  if (mergedFeatureTasks.length > 0) {
-    lines.push("", "Merged task prompts already on the feature branch:");
-    for (const mergedTask of mergedFeatureTasks) {
-      lines.push(
-        "",
-        `### ${mergedTask.taskKey} ${mergedTask.taskTitle}`,
-        mergedTask.workerBranch ? `Branch: \`${mergedTask.workerBranch}\`` : "Branch: not recorded",
-        mergedTask.prUrl ? `PR: ${mergedTask.prUrl}` : "PR: not recorded",
-        "```md",
-        mergedTask.taskPrompt.trim() || "No prompt recorded.",
-        "```",
-      );
-    }
-  }
-
-  return lines.join("\n");
+  return buildConflictSummaryMarkdown({
+    repoPath: args.repoPath,
+    workingDir: `cd ${args.repoPath}`,
+    conflictingBranches: {
+      source: sourceBranch,
+      target: args.defaultFeatureBranch,
+    },
+    prInfo: pr ? { number: pr.number, url: pr.url } : undefined,
+    taskContext: {
+      id: task.id,
+      title: task.title,
+      prompt: task.prompt,
+    },
+    mergedTaskContexts: mergedFeatureTasks,
+    isMainMerge: false,
+  });
 }

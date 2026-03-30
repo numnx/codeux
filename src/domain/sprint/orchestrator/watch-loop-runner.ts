@@ -15,6 +15,7 @@ import type { ProjectAttentionItemRecord } from "../../../contracts/project-atte
 import { isCompletedTaskSettled } from "../task-merge-state.js";
 import { transitionSprintRun } from "./sprint-run-transitions.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
+import { buildConflictSummaryMarkdown, selectMergedTaskContexts } from "./conflict-summary-utils.js";
 
 export interface WatchLoopRunnerArgs {
   args: SprintAgentArgs;
@@ -459,7 +460,7 @@ export class WatchLoopRunner {
               defaultBranch,
               prNumber: mergeFeedback.prNumber,
               prUrl: mergeFeedback.prUrl,
-              mergedTaskContexts: selectMergedTaskContexts(subtasks),
+              mergedTaskContexts: selectMergedTaskContexts(subtasks, { limit: 8 }),
             }),
             payload: {
               repoPath,
@@ -476,7 +477,7 @@ export class WatchLoopRunner {
               },
               sprintNumber: scopedExecutionContext.sprintNumber,
               sprintName: scopedExecutionContext.sprint.name,
-              featureBranchTaskContexts: selectMergedTaskContexts(subtasks),
+              featureBranchTaskContexts: selectMergedTaskContexts(subtasks, { limit: 8 }),
             },
           }));
         } else if (ciIntelligence.resolveMainMergeConflicts && !mergeFeedback.hasMergeConflict) {
@@ -703,31 +704,7 @@ function pauseSprintRunForMainMergeBlocker(args: {
   );
 }
 
-function selectMergedTaskContexts(subtasks: Array<{
-  id: string;
-  title: string;
-  prompt: string;
-  worker_branch?: string | null;
-  pr_url?: string | null;
-  is_merged?: boolean;
-}>): Array<{
-  taskKey: string;
-  taskTitle: string;
-  taskPrompt: string;
-  workerBranch: string | null;
-  prUrl: string | null;
-}> {
-  return subtasks
-    .filter((task) => task.is_merged)
-    .slice(0, 8)
-    .map((task) => ({
-      taskKey: task.id,
-      taskTitle: task.title,
-      taskPrompt: task.prompt,
-      workerBranch: task.worker_branch || null,
-      prUrl: task.pr_url || null,
-    }));
-}
+
 
 function buildMainMergeConflictSummary(args: {
   repoPath: string;
@@ -743,26 +720,20 @@ function buildMainMergeConflictSummary(args: {
     prUrl: string | null;
   }>;
 }): string {
-  const lines = [
-    `Main-branch merge conflict detected for \`${args.featureBranch} -> ${args.defaultBranch}\`.`,
-    `Repo path: \`${args.repoPath}\``,
-    `Working directory: \`cd ${args.repoPath}\``,
-  ];
-
-  if (args.prNumber) {
-    lines.push(`PR: #${args.prNumber}${args.prUrl ? ` (${args.prUrl})` : ""}`);
-  } else if (args.prUrl) {
-    lines.push(`PR: ${args.prUrl}`);
-  }
-
-  if (args.mergedTaskContexts.length > 0) {
-    lines.push("", "Merged task prompts already on the feature branch:");
-    for (const task of args.mergedTaskContexts) {
-      lines.push(`- \`${task.taskKey}\` ${task.taskTitle}: ${task.taskPrompt}`);
-    }
-  }
-
-  return lines.join("\n");
+  return buildConflictSummaryMarkdown({
+    repoPath: args.repoPath,
+    workingDir: `cd ${args.repoPath}`,
+    conflictingBranches: {
+      source: args.featureBranch,
+      target: args.defaultBranch,
+    },
+    prInfo: {
+      number: args.prNumber,
+      url: args.prUrl,
+    },
+    mergedTaskContexts: args.mergedTaskContexts,
+    isMainMerge: true,
+  });
 }
 
 function partitionSubtasksByStatus(subtasks: Subtask[]) {
