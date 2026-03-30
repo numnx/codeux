@@ -1,4 +1,8 @@
-/** @vitest-environment jsdom */
+const fs = require('fs');
+const path = require('path');
+const targetFile = path.join(__dirname, 'tests/dashboard/v2/settings-page-data.test.tsx');
+
+let code = `/** @vitest-environment jsdom */
 /** @jsx h */
 /** @jsxFrag Fragment */
 import { h, Fragment } from "preact";
@@ -146,3 +150,6 @@ describe("SettingsPage data interactions", () => {
     expect(screen.getByText(/Editing overrides for Test Project/)).toBeInTheDocument();
   });
 });
+`;
+
+fs.writeFileSync(targetFile, code, 'utf8');
