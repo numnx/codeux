@@ -15,7 +15,10 @@ Configured by:
 
 If the requested port is busy, startup automatically retries the next port (`+1`) until it finds a free port.
 
-## API Endpoints Used by Dashboard
+## Live Data Contracts
+All live fields rendered in the dashboard originate from the SQLite database, are assembled by the backend, and transported via HTTP/WebSockets. The browser does not reconcile competing states. See the [Live Runtime Contract](../architecture/live-runtime-contract.md) for details on ownership of fields like `projectId`, `status`, and `execution`.
+
+## API Endpoints
 
 Implemented in `src/server/dashboard-server.ts`.
 
@@ -227,11 +230,11 @@ Legacy runtime:
 - Stats page now matches the high-interaction v2 dashboard card language more closely:
   - animated metric cards
   - a unified glass-panel system that mirrors the premium live card surfaces instead of using a separate visual treatment
-  - a full-width analysis studio that switches completely between `Trend`, `Composition`, and `Reliability` modes
-  - an interactive trend graph with hover bucket inspection, a toggleable legend for tokens/active time/invocation volume, smooth staged line-draw animation that matches the metric-card sparkline language, and drag-to-zoom timeframe selection
+  - a relocated analysis-mode control that focuses the workspace on trend, composition, or reliability
+  - a full-width interactive trend graph with hover bucket inspection, a clickable detailed-series sidebar for configuring the chart, smooth staged line-draw animation that matches the metric-card sparkline language, and drag-to-zoom timeframe selection
   - hourly views keep one-hour hover targets while reducing visible axis labels to a three-hour rhythm for readability
   - donut-style composition charts for providers, token anatomy, and telemetry-source mix now animate as interactive slices with hover emphasis and center-detail readouts
-  - redesigned task and sprint ledgers with search, sort-by-recency/tokens/time/input/output/name, and richer token/time breakdowns
+  - tabbed task and sprint telemetry sections replacing the always-visible ledger layout, complete with search, sort-by-recency/tokens/time/input/output/name, and richer token/time breakdowns
 - The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to polling so usage graphs and tables stay current during active sprint execution
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface, and task streams are filtered to the currently selected active sprint only (a frontend-only view change with no API contract change)
 - Agents page features an immersive, showcase-first layout that defaults to presenting the selected agent's 3D animated avatar, details, and labels, rather than a raw edit form.
@@ -376,7 +379,7 @@ Runtime scoping:
 ## Polling Behavior
 
 From `dashboard/src/hooks/use-dashboard-runtime-data.ts`:
-- Live view now does one initial `/api/live` fetch, then subscribes only to `project.live.updated` for selected-project runtime state.
+- Live view now does one initial `/api/live` fetch, then subscribes only to `project.live.updated` for selected-project runtime state. The UI explicitly reflects websocket degradation states (`connecting`, `reconnecting`, etc.) without altering the stable Live snapshot payload.
 - There is no steady-state client poll for status, execution, or git on the Live page anymore.
 - When the websocket reports `snapshot_required`, the browser re-fetches `/api/live` and replaces the whole live snapshot atomically.
 - Git status is refreshed server-side and folded into that same live snapshot stream, including a periodic background refresh owned by the server.

@@ -1,10 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
 import type { JulesActivity, JulesSession, ProviderId } from "../contracts/app-types.js";
 import { getHomeSprintOsPath } from "../shared/config/sprint-os-paths.js";
-import { openSqliteDatabase } from "./sqlite-connection.js";
+import { SqliteDatabaseAdapter } from "./db/sqlite-database-adapter.js";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 
 interface SessionRow {
   id: string;
@@ -33,7 +33,7 @@ interface SessionIdRow {
   id: string;
 }
 
-export interface TrackedCliSessionRow {
+interface TrackedCliSessionRow {
   id: string;
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
   state: string;
@@ -41,7 +41,7 @@ export interface TrackedCliSessionRow {
   updateTime: string;
 }
 
-export interface FailedCliSessionResumeTarget {
+interface FailedCliSessionResumeTarget {
   sessionId: string;
   workerBranch: string;
 }
@@ -80,12 +80,12 @@ const toSessionName = (sessionId: string): string => `sessions/${sessionId.repla
 const toSessionId = (sessionNameOrId: string): string => sessionNameOrId.replace(/^sessions\//, "");
 
 export class SessionTrackingRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(dbPath?: string) {
     const resolvedDbPath = resolveDbPath(dbPath);
     fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-    this.db = openSqliteDatabase(resolvedDbPath);
+    this.db = new SqliteDatabaseAdapter(resolvedDbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_sessions (
         id TEXT PRIMARY KEY,
@@ -309,8 +309,7 @@ export class SessionTrackingRepository {
     }
 
     const now = new Date().toISOString();
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    this.db.transaction(() => {
       const CHUNK_SIZE = 100;
       for (let i = 0; i < sessionIds.length; i += CHUNK_SIZE) {
         const chunk = sessionIds.slice(i, i + CHUNK_SIZE);
@@ -335,11 +334,7 @@ export class SessionTrackingRepository {
           VALUES ${insertPlaceholders}
         `).run(...insertParams);
       }
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    });
 
     return { recoveredCount: sessionIds.length, sessionIds };
   }

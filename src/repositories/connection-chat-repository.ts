@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { requireRecord } from "./repository-utils.js";
 import type {
@@ -22,11 +22,12 @@ import type { DashboardRealtimeService } from "../services/dashboard-realtime-se
 import { WorkerEndpointRepository } from "./worker-endpoint-repository.js";
 import {
   deriveConnectionHeartbeatStatus,
-  HEARTBEAT_WRITE_INTERVAL_MS,
-  OFFLINE_CONNECTION_THRESHOLD_MS,
-  PRUNE_CONNECTION_THRESHOLD_MS,
-  STALE_CONNECTION_THRESHOLD_MS,
 } from "./connection-lifecycle.js";
+
+const HEARTBEAT_WRITE_INTERVAL_MS = 5 * 1000;
+const OFFLINE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const PRUNE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const STALE_CONNECTION_THRESHOLD_MS = 90 * 1000;
 
 interface ConnectionRow {
   id: string;
@@ -144,7 +145,7 @@ function parseCapabilities(value: string | null): McpConnectionCapabilities {
 }
 
 export class ConnectionChatRepository {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(
     storage: AppDbStorage = new AppDbStorage(),
@@ -1450,13 +1451,8 @@ export class ConnectionChatRepository {
   }
 
   private runInTransaction(operation: () => void): void {
-    this.db.exec("BEGIN");
-    try {
+    this.db.transaction(() => {
       operation();
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    });
   }
 }

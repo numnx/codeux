@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { DatabaseSync } from "node:sqlite";
+import { DatabaseAdapter } from "./db/database-adapter.js";
 import { getHomeSprintOsPath } from "../shared/config/sprint-os-paths.js";
-import { openSqliteDatabase } from "./sqlite-connection.js";
+import { SqliteDatabaseAdapter } from "./db/sqlite-database-adapter.js";
 
 interface PayloadRow {
   payload: string;
@@ -20,12 +20,12 @@ const resolveSettingsDbPath = (dbPath?: string): string => {
 };
 
 export class SettingsDbStorage {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseAdapter;
 
   constructor(dbPath?: string) {
     const resolvedDbPath = resolveSettingsDbPath(dbPath);
     fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-    this.db = openSqliteDatabase(resolvedDbPath);
+    this.db = new SqliteDatabaseAdapter(resolvedDbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS app_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -82,16 +82,8 @@ export class SettingsDbStorage {
     return row?.payload ?? null;
   }
 
-  readProjectPayloads(projectIds: string[]): Array<{ project_id: string; payload: string }> {
-    if (projectIds.length === 0) {
-      return [];
-    }
-    const placeholders = projectIds.map(() => "?").join(", ");
-    return this.db.prepare(`
-      SELECT project_id, payload
-      FROM project_settings
-      WHERE project_id IN (${placeholders})
-    `).all(...projectIds) as { project_id: string; payload: string }[];
+  getCachedStatement(sql: string) {
+    return this.db.prepare(sql);
   }
 
   writeProjectPayload(projectId: string, payload: string): void {

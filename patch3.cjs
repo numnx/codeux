@@ -1,46 +1,12 @@
 const fs = require('fs');
-const path = 'tests/dashboard/v2/sprints-page.test.tsx';
-let content = fs.readFileSync(path, 'utf8');
+const content = fs.readFileSync('dashboard/src/v2/SettingsPage.tsx', 'utf8');
 
-const additionalTest = `
+const search = `  const switchCategory = (categoryId: CategoryId): void => {`;
+const replace = `  const switchCategory = useCallback((categoryId: CategoryId): void => {`;
 
-  it("handles empty lists, escape key for row menu, and other UI events to boost coverage", () => {
-    vi.mocked(useSprintsPageData).mockReturnValue({
-      selectedProject: { id: "proj-1" },
-      planningRoute: { available: true },
-      sortedSprints: [],
-      showcaseSprints: [],
-      activeRunsBySprintId: new Map(),
-      interventionBySprintId: new Map(),
-      nextId: "spr-123",
-      virtualProviders: [],
-      pendingActionIds: new Set(),
-      planningPresets: [],
-      quicksprintTemplates: [],
-      showQuicksprint: false,
-      setShowQuicksprint: vi.fn(),
-      showCreateComposer: false,
-      setShowCreateComposer: vi.fn(),
-      editingSprint: null,
-      setEditingSprint: vi.fn(),
-      showImportModal: false,
-      setShowImportModal: vi.fn(),
-    } as any);
+let newContent = content;
+newContent = newContent.replace(search, replace);
+newContent = newContent.replace(`    });\n  };`, `    });\n  }, [activeCategory]);`);
 
-    render(<SprintsPage />);
-
-    // Dispatch events to hit the useEffect handlers in SprintsPage
-    fireEvent.keyDown(document, { key: "Escape" });
-    fireEvent.click(document.body);
-    window.dispatchEvent(new Event("resize"));
-    window.dispatchEvent(new Event("scroll"));
-
-    // Also simulate toggling New Sprint composer to cover state setters
-    const newSprintBtn = screen.getByRole("button", { name: /new sprint/i });
-    if (newSprintBtn) {
-      fireEvent.click(newSprintBtn);
-    }
-  });`;
-
-content = content.replace(/}\);\n}\);/, `});\n${additionalTest}\n});`);
-fs.writeFileSync(path, content);
+fs.writeFileSync('dashboard/src/v2/SettingsPage.tsx', newContent);
+console.log('Patched');

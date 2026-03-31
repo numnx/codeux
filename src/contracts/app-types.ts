@@ -47,7 +47,7 @@ export interface JulesActivity {
 }
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA";
-export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT";
+export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY";
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code";
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -60,7 +60,7 @@ export type InvocationRoutingId =
   | "ci_fix"
   | "merge_conflict";
 export type CliExecutionMode = "HOST" | "DOCKER";
-export type FeaturePrAutoMergeMode = "OFF" | "WHEN_GREEN" | "ALWAYS";
+export type FeaturePrAutoMergeMode = "OFF" | "CREATE_PR" | "WHEN_GREEN" | "ALWAYS";
 export type WorkerExecutionMode = "CONNECTED_MCP" | "VIRTUAL";
 export type VirtualWorkerProvider = Exclude<ProviderId, "jules">;
 
@@ -101,13 +101,29 @@ export interface DashboardStatus {
   timestamp: string | null;
 }
 
+/**
+ * The authoritative contract for the Live page snapshot.
+ *
+ * Boundary Contract:
+ * - SQLite is the absolute source of truth.
+ * - The server assembles the snapshot (`getProjectLiveSnapshot` module).
+ * - Websockets transport committed snapshot changes.
+ * - The browser renders the snapshot without reconciling competing sources.
+ */
 export interface ProjectLiveDashboardSnapshot {
+  /** Owned by `ProjectManagementRepository`. Mutated when a project is selected or created. */
   projectId: string | null;
+  /** Owned by `ProjectManagementRepository`. Mutated when a sprint is selected or changed. */
   selectedSprintId: string | null;
+  /** Owned by `ProjectRuntimeRepository`. Mutated when task states change, a sprint is run, or orchestration loop updates progress. */
   status: DashboardStatus;
+  /** Owned by `ExecutionRepository` (via `getProjectExecutionSnapshot`). Mutated when sprint runs are dispatched, worker states change, or attention items are created/claimed. */
   execution: ExecutionDashboardSnapshot;
+  /** Owned by the external git system. Mutated when local branches or upstream changes are detected. */
   gitStatus: GitTrackingStatus | null;
+  /** Error state for git tracking. Mutated when external git/ci fails to load. */
   gitStatusError: string | null;
+  /** Owned by the server assembly module. Mutated upon every assembly call to track the snapshot timestamp. */
   updatedAt: string | null;
 }
 
@@ -341,6 +357,14 @@ export interface ProjectStatsRangeSummary {
   isCustom: boolean;
 }
 
+export interface ProjectExecutionStatsChartSeries {
+  id: string;
+  label: string;
+  grouping: string;
+  defaultEnabled: boolean;
+  data: number[];
+}
+
 export interface ProjectExecutionStatsSnapshot {
   projectId: string;
   projectName: string;
@@ -363,6 +387,7 @@ export interface ProjectExecutionStatsSnapshot {
     source: TokenUsageSource;
     count: number;
   }>;
+  chartSeries: ProjectExecutionStatsChartSeries[];
 }
 
 export interface OverviewTelemetryProjectSummary {

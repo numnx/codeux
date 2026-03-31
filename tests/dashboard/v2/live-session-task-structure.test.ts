@@ -182,3 +182,28 @@ describe("live-session-task-structure", () => {
     expect(result[0]?.status).toBe("BLOCKED");
   });
 });
+
+it("isolates runtime task states and execution metadata to the correct sprint scope even when tasks share the same ID", () => {
+    const result = buildLiveSessionTasks([
+      createTask({ recordId: "rec-1", sprintId: "sprint-1", status: "pending", id: "T1" }),
+      createTask({ recordId: "rec-2", sprintId: "sprint-2", status: "pending", id: "T1" }),
+    ], [
+      createRuntimeTask({ record_id: "rec-2", sprint_id: "sprint-2", status: "RUNNING", id: "T1", session_id: "session-2", provider: "jules" }),
+    ], "project-1", [
+      createDispatch({ id: "dispatch-2", sprintId: "sprint-2", status: "running", taskRunState: "RUNNING", taskKey: "T1", taskId: "rec-2", sessionId: "session-2" }),
+    ], [
+      createEvent({ id: "event-2", sprintId: "sprint-2", taskRunState: "RUNNING", eventType: "run_started", taskKey: "T1", taskId: "rec-2", sessionId: "session-2" })
+    ]);
+
+    expect(result).toHaveLength(2);
+
+    // The sprint 1 task should NOT pick up the sprint 2 runtime state
+    expect(result[0]?.sprint_id).toBe("sprint-1");
+    expect(result[0]?.status).toBe("PENDING");
+    expect(result[0]?.session_id).toBeUndefined();
+
+    // The sprint 2 task SHOULD pick up the sprint 2 runtime state
+    expect(result[1]?.sprint_id).toBe("sprint-2");
+    expect(result[1]?.status).toBe("CODING_COMPLETED");
+    expect(result[1]?.session_id).toBe("session-2");
+  });
