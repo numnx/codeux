@@ -40,11 +40,55 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         gsap.to(backdropRef.current, { opacity: 0, duration: 0.28, delay: 0.05, onComplete: onClose });
     };
 
+
+    const FOCUSABLE_SELECTOR = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const triggerRef = useRef<HTMLElement | null>(null);
+
     useEffect(() => {
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+        triggerRef.current = document.activeElement as HTMLElement | null;
+
+        if (cardRef.current) {
+            const focusableElements = Array.from(cardRef.current.querySelectorAll(FOCUSABLE_SELECTOR)) as HTMLElement[];
+            if (focusableElements.length > 0) {
+                focusableElements[0].focus();
+            }
+        }
+
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                handleClose();
+            } else if (e.key === 'Tab') {
+                if (!cardRef.current) return;
+                const focusableElements = Array.from(cardRef.current.querySelectorAll(FOCUSABLE_SELECTOR)) as HTMLElement[];
+                if (focusableElements.length === 0) return;
+
+                const first = focusableElements[0];
+                const last = focusableElements[focusableElements.length - 1];
+
+                if (!cardRef.current.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                    return;
+                }
+
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        };
         document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler);
+        return () => {
+            document.removeEventListener('keydown', handler);
+            if (triggerRef.current) {
+                triggerRef.current.focus();
+            }
+        };
     }, []);
+
 
     const handleBackdropClick = (e: MouseEvent) => {
         if (e.target === backdropRef.current) handleClose();
