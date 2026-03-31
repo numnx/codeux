@@ -246,6 +246,11 @@ export class VirtualWorkerService {
           return false;
         }
 
+        // Avoid items that are in cooldown handled by orchestrator
+        if (item.summaryMarkdown.includes("Clarification cooldown active")) {
+          return false;
+        }
+
         const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
 
         if (item.attentionType === "merge_conflict" || item.attentionType === "merge_required") {
@@ -384,6 +389,12 @@ export class VirtualWorkerService {
   }
 
   private async handleAttentionItem(workerEndpointId: string, item: ProjectAttentionItemRecord, reason: string): Promise<void> {
+    // Check if it's a cooldown item that we somehow claimed anyway
+    if (item.summaryMarkdown.includes("Clarification cooldown active")) {
+      // Just release it, don't escalate. The orchestrator will handle it.
+      return;
+    }
+
     const claimed = item.status === "claimed"
       ? this.deps.projectAttentionService.claimItem(item.id, workerEndpointId, `virtual_worker_reclaimed:${reason}`)
       : this.deps.projectAttentionService.claimItem(item.id, workerEndpointId, `virtual_worker_claimed:${reason}`);
@@ -435,7 +446,8 @@ export class VirtualWorkerService {
       }
 
       if (sessionState === "AWAITING_USER_FEEDBACK" && settings.automationInterventions.autoAnswerClarification) {
-        const retryCount = this.clarificationRetryCounts.get(item.id) || 0;
+        const retryKey = item.taskId || item.id;
+        const retryCount = this.clarificationRetryCounts.get(retryKey) || 0;
         const maxRetries = 3; // Policy: 3 auto-answers before escalation
 
         if (retryCount >= maxRetries) {
@@ -459,7 +471,7 @@ export class VirtualWorkerService {
         });
 
         await this.deps.sendSessionMessage(sessionId, reply);
-        this.clarificationRetryCounts.set(item.id, retryCount + 1);
+        this.clarificationRetryCounts.set(retryKey, retryCount + 1);
 
         this.deps.projectAttentionService.resolveItem(item.id, {
           status: "resolved",
@@ -642,7 +654,8 @@ export class VirtualWorkerService {
       "branchName",
     );
 
-    const retryCount = this.ciAutofixRetryCounts.get(item.id) || 0;
+    const retryKey = item.taskId || item.id;
+    const retryCount = this.ciAutofixRetryCounts.get(retryKey) || 0;
     const maxRetries = settings.ciIntelligence.julesCiAutofixMaxRetries || 3;
 
     if (retryCount >= maxRetries) {
@@ -702,7 +715,7 @@ export class VirtualWorkerService {
         description: `Pushed CI fix to ${branchName} at ${headSha}.`,
       });
 
-      this.ciAutofixRetryCounts.set(item.id, retryCount + 1);
+      this.ciAutofixRetryCounts.set(retryKey, retryCount + 1);
 
       this.deps.projectAttentionService.resolveItem(item.id, {
         status: "resolved",
