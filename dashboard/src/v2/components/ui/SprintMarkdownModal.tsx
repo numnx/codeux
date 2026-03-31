@@ -131,7 +131,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             <div className="grid grid-cols-1 gap-5 flex-1 min-h-0">
               <div className="flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Markdown</label>
+                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Sprint Markdown</label>
                   {mode === "export" && (
                     <div className="flex items-center gap-3">
                       <button
@@ -164,7 +164,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
 
               <div className="flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Bundle</label>
+                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Task Bundle</label>
                   {mode === "export" && (
                     <div className="flex items-center gap-3">
                       <button

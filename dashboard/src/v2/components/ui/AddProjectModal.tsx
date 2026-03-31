@@ -139,7 +139,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                             {/* Project Name */}
                             <div className="group/field">
-                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
+                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
                                     Project Name
                                 </label>
                                 <input
@@ -155,7 +155,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                             {/* Source Type Toggle */}
                             <div>
-                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">
+                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 block mb-2.5">
                                     Source Type
                                 </label>
                                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
@@ -183,7 +183,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             {/* Conditional fields */}
                             {sourceType === 'local' ? (
                                 <div className="group/field">
-                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                         <FolderInput className="w-3 h-3" /> Directory Path
                                     </label>
                                     <input
@@ -198,7 +198,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             ) : (
                                 <>
                                     <div className="group/field">
-                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                             <Link2 className="w-3 h-3" /> Repository URL
                                         </label>
                                         <input
@@ -211,7 +211,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         />
                                     </div>
                                     <div className="group/field">
-                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                             <FolderInput className="w-3 h-3" /> Clone Into Directory
                                             <span className="ml-1 text-slate-300 dark:text-slate-600 normal-case font-medium tracking-normal">(optional)</span>
                                         </label>
