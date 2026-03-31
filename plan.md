@@ -1,38 +1,15 @@
-1. **Explore File & Create Sub-Component**:
-   Since the Template Editor is currently inline inside `QuicksprintPanel` (approx lines 540-800), we need to extract it into a separate component called `TemplateEditor` so it can act as a "sub-component" and consume the template operations.
+1. **Modify `dashboard/src/main.tsx`:** Use `replace_with_git_merge_diff` to lazy-load `DeepOceanBackground`. Implement an `IdleMount` wrapper component in `main.tsx` that uses `useEffect` and `requestIdleCallback` (with a timeout fallback) to set a `mounted` state before rendering the lazy-loaded `DeepOceanBackground`. This defers the background chunk execution and ensures `three` is not part of the initial paint path. Use `read_file` to verify the edit.
 
-2. **Context Creation**:
-   - At the top of `dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx`, import `createContext` and `useContext`.
-   - Create and export `QuicksprintContext` with the following type:
-     ```tsx
-     export interface QuicksprintContextValue {
-       templates: QuicksprintTemplateRecord[];
-       onCreateTemplate?: (data: any) => Promise<void>;
-       onUpdateTemplate?: (templateId: string, data: any) => Promise<void>;
-       onDeleteTemplate?: (templateId: string) => Promise<void>;
-     }
-     export const QuicksprintContext = createContext<QuicksprintContextValue>({ templates: [] });
-     ```
+2. **Modify `dashboard/src/v2/components/TopNav.tsx`:** Use `replace_with_git_merge_diff` to wrap the GSAP entrance animation in a non-blocking macro-task `setTimeout(() => { ... }, 0)`. This decouples the shell mount timing from GSAP execution, allowing immediate top-nav rendering before motion initializes. Use `read_file` to verify the edit.
 
-3. **Prop Definition Updates**:
-   - Remove `onCreateTemplate`, `onUpdateTemplate`, and `onDeleteTemplate` from `QuicksprintPanelProps`.
-   - Update `QuicksprintPanel` signature to explicitly accept these three CRUD operations to allow the parent to pass them in, but NOT pass them through to sub-components:
-     ```tsx
-     export const QuicksprintPanel: FunctionComponent<
-       QuicksprintPanelProps & Omit<QuicksprintContextValue, "templates">
-     > = ({ ...
-     ```
+3. **Modify `dashboard/src/v2/components/KineticDock.tsx`:** Use `replace_with_git_merge_diff` to wrap the GSAP entrance animation inside `useEffect` in a non-blocking `setTimeout(() => { ... }, 0)`. This ensures the dock renders its structure instantly without waiting on GSAP. Use `read_file` to verify the edit.
 
-4. **Add Context Provider**:
-   - Wrap the returned JSX from `QuicksprintPanel` in `<QuicksprintContext.Provider value={{ templates, onCreateTemplate, onUpdateTemplate, onDeleteTemplate }}> ... </QuicksprintContext.Provider>`.
+4. **Modify `vite.config.ts`:** Use `replace_with_git_merge_diff` to remove the explicit `three: ["three"]` manual chunk from `rollupOptions`. Since `DeepOceanBackground` is now lazy-loaded, Vite will automatically split it and its `three` dependency into an async chunk. Removing it from eager vendor chunks prevents it from being preloaded in the root HTML. Use `read_file` to verify the edit.
 
-5. **Consume Context in Sub-components**:
-   - Update `TemplateCard` to use `const { onDeleteTemplate } = useContext(QuicksprintContext)` if needed, but the prompt says "Have TemplateCard and the template editor sub-components consume template operations via useContext(QuicksprintContext) instead of receiving them as props." Wait, `TemplateCard` doesn't use `onDeleteTemplate`. Does it? No, `TemplateCard` only gets `onEdit` and `onSelect`. We will just remove `onDeleteTemplate` passing or any CRUD if it exists, but it doesn't. We'll ensure `TemplateEditor` gets them via context.
-   - For `TemplateEditor`, we will pass all the state variables like `edName`, `setEdName` etc as props to the new `TemplateEditor` component, or let `TemplateEditor` manage its own state!
-   - Wait, `TemplateEditor` can manage its own local state (`edName`, `edDescription`, etc)! Currently `QuicksprintPanel` manages it. If we extract `TemplateEditor`, we can also move `edName`, `setEdName`, `edDescription`, etc. into `TemplateEditor`, which cleans up `QuicksprintPanel` significantly.
-   - Inside `TemplateEditor`, we will consume `const { onCreateTemplate, onUpdateTemplate, onDeleteTemplate } = useContext(QuicksprintContext);` and perform the saves and deletes.
+5. **Create tests:** Use `write_file` to create `tests/dashboard/v2/main-shell.test.tsx`. Implement a vitest suit rendering the `TopNav` and `KineticDock` directly and asserting that they render synchronously without throwing and don't block on `three` loading. Also assert that `DeepOceanBackground` can be lazily loaded without throwing. Use `read_file` to verify.
 
-6. **Quality Gates & Submit**:
-   - Run technical quality gates: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:coverage`, and `npm run build`.
-   - Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
-   - Submit the completed task.
+6. **Run Quality Gates:** Use `run_in_bash_session` to run `npm run lint`, `npm run typecheck:dashboard`, `npm run test -- tests/dashboard/v2/main-shell.test.tsx`, and `npm run build:dashboard`. Confirm tests pass and that `three` is absent from the initial bundle output.
+
+7. **Pre-commit:** Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+
+8. **Submit:** Submit the completed task.
