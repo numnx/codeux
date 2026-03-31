@@ -340,7 +340,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
           <div data-composer-stagger className="mt-8 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Prompt</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Sprint Prompt</label>
               <button
                 type="button"
                 onClick={() => { void handleImprovePrompt(); }}
