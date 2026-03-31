@@ -253,7 +253,11 @@ export class VirtualWorkerService {
 
         const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
 
-        if (item.attentionType === "merge_conflict" || item.attentionType === "merge_required") {
+        if (item.attentionType === "merge_required") {
+          return false;
+        }
+
+        if (item.attentionType === "merge_conflict") {
           return settings.ciIntelligence.resolveMergeConflicts;
         }
 

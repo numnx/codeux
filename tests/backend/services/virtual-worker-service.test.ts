@@ -413,6 +413,12 @@ describe("VirtualWorkerService", () => {
       payload: null,
     });
 
+    settingsRepository.saveProjectSettings(project.id, {
+      ciIntelligence: {
+        resolveMergeConflicts: true,
+      },
+    });
+
     const virtualWorkerService = new VirtualWorkerService({
       settingsRepository,
       sessionTracking,
