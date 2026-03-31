@@ -22,6 +22,8 @@ import type { SprintExecutionContext } from "../../../services/sprint-execution-
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MemoryCategory } from "../../../contracts/memory-types.js";
+import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
+import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
 
 
 export interface CycleRunnerArgs {
@@ -47,14 +49,6 @@ interface TaskStateSnapshot {
   status: Subtask["status"];
   isMerged: boolean;
   mergeIndicator: Subtask["merge_indicator"];
-}
-
-interface MergeConflictTaskContext {
-  taskKey: string;
-  taskTitle: string;
-  taskPrompt: string;
-  workerBranch: string | null;
-  prUrl: string | null;
 }
 
 export class CycleRunner {
@@ -135,7 +129,7 @@ export class CycleRunner {
         retryFailed: args.retryFailed,
         isActionRequiredState: this.deps.isActionRequiredState,
       });
-      this.captureTaskCompletionMemories(subtasks, preDerivationStates, args);
+      await this.captureTaskCompletionMemories(subtasks, preDerivationStates, args);
     }
 
     let reportText = "";
@@ -246,7 +240,7 @@ export class CycleRunner {
       });
       subtasks = ciAutofixResult.subtasks;
       reportText += ciAutofixResult.reportText;
-      this.captureCiFailureMemories(subtasks, taskStateBeforeCiGate, args);
+      await this.captureCiFailureMemories(subtasks, taskStateBeforeCiGate, args);
 
       this.persistCiGateTaskStateChanges(taskStateBeforeCiGate, subtasks);
 
@@ -334,11 +328,11 @@ export class CycleRunner {
     });
   }
 
-  private captureTaskCompletionMemories(
+  private async captureTaskCompletionMemories(
     subtasks: Subtask[],
     preDerivationStates: Map<string, Subtask["status"]>,
     args: CycleRunnerArgs,
-  ): void {
+  ): Promise<void> {
     const memoryService = this.deps.memoryService;
     const settings = this.deps.getDashboardSettings({
       projectId: args.executionContext.project.id,
@@ -346,6 +340,7 @@ export class CycleRunner {
     });
     if (!memoryService || !settings.memory?.enabled || !settings.memory.autoCaptureSprint) return;
 
+    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
     for (const task of subtasks) {
       const prev = preDerivationStates.get(task.id);
       if (prev === task.status) continue;
@@ -366,32 +361,40 @@ export class CycleRunner {
         continue;
       }
 
-      memoryService.createMemory(args.executionContext.project.id, {
-        scope: "sprint",
-        sprintId: args.executionContext.sprint.id,
-        agentPresetId: args.planningAgentPresetId ?? null,
-        content,
-        category,
-        strength,
-        source: {
-          type: "auto_capture",
-          originType: "task_status_change",
-          originId: task.record_id || task.id,
-        },
-      }).catch((err) => {
-        this.deps.logger.warn("Failed to auto-capture task memory", {
-          taskId: task.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+      pendingCaptures.push({
+        taskId: task.id,
+        promise: memoryService.createMemory(args.executionContext.project.id, {
+          scope: "sprint",
+          sprintId: args.executionContext.sprint.id,
+          agentPresetId: args.planningAgentPresetId ?? null,
+          content,
+          category,
+          strength,
+          source: {
+            type: "auto_capture",
+            originType: "task_status_change",
+            originId: task.record_id || task.id,
+          },
+        }).then(() => {}),
       });
     }
+
+    const results = await Promise.allSettled(pendingCaptures.map(p => p.promise));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        this.deps.logger.warn("Failed to auto-capture task memory", {
+          taskId: pendingCaptures[index].taskId,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    });
   }
 
-  private captureCiFailureMemories(
+  private async captureCiFailureMemories(
     subtasks: Subtask[],
     preGateStates: Map<string, TaskStateSnapshot>,
     args: CycleRunnerArgs,
-  ): void {
+  ): Promise<void> {
     const memoryService = this.deps.memoryService;
     const settings = this.deps.getDashboardSettings({
       projectId: args.executionContext.project.id,
@@ -399,6 +402,7 @@ export class CycleRunner {
     });
     if (!memoryService || !settings.memory?.enabled || !settings.memory.autoCaptureSprint) return;
 
+    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
     for (const task of subtasks) {
       if (task.merge_indicator !== "CI") continue;
       const prev = preGateStates.get(task.id);
@@ -406,25 +410,33 @@ export class CycleRunner {
 
       const content = `CI failure detected for task ${task.id} — ${task.title}. Branch: ${task.worker_branch || "unknown"}. PR: ${task.pr_url || "none"}.`;
 
-      memoryService.createMemory(args.executionContext.project.id, {
-        scope: "sprint",
-        sprintId: args.executionContext.sprint.id,
-        agentPresetId: args.planningAgentPresetId ?? null,
-        content,
-        category: "error",
-        strength: 0.7,
-        source: {
-          type: "auto_capture",
-          originType: "ci_failure",
-          originId: task.record_id || task.id,
-        },
-      }).catch((err) => {
-        this.deps.logger.warn("Failed to auto-capture CI failure memory", {
-          taskId: task.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+      pendingCaptures.push({
+        taskId: task.id,
+        promise: memoryService.createMemory(args.executionContext.project.id, {
+          scope: "sprint",
+          sprintId: args.executionContext.sprint.id,
+          agentPresetId: args.planningAgentPresetId ?? null,
+          content,
+          category: "error",
+          strength: 0.7,
+          source: {
+            type: "auto_capture",
+            originType: "ci_failure",
+            originId: task.record_id || task.id,
+          },
+        }).then(() => {}),
       });
     }
+
+    const results = await Promise.allSettled(pendingCaptures.map(p => p.promise));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        this.deps.logger.warn("Failed to auto-capture CI failure memory", {
+          taskId: pendingCaptures[index].taskId,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    });
   }
 
   private persistCiGateTaskStateChanges(
@@ -485,11 +497,11 @@ export class CycleRunner {
       );
       const mergedFeatureTasks = selectMergedFeatureTaskContexts(subtasks, taskId);
 
-      this.deps.projectAttentionService.openItem({
+      this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
         projectId,
         sprintId,
         taskId,
-        sprintRunId,
+        sprintRunId: sprintRunId || "",
         attentionType: mergeConflictDetected ? "merge_conflict" : "merge_required",
         severity: mergeConflictDetected || task.merge_indicator === "MERGE_BLOCKED" ? "high" : "medium",
         ownerType: "worker",
@@ -519,7 +531,7 @@ export class CycleRunner {
           currentTask: buildTaskContext(task),
           featureBranchTaskContexts: mergedFeatureTasks,
         },
-      });
+      }));
       this.deps.projectAttentionService.resolveItemsForTask(
         projectId,
         taskId,
@@ -536,11 +548,11 @@ export class CycleRunner {
       }
       actionTaskIds.add(taskId);
       const ownerType: ProjectAttentionOwnerType = task.intervention_owner === "AGENT" ? "worker" : "human";
-      this.deps.projectAttentionService.openItem({
+      this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
         projectId,
         sprintId,
         taskId,
-        sprintRunId,
+        sprintRunId: sprintRunId || "",
         attentionType: "action_required",
         severity: task.intervention_owner === "AGENT" ? "high" : "medium",
         ownerType,
@@ -557,7 +569,7 @@ export class CycleRunner {
           provider: task.provider || null,
           interventionOwner: task.intervention_owner || "HUMAN",
         },
-      });
+      }));
     }
 
     const ciFixTaskIds = new Set<string>();
@@ -710,10 +722,7 @@ function buildTaskContext(task: Subtask): MergeConflictTaskContext {
 }
 
 function selectMergedFeatureTaskContexts(subtasks: Subtask[], excludedTaskId: string): MergeConflictTaskContext[] {
-  return subtasks
-    .filter((candidate) => candidate.record_id?.trim() !== excludedTaskId && candidate.is_merged)
-    .slice(0, 5)
-    .map((candidate) => buildTaskContext(candidate));
+  return selectMergedTaskContexts(subtasks, { excludedTaskId, limit: 5 });
 }
 
 function buildMergeConflictSummary(
@@ -723,44 +732,20 @@ function buildMergeConflictSummary(
   mergedFeatureTasks: MergeConflictTaskContext[],
 ): string {
   const sourceBranch = task.worker_branch || pr?.headRefName || "the task worker branch";
-  const lines = [
-    `Task \`${task.id}\` completed, but the feature PR is reporting merge conflicts between \`${sourceBranch}\` and \`${args.defaultFeatureBranch}\`.`,
-    "",
-    "Resolve this directly on the connected worker so the sprint can continue without a manual dashboard merge handoff.",
-    "",
-    `Repo path: \`${args.repoPath}\``,
-    `Working directory: \`cd ${args.repoPath}\``,
-    `Conflicting branches: \`${sourceBranch}\` -> \`${args.defaultFeatureBranch}\``,
-  ];
-
-  if (pr?.url) {
-    lines.push(`Feature PR: ${pr.url}`);
-  }
-
-  lines.push(
-    "",
-    `Current task: \`${task.id}\` ${task.title}`,
-    "",
-    "Current task prompt:",
-    "```md",
-    task.prompt.trim() || "No prompt recorded.",
-    "```",
-  );
-
-  if (mergedFeatureTasks.length > 0) {
-    lines.push("", "Merged task prompts already on the feature branch:");
-    for (const mergedTask of mergedFeatureTasks) {
-      lines.push(
-        "",
-        `### ${mergedTask.taskKey} ${mergedTask.taskTitle}`,
-        mergedTask.workerBranch ? `Branch: \`${mergedTask.workerBranch}\`` : "Branch: not recorded",
-        mergedTask.prUrl ? `PR: ${mergedTask.prUrl}` : "PR: not recorded",
-        "```md",
-        mergedTask.taskPrompt.trim() || "No prompt recorded.",
-        "```",
-      );
-    }
-  }
-
-  return lines.join("\n");
+  return buildConflictSummaryMarkdown({
+    repoPath: args.repoPath,
+    workingDir: `cd ${args.repoPath}`,
+    conflictingBranches: {
+      source: sourceBranch,
+      target: args.defaultFeatureBranch,
+    },
+    prInfo: pr ? { number: pr.number, url: pr.url } : undefined,
+    taskContext: {
+      id: task.id,
+      title: task.title,
+      prompt: task.prompt,
+    },
+    mergedTaskContexts: mergedFeatureTasks,
+    isMainMerge: false,
+  });
 }

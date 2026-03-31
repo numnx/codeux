@@ -13,6 +13,9 @@ import type { SprintExecutionContext } from "../../../services/sprint-execution-
 import type { MergeFeedbackResult } from "../ci/main-merge-gate.js";
 import type { ProjectAttentionItemRecord } from "../../../contracts/project-attention-types.js";
 import { isCompletedTaskSettled } from "../task-merge-state.js";
+import { transitionSprintRun } from "./sprint-run-transitions.js";
+import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
+import { buildConflictSummaryMarkdown, selectMergedTaskContexts } from "./conflict-summary-utils.js";
 
 export interface WatchLoopRunnerArgs {
   args: SprintAgentArgs;
@@ -443,7 +446,7 @@ export class WatchLoopRunner {
           && mergeFeedback.hasMergeConflict
           && activeMainMergeAttentionItems.length === 0
         ) {
-          this.deps.projectAttentionService.openItem({
+          this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
             projectId: scopedExecutionContext.project.id,
             sprintId: scopedExecutionContext.sprint.id,
             sprintRunId,
@@ -457,7 +460,7 @@ export class WatchLoopRunner {
               defaultBranch,
               prNumber: mergeFeedback.prNumber,
               prUrl: mergeFeedback.prUrl,
-              mergedTaskContexts: selectMergedTaskContexts(subtasks),
+              mergedTaskContexts: selectMergedTaskContexts(subtasks, { limit: 8 }),
             }),
             payload: {
               repoPath,
@@ -474,9 +477,9 @@ export class WatchLoopRunner {
               },
               sprintNumber: scopedExecutionContext.sprintNumber,
               sprintName: scopedExecutionContext.sprint.name,
-              featureBranchTaskContexts: selectMergedTaskContexts(subtasks),
+              featureBranchTaskContexts: selectMergedTaskContexts(subtasks, { limit: 8 }),
             },
-          });
+          }));
         } else if (ciIntelligence.resolveMainMergeConflicts && !mergeFeedback.hasMergeConflict) {
           resolveMainMergeConflictAttentionItems(
             this.deps.projectAttentionService,
@@ -503,17 +506,17 @@ export class WatchLoopRunner {
           return { status: "exit", report };
         }
         this.deps.completedSprints.add(`${scopedExecutionContext.project.id}:${scopedExecutionContext.sprint.id}`);
-        this.deps.executionRepository.updateSprintRun(sprintRunId, {
-          status: "completed",
-          finishedAt: new Date().toISOString(),
-          lastHeartbeatAt: new Date().toISOString(),
-        });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_completed", "system", {
-          sprintNumber: scopedExecutionContext.sprintNumber,
-          taskCount: subtasks.length,
-        }, {
-          sourceEventKey: `sprint-completed:${sprintRunId}`,
-        });
+        transitionSprintRun(
+          this.deps.executionRepository,
+          sprintRunId,
+          "completed",
+          "sprint_completed",
+          {
+            sprintNumber: scopedExecutionContext.sprintNumber,
+            taskCount: subtasks.length,
+          },
+          `sprint-completed:${sprintRunId}`
+        );
         this.triggerAutoPromote(scopedExecutionContext.project.id, scopedExecutionContext.sprint.id);
         report += await this.deps.renderInstruction("cleanupAllMerged", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
         report += completionGuidance;
@@ -528,52 +531,48 @@ export class WatchLoopRunner {
       const { tasksByStatus, statusCounts } = partitionSubtasksByStatus(subtasks);
       const failedTaskCount = statusCounts["FAILED"] || 0;
       if (failedTaskCount > 0) {
-        this.deps.executionRepository.updateSprintRun(sprintRunId, {
-          status: "failed",
-          finishedAt: new Date().toISOString(),
-          lastHeartbeatAt: new Date().toISOString(),
-        });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_failed", "system", {
-          failedTaskCount,
-        }, {
-          sourceEventKey: `sprint-failed:${sprintRunId}`,
-        });
+        transitionSprintRun(
+          this.deps.executionRepository,
+          sprintRunId,
+          "failed",
+          "sprint_failed",
+          { failedTaskCount },
+          `sprint-failed:${sprintRunId}`
+        );
         report += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
       } else if (manualMergeTasks.length > 0) {
-        this.deps.executionRepository.updateSprintRun(sprintRunId, {
-          status: "paused",
-          lastHeartbeatAt: new Date().toISOString(),
-        });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_paused", "system", {
-          reason: "awaiting_merge",
-          awaitingMergeCount: manualMergeTasks.length,
-        }, {
-          sourceEventKey: `sprint-paused:${sprintRunId}:awaiting-merge`,
-        });
+        transitionSprintRun(
+          this.deps.executionRepository,
+          sprintRunId,
+          "paused",
+          "sprint_paused",
+          {
+            reason: "awaiting_merge",
+            awaitingMergeCount: manualMergeTasks.length,
+          },
+          `sprint-paused:${sprintRunId}:awaiting-merge`
+        );
         report += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
       } else if (subtasks.length === 0) {
-        this.deps.executionRepository.updateSprintRun(sprintRunId, {
-          status: "cancelled",
-          finishedAt: new Date().toISOString(),
-          lastHeartbeatAt: new Date().toISOString(),
-        });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_cancelled", "system", {
-          reason: "empty",
-        }, {
-          sourceEventKey: `sprint-cancelled:${sprintRunId}:empty`,
-        });
+        transitionSprintRun(
+          this.deps.executionRepository,
+          sprintRunId,
+          "cancelled",
+          "sprint_cancelled",
+          { reason: "empty" },
+          `sprint-cancelled:${sprintRunId}:empty`
+        );
         report += await this.renderInstruction("cleanupEmpty", {}, repoPath);
       } else {
-        this.deps.executionRepository.updateSprintRun(sprintRunId, {
-          status: "paused",
-          lastHeartbeatAt: new Date().toISOString(),
-        });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_paused", "system", {
-          reason: "manual_attention",
-        }, {
-          sourceEventKey: `sprint-paused:${sprintRunId}:manual-attention`,
-        });
-        this.deps.projectAttentionService.openItem({
+        transitionSprintRun(
+          this.deps.executionRepository,
+          sprintRunId,
+          "paused",
+          "sprint_paused",
+          { reason: "manual_attention" },
+          `sprint-paused:${sprintRunId}:manual-attention`
+        );
+        this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
           projectId: scopedExecutionContext.project.id,
           sprintId: scopedExecutionContext.sprint.id,
           sprintRunId,
@@ -591,7 +590,7 @@ export class WatchLoopRunner {
             readyTaskIds: (tasksByStatus.get("PENDING") || []).map((task) => task.record_id || task.id),
             blockedTaskIds: (tasksByStatus.get("BLOCKED") || []).map((task) => task.record_id || task.id),
           },
-        });
+        }));
       }
     }
 
@@ -686,50 +685,26 @@ function pauseSprintRunForMainMergeBlocker(args: {
   mergeFeedback: MergeFeedbackResult;
   attentionItems: Array<{ id: string; attentionType: string }>;
 }): void {
-  const now = new Date().toISOString();
-  args.executionRepository.updateSprintRun(args.sprintRunId, {
-    status: "paused",
-    lastHeartbeatAt: now,
-  });
-  args.executionRepository.appendSprintRunEvent(args.sprintRunId, "sprint_paused", "system", {
-    reason: "main_merge_blocked",
-    sprintNumber: args.sprintNumber,
-    mainMergeState: args.mergeFeedback.state,
-    prNumber: args.mergeFeedback.prNumber,
-    prUrl: args.mergeFeedback.prUrl,
-    hasMergeConflict: args.mergeFeedback.hasMergeConflict,
-    attentionItemIds: args.attentionItems.map((item) => item.id),
-    attentionTypes: args.attentionItems.map((item) => item.attentionType),
-  }, {
-    sourceEventKey: `sprint-paused:${args.sprintRunId}:main-merge-blocked:${args.mergeFeedback.state}:${args.mergeFeedback.prNumber || "none"}`,
-  });
+  transitionSprintRun(
+    args.executionRepository,
+    args.sprintRunId,
+    "paused",
+    "sprint_paused",
+    {
+      reason: "main_merge_blocked",
+      sprintNumber: args.sprintNumber,
+      mainMergeState: args.mergeFeedback.state,
+      prNumber: args.mergeFeedback.prNumber,
+      prUrl: args.mergeFeedback.prUrl,
+      hasMergeConflict: args.mergeFeedback.hasMergeConflict,
+      attentionItemIds: args.attentionItems.map((item) => item.id),
+      attentionTypes: args.attentionItems.map((item) => item.attentionType),
+    },
+    `sprint-paused:${args.sprintRunId}:main-merge-blocked:${args.mergeFeedback.state}:${args.mergeFeedback.prNumber || "none"}`
+  );
 }
 
-function selectMergedTaskContexts(subtasks: Array<{
-  id: string;
-  title: string;
-  prompt: string;
-  worker_branch?: string | null;
-  pr_url?: string | null;
-  is_merged?: boolean;
-}>): Array<{
-  taskKey: string;
-  taskTitle: string;
-  taskPrompt: string;
-  workerBranch: string | null;
-  prUrl: string | null;
-}> {
-  return subtasks
-    .filter((task) => task.is_merged)
-    .slice(0, 8)
-    .map((task) => ({
-      taskKey: task.id,
-      taskTitle: task.title,
-      taskPrompt: task.prompt,
-      workerBranch: task.worker_branch || null,
-      prUrl: task.pr_url || null,
-    }));
-}
+
 
 function buildMainMergeConflictSummary(args: {
   repoPath: string;
@@ -745,26 +720,20 @@ function buildMainMergeConflictSummary(args: {
     prUrl: string | null;
   }>;
 }): string {
-  const lines = [
-    `Main-branch merge conflict detected for \`${args.featureBranch} -> ${args.defaultBranch}\`.`,
-    `Repo path: \`${args.repoPath}\``,
-    `Working directory: \`cd ${args.repoPath}\``,
-  ];
-
-  if (args.prNumber) {
-    lines.push(`PR: #${args.prNumber}${args.prUrl ? ` (${args.prUrl})` : ""}`);
-  } else if (args.prUrl) {
-    lines.push(`PR: ${args.prUrl}`);
-  }
-
-  if (args.mergedTaskContexts.length > 0) {
-    lines.push("", "Merged task prompts already on the feature branch:");
-    for (const task of args.mergedTaskContexts) {
-      lines.push(`- \`${task.taskKey}\` ${task.taskTitle}: ${task.taskPrompt}`);
-    }
-  }
-
-  return lines.join("\n");
+  return buildConflictSummaryMarkdown({
+    repoPath: args.repoPath,
+    workingDir: `cd ${args.repoPath}`,
+    conflictingBranches: {
+      source: args.featureBranch,
+      target: args.defaultBranch,
+    },
+    prInfo: {
+      number: args.prNumber,
+      url: args.prUrl,
+    },
+    mergedTaskContexts: args.mergedTaskContexts,
+    isMainMerge: true,
+  });
 }
 
 function partitionSubtasksByStatus(subtasks: Subtask[]) {

@@ -22,11 +22,12 @@ import type { DashboardRealtimeService } from "../services/dashboard-realtime-se
 import { WorkerEndpointRepository } from "./worker-endpoint-repository.js";
 import {
   deriveConnectionHeartbeatStatus,
-  HEARTBEAT_WRITE_INTERVAL_MS,
-  OFFLINE_CONNECTION_THRESHOLD_MS,
-  PRUNE_CONNECTION_THRESHOLD_MS,
-  STALE_CONNECTION_THRESHOLD_MS,
 } from "./connection-lifecycle.js";
+
+const HEARTBEAT_WRITE_INTERVAL_MS = 5 * 1000;
+const OFFLINE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const PRUNE_CONNECTION_THRESHOLD_MS = 3 * 60 * 1000;
+const STALE_CONNECTION_THRESHOLD_MS = 90 * 1000;
 
 interface ConnectionRow {
   id: string;
