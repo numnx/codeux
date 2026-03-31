@@ -55,6 +55,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   const [priority, setPriority] = useState<TaskPriority>(initialTask?.priority || "medium");
   const [executorType, setExecutorType] = useState<TaskExecutorType>(initialTask?.executorType || "auto");
   const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>(initialTask?.dependsOnTaskIds || []);
+  const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
@@ -125,10 +126,16 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
-    if (!title.trim() || !sprintId) {
+    if (!sprintId) {
+      setError("Sprint is required.");
+      return;
+    }
+    if (!title.trim()) {
+      setError("Title is required.");
       return;
     }
 
+    setError(null);
     await onSubmit({
       sprintId,
       title: title.trim(),
@@ -205,14 +212,24 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            {error && (
+              <div role="alert" aria-live="assertive" id="task-form-error" className="text-status-red text-sm font-medium">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Sprint</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint</label>
                 <select
                   value={sprintId}
-                  onInput={(event) => setSprintId((event.target as HTMLSelectElement).value)}
+                  onInput={(event) => {
+                    setSprintId((event.target as HTMLSelectElement).value);
+                    if (error) setError(null);
+                  }}
                   className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500"
                   required
+                  aria-invalid={!!error && !sprintId}
+                  aria-describedby={error && !sprintId ? "task-form-error" : undefined}
                 >
                   <option value="" disabled>Select sprint</option>
                   {sprints.map((sprint) => (
@@ -222,21 +239,26 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
 
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Title</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Title</label>
                 <input
                   type="text"
                   value={title}
-                  onInput={(event) => setTitle((event.target as HTMLInputElement).value)}
+                  onInput={(event) => {
+                    setTitle((event.target as HTMLInputElement).value);
+                    if (error) setError(null);
+                  }}
                   className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500"
                   placeholder="Define the task scope"
                   required
+                  aria-invalid={!!error && !title.trim()}
+                  aria-describedby={error && !title.trim() ? "task-form-error" : undefined}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 block mb-2.5">Status</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Status</label>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {STATUS_OPTIONS.map((option) => (
                     <button
@@ -256,7 +278,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 block mb-2.5">Priority</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Priority</label>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {PRIORITY_OPTIONS.map((option) => (
                     <button
@@ -279,7 +301,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <div>
               <div className="flex items-center gap-2 mb-2.5">
                 <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Executor</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Executor</label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {EXECUTOR_OPTIONS.map((option) => (
@@ -301,7 +323,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Description</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</label>
               <textarea
                 value={description}
                 onInput={(event) => setDescription((event.target as HTMLTextAreaElement).value)}
@@ -311,7 +333,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Execution Prompt</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Prompt</label>
               <textarea
                 value={promptMarkdown}
                 onInput={(event) => setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
@@ -323,7 +345,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Dependencies</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Dependencies</label>
               </div>
               {dependencyOptions.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] px-4 py-4 text-xs text-slate-400">
