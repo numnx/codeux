@@ -135,7 +135,7 @@ describe("useSettingsPageState", () => {
         await result.current.handleSave();
     });
 
-    await waitFor(() => expect(mockSaveSystem).toHaveBeenCalled());
+    expect(mockSaveSystem).toHaveBeenCalled();
   });
 
   it.skip("handles saving project settings", async () => {
@@ -158,7 +158,7 @@ describe("useSettingsPageState", () => {
         await result.current.handleSave();
     });
 
-    await waitFor(() => expect(mockSaveProject).toHaveBeenCalled());
+    expect(mockSaveProject).toHaveBeenCalled();
   });
 
   it("handles reset project settings", async () => {
@@ -203,6 +203,6 @@ describe("useSettingsPageState", () => {
     await act(async () => {
       await result.current.handleImportHints();
     });
-    await waitFor(() => expect(mockFetchExternal).toHaveBeenCalled());
+    expect(mockFetchExternal).toHaveBeenCalled();
   });
 });

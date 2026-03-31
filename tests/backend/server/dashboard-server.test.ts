@@ -7,7 +7,6 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { setupDashboardServer } from "../../../src/server/dashboard-server.js";
-import { buildMockDashboardOptions } from "../server/helpers/dashboard-server-harness.js";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import { DashboardRealtimeEventRepository } from "../../../src/repositories/dashboard-realtime-event-repository.js";
@@ -208,7 +207,7 @@ describe("setupDashboardServer", () => {
     await fs.writeFile(assetPath, "body { color: red; }");
 
     const app = express();
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: dir,
       port: await getAvailablePort(),
@@ -248,7 +247,7 @@ describe("setupDashboardServer", () => {
       cancelSprintRun: async () => ({ ok: true }),
       cancelTaskDispatch: async () => ({ ok: true }),
       retryTaskDispatch: async () => ({ ok: true }),
-    }));
+    });
     serversToClose.push(handle.server);
 
     // 1. Direct subpage route without extension
@@ -280,12 +279,44 @@ describe("setupDashboardServer", () => {
     const blockedPort = (blocker.address() as AddressInfo).port;
 
     const app = express();
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: blockedPort,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getProjectStatsSnapshot: () => ({
+        projectId: "project-test",
+        projectName: "Project Test",
+        window: "7d",
+        generatedAt: new Date().toISOString(),
+        usage: {
+          invocationCount: 0,
+          activeTimeMs: 0,
+          wallTimeMs: 0,
+          inputTokens: 0,
+          cachedInputTokens: 0,
+          outputTokens: 0,
+          reasoningOutputTokens: 0,
+          totalTokens: 0,
+          reportedInvocationCount: 0,
+          estimatedInvocationCount: 0,
+          unavailableInvocationCount: 0,
+          unsupportedInvocationCount: 0,
+        },
+        activeSprint: null,
+        buckets: [],
+        sprints: [],
+        tasks: [],
+        providers: [],
+        purposes: [],
+        tokenSources: [],
+      }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({
         mode: "LOCAL",
         available: true,
@@ -305,7 +336,18 @@ describe("setupDashboardServer", () => {
         settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
         resolved: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
       }),
-    }));
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+    });
 
     serversToClose.push(handle.server);
     expect(handle.port).toBe(blockedPort + 1);
@@ -329,12 +371,31 @@ describe("setupDashboardServer", () => {
     const upstreamPort = (upstreamServer.address() as AddressInfo).port;
 
     const app = express();
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: await getAvailablePort(),
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getProjectStatsSnapshot: () => ({
+        projectId: "project-test",
+        projectName: "Project Test",
+        window: "7d",
+        generatedAt: new Date().toISOString(),
+        usage: { invocationCount: 0, activeTimeMs: 0, wallTimeMs: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0, reportedInvocationCount: 0, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 },
+        activeSprint: null,
+        buckets: [],
+        sprints: [],
+        tasks: [],
+        providers: [],
+        purposes: [],
+        tokenSources: [],
+      }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({
         mode: "LOCAL",
         available: true,
@@ -354,6 +415,17 @@ describe("setupDashboardServer", () => {
         settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
         resolved: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
       }),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       getSprintPreviewSession: async (sessionId) => sessionId === "test-session" || sessionId === "test-session-hosted"
         ? {
           id: sessionId,
@@ -386,7 +458,7 @@ describe("setupDashboardServer", () => {
           updatedAt: new Date().toISOString(),
         }
         : null,
-    }));
+    });
     serversToClose.push(handle.server);
 
     const previewResponse = await makeHostRequest({
@@ -449,17 +521,33 @@ describe("setupDashboardServer", () => {
       }
     };
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: 3001,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       isReady: () => probeResponse,
       isHealthy: () => healthResponseData,
-    }));
+    });
     serversToClose.push(handle.server);
 
     const healthResponse = await fetch(`http://127.0.0.1:${handle.port}/health`);
@@ -478,13 +566,17 @@ describe("setupDashboardServer", () => {
     try {
       const app = express();
       const port = await getAvailablePort();
-      const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+      const handle = await setupDashboardServer({
         app,
         dashboardDir: "dashboard",
         port,
         liveActivityCacheMs: 1000,
         getStatus: () => ({ ok: true }),
-              getProjectStatsSnapshot: () => ({
+        getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+        getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+        getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+        getProjectStatsSnapshot: () => ({
           projectId: "project-test",
           projectName: "Project Test",
           window: "7d",
@@ -511,7 +603,8 @@ describe("setupDashboardServer", () => {
           purposes: [],
           tokenSources: [],
         }),
-          getGitStatus: async () => ({
+        getLiveActivities: async () => ({}),
+        getGitStatus: async () => ({
           mode: "LOCAL",
           available: true,
           repositoryRoot: null,
@@ -530,7 +623,18 @@ describe("setupDashboardServer", () => {
           settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
           resolved: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
         }),
-      }));
+        ...buildSettingsServerOptions(),
+        listAgentPresets: () => [],
+        createAgentPreset: () => ({ id: "agent-1" } as any),
+        updateAgentPreset: () => ({ id: "agent-1" } as any),
+        deleteAgentPreset: () => {},
+        rerunTask: async () => ({ ok: true }),
+        orchestrateSprint: async () => ({ ok: true }),
+        pauseSprintRun: async () => ({ ok: true }),
+        cancelSprintRun: async () => ({ ok: true }),
+        cancelTaskDispatch: async () => ({ ok: true }),
+        retryTaskDispatch: async () => ({ ok: true }),
+      });
 
       serversToClose.push(handle.server);
       expect((handle.server.address() as AddressInfo).address).toBe("0.0.0.0");
@@ -551,16 +655,32 @@ describe("setupDashboardServer", () => {
       }
     };
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: 4000,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       isReady: () => probeResponse,
-    }));
+    });
     serversToClose.push(handle.server);
 
     const readyResponse = await fetch(`http://127.0.0.1:${handle.port}/ready`);
@@ -571,7 +691,7 @@ describe("setupDashboardServer", () => {
   it("returns a project-aligned combined live snapshot from /api/live", async () => {
     const app = express();
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: await getAvailablePort(),
@@ -583,6 +703,8 @@ describe("setupDashboardServer", () => {
         ],
         timestamp: "2026-03-27T10:00:00.000Z",
       }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
       getProjectExecutionSnapshot: (projectId: string) => ({
         projectId,
         projectName: "Project 1",
@@ -627,7 +749,18 @@ describe("setupDashboardServer", () => {
       getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
-    }));
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+    });
     serversToClose.push(handle.server);
 
     const response = await fetch(`http://127.0.0.1:${handle.port}/api/live`);
@@ -643,24 +776,40 @@ describe("setupDashboardServer", () => {
         projectName: "Project 1",
       },
     });
-});
+  });
 
   it("resets the database through the system reset endpoint", async () => {
     const app = express();
     let resetCalls = 0;
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: await getAvailablePort(),
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
       resetDatabase: async () => {
         resetCalls += 1;
       },
-    }));
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+    });
     serversToClose.push(handle.server);
 
     const response = await fetch(`http://127.0.0.1:${handle.port}/api/system/reset-database`, {
@@ -702,12 +851,16 @@ describe("setupDashboardServer", () => {
     let claimArgs: unknown;
     let resolveArgs: unknown;
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port: await getAvailablePort(),
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
       claimAttentionItem: (projectId, attentionItemId, input) => {
         claimArgs = { projectId, attentionItemId, input };
         return claimedItem as any;
@@ -716,9 +869,21 @@ describe("setupDashboardServer", () => {
         resolveArgs = { projectId, attentionItemId, input };
         return resolvedItem as any;
       },
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
-    }));
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+    });
     serversToClose.push(handle.server);
 
     const claimResponse = await fetch(`http://127.0.0.1:${handle.port}/api/projects/project-1/attention-items/attention-1/claim`, {
@@ -768,7 +933,7 @@ describe("setupDashboardServer", () => {
         resolutionSummaryMarkdown: "Handled manually in the dashboard.",
       },
     });
-});
+  });
 
   it("streams and replays realtime events over /api/realtime", async () => {
     const app = express();
@@ -784,6 +949,7 @@ describe("setupDashboardServer", () => {
         subtasks: [],
         timestamp: "2026-03-10T00:00:00.000Z",
       }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
       getProjectExecutionSnapshot: () => ({
         projectId: "project-1",
         projectName: "Project 1",
@@ -802,19 +968,36 @@ describe("setupDashboardServer", () => {
         recentEvents: [],
         updatedAt: "2026-03-10T00:00:00.000Z",
       }),
-      getProjectLiveSnapshot: () => ({} as any),
     });
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      forceCancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      forceCancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       realtimeService,
-    }));
+    });
     serversToClose.push(handle.server);
 
     realtimeService.publishRawEvent({
@@ -882,6 +1065,7 @@ describe("setupDashboardServer", () => {
         subtasks: [],
         timestamp: "2026-03-10T00:00:00.000Z",
       }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
       getProjectExecutionSnapshot: () => ({
         projectId: "project-1",
         projectName: "Project 1",
@@ -900,19 +1084,36 @@ describe("setupDashboardServer", () => {
         recentEvents: [],
         updatedAt: "2026-03-10T00:00:00.000Z",
       }),
-      getProjectLiveSnapshot: () => ({} as any),
     });
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      forceCancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      forceCancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       realtimeService,
-    }));
+    });
     serversToClose.push(handle.server);
 
     for (let index = 0; index < 205; index += 1) {
@@ -961,6 +1162,7 @@ describe("setupDashboardServer", () => {
         subtasks: [],
         timestamp: "2026-03-10T00:00:00.000Z",
       }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
       getProjectExecutionSnapshot: () => ({
         projectId: "project-1",
         projectName: "Project 1",
@@ -979,19 +1181,36 @@ describe("setupDashboardServer", () => {
         recentEvents: [],
         updatedAt: "2026-03-10T00:00:00.000Z",
       }),
-      getProjectLiveSnapshot: () => ({} as any),
     });
 
-    const handle = await setupDashboardServer(buildMockDashboardOptions({ skipServerBinding: false,
+    const handle = await setupDashboardServer({
       app,
       dashboardDir: "dashboard",
       port,
       liveActivityCacheMs: 1000,
       getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
       getGitStatus: async () => ({} as any),
       getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      forceCancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      forceCancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
       realtimeService,
-    }));
+    });
     serversToClose.push(handle.server);
 
     realtimeService.publishRawEvent({
