@@ -344,6 +344,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               <div className="mt-2">
                 <AvantgardeSelect
                   variant="compact"
+                  aria-label="Planning Route"
                   value={state.routeOverride?.id || ""}
                   onChange={(id) => {
                     const opt = routeOptions.find(o => o.id === id);
@@ -367,6 +368,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               <div className="mt-2">
                 <AvantgardeSelect
                   variant="compact"
+                  aria-label="Model Override"
                   disabled={!showModelOverride}
                   value={state.modelOverride || ""}
                   onChange={(val) => state.setModelOverride(val || null)}
@@ -439,6 +441,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             <div className="mt-3">
               <AvantgardeSelect
                 variant="card"
+                aria-label="Planning Agent"
                 value={state.planningAgentPresetId || ""}
                 onChange={(val) => state.setPlanningAgentPresetId(val || null)}
                 options={[
