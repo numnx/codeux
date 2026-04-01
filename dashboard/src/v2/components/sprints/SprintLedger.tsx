@@ -272,7 +272,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
             ) : windowedSprints.length === 0 ? (
               <tr>
                 <td colSpan={9}>
-                  <div className="px-6 py-8 text-sm text-slate-400">
+                  <div className="px-6 py-8 text-sm text-slate-400" role="status" aria-live="polite">
                     {searchQuery
                       ? `No sprints match "${searchQuery}".`
                       : "No sprints exist yet. Create one above and it will appear in the showcase and in the ledger below."}
