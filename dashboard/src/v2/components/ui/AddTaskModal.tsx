@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { X, ListChecks, Target, Bot, Plus } from "lucide-preact";
+import { X, ListChecks, Target, Bot, Plus, AlertCircle } from "lucide-preact";
 import type { Sprint, Task, TaskExecutorType, TaskPriority, TaskStatus } from "../../types.js";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 
@@ -160,8 +160,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             {error && (
-              <div role="alert" aria-live="assertive" id="task-form-error" className="text-status-red text-sm font-medium">
-                {error}
+              <div role="alert" aria-live="assertive" id="task-form-error" className="flex items-center gap-2 text-status-red text-sm font-bold bg-status-red/5 dark:bg-status-red/10 px-4 py-2.5 rounded-xl border border-status-red/20 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2.5} />
+                <span>Error: {error}</span>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
