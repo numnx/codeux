@@ -227,7 +227,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 mb-1.5" aria-live="polite">
                                 <span className="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
                                     #{task.id}
                                 </span>

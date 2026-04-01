@@ -64,7 +64,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 p-8 backdrop-blur-xl dark:bg-void-900/80">
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 p-8 backdrop-blur-xl dark:bg-void-900/80" aria-busy={isBusy}>
       <button
         type="button"
         onClick={onDismiss}
@@ -74,7 +74,14 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         <X className="h-4 w-4" />
       </button>
 
-      <div className="relative mb-12 flex h-32 w-full max-w-md items-center justify-center overflow-hidden">
+      <div
+        className="relative mb-12 flex h-32 w-full max-w-md items-center justify-center overflow-hidden"
+        role="progressbar"
+        aria-valuenow={Math.round(feedback.shipProgress * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Planning Progress"
+      >
         <div className="absolute inset-x-0 bottom-8 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
         <div
           className="absolute transition-[left] duration-200 ease-linear"
