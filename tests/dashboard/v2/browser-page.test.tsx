@@ -424,10 +424,10 @@ describe("BrowserPage", () => {
 
     expect((container.querySelector("iframe"))?.getAttribute("src")).toBe(initialSrc);
     expect(screen.getByDisplayValue("/sprints")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "sprints" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "sprints" })).not.toBeInTheDocument();
   });
 
-  it("shows a standby placeholder instead of the iframe when the selected container is unavailable", async () => {
+  it("keeps the preview iframe mounted for unavailable sessions and disables browser controls", async () => {
     vi.mocked(usePreviewSessions).mockImplementation(() => ({
       sessions: [
         {
@@ -458,10 +458,11 @@ describe("BrowserPage", () => {
 
     render(<BrowserPage />);
 
-    expect(screen.queryByTitle("Sprint preview Sprint 2")).not.toBeInTheDocument();
-    expect(screen.getByText("Container is stopped")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start Container" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Rebuild Container" })).toBeInTheDocument();
+    const iframe = screen.getByTitle("Sprint preview Sprint 2");
+    const { protocol, port } = new URL(window.location.origin);
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute("src", `${protocol}//preview-sess-2.localhost${port ? `:${port}` : ""}/`);
+    expect(screen.getByDisplayValue("/")).toBeDisabled();
   });
 
   it("launches a container from the placeholder card for any sprint", async () => {

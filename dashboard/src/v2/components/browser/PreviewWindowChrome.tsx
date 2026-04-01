@@ -20,9 +20,6 @@ interface PreviewWindowChromeProps {
   onAddressSubmit: (value: string) => void;
   addressValue: string;
   onAddressChange: (value: string) => void;
-  tabs?: Array<{ path: string; label: string }>;
-  activeTabPath?: string;
-  onSelectTab?: (path: string) => void;
   navigationEnabled?: boolean;
   children: ComponentChildren;
 }
@@ -44,9 +41,6 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
   onAddressSubmit,
   addressValue,
   onAddressChange,
-  tabs = [],
-  activeTabPath = "/",
-  onSelectTab,
   navigationEnabled = true,
   children,
 }) => {
@@ -164,31 +158,6 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
           </div>
           <div className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${statusTone[session.status]}`}>
             {session.status}
-          </div>
-        </div>
-        <div className="border-b border-black/[0.06] bg-white/50 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-            <div className="shrink-0 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
-              {session.containerName || session.sprintName}
-            </div>
-            {tabs.map((tab) => {
-              const active = tab.path === activeTabPath;
-              return (
-                <button
-                  key={tab.path}
-                  type="button"
-                  onClick={() => onSelectTab?.(tab.path)}
-                  className={`shrink-0 rounded-[1rem] border px-3 py-2 text-xs font-semibold transition ${
-                    active
-                      ? "border-signal-500/30 bg-signal-500/12 text-signal-700 dark:text-signal-300"
-                      : "border-black/[0.08] bg-white/85 text-slate-500 hover:border-black/[0.16] hover:text-slate-800 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/[0.16] dark:hover:text-slate-100"
-                  }`}
-                  title={tab.path}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">

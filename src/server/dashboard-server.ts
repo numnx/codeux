@@ -205,7 +205,19 @@ export interface DashboardServerHandle {
 }
 
 const PREVIEW_BRIDGE_PATH = "/_sprint_os/preview-bridge.js";
+const PREVIEW_STATUS_PATH = "/_sprint_os/preview-status";
+const PREVIEW_START_PATH = "/_sprint_os/preview-start";
+const PREVIEW_REBUILD_PATH = "/_sprint_os/preview-rebuild";
 const PREVIEW_HOST_PREFIX = "preview-";
+
+function escapeHtml(value: string | null | undefined): string {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 function parsePreviewSessionIdFromHost(hostHeader: string | undefined): string | null {
   const rawHost = String(hostHeader || "").trim().toLowerCase();
@@ -381,6 +393,244 @@ function buildPreviewBridgeScript(): string {
     "  });",
     "})();",
   ].join("\n");
+}
+
+function buildPreviewStandbyHtml(args: {
+  req: express.Request;
+  session: SprintPreviewSession;
+  reason?: string | null;
+}): string {
+  const requestedPath = args.req.originalUrl || args.req.url || "/";
+  const status = args.session.status;
+  const title = status === "starting"
+    ? "Container is starting"
+    : status === "stopped"
+      ? "Container is stopped"
+      : "Container is unavailable";
+  const description = status === "starting"
+    ? "Sprint OS is building and booting this preview container. The browser will reconnect automatically once the preview responds."
+    : status === "stopped"
+      ? "This preview container is currently offline. Start it again or rebuild it to bring the in-app browser back."
+      : "The preview host is not reachable right now. Rebuild or start the container to restore the browser.";
+  const detail = args.reason?.trim() || args.session.lastError?.trim() || "";
+  const pollOnLoad = status === "starting" || status === "running";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg-a: #f8f4ea;
+      --bg-b: #eef4ff;
+      --panel: rgba(255,255,255,0.84);
+      --panel-dark: rgba(5,8,13,0.88);
+      --border: rgba(15,23,42,0.10);
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #25c27a;
+      --accent-text: #032314;
+      --button: #0f172a;
+      --button-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-a: #071018;
+        --bg-b: #111827;
+        --panel: var(--panel-dark);
+        --border: rgba(255,255,255,0.10);
+        --text: #f8fafc;
+        --muted: #cbd5e1;
+        --button: #e2e8f0;
+        --button-text: #0f172a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37,194,122,0.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(59,130,246,0.14), transparent 30%),
+        linear-gradient(160deg, var(--bg-a), var(--bg-b));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .panel {
+      width: min(680px, 100%);
+      border-radius: 28px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(15,23,42,0.16);
+      padding: 32px;
+      backdrop-filter: blur(18px);
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(37,194,122,0.24);
+      background: rgba(37,194,122,0.10);
+      color: #15935b;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 1.05;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .meta {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,0.04);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+    .meta code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    button, a {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 18px;
+      transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+    }
+    button:hover, a:hover { transform: translateY(-1px); }
+    button:disabled { cursor: default; opacity: 0.55; transform: none; }
+    .primary { background: var(--accent); color: var(--accent-text); }
+    .secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .status {
+      margin-top: 16px;
+      min-height: 22px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <div class="eyebrow">Preview Standby</div>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(description)}</p>
+    <div class="meta">
+      <div><strong>Sprint:</strong> ${escapeHtml(args.session.sprintName)}</div>
+      <div><strong>Container:</strong> ${escapeHtml(args.session.containerName || "Not assigned yet")}</div>
+      <div><strong>Requested path:</strong> <code>${escapeHtml(requestedPath)}</code></div>
+      ${detail ? `<div><strong>Details:</strong> ${escapeHtml(detail)}</div>` : ""}
+    </div>
+    <div class="actions">
+      <button id="start" class="primary" type="button">Start Container</button>
+      <button id="rebuild" class="secondary" type="button">Rebuild Container</button>
+    </div>
+    <div id="status" class="status"></div>
+  </main>
+  <script>
+    (() => {
+      const requestedPath = ${JSON.stringify(requestedPath)};
+      const statusNode = document.getElementById("status");
+      const startButton = document.getElementById("start");
+      const rebuildButton = document.getElementById("rebuild");
+      let pollTimer = null;
+
+      const setBusy = (message, busy) => {
+        if (statusNode) statusNode.textContent = message || "";
+        if (startButton) startButton.disabled = Boolean(busy);
+        if (rebuildButton) rebuildButton.disabled = Boolean(busy);
+      };
+
+      const pollUntilReady = async () => {
+        try {
+          const response = await fetch(${JSON.stringify(PREVIEW_STATUS_PATH)}, {
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            throw new Error("Failed to refresh preview session state.");
+          }
+          const session = await response.json();
+          if (session && session.status === "running" && session.hostPort) {
+            window.location.replace(requestedPath);
+            return;
+          }
+          if (session && session.lastError && statusNode) {
+            statusNode.textContent = session.lastError;
+          }
+        } catch (error) {
+          if (statusNode) {
+            statusNode.textContent = error instanceof Error ? error.message : String(error);
+          }
+        }
+        pollTimer = window.setTimeout(pollUntilReady, 2000);
+      };
+
+      const triggerAction = async (targetPath, busyMessage) => {
+        window.clearTimeout(pollTimer);
+        setBusy(busyMessage, true);
+        try {
+          const response = await fetch(targetPath, { method: "POST" });
+          if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            throw new Error(body || "Preview action failed.");
+          }
+          pollTimer = window.setTimeout(pollUntilReady, 1200);
+        } catch (error) {
+          setBusy(error instanceof Error ? error.message : String(error), false);
+        }
+      };
+
+      startButton?.addEventListener("click", () => {
+        void triggerAction(${JSON.stringify(PREVIEW_START_PATH)}, "Starting preview container...");
+      });
+      rebuildButton?.addEventListener("click", () => {
+        void triggerAction(${JSON.stringify(PREVIEW_REBUILD_PATH)}, "Rebuilding preview container...");
+      });
+
+      if (${pollOnLoad ? "true" : "false"}) {
+        setBusy("Waiting for the preview container to respond...", true);
+        pollTimer = window.setTimeout(pollUntilReady, 1200);
+      }
+    })();
+  </script>
+</body>
+</html>`;
 }
 
 function injectPreviewBridgeIntoHtml(html: string): string {
@@ -572,8 +822,50 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.status(502).send(toErrorMessage(error, "Failed to resolve sprint preview session"));
       return;
     }
-    if (!session?.hostPort) {
+    if (!session) {
       res.status(404).send("Sprint preview session is unavailable.");
+      return;
+    }
+
+    if (req.path === PREVIEW_STATUS_PATH) {
+      res.json(session);
+      return;
+    }
+
+    if (req.path === PREVIEW_START_PATH) {
+      if (!startSprintPreviewSession) {
+        res.status(503).send("Sprint preview start is unavailable.");
+        return;
+      }
+      try {
+        const started = await startSprintPreviewSession(session.projectId, session.sprintId);
+        res.json(started);
+      } catch (error) {
+        res.status(502).send(toErrorMessage(error, "Failed to start sprint preview session"));
+      }
+      return;
+    }
+
+    if (req.path === PREVIEW_REBUILD_PATH) {
+      if (!rebuildSprintPreviewSession) {
+        res.status(503).send("Sprint preview rebuild is unavailable.");
+        return;
+      }
+      try {
+        const rebuilt = await rebuildSprintPreviewSession(session.id);
+        res.json(rebuilt);
+      } catch (error) {
+        res.status(502).send(toErrorMessage(error, "Failed to rebuild sprint preview session"));
+      }
+      return;
+    }
+
+    if (!session.hostPort) {
+      res.status(200).type("html").send(buildPreviewStandbyHtml({
+        req,
+        session,
+        reason: session.lastError || "Preview host port is not assigned yet.",
+      }));
       return;
     }
 
@@ -602,7 +894,11 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
           response,
         });
       } catch (error) {
-        res.status(502).send(toErrorMessage(error, "Failed to proxy sprint preview host request"));
+        res.status(200).type("html").send(buildPreviewStandbyHtml({
+          req,
+          session,
+          reason: error instanceof Error ? error.message : String(error),
+        }));
       }
       return;
     }
@@ -648,6 +944,15 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 
     proxyRequest.on("error", (error) => {
       if (!res.headersSent) {
+        const accept = String(req.headers.accept || "").toLowerCase();
+        if (req.method === "GET" && accept.includes("text/html")) {
+          res.status(200).type("html").send(buildPreviewStandbyHtml({
+            req,
+            session,
+            reason: error instanceof Error ? error.message : String(error),
+          }));
+          return;
+        }
         res.status(502).send(toErrorMessage(error, "Failed to proxy sprint preview host request"));
       } else {
         res.end();
