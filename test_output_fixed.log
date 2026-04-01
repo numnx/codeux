@@ -1,0 +1,882 @@
+
+> jules-subagents@1.2.0 test:coverage
+> vitest run --coverage
+
+
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m/app[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+(node:57188) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/sprint/watch-loop-core.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 9282[2mms[22m[39m
+     [33m[2m✓[22m[39m continues past checkpoint boundaries until a terminal condition is reached [33m 1222[2mms[22m[39m
+     [33m[2m✓[22m[39m handles RUNNING transition properly by waiting and continuing the loop [33m 1005[2mms[22m[39m
+     [33m[2m✓[22m[39m does not pause when only dependent pending work remains [33m 1004[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps the watch loop running while a worker-owned merge conflict is being supervised [33m 2005[2mms[22m[39m
+     [33m[2m✓[22m[39m does not fall back to no-more-actions while a worker-owned merge conflict item is still open [33m 2006[2mms[22m[39m
+     [33m[2m✓[22m[39m does not fall back to no-more-actions while another worker-owned supervision item is still open [33m 2003[2mms[22m[39m
+(node:57210) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/dashboard/v2/sprints-page.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 7224[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the import menu and opens the markdown modal [33m 2116[2mms[22m[39m
+     [33m[2m✓[22m[39m shows Jira as a coming soon option without throwing an error [33m 1116[2mms[22m[39m
+     [33m[2m✓[22m[39m closes the import menu on escape key press or outside click [33m 1111[2mms[22m[39m
+     [33m[2m✓[22m[39m dismisses quicksprint when opening composer or edit flows [33m 1101[2mms[22m[39m
+     [33m[2m✓[22m[39m dismisses planning overlays on cancel [33m 767[2mms[22m[39m
+     [33m[2m✓[22m[39m handles empty lists, escape key for row menu, and other UI events to boost coverage [33m 1008[2mms[22m[39m
+ [32m✓[39m tests/backend/services/planning-agent-service.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 5887[2mms[22m[39m
+     [33m[2m✓[22m[39m uses the Planning agent reply to improve prompts and create tasks [33m 2121[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts a listen-mode listener connection for planning flows [33m 1055[2mms[22m[39m
+     [33m[2m✓[22m[39m supports worker, virtual provider, and model overrides and explicit replanning [33m 1092[2mms[22m[39m
+     [33m[2m✓[22m[39m aborts a connected-worker polling loop when signal fires [33m 1038[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/provider-runner.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 18463[2mms[22m[39m
+     [33m[2m✓[22m[39m should run claude-code locally correctly [33m 779[2mms[22m[39m
+     [33m[2m✓[22m[39m should run codex locally correctly [33m 4813[2mms[22m[39m
+     [33m[2m✓[22m[39m should capture codex text responses into a mounted output file [33m 2673[2mms[22m[39m
+     [33m[2m✓[22m[39m should forward provider model settings into Docker CLI invocations [33m 2470[2mms[22m[39m
+     [33m[2m✓[22m[39m should retry codex transient transport errors [33m 3408[2mms[22m[39m
+     [33m[2m✓[22m[39m should forward continueSessionId to CLI args correctly in HOST mode [33m 2032[2mms[22m[39m
+     [33m[2m✓[22m[39m should forward continueSessionId to Docker CLI correctly in DOCKER mode [33m 2261[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/stats-page-shell.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 6248[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the hero content and range controls [33m 1209[2mms[22m[39m
+     [33m[2m✓[22m[39m renders metric cards [33m 702[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the analysis studio section with view toggle above it [33m 866[2mms[22m[39m
+     [33m[2m✓[22m[39m renders telemetry ledgers [33m 600[2mms[22m[39m
+     [33m[2m✓[22m[39m renders composition mode when active [33m 569[2mms[22m[39m
+     [33m[2m✓[22m[39m renders reliability mode when active [33m 991[2mms[22m[39m
+     [33m[2m✓[22m[39m allows searching in telemetry ledgers [33m 1304[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/provider-usage.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 3108[2mms[22m[39m
+     [33m[2m✓[22m[39m falls back to estimated Codex tokens when JSONL usage is unavailable [33m 3060[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/settings-page-data.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 3409[2mms[22m[39m
+     [33m[2m✓[22m[39m should preserve dirty state and prevent background refreshes from stomping edits [33m 1131[2mms[22m[39m
+     [33m[2m✓[22m[39m should stable system/project scope switching [33m 1844[2mms[22m[39m
+(node:57266) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/mcp/core-tool-handler.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 2057[2mms[22m[39m
+     [33m[2m✓[22m[39m handleListen returns noop timeout when no work arrives [33m 1001[2mms[22m[39m
+     [33m[2m✓[22m[39m handleListenForRuntime forces worker identity on worker gateway [33m 1010[2mms[22m[39m
+ [31m❯[39m tests/dashboard/v2/live-session-page-runtime.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [32m✓[39m tests/backend/repositories/memory-repository.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 1862[2mms[22m[39m
+(node:57291) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/sprint/sprint-orchestrator-core.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 1129[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps the watch loop alive past output interval boundaries [33m 1076[2mms[22m[39m
+ [32m✓[39m tests/backend/services/virtual-worker-service.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 995[2mms[22m[39m
+(node:57318) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/dashboard/v2/chat-thread-header.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 901[2mms[22m[39m
+     [33m[2m✓[22m[39m shows the selected virtual worker for an explicitly routed thread [33m 399[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/execution-repository.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 835[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/sprint-ledger.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 837[2mms[22m[39m
+     [33m[2m✓[22m[39m selects, deselects, and performs bulk actions [33m 604[2mms[22m[39m
+Warning: A vi.mock("axios") call in "/app/tests/backend/server/jules-agent-server.test.ts" is not at the top level of the module. Although it appears nested, it will be hoisted and executed before any tests run. Move it to the top level to reflect its actual execution order. This will become an error in a future version.
+See: https://vitest.dev/guide/mocking/modules#how-it-works
+(node:57345) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/dashboard/v2/ui-components.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 964[2mms[22m[39m
+     [33m[2m✓[22m[39m handles keyboard opening in AvantgardeSelect [33m 332[2mms[22m[39m
+     [33m[2m✓[22m[39m renders SprintComposer [33m 568[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/header-stats.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 769[2mms[22m[39m
+     [33m[2m✓[22m[39m renders Total Tokens and other metric cards with correct data and styles [33m 764[2mms[22m[39m
+(node:57360) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-04-01T14:16:54.907Z INFO Dashboard server started { component: 'dashboard-server', port: 38153, localhostUrl: 'http://localhost:38153', loopbackUrl: 'http://127.0.0.1:38153' }
+2026-04-01T14:16:54.952Z INFO [correlationId=c79a7d35-41fd-4f8b-bcf5-6d7c75a98d0f] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/sprints', statusCode: 200, durationMs: 16 }
+2026-04-01T14:16:54.975Z INFO [correlationId=cdee5ef3-79c3-4cfc-ba01-a5dd57dbb530] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/assets/app.css', statusCode: 200, durationMs: 4 }
+2026-04-01T14:16:54.981Z INFO [correlationId=3d79be46-f7a7-4569-aed3-580c48f82506] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/assets/missing.js', statusCode: 404, durationMs: 3 }
+2026-04-01T14:16:54.985Z INFO [correlationId=4d307c47-2f30-4f24-82d4-0a3a872d0532] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/status', statusCode: 200, durationMs: 3 }
+2026-04-01T14:16:55.033Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 41479, nextPort: 41480 }
+2026-04-01T14:16:55.034Z INFO Dashboard server started { component: 'dashboard-server', port: 41480, localhostUrl: 'http://localhost:41480', loopbackUrl: 'http://127.0.0.1:41480' }
+2026-04-01T14:16:55.052Z INFO Dashboard server started { component: 'dashboard-server', port: 36273, localhostUrl: 'http://localhost:36273', loopbackUrl: 'http://127.0.0.1:36273' }
+2026-04-01T14:16:55.069Z INFO [correlationId=241a010d-61a3-4cdd-bb4d-50ad39c6863b] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/', statusCode: 200, durationMs: 8 }
+2026-04-01T14:16:55.072Z INFO [correlationId=a38e4fc3-c698-4689-974c-7166b0575666] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/_sprint_os/preview-bridge.js', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:55.075Z INFO [correlationId=88076c0a-1df4-4e49-871c-6166d88fed11] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:55.079Z INFO [correlationId=0bc369db-60fe-4050-a3e2-5673b9aca3d7] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/deep/link', statusCode: 200, durationMs: 2 }
+2026-04-01T14:16:55.088Z INFO [correlationId=d7b4625f-0c0c-4b85-9828-6977ba27a6eb] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/assets/app.js', statusCode: 200, durationMs: 5 }
+2026-04-01T14:16:55.104Z INFO Dashboard server started { component: 'dashboard-server', port: 3001, localhostUrl: 'http://localhost:3001', loopbackUrl: 'http://127.0.0.1:3001' }
+2026-04-01T14:16:55.110Z INFO [correlationId=a403ab5e-5c1e-4a70-91c5-db471f782984] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/health', statusCode: 200, durationMs: 0 }
+2026-04-01T14:16:55.118Z INFO [correlationId=ee0101fb-aca1-4513-bdc8-37ffd67972f5] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/ready', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:55.133Z INFO Dashboard server started { component: 'dashboard-server', port: 38043, localhostUrl: 'http://localhost:38043', loopbackUrl: 'http://127.0.0.1:38043' }
+2026-04-01T14:16:55.148Z INFO Dashboard server started { component: 'dashboard-server', port: 4000, localhostUrl: 'http://localhost:4000', loopbackUrl: 'http://127.0.0.1:4000' }
+2026-04-01T14:16:55.154Z INFO [correlationId=a861ce58-9d52-40d7-9126-563136334c0c] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/ready', statusCode: 503, durationMs: 1 }
+2026-04-01T14:16:55.163Z INFO Dashboard server started { component: 'dashboard-server', port: 44761, localhostUrl: 'http://localhost:44761', loopbackUrl: 'http://127.0.0.1:44761' }
+2026-04-01T14:16:55.168Z INFO [correlationId=744cd871-f472-40a5-82a7-8100899a9794] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/live', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:55.177Z INFO Dashboard server started { component: 'dashboard-server', port: 46295, localhostUrl: 'http://localhost:46295', loopbackUrl: 'http://127.0.0.1:46295' }
+2026-04-01T14:16:55.182Z INFO [correlationId=aeeb5c04-9bcc-4b68-96ad-287f1c5b18a9] Dashboard request completed { component: 'dashboard-server', method: 'POST', path: '/api/system/reset-database', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:55.192Z INFO Dashboard server started { component: 'dashboard-server', port: 36005, localhostUrl: 'http://localhost:36005', loopbackUrl: 'http://127.0.0.1:36005' }
+2026-04-01T14:16:55.229Z INFO [correlationId=d8841582-dcb1-49a5-848e-e2d1159027a4] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/project-1/attention-items/attention-1/claim',
+  statusCode: 200,
+  durationMs: 21 }
+2026-04-01T14:16:55.235Z INFO [correlationId=196c4948-c302-45c0-8fd8-cffd30888cad] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/project-1/attention-items/attention-1/resolve',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:55.273Z INFO Dashboard server started { component: 'dashboard-server', port: 39175, localhostUrl: 'http://localhost:39175', loopbackUrl: 'http://127.0.0.1:39175' }
+2026-04-01T14:16:55.321Z INFO Dashboard server started { component: 'dashboard-server', port: 43137, localhostUrl: 'http://localhost:43137', loopbackUrl: 'http://127.0.0.1:43137' }
+2026-04-01T14:16:55.338Z WARN websocket_recovery_snapshot_required { component: 'dashboard-realtime-websocket', reason: 'replay_window_exceeded', afterSequence: 1, latestSequence: 205 }
+2026-04-01T14:16:55.383Z INFO Dashboard server started { component: 'dashboard-server', port: 46225, localhostUrl: 'http://localhost:46225', loopbackUrl: 'http://127.0.0.1:46225' }
+2026-04-01T14:16:55.459Z INFO realtime_snapshot_published { component: 'dashboard-realtime-test', type: 'project.live.updated', sizeBytes: 402, projectId: 'project-1', publishFrequencyMs: 0 }
+2026-04-01T14:16:55.460Z INFO realtime_background_refresh { component: 'dashboard-realtime-test', type: 'overview' }
+ [32m✓[39m tests/backend/services/sprint-preview-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 918[2mms[22m[39m
+     [33m[2m✓[22m[39m exports a remote-only sprint branch into an isolated preview workspace [33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m exports the latest remote commit for a stale local branch into the preview workspace [33m 464[2mms[22m[39m
+2026-04-01T14:16:55.588Z WARN websocket_recovery_snapshot_required { component: 'dashboard-realtime-websocket', reason: 'non_replayable_event_missed', afterSequence: 1, latestSequence: 3 }
+ [32m✓[39m tests/backend/server/dashboard-server.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 730[2mms[22m[39m
+(node:57345) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 SIGINT listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(node:57520) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-04-01T14:16:56.094Z INFO Dashboard server started { component: 'dashboard-server', port: 41691, localhostUrl: 'http://localhost:41691', loopbackUrl: 'http://127.0.0.1:41691' }
+2026-04-01T14:16:56.160Z INFO [correlationId=c00a0817-a60b-4f28-9ff8-5ef8a2a485aa] Dashboard request completed { component: 'dashboard-server', method: 'POST', path: '/api/projects', statusCode: 201, durationMs: 28 }
+2026-04-01T14:16:56.181Z INFO [correlationId=5e0fd3bd-e063-4074-a1ee-47733e8486d2] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/sprints',
+  statusCode: 201,
+  durationMs: 5 }
+2026-04-01T14:16:56.188Z INFO [correlationId=39897abd-de59-4df8-a912-b312a1be6b65] Dashboard request completed { component: 'dashboard-server', method: 'POST', path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/tasks', statusCode: 201, durationMs: 4 }
+2026-04-01T14:16:56.191Z INFO [correlationId=2865788b-d65c-4d58-8dda-2655b25bdd09] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/projects', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:56.197Z INFO [correlationId=138a6043-a1a8-44c0-b2e0-7c04b9ce9a3b] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/tasks', statusCode: 200, durationMs: 1 }
+2026-04-01T14:16:56.202Z INFO [correlationId=b509336e-4e39-40cd-99c6-f84e4c2149a6] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/system-settings', statusCode: 200, durationMs: 3 }
+2026-04-01T14:16:56.209Z INFO [correlationId=ac7c3be2-0d7c-45e9-9033-738146bd738d] Dashboard request completed { component: 'dashboard-server', method: 'PUT', path: '/api/system-settings', statusCode: 200, durationMs: 4 }
+2026-04-01T14:16:56.214Z INFO [correlationId=fc09661f-b85a-43a1-8995-1947dac07dcf] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/settings',
+  statusCode: 200,
+  durationMs: 3 }
+2026-04-01T14:16:56.220Z INFO [correlationId=8aa9b464-ba41-4b3f-befc-dfb05aaa730d] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/settings/effective',
+  statusCode: 200,
+  durationMs: 3 }
+2026-04-01T14:16:56.226Z INFO [correlationId=018a790d-c0be-4b53-a0c8-f27aa1807467] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/sprints/68bc9a4a-59f5-4324-a123-b1cdca6e080f/settings',
+  statusCode: 200,
+  durationMs: 3 }
+2026-04-01T14:16:56.235Z INFO [correlationId=c229a9fa-309b-4751-8074-4eadf1fa6c01] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/sprints/68bc9a4a-59f5-4324-a123-b1cdca6e080f/settings/effective',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.239Z INFO [correlationId=83cb5655-d38b-4dd7-92b0-85445f2c6d2f] Dashboard request completed { component: 'dashboard-server',
+  method: 'DELETE',
+  path: '/api/sprints/68bc9a4a-59f5-4324-a123-b1cdca6e080f/settings',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.241Z INFO [correlationId=55d8f00f-d9b8-490c-9a5b-ff0888673ae5] Dashboard request completed { component: 'dashboard-server',
+  method: 'DELETE',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/settings',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.245Z INFO [correlationId=c91a1139-70b9-4384-8c22-71269a5c14f6] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/settings/effective',
+  statusCode: 200,
+  durationMs: 2 }
+ [32m✓[39m tests/backend/server/jules-agent-server.test.ts [2m([22m[2m45 tests[22m[2m)[22m[33m 835[2mms[22m[39m
+2026-04-01T14:16:56.263Z INFO [correlationId=d82951dd-9970-4ebe-8464-028c3b58eacb] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/agent-presets',
+  statusCode: 201,
+  durationMs: 16 }
+2026-04-01T14:16:56.272Z INFO [correlationId=1b6da7a6-a4f4-47e3-8d12-f613b85c57a8] Dashboard request completed { component: 'dashboard-server', method: 'PATCH', path: '/api/agent-presets/20010451-c6a6-45b5-a956-a767990de7ec', statusCode: 200, durationMs: 6 }
+2026-04-01T14:16:56.307Z INFO [correlationId=6a8c491e-db31-4bc1-97e1-a9e1cfff857d] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/agent-presets/sync-markdown',
+  statusCode: 200,
+  durationMs: 7 }
+2026-04-01T14:16:56.313Z INFO [correlationId=cd85f83b-14ad-484d-8e5e-fd172b24c5b9] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/agent-presets',
+  statusCode: 200,
+  durationMs: 4 }
+2026-04-01T14:16:56.324Z INFO [correlationId=eefd1542-d48e-4993-9ab2-5d51edc6da3f] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/status', statusCode: 200, durationMs: 2 }
+2026-04-01T14:16:56.332Z INFO [correlationId=608ddf30-9a2c-404e-a600-0f5e6a6b7cb3] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution', statusCode: 200, durationMs: 5 }
+2026-04-01T14:16:56.340Z INFO [correlationId=b42f2583-3da8-4408-b35b-ddd255bee0fb] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/telemetry/overview', statusCode: 200, durationMs: 3 }
+2026-04-01T14:16:56.344Z INFO [correlationId=cd14942b-1da7-4765-92a1-703eccf4224e] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/selected-sprint',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.354Z INFO [correlationId=58c8f46b-aac2-47be-a8b2-8f451047cf2d] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/stats?window=24h',
+  statusCode: 200,
+  durationMs: 5 }
+2026-04-01T14:16:56.359Z INFO [correlationId=cb815019-1bc9-4ad3-993d-55c0ac3442a7] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/stats?window=custom&from=2026-04-01&to=2026-04-01',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.365Z INFO [correlationId=30a72af2-b3a5-4a42-91d3-146a682e0a08] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/conversations/threads',
+  statusCode: 201,
+  durationMs: 3 }
+2026-04-01T14:16:56.374Z INFO [correlationId=48feab74-b9cc-4bf9-958a-74c2ddd579f2] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/conversations/messages',
+  statusCode: 201,
+  durationMs: 7 }
+2026-04-01T14:16:56.377Z INFO [correlationId=6628eb82-bc86-4f44-be2e-44cf349a709d] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/conversations/threads',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.385Z INFO [correlationId=a62f65eb-5cda-4ee8-bcf6-11d4fc419c44] Dashboard request completed { component: 'dashboard-server',
+  method: 'PATCH',
+  path: '/api/conversations/threads/0209d59c-e1e0-4341-9b3d-4977e759f0a1',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.390Z INFO [correlationId=57d2e51f-4e13-4f08-95d1-246aab9ae2f8] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution', statusCode: 200, durationMs: 3 }
+2026-04-01T14:16:56.396Z INFO [correlationId=a56720c9-aa6a-4857-92f0-ec57f60e1e75] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution', statusCode: 200, durationMs: 2 }
+2026-04-01T14:16:56.407Z INFO [correlationId=1850eb5b-8034-437f-b4c8-d3cb67ba8a83] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/attention-items/99b45ec2-cadb-4922-ab31-8d4e6213a024/claim',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.411Z INFO [correlationId=3f401e21-92b4-409b-9eb4-01da947cc420] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution', statusCode: 200, durationMs: 2 }
+2026-04-01T14:16:56.415Z INFO [correlationId=7296e0b5-f52c-4773-abb8-148c1c54009a] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/attention-items/99b45ec2-cadb-4922-ab31-8d4e6213a024/resolve',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.419Z INFO [correlationId=db80213b-8d53-44d4-abda-b9148f5dd603] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution', statusCode: 200, durationMs: 2 }
+2026-04-01T14:16:56.422Z INFO [correlationId=3d1fb1c1-6dd5-4001-b2b4-10b9bd5a4a1a] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/conversations/threads/0209d59c-e1e0-4341-9b3d-4977e759f0a1/messages',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.426Z INFO [correlationId=eeff568d-69f0-4bb0-b414-e909fc74fd5b] Dashboard request completed { component: 'dashboard-server',
+  method: 'DELETE',
+  path: '/api/conversations/threads/0209d59c-e1e0-4341-9b3d-4977e759f0a1',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.428Z INFO [correlationId=d130120e-957d-43ac-a56d-cb551b087e38] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/conversations/threads',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.432Z INFO [correlationId=bafa06b7-9af3-49e4-871f-63b4b67888fb] Dashboard request completed { component: 'dashboard-server',
+  method: 'DELETE',
+  path: '/api/agent-presets/20010451-c6a6-45b5-a956-a767990de7ec',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.435Z INFO [correlationId=ea0d4cb3-5f53-485c-bf8a-e5b6bb008810] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/sprints/68bc9a4a-59f5-4324-a123-b1cdca6e080f/export',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.438Z INFO [correlationId=5d3acf6b-504e-4195-9d1b-6a23c1820eef] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/36ba198e-7951-462f-bab4-4852534282ac/sprints/68bc9a4a-59f5-4324-a123-b1cdca6e080f/orchestrate',
+  statusCode: 202,
+  durationMs: 1 }
+2026-04-01T14:16:56.480Z INFO Dashboard server started { component: 'dashboard-server', port: 41708, localhostUrl: 'http://localhost:41708', loopbackUrl: 'http://127.0.0.1:41708' }
+2026-04-01T14:16:56.487Z INFO [correlationId=3c088f0c-baec-4779-9a69-7981a18cdf52] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/3b7d8137-9273-40f9-95f2-96e4020c0612/planning/improve-sprint-prompt',
+  statusCode: 202,
+  durationMs: 2 }
+2026-04-01T14:16:56.493Z INFO [correlationId=902b04cb-50b0-4b90-a4e9-047cbe2f98a4] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/3b7d8137-9273-40f9-95f2-96e4020c0612/sprints/3a5630d5-1416-4bf7-8529-f3015dbe89dc/plan',
+  statusCode: 202,
+  durationMs: 2 }
+2026-04-01T14:16:56.540Z INFO Dashboard server started { component: 'dashboard-server', port: 41725, localhostUrl: 'http://localhost:41725', loopbackUrl: 'http://127.0.0.1:41725' }
+2026-04-01T14:16:56.553Z INFO [correlationId=1ab2620e-675d-416d-9a89-78b90ea6d4d4] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/0d0c8694-1b44-4575-8bae-4f4e741e0d00/planning/improve-sprint-prompt',
+  statusCode: 202,
+  durationMs: 1 }
+2026-04-01T14:16:56.563Z INFO [correlationId=58613b7a-058f-4048-bcde-f36b731498b1] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/projects/0d0c8694-1b44-4575-8bae-4f4e741e0d00/sprints/d3dcb90d-711d-4021-a8e7-bae57997c0d8/plan',
+  statusCode: 202,
+  durationMs: 3 }
+2026-04-01T14:16:56.637Z INFO Dashboard server started { component: 'dashboard-server', port: 41742, localhostUrl: 'http://localhost:41742', loopbackUrl: 'http://127.0.0.1:41742' }
+2026-04-01T14:16:56.648Z INFO [correlationId=26a2c516-3708-4143-88ae-2785dc9383e5] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/projects/f7f39140-1b50-4290-8ed6-bc27b145d0c7/preferred-worker',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.655Z INFO [correlationId=4c40b4c4-bd2d-4823-830a-3661eff3d9c4] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/f7f39140-1b50-4290-8ed6-bc27b145d0c7/execution',
+  statusCode: 200,
+  durationMs: 2 }
+2026-04-01T14:16:56.659Z INFO [correlationId=27049776-2974-4694-96c3-c39348d8f06e] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/2fb7ae06-4d8d-4584-a627-29988d95461f/execution',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.663Z INFO [correlationId=e808b1da-895f-4400-bc02-0d0391756b62] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/projects/f7f39140-1b50-4290-8ed6-bc27b145d0c7/preferred-worker',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.666Z INFO [correlationId=d67d3db5-a974-4f34-95f1-b679e38187ba] Dashboard request completed { component: 'dashboard-server',
+  method: 'GET',
+  path: '/api/projects/f7f39140-1b50-4290-8ed6-bc27b145d0c7/execution',
+  statusCode: 200,
+  durationMs: 1 }
+2026-04-01T14:16:56.710Z INFO Dashboard server started { component: 'dashboard-server', port: 41759, localhostUrl: 'http://localhost:41759', loopbackUrl: 'http://127.0.0.1:41759' }
+2026-04-01T14:16:56.733Z INFO [correlationId=ab2ea85f-c610-441c-a21f-d7c2a5176bda] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/projects/2ba4e8f8-6dfe-4d17-be29-419d97f00c46/preferred-worker',
+  statusCode: 400,
+  durationMs: 1 }
+ [32m✓[39m tests/backend/server/dashboard-project-api.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 709[2mms[22m[39m
+     [33m[2m✓[22m[39m creates and queries DB-backed projects, sprints, tasks, and markdown export [33m 418[2mms[22m[39m
+(node:57596) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/dashboard-realtime-service-extra.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 649[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/components/sprints/SprintImportMenu.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 586[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/avantgarde-select.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 565[2mms[22m[39m
+(node:57623) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/connection-chat-repository.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 496[2mms[22m[39m
+[90mstdout[2m | tests/dashboard/v2/agents-page.test.tsx[2m > [22m[2mAgentsPage[2m > [22m[2mloads and displays agents in master-detail showcase layout
+[22m[39m[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative z-10 mx-auto flex max-w-[1880px] flex-col gap-12 px-8 py-20 md:px-20"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"agents-hero"[39m
+      [36m>[39m
+        [36m<button>[39m
+          [0mNew Agent[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-[1.5rem] border border-black/[0.06] bg-white/60 px-5 py-4 text-sm leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"[39m
+      [36m>[39m
+        [0mProject markdown mirroring is enabled. Saving an agent from the dashboard writes its markdown companion under `.sprint-os/agents` for this project.[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-8 xl:flex-row xl:items-start"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex w-full flex-col gap-4 xl:w-1/3 xl:shrink-0"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mdata-testid[39m=[32m"showcase-card"[39m
+          [36m>[39m
+            [0mPlanning Agent[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mdata-testid[39m=[32m"showcase-card"[39m
+          [36m>[39m
+            [0mReview Agent[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"w-full flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mdata-testid[39m=[32m"detail-panel"[39m
+          [36m>[39m
+            [36m<h2>[39m
+              [0mPlanning Agent[0m
+            [36m</h2>[39m
+            [36m<div>[39m
+              [0mDo some planning[0m
+            [36m</div>[39m
+            [36m<button>[39m
+              [0mEdit Agent[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+ [32m✓[39m tests/dashboard/v2/browser-page.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 491[2mms[22m[39m
+     [33m[2m✓[22m[39m renders correctly with new slider and chrome components [33m 327[2mms[22m[39m
+(node:57642) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/dashboard/v2/agents-page.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 569[2mms[22m[39m
+     [33m[2m✓[22m[39m loads and displays agents in master-detail showcase layout [33m 435[2mms[22m[39m
+(node:57653) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/dashboard-realtime-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 461[2mms[22m[39m
+ [32m✓[39m tests/backend/services/agent-preset-sync-service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 473[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/settings-page-state.test.tsx [2m([22m[2m14 tests[22m[2m | [22m[33m3 skipped[39m[2m)[22m[33m 493[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/components/sprint-stats-deck.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 431[2mms[22m[39m
+     [33m[2m✓[22m[39m calculates merge pressure correctly (excluding automerge) [33m 325[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/top-nav-browser-menu.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 364[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/chat-avatar.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 377[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/subprocess/command-runner.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 367[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/chat-widget-frame.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 358[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/use-project-effective-settings.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 332[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/live-session-page-preview.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 301[2mms[22m[39m
+(node:57765) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/virtual-worker-service-extra.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 353[2mms[22m[39m
+(node:57777) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/quicksprint-server.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 251[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/sprint-composer.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 332[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/chat-message-bubbles.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 262[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/sqlite-connection.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 270[2mms[22m[39m
+(node:57807) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2m2:17:09 PM[22m [33m[1m[vite][22m[39m (client) warning: Invalid JSX factory: h
+
+1  |  /**
+2  |   * @vitest-environment jsdom
+3  |   * @jsx h
+   |          ^
+4  |   * @jsxFrag Fragment
+5  |   */
+
+  Plugin: vite:esbuild
+  File: /app/tests/dashboard/v2/use-project-stats.test.tsx
+[2m2:17:09 PM[22m [33m[1m[vite][22m[39m (client) warning: Invalid JSX fragment: Fragment
+
+2  |   * @vitest-environment jsdom
+3  |   * @jsx h
+4  |   * @jsxFrag Fragment
+   |              ^
+5  |   */
+6  |  import { h, Fragment } from "preact";
+
+  Plugin: vite:esbuild
+  File: /app/tests/dashboard/v2/use-project-stats.test.tsx
+ [32m✓[39m tests/backend/services/execution-control-service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 305[2mms[22m[39m
+[90mstderr[2m | tests/backend/services/sprint-preview-service-unit.test.ts[2m > [22m[2mSprintPreviewService unit tests[2m > [22m[2mrebuildSession[2m > [22m[2mcalls startSession with rebuild flag
+[22m[39m[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+ [32m✓[39m tests/dashboard/v2/use-project-stats.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 278[2mms[22m[39m
+ [32m✓[39m tests/backend/services/sprint-preview-service-unit.test.ts [2m([22m[2m75 tests[22m[2m)[22m[32m 241[2mms[22m[39m
+(node:57831) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57838) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/domain/workers/worker-listen-event-service.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 205[2mms[22m[39m
+2026-04-01T14:17:10.928Z INFO Dashboard server started { component: 'dashboard-server', port: 35179, localhostUrl: 'http://localhost:35179', loopbackUrl: 'http://127.0.0.1:35179' }
+2026-04-01T14:17:10.983Z INFO [correlationId=452ed69d-9d8b-4db4-9465-adf4e1780239] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/conversations/threads/4214f71b-502e-4d18-b3e7-31e1eb767d53/route',
+  statusCode: 200,
+  durationMs: 24 }
+2026-04-01T14:17:11.010Z INFO [correlationId=384a58d7-306b-4ed8-9bc1-e12739fd9a30] Dashboard request completed { component: 'dashboard-server',
+  method: 'POST',
+  path: '/api/conversations/threads/4214f71b-502e-4d18-b3e7-31e1eb767d53/compact',
+  statusCode: 200,
+  durationMs: 7 }
+ [32m✓[39m tests/dashboard/v2/quicksprint-panel.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 261[2mms[22m[39m
+2026-04-01T14:17:11.049Z INFO Dashboard server started { component: 'dashboard-server', port: 40311, localhostUrl: 'http://localhost:40311', loopbackUrl: 'http://127.0.0.1:40311' }
+2026-04-01T14:17:11.055Z INFO [correlationId=87983c5b-a6ef-4fa9-8306-6ea535981ca3] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/conversations/threads/b186cfb0-f217-4efb-a4eb-6786c9cfc98d/route',
+  statusCode: 400,
+  durationMs: 2 }
+2026-04-01T14:17:11.063Z INFO [correlationId=c7ce62f5-8ad7-499e-ac21-fab01f577ff0] Dashboard request completed { component: 'dashboard-server',
+  method: 'PUT',
+  path: '/api/conversations/threads/b186cfb0-f217-4efb-a4eb-6786c9cfc98d/route',
+  statusCode: 400,
+  durationMs: 1 }
+2026-04-01T14:17:11.088Z INFO Dashboard server started { component: 'dashboard-server', port: 32891, localhostUrl: 'http://localhost:32891', loopbackUrl: 'http://127.0.0.1:32891' }
+2026-04-01T14:17:11.107Z INFO [correlationId=1cf82b28-44f4-462f-a86b-ac002a84fde7] Dashboard request completed { component: 'dashboard-server', method: 'PUT', path: '/api/conversations/threads/t1/route', statusCode: 400, durationMs: 1 }
+(node:57854) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/server/dashboard-chat-api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 237[2mms[22m[39m
+(node:57861) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/project-management-repository.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 212[2mms[22m[39m
+ [32m✓[39m tests/backend/services/worker-task-dispatch-service.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 206[2mms[22m[39m
+(node:57890) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/memory-service.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 184[2mms[22m[39m
+ [32m✓[39m tests/backend/app/lifecycle/mcp-http-lifecycle-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/project-runtime-repository.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 210[2mms[22m[39m
+(node:57898) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57909) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57916) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/project-attention-repository.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 202[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/project-worker-assignment-repository.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 188[2mms[22m[39m
+ [32m✓[39m tests/backend/services/runtime-startup-recovery-service.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 184[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/repositories/subtask-file-repository.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 176[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/polling/wait-until.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 164[2mms[22m[39m
+(node:57968) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-04-01T14:17:13.484Z INFO Dashboard server started { component: 'dashboard-server', port: 3000, localhostUrl: 'http://localhost:3000', loopbackUrl: 'http://127.0.0.1:3000' }
+2026-04-01T14:17:13.498Z INFO [correlationId=f036e7f9-357c-4723-9364-f9135a3bb123] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/projects/proj-1/execution/invocations', statusCode: 200, durationMs: 8 }
+2026-04-01T14:17:13.522Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3000, nextPort: 3001 }
+2026-04-01T14:17:13.523Z INFO Dashboard server started { component: 'dashboard-server', port: 3001, localhostUrl: 'http://localhost:3001', loopbackUrl: 'http://127.0.0.1:3001' }
+2026-04-01T14:17:13.531Z INFO [correlationId=03bef828-c0db-4a87-a81d-0d086863bde2] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/projects/proj-1/execution/invocations', statusCode: 400, durationMs: 3 }
+2026-04-01T14:17:13.553Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3000, nextPort: 3001 }
+2026-04-01T14:17:13.554Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3001, nextPort: 3002 }
+2026-04-01T14:17:13.554Z INFO Dashboard server started { component: 'dashboard-server', port: 3002, localhostUrl: 'http://localhost:3002', loopbackUrl: 'http://127.0.0.1:3002' }
+2026-04-01T14:17:13.557Z INFO [correlationId=1c0035f9-7034-49c1-80f7-00aad016c47c] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution/invocations/inv-1/messages', statusCode: 200, durationMs: 1 }
+2026-04-01T14:17:13.568Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3000, nextPort: 3001 }
+2026-04-01T14:17:13.568Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3001, nextPort: 3002 }
+2026-04-01T14:17:13.568Z WARN Dashboard port in use. Trying next port. { component: 'dashboard-server', attemptedPort: 3002, nextPort: 3003 }
+2026-04-01T14:17:13.569Z INFO Dashboard server started { component: 'dashboard-server', port: 3003, localhostUrl: 'http://localhost:3003', loopbackUrl: 'http://127.0.0.1:3003' }
+2026-04-01T14:17:13.583Z INFO [correlationId=de4a7c49-df79-4195-8efc-00c4558bf503] Dashboard request completed { component: 'dashboard-server', method: 'GET', path: '/api/execution/invocations/inv-1/messages', statusCode: 400, durationMs: 1 }
+ [32m✓[39m tests/backend/server/dashboard-execution-invocation-api.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 141[2mms[22m[39m
+(node:57977) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/runtime-cleanup-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+(node:57988) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/worker-endpoint-repository.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 123[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/overview-telemetry.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 120[2mms[22m[39m
+(node:58006) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/dashboard/v2/stats-usage-graph.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m tests/backend/services/sprint-task-dispatch-service-extra.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+(node:58026) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/settings-repository.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 137[2mms[22m[39m
+(node:58037) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/sprint/session-sync-step.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/sprint-orchestrator-ci.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/chat-page-shell.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 155[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/dashboard-realtime-client.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+(node:58066) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/session-tracking-repository.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/stats-telemetry-tabs.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 116[2mms[22m[39m
+(node:58093) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/infrastructure/providers/cli/workspace-manager.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/workers/project-attention-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+(node:58104) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58111) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/domain/workers/worker-attention-outcome-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m tests/backend/instructions/instruction-template-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 98[2mms[22m[39m
+(node:58126) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/server/memory-routes.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/action-required.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/sprint-orchestrator-automation.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/live-transport-banner.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+(node:58169) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr-gate.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/app-db-storage.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+(node:58185) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58192) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/sprint-task-dispatch-service.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/ci-integration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+(node:58203) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58214) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/sprint/automerge-logic.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/dashboard-realtime-event-repository.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/agent-avatar-scene.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+(node:58231) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:58243) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/domain/sprint/orchestrator/cycle-runner.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m tests/backend/services/sprint-preview-service-cleanup.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m tests/backend/services/docker-runtime-prune-service.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+(node:58265) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/services/cli-workflow/pipeline/pipeline-stages.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/agent-preset-repository.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr/workflow-ci-detection.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-ledger-state.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+(node:58266) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/config/app-config.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/live-stats.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m tests/backend/services/quicksprint-service.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/docker-runner.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/backend/smoke.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/markdown.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+(node:58348) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/app/lifecycle/dashboard-lifecycle-service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/backend/services/git-status-service.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/backend/server/activity-cache-service.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/backend/services/sprint-preview-utils.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+[2m2:17:22 PM[22m [33m[1m[vite][22m[39m (client) warning: Invalid JSX factory: h
+
+1  |  /**
+2  |   * @vitest-environment jsdom
+3  |   * @jsx h
+   |          ^
+4  |   * @jsxFrag Fragment
+5  |   */
+
+  Plugin: vite:esbuild
+  File: /app/tests/dashboard/v2/use-preview-sessions.test.tsx
+[2m2:17:22 PM[22m [33m[1m[vite][22m[39m (client) warning: Invalid JSX fragment: Fragment
+
+2  |   * @vitest-environment jsdom
+3  |   * @jsx h
+4  |   * @jsxFrag Fragment
+   |              ^
+5  |   */
+6  |  import { h, Fragment } from "preact";
+
+  Plugin: vite:esbuild
+  File: /app/tests/dashboard/v2/use-preview-sessions.test.tsx
+ [32m✓[39m tests/backend/services/chat-thread-runtime-service.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/action-required-automation.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/use-preview-sessions.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/backend/services/memory-promotion-service.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+(node:58403) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/repositories/db/sqlite-database-adapter.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m tests/backend/services/worker-inbox-reply-service.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/backend/app/dependency-factory/dashboard-factory.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/backend/services/cli-workflow-service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+(node:58435) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/server/dashboard-realtime-websocket-server.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/backend/services/cli-workflow/pipeline/memory-capture-stage.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/backend/services/embedding-model-manager.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/backend/services/jules-api-client.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-gallery.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-dag.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/app/lifecycle/settings-lifecycle-service.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+(node:58484) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/sprint/steps/branch-preflight-step.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/overview-stats.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/docker-bootstrap-builder.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/backend/services/task-rerun-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/main-merge-gate.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstderr[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mclaims open worker-owned attention items and tracks the project as active
+[22m[39m[sprint-os-worker] Claimed attention item {
+  projectId: [32m'project-1'[39m,
+  projectName: [32m'Project 1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  workingDirectoryHint: [32m'cd /repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_required'[39m,
+  severity: [32m'high'[39m,
+  status: [32m'open'[39m,
+  title: [32m'Merge required'[39m,
+  unresolvedAttentionCount: [33m1[39m,
+  activeProjectIds: [ [32m'project-1'[39m ],
+  assignedWorkerEndpointId: [32m'worker-endpoint-1'[39m,
+  claimedAt: [32m'2026-03-13T00:02:00.000Z'[39m
+}
+
+[90mstdout[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mclaims open worker-owned attention items and tracks the project as active
+[22m[39m[sprint-os-worker] Reported attention outcome {
+  projectId: [32m'project-1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_required'[39m,
+  outcome: [32m'needs_human_escalation'[39m,
+  handoffAttentionItemId: [32m'attention-2'[39m,
+  threadId: [32m'thread-1'[39m
+}
+
+[90mstdout[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mdoes not try to re-claim already claimed attention items
+[22m[39m[sprint-os-worker] Reported attention outcome {
+  projectId: [32m'project-1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_required'[39m,
+  outcome: [32m'needs_human_escalation'[39m,
+  handoffAttentionItemId: [32m'attention-2'[39m,
+  threadId: [32m'thread-1'[39m
+}
+
+[90mstderr[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mdoes not try to re-claim already claimed attention items
+[22m[39m[sprint-os-worker] Attention item requires worker supervision {
+  projectId: [32m'project-1'[39m,
+  projectName: [32m'Project 1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  workingDirectoryHint: [32m'cd /repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_required'[39m,
+  severity: [32m'high'[39m,
+  status: [32m'claimed'[39m,
+  title: [32m'Merge required'[39m,
+  unresolvedAttentionCount: [33m1[39m,
+  activeProjectIds: [ [32m'project-1'[39m ]
+}
+
+[90mstdout[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mholds merge_conflict attention items for worker-side handling after claim
+[22m[39m[sprint-os-worker] Holding claimed attention item for worker-side handling {
+  projectId: [32m'project-1'[39m,
+  projectName: [32m'Project 1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  workingDirectoryHint: [32m'cd /repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_conflict'[39m,
+  severity: [32m'high'[39m,
+  status: [32m'open'[39m,
+  title: [32m'Merge conflict'[39m,
+  unresolvedAttentionCount: [33m1[39m,
+  activeProjectIds: [ [32m'project-1'[39m ]
+}
+
+[90mstderr[2m | tests/backend/worker/sprint-os-worker.test.ts[2m > [22m[2mSprintOsWorker[2m > [22m[2mholds merge_conflict attention items for worker-side handling after claim
+[22m[39m[sprint-os-worker] Claimed attention item {
+  projectId: [32m'project-1'[39m,
+  projectName: [32m'Project 1'[39m,
+  repoPath: [32m'/repo/project-1'[39m,
+  workingDirectoryHint: [32m'cd /repo/project-1'[39m,
+  attentionItemId: [32m'attention-1'[39m,
+  attentionType: [32m'merge_conflict'[39m,
+  severity: [32m'high'[39m,
+  status: [32m'open'[39m,
+  title: [32m'Merge conflict'[39m,
+  unresolvedAttentionCount: [33m1[39m,
+  activeProjectIds: [ [32m'project-1'[39m ],
+  assignedWorkerEndpointId: [32m'worker-endpoint-1'[39m,
+  claimedAt: [32m'2026-03-13T00:02:00.000Z'[39m
+}
+
+ [32m✓[39m tests/backend/worker/sprint-os-worker.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/git/git-status-policy.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/pr-service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/steps/start-ready-tasks-step.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/app/dependency-factory/sprint-factory.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/logging/logger.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | tests/backend/index.test.ts
+[22m[39m[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ [32m✓[39m tests/backend/index.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/sprint-orchestrator.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/backend/services/sprint-execution-state-service.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/backend/services/provider-routing.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/backend/services/jules-source-resolver.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/steps/protocol-step.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/backend/services/worker-dispatch-execution-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/providers/cli/docker-setup-image-cache.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/backend/services/embedding-service.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/task-composer-state.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/services/task-service.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/provider-error-classifier.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/backend/services/docker-service.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/backend/app/live/project-live-snapshot.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-schema.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/app/live/project-live-observability.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/live-session-runtime.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/memory-graph.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr/ci-autofix-policy.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/services/extract-json-like-block.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/overview-telemetry-view-models.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/project-worker-options.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/git/git-status-mappers.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/backend/mcp/tool-registry.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/activity.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/logging/correlation-id.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-composer-state.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/dashboard/hooks/use-dashboard-runtime-data.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/backend/infrastructure/repositories/subtask-parser.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/live-session-task-structure.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/backend/app/dependency-factory/mcp-factory.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr/ci-notification-builder.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/chat-widget-view-models.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/runtime-snapshot-stability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/live-stage-display.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/backend/worker/worker-config.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/agent-avatar.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/config/value-readers.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/chat-entity-index.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/settings-sanitizer.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/backend/services/planning-json-extractor.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/services/cli-workflow-text-utils.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+(node:58863) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/backend/mcp/mcp-tool-availability.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/status.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/app/lifecycle/mcp-lifecycle-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/settings-updaters.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/chat-thread-utils.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sessions/activity-summary.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/config/search-paths.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/ci-status-utils.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/sprint-completion-pr-body.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/task-board-state.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/backend/mcp/agent-tool-handler.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/backend/integrations/jules-api-client.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/backend/services/remote-git.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/shared/slug.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/backend/config/external-settings.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/settings-view-models.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/services/cli-docker-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/overview-streams.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/services/embedding-tokenizer.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/ai-provider-sanitizer.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/preview-origin.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/boat-race.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/mcp/core-tool-handler-validation.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/memory-sanitizer.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/runtime-context.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr/merge-readiness-policy.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/mcp/core-tool-handler-compact.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/task-relations.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/services/local-git.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/dashboard/v2/live-session-config.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/live-duration-display.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/task-progress.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/steps/status-derivation-step.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/worker/worker-supervision-state.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-planning-feedback.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/cli-workflow-sanitizer.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/sprint-scope.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/start-ready-tasks-step.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/list-window.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/markdown-transfer.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/settings.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/project-resource-utils.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/chat-page-state-utils.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/ci-sanitizer.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/backend/repositories/db/sql-dialect.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/session.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/backend/services/embedding-model-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/planning-telemetry.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/execution-intervention.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/backend/contracts/memory-types.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/ci/feature-pr/pr-matcher.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/backend/instructions/instruction-template-renderer.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/sprint/task-merge-state.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/git/sprint-branch-scheme.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/git-sanitizer.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/domain/settings/settings-sanitizers/sprint-loop-sanitizer.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/backend/sprint/status-derivation-step.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/dashboard/lib/dashboard-polling.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/dashboard/v2/live-session-page-runtime.test.tsx[2m [ tests/dashboard/v2/live-session-page-runtime.test.tsx ][22m
+[31m[1mError[22m: Failed to resolve import "./components/live-session/SprintBoatRace.js" from "dashboard/src/v2/LiveSessionPage.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/app/dashboard/src/v2/LiveSessionPage.tsx[39m:45:41
+[33m  30 |  import { deriveLiveDurationDisplay } from "./lib/live-duration-display.js";
+  31 |  import { useProjectData } from "./context/project-data.js";
+  32 |  const SprintBoatRace = lazy(() => import("./components/live-session/SprintBoatRace.js").then((m) => ({ default: m.Spr...
+     |                                           ^
+  33 |  const SprintDag = lazy(() => import("./components/SprintDag.js").then((m) => ({ default: m.SprintDag })));
+  34 |  const FILTER_STATUS_MAP = {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/config.js:[2m28999:43[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/config.js:[2m28996:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/config.js:[2m27119:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/config.js:[2m27177:32[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/config.js:[2m27145:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/config.js:[2m28797:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/config.js:[2m22670:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m228 passed[39m[22m[90m (229)[39m
+[2m      Tests [22m [1m[32m1759 passed[39m[22m[2m | [22m[33m3 skipped[39m[90m (1762)[39m
+[2m   Start at [22m 14:16:19
+[2m   Duration [22m 80.05s[2m (transform 12.50s, setup 0ms, import 43.40s, tests 84.26s, environment 40.40s)[22m

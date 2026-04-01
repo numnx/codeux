@@ -45,27 +45,6 @@ import { useProjectData } from "./context/project-data.js";
 const SprintBoatRace = lazy(() => import("./components/SprintBoatRace.js").then(m => ({ default: m.SprintBoatRace })));
 const SprintDag = lazy(() => import("./components/SprintDag.js").then(m => ({ default: m.SprintDag })));
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* ─── Header View Type ──────────────────────────────────────────────────── */
 
 type HeaderView = "stats" | "race" | "dag";
