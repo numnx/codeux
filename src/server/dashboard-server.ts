@@ -576,20 +576,25 @@ function buildPreviewStandbyHtml(args: {
         if (rebuildButton) rebuildButton.disabled = Boolean(busy);
       };
 
-      const pollUntilReady = async () => {
-        try {
-          const response = await fetch(${JSON.stringify(PREVIEW_STATUS_PATH)}, {
-            headers: { Accept: "application/json" },
-            cache: "no-store",
-          });
-          if (!response.ok) {
-            throw new Error("Failed to refresh preview session state.");
-          }
-          const session = await response.json();
-          if (session && session.status === "running" && session.hostPort) {
-            window.location.replace(requestedPath);
-            return;
-          }
+	      const pollUntilReady = async () => {
+	        try {
+	          const response = await fetch(${JSON.stringify(PREVIEW_STATUS_PATH)}, {
+	            headers: { Accept: "application/json" },
+	            cache: "no-store",
+	          });
+	          if (!response.ok) {
+	            throw new Error("Failed to refresh preview session state.");
+	          }
+	          const session = await response.json();
+	          if (
+	            session
+	            && session.hostPort
+	            && session.status !== "stopped"
+	            && session.status !== "error"
+	          ) {
+	            window.location.replace(requestedPath);
+	            return;
+	          }
           if (session && session.lastError && statusNode) {
             statusNode.textContent = session.lastError;
           }
