@@ -224,8 +224,11 @@ Legacy runtime:
   - floating horizontal slider in its own top strip, with large-screen five-card visibility for preview selection
   - the browser window starts directly below the slider instead of sharing a stretched first-row layout with the sprint controls
   - one preview session per sprint
+  - the slider shows preview container cards only, then appends a placeholder `Launch Container` card as the final entry
+  - the launch card includes a sprint selector so any sprint can start a preview container directly from the rail
   - browser window chrome state for fullscreen, minimize, and close
   - same-origin iframe navigation with back, forward, refresh, and editable URL
+  - remove actions on session cards fully delete preview-session entries after stopping any live container
   - rebuild, stop, open-in-tab, startup-script editing, and log viewing
   - sprint previews are proxied through the dashboard instead of embedding raw localhost origins directly
   - extensionless preview-host deep links such as `/sprints` now recover to the preview app shell when the upstream dev server returns `404`, so direct loads and refreshes stay routable

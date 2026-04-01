@@ -129,10 +129,12 @@ The dashboard now exposes:
 - `/browser` route for the in-app browser workspace
 - dock and top-nav entry points for the browser
 - a dedicated horizontal session slider strip above the browser surface, so the iframe starts directly below the cards instead of sharing a stretched header row
+- session cards in that rail are limited to persisted preview containers (`running`, `starting`, `stopped`, or `error`) rather than every sprint in the project
+- the rail ends with a placeholder-style `Launch Container` card that lets the operator choose any sprint from a selector and start a preview container without changing the current sprint scope elsewhere in the dashboard
 - sprint-preview controls in the `Sprint Engine` settings category
 - project-level `Sprint Browser` settings in the project settings editor for port range, startup script path, and automation overrides
 - per-sprint startup script editing in the browser page itself
-- preview logs, rebuild, stop, and open actions
+- preview logs, rebuild, stop, open, and remove actions
 - port routing status on preview cards, including container-port to host-port mappings such as `:4444 -> :5653`
 
 ## API Surface
@@ -143,6 +145,7 @@ Preview endpoints are implemented in `src/server/dashboard-server.ts`.
 - `POST /api/projects/:projectId/sprints/:sprintId/preview/start`
 - `POST /api/browser/sessions/:sessionId/rebuild`
 - `POST /api/browser/sessions/:sessionId/stop`
+- `DELETE /api/browser/sessions/:sessionId`
 - `GET /api/projects/:projectId/sprints/:sprintId/preview/script`
 - `PUT /api/projects/:projectId/sprints/:sprintId/preview/script`
 - `GET /api/browser/sessions/:sessionId/logs`

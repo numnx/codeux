@@ -898,6 +898,7 @@ export class JulesAgentServer {
         startSprintPreviewSession: (projectId, sprintId) => this.sprintPreviewService.startSession(projectId, sprintId),
         rebuildSprintPreviewSession: (sessionId) => this.sprintPreviewService.rebuildSession(sessionId),
         stopSprintPreviewSession: (sessionId) => this.sprintPreviewService.stopSession(sessionId),
+        removeSprintPreviewSession: (sessionId) => this.sprintPreviewService.removeSession(sessionId),
         getSprintPreviewScript: (projectId, sprintId) => this.sprintPreviewService.getScript(projectId, sprintId),
         saveSprintPreviewScript: (projectId, sprintId, content) => this.sprintPreviewService.saveScript(projectId, sprintId, content),
         getSprintPreviewLogs: (sessionId, tail) => this.sprintPreviewService.getLogs(sessionId, tail),

@@ -626,6 +626,79 @@ describe("setupDashboardServer", () => {
     expect(deepLinkResponse.body).toContain("/_sprint_os/preview-bridge.js");
   });
 
+  it("removes preview sessions through the delete endpoint", async () => {
+    let removedSessionId: string | null = null;
+
+    const app = express();
+    const handle = await setupDashboardServer({
+      app,
+      dashboardDir: "dashboard",
+      port: await getAvailablePort(),
+      liveActivityCacheMs: 1000,
+      getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getProjectStatsSnapshot: () => ({
+        projectId: "project-test",
+        projectName: "Project Test",
+        window: "7d",
+        generatedAt: new Date().toISOString(),
+        usage: { invocationCount: 0, activeTimeMs: 0, wallTimeMs: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0, reportedInvocationCount: 0, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 },
+        activeSprint: null,
+        buckets: [],
+        sprints: [],
+        tasks: [],
+        providers: [],
+        purposes: [],
+        tokenSources: [],
+      }),
+      getLiveActivities: async () => ({}),
+      getGitStatus: async () => ({
+        mode: "LOCAL",
+        available: true,
+        repositoryRoot: null,
+        branch: null,
+        hasRemote: false,
+        dirty: false,
+        openPullRequests: [],
+        ciRuns: [],
+        mergedPullRequests: [],
+        tracking: { scope: "REPOSITORY", label: "Repository", branch: null },
+        warnings: [],
+        lastUpdated: new Date().toISOString(),
+      }),
+      getExternalSettingsHints: () => ({
+        env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+        settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+        resolved: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+      }),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+      removeSprintPreviewSession: async (sessionId: string) => {
+        removedSessionId = sessionId;
+      },
+    });
+    serversToClose.push(handle.server);
+
+    const response = await fetch(`http://127.0.0.1:${handle.port}/api/browser/sessions/test-session`, {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(204);
+    expect(removedSessionId).toBe("test-session");
+  });
+
   it("serves /health and /ready endpoints with detailed probe payload", async () => {
     const app = express();
     const probeResponse = {

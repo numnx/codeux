@@ -346,6 +346,15 @@ export class SprintPreviewService {
     });
   }
 
+  async removeSession(sessionId: string): Promise<void> {
+    const session = await this.requireSession(sessionId);
+    await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
+      const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
+      await this.removeContainerIfPresent(containerRef, session.worktreePath || process.cwd());
+      this.deps.sprintPreviewRepository.deleteSession(sessionId);
+    });
+  }
+
   async getLogs(sessionId: string, tail = 200): Promise<{ logs: string }> {
     const session = await this.requireSession(sessionId);
     const refreshed = await this.refreshRuntimeState(session);

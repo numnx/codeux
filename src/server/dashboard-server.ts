@@ -186,6 +186,7 @@ export interface DashboardServerOptions {
   startSprintPreviewSession?: (projectId: string, sprintId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
   rebuildSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
   stopSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;
+  removeSprintPreviewSession?: (sessionId: string) => Promise<void> | void;
   getSprintPreviewScript?: (projectId: string, sprintId: string) => Promise<SprintPreviewScript> | SprintPreviewScript;
   saveSprintPreviewScript?: (projectId: string, sprintId: string, content: string) => Promise<SprintPreviewScript> | SprintPreviewScript;
   getSprintPreviewLogs?: (sessionId: string, tail?: number) => Promise<{ logs: string }> | { logs: string };
@@ -519,6 +520,7 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     startSprintPreviewSession,
     rebuildSprintPreviewSession,
     stopSprintPreviewSession,
+    removeSprintPreviewSession,
     getSprintPreviewScript,
     saveSprintPreviewScript,
     getSprintPreviewLogs,
@@ -730,6 +732,18 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.json(await stopSprintPreviewSession(String(req.params.sessionId || "").trim()));
     } catch (error) {
       res.status(400).json({ error: toErrorMessage(error, "Failed to stop sprint preview session") });
+    }
+  });
+
+  app.delete("/api/browser/sessions/:sessionId", async (req, res) => {
+    try {
+      if (!removeSprintPreviewSession) {
+        throw new Error("Sprint preview runtime is unavailable.");
+      }
+      await removeSprintPreviewSession(String(req.params.sessionId || "").trim());
+      res.status(204).end();
+    } catch (error) {
+      res.status(400).json({ error: toErrorMessage(error, "Failed to remove sprint preview session") });
     }
   });
 

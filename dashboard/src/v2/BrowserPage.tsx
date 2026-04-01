@@ -4,7 +4,6 @@ import gsap from "gsap";
 import {
   Compass,
   ExternalLink,
-  Play,
   RefreshCw,
   RotateCcw,
   Save,
@@ -17,6 +16,7 @@ import type { SprintPreviewScript, SprintPreviewSession } from "../types.js";
 import {
   fetchPreviewLogs,
   fetchPreviewScript,
+  removePreviewSession,
   rebuildPreviewSession,
   savePreviewScript,
   startPreviewSession,
@@ -63,6 +63,7 @@ export const BrowserPage: FunctionComponent = () => {
   const [currentPath, setCurrentPath] = useState("/");
   const [showScriptEditor, setShowScriptEditor] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [launchSprintId, setLaunchSprintId] = useState("");
 
   useEffect(() => {
     if (shellRef.current) {
@@ -83,6 +84,16 @@ export const BrowserPage: FunctionComponent = () => {
       setError(null);
     }
   }, [fetchError]);
+
+  useEffect(() => {
+    const fallbackSprintId = selectedSprint?.id || sprints[0]?.id || "";
+    setLaunchSprintId((current) => {
+      if (current && sprints.some((sprint) => sprint.id === current)) {
+        return current;
+      }
+      return fallbackSprintId;
+    });
+  }, [selectedSprint?.id, sprints]);
 
   const scriptTargetSprint = useMemo(() => {
     if (selectedSession) {
@@ -174,11 +185,11 @@ export const BrowserPage: FunctionComponent = () => {
     }, buildPreviewOrigin(selectedSession.id));
   };
 
-  const handleStart = async () => {
-    if (!selectedProject || !selectedSprint) return;
+  const handleStart = async (sprintId = launchSprintId) => {
+    if (!selectedProject || !sprintId) return;
     setMutating(true);
     try {
-      const session = await startPreviewSession(selectedProject.id, selectedSprint.id);
+      const session = await startPreviewSession(selectedProject.id, sprintId);
       setActiveSessionId(session.id);
       await refreshSessions(true);
     } catch (actionError) {
@@ -206,6 +217,22 @@ export const BrowserPage: FunctionComponent = () => {
     setMutating(true);
     try {
       await stopPreviewSession(selectedSession.id);
+      await refreshSessions(true);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : String(actionError));
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const handleRemove = async (sessionId: string) => {
+    setMutating(true);
+    try {
+      await removePreviewSession(sessionId);
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(null);
+        setLogs("");
+      }
       await refreshSessions(true);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : String(actionError));
@@ -271,15 +298,6 @@ export const BrowserPage: FunctionComponent = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={2} />
             Refresh
           </button>
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={!selectedSprint || mutating}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-signal-500 px-4 text-sm font-semibold text-void-900 transition hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Play className="h-4 w-4" strokeWidth={2.2} />
-            Start Preview
-          </button>
         </div>
       </div>
 
@@ -292,8 +310,14 @@ export const BrowserPage: FunctionComponent = () => {
       <div className="mb-5">
         <PreviewSessionSlider
           sessions={sessionCards}
+          sprints={sprints}
           selectedSessionId={activeSessionId}
+          launchSprintId={launchSprintId}
           onSelectSession={setActiveSessionId}
+          onLaunchSprintChange={setLaunchSprintId}
+          onLaunchContainer={() => void handleStart()}
+          onRemoveSession={(sessionId) => void handleRemove(sessionId)}
+          busy={mutating}
         />
       </div>
 
