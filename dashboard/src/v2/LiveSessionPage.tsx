@@ -44,28 +44,6 @@ import { useProjectData } from "./context/project-data.js";
 
 const SprintBoatRace = lazy(() => import("./components/SprintBoatRace.js").then(m => ({ default: m.SprintBoatRace })));
 const SprintDag = lazy(() => import("./components/SprintDag.js").then(m => ({ default: m.SprintDag })));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* ─── Header View Type ──────────────────────────────────────────────────── */
 
 type HeaderView = "stats" | "race" | "dag";
@@ -151,7 +129,7 @@ export const LiveSessionPage: FunctionComponent = () => {
         () => sprintScopeReady
             ? deriveLiveSessionRuntimeState(status, execution, sprintScopeId)
             : EMPTY_LIVE_SESSION_RUNTIME_STATE,
-        [execution.attentionItems.length, execution.sprintRuns, execution.taskDispatches.length, status.sprint_id, status.subtasks?.length, status.timestamp, execution, sprintScopeId, sprintScopeReady, status],
+        [execution, status, sprintScopeId, sprintScopeReady],
     );
     const liveSprintRun = runtimeState.liveSprintRun;
     const pausedInterventionRun = runtimeState.pausedInterventionRun;
@@ -194,18 +172,24 @@ export const LiveSessionPage: FunctionComponent = () => {
 
     const visibleStats = useMemo(() => {
         if (!hasSprintContext) return EMPTY_RUNTIME_STATS;
-        return {
-            total: visibleTasksWithLiveActivities.length,
-            running: visibleTasksWithLiveActivities.filter((task) => task.status === "RUNNING").length,
-            codingCompleted: visibleTasksWithLiveActivities.filter((task) => task.status === "CODING_COMPLETED").length,
-            completed: visibleTasksWithLiveActivities.filter((task) => task.status === "COMPLETED").length,
-            failed: visibleTasksWithLiveActivities.filter((task) => task.status === "FAILED").length,
-            ci: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "CI").length,
-            automerge: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "AUTOMERGE").length,
-            merged: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGED" || task.is_merged).length,
-            mergeBlocked: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGE_BLOCKED").length,
-            mergeConflicts: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGE_CONFLICT").length,
-        };
+        const counts = { running: 0, codingCompleted: 0, completed: 0, failed: 0, ci: 0, automerge: 0, merged: 0, mergeBlocked: 0, mergeConflicts: 0 };
+        for (const task of visibleTasksWithLiveActivities) {
+            switch (task.status) {
+                case "RUNNING": counts.running++; break;
+                case "CODING_COMPLETED": counts.codingCompleted++; break;
+                case "COMPLETED": counts.completed++; break;
+                case "FAILED": counts.failed++; break;
+            }
+            switch (task.merge_indicator) {
+                case "CI": counts.ci++; break;
+                case "AUTOMERGE": counts.automerge++; break;
+                case "MERGE_BLOCKED": counts.mergeBlocked++; break;
+                case "MERGE_CONFLICT": counts.mergeConflicts++; break;
+                case "MERGED": counts.merged++; break;
+            }
+            if (task.is_merged && task.merge_indicator !== "MERGED") counts.merged++;
+        }
+        return { total: visibleTasksWithLiveActivities.length, ...counts };
     }, [hasSprintContext, visibleTasksWithLiveActivities]);
 
     const { sprintTiming, taskTimings, taskTimingMap } = useLiveTaskTimingSummaries({
