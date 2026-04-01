@@ -112,8 +112,8 @@ export const DockerStatusMenu: FunctionComponent = () => {
 
                     <div className="max-h-[320px] overflow-y-auto overscroll-contain">
                         {loading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <span className="text-xs font-medium text-slate-400">Loading containers...</span>
+                            <div className="flex items-center justify-center py-8" aria-busy={loading}>
+                                <span className="text-xs font-medium text-slate-400" role="status" aria-live="polite">Loading containers...</span>
                             </div>
                         ) : containers.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
