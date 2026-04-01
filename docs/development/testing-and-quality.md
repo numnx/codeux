@@ -18,10 +18,17 @@ npm test
 npm run test:coverage
 ```
 
-- Run full CI verification suite (lint, typecheck, build, test, and coverage)
+- Run the local fast CI mirror (strict TS validation plus tests)
 ```bash
 npm run ci
 ```
+
+GitHub Actions optimization notes:
+- the hosted CI workflow is broader than the local `npm run ci` script: it also runs coverage, build, and audit gates
+- the hosted CI workflow cancels superseded runs for the same branch or PR
+- lint/typecheck, coverage-backed test execution, build, and audit run in parallel jobs
+- CI avoids a second plain `vitest` pass because `npm run test:coverage` already executes the full suite while enforcing thresholds
+- dependency installation uses the cached npm package store with `npm ci --prefer-offline --no-audit`; the security scan still runs in its own audit job
 
 - Build backend and dashboard
 ```bash
