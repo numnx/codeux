@@ -230,6 +230,7 @@ Legacy runtime:
   - same-origin iframe navigation with back, forward, refresh, and editable URL
   - route changes coming from the Browser chrome use the preview bridge and HTML5 history where possible, so SPA previews stop hard-refreshing on every in-app navigation
   - when the active preview is stopped, still starting, or otherwise unavailable, the iframe stays on the preview origin and the server returns a same-origin standby page with `Start Container` / `Rebuild Container` controls instead of exposing raw proxy connection errors
+  - non-critical side-panel data such as startup-script contents and container logs now load after the main browser surface, so the page opens faster and the iframe/session rail render first
   - remove actions on session cards fully delete preview-session entries after stopping any live container
   - rebuild, stop, open-in-tab, startup-script editing, and log viewing
   - sprint previews are proxied through the dashboard instead of embedding raw localhost origins directly

@@ -149,6 +149,7 @@ The dashboard now exposes:
 - the rail ends with a placeholder-style `Launch Container` card that lets the operator choose any sprint from a selector and start a preview container without changing the current sprint scope elsewhere in the dashboard
 - in-app navigation no longer rebinds the iframe `src` for every route change; Browser chrome updates use the preview bridge so client-side routers can transition in place
 - when the selected preview session is stopped, still warming up, or unreachable, the embedded browser continues to point at the preview origin and the server returns a same-origin standby page with `Start Container` / `Rebuild Container` actions until the container becomes reachable again
+- Browser page startup now keeps non-critical side-panel requests off the initial critical path by loading preview-script contents only when the editor opens and deferring the first log fetch until after the primary browser surface has rendered
 - a dedicated `Browser Preview` settings category in the left settings rail for preview enablement, visibility, rebuild policy, Git sync, and container-cap controls
 - project-level `Sprint Browser` settings in the project settings editor for port range, startup script path, and automation overrides
 - per-sprint startup script editing in the browser page itself

@@ -8,6 +8,7 @@ import { BrowserPage } from "../../../dashboard/src/v2/BrowserPage.js";
 import { PreviewSessionSlider } from "../../../dashboard/src/v2/components/browser/PreviewSessionSlider.js";
 import { PreviewWindowChrome } from "../../../dashboard/src/v2/components/browser/PreviewWindowChrome.js";
 import { usePreviewSessions } from "../../../dashboard/src/v2/hooks/use-preview-sessions.js";
+import { fetchPreviewScript } from "../../../dashboard/src/v2/lib/browser-api.js";
 
 expect.extend(matchers);
 
@@ -378,6 +379,7 @@ describe("BrowserPage", () => {
     mockStartPreviewSession.mockClear();
     mockRemovePreviewSession.mockClear();
     mockRefreshSessions.mockClear();
+    vi.mocked(fetchPreviewScript).mockClear();
   });
 
   it("renders correctly with new slider and chrome components", async () => {
@@ -398,6 +400,18 @@ describe("BrowserPage", () => {
     expect(iframe).toBeInTheDocument();
     const selectedSprintLabel = screen.getByText("Selected Sprint");
     expect((iframe?.compareDocumentPosition(selectedSprintLabel) || 0) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("loads the preview script only when the editor is opened", async () => {
+    render(<BrowserPage />);
+
+    expect(vi.mocked(fetchPreviewScript)).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Script" }));
+    });
+
+    expect(vi.mocked(fetchPreviewScript)).toHaveBeenCalledWith("p1", "s1");
   });
 
   it("does not hard-rebind the iframe src on in-app navigation updates", async () => {

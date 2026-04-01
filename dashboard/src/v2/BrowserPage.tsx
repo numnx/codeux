@@ -1,6 +1,5 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import gsap from "gsap";
 import {
   Compass,
   ExternalLink,
@@ -47,7 +46,6 @@ const formatPortMapping = (session: SprintPreviewSession): string => {
 };
 
 export const BrowserPage: FunctionComponent = () => {
-  const shellRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const currentPathRef = useRef("/");
   const { selectedProject } = useProjectData();
@@ -70,12 +68,6 @@ export const BrowserPage: FunctionComponent = () => {
   const [launchSprintId, setLaunchSprintId] = useState("");
   const [frameSrc, setFrameSrc] = useState("");
   const [frameKey, setFrameKey] = useState(0);
-
-  useEffect(() => {
-    if (shellRef.current) {
-      gsap.fromTo(shellRef.current, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" });
-    }
-  }, []);
 
   const { sessions, selectedSession, loading, error: fetchError, refresh: refreshSessions } = usePreviewSessions({
     projectId: selectedProject?.id || null,
@@ -149,24 +141,58 @@ export const BrowserPage: FunctionComponent = () => {
       setScriptDraft("");
       return;
     }
+    if (!showScriptEditor) {
+      return;
+    }
+    if (script?.projectId === selectedProject.id && script.sprintId === scriptTargetSprint.id) {
+      if (!scriptDraft) {
+        setScriptDraft(script.content);
+      }
+      return;
+    }
+    let cancelled = false;
     void fetchPreviewScript(selectedProject.id, scriptTargetSprint.id)
       .then((data) => {
+        if (cancelled) {
+          return;
+        }
         setScript(data);
         setScriptDraft(data.content);
       })
       .catch((fetchError) => {
+        if (cancelled) {
+          return;
+        }
         setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
       });
-  }, [selectedProject?.id, scriptTargetSprint?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [script?.content, script?.projectId, script?.sprintId, scriptDraft, selectedProject?.id, scriptTargetSprint?.id, showScriptEditor]);
 
   useEffect(() => {
     if (!visibleSelectedSession) {
       setLogs("");
       return;
     }
-    void fetchPreviewLogs(visibleSelectedSession.id, 160)
-      .then((result) => setLogs(result.logs))
-      .catch(() => setLogs(""));
+    let cancelled = false;
+    const deferredFetch = window.setTimeout(() => {
+      void fetchPreviewLogs(visibleSelectedSession.id, 160)
+        .then((result) => {
+          if (!cancelled) {
+            setLogs(result.logs);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLogs("");
+          }
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(deferredFetch);
+    };
   }, [visibleSelectedSession?.id]);
 
   useEffect(() => {
@@ -334,7 +360,7 @@ export const BrowserPage: FunctionComponent = () => {
   }
 
   return (
-    <div ref={shellRef} className="min-h-full px-6 py-6 md:px-8">
+    <div className="min-h-full px-6 py-6 md:px-8">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-signal-500">
@@ -452,7 +478,9 @@ export const BrowserPage: FunctionComponent = () => {
               )}
               <div className="rounded-2xl border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
                 <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Script path</div>
-                <div className="mt-1 break-all font-mono text-[12px] text-slate-700 dark:text-slate-300">{script?.path || "Loading..."}</div>
+                <div className="mt-1 break-all font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                  {script?.path || visibleSelectedSession?.startupScriptPath || "Open editor to load script"}
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
