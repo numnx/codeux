@@ -477,35 +477,43 @@ export const MemoryPage: FunctionComponent = () => {
     useEffect(() => { loadData(); }, [loadData]);
 
     /* ── Polling for model download progress ───────────────────────────── */
+    const isDownloadingRef = useRef(false);
     useEffect(() => {
-        const hasDownloading = models.some(m => m.downloading);
-        if (!hasDownloading) return;
+        isDownloadingRef.current = models.some(m => m.downloading);
+    }, [models]);
+
+    useEffect(() => {
         const interval = setInterval(async () => {
+            if (!isDownloadingRef.current) return;
             try {
                 const updated = await listEmbeddingModels();
                 setModels(updated);
-                if (!updated.some(m => m.downloading)) clearInterval(interval);
             } catch { /* ignore */ }
         }, 2000);
         return () => clearInterval(interval);
-    }, [models]);
+    }, []);
 
     /* ── Polling for re-embed progress ────────────────────────────────── */
+    const reembedStateRef = useRef({ active: reembed?.active, pid, loadData });
     useEffect(() => {
-        if (!reembed?.active || !pid) return;
+        reembedStateRef.current = { active: reembed?.active, pid, loadData };
+    }, [reembed?.active, pid, loadData]);
+
+    useEffect(() => {
         const interval = setInterval(async () => {
+            const state = reembedStateRef.current;
+            if (!state.active || !state.pid) return;
             try {
-                const progress = await getReembedProgress(pid);
+                const progress = await getReembedProgress(state.pid);
                 setReembed(progress);
                 if (!progress.active) {
-                    clearInterval(interval);
                     // Refresh everything: stats, embedding map, and nodes
-                    loadData();
+                    state.loadData();
                 }
             } catch { /* ignore */ }
         }, 1000);
         return () => clearInterval(interval);
-    }, [reembed?.active, pid, loadData]);
+    }, []);
 
     /* ── Canvas setup & render loop ───────────────────────────────────── */
     useLayoutEffect(() => {
