@@ -25,14 +25,14 @@ export const DashboardV2: FunctionComponent = () => {
     }, []);
 
     return (
-        <main ref={mainContentRef} className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-24">
+        <main ref={mainContentRef} className="max-w-[2400px] mx-auto px-6 md:px-12 py-12 md:py-24 flex flex-col gap-12 md:gap-24">
             {/* Page Header */}
-            <header className="flex flex-col md:flex-row items-start md:items-end justify-between w-full gap-6">
+            <header className="flex flex-col md:flex-row items-start md:items-end justify-between w-full gap-6 px-2">
                 <div>
-                    <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-slate-900 dark:text-white mb-4 font-display leading-[0.95]">
+                    <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 dark:text-white mb-4 font-display leading-[0.95]">
                         Overview.
                     </h2>
-                    <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl leading-relaxed">
+                    <p className="text-base md:text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl leading-relaxed">
                         Real-time metrics and operational intelligence across your cluster.
                     </p>
                 </div>
@@ -60,9 +60,9 @@ export const DashboardV2: FunctionComponent = () => {
             </div>
 
             {/* Main Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-20 flex-grow relative z-20">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 md:gap-20 flex-grow relative z-20">
                 {/* Sources and Tasks */}
-                <div className="xl:col-span-8 flex flex-col gap-24">
+                <div className="xl:col-span-8 flex flex-col gap-12 md:gap-24">
                     <section aria-label="Sources" className="w-full relative">
                         {/* Subtle signal glow — very restrained */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-signal-500/3 dark:bg-signal-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />

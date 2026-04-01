@@ -471,9 +471,9 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
 
           <div
             ref={scrollRef}
-            className="dag-scroll-shell h-[38rem] overflow-auto rounded-[1.35rem] border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(249,248,244,0.56))] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(24,20,17,0.88),rgba(8,6,5,0.76))] md:h-[46rem]"
+            className="dag-scroll-shell h-[38rem] overflow-auto rounded-[1.35rem] border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(249,248,244,0.56))] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(24,20,17,0.88),rgba(8,6,5,0.76))] md:h-[46rem] dashboard-scrollbar"
           >
-            <div className="relative" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
+            <div className="relative min-w-[1000px]" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
               <svg
                 className="absolute inset-0"
                 width={canvasWidth}
