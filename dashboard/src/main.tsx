@@ -14,6 +14,7 @@ import { ProjectDataProvider } from "./v2/context/project-data.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
+import { Sidebar } from "./v2/components/Sidebar.js";
 import { DeepOceanBackground } from "./v2/components/chat/DeepOceanBackground.js";
 import "./styles.css";
 
@@ -43,6 +44,7 @@ const rootRoute = createRootRoute({
     }, [isDark]);
 
     const toggleTheme = () => setIsDark(!isDark);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
       <ProjectDataProvider>
@@ -52,14 +54,18 @@ const rootRoute = createRootRoute({
           </a>
           <DeepOceanBackground />
 
-          <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
-            <TopNav isDark={isDark} toggleTheme={toggleTheme} />
+          <div className="flex-1 flex flex-row h-full relative z-10 overflow-hidden">
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            
+            <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+              <TopNav isDark={isDark} toggleTheme={toggleTheme} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-            <main id="main-content" tabIndex={-1} aria-label="Main content" className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
-              <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
-                <Outlet />
-              </Suspense>
-            </main>
+              <main id="main-content" tabIndex={-1} aria-label="Main content" className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
+                <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
+                  <Outlet />
+                </Suspense>
+              </main>
+            </div>
           </div>
 
           <KineticDock />

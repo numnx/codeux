@@ -944,179 +944,180 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
 
     return (
         <div className="relative boat-race-bleed">
-            <div className="relative overflow-hidden">
-
-                {/* ── Title bar ──────────────────────────────────────── */}
-                <div className="relative z-20 flex items-center justify-between px-8 pt-5 pb-1">
-                    <div className="flex items-center gap-3">
-                        <div className="relative w-2.5 h-2.5">
-                            <div className="absolute inset-0 rounded-full bg-signal-500 shadow-[0_0_10px_rgba(0,224,160,0.6)]" />
-                            <div className="absolute inset-0 rounded-full bg-signal-500 animate-ping opacity-30" />
+            <div className="overflow-x-auto overflow-y-hidden pb-4 dashboard-scrollbar">
+                <div className="min-w-[1000px] relative">
+                    {/* ── Title bar ──────────────────────────────────────── */}
+                    <div className="relative z-20 flex items-center justify-between px-8 pt-5 pb-1">
+                        <div className="flex items-center gap-3">
+                            <div className="relative w-2.5 h-2.5">
+                                <div className="absolute inset-0 rounded-full bg-signal-500 shadow-[0_0_10px_rgba(0,224,160,0.6)]" />
+                                <div className="absolute inset-0 rounded-full bg-signal-500 animate-ping opacity-30" />
+                            </div>
+                            <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-600 dark:text-slate-400">Sprint Race</span>
+                            <span className="text-[8px] font-mono text-slate-500 dark:text-slate-400 ml-1">
+                                {activeShips.length + harbourCount} vessel{(activeShips.length + harbourCount) !== 1 ? "s" : ""}
+                            </span>
                         </div>
-                        <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-600 dark:text-slate-400">Sprint Race</span>
-                        <span className="text-[8px] font-mono text-slate-500 dark:text-slate-400 ml-1">
-                            {activeShips.length + harbourCount} vessel{(activeShips.length + harbourCount) !== 1 ? "s" : ""}
-                        </span>
+                        <div className="flex items-center gap-5 text-[7px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5">
+                                <span className="inline-block w-2.5 h-1.5 rounded-[1px] bg-gradient-to-r from-[#E74C3C]/60 to-[#3498DB]/60" />
+                                Container
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="inline-block w-2.5 h-2.5 rounded-sm border border-[#7A5518]/50 bg-[#5C3D0E]/30" />
+                                Wooden
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-5 text-[7px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-2.5 h-1.5 rounded-[1px] bg-gradient-to-r from-[#E74C3C]/60 to-[#3498DB]/60" />
-                            Container
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-2.5 h-2.5 rounded-sm border border-[#7A5518]/50 bg-[#5C3D0E]/30" />
-                            Wooden
-                        </span>
-                    </div>
-                </div>
 
-                <svg
-                    ref={svgRef}
-                    viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-                    className="w-full"
-                    style={{ height: `${raceHeightPx}px` }}
-                    preserveAspectRatio="xMidYMid meet"
-                    onMouseMove={handleMouseMove as any}
-                >
-                    <defs>
-                        {/* Wake */}
-                        <linearGradient id="br-wake" x1="1" y1="0.5" x2="0" y2="0.5">
-                            <stop offset="0%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0.14} />
-                            <stop offset="50%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0.04} />
-                            <stop offset="100%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0} />
-                        </linearGradient>
-                        {/* Harbour glow */}
-                        <radialGradient id="br-harbour-glow" cx="0.5" cy="0.5" r="0.5">
-                            <stop offset="0%" stopColor="#FFB800" stopOpacity={isDark ? 0.06 : 0.04} />
-                            <stop offset="100%" stopColor="transparent" />
-                        </radialGradient>
-                        {/* Finish glow */}
-                        <radialGradient id="br-finish-glow" cx="0.5" cy="0.5" r="0.5">
-                            <stop offset="0%" stopColor="#00E0A0" stopOpacity={isDark ? 0.08 : 0.05} />
-                            <stop offset="100%" stopColor="transparent" />
-                        </radialGradient>
-                        {/* Glow filters */}
-                        <filter id="br-glow"><feGaussianBlur stdDeviation="2.5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                        <filter id="br-glow2"><feGaussianBlur stdDeviation="6" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                        {/* Ripple filter */}
-                        <filter id="br-ripple">
-                            <feGaussianBlur stdDeviation="1.5" />
-                        </filter>
-                    </defs>
+                    <svg
+                        ref={svgRef}
+                        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+                        className="w-full"
+                        style={{ height: `${raceHeightPx}px` }}
+                        preserveAspectRatio="xMidYMid meet"
+                        onMouseMove={handleMouseMove as any}
+                    >
+                        <defs>
+                            {/* Wake */}
+                            <linearGradient id="br-wake" x1="1" y1="0.5" x2="0" y2="0.5">
+                                <stop offset="0%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0.14} />
+                                <stop offset="50%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0.04} />
+                                <stop offset="100%" stopColor={isDark ? "white" : "#334155"} stopOpacity={0} />
+                            </linearGradient>
+                            {/* Harbour glow */}
+                            <radialGradient id="br-harbour-glow" cx="0.5" cy="0.5" r="0.5">
+                                <stop offset="0%" stopColor="#FFB800" stopOpacity={isDark ? 0.06 : 0.04} />
+                                <stop offset="100%" stopColor="transparent" />
+                            </radialGradient>
+                            {/* Finish glow */}
+                            <radialGradient id="br-finish-glow" cx="0.5" cy="0.5" r="0.5">
+                                <stop offset="0%" stopColor="#00E0A0" stopOpacity={isDark ? 0.08 : 0.05} />
+                                <stop offset="100%" stopColor="transparent" />
+                            </radialGradient>
+                            {/* Glow filters */}
+                            <filter id="br-glow"><feGaussianBlur stdDeviation="2.5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                            <filter id="br-glow2"><feGaussianBlur stdDeviation="6" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                            {/* Ripple filter */}
+                            <filter id="br-ripple">
+                                <feGaussianBlur stdDeviation="1.5" />
+                            </filter>
+                        </defs>
 
-                    {/* ── Celestial body (moon/sun) ─────────────────────── */}
-                    <CelestialBody isDark={isDark} />
+                        {/* ── Celestial body (moon/sun) ─────────────────────── */}
+                        <CelestialBody isDark={isDark} />
 
-                    {/* ── Subtle wave lines ─────────────────────────────── */}
-                    <SubtleWaves isDark={isDark} />
+                        {/* ── Subtle wave lines ─────────────────────────────── */}
+                        <SubtleWaves isDark={isDark} />
 
-                    {/* ── Mouse ripple effects ──────────────────────────── */}
-                    {ripples.map(r => (
-                        <g key={r.id}>
-                            <circle cx={r.x} cy={r.y} r={2} fill="none"
-                                stroke={isDark ? "white" : "#334155"} strokeWidth={0.5} opacity={0}>
-                                <animate attributeName="r" values="2;40" dur="2s" fill="freeze" />
-                                <animate attributeName="opacity" values="0.12;0" dur="2s" fill="freeze" />
-                            </circle>
-                            <circle cx={r.x} cy={r.y} r={2} fill="none"
-                                stroke={isDark ? "white" : "#334155"} strokeWidth={0.3} opacity={0}>
-                                <animate attributeName="r" values="2;25" dur="1.5s" fill="freeze" />
-                                <animate attributeName="opacity" values="0.08;0" dur="1.5s" fill="freeze" />
-                            </circle>
-                        </g>
-                    ))}
+                        {/* ── Mouse ripple effects ──────────────────────────── */}
+                        {ripples.map(r => (
+                            <g key={r.id}>
+                                <circle cx={r.x} cy={r.y} r={2} fill="none"
+                                    stroke={isDark ? "white" : "#334155"} strokeWidth={0.5} opacity={0}>
+                                    <animate attributeName="r" values="2;40" dur="2s" fill="freeze" />
+                                    <animate attributeName="opacity" values="0.12;0" dur="2s" fill="freeze" />
+                                </circle>
+                                <circle cx={r.x} cy={r.y} r={2} fill="none"
+                                    stroke={isDark ? "white" : "#334155"} strokeWidth={0.3} opacity={0}>
+                                    <animate attributeName="r" values="2;25" dur="1.5s" fill="freeze" />
+                                    <animate attributeName="opacity" values="0.08;0" dur="1.5s" fill="freeze" />
+                                </circle>
+                            </g>
+                        ))}
 
-                    {/* ── Harbour Building ──────────────────────────────── */}
-                    <HarbourBuilding x={HARBOUR_X - 40} waitingCount={harbourCount} isDark={isDark} />
+                        {/* ── Harbour Building ──────────────────────────────── */}
+                        <HarbourBuilding x={HARBOUR_X - 40} waitingCount={harbourCount} isDark={isDark} />
 
-                    {/* ── Checkpoint Buoys ──────────────────────────────── */}
-                    {buoys.map(b => (
-                        <CheckpointBuoy key={b.label}
-                            x={HARBOUR_X + 20 + b.progress * RACE_LEN}
-                            label={b.label}
-                            color={b.color}
-                            isDark={isDark}
-                        />
-                    ))}
+                        {/* ── Checkpoint Buoys ──────────────────────────────── */}
+                        {buoys.map(b => (
+                            <CheckpointBuoy key={b.label}
+                                x={HARBOUR_X + 20 + b.progress * RACE_LEN}
+                                label={b.label}
+                                color={b.color}
+                                isDark={isDark}
+                            />
+                        ))}
 
-                    {/* ── Finish Line ───────────────────────────────────── */}
-                    <FinishLine x={FINISH_X} isDark={isDark} />
+                        {/* ── Finish Line ───────────────────────────────────── */}
+                        <FinishLine x={FINISH_X} isDark={isDark} />
 
-                    {/* ── Lane guides ───────────────────────────────────── */}
-                    {activeShips.map(s => (
-                        <line key={`ln-${s.key}`}
-                            x1={HARBOUR_X + 40} y1={s.laneY + 16} x2={FINISH_X - 20} y2={s.laneY + 16}
-                            stroke={isDark ? "white" : "black"} strokeWidth={0.2} strokeDasharray="2,24" opacity={0.025} />
-                    ))}
+                        {/* ── Lane guides ───────────────────────────────────── */}
+                        {activeShips.map(s => (
+                            <line key={`ln-${s.key}`}
+                                x1={HARBOUR_X + 40} y1={s.laneY + 16} x2={FINISH_X - 20} y2={s.laneY + 16}
+                                stroke={isDark ? "white" : "black"} strokeWidth={0.2} strokeDasharray="2,24" opacity={0.025} />
+                        ))}
 
-                    {/* ── Ships ─────────────────────────────────────────── */}
-                    <g ref={shipsGroupRef}>
-                        {activeShips.map(s => {
-                            const isRunning = s.task.status === "RUNNING";
-                            const isMoving = !s.progress.stopped;
-                            const isFailed = s.task.status === "FAILED";
-                            return (
-                                <g key={s.key} className="race-ship">
-                                    {/* Wake trail */}
-                                    <ellipse cx={-45} cy={14} rx={isMoving ? 60 : 25} ry={isMoving ? 4.5 : 2}
-                                        fill="url(#br-wake)" opacity={isMoving ? 0.3 : 0.06}>
-                                        {isMoving && (
-                                            <animate attributeName="rx" values="55;70;55" dur="3s" repeatCount="indefinite" />
+                        {/* ── Ships ─────────────────────────────────────────── */}
+                        <g ref={shipsGroupRef}>
+                            {activeShips.map(s => {
+                                const isRunning = s.task.status === "RUNNING";
+                                const isMoving = !s.progress.stopped;
+                                const isFailed = s.task.status === "FAILED";
+                                return (
+                                    <g key={s.key} className="race-ship">
+                                        {/* Wake trail */}
+                                        <ellipse cx={-45} cy={14} rx={isMoving ? 60 : 25} ry={isMoving ? 4.5 : 2}
+                                            fill="url(#br-wake)" opacity={isMoving ? 0.3 : 0.06}>
+                                            {isMoving && (
+                                                <animate attributeName="rx" values="55;70;55" dur="3s" repeatCount="indefinite" />
+                                            )}
+                                        </ellipse>
+                                        {isRunning && (
+                                            <>
+                                                {/* Secondary wake */}
+                                                <ellipse cx={-65} cy={16} rx={30} ry={2.5} fill={isDark ? "white" : "#334155"} opacity={0.04}>
+                                                    <animate attributeName="rx" values="24;36;24" dur="4s" repeatCount="indefinite" />
+                                                </ellipse>
+                                                {/* Bow spray */}
+                                                {[0, 1, 2, 3, 4].map(j => (
+                                                    <circle key={j} cx={38 + j * 2} cy={j * 2.5} r={0.7 + j * 0.15} fill={isDark ? "white" : "#475569"} opacity={0}>
+                                                        <animate attributeName="cy" values={`${j * 2.5};${-6 - j * 3};${j * 2.5}`} dur={`${0.5 + j * 0.12}s`} repeatCount="indefinite" begin={`${j * 0.1}s`} />
+                                                        <animate attributeName="opacity" values="0.25;0;0.25" dur={`${0.5 + j * 0.12}s`} repeatCount="indefinite" begin={`${j * 0.1}s`} />
+                                                    </circle>
+                                                ))}
+                                            </>
                                         )}
-                                    </ellipse>
-                                    {isRunning && (
-                                        <>
-                                            {/* Secondary wake */}
-                                            <ellipse cx={-65} cy={16} rx={30} ry={2.5} fill={isDark ? "white" : "#334155"} opacity={0.04}>
-                                                <animate attributeName="rx" values="24;36;24" dur="4s" repeatCount="indefinite" />
-                                            </ellipse>
-                                            {/* Bow spray */}
-                                            {[0, 1, 2, 3, 4].map(j => (
-                                                <circle key={j} cx={38 + j * 2} cy={j * 2.5} r={0.7 + j * 0.15} fill={isDark ? "white" : "#475569"} opacity={0}>
-                                                    <animate attributeName="cy" values={`${j * 2.5};${-6 - j * 3};${j * 2.5}`} dur={`${0.5 + j * 0.12}s`} repeatCount="indefinite" begin={`${j * 0.1}s`} />
-                                                    <animate attributeName="opacity" values="0.25;0;0.25" dur={`${0.5 + j * 0.12}s`} repeatCount="indefinite" begin={`${j * 0.1}s`} />
-                                                </circle>
-                                            ))}
-                                        </>
-                                    )}
 
-                                    {/* Hull water glow */}
-                                    <ellipse cx={0} cy={24} rx={isMoving ? 48 : 34} ry={isMoving ? 10 : 6}
-                                        fill={s.style.color} opacity={isMoving ? 0.08 : 0.03} filter="url(#br-glow2)" />
+                                        {/* Hull water glow */}
+                                        <ellipse cx={0} cy={24} rx={isMoving ? 48 : 34} ry={isMoving ? 10 : 6}
+                                            fill={s.style.color} opacity={isMoving ? 0.08 : 0.03} filter="url(#br-glow2)" />
 
-                                    {/* Failed X */}
-                                    {isFailed && (
-                                        <g opacity={0.3}>
-                                            <line x1={-16} y1={-16} x2={16} y2={16} stroke="#E3000F" strokeWidth={3} />
-                                            <line x1={16} y1={-16} x2={-16} y2={16} stroke="#E3000F" strokeWidth={3} />
-                                        </g>
-                                    )}
+                                        {/* Failed X */}
+                                        {isFailed && (
+                                            <g opacity={0.3}>
+                                                <line x1={-16} y1={-16} x2={16} y2={16} stroke="#E3000F" strokeWidth={3} />
+                                                <line x1={16} y1={-16} x2={-16} y2={16} stroke="#E3000F" strokeWidth={3} />
+                                            </g>
+                                        )}
 
-                                    {/* Ship */}
-                                    {s.shipType === "container"
-                                        ? <ContainerShip accentColor={s.style.color} dim={s.style.dim} isMoving={isMoving} isDark={isDark} />
-                                        : <WoodenShip accentColor={s.style.color} dim={s.style.dim} isMoving={isMoving} isDark={isDark} />
-                                    }
+                                        {/* Ship */}
+                                        {s.shipType === "container"
+                                            ? <ContainerShip accentColor={s.style.color} dim={s.style.dim} isMoving={isMoving} isDark={isDark} />
+                                            : <WoodenShip accentColor={s.style.color} dim={s.style.dim} isMoving={isMoving} isDark={isDark} />
+                                        }
 
-                                    {/* Tow line + trailing badge */}
-                                    <g transform="translate(-44, 4)">
-                                        <TowLine color={s.style.color} length={TOW_LINE_LENGTH} />
-                                        <g transform={`translate(${-BADGE_OFFSET + 44}, 0)`}>
-                                            <ShipBadge
-                                                taskId={s.task.id}
-                                                title={s.task.title}
-                                                style={s.style}
-                                                mergeIndicator={s.task.merge_indicator}
-                                                isRunning={isRunning}
-                                                isDark={isDark}
-                                            />
+                                        {/* Tow line + trailing badge */}
+                                        <g transform="translate(-44, 4)">
+                                            <TowLine color={s.style.color} length={TOW_LINE_LENGTH} />
+                                            <g transform={`translate(${-BADGE_OFFSET + 44}, 0)`}>
+                                                <ShipBadge
+                                                    taskId={s.task.id}
+                                                    title={s.task.title}
+                                                    style={s.style}
+                                                    mergeIndicator={s.task.merge_indicator}
+                                                    isRunning={isRunning}
+                                                    isDark={isDark}
+                                                />
+                                            </g>
                                         </g>
                                     </g>
-                                </g>
-                            );
-                        })}
-                    </g>
-                </svg>
+                                );
+                            })}
+                        </g>
+                    </svg>
+                </div>
             </div>
         </div>
     );
