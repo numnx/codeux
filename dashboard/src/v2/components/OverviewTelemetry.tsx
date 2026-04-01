@@ -55,7 +55,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
         Telemetry.
       </h3>
 
-      <div className="relative flex-1 overflow-hidden rounded-[2rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/65 dark:bg-void-800/60 backdrop-blur-2xl p-7">
+      <div className="relative flex-1 overflow-hidden rounded-[2rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/65 dark:bg-void-800/60 backdrop-blur-2xl p-7" aria-busy={isLoading}>
         {isLoading ? (
           <div className="flex flex-col gap-6">
             <SkeletonPanel />
@@ -99,7 +99,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
                   <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.1} />
                   Human Intervention Needed
                 </div>
-                <div className="mt-3 space-y-3">
+                <div className="mt-3 space-y-3" aria-live="polite">
                   {telemetry.attentionProjects.slice(0, 3).map((project) => (
                     <div key={project.sprintRunId} className="rounded-2xl border border-status-amber/15 bg-white/75 p-4 dark:bg-void-800/55">
                       <div className="flex items-start justify-between gap-3">
@@ -152,7 +152,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
 
             <div className="flex-1 min-h-0">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-3">Runtime Timeline</div>
-              <div className="h-full overflow-y-auto dashboard-scrollbar pr-1 space-y-2">
+              <div className="h-full overflow-y-auto dashboard-scrollbar pr-1 space-y-2" aria-live="polite">
                 {telemetry.recentEvents.map((event) => {
                   const style = getEventStyle(event);
                   return (
