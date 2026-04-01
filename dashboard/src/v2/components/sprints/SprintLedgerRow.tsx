@@ -98,7 +98,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             sprint.showcasePinned
               ? "border-status-red/20 bg-status-red/10 text-status-red"
               : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
-          } disabled:cursor-not-allowed disabled:opacity-50`}
+          } disabled:cursor-not-allowed disabled:opacity-70`}
         >
           <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
         </button>
@@ -169,7 +169,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
               activeRun
                 ? "border-status-red/20 bg-status-red/[0.1] text-status-red hover:bg-status-red/[0.14]"
                 : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
-            } disabled:cursor-not-allowed disabled:opacity-50`}
+            } disabled:cursor-not-allowed disabled:opacity-70`}
           >
             {activeRun ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
             {activeRun ? "Stop" : "Start"}

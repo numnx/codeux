@@ -62,7 +62,7 @@ export const PillChoiceGroup: FunctionComponent<{
           type="button"
           disabled={disabled}
           onClick={() => onChange(option.value)}
-          className={`min-w-[104px] rounded-[1rem] border px-3.5 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`min-w-[104px] rounded-[1rem] border px-3.5 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
             active
               ? "border-signal-500/30 bg-signal-500/[0.11] text-signal-700 shadow-[0_10px_20px_rgba(0,224,160,0.08)] dark:border-signal-400/30 dark:bg-signal-400/[0.12] dark:text-signal-200"
               : "border-black/[0.07] bg-white/78 text-slate-600 hover:-translate-y-px hover:border-black/[0.12] hover:text-slate-800 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/[0.12] dark:hover:text-white"
