@@ -120,7 +120,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <div className="text-lg font-black text-white font-mono tracking-tight leading-snug">
                             {sourceType === 'git' ? 'Git Repo' : 'Local Path'}
                         </div>
-                        <div className="mt-3 w-8 h-[2px] bg-ember-500/50" />
+                        <div className="mt-3 w-11 h-[2px] bg-ember-500/50" />
                     </div>
                 </div>
 
@@ -139,7 +139,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <button
                             onClick={handleClose}
                             aria-label="Close"
-                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+                            className="w-11 h-11 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
                         >
                             <X className="w-4 h-4" />
                         </button>

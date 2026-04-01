@@ -142,7 +142,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                   href={origin}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
                   title="Open isolated preview in a new tab"
                   onClick={(e) => e.stopPropagation()}
                 >

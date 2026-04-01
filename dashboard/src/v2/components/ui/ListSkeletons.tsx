@@ -8,7 +8,7 @@ export const SkeletonRow: FunctionComponent = () => (
     <div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-700/50" />
     <div className="h-4 w-1/4 rounded bg-slate-200 dark:bg-slate-700/50" />
     <div className="ml-auto h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-700/50" />
-    <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700/50" />
+    <div className="h-11 w-11 rounded-full bg-slate-200 dark:bg-slate-700/50" />
   </div>
 );
 

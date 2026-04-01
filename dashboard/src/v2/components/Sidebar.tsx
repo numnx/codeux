@@ -72,7 +72,7 @@ export const Sidebar: FunctionComponent = () => {
 
             {/* Logo */}
             <a href="/" className="px-7 mb-10 flex items-center gap-3 group cursor-pointer relative z-10 w-fit">
-                <div aria-hidden="true" className="w-9 h-9 rounded-2xl bg-void-900 dark:bg-[#F9F8F4] p-[1px] shadow-[0_0_16px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_24px_rgba(0,224,160,0.35)] transition-shadow duration-500">
+                <div aria-hidden="true" className="w-11 h-11 rounded-2xl bg-void-900 dark:bg-[#F9F8F4] p-[1px] shadow-[0_0_16px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_24px_rgba(0,224,160,0.35)] transition-shadow duration-500">
                     <div className="w-full h-full bg-[#F9F8F4] dark:bg-void-900 rounded-[14px] flex items-center justify-center">
                         <div className="w-4 h-4 rounded-full bg-void-900 dark:bg-[#F9F8F4] relative">
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-signal-500 group-hover:scale-[2] transition-transform duration-500 ease-out shadow-[0_0_6px_rgba(0,224,160,0.8)]" />
@@ -94,7 +94,7 @@ export const Sidebar: FunctionComponent = () => {
                             key={item.label}
                             onMouseEnter={() => setActiveIndex(idx)}
                             aria-current={isActive ? "page" : undefined}
-                            className="relative flex items-center gap-3.5 px-5 py-3 rounded-2xl transition-colors duration-200 w-full text-left group overflow-hidden mb-0.5 focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10"
+                            className="relative flex items-center gap-3.5 px-5 py-3 min-h-[44px] rounded-2xl transition-colors duration-200 w-full text-left group overflow-hidden mb-0.5 focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10"
                         >
                             <div className={`absolute inset-0 rounded-2xl transition-opacity duration-300 pointer-events-none ${isActive ? 'bg-signal-500/8 dark:bg-signal-500/10 opacity-100' : 'bg-transparent opacity-0 group-hover:bg-black/[0.03] dark:group-hover:bg-white/[0.03] group-hover:opacity-100'}`} />
                             <div className={`absolute inset-0 rounded-2xl pointer-events-none transition-all duration-300 ${isActive ? 'shadow-[inset_0_0_0_1px_rgba(0,224,160,0.12)] dark:shadow-[inset_0_0_0_1px_rgba(0,224,160,0.1)]' : 'shadow-none'}`} />
@@ -111,7 +111,7 @@ export const Sidebar: FunctionComponent = () => {
 
             {/* Settings */}
             <div className="px-4 relative z-10">
-                <button aria-label="Settings" className="relative w-full flex items-center gap-3.5 px-5 py-3 rounded-2xl transition-colors duration-200 text-left group overflow-hidden focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10">
+                <button aria-label="Settings" className="relative w-full flex items-center gap-3.5 px-5 py-3 min-h-[44px] rounded-2xl transition-colors duration-200 text-left group overflow-hidden focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10">
                     <div className="absolute inset-0 rounded-2xl bg-transparent group-hover:bg-black/[0.03] dark:group-hover:bg-white/[0.03] transition-opacity duration-300 pointer-events-none opacity-0 group-hover:opacity-100" />
                     <Settings aria-hidden="true" className="relative z-10 w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 group-hover:rotate-90 transition-all duration-700 ease-in-out" strokeWidth={1.5} />
                     <span className="relative z-10 font-medium text-sm tracking-wide text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">Settings</span>

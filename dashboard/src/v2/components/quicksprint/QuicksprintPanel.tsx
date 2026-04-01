@@ -368,7 +368,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-ember-500 border-t-transparent" />
+                <div className="h-11 w-11 animate-spin rounded-full border-2 border-ember-500 border-t-transparent" />
               </div>
             ) : (
               <>
@@ -427,7 +427,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               <div data-qs-stagger className="flex items-center gap-3">
                 <button
                   onClick={() => setPhase("browse")}
-                  className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+                  className="inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -564,7 +564,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             <div data-qs-stagger className="flex items-center gap-3">
               <button
                 onClick={() => setPhase("browse")}
-                className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -718,7 +718,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                         key={color}
                         type="button"
                         onClick={() => { setEdCategoryColor(color); setShowColorPicker(false); }}
-                        className="group flex min-h-[44px] min-w-[44px] h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-125 active:scale-95"
+                        className="group flex min-h-[44px] min-w-[44px] h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-125 active:scale-95"
                       >
                         <span
                           className="block rounded-full transition-all duration-200"

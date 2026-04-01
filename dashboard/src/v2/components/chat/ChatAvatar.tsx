@@ -72,7 +72,7 @@ export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({ role, provider,
 
   return (
     <div
-      class={`flex-shrink-0 w-8 h-8 rounded-md border flex items-center justify-center overflow-hidden ${getContainerStyles()}`}
+      class={`flex-shrink-0 w-11 h-11 rounded-md border flex items-center justify-center overflow-hidden ${getContainerStyles()}`}
       role="img"
       aria-label={getLabel()}
       title={getLabel()}

@@ -30,7 +30,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({ m
   return (
     <div className={`flex ${fromDashboard ? "justify-end" : "justify-start"}`}>
       <div className={`flex max-w-[760px] items-start gap-3 w-full ${fromDashboard ? "flex-row-reverse" : "flex-row"}`}>
-        <div className="mt-1 shrink-0 w-8 h-8 flex items-center justify-center">
+        <div className="mt-1 shrink-0 w-11 h-11 flex items-center justify-center">
           <ChatAvatar role={role} provider={providerLabel} agentName={senderName} />
         </div>
 

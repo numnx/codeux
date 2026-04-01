@@ -84,7 +84,7 @@ export const SourceCell: FunctionComponent<SourceCellProps> = ({ source, isEven,
                 </div>
 
                 {/* Main icon */}
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:opacity-0 transition-opacity duration-300 mb-2">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:opacity-0 transition-opacity duration-300 mb-2">
                     <FolderGit2 className="w-7 h-7" strokeWidth={1} />
                 </div>
 

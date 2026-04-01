@@ -64,7 +64,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown }: SprintImportMen
             }}
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-signal-500/10 text-signal-600 transition-transform group-hover:scale-110 group-hover:bg-signal-500/20 dark:text-signal-500">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-signal-500/10 text-signal-600 transition-transform group-hover:scale-110 group-hover:bg-signal-500/20 dark:text-signal-500">
               <FileText className="h-4 w-4" strokeWidth={2} />
             </div>
             <div className="flex flex-col">
@@ -81,7 +81,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown }: SprintImportMen
             type="button"
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0052CC]/10 text-[#0052CC] transition-transform group-hover:scale-110 group-hover:bg-[#0052CC]/20 dark:bg-[#4C9AFF]/10 dark:text-[#4C9AFF]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0052CC]/10 text-[#0052CC] transition-transform group-hover:scale-110 group-hover:bg-[#0052CC]/20 dark:bg-[#4C9AFF]/10 dark:text-[#4C9AFF]">
               <Trello className="h-4 w-4" strokeWidth={2} />
             </div>
             <div className="flex flex-1 flex-col">

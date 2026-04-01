@@ -22,7 +22,7 @@ export const WorkingBubble: FunctionComponent<WorkingBubbleProps> = ({ displayNa
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[760px] w-full items-start gap-3">
-        <div className="mt-1 flex shrink-0 w-8 h-8 items-center justify-center">
+        <div className="mt-1 flex shrink-0 w-11 h-11 items-center justify-center">
           <ChatAvatar role={role} provider={data.providerLabel} agentName={displayName || "Assistant"} />
         </div>
         <div className="space-y-2 w-full max-w-[calc(100%-3rem)]">

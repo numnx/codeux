@@ -77,7 +77,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                 {/* Header */}
                 <div className="flex items-center justify-between px-7 pt-6 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-status-amber/10">
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-status-amber/10">
                             <RotateCcw className="w-4 h-4 text-status-amber" strokeWidth={2} />
                         </div>
                         <div>
@@ -90,7 +90,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-slate-400 hover:text-slate-700 dark:bg-white/[0.04] dark:text-slate-500 dark:hover:text-white transition-colors"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/[0.04] text-slate-400 hover:text-slate-700 dark:bg-white/[0.04] dark:text-slate-500 dark:hover:text-white transition-colors"
                     >
                         <X className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>

@@ -51,7 +51,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
   return (
     <div className={`flex ${fromUser || fromTool ? "justify-end" : "justify-start"}`}>
       <div className={`flex max-w-[760px] items-start w-full gap-3 ${fromUser || fromTool ? "flex-row-reverse" : "flex-row"}`}>
-        <div className="mt-1 shrink-0 w-8 h-8 flex items-center justify-center">
+        <div className="mt-1 shrink-0 w-11 h-11 flex items-center justify-center">
           <ChatAvatar role={role} provider={providerLabel} agentName={senderName} />
         </div>
 

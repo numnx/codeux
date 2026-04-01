@@ -68,7 +68,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
       <button
         type="button"
         onClick={onDismiss}
-        className="absolute top-6 right-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white z-10"
+        className="absolute top-6 right-6 inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white z-10"
         aria-label="Dismiss overlay"
       >
         <X className="h-4 w-4" />
