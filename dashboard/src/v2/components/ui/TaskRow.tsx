@@ -39,20 +39,20 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
 
             {/* Status */}
             <div className="col-span-2 flex items-center gap-2 min-w-0">
-                {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-status-green" strokeWidth={2} />}
+                {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-status-green dark:text-status-green" strokeWidth={2} />}
                 {task.status === 'coding_completed' && <CheckCircle2 className="w-4 h-4 text-cyan-700 dark:text-cyan-500" strokeWidth={2} />}
                 {task.status === 'in_progress' && (
                     <div className="relative flex items-center justify-center w-4 h-4">
                         <div className="absolute inset-0 rounded-full bg-signal-500 animate-[spin_3s_linear_infinite] opacity-30 shadow-[0_0_10px_rgba(0,224,160,0.6)] pointer-events-none" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%', clipPath: 'inset(-2px)' }} />
-                        <PlayCircle className="w-4 h-4 text-emerald-700 dark:text-signal-500 relative z-10" strokeWidth={2} />
+                        <PlayCircle className="w-4 h-4 text-signal-600 dark:text-signal-500 relative z-10" strokeWidth={2} />
                     </div>
                 )}
                 {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
 
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                    task.status === 'completed'   ? 'text-emerald-700 dark:text-status-green' :
+                    task.status === 'completed'   ? 'text-status-green dark:text-status-green' :
                     task.status === 'coding_completed' ? 'text-cyan-700 dark:text-cyan-500' :
-                    task.status === 'in_progress' ? 'text-emerald-700 dark:text-signal-500' :
+                    task.status === 'in_progress' ? 'text-signal-600 dark:text-signal-500' :
                     'text-slate-600 dark:text-slate-400'
                 }`}>
                     {task.status.replace('_', ' ')}
