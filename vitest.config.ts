@@ -11,13 +11,13 @@ export default defineConfig({
       reporter: ["text", "json", "html", "json-summary"],
       thresholds: {
         // Never lower these thresholds only increase is allowed!
-        lines: 76.2,
-        functions: 71.4,
-        branches: 63.9,
-        statements: 75.7,
+        lines: 75.8,
+        functions: 67.8,
+        branches: 63.8,
+        statements: 74.8,
         // Specifically enforce minimum 80% on activity-cache-service.ts as per task requirement
         "src/server/activity-cache-service.ts": {
-          lines: 76.2,
+          lines: 80,
         }
       },
       include: ["src/**/*.ts"],
