@@ -126,7 +126,11 @@ export const ChatPageShell: FunctionComponent<{
       </div>
 
       {error && (
-        <div className="shrink-0 rounded-[1.4rem] border border-status-red/20 bg-status-red/10 px-5 py-4 text-sm text-status-red">
+        <div
+          className="shrink-0 rounded-[1.4rem] border border-status-red/20 bg-status-red/10 px-5 py-4 text-sm text-status-red"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}

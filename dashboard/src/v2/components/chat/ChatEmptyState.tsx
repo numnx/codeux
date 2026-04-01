@@ -14,7 +14,12 @@ export const EmptyChat: FunctionComponent<{ message: string }> = ({ message }) =
 );
 
 export const LoadingChat: FunctionComponent<{ label: string }> = ({ label }) => (
-  <div className="flex h-full min-h-0 items-center justify-center rounded-[1.9rem] border border-dashed border-black/[0.06] bg-white/70 p-8 text-center shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+  <div
+    className="flex h-full min-h-0 items-center justify-center rounded-[1.9rem] border border-dashed border-black/[0.06] bg-white/70 p-8 text-center shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+  >
     <div className="space-y-4">
       <div className="mx-auto flex items-center justify-center gap-1.5">
         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500" />
