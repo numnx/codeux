@@ -652,7 +652,11 @@ export const TasksPage: FunctionComponent = () => {
         {columns.map(({ status, count, tasks: columnTasks }) => (
           <div key={status} className="flex flex-col">
             <ColumnHeader status={status} count={count} />
-            <div className="flex-1 flex flex-col gap-4 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03]">
+            <div
+              className="flex-1 flex flex-col gap-4 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03]"
+              aria-live="polite"
+              aria-busy={loading}
+            >
               {loading ? (
                 <>
                   <SkeletonCard />
@@ -660,7 +664,9 @@ export const TasksPage: FunctionComponent = () => {
                   <SkeletonCard />
                 </>
               ) : columnTasks.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-xs font-medium text-slate-300 dark:text-slate-700">No tasks</div>
+                <div className="flex-1 flex items-center justify-center text-xs font-medium text-slate-300 dark:text-slate-700">
+                  No tasks
+                </div>
               ) : (
                 columnTasks.map((task) => (
                   <TaskCard

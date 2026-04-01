@@ -260,7 +260,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
               <th className="px-4 py-3 pr-6 text-right">Controls</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody aria-live="polite" aria-busy={isLoading}>
             {isLoading && windowedSprints.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-black/[0.04] dark:border-white/[0.04]">

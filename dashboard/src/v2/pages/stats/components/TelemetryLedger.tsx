@@ -112,13 +112,14 @@ export const TelemetryLedger: FunctionComponent<{
           </div>
         </div>
 
-        {filteredItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-12 text-center text-sm text-slate-400 dark:border-white/[0.08]">
-            {emptyLabel}
-          </div>
-        ) : (
-          <div ref={scrollContainerRef} className="max-h-[42rem] overflow-y-auto pr-2 dashboard-scrollbar">
-            <div className="space-y-3">
+        <div aria-live="polite">
+          {filteredItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-12 text-center text-sm text-slate-400 dark:border-white/[0.08]">
+              {emptyLabel}
+            </div>
+          ) : (
+            <div ref={scrollContainerRef} className="max-h-[42rem] overflow-y-auto pr-2 dashboard-scrollbar">
+              <div className="space-y-3">
               {visibleItems.map((item, index) => {
 
                 return (
@@ -183,7 +184,8 @@ export const TelemetryLedger: FunctionComponent<{
               ) : null}
             </div>
           </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

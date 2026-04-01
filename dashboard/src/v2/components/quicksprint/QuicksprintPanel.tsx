@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "preact/hooks";
 import type { FunctionComponent } from "preact";
+import { LoadingSpinner } from "../common/LoadingSpinner.js";
 import {
   X, Plus, Trash2, ChevronLeft, Eye, EyeOff,
   Sparkles, ShieldCheck, Accessibility, Zap,
@@ -368,7 +369,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-ember-500 border-t-transparent" />
+                <LoadingSpinner size="lg" color="border-ember-500 border-t-transparent" />
               </div>
             ) : (
               <>

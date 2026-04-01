@@ -411,6 +411,7 @@ export const AgentsPage: FunctionComponent = () => {
         </div>
       )}
 
+      <div aria-live="polite">
       {!selectedProject ? (
         <EmptyState hasProject={false} />
       ) : presets.length === 0 && !loading ? (
@@ -454,6 +455,7 @@ export const AgentsPage: FunctionComponent = () => {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 };

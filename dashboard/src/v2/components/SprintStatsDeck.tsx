@@ -329,29 +329,27 @@ export const SprintStatsDeck: FunctionComponent<{
   const completionRate = tasks.length > 0 ? (stats.completed / tasks.length) * 100 : 0;
   const mergePressure = stats.ci + stats.mergeBlocked + stats.mergeConflicts;
 
-  if (!hasSprintContext) {
-    return (
-      <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-        <WaveFluid accentHex="#00E0A0" />
-        <BorderTrace accentHex="#00E0A0" />
-        <div className="relative z-10 flex min-h-[22rem] flex-col items-center justify-center text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.3rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_24px_rgba(0,224,160,0.16)]">
-            <Timer className="h-8 w-8" strokeWidth={1.4} />
-          </div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">Sprint Stats</div>
-          <h3 className="mt-3 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-            The telemetry field wakes up with the sprint.
-          </h3>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            Start a sprint to visualize elapsed time, stage timing, merge pressure, and live task-state deltas in the same view language as the DAG.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6">
+    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6" aria-live="polite">
+      {!hasSprintContext ? (
+        <>
+          <WaveFluid accentHex="#00E0A0" />
+          <BorderTrace accentHex="#00E0A0" />
+          <div className="relative z-10 flex min-h-[22rem] flex-col items-center justify-center text-center">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.3rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_24px_rgba(0,224,160,0.16)]">
+              <Timer className="h-8 w-8" strokeWidth={1.4} />
+            </div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">Sprint Stats</div>
+            <h3 className="mt-3 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              The telemetry field wakes up with the sprint.
+            </h3>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Start a sprint to visualize elapsed time, stage timing, merge pressure, and live task-state deltas in the same view language as the DAG.
+            </p>
+          </div>
+        </>
+      ) : (
+        <>
       <WaveFluid accentHex="#00E0A0" />
       <BorderTrace accentHex="#00E0A0" />
 
@@ -487,6 +485,8 @@ export const SprintStatsDeck: FunctionComponent<{
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

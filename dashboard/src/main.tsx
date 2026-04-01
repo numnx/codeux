@@ -15,6 +15,7 @@ import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
 import { DeepOceanBackground } from "./v2/components/chat/DeepOceanBackground.js";
+import { NotificationContainer } from "./v2/components/notifications/NotificationToast.js";
 import "./styles.css";
 
 // Route components — each dynamic import becomes its own chunk in the build
@@ -64,6 +65,11 @@ const rootRoute = createRootRoute({
 
           <KineticDock />
           <footer className="sr-only">Dashboard Footer</footer>
+
+          <NotificationContainer>
+            {/* The application would inject notification toasts here dynamically.
+                For now we just render the container so the aria-live region is available in the DOM. */}
+          </NotificationContainer>
         </div>
       </ProjectDataProvider>
     );
