@@ -31,8 +31,8 @@ export const AttentionLedger: FunctionComponent = memo(() => {
     const canAutoClaim = Boolean(snapshot.primaryAssignedWorker || snapshot.overflowAssignedWorkers.length > 0);
 
     return (
-        <div>
-            <div className="mb-3 flex items-center justify-between gap-3">
+        <section aria-label="Attention Queue">
+            <header className="mb-3 flex items-center justify-between gap-3">
                 <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block">Attention Queue</span>
                 <div className="flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-[0.12em]">
                     <span className="rounded-full border border-status-amber/20 bg-status-amber/10 px-2 py-1 text-status-amber">
@@ -42,7 +42,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                         claimed {claimedCount}
                     </span>
                 </div>
-            </div>
+            </header>
 
             {snapshot.attentionItems.length === 0 ? (
                 <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">
@@ -67,16 +67,16 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                         const dismissActionId = `attention-dismiss:${item.id}`;
 
                         return (
-                            <div
+                            <article
                                 key={item.id}
                                 className="rounded-xl border border-black/[0.04] dark:border-white/[0.04] bg-black/[0.015] dark:bg-white/[0.015] p-3"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <header className="flex flex-wrap items-center gap-2">
+                                            <h3 className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
                                                 {item.title}
-                                            </span>
+                                            </h3>
                                             <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] ${
                                                 ATTENTION_SEVERITY_TONE[item.severity] || ATTENTION_SEVERITY_TONE.medium
                                             }`}>
@@ -85,24 +85,24 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
                                                 {ATTENTION_TYPE_LABELS[item.attentionType] || item.attentionType.replace(/_/g, " ")}
                                             </span>
-                                        </div>
+                                        </header>
                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
                                             <span className={ATTENTION_STATUS_TONE[item.status] || "text-slate-400"}>
                                                 {item.status}
                                             </span>
-                                            <span>·</span>
+                                            <span aria-hidden="true">·</span>
                                             <span>{ATTENTION_OWNER_LABELS[item.ownerType] || item.ownerType}</span>
-                                            <span>·</span>
+                                            <span aria-hidden="true">·</span>
                                             <span>{assignedWorkerLabel}</span>
                                             {shortenRuntimeId(item.taskId) && (
                                                 <>
-                                                    <span>·</span>
+                                                    <span aria-hidden="true">·</span>
                                                     <span>task {shortenRuntimeId(item.taskId)}</span>
                                                 </>
                                             )}
                                             {shortenRuntimeId(item.dispatchId) && (
                                                 <>
-                                                    <span>·</span>
+                                                    <span aria-hidden="true">·</span>
                                                     <span>dispatch {shortenRuntimeId(item.dispatchId)}</span>
                                                 </>
                                             )}
@@ -128,7 +128,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             disabled={pendingActionIds.has(claimActionId)}
                                             className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-signal-500 transition-colors hover:bg-signal-500/15 disabled:opacity-50"
                                         >
-                                            <Bot className="w-3 h-3" strokeWidth={2} />
+                                            <Bot aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                             {pendingActionIds.has(claimActionId) ? "Claiming" : "Claim"}
                                         </button>
                                     )}
@@ -139,7 +139,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             disabled={pendingActionIds.has(resolveActionId)}
                                             className="inline-flex items-center gap-1.5 rounded-full border border-status-green/20 bg-status-green/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-status-green transition-colors hover:bg-status-green/15 disabled:opacity-50"
                                         >
-                                            <CheckCircle2 className="w-3 h-3" strokeWidth={2} />
+                                            <CheckCircle2 aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                             {pendingActionIds.has(resolveActionId) ? "Resolving" : "Resolve"}
                                         </button>
                                     )}
@@ -150,16 +150,16 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             disabled={pendingActionIds.has(dismissActionId)}
                                             className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.05] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05] disabled:opacity-50"
                                         >
-                                            <XCircle className="w-3 h-3" strokeWidth={2} />
+                                            <XCircle aria-hidden="true" className="w-3 h-3" strokeWidth={2} />
                                             {pendingActionIds.has(dismissActionId) ? "Dismissing" : "Dismiss"}
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </article>
                         );
                     })}
                 </div>
             )}
-        </div>
+        </section>
     );
 });

@@ -338,7 +338,7 @@ export const LiveSessionPage: FunctionComponent = () => {
 
 
     return (
-        <div className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
+        <main className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
             <LiveTransportBanner
                 transportState={transportState}
                 isRecovering={isRecovering}
@@ -363,11 +363,11 @@ export const LiveSessionPage: FunctionComponent = () => {
             />
 
             {pausedIntervention && !hasLiveSprint && (
-                <div className="relative overflow-hidden rounded-[1.75rem] border border-status-amber/18 bg-status-amber/8 p-6 shadow-[0_12px_30px_rgba(245,158,11,0.08)]">
+                <section aria-label="Human Intervention Required" className="relative overflow-hidden rounded-[1.75rem] border border-status-amber/18 bg-status-amber/8 p-6 shadow-[0_12px_30px_rgba(245,158,11,0.08)]">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-status-amber">
-                                <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.2} />
+                                <AlertTriangle aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={2.2} />
                                 Sprint Paused For Human Intervention
                             </div>
                             <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white font-display">
@@ -387,10 +387,11 @@ export const LiveSessionPage: FunctionComponent = () => {
                             <HumanInterventionBadge summary={pausedIntervention} label="Details" align="right" />
                         </div>
                     </div>
-                </div>
+                </section>
             )}
 
             {/* ── Header View: Stats or Boat Race ─────────────────────── */}
+            <section aria-label="Sprint Visualization" className="w-full">
             {headerView === "stats" ? (
                 <SprintStatsDeck
                     hasSprintContext={hasSprintContext}
@@ -416,9 +417,10 @@ export const LiveSessionPage: FunctionComponent = () => {
                     />
                 </Suspense>
             )}
+            </section>
 
             {/* ── Section Divider ─────────────────────────────────────── */}
-            <div className="w-full flex items-center justify-center py-4 relative z-10 overflow-hidden">
+            <div role="separator" className="w-full flex items-center justify-center py-4 relative z-10 overflow-hidden">
                 <div className="absolute inset-y-1/2 inset-x-0 h-px bg-gradient-to-r from-transparent via-black/[0.06] dark:via-white/[0.06] to-transparent" />
                 <div className="bg-[#F9F8F4] dark:bg-void-900 px-6 py-1.5 border border-black/[0.06] dark:border-white/[0.06] rounded-full shadow-sm relative z-10 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600">
                     Task Pipeline
@@ -426,11 +428,12 @@ export const LiveSessionPage: FunctionComponent = () => {
             </div>
 
             {/* ── Filter Strip ────────────────────────────────────────── */}
-            <div className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+            <nav aria-label="Task filters" className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
                 {TASK_FILTERS.map((filter) => (
                     <button
                         key={filter}
                         onClick={() => setFilter(filter)}
+                        aria-pressed={activeFilter === filter}
                         className={`text-xs font-semibold tracking-wide px-4 py-1.5 rounded-lg
                                    transition-all duration-200 flex items-center gap-2
                                    ${activeFilter === filter
@@ -448,13 +451,13 @@ export const LiveSessionPage: FunctionComponent = () => {
                         </span>
                     </button>
                 ))}
-            </div>
+            </nav>
 
             {/* ── Main Content Grid ───────────────────────────────────── */}
             <div ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:gap-16">
 
                 {/* Task cards */}
-                <div className="xl:col-span-8 flex flex-col gap-5">
+                <section aria-label="Tasks" className="xl:col-span-8 flex flex-col gap-5">
                     {!hasSprintContext && !initialLoadComplete ? (
                         /* Initial load in progress — render nothing to avoid flashing idle placeholder */
                         null
@@ -468,7 +471,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                     ) : taskCardItems.length === 0 ? (
                         <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border-2 border-dashed border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-16 text-center">
                             <div className="relative z-10">
-                                <Play className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
+                                <Play aria-hidden="true" className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
                                 <p className="text-sm text-slate-400 dark:text-slate-600 font-medium">
                                     {activeFilter === "All"
                                         ? "Awaiting sprint decomposition..."
@@ -490,10 +493,10 @@ export const LiveSessionPage: FunctionComponent = () => {
                             />
                         ))
                     )}
-                </div>
+                </section>
 
                 {/* Sidebar — Reordered: Latest Activity & Git at top, collapsible panels */}
-                <div className="xl:col-span-4 flex flex-col gap-5">
+                <aside aria-label="Session Details" className="xl:col-span-4 flex flex-col gap-5">
                     {/* 1. Latest Activity — always visible at top */}
                     <IntelPanel
                         title="Latest Activity"
@@ -532,8 +535,8 @@ export const LiveSessionPage: FunctionComponent = () => {
                         hasSprintContext={hasSprintContext}
                         instructions={status.instructions}
                     />
-                </div>
+                </aside>
             </div>
-        </div>
+        </main>
     );
 };

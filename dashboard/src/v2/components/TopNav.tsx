@@ -217,7 +217,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
             <nav aria-label="Primary navigation" className="contents">
             <div className="flex items-center gap-10 flex-1">
                 {/* Logo */}
-                <div className="flex items-center gap-3 cursor-pointer group shrink-0">
+                <Link to="/" className="flex items-center gap-3 cursor-pointer group shrink-0 focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg p-1 outline-none">
                     <div className="relative w-8 h-8 flex items-center justify-center bg-void-900 dark:bg-white rounded-xl overflow-hidden shadow-[0_0_20px_rgba(0,224,160,0.25)]">
                         <div className="absolute inset-0 bg-signal-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
                         <Activity aria-hidden="true" className="w-4 h-4 text-signal-500 dark:text-void-900 relative z-10 group-hover:scale-110 transition-transform duration-500" strokeWidth={2.5} />
@@ -225,7 +225,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5">
                         Sprint<span className="text-signal-500">OS</span>
                     </span>
-                </div>
+                </Link>
 
                 {/* Search Bar */}
                 <div className="relative group w-full max-w-xs">
@@ -234,12 +234,13 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     </div>
                     <input
                         type="text"
+                        aria-label="Search projects, sprints, and tasks"
                         placeholder="Search projects, sprints, tasks..."
                         className="w-full h-9 pl-10 pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
-                            <Command aria-hidden="true" className="w-2.5 h-2.5" /> K
+                        <kbd aria-hidden="true" className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
+                            <Command className="w-2.5 h-2.5" /> K
                         </kbd>
                     </div>
                 </div>
