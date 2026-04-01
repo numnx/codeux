@@ -10,6 +10,7 @@ import { useDashboardRuntimeData } from "./hooks/use-dashboard-runtime-data.js";
 import { useDashboardSettings } from "./hooks/use-dashboard-settings.js";
 import { rerunTask } from "./lib/api/dashboard-api.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
+import { NotificationContainer } from "./v2/components/notifications/NotificationToast.js";
 
 const SettingsPage = lazy(() => import("./components/SettingsPage.js").then(m => ({ default: m.SettingsPage })));
 
@@ -123,6 +124,9 @@ export const App: FunctionComponent = () => {
           </div>
         )}
       </main>
+      <NotificationContainer>
+        {/* Global aria-live region */}
+      </NotificationContainer>
     </div>
   );
 };

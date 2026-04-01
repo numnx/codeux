@@ -49,7 +49,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
             </div>
 
             {/* Task rows */}
-            <div ref={listRef} className="flex flex-col w-full space-y-3">
+            <div ref={listRef} className="flex flex-col w-full space-y-3" aria-live="polite" aria-busy={isLoading}>
                 {isLoading ? (
                     <>
                         <SkeletonRow />

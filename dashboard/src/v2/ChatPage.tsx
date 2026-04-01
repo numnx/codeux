@@ -960,7 +960,7 @@ export const ChatPage: FunctionComponent = () => {
             isCompacting={compacting}
           />
 
-          <div ref={messagesRef} className="flex-1 min-h-0 space-y-6 overflow-y-auto px-6 py-6">
+          <div ref={messagesRef} className="flex-1 min-h-0 space-y-6 overflow-y-auto px-6 py-6" aria-live="polite" aria-busy={threadsLoading || threadMessagesLoading}>
             {threadsLoading ? (
               <LoadingChat label="Loading conversation" />
             ) : !selectedThread ? (

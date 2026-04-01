@@ -1191,6 +1191,8 @@ export const MemoryPage: FunctionComponent = () => {
                            border border-black/[0.05] dark:border-white/[0.05]
                            shadow-[0_8px_48px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_48px_rgba(0,0,0,0.4)]"
                 style={{ height: "max(600px, calc(100vh - 440px))" }}
+                aria-live="polite"
+                aria-busy={loading}
             >
                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
