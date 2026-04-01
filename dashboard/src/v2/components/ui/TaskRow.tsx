@@ -4,10 +4,11 @@ import { FolderGit2, CheckCircle2, Circle, PlayCircle, Clock, Play, Square, Sett
 import type { Task } from "../../types.js";
 
 export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
-    <div
+    <article
         className="group relative flex items-center justify-between py-5 cursor-pointer border-b border-black/[0.05] dark:border-white/[0.04] last:border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 dark:focus-visible:ring-slate-400 focus-visible:z-10 focus-visible:rounded-xl"
         tabIndex={0}
         role="button"
+        aria-labelledby={`task-title-${task.id}`}
         onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 if (e.key === ' ') e.preventDefault();
@@ -26,28 +27,28 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
 
             {/* Title */}
             <div className="col-span-5 flex items-center min-w-0">
-                <span className={`text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate group-hover:translate-x-1.5 transition-transform duration-300 ease-out ${task.status === 'completed' ? 'opacity-50' : task.status === 'coding_completed' ? 'opacity-80' : ''}`}>
+                <h3 id={`task-title-${task.id}`} className={`text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate group-hover:translate-x-1.5 transition-transform duration-300 ease-out ${task.status === 'completed' ? 'opacity-50' : task.status === 'coding_completed' ? 'opacity-80' : ''}`}>
                     {task.title}
-                </span>
+                </h3>
             </div>
 
             {/* Source */}
             <div className="col-span-2 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 min-w-0">
-                <FolderGit2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-signal-600 dark:group-hover:text-signal-400 transition-colors shrink-0" strokeWidth={2} />
+                <FolderGit2 aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-signal-600 dark:group-hover:text-signal-400 transition-colors shrink-0" strokeWidth={2} />
                 <span className="truncate group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors font-mono">{task.source}</span>
             </div>
 
             {/* Status */}
             <div className="col-span-2 flex items-center gap-2 min-w-0">
-                {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-status-green" strokeWidth={2} />}
-                {task.status === 'coding_completed' && <CheckCircle2 className="w-4 h-4 text-cyan-700 dark:text-cyan-500" strokeWidth={2} />}
+                {task.status === 'completed' && <CheckCircle2 aria-hidden="true" className="w-4 h-4 text-emerald-700 dark:text-status-green" strokeWidth={2} />}
+                {task.status === 'coding_completed' && <CheckCircle2 aria-hidden="true" className="w-4 h-4 text-cyan-700 dark:text-cyan-500" strokeWidth={2} />}
                 {task.status === 'in_progress' && (
                     <div className="relative flex items-center justify-center w-4 h-4">
                         <div className="absolute inset-0 rounded-full bg-signal-500 animate-[spin_3s_linear_infinite] opacity-30 shadow-[0_0_10px_rgba(0,224,160,0.6)] pointer-events-none" style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%', clipPath: 'inset(-2px)' }} />
-                        <PlayCircle className="w-4 h-4 text-emerald-700 dark:text-signal-500 relative z-10" strokeWidth={2} />
+                        <PlayCircle aria-hidden="true" className="w-4 h-4 text-emerald-700 dark:text-signal-500 relative z-10" strokeWidth={2} />
                     </div>
                 )}
-                {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
+                {task.status === 'pending' && <Circle aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
 
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
                     task.status === 'completed'   ? 'text-emerald-700 dark:text-status-green' :
@@ -62,23 +63,23 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
             {/* Time / Actions */}
             <div className="col-span-2 flex items-center justify-end h-full relative overflow-hidden">
                 <div className="flex items-center gap-2 absolute right-0 transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-3">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                    <Clock aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                     <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{task.time}</span>
                 </div>
 
                 {/* Quick actions */}
                 <div className="flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] absolute right-0 translate-x-[115%] opacity-0 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 transition-all duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]">
                     <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Play/Stop">
-                        {task.status === 'in_progress' ? <Square className="w-3 h-3" fill="currentColor" /> : <Play className="w-3 h-3" fill="currentColor" />}
+                        {task.status === 'in_progress' ? <Square aria-hidden="true" className="w-3 h-3" fill="currentColor" /> : <Play aria-hidden="true" className="w-3 h-3" fill="currentColor" />}
                     </button>
                     <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Configure">
-                        <Settings className="w-3 h-3" />
+                        <Settings aria-hidden="true" className="w-3 h-3" />
                     </button>
                     <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-status-green disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Expand">
-                        <Maximize2 className="w-3 h-3" />
+                        <Maximize2 aria-hidden="true" className="w-3 h-3" />
                     </button>
                 </div>
             </div>
         </div>
-    </div>
+    </article>
 ));

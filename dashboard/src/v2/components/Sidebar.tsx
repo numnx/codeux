@@ -39,11 +39,11 @@ export const Sidebar: FunctionComponent = () => {
     }, [activeIndex]);
 
     return (
-        <nav
-            aria-label="Primary Navigation"
+        <aside
             ref={sidebarRef}
             className="w-[260px] h-screen shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 relative z-40"
         >
+            <nav aria-label="Primary Navigation" className="flex flex-col h-full justify-between">
             {/* Animated SVG Spline — signal jade to warm ember */}
             <svg
                 aria-hidden="true"
@@ -70,6 +70,7 @@ export const Sidebar: FunctionComponent = () => {
                 </defs>
             </svg>
 
+            <div className="flex flex-col h-full">
             {/* Logo */}
             <a href="/" className="px-7 mb-10 flex items-center gap-3 group cursor-pointer relative z-10 w-fit focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-2xl">
                 <div aria-hidden="true" className="w-9 h-9 rounded-2xl bg-void-900 dark:bg-[#F9F8F4] p-[1px] shadow-[0_0_16px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_24px_rgba(0,224,160,0.35)] transition-shadow duration-500">
@@ -118,8 +119,10 @@ export const Sidebar: FunctionComponent = () => {
                     <span className="relative z-10 font-medium text-sm tracking-wide text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">Settings</span>
                 </button>
             </div>
+            </div>
+            </nav>
 
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#F5F3EF] dark:from-void-900 to-transparent pointer-events-none z-0" />
-        </nav>
+        </aside>
     );
 };

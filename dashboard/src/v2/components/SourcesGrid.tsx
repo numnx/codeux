@@ -36,10 +36,10 @@ export const SourcesGrid: FunctionComponent = () => {
     }, [projects]);
 
     return (
-        <div className="w-full relative z-10">
+        <section aria-label="Projects & Sources" className="w-full relative z-10">
             <SectionHeader
                 watermark="DATA"
-                icon={<Activity className="w-5 h-5 text-signal-500" strokeWidth={2.5} />}
+                icon={<Activity aria-hidden="true" className="w-5 h-5 text-signal-500" strokeWidth={2.5} />}
                 title="Projects & Sources"
             />
 
@@ -64,6 +64,6 @@ export const SourcesGrid: FunctionComponent = () => {
                     ))
                 )}
             </div>
-        </div>
+        </section>
     );
 };

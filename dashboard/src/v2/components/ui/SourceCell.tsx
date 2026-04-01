@@ -47,13 +47,13 @@ export const SourceCell: FunctionComponent<SourceCellProps> = ({ source, isEven,
     }, []);
 
     return (
-        <div
+        <article
             ref={cellRef}
             onMouseEnter={handleHoverEnter}
             onMouseLeave={handleHoverLeave}
             onFocus={handleHoverEnter}
             onBlur={handleHoverLeave}
-            role="group"
+            aria-labelledby={`source-name-${source.id}`}
             tabIndex={0}
             className="relative group cursor-pointer w-56 h-56 flex items-center justify-center shrink-0 perspective-1000 focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:rounded-[2rem] focus:outline-none"
             style={{ animationDelay: `${animDelay}s` }}
@@ -79,22 +79,22 @@ export const SourceCell: FunctionComponent<SourceCellProps> = ({ source, isEven,
             <div className="relative z-20 flex flex-col items-center justify-center text-center p-5 w-full h-full transform-gpu group-hover:translate-z-12 transition-transform duration-500 ease-out">
                 {/* Status label on hover */}
                 <div className={`absolute top-5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${state.text}`}>
-                    <StatusIcon className={`w-3.5 h-3.5 ${source.status === 'running' ? 'animate-pulse' : ''}`} strokeWidth={2.5} />
+                    <StatusIcon aria-hidden="true" className={`w-3.5 h-3.5 ${source.status === 'running' ? 'animate-pulse' : ''}`} strokeWidth={2.5} />
                     <span className="text-[10px] font-bold uppercase tracking-widest">{state.label}</span>
                 </div>
 
                 {/* Main icon */}
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:opacity-0 transition-opacity duration-300 mb-2">
-                    <FolderGit2 className="w-7 h-7" strokeWidth={1} />
+                    <FolderGit2 aria-hidden="true" className="w-7 h-7" strokeWidth={1} />
                 </div>
 
-                <h4 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate w-full px-3 mt-1 group-hover:-translate-y-3 transition-transform duration-300 font-mono">
+                <h4 id={`source-name-${source.id}`} className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate w-full px-3 mt-1 group-hover:-translate-y-3 transition-transform duration-300 font-mono">
                     {source.name}
                 </h4>
 
                 <div className="mt-1.5 flex gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 group-hover:opacity-0 transition-opacity duration-300">
                     <span>{source.openTasks} open</span>
-                    <span className="text-slate-300 dark:text-slate-600">·</span>
+                    <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">·</span>
                     <span>{source.completedTasks} done</span>
                 </div>
 
@@ -104,6 +104,6 @@ export const SourceCell: FunctionComponent<SourceCellProps> = ({ source, isEven,
                     to={`/projects?id=${source.id}`}
                 />
             </div>
-        </div>
+        </article>
     );
 };
