@@ -109,7 +109,7 @@ export const TextInput: FunctionComponent<{
     placeholder={placeholder}
     disabled={disabled}
     onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
-    className={`min-w-[220px] rounded-[1rem] border border-black/[0.07] bg-white/88 px-3.5 py-2.5 text-sm text-slate-700 placeholder-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-white/[0.05] dark:text-slate-200 ${
+    className={`min-w-[220px] rounded-[1rem] border border-black/[0.07] bg-white/88 px-3.5 py-2.5 text-sm text-slate-700 placeholder-slate-500 dark:placeholder-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-white/[0.05] dark:text-slate-200 ${
       mono ? "font-mono" : "font-sans"
     }`}
   />
@@ -126,7 +126,7 @@ export const TextAreaInput: FunctionComponent<{
     rows={rows}
     placeholder={placeholder}
     onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
-    className="min-h-[320px] w-full rounded-[1.3rem] border border-black/[0.06] bg-black/[0.04] px-4 py-3 text-sm leading-relaxed text-slate-700 placeholder-slate-400 transition-colors duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-200"
+    className="min-h-[320px] w-full rounded-[1.3rem] border border-black/[0.06] bg-black/[0.04] px-4 py-3 text-sm leading-relaxed text-slate-700 placeholder-slate-500 dark:placeholder-slate-400 transition-colors duration-200 focus:border-signal-500/40 focus:outline-none focus:ring-2 focus:ring-signal-500/10 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-200"
   />
 );
 

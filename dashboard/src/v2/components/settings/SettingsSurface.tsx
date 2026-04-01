@@ -15,8 +15,8 @@ export const NoticePanel: FunctionComponent<{
   return (
     <div
       className={`rounded-[1.35rem] border px-5 py-4 ${toneClass}`}
-      role="status"
-      aria-live="polite"
+      role={tone === "warning" ? "alert" : "status"}
+      aria-live={tone === "warning" ? "assertive" : "polite"}
     >
       <div className="text-[11px] font-bold uppercase tracking-[0.16em]">{title}</div>
       <div className="mt-2 text-sm font-medium leading-relaxed">{children}</div>
@@ -42,6 +42,7 @@ export const ActionButton: FunctionComponent<{
       type="button"
       onClick={onClick}
       disabled={disabled || busy}
+      aria-busy={busy}
       className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
     >
       {busy ? <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.2} /> : null}

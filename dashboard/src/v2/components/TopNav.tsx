@@ -235,7 +235,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     <input
                         type="text"
                         placeholder="Search projects, sprints, tasks..."
-                        className="w-full h-9 pl-10 pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
+                        className="w-full h-9 pl-10 pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
@@ -254,6 +254,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                         onClick={() => setDropdownOpen(!dropdownOpen)}
                         aria-haspopup="listbox"
                         aria-expanded={dropdownOpen}
+                        aria-busy={loading}
                         className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group focus-visible:ring-2 focus-visible:ring-signal-500/50"
                     >
                         <StatusDot status={selectedProject?.status || "idle"} />
@@ -324,6 +325,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                             onClick={() => setSprintDropdownOpen(!sprintDropdownOpen)}
                             aria-haspopup="listbox"
                             aria-expanded={sprintDropdownOpen}
+                            aria-busy={sprintsLoading}
                             disabled={sprints.length === 0}
                             className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent rounded-xl transition-all group ${
                                 sprints.length > 0
@@ -395,6 +397,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                             onClick={() => setWorkerDropdownOpen(!workerDropdownOpen)}
                             aria-haspopup="listbox"
                             aria-expanded={workerDropdownOpen}
+                            aria-busy={executionLoading}
                             className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group focus-visible:ring-2 focus-visible:ring-signal-500/50"
                         >
                             <div className="flex items-center justify-center w-4 h-4 rounded-md bg-signal-500/10 text-signal-500">
