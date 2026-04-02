@@ -60,10 +60,15 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const fieldsRef = useRef<HTMLFormElement>(null);
+  const improveBtnRef = useRef<HTMLButtonElement>(null);
+  const submitBtnRef = useRef<HTMLButtonElement>(null);
+  const promptInputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [isImproving, setIsImproving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
 
@@ -129,6 +134,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   }, [initialSprint?.id]);
 
   const handleCancel = (): void => {
+    const wasImproving = isImproving;
+    const wasSubmitting = isSubmitting;
+
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
@@ -136,6 +144,18 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     setIsImproving(false);
     setIsSubmitting(false);
     setSubmitError(null);
+    setIsSuccess(false);
+    setSuccessMessage(null);
+
+    // Need to defer focus restoration until React has unmounted the busy state
+    // and removed the `disabled` attribute from the buttons
+    setTimeout(() => {
+      if (wasImproving) {
+        improveBtnRef.current?.focus();
+      } else if (wasSubmitting) {
+        submitBtnRef.current?.focus();
+      }
+    }, 0);
   };
 
   const handleImprovePrompt = async (): Promise<void> => {
@@ -155,8 +175,10 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       }, controller.signal);
       state.setGoal(improvedGoal);
       state.setOriginalPrompt(rawPrompt);
+      setTimeout(() => improveBtnRef.current?.focus(), 0);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
+      setTimeout(() => improveBtnRef.current?.focus(), 0);
       throw error;
     } finally {
       abortRef.current = null;
@@ -190,10 +212,15 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         planningAgentPresetId: state.planningAgentPresetId,
         signal: controller.signal,
       });
-      onClose();
+      setIsSuccess(true);
+      setSuccessMessage("Sprint composed successfully");
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setSubmitError(error instanceof Error ? error.message : String(error));
+      setTimeout(() => submitBtnRef.current?.focus(), 0);
     } finally {
       abortRef.current = null;
       setIsSubmitting(false);
@@ -231,7 +258,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.08),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.1),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.09),transparent_34%)]" />
 
       <PlanningProgressOverlay
-        isBusy={isBusy && !isOverlayDismissed}
+        isBusy={isBusy}
+        isDismissed={isOverlayDismissed}
         feedback={feedback}
         planningEta={planningEta}
         elapsedMs={elapsedMs}
@@ -344,6 +372,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Sprint Prompt</label>
               <button
+                ref={improveBtnRef}
                 type="button"
                 onClick={() => { void handleImprovePrompt(); }}
                 disabled={isImproving || !state.name.trim() || !state.goal.trim()}
@@ -361,6 +390,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   : "border-black/[0.07] dark:border-white/[0.08]"
               }`}>
                 <textarea
+                  ref={promptInputRef}
                   value={state.goal}
                   onInput={(event) => state.setGoal((event.target as HTMLTextAreaElement).value)}
                   placeholder="Describe the outcome, affected systems, and what done looks like when this sprint lands."
@@ -429,12 +459,18 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           </div>
 
           <div data-composer-stagger className="mt-auto flex flex-col gap-3 pt-2">
+            {isSuccess && successMessage && (
+              <div className="rounded-xl border border-status-green/20 bg-status-green/[0.06] px-4 py-3 text-xs leading-relaxed text-status-green">
+                {successMessage}
+              </div>
+            )}
             {submitError && (
               <div className="rounded-xl border border-status-red/20 bg-status-red/[0.06] px-4 py-3 text-xs leading-relaxed text-status-red">
                 {submitError}
               </div>
             )}
             <button
+              ref={submitBtnRef}
               type="submit"
               disabled={isSubmitting || !state.name.trim()}
               className="inline-flex items-center justify-center gap-2.5 rounded-[1.2rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-px hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-void-900"

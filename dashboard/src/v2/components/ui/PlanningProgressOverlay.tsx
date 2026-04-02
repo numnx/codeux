@@ -5,6 +5,7 @@ import type { PlanningActionType } from "../../lib/sprint-planning-feedback.js";
 
 interface PlanningProgressOverlayProps {
   isBusy: boolean;
+  isDismissed?: boolean;
   feedback: { shipType: "container" | "wooden"; shipProgress: number; text: string } | null;
   planningEta: number;
   elapsedMs: number;
@@ -17,6 +18,7 @@ interface PlanningProgressOverlayProps {
 
 export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayProps> = ({
   isBusy,
+  isDismissed = false,
   feedback,
   planningEta,
   elapsedMs,
@@ -50,6 +52,56 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
   };
 
   const theme = accentColors[themeAccent];
+
+  if (isDismissed) {
+    return (
+      <div className="absolute bottom-6 right-6 z-50 flex flex-col items-center justify-center rounded-2xl border border-black/[0.06] bg-white/90 p-4 shadow-xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-800/90 w-[300px]">
+        <div
+          className="relative mb-4 flex h-16 w-full items-center justify-center overflow-hidden"
+          role="progressbar"
+          aria-live="polite"
+          aria-valuenow={Math.round(feedback.shipProgress * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={feedback.text}
+        >
+          <div className="absolute inset-x-0 bottom-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
+          <div
+            className="absolute transition-[left] duration-200 ease-linear"
+            style={{ left: `${feedback.shipProgress * 100}%`, transform: "translateX(-50%) scale(0.6)" }}
+          >
+            <svg width="120" height="60" viewBox="-60 -30 120 60">
+              {feedback.shipType === "container" ? (
+                <ContainerShip accentColor={theme.shipContainer} isMoving={true} isDark={isDark} />
+              ) : (
+                <WoodenShip accentColor={theme.shipWooden} isMoving={true} isDark={isDark} />
+              )}
+            </svg>
+          </div>
+        </div>
+        <div className="w-full space-y-2 text-center">
+          <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white truncate">
+            {feedback.text}
+          </h3>
+          <div className="flex items-center justify-center gap-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+            <div>ETA {Math.floor(Math.max(0, planningEta - elapsedMs) / 60000)}:{String(Math.floor((Math.max(0, planningEta - elapsedMs) % 60000) / 1000)).padStart(2, "0")}</div>
+            <div className="h-3 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
+            <div>ELP {Math.floor(elapsedMs / 60000)}:{String(Math.floor((elapsedMs % 60000) / 1000)).padStart(2, "0")}</div>
+          </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-status-red/20 bg-status-red/[0.06] px-3 py-2 text-xs font-semibold text-status-red transition-colors hover:bg-status-red/[0.1] hover:border-status-red/30"
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancel Execution
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const getBadgeText = () => {
     if (actionType === "quicksprint") return "Quicksprint in motion";

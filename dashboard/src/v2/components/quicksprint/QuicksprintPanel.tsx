@@ -169,9 +169,14 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
   /* ── Execution state ────────────────────────────────────────────── */
   const [executingMode, setExecutingMode] = useState<"plan_only" | "plan_and_start" | null>(null);
+  const [executeError, setExecuteError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
   const isBusy = executingMode !== null;
+
+  const executeBtnRef = useRef<HTMLButtonElement>(null);
+  const planOnlyBtnRef = useRef<HTMLButtonElement>(null);
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId) || null,
@@ -376,12 +381,27 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   const handleExecute = useCallback(async (mode: "plan_only" | "plan_and_start") => {
     if (!selectedTemplate) return;
     setExecutingMode(mode);
+    setExecuteError(null);
+    setIsSuccess(false);
     try {
       await onExecute(selectedTemplate.id, taskCount, mode, additionalPrompt.trim() || undefined, routeOverride, modelOverride);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (err) {
+      setExecuteError(err instanceof Error ? err.message : String(err));
+      setTimeout(() => {
+        if (mode === "plan_and_start") {
+          executeBtnRef.current?.focus();
+        } else {
+          planOnlyBtnRef.current?.focus();
+        }
+      }, 0);
     } finally {
       setExecutingMode(null);
     }
-  }, [selectedTemplate, taskCount, additionalPrompt, onExecute, routeOverride, modelOverride]);
+  }, [selectedTemplate, taskCount, additionalPrompt, onExecute, routeOverride, modelOverride, onClose]);
 
   /* ─── Render ──────────────────────────────────────────────────── */
   return (
@@ -394,7 +414,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
       {/* ═══ Planning Overlay ═══ */}
       <PlanningProgressOverlay
-        isBusy={isBusy && !isOverlayDismissed}
+        isBusy={isBusy}
+        isDismissed={isOverlayDismissed}
         feedback={feedback}
         planningEta={planningEta}
         elapsedMs={elapsedMs}
@@ -634,20 +655,32 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
               {/* Action buttons */}
               <div data-qs-stagger className="space-y-3">
+                {isSuccess && (
+                  <div className="rounded-xl border border-status-green/20 bg-status-green/[0.06] px-4 py-3 text-xs leading-relaxed text-status-green">
+                    Quicksprint launched successfully
+                  </div>
+                )}
+                {executeError && (
+                  <div className="rounded-xl border border-status-red/20 bg-status-red/[0.06] px-4 py-3 text-xs leading-relaxed text-status-red">
+                    {executeError}
+                  </div>
+                )}
                 <button
+                  ref={executeBtnRef}
                   onClick={() => handleExecute("plan_and_start")}
                   disabled={isBusy}
                   className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-[1.35rem] bg-ember-600 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_0_20px_rgba(255,107,0,0.25)] transition-all hover:bg-ember-500 hover:shadow-[0_0_28px_rgba(255,107,0,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Rocket className="h-4 w-4" />
+                  {executingMode === "plan_and_start" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                   Plan & Start
                 </button>
                 <button
+                  ref={planOnlyBtnRef}
                   onClick={() => handleExecute("plan_only")}
                   disabled={isBusy}
                   className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-[1.35rem] border border-black/[0.08] bg-white/66 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-black/[0.04] disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06]"
                 >
-                  <ClipboardList className="h-4 w-4" />
+                  {executingMode === "plan_only" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
                   Plan Only
                 </button>
               </div>
