@@ -26,7 +26,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
           <Radio className="w-5 h-5 text-status-red" strokeWidth={1.5} />
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-status-red">Telemetry Error</div>
-            <div className="text-sm text-slate-500 dark:text-slate-500 mt-1">{error}</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">{error}</div>
           </div>
         </div>
       </aside>
@@ -70,17 +70,17 @@ export const OverviewTelemetry: FunctionComponent = () => {
             </div>
             <div className="text-center relative z-10">
               <div className="w-14 h-14 rounded-[1.25rem] border border-black/[0.07] dark:border-white/[0.07] shadow-[0_0_28px_rgba(100,116,139,0.12)] mx-auto mb-5 flex items-center justify-center">
-                <FolderKanban className="w-7 h-7 text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
+                <FolderKanban className="w-7 h-7 text-slate-500 dark:text-slate-400" strokeWidth={1.5} />
               </div>
-              <span className="text-slate-500 dark:text-slate-500 font-semibold text-sm tracking-widest block uppercase font-display">Awaiting Runtime</span>
-              <span className="text-xs text-slate-400 dark:text-slate-600 font-mono mt-2 block">No active project telemetry yet</span>
+              <span className="text-slate-600 dark:text-slate-400 font-semibold text-sm tracking-widest block uppercase font-display">Awaiting Runtime</span>
+              <span className="text-xs text-slate-500 dark:text-slate-600 font-mono mt-2 block">No active project telemetry yet</span>
             </div>
           </div>
         ) : (
           <div className="relative z-10 h-full flex flex-col">
             <div className="grid grid-cols-3 gap-3 mb-6">
               <div className="rounded-2xl border border-black/[0.05] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Active Projects</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Active Projects</div>
                 <div className="mt-2 text-3xl font-black font-mono text-slate-900 dark:text-white">{telemetry.activeProjects.length}</div>
               </div>
               <div className="rounded-2xl border border-status-amber/15 bg-status-amber/8 p-4">
@@ -88,7 +88,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
                 <div className="mt-2 text-3xl font-black font-mono text-slate-900 dark:text-white">{telemetry.attentionProjects.length}</div>
               </div>
               <div className="rounded-2xl border border-black/[0.05] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Timeline Events</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Timeline Events</div>
                 <div className="mt-2 text-3xl font-black font-mono text-slate-900 dark:text-white">{telemetry.recentEvents.length}</div>
               </div>
             </div>
@@ -107,7 +107,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
                           <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white truncate">
                             {project.projectName}
                           </div>
-                          <div className="mt-1 text-[10px] font-mono text-slate-400">
+                          <div className="mt-1 text-[10px] font-mono text-slate-500">
                             {project.sprintName}{project.sprintNumber != null ? ` · Sprint ${project.sprintNumber}` : ""}
                           </div>
                         </div>
@@ -134,7 +134,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white truncate">{project.projectName}</div>
-                      <div className="mt-1 text-[10px] font-mono text-slate-400">
+                      <div className="mt-1 text-[10px] font-mono text-slate-500">
                         {project.sprintName}{project.sprintNumber != null ? ` · Sprint ${project.sprintNumber}` : ""}
                       </div>
                     </div>
@@ -151,7 +151,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
             )}
 
             <div className="flex-1 min-h-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-3">Runtime Timeline</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">Runtime Timeline</div>
               <div className="h-full overflow-y-auto dashboard-scrollbar pr-1 space-y-2">
                 {telemetry.recentEvents.map((event) => {
                   const style = getEventStyle(event);
@@ -159,12 +159,12 @@ export const OverviewTelemetry: FunctionComponent = () => {
                     <div key={event.id} className="rounded-2xl border border-black/[0.05] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className={`text-[10px] font-bold uppercase tracking-[0.14em] ${style.toneClass}`}>{style.label}</div>
-                        <div className="text-[10px] font-mono text-slate-400">{formatTime(event.createdAt)}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{formatTime(event.createdAt)}</div>
                       </div>
                       <div className="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {projectLookup.get(event.projectId) || "Project"}
                       </div>
-                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500 font-mono">
+                      <div className="mt-1 text-[11px] text-slate-600 dark:text-slate-400 font-mono">
                         {event.sprintName}{event.sprintNumber != null ? ` · Sprint ${event.sprintNumber}` : ""}
                       </div>
                     </div>

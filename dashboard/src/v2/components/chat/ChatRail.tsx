@@ -12,14 +12,14 @@ export const ChatRail: FunctionComponent<{
       <div className="shrink-0 p-5 mb-2">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{title}</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</div>
             <div className="mt-1 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               {count}
             </div>
           </div>
           {secondaryTitle && secondaryCount !== undefined && (
             <div className="text-right">
-              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{secondaryTitle}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{secondaryTitle}</div>
               <div className="mt-1 font-mono text-sm text-slate-600 dark:text-slate-300">{secondaryCount}</div>
             </div>
           )}

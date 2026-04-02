@@ -207,18 +207,18 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
     variant === "compact"
       ? `flex w-full items-center justify-between gap-2 bg-transparent py-1 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-colors ${
           disabled
-            ? "cursor-not-allowed text-slate-400"
+            ? "cursor-not-allowed text-slate-500"
             : "cursor-pointer text-signal-600 hover:text-signal-500 dark:text-signal-300 dark:hover:text-signal-200"
         }`
       : variant === "card"
         ? `flex w-full items-center justify-between gap-2 rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] outline-none transition-all ${
             disabled
-              ? "cursor-not-allowed text-slate-400 opacity-60"
+              ? "cursor-not-allowed text-slate-500 opacity-60"
               : "cursor-pointer text-signal-600 hover:border-black/[0.1] dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-signal-300 dark:hover:border-white/[0.1]"
           }`
         : `flex w-full items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium outline-none transition-all ${
             disabled
-              ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-400 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
+              ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-500 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
               : "cursor-pointer border-black/[0.07] bg-white/52 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl hover:border-black/[0.12] dark:border-white/[0.08] dark:bg-white/[0.045] dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.18)] dark:hover:border-white/[0.12]"
           }`;
 
@@ -280,7 +280,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
               );
             })}
             {options.length === 0 && (
-              <div className="px-3.5 py-4 text-xs font-medium text-slate-400">No options available.</div>
+              <div className="px-3.5 py-4 text-xs font-medium text-slate-500">No options available.</div>
             )}
           </div>
         </div>,
@@ -309,7 +309,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
       >
         <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 flex-shrink-0 text-slate-500 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
           strokeWidth={2}
         />
       </button>

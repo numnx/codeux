@@ -17,7 +17,7 @@ export const IntelPanel: FunctionComponent<{
         <div className="relative z-10">
             <div className="flex items-center gap-2.5 mb-5">
                 <span style={{ color: accentHex }}><Icon className="w-4 h-4" strokeWidth={1.5} /></span>
-                <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">{title}</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">{title}</span>
             </div>
             <div
                 className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
@@ -25,7 +25,7 @@ export const IntelPanel: FunctionComponent<{
                            prose-code:text-signal-600 dark:prose-code:text-signal-400
                            prose-code:bg-signal-500/[0.06] prose-code:px-1 prose-code:rounded-md
                            font-mono text-[12px] leading-relaxed max-h-64 overflow-y-auto dashboard-scrollbar"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(content) || `<p class="text-slate-400 dark:text-slate-600 italic">${fallback}</p>` }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(content) || `<p class="text-slate-500 dark:text-slate-600 italic">${fallback}</p>` }}
             />
         </div>
     </div>

@@ -92,8 +92,8 @@ const ModelCard: FunctionComponent<{
                 <span className="text-[9px] font-bold uppercase tracking-widest text-signal-500 bg-signal-500/10 px-2 py-0.5 rounded-full">Active</span>
             )}
         </div>
-        <p className="text-[11px] text-slate-500 leading-relaxed">{model.description}</p>
-        <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400">
+        <p className="text-[11px] text-slate-600 leading-relaxed">{model.description}</p>
+        <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500">
             <span>{model.dimension}d</span>
             <span>{formatBytes(model.sizeBytes)}</span>
             <span>{model.language}</span>
@@ -104,7 +104,7 @@ const ModelCard: FunctionComponent<{
                     <div className="h-full rounded-full bg-signal-500 transition-all duration-300"
                         style={{ width: `${Math.round(model.downloadProgress * 100)}%` }} />
                 </div>
-                <span className="text-[9px] font-mono text-slate-400 flex items-center gap-1.5">
+                <span className="text-[9px] font-mono text-slate-500 flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin" strokeWidth={2} />
                     Downloading {Math.round(model.downloadProgress * 100)}%
                 </span>
@@ -145,7 +145,7 @@ const ModelCard: FunctionComponent<{
             {model.downloaded && (
                 <button onClick={() => onDelete(model.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                               text-slate-400 hover:text-status-red transition-colors duration-200">
+                               text-slate-500 hover:text-status-red transition-colors duration-200">
                     <Trash2 className="w-3 h-3" strokeWidth={2} />
                 </button>
             )}
@@ -195,7 +195,7 @@ const Inspector: FunctionComponent<{
                 className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center
                            bg-black/[0.04] dark:bg-white/[0.04] hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                            transition-colors duration-200">
-                <X className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                <X className="w-3.5 h-3.5 text-slate-600" strokeWidth={2} />
             </button>
             {node && (
                 <>
@@ -204,7 +204,7 @@ const Inspector: FunctionComponent<{
                         <span className="text-[10px] font-bold uppercase tracking-[0.2em] font-mono" style={{ color: cat.hex }}>
                             {cat.label}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-400 ml-auto px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.04]">
+                        <span className="text-[9px] font-mono text-slate-500 ml-auto px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.04]">
                             {node.scope}
                         </span>
                     </div>
@@ -213,23 +213,23 @@ const Inspector: FunctionComponent<{
                     </p>
                     <div className="flex flex-col gap-3 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Strength</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Strength</span>
                             <div className="flex items-center gap-2">
                                 <div className="w-20 h-1.5 rounded-full bg-black/[0.06] dark:bg-white/[0.06] overflow-hidden">
                                     <div className="h-full rounded-full transition-all duration-700"
                                         style={{ width: `${node.strength * 100}%`, background: cat.hex }} />
                                 </div>
-                                <span className="text-[10px] font-mono text-slate-400">{Math.round(node.strength * 100)}%</span>
+                                <span className="text-[10px] font-mono text-slate-500">{Math.round(node.strength * 100)}%</span>
                             </div>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">ID</span>
-                            <span className="text-[11px] font-mono text-slate-400">{node.id.slice(0, 8)}…</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">ID</span>
+                            <span className="text-[11px] font-mono text-slate-500">{node.id.slice(0, 8)}…</span>
                         </div>
                     </div>
                     {connected.length > 0 && (
                         <div className="flex flex-col gap-2 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
                                 Synapses ({connected.length})
                             </span>
                             {connected.slice(0, 8).map(({ node: cn, similarity }) => (
@@ -237,11 +237,11 @@ const Inspector: FunctionComponent<{
                                     <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
                                         style={{ background: (CAT[cn.category] || CAT.context).hex }} />
                                     <div className="flex-1 min-w-0">
-                                        <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 font-medium">
+                                        <span className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 font-medium">
                                             {cn.content}
                                         </span>
                                     </div>
-                                    <span className="text-[9px] font-mono text-slate-400 shrink-0 mt-0.5"
+                                    <span className="text-[9px] font-mono text-slate-500 shrink-0 mt-0.5"
                                         style={{ color: similarity > 0.7 ? (CAT[cn.category] || CAT.context).hex : undefined }}>
                                         {Math.round(similarity * 100)}%
                                     </span>
@@ -320,7 +320,7 @@ const AddMemoryModal: FunctionComponent<{
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-400">{Math.round(strength * 100)}%</span>
+                        <span className="text-[10px] font-mono text-slate-500">{Math.round(strength * 100)}%</span>
                         <input type="range" min="0.1" max="1" step="0.1" value={strength}
                             onInput={e => setStrength(parseFloat((e.target as HTMLInputElement).value))}
                             className="w-20 accent-signal-500" />
@@ -329,7 +329,7 @@ const AddMemoryModal: FunctionComponent<{
                 <div className="flex items-center gap-2 pt-2">
                     <button onClick={onClose}
                         className="flex-1 py-2.5 rounded-xl text-xs font-bold
-                                   bg-black/[0.04] dark:bg-white/[0.04] text-slate-500 hover:text-slate-900 dark:hover:text-white
+                                   bg-black/[0.04] dark:bg-white/[0.04] text-slate-600 hover:text-slate-900 dark:hover:text-white
                                    transition-colors duration-200">
                         Cancel
                     </button>
@@ -1002,7 +1002,7 @@ export const MemoryPage: FunctionComponent = () => {
                             <span className="text-signal-500">Map.</span>
                         </h1>
                     </div>
-                    <p className="text-base text-slate-500 font-medium max-w-lg leading-relaxed">
+                    <p className="text-base text-slate-600 font-medium max-w-lg leading-relaxed">
                         Explore the neural landscape of your agents' persistent memory.
                         Click nodes to inspect. Scroll to zoom. Drag to pan.
                     </p>
@@ -1018,7 +1018,7 @@ export const MemoryPage: FunctionComponent = () => {
                                 <span key={tab.key} className={`text-[10px] font-bold font-mono px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-200
                                     ${activeTier === tab.key
                                         ? "bg-signal-500/[0.12] border border-signal-500/30 text-signal-500"
-                                        : "bg-black/[0.04] dark:bg-white/[0.04] border border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                        : "bg-black/[0.04] dark:bg-white/[0.04] border border-transparent text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                                     }`}
                                     onClick={() => setActiveTier(tab.key)}>
                                     {tab.label} · {count}
@@ -1072,7 +1072,7 @@ export const MemoryPage: FunctionComponent = () => {
                                        border transition-colors duration-200
                                        ${showModels
                                            ? "bg-signal-500/[0.12] border-signal-500/30 text-signal-500"
-                                           : "bg-black/[0.04] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                           : "bg-black/[0.04] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-slate-600 hover:text-slate-900 dark:hover:text-white"
                                        }`}>
                             <HardDrive className="w-3.5 h-3.5" strokeWidth={2} />
                             Models
@@ -1107,7 +1107,7 @@ export const MemoryPage: FunctionComponent = () => {
                             staleCount={stats.staleEmbeddings} />
                     ))}
                     {models.length === 0 && (
-                        <p className="text-sm text-slate-400 font-medium col-span-2 text-center py-8">
+                        <p className="text-sm text-slate-500 font-medium col-span-2 text-center py-8">
                             Loading embedding models…
                         </p>
                     )}
@@ -1197,7 +1197,7 @@ export const MemoryPage: FunctionComponent = () => {
                 {/* Search overlay */}
                 <div className="absolute top-5 left-5 z-20">
                     <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" strokeWidth={2} />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" strokeWidth={2} />
                         <input
                             type="text"
                             value={searchQuery}
@@ -1216,7 +1216,7 @@ export const MemoryPage: FunctionComponent = () => {
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full
                                            flex items-center justify-center bg-black/[0.06] dark:bg-white/[0.06]
                                            hover:bg-black/[0.1] dark:hover:bg-white/[0.1] transition-colors duration-200">
-                                <X className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                                <X className="w-3 h-3 text-slate-600" strokeWidth={2} />
                             </button>
                         )}
                     </div>
@@ -1233,7 +1233,7 @@ export const MemoryPage: FunctionComponent = () => {
                             className="w-9 h-9 rounded-xl flex items-center justify-center
                                        bg-white/80 dark:bg-void-800/80 backdrop-blur-2xl
                                        border border-black/[0.06] dark:border-white/[0.06]
-                                       text-slate-500 hover:text-slate-900 dark:hover:text-white
+                                       text-slate-600 hover:text-slate-900 dark:hover:text-white
                                        shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)]
                                        transition-colors duration-200">
                             <Icon className="w-4 h-4" strokeWidth={1.5} />
@@ -1247,7 +1247,7 @@ export const MemoryPage: FunctionComponent = () => {
                         <div key={cfg.label} className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full" style={{ background: cfg.hex, boxShadow: `0 0 6px ${cfg.hex}` }} />
                             <span className="text-[9px] font-bold uppercase tracking-[0.12em]
-                                           text-slate-400/80 dark:text-slate-500/80">
+                                           text-slate-500/80 dark:text-slate-400/80">
                                 {cfg.label}
                             </span>
                         </div>
@@ -1265,10 +1265,10 @@ export const MemoryPage: FunctionComponent = () => {
                 {!loading && memoryCount === 0 && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none z-20">
                         <Brain className="w-12 h-12 text-signal-500/20" strokeWidth={1.5} />
-                        <p className="text-lg font-black font-display tracking-tight text-slate-400/60">
+                        <p className="text-lg font-black font-display tracking-tight text-slate-500/60">
                             No memories yet
                         </p>
-                        <p className="text-xs font-mono text-slate-400/50">
+                        <p className="text-xs font-mono text-slate-500/50">
                             Memories will appear here as sprints capture them, or add one manually.
                         </p>
                     </div>
@@ -1304,7 +1304,7 @@ export const MemoryPage: FunctionComponent = () => {
                                        shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)]">
                             <div className="flex items-center justify-between">
                                 <div className="w-2 h-2 rounded-full" style={{ background: cfg.hex, boxShadow: `0 0 8px ${cfg.hex}` }} />
-                                <span className="text-[9px] font-mono text-slate-400">{alive}/{total}</span>
+                                <span className="text-[9px] font-mono text-slate-500">{alive}/{total}</span>
                             </div>
                             <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: cfg.hex }}>
                                 {cfg.label}

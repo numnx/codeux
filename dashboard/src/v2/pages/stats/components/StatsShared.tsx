@@ -325,7 +325,7 @@ export const RangeToggle: FunctionComponent<{
           className={`rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] transition-all ${
             activeWindow === value
               ? "bg-void-900 text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] dark:bg-white dark:text-void-900"
-              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
           {value === "all" ? "All time" : value}
@@ -337,7 +337,7 @@ export const RangeToggle: FunctionComponent<{
         className={`rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] transition-all ${
           activeWindow === "custom"
             ? "bg-void-900 text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] dark:bg-white dark:text-void-900"
-            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         }`}
       >
         Custom
@@ -389,7 +389,7 @@ export const ViewToggle: FunctionComponent<{
             className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
               value === mode.id
                 ? "bg-slate-900 text-white shadow-[0_14px_32px_rgba(15,23,42,0.16)] dark:bg-white dark:text-slate-900"
-                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
             }`}
           >
             <Icon className="h-3.5 w-3.5" strokeWidth={2} />
@@ -413,15 +413,15 @@ export const SignalMetricCard: FunctionComponent<{
   <MetricCard hoverTint={hoverTint} accentHex={accentHex}>
     <Sparkline points={sparkline} color={accentHex} />
     <div className="relative z-10 flex items-center justify-between gap-4">
-      <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{label}</div>
-      <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
+      <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">{label}</div>
+      <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-400 ${CHIP_CLASS}`}>
         {signalLabel}
       </div>
     </div>
     <div className="relative z-10 mt-6 text-[2.35rem] font-semibold tracking-tighter text-slate-900 dark:text-white">
       {value}
     </div>
-    <div className="relative z-10 mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+    <div className="relative z-10 mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
       {detail}
     </div>
   </MetricCard>
@@ -458,11 +458,11 @@ export const SeriesLegendButton: FunctionComponent<{
   >
     <div className="flex items-center gap-3">
       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.accentHex }} />
-      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{series.label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{series.label}</span>
     </div>
     <div className="mt-3 flex items-end justify-between gap-4">
       <div className="text-lg font-black text-slate-900 dark:text-white">{series.formatter(currentValue)}</div>
-      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{series.signalLabel}</div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{series.signalLabel}</div>
     </div>
   </button>
 );
@@ -504,9 +504,9 @@ export const DonutCard: FunctionComponent<{
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.14]" />
       <div className="relative flex h-full flex-col gap-6">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">{eyebrow}</div>
           <div className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{title}</div>
-          <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
+          <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</div>
         </div>
         <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
           <div className="flex items-center justify-center">
@@ -554,10 +554,10 @@ export const DonutCard: FunctionComponent<{
                 <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
                   {activeSegment ? formatTokens(activeSegment.value) : centerValue}
                 </div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
                   {activeSegment ? activeSegment.label : centerLabel}
                 </div>
-                <div className="mt-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                <div className="mt-2 text-[11px] font-mono text-slate-600 dark:text-slate-400">
                   {activeSegment ? `${formatPercent(activeSegment.share)} of visible volume` : `${segments.length} lanes`}
                 </div>
               </div>
@@ -565,7 +565,7 @@ export const DonutCard: FunctionComponent<{
           </div>
           <div className="space-y-3">
             {segments.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-8 text-center text-sm text-slate-400 dark:border-white/[0.08]">
+              <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-8 text-center text-sm text-slate-500 dark:border-white/[0.08]">
                 No telemetry landed in this composition yet.
               </div>
             ) : slices.map((segment, index) => {
@@ -583,13 +583,13 @@ export const DonutCard: FunctionComponent<{
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
                         <span className={`truncate text-sm font-semibold ${segment.textClassName}`}>{segment.label}</span>
                       </div>
-                      <div className="mt-1 text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                      <div className="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
                         {formatPercent(segment.share)} of visible volume
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-black text-slate-900 dark:text-white">{formatTokens(segment.value)}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">tokens</div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">tokens</div>
                     </div>
                   </div>
                   <div className="mt-3 h-1.5 rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
@@ -626,7 +626,7 @@ export const PurposeRibbon: FunctionComponent<{
       return (
         <div key={purpose.id} className={`${SUBPANEL_CLASS} p-5`}>
           <div className="flex items-center justify-between gap-3">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
               {purpose.label.replace(/_/g, " ")}
             </div>
             <div className={`inline-flex h-8 w-8 items-center justify-center rounded-2xl ${tones[index % tones.length]!}`}>
@@ -636,7 +636,7 @@ export const PurposeRibbon: FunctionComponent<{
           <div className="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             {formatTokens(purpose.usage.totalTokens)}
           </div>
-          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             {formatDuration(purpose.usage.activeTimeMs)} active time
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -656,12 +656,12 @@ export const StudioHeader: FunctionComponent<{
   description: string;
 }> = ({ icon: Icon, eyebrow, title, description }) => (
   <div className="max-w-3xl">
-    <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
+    <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
       <Icon className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} />
       {eyebrow}
     </div>
     <div className="mt-4 text-3xl font-black tracking-tight text-slate-900 dark:text-white">{title}</div>
-    <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
+    <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</div>
   </div>
 );
 
@@ -686,10 +686,10 @@ export const TrendStudio: FunctionComponent<{
       <div className={`${PANEL_CLASS} p-6`}>
         <div className="flex items-center gap-3">
           <Workflow className="h-4 w-4 text-signal-500" strokeWidth={2} />
-          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Execution Lanes</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Execution Lanes</div>
         </div>
         <div className="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Purpose mix</div>
-        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
           Planning, coding, merge recovery, and CI repair are now visible as a unified telemetry system rather than separate operational silos.
         </div>
         <div className="mt-5">
@@ -700,45 +700,45 @@ export const TrendStudio: FunctionComponent<{
         <div className={`${PANEL_CLASS} p-6`}>
           <div className="flex items-center gap-3">
             <Layers3 className="h-4 w-4 text-amber-500" strokeWidth={2} />
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Sprint Focus</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Sprint Focus</div>
           </div>
           <div className="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             {stats.activeSprint ? stats.activeSprint.sprintName : "Historical view"}
           </div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             {stats.activeSprint
                 ? `Sprint ${stats.activeSprint.sprintNumber ?? "?"} is the live telemetry anchor for this project.`
                 : "No live sprint is active, so the dashboard is reading the selected historical window only."}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-4">
             <div className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Planning</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Planning</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{planningUsage ? formatTokens(planningUsage.usage.totalTokens) : "0"}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{planningUsage ? formatDuration(planningUsage.usage.activeTimeMs) : "No planning data yet"}</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">{planningUsage ? formatDuration(planningUsage.usage.activeTimeMs) : "No planning data yet"}</div>
             </div>
             <div className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Providers</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Providers</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{stats.providers.length}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active in {stats.range.label.toLowerCase()}</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">Active in {stats.range.label.toLowerCase()}</div>
             </div>
           </div>
         </div>
         <div className={`${PANEL_CLASS} p-6`}>
           <div className="flex items-center gap-3">
             <Clock3 className="h-4 w-4 text-cyan-500" strokeWidth={2} />
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Window Discipline</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Window Discipline</div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Buckets</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Buckets</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{stats.buckets.length}</div>
             </div>
             <div className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Generated</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Generated</div>
               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDateTime(stats.generatedAt)}</div>
             </div>
             <div className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Window</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Window</div>
               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{stats.range.label}</div>
             </div>
           </div>
@@ -786,10 +786,10 @@ export const CompositionStudio: FunctionComponent<{
       <div className={`${PANEL_CLASS} p-6`}>
         <div className="flex items-center gap-3">
           <Workflow className="h-4 w-4 text-signal-500" strokeWidth={2} />
-          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Purpose Architecture</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Purpose Architecture</div>
         </div>
         <div className="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Execution purposes</div>
-        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
           Composition mode emphasizes where effort is going, not just how much of it happened.
         </div>
         <div className="mt-5">
@@ -799,7 +799,7 @@ export const CompositionStudio: FunctionComponent<{
       <div className={`${PANEL_CLASS} p-6`}>
         <div className="flex items-center gap-3">
           <TimerReset className="h-4 w-4 text-amber-500" strokeWidth={2} />
-          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Token Flight</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Token Flight</div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-signal-500/16 bg-signal-500/10 p-4">
@@ -874,7 +874,7 @@ export const ReliabilityStudio: FunctionComponent<{
       <div className={`${PANEL_CLASS} p-6`}>
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-4 w-4 text-status-green" strokeWidth={2} />
-          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Confidence Board</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Confidence Board</div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-status-green/16 bg-status-green/10 p-4">
@@ -898,18 +898,18 @@ export const ReliabilityStudio: FunctionComponent<{
       <div className={`${PANEL_CLASS} p-6`}>
         <div className="flex items-center gap-3">
           <Sparkles className="h-4 w-4 text-amber-500" strokeWidth={2} />
-          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Audit Notes</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Audit Notes</div>
         </div>
         <div className="mt-4 space-y-4">
           <div className={SUBPANEL_CLASS}>
             <div className="text-sm font-semibold text-slate-900 dark:text-white">Fallback policy</div>
-            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               Codex and Claude stay visible even when they cannot report authoritative token counts, but the dashboard explicitly keeps those invocations marked as estimated rather than pretending they are exact.
             </div>
           </div>
           <div className={SUBPANEL_CLASS}>
             <div className="text-sm font-semibold text-slate-900 dark:text-white">Reliability signal</div>
-            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               Reliability mode is tuned for operational trust: how much of the window is exact, how much came from fallback, and where unsupported providers still participate in time tracking without token precision.
             </div>
           </div>
@@ -930,7 +930,7 @@ export const SortButton: FunctionComponent<{
     className={`rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-all ${
       active
         ? "bg-slate-900 text-white shadow-[0_12px_24px_rgba(15,23,42,0.12)] dark:bg-white dark:text-void-900"
-        : `${CHIP_CLASS} text-slate-500 dark:text-slate-300`
+        : `${CHIP_CLASS} text-slate-600 dark:text-slate-300`
     }`}
   >
     {label}

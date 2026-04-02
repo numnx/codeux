@@ -68,7 +68,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
       <button
         type="button"
         onClick={onDismiss}
-        className="absolute top-6 right-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white z-10"
+        className="absolute top-6 right-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white z-10"
         aria-label="Dismiss overlay"
       >
         <X className="h-4 w-4" />
@@ -100,15 +100,15 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         </div>
         <div className="flex items-center justify-center gap-6">
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">ETA</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">ETA</div>
             <div className="font-mono text-xl font-medium tracking-tight text-slate-900 dark:text-white">
               {Math.floor(Math.max(0, planningEta - elapsedMs) / 60000)}:{String(Math.floor((Math.max(0, planningEta - elapsedMs) % 60000) / 1000)).padStart(2, "0")}
             </div>
           </div>
           <div className="h-8 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Elapsed</div>
-            <div className="font-mono text-xl font-medium tracking-tight text-slate-500">
+            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Elapsed</div>
+            <div className="font-mono text-xl font-medium tracking-tight text-slate-600">
               {Math.floor(elapsedMs / 60000)}:{String(Math.floor((elapsedMs % 60000) / 1000)).padStart(2, "0")}
             </div>
           </div>
@@ -119,7 +119,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         >
           {feedback.text}
         </h3>
-        <p className="mx-auto max-w-xs text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="mx-auto max-w-xs text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           {getDescriptionText()}
         </p>
         <div className="mt-4 flex flex-row items-center justify-center gap-3">
@@ -127,7 +127,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
             <button
               type="button"
               onClick={onCancel}
-              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-status-red/30 hover:text-status-red dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-status-red/30 dark:hover:text-status-red"
+              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-status-red/30 hover:text-status-red dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-status-red/30 dark:hover:text-status-red"
             >
               <X className="h-3.5 w-3.5" />
               Cancel
@@ -136,7 +136,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
           <button
             type="button"
             onClick={onDismiss}
-            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-black/[0.15] hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/[0.15] dark:hover:text-white"
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-black/[0.15] hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/[0.15] dark:hover:text-white"
           >
             Close
           </button>

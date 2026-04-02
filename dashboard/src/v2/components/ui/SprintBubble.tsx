@@ -37,9 +37,9 @@ const statusMap: Record<SprintStatus, {
 }> = {
   running: { ring: "border-status-green/45 shadow-[0_0_34px_rgba(0,171,132,0.28)]", text: "text-status-green", icon: Activity, label: "Running", accentHex: "#00AB84" },
   paused: { ring: "border-status-amber/45 shadow-[0_0_34px_rgba(245,158,11,0.24)]", text: "text-status-amber", icon: Clock3, label: "Paused", accentHex: "#F59E0B" },
-  completed: { ring: "border-slate-300/50 shadow-[0_0_24px_rgba(148,163,184,0.18)]", text: "text-slate-500 dark:text-slate-400", icon: CheckCircle2, label: "Completed", accentHex: "#94A3B8" },
+  completed: { ring: "border-slate-300/50 shadow-[0_0_24px_rgba(148,163,184,0.18)]", text: "text-slate-600 dark:text-slate-400", icon: CheckCircle2, label: "Completed", accentHex: "#94A3B8" },
   failed: { ring: "border-status-red/55 shadow-[0_0_34px_rgba(227,0,15,0.3)]", text: "text-status-red", icon: XCircle, label: "Failed", accentHex: "#E3000F" },
-  cancelled: { ring: "border-slate-300/35 shadow-[0_0_24px_rgba(148,163,184,0.16)]", text: "text-slate-400 dark:text-slate-500", icon: XCircle, label: "Cancelled", accentHex: "#94A3B8" },
+  cancelled: { ring: "border-slate-300/35 shadow-[0_0_24px_rgba(148,163,184,0.16)]", text: "text-slate-500 dark:text-slate-400", icon: XCircle, label: "Cancelled", accentHex: "#94A3B8" },
   idle: { ring: "", text: "text-signal-600 dark:text-signal-300", icon: Clock3, label: "Draft", accentHex: "#00E0A0" },
 };
 
@@ -178,12 +178,12 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
         <div className="mt-6 flex items-center justify-center gap-7 text-center transition-transform duration-300 group-hover:-translate-y-3">
           <div className="flex flex-col items-center">
             <div className="font-mono text-[2rem] font-black text-slate-900 dark:text-white">{sprint.tasksCount}</div>
-            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Tasks</div>
+            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Tasks</div>
           </div>
           <div className="h-10 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
           <div className="flex flex-col items-center">
             <div className="font-mono text-[2rem] font-black text-slate-900 dark:text-white">{sprint.completion}%</div>
-            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Done</div>
+            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Done</div>
           </div>
         </div>
 

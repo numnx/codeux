@@ -33,7 +33,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
     return (
         <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block">Attention Queue</span>
+                <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 block">Attention Queue</span>
                 <div className="flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-[0.12em]">
                     <span className="rounded-full border border-status-amber/20 bg-status-amber/10 px-2 py-1 text-status-amber">
                         open {openCount}
@@ -45,7 +45,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
             </div>
 
             {snapshot.attentionItems.length === 0 ? (
-                <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">
+                <p className="text-[11px] text-slate-500 dark:text-slate-600 font-mono">
                     No active blockers are waiting in the project attention queue.
                 </p>
             ) : (
@@ -82,12 +82,12 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             }`}>
                                                 {item.severity}
                                             </span>
-                                            <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                            <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                                 {ATTENTION_TYPE_LABELS[item.attentionType] || item.attentionType.replace(/_/g, " ")}
                                             </span>
                                         </div>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
-                                            <span className={ATTENTION_STATUS_TONE[item.status] || "text-slate-400"}>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500">
+                                            <span className={ATTENTION_STATUS_TONE[item.status] || "text-slate-500"}>
                                                 {item.status}
                                             </span>
                                             <span>·</span>
@@ -108,13 +108,13 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="text-right text-[10px] font-mono text-slate-400">
+                                    <div className="text-right text-[10px] font-mono text-slate-500">
                                         {formatTime(item.updatedAt)}
                                     </div>
                                 </div>
 
                                 <div
-                                    className="mt-3 prose prose-sm max-w-none text-[11px] leading-relaxed text-slate-500 dark:text-slate-400
+                                    className="mt-3 prose prose-sm max-w-none text-[11px] leading-relaxed text-slate-600 dark:text-slate-400
                                                prose-p:my-0 prose-code:text-signal-600 dark:prose-code:text-signal-400
                                                prose-code:bg-signal-500/[0.06] prose-code:px-1 prose-code:rounded-md line-clamp-3"
                                     dangerouslySetInnerHTML={{ __html: renderMarkdown(item.summaryMarkdown || "No summary provided.") }}
@@ -148,7 +148,7 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                                             type="button"
                                             onClick={() => onDismissAttentionItem(snapshot.projectId!, item.id)}
                                             disabled={pendingActionIds.has(dismissActionId)}
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.05] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05] disabled:opacity-50"
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 transition-colors hover:bg-black/[0.05] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05] disabled:opacity-50"
                                         >
                                             <XCircle className="w-3 h-3" strokeWidth={2} />
                                             {pendingActionIds.has(dismissActionId) ? "Dismissing" : "Dismiss"}

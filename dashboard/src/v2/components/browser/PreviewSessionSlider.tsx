@@ -13,14 +13,14 @@ interface PreviewSessionSliderProps {
 const statusTone: Record<SprintPreviewSession["status"], string> = {
   running: "border-signal-500/30 bg-signal-500/10 text-signal-500",
   starting: "border-amber-500/30 bg-amber-500/10 text-amber-500",
-  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
   error: "border-status-red/30 bg-status-red/10 text-status-red",
 };
 
 const healthTone: Record<SprintPreviewSession["healthStatus"], string> = {
   healthy: "text-signal-500",
   unreachable: "text-status-red",
-  unknown: "text-slate-400",
+  unknown: "text-slate-500",
 };
 
 const formatPortMapping = (session: SprintPreviewSession): string => {
@@ -60,7 +60,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
   if (sessions.length === 0) {
     return (
       <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-3 shadow-[0_20px_60px_rgba(15,23,42,0.06)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-        <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-3 text-sm text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
+        <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-3 text-sm text-slate-600 dark:border-white/[0.08] dark:text-slate-400">
           No preview containers yet. Start the selected sprint to open a browser session.
         </div>
       </div>
@@ -132,7 +132,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                   <span>{formatPortMapping(session)}</span>
                 </div>
 
-                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
+                <div className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
                   {session.hostPort ? `127.0.0.1:${session.hostPort}` : "waiting for routed port"}
                 </div>
               </button>

@@ -30,21 +30,21 @@ export const StatsPageHero: FunctionComponent<any> = ({
           <h1 className="mt-6 text-5xl font-black tracking-[-0.06em] text-slate-900 dark:text-white md:text-7xl">
             Statistics.
           </h1>
-          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
             A high-signal telemetry workspace for planning, coding, CI recovery, and merge automation with deeper analysis, stronger interaction, and better operational usability.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
               {selectedProject?.name || "No project selected"}
             </div>
-            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
               {stats?.activeSprint ? `Live sprint ${stats.activeSprint.sprintNumber ?? "?"}` : "Historical lens"}
             </div>
-            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
               Generated {stats ? formatDateTime(stats.generatedAt) : "--"}
             </div>
             {stats ? (
-              <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+              <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
                 {stats.range.resolutionLabel}
               </div>
             ) : null}

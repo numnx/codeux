@@ -37,11 +37,11 @@ const PRIORITY_CFG: Record<TaskPriority, { label: string; color: string; dot: st
   critical: { label: "Critical", color: "text-status-red", dot: "bg-status-red shadow-[0_0_8px_rgba(227,0,15,0.6)]", bg: "bg-status-red/[0.08] border-status-red/20" },
   high: { label: "High", color: "text-ember-500", dot: "bg-ember-500 shadow-[0_0_8px_rgba(255,184,0,0.5)]", bg: "bg-ember-500/[0.08] border-ember-500/20" },
   medium: { label: "Medium", color: "text-signal-500", dot: "bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.4)]", bg: "bg-signal-500/[0.06] border-signal-500/15" },
-  low: { label: "Low", color: "text-slate-400", dot: "bg-slate-400", bg: "bg-slate-400/[0.06] border-slate-400/15" },
+  low: { label: "Low", color: "text-slate-500", dot: "bg-slate-400", bg: "bg-slate-400/[0.06] border-slate-400/15" },
 };
 
 const STATUS_CFG: Record<TaskStatus, { label: string; color: string; hex: string; icon: typeof Circle }> = {
-  pending: { label: "Queued", color: "text-slate-400 dark:text-slate-500", hex: "#64748b", icon: Circle },
+  pending: { label: "Queued", color: "text-slate-500 dark:text-slate-400", hex: "#64748b", icon: Circle },
   in_progress: { label: "In Progress", color: "text-signal-500", hex: "#00E0A0", icon: PlayCircle as typeof Circle },
   coding_completed: { label: "Coding Completed", color: "text-cyan-500", hex: "#0F9FA8", icon: CheckCircle2 as typeof Circle },
   completed: { label: "Completed", color: "text-status-green", hex: "#00AB84", icon: CheckCircle2 as typeof Circle },
@@ -130,28 +130,28 @@ const TaskCard: FunctionComponent<{
       </div>
 
       <h4 className={`text-[15px] font-bold tracking-tight leading-snug mb-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-300 ${
-        task.status === "completed" ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-700" : "text-slate-900 dark:text-white"
+        task.status === "completed" ? "text-slate-500 dark:text-slate-400 line-through decoration-slate-300 dark:decoration-slate-700" : "text-slate-900 dark:text-white"
       }`}>
         {task.title}
       </h4>
 
-      <div className="relative z-10 mb-4 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
+      <div className="relative z-10 mb-4 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
         <span className="rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2.5 py-1">
           {EXECUTOR_LABEL[task.executorType]}
         </span>
       </div>
 
       <div className="flex items-center gap-3 mt-auto relative z-10">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
           <FolderGit2 className="w-3 h-3 text-slate-300 dark:text-slate-600 group-hover:text-signal-500 transition-colors" strokeWidth={2} />
           <span className="font-mono truncate max-w-[100px]">{task.source}</span>
         </div>
 
         <span className="text-slate-200 dark:text-slate-700 text-[9px]">·</span>
 
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
           <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-black/[0.03] dark:bg-white/[0.03]">
-            <span className="text-[9px] font-black font-display text-slate-500 dark:text-slate-400">
+            <span className="text-[9px] font-black font-display text-slate-600 dark:text-slate-400">
               {task.assignee[0]}
             </span>
           </div>
@@ -168,7 +168,7 @@ const TaskCard: FunctionComponent<{
       </div>
 
       {task.dependsOnTaskIds.length > 0 && (
-        <div className="relative z-10 mt-3 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+        <div className="relative z-10 mt-3 text-[10px] uppercase tracking-[0.14em] text-slate-500">
           Depends on {task.dependsOnTaskIds.length} task{task.dependsOnTaskIds.length > 1 ? "s" : ""}
         </div>
       )}
@@ -183,7 +183,7 @@ const TaskCard: FunctionComponent<{
                   ? "bg-status-green/[0.08] border-status-green/20 text-status-green"
                   : dep.status === "coding_completed" || dep.status === "in_progress"
                   ? "bg-signal-500/[0.08] border-signal-500/20 text-signal-500"
-                  : "bg-slate-400/[0.08] border-slate-400/20 text-slate-500"
+                  : "bg-slate-400/[0.08] border-slate-400/20 text-slate-600"
               }`}
             >
               <Target className="w-2.5 h-2.5" strokeWidth={2.5} />
@@ -195,14 +195,14 @@ const TaskCard: FunctionComponent<{
 
       <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
         <button
-          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors"
+          className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors"
           title="Edit task"
           onClick={() => onEdit(task)}
         >
           <Settings className="w-3 h-3" />
         </button>
         <button
-          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-status-red rounded-full transition-colors"
+          className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-status-red rounded-full transition-colors"
           title="Delete task"
           onClick={() => onDelete(task)}
         >
@@ -256,11 +256,11 @@ const SprintSelector: FunctionComponent<{
             : "bg-black/[0.03] dark:bg-white/[0.03] border-black/[0.06] dark:border-white/[0.06]"
         } hover:border-ember-500/40 dark:hover:border-ember-500/40`}
       >
-        <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-400"} transition-colors`} strokeWidth={2} />
+        <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-500"} transition-colors`} strokeWidth={2} />
         <span className={`text-sm font-bold tracking-tight ${selected ? "text-ember-600 dark:text-ember-400" : "text-slate-600 dark:text-slate-400"}`}>
           {selected ? selected.name : "All Sprints"}
         </span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} />
+        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} />
       </button>
 
       {open && (
@@ -302,11 +302,11 @@ const SprintSelector: FunctionComponent<{
                     {sprint.name}
                   </span>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-[0.1em]">{sprint.date}</span>
+                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-[0.1em]">{sprint.date}</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-[10px] font-mono font-bold text-slate-500">{sprint.tasksCount}</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-600">{sprint.tasksCount}</span>
                   <div className="w-12 h-1 rounded-full bg-black/[0.06] dark:bg-white/[0.06] overflow-hidden">
                     <div className="h-full rounded-full bg-signal-500 transition-all duration-500" style={{ width: `${sprint.completion}%` }} />
                   </div>
@@ -342,7 +342,7 @@ const SprintProgressCard: FunctionComponent<{
         </div>
         <div>
           <h3 className="text-lg font-black font-display tracking-tight text-slate-900 dark:text-white">{sprint.name}</h3>
-          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-[0.1em]">{sprint.date}</p>
+          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.1em]">{sprint.date}</p>
         </div>
       </div>
 
@@ -356,18 +356,18 @@ const SprintProgressCard: FunctionComponent<{
         {[
           { label: "Completed", value: completed, color: "text-status-green" },
           { label: "Running", value: inProgress, color: "text-signal-500" },
-          { label: "Queued", value: pending, color: "text-slate-400" },
+          { label: "Queued", value: pending, color: "text-slate-500" },
         ].map(({ label, value, color }) => (
           <div key={label} className="flex flex-col items-center py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.04] dark:border-white/[0.04]">
             <span className={`text-xl font-black font-mono leading-none ${color}`}>{value}</span>
-            <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 mt-1">{label}</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-1">{label}</span>
           </div>
         ))}
       </div>
 
       <Link
         to="/sprints"
-        className="flex items-center gap-1.5 mt-5 pt-4 border-t border-black/[0.05] dark:border-white/[0.04] text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 hover:text-ember-500 transition-colors duration-200 group/link"
+        className="flex items-center gap-1.5 mt-5 pt-4 border-t border-black/[0.05] dark:border-white/[0.04] text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-ember-500 transition-colors duration-200 group/link"
       >
         <ArrowUpRight className="w-3 h-3 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform duration-200" strokeWidth={2.5} />
         View Sprint
@@ -510,7 +510,7 @@ export const TasksPage: FunctionComponent = () => {
             </h1>
           </div>
 
-          <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
+          <p className="text-lg text-slate-600 dark:text-slate-400 font-medium max-w-xl mt-1 leading-relaxed">
             {selectedProject
               ? `Task execution for ${selectedProject.name}. Manage backlog, live work, and completion state inside the database-backed model.`
               : "Select a project to manage sprint tasks."}
@@ -533,7 +533,7 @@ export const TasksPage: FunctionComponent = () => {
                 {stats.critical} Critical
               </div>
             )}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-widest text-slate-600">
               <ListChecks className="w-3 h-3" strokeWidth={2} />
               {stats.total} Total
             </div>
@@ -574,7 +574,7 @@ export const TasksPage: FunctionComponent = () => {
               className={`text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all duration-200 ${
                 statusFilter === key
                   ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
-                  : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
               }`}
             >
               {label}
@@ -596,7 +596,7 @@ export const TasksPage: FunctionComponent = () => {
               className={`text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all duration-200 ${
                 priorityFilter === key
                   ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
-                  : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
               }`}
             >
               {label}
@@ -616,7 +616,7 @@ export const TasksPage: FunctionComponent = () => {
       )}
 
       {!selectedProject && (
-        <div className="px-6 py-8 rounded-[1.75rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/55 dark:bg-void-800/55 text-slate-500 dark:text-slate-400 text-sm max-w-xl">
+        <div className="px-6 py-8 rounded-[1.75rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/55 dark:bg-void-800/55 text-slate-600 dark:text-slate-400 text-sm max-w-xl">
           Projects, sprints, and tasks are now linked in the database. Select a project first, then create a sprint before adding tasks.
         </div>
       )}

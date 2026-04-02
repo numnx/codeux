@@ -45,9 +45,9 @@ export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({ role, provider,
           </svg>
         );
       case 'system':
-        return <Terminal class="w-5 h-5 text-slate-500" aria-hidden="true" />;
+        return <Terminal class="w-5 h-5 text-slate-600" aria-hidden="true" />;
       case 'user':
-        return <User class="w-5 h-5 text-slate-400" aria-hidden="true" />;
+        return <User class="w-5 h-5 text-slate-500" aria-hidden="true" />;
       case 'agent':
       default:
         return <Bot class="w-5 h-5 text-amber-500" aria-hidden="true" />;

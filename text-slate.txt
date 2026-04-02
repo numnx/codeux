@@ -1,0 +1,610 @@
+dashboard/src/v2/DashboardV2.tsx:35:                    <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl leading-relaxed">
+dashboard/src/v2/DashboardV2.tsx:57:                <div className="bg-[#F9F8F4] dark:bg-void-900 px-6 py-1.5 border border-black/[0.06] dark:border-white/[0.06] rounded-full shadow-sm relative z-10 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:354:                  <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:362:                className="inline-flex min-h-[44px] min-w-[44px] h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:377:                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-5">Built-in Templates</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:388:                    <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Custom Templates</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:406:                      <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Create your first custom template</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:407:                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">Combine agent presets with custom prompts for reusable sprint flows</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:430:                  className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:443:              <p data-qs-stagger className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:450:                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Route</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:474:                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Model Override</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:493:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Additional Instructions (optional)</label>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:507:                  className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:519:                    <pre className="max-h-80 overflow-y-auto text-xs font-mono leading-relaxed text-slate-500 dark:text-slate-400 whitespace-pre-wrap break-words scrollbar-thin scrollbar-thumb-black/10 dark:scrollbar-thumb-white/10">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:531:                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">Subtask Count</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:567:                className="inline-flex min-h-[44px] min-w-[44px] h-8 w-8 items-center justify-center rounded-full border border-black/[0.06] text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:hover:text-white"
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:579:              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Template Name</span>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:592:              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</span>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:605:                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Category Tag</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:667:                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Default Tasks</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:696:                            : "text-slate-400 hover:bg-white/[0.08] hover:text-white hover:scale-110"
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:745:                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Agent Preset (optional)</div>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:746:                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:765:              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Agent Instructions</span>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:843:      <p className="flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 mb-4">{template.description}</p>
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:853:        <span className="text-[10px] font-medium text-slate-400">
+dashboard/src/v2/components/quicksprint/QuicksprintPanel.tsx:892:        <span className="text-sm font-medium text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetDetailPanel.tsx:50:        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetDetailPanel.tsx:60:          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetShowcaseCard.tsx:47:                className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400"
+dashboard/src/v2/components/agents/AgentPresetShowcaseCard.tsx:53:              <span className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetEditorPanel.tsx:74:            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetEditorPanel.tsx:88:            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetEditorPanel.tsx:101:            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/agents/AgentPresetEditorPanel.tsx:127:                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/SettingsCategoryRail.tsx:46:        <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">
+dashboard/src/v2/components/settings/SettingsCategoryRail.tsx:50:        <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/SettingsCategoryRail.tsx:104:              <div className="mt-0.5 truncate text-[10px] font-medium leading-tight text-slate-400 dark:text-slate-600">
+dashboard/src/v2/components/settings/SettingsSurface.tsx:70:      <p className="mt-2 max-w-3xl text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/SettingsFormFields.tsx:73:            <div className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+dashboard/src/v2/components/settings/SettingsFormFields.tsx:164:    <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</div>
+dashboard/src/v2/components/settings/SettingsFormFields.tsx:197:        <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400">{description}</div>
+dashboard/src/v2/components/settings/SettingsFormFields.tsx:216:        <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">{description}</p>
+dashboard/src/v2/components/settings/panels/SettingsGeneralPanel.tsx:89:              <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/components/settings/panels/SettingsMemoryPanel.tsx:124:            <div className="text-xs font-medium leading-relaxed text-slate-400 mb-3">
+dashboard/src/v2/components/settings/panels/SharedPanelComponents.tsx:24:      <h3 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${danger ? "text-status-red/70" : "text-slate-400 dark:text-slate-500"}`}>
+dashboard/src/v2/components/settings/panels/SharedPanelComponents.tsx:63:      <div className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsAgentsPanel.tsx:75:            <div className="mb-4 text-xs font-medium leading-relaxed text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:326:                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Provider deck</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:327:                    <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:358:                                  <span className="rounded-full border border-black/[0.08] bg-black/[0.04] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:363:                              <div className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:368:                                  <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:420:                                  <span className="inline-flex items-center rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:433:                              <div className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:465:                              <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:498:                              <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:520:                            <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:562:                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Invocation routes</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:563:                      <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:589:                                <div className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:596:                                  : "bg-black/[0.05] text-slate-500 dark:bg-white/[0.05] dark:text-slate-400"
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:601:                            <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:617:                        <div className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:622:                        <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:625:                        <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:651:                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Profile</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:662:                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Strategy</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:678:                      <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Primary provider</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:702:                        <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Allowed providers</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:703:                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:720:                                  : "border-black/[0.08] bg-white/78 text-slate-500 dark:border-white/[0.08] dark:bg-void-900/60 dark:text-slate-400"
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:742:                                <div className="rounded-full bg-black/[0.05] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:bg-white/[0.05] dark:text-slate-400">
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:749:                                    <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Model</div>
+dashboard/src/v2/components/settings/panels/SettingsModelsPanel.tsx:764:                                    <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Thinking mode</div>
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:33:        <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">{description}</p>
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:183:                    : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:195:                    : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:387:                    <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:418:                  <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:461:                  <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/settings/ProjectSettingsEditor.tsx:484:                  <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/SprintProtocol.tsx:19:        || '<p class="text-slate-400 dark:text-slate-600 italic">No active sprint protocol.</p>'
+dashboard/src/v2/components/SprintProtocol.tsx:30:                className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
+dashboard/src/v2/components/SprintDag.tsx:100:        badge: "border-black/[0.07] bg-black/[0.04] text-slate-500 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-400",
+dashboard/src/v2/components/SprintDag.tsx:231:              <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/components/SprintDag.tsx:265:            <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/components/SprintDag.tsx:272:          <div className="min-w-0 text-[10px] font-mono leading-tight text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:276:          <div className="flex flex-col items-end text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:388:          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:420:            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:451:            <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:456:            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/SprintDag.tsx:630:                  <div className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/60 dark:text-slate-300">
+dashboard/src/v2/components/SprintDag.tsx:632:                    <span className="ml-2 font-mono text-slate-400">{column.count}</span>
+dashboard/src/v2/components/Sidebar.tsx:89:                <div className="px-4 text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em] mb-3">Workspace</div>
+dashboard/src/v2/components/browser/BrowserSessionsMenu.tsx:88:                className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.06] bg-black/[0.03] px-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:border-sky-500/30 hover:bg-sky-500/8 hover:text-sky-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-sky-400/30 dark:hover:bg-sky-400/10 dark:hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
+dashboard/src/v2/components/browser/BrowserSessionsMenu.tsx:101:                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Active Sessions</span>
+dashboard/src/v2/components/browser/BrowserSessionsMenu.tsx:106:                                <p className="text-xs text-slate-400 font-medium">Loading sessions...</p>
+dashboard/src/v2/components/browser/BrowserSessionsMenu.tsx:128:                                        <span className="text-[10px] font-mono text-slate-400 truncate">
+dashboard/src/v2/components/browser/BrowserSessionsMenu.tsx:136:                                <p className="text-xs text-slate-400 font-medium">
+dashboard/src/v2/components/browser/PreviewWindowChrome.tsx:31:  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+dashboard/src/v2/components/browser/PreviewWindowChrome.tsx:54:            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/browser/PreviewWindowChrome.tsx:101:              <X className="h-5 w-5 text-slate-400" strokeWidth={2} />
+dashboard/src/v2/components/browser/PreviewWindowChrome.tsx:104:            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/browser/PreviewSessionSlider.tsx:16:  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+dashboard/src/v2/components/browser/PreviewSessionSlider.tsx:23:  unknown: "text-slate-400",
+dashboard/src/v2/components/browser/PreviewSessionSlider.tsx:63:        <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-3 text-sm text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
+dashboard/src/v2/components/browser/PreviewSessionSlider.tsx:127:                <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+dashboard/src/v2/components/browser/PreviewSessionSlider.tsx:135:                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
+dashboard/src/v2/components/RuntimeEventFeed.tsx:23:            <div className="flex items-center justify-center py-12 text-slate-400 dark:text-slate-600">
+dashboard/src/v2/components/RuntimeEventFeed.tsx:43:                                <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+dashboard/src/v2/components/RuntimeEventFeed.tsx:46:                                <span className="text-[9px] text-slate-400 dark:text-slate-600 font-mono">
+dashboard/src/v2/components/StatsHeader.tsx:68:                            <span className="text-slate-400 ml-1">· Sprint {liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber}</span>
+dashboard/src/v2/components/StatsHeader.tsx:86:                    <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
+dashboard/src/v2/components/StatsHeader.tsx:111:                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "stats" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+dashboard/src/v2/components/StatsHeader.tsx:119:                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "race" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+dashboard/src/v2/components/StatsHeader.tsx:127:                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "dag" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+dashboard/src/v2/components/StatsHeader.tsx:134:                        <div className={`px-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/15 dark:border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : pausedIntervention ? "bg-status-amber/10 text-status-amber border-status-amber/20" : "bg-black/[0.04] dark:bg-white/[0.04] text-slate-500 border-black/[0.06] dark:border-white/[0.06]"}`}>
+dashboard/src/v2/components/StatsHeader.tsx:153:                        <span className="text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/StatsHeader.tsx:174:                            <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/StatsHeader.tsx:177:                            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/GitCIStatusPanel.tsx:23:    return "text-slate-400";
+dashboard/src/v2/components/GitCIStatusPanel.tsx:38:  return "text-slate-400";
+dashboard/src/v2/components/GitCIStatusPanel.tsx:49:            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{error}</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:59:        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Loading git status...</span>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:73:            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Git / CI / PR</span>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:78:              : "bg-black/[0.04] text-slate-400 dark:bg-white/[0.04]"
+dashboard/src/v2/components/GitCIStatusPanel.tsx:92:              <span className="mb-1 block text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">{label}</span>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:102:              <p key={warning} className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">{warning}</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:108:          <span className="mb-3 block text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">
+dashboard/src/v2/components/GitCIStatusPanel.tsx:113:            <p className="font-mono text-[11px] text-slate-400 dark:text-slate-600">No open PRs tracked.</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:128:                  <p className="text-[10px] font-mono text-slate-400">{pr.headRefName ?? "?"} → {pr.baseRefName ?? "?"}</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:139:          <span className="mb-3 block text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">
+dashboard/src/v2/components/GitCIStatusPanel.tsx:144:            <p className="font-mono text-[11px] text-slate-400 dark:text-slate-600">No CI runs tracked.</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:166:          <span className="mb-3 block text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">
+dashboard/src/v2/components/GitCIStatusPanel.tsx:171:            <p className="font-mono text-[11px] text-slate-400 dark:text-slate-600">No recent merges.</p>
+dashboard/src/v2/components/GitCIStatusPanel.tsx:183:                  <p className="mt-0.5 text-[10px] font-mono text-slate-400">{merged.headRefName ?? "?"} → {merged.baseRefName ?? "?"}</p>
+dashboard/src/v2/components/AttentionLedger.tsx:36:                <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block">Attention Queue</span>
+dashboard/src/v2/components/AttentionLedger.tsx:48:                <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">
+dashboard/src/v2/components/AttentionLedger.tsx:85:                                            <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/AttentionLedger.tsx:89:                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/AttentionLedger.tsx:90:                                            <span className={ATTENTION_STATUS_TONE[item.status] || "text-slate-400"}>
+dashboard/src/v2/components/AttentionLedger.tsx:111:                                    <div className="text-right text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/AttentionLedger.tsx:117:                                    className="mt-3 prose prose-sm max-w-none text-[11px] leading-relaxed text-slate-500 dark:text-slate-400
+dashboard/src/v2/components/AttentionLedger.tsx:151:                                            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.05] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05] disabled:opacity-50"
+dashboard/src/v2/components/LiveTaskCard.tsx:110:        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/LiveTaskCard.tsx:231:                                <span className="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
+dashboard/src/v2/components/LiveTaskCard.tsx:263:                            <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 max-w-[100px] truncate" title={sessionLabel}>
+dashboard/src/v2/components/LiveTaskCard.tsx:277:                        className="text-[13px] text-slate-400 dark:text-slate-500 line-clamp-1 text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200 mb-4 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800 focus-visible:rounded"
+dashboard/src/v2/components/LiveTaskCard.tsx:287:                            <FileText className="w-3 h-3 text-slate-400" strokeWidth={2} />
+dashboard/src/v2/components/LiveTaskCard.tsx:288:                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Task Prompt</span>
+dashboard/src/v2/components/LiveTaskCard.tsx:291:                            className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
+dashboard/src/v2/components/LiveTaskCard.tsx:308:                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Runtime Feed</span>
+dashboard/src/v2/components/LiveTaskCard.tsx:332:                                               : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border-transparent hover:text-signal-500 hover:border-signal-500/15'
+dashboard/src/v2/components/LiveTaskCard.tsx:346:                                           : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border-transparent hover:text-ember-500 hover:border-ember-500/15'
+dashboard/src/v2/components/LiveTaskCard.tsx:356:                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border border-transparent hover:text-status-amber hover:border-status-amber/15 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
+dashboard/src/v2/components/HeaderStats.tsx:53:                            <span className="text-slate-400">PROJECT</span>
+dashboard/src/v2/components/HeaderStats.tsx:73:                            <span className="text-slate-400">ACTIVE</span>
+dashboard/src/v2/components/HeaderStats.tsx:77:                            <span className="text-slate-400">COMPLETE</span>
+dashboard/src/v2/components/HeaderStats.tsx:98:                            <span className="text-slate-400">RUNNING</span>
+dashboard/src/v2/components/HeaderStats.tsx:102:                            <span className="text-slate-400">CRITICAL</span>
+dashboard/src/v2/components/HeaderStats.tsx:130:                            <span className="text-slate-400">OPEN</span>
+dashboard/src/v2/components/HeaderStats.tsx:134:                            <span className="text-slate-400">TOTAL</span>
+dashboard/src/v2/components/TasksList.tsx:46:                <div className="text-xs font-semibold text-slate-400 dark:text-slate-600 font-mono">
+dashboard/src/v2/components/TasksList.tsx:67:                        <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">No active tasks</div>
+dashboard/src/v2/components/TasksList.tsx:68:                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">There are no tasks currently matching the selected filter in active sprints.</div>
+dashboard/src/v2/components/KineticDock.tsx:21:    { icon: Settings, label: "Config",   path: "/config",  color: "text-slate-400 dark:text-slate-400" },
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:17:    if (!value) return "text-slate-400";
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:23:    return "text-slate-400";
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:66:    dismissed: "text-slate-400",
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:67:    expired: "text-slate-400",
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:86:                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">Live Connections</span>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:88:                <div className="flex items-center gap-4 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:96:                <p className="text-[11px] font-mono text-slate-400 dark:text-slate-600">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:112:                                        <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:121:                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:133:                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:160:                                    <div className="mt-1 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:167:                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:170:                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:173:                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:176:                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:196:                                        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:259:                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:267:                        <span className="text-[9px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:271:                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:280:                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:282:                    <span className="text-[9px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:303:                            <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">{label}</div>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:309:                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Sprint Runs</span>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:311:                        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No sprint runs recorded for the selected project.</p>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:321:                                            <div className="mt-1 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:331:                                                <div className="mt-1 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:405:                                            <p className="mt-2 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:417:                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Dispatch Queue</span>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:419:                        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No task dispatches yet.</p>
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:429:                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/live-session/ExecutionRuntimePanel.tsx:463:                                        <div className="mt-2 border-t border-black/[0.04] dark:border-white/[0.04] pt-2 text-[10px] font-mono text-slate-400 space-y-1">
+dashboard/src/v2/components/chat/ChatEmptyState.tsx:11:      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
+dashboard/src/v2/components/chat/ChatEmptyState.tsx:25:      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/chat/ChatRail.tsx:15:            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{title}</div>
+dashboard/src/v2/components/chat/ChatRail.tsx:22:              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{secondaryTitle}</div>
+dashboard/src/v2/components/chat/ChatMessageBubble.tsx:43:          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-400 ${fromDashboard ? "justify-end flex-row-reverse" : "justify-start"}`}>
+dashboard/src/v2/components/chat/ChatMessageBubble.tsx:66:             <div className="mt-2 text-[10px] font-mono text-slate-500 text-right">
+dashboard/src/v2/components/chat/widgets/ChatWidgetFrame.tsx:44:        <div class="px-3 py-2 border-t border-inherit bg-black/5 dark:bg-white/5 text-xs text-slate-500">
+dashboard/src/v2/components/chat/widgets/PlanningRequestWidget.tsx:40:          {status === 'queued' && <span class="text-slate-500">Preparing to plan...</span>}
+dashboard/src/v2/components/chat/widgets/PlanningRequestWidget.tsx:42:          {status === 'completed' && <span class="text-slate-600 dark:text-slate-400">Plan formulated successfully.</span>}
+dashboard/src/v2/components/chat/ChatAvatar.tsx:48:        return <Terminal class="w-5 h-5 text-slate-500" aria-hidden="true" />;
+dashboard/src/v2/components/chat/ChatAvatar.tsx:50:        return <User class="w-5 h-5 text-slate-400" aria-hidden="true" />;
+dashboard/src/v2/components/chat/InvocationMessageBubble.tsx:64:          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-400 ${fromUser || fromTool ? "justify-end flex-row-reverse" : "justify-start"}`}>
+dashboard/src/v2/components/chat/InvocationMessageBubble.tsx:91:              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-slate-400">
+dashboard/src/v2/components/chat/ChatThreadHeader.tsx:78:              <span className="inline-flex items-center gap-1 rounded-sm border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-400/30 dark:text-slate-400">
+dashboard/src/v2/components/chat/ChatThreadHeader.tsx:87:        <div className="text-right text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/chat/ChatThreadHeader.tsx:97:                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.03] hover:text-slate-900 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+dashboard/src/v2/components/chat/ChatThreadHeader.tsx:105:              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
+dashboard/src/v2/components/chat/ChatThreadHeader.tsx:118:                className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
+dashboard/src/v2/components/chat/WorkingBubble.tsx:45:          <div className="px-1 text-[10px] font-mono text-slate-400">Working</div>
+dashboard/src/v2/components/chat/ThreadListCard.tsx:9:  pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
+dashboard/src/v2/components/chat/ThreadListCard.tsx:43:                <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/chat/ThreadListCard.tsx:52:              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(thread.lastMessageAt)}</div>
+dashboard/src/v2/components/chat/InvocationListCard.tsx:55:                    <div className="shrink-0 rounded border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+dashboard/src/v2/components/chat/InvocationListCard.tsx:65:                <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 capitalize">
+dashboard/src/v2/components/chat/InvocationListCard.tsx:71:            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${invocation.status === "failed" ? "text-status-red" : invocation.status === "completed" ? "text-signal-500" : "text-slate-500"}`}>
+dashboard/src/v2/components/chat/InvocationListCard.tsx:74:              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(invocation.lastMessageAt || invocation.createdAt)}</div>
+dashboard/src/v2/components/chat/ChatPageShell.tsx:59:          <p className="max-w-2xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/chat/ChatPageShell.tsx:74:                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/components/chat/ChatPageShell.tsx:85:                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/components/chat/ChatPageShell.tsx:93:              <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+dashboard/src/v2/components/chat/ChatPageShell.tsx:109:            className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/components/SprintBoatRace.tsx:929:                                <Anchor className="w-7 h-7 text-slate-400 dark:text-white/20" strokeWidth={1.2} />
+dashboard/src/v2/components/SprintBoatRace.tsx:931:                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-white/25">Fleet Awaiting Departure</p>
+dashboard/src/v2/components/SprintBoatRace.tsx:932:                            <p className="text-[11px] text-slate-400/60 dark:text-white/12 mt-3 font-mono max-w-xs mx-auto">
+dashboard/src/v2/components/SprintBoatRace.tsx:956:                        <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-500 dark:text-white/35">Sprint Race</span>
+dashboard/src/v2/components/SprintBoatRace.tsx:957:                        <span className="text-[8px] font-mono text-slate-400 dark:text-white/15 ml-1">
+dashboard/src/v2/components/SprintBoatRace.tsx:961:                    <div className="flex items-center gap-5 text-[7px] font-mono text-slate-400 dark:text-white/20 uppercase tracking-wider">
+dashboard/src/v2/components/OverviewTelemetry.tsx:29:            <div className="text-sm text-slate-500 dark:text-slate-500 mt-1">{error}</div>
+dashboard/src/v2/components/OverviewTelemetry.tsx:73:                <FolderKanban className="w-7 h-7 text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
+dashboard/src/v2/components/OverviewTelemetry.tsx:75:              <span className="text-slate-500 dark:text-slate-500 font-semibold text-sm tracking-widest block uppercase font-display">Awaiting Runtime</span>
+dashboard/src/v2/components/OverviewTelemetry.tsx:76:              <span className="text-xs text-slate-400 dark:text-slate-600 font-mono mt-2 block">No active project telemetry yet</span>
+dashboard/src/v2/components/OverviewTelemetry.tsx:83:                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Active Projects</div>
+dashboard/src/v2/components/OverviewTelemetry.tsx:91:                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Timeline Events</div>
+dashboard/src/v2/components/OverviewTelemetry.tsx:110:                          <div className="mt-1 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/OverviewTelemetry.tsx:137:                      <div className="mt-1 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/OverviewTelemetry.tsx:154:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-3">Runtime Timeline</div>
+dashboard/src/v2/components/OverviewTelemetry.tsx:162:                        <div className="text-[10px] font-mono text-slate-400">{formatTime(event.createdAt)}</div>
+dashboard/src/v2/components/OverviewTelemetry.tsx:167:                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500 font-mono">
+dashboard/src/v2/components/ui/IdleRuntimeState.tsx:19:            <div className="mt-3 text-sm text-slate-500 dark:text-slate-500 font-medium">{subtitle}</div>
+dashboard/src/v2/components/ui/AvantgardeSelect.tsx:210:            ? "cursor-not-allowed text-slate-400"
+dashboard/src/v2/components/ui/AvantgardeSelect.tsx:216:              ? "cursor-not-allowed text-slate-400 opacity-60"
+dashboard/src/v2/components/ui/AvantgardeSelect.tsx:221:              ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-400 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
+dashboard/src/v2/components/ui/AvantgardeSelect.tsx:283:              <div className="px-3.5 py-4 text-xs font-medium text-slate-400">No options available.</div>
+dashboard/src/v2/components/ui/AvantgardeSelect.tsx:312:          className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+dashboard/src/v2/components/ui/FilterStrip.tsx:25:                            : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+dashboard/src/v2/components/ui/CollapsiblePanel.tsx:30:                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">{title}</span>
+dashboard/src/v2/components/ui/CollapsiblePanel.tsx:32:                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
+dashboard/src/v2/components/ui/CollapsiblePanel.tsx:38:                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:71:        className="absolute top-6 right-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white z-10"
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:103:            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">ETA</div>
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:110:            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Elapsed</div>
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:111:            <div className="font-mono text-xl font-medium tracking-tight text-slate-500">
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:122:        <p className="mx-auto max-w-xs text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:130:              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-status-red/30 hover:text-status-red dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-status-red/30 dark:hover:text-status-red"
+dashboard/src/v2/components/ui/PlanningProgressOverlay.tsx:139:            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/66 px-4 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-black/[0.15] hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/[0.15] dark:hover:text-white"
+dashboard/src/v2/components/ui/SourceCell.tsx:12:    idle:         { ring: '',                                                               text: 'text-slate-400 dark:text-slate-500', icon: FolderGit2, label: "Idle" },
+dashboard/src/v2/components/ui/TaskComposer.tsx:93:                <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
+dashboard/src/v2/components/ui/TaskComposer.tsx:102:              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+dashboard/src/v2/components/ui/TaskComposer.tsx:111:              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Sprint</div>
+dashboard/src/v2/components/ui/TaskComposer.tsx:126:              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Status</div>
+dashboard/src/v2/components/ui/TaskComposer.tsx:136:                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+dashboard/src/v2/components/ui/TaskComposer.tsx:147:            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Title</span>
+dashboard/src/v2/components/ui/TaskComposer.tsx:161:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Details</label>
+dashboard/src/v2/components/ui/TaskComposer.tsx:188:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Dependencies</label>
+dashboard/src/v2/components/ui/TaskComposer.tsx:191:              <div className="rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] px-4 py-4 text-xs text-slate-400">
+dashboard/src/v2/components/ui/TaskComposer.tsx:206:                          : "border-black/[0.07] dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] text-slate-500"
+dashboard/src/v2/components/ui/TaskComposer.tsx:224:            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">Priority</div>
+dashboard/src/v2/components/ui/TaskComposer.tsx:234:                      : "border-black/[0.06] bg-black/[0.025] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
+dashboard/src/v2/components/ui/TaskComposer.tsx:246:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Executor</label>
+dashboard/src/v2/components/ui/TaskComposer.tsx:266:                    <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/ui/TaskComposer.tsx:287:              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white dark:focus-visible:ring-offset-void-900"
+dashboard/src/v2/components/ui/TaskRow.tsx:35:            <div className="col-span-2 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 min-w-0">
+dashboard/src/v2/components/ui/TaskRow.tsx:50:                {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
+dashboard/src/v2/components/ui/TaskRow.tsx:56:                    'text-slate-600 dark:text-slate-400'
+dashboard/src/v2/components/ui/TaskRow.tsx:65:                    <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+dashboard/src/v2/components/ui/TaskRow.tsx:66:                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{task.time}</span>
+dashboard/src/v2/components/ui/TaskRow.tsx:71:                    <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Play/Stop">
+dashboard/src/v2/components/ui/TaskRow.tsx:74:                    <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Configure">
+dashboard/src/v2/components/ui/TaskRow.tsx:77:                    <button className="touch-target p-1.5 text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-status-green disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95" title="Expand">
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:87:                            <p className="text-[11px] text-slate-400 font-mono">#{taskId}</p>
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:93:                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-slate-400 hover:text-slate-700 dark:bg-white/[0.04] dark:text-slate-500 dark:hover:text-white transition-colors"
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:101:                    <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed">
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:107:                        <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400" htmlFor="rerun-provider">
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:121:                            <p className="text-[10px] text-slate-400">
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:142:                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+dashboard/src/v2/components/ui/RerunTaskModal.tsx:154:                        className="px-4 py-2 rounded-xl text-[12px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:118:              <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:124:              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:134:                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Markdown</label>
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:148:                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:167:                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Bundle</label>
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:181:                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:200:              <div className="text-xs text-slate-400">
+dashboard/src/v2/components/ui/SprintMarkdownModal.tsx:207:                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+dashboard/src/v2/components/ui/IntelPanel.tsx:20:                <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">{title}</span>
+dashboard/src/v2/components/ui/IntelPanel.tsx:23:                className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
+dashboard/src/v2/components/ui/IntelPanel.tsx:28:                dangerouslySetInnerHTML={{ __html: renderMarkdown(content) || `<p class="text-slate-400 dark:text-slate-600 italic">${fallback}</p>` }}
+dashboard/src/v2/components/ui/SprintSettingsOverrideModal.tsx:186:                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-slate-500 transition-colors hover:text-slate-900 dark:bg-white/[0.05] dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/components/ui/SprintComposer.tsx:261:                <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
+dashboard/src/v2/components/ui/SprintComposer.tsx:272:              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+dashboard/src/v2/components/ui/SprintComposer.tsx:281:              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Key</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:288:              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Route</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:312:              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Model Override</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:331:            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Name</span>
+dashboard/src/v2/components/ui/SprintComposer.tsx:345:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Prompt</label>
+dashboard/src/v2/components/ui/SprintComposer.tsx:373:                  <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Original Prompt</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:374:                  <div className="max-h-[220px] overflow-y-auto text-xs italic leading-relaxed text-slate-400 dark:text-slate-500 sm:max-h-[260px]">
+dashboard/src/v2/components/ui/SprintComposer.tsx:385:            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Agent</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:402:            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Mode</div>
+dashboard/src/v2/components/ui/SprintComposer.tsx:419:                      <ModeIcon className={`h-3.5 w-3.5 ${isActive ? "text-signal-500" : "text-slate-400"}`} strokeWidth={2.1} />
+dashboard/src/v2/components/ui/SprintComposer.tsx:422:                    <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/ui/SprintComposer.tsx:448:              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white"
+dashboard/src/v2/components/ui/AddProjectModal.tsx:135:                            <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:142:                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+dashboard/src/v2/components/ui/AddProjectModal.tsx:160:                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:181:                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:193:                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+dashboard/src/v2/components/ui/AddProjectModal.tsx:209:                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:229:                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:247:                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+dashboard/src/v2/components/ui/AddProjectModal.tsx:270:                                    className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+dashboard/src/v2/components/ui/SprintBubble.tsx:40:  completed: { ring: "border-slate-300/50 shadow-[0_0_24px_rgba(148,163,184,0.18)]", text: "text-slate-500 dark:text-slate-400", icon: CheckCircle2, label: "Completed", accentHex: "#94A3B8" },
+dashboard/src/v2/components/ui/SprintBubble.tsx:42:  cancelled: { ring: "border-slate-300/35 shadow-[0_0_24px_rgba(148,163,184,0.16)]", text: "text-slate-400 dark:text-slate-500", icon: XCircle, label: "Cancelled", accentHex: "#94A3B8" },
+dashboard/src/v2/components/ui/SprintBubble.tsx:181:            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Tasks</div>
+dashboard/src/v2/components/ui/SprintBubble.tsx:186:            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Done</div>
+dashboard/src/v2/components/ui/HumanInterventionBadge.tsx:51:        <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/ui/HumanInterventionBadge.tsx:54:        <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/ui/AddTaskModal.tsx:201:              <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
+dashboard/src/v2/components/ui/AddTaskModal.tsx:208:              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+dashboard/src/v2/components/ui/AddTaskModal.tsx:222:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:242:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Title</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:261:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Status</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:271:                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+dashboard/src/v2/components/ui/AddTaskModal.tsx:281:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Priority</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:291:                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+dashboard/src/v2/components/ui/AddTaskModal.tsx:304:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Executor</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:315:                        : "border-black/[0.08] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] text-slate-500 dark:text-slate-400"
+dashboard/src/v2/components/ui/AddTaskModal.tsx:326:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:336:              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Prompt</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:348:                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Dependencies</label>
+dashboard/src/v2/components/ui/AddTaskModal.tsx:351:                <div className="rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] px-4 py-4 text-xs text-slate-400">
+dashboard/src/v2/components/ui/AddTaskModal.tsx:366:                            : "border-black/[0.07] dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] text-slate-500"
+dashboard/src/v2/components/ui/AddTaskModal.tsx:385:                className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+dashboard/src/v2/components/SprintStatsDeck.tsx:48:    tone: "text-slate-500 dark:text-slate-300",
+dashboard/src/v2/components/SprintStatsDeck.tsx:224:          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Share</div>
+dashboard/src/v2/components/SprintStatsDeck.tsx:238:      <div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:313:      <span className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
+dashboard/src/v2/components/SprintStatsDeck.tsx:345:          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:380:            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:390:              <SummaryPill label="Longest" value={sprintTiming.longestTask ? `${sprintTiming.longestTask.taskKey} · ${formatDurationTight(sprintTiming.longestTask.totalSeconds)}` : "No runtime"} icon={Layers} accent="text-slate-500" />
+dashboard/src/v2/components/SprintStatsDeck.tsx:408:                  <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:423:                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Finished</div>
+dashboard/src/v2/components/SprintStatsDeck.tsx:427:                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Avg Finish</div>
+dashboard/src/v2/components/SprintStatsDeck.tsx:431:                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Accumulated</div>
+dashboard/src/v2/components/SprintStatsDeck.tsx:439:                <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:452:                <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:468:              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+dashboard/src/v2/components/SprintStatsDeck.tsx:472:              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:21:  completed: "border-black/[0.1] bg-black/[0.06] text-slate-500 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-slate-300",
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:23:  cancelled: "border-slate-300/60 bg-slate-200/60 text-slate-500 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-slate-400",
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:79:      className={`group border-b border-black/[0.04] transition-colors hover:bg-signal-500/[0.04] dark:border-white/[0.04] dark:hover:bg-signal-500/[0.06] ${rowBg} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""}`}
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:85:          className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-signal-500"
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:100:              : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:108:        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 truncate">
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:114:        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:125:          <p className={`mt-2 max-w-xl text-sm leading-relaxed ${isCompleted ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400"}`}>
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:145:        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">planned tasks</div>
+dashboard/src/v2/components/sprints/SprintLedgerRow.tsx:160:        <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">created</div>
+dashboard/src/v2/components/sprints/SprintLedgerBulkActions.tsx:46:          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+dashboard/src/v2/components/sprints/SprintImportMenu.tsx:45:        className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/components/sprints/SprintImportMenu.tsx:74:              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/sprints/SprintImportMenu.tsx:91:              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/sprints/SprintImportMenu.tsx:95:            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:bg-void-900 dark:text-slate-400">
+dashboard/src/v2/components/sprints/SprintLedger.tsx:177:            <tr className="border-b border-black/[0.06] text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:border-white/[0.06]">
+dashboard/src/v2/components/sprints/SprintLedger.tsx:182:                  className="inline-flex items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+dashboard/src/v2/components/sprints/SprintLedger.tsx:275:                  <div className="px-6 py-8 text-sm text-slate-400">
+dashboard/src/v2/components/sprints/SprintLedgerHeader.tsx:33:        <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/sprints/SprintLedgerHeader.tsx:46:          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" strokeWidth={2.2} />
+dashboard/src/v2/components/sprints/SprintLedgerHeader.tsx:58:              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+dashboard/src/v2/components/sprints/SprintLedgerHeader.tsx:64:        <div className="text-xs font-mono text-slate-400">
+dashboard/src/v2/components/TopNav.tsx:233:                        <Search aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-signal-500 transition-colors" strokeWidth={2} />
+dashboard/src/v2/components/TopNav.tsx:241:                        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
+dashboard/src/v2/components/TopNav.tsx:263:                        <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
+dashboard/src/v2/components/TopNav.tsx:270:                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Projects</span>
+dashboard/src/v2/components/TopNav.tsx:293:                                <div className="px-3 py-4 text-xs text-slate-400 font-medium">
+dashboard/src/v2/components/TopNav.tsx:308:                                    className="focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] rounded-xl transition-colors"
+dashboard/src/v2/components/TopNav.tsx:338:                                <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${sprintDropdownOpen ? 'rotate-180' : ''}`} />
+dashboard/src/v2/components/TopNav.tsx:346:                                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Sprint Scope</span>
+dashboard/src/v2/components/TopNav.tsx:406:                            <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${workerDropdownOpen ? 'rotate-180' : ''}`} />
+dashboard/src/v2/components/TopNav.tsx:413:                                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Available Workers</span>
+dashboard/src/v2/components/TopNav.tsx:432:                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${option.isPrimary ? 'bg-signal-500/20 text-signal-500' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
+dashboard/src/v2/components/TopNav.tsx:441:                                                <span className="text-[10px] font-medium text-slate-400 truncate uppercase tracking-wider">
+dashboard/src/v2/components/TopNav.tsx:456:                                        <p className="text-xs text-slate-400 font-medium">
+dashboard/src/v2/components/TopNav.tsx:465:                                        className="focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] rounded-xl transition-colors"
+dashboard/src/v2/components/TopNav.tsx:499:                        ? <Sun aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-white transition-colors" strokeWidth={1.5} />
+dashboard/src/v2/components/TopNav.tsx:500:                        : <Moon aria-hidden="true" className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" strokeWidth={1.5} />
+dashboard/src/v2/components/DockerStatusMenu.tsx:87:                            : "text-slate-500 dark:text-slate-400"
+dashboard/src/v2/components/DockerStatusMenu.tsx:107:                            <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400">
+dashboard/src/v2/components/DockerStatusMenu.tsx:116:                                <span className="text-xs font-medium text-slate-400">Loading containers...</span>
+dashboard/src/v2/components/DockerStatusMenu.tsx:122:                                <span className="text-xs text-slate-400 mt-1">Docker is not running any containers.</span>
+dashboard/src/v2/components/DockerStatusMenu.tsx:139:                                                        <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" strokeWidth={2.5} />
+dashboard/src/v2/components/DockerStatusMenu.tsx:145:                                                <span className="text-[10px] font-medium text-slate-400 shrink-0 tabular-nums">
+dashboard/src/v2/components/DockerStatusMenu.tsx:151:                                                <span className="text-xs text-slate-500 dark:text-slate-400 truncate" title={container.image}>
+dashboard/src/v2/components/DockerStatusMenu.tsx:158:                                                    <Terminal className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+dashboard/src/v2/components/ExecutionTimeline.tsx:19:      <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Runtime Timeline</span>
+dashboard/src/v2/components/ExecutionTimeline.tsx:21:        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No task run events recorded yet.</p>
+dashboard/src/v2/ChatPage.tsx:1005:                <div className="text-[10px] font-mono text-slate-400">
+dashboard/src/v2/ChatPage.tsx:1014:                  className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] bg-signal-500 text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:bg-signal-400 disabled:cursor-not-allowed disabled:bg-black/[0.06] disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-white/[0.06]"
+dashboard/src/v2/ChatPage.tsx:1042:                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+dashboard/src/v2/ChatPage.tsx:1058:                        : "border-black/[0.06] bg-black/[0.03] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
+dashboard/src/v2/ChatPage.tsx:1071:            <div className="text-right text-[10px] font-mono text-slate-400">
+dashboard/src/v2/ChatPage.tsx:1095:            <div className="min-h-[38px] w-full px-2 py-2 text-[15px] leading-relaxed text-slate-400 dark:text-slate-600">
+dashboard/src/v2/TasksPage.tsx:40:  low: { label: "Low", color: "text-slate-400", dot: "bg-slate-400", bg: "bg-slate-400/[0.06] border-slate-400/15" },
+dashboard/src/v2/TasksPage.tsx:44:  pending: { label: "Queued", color: "text-slate-400 dark:text-slate-500", hex: "#64748b", icon: Circle },
+dashboard/src/v2/TasksPage.tsx:133:        task.status === "completed" ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-700" : "text-slate-900 dark:text-white"
+dashboard/src/v2/TasksPage.tsx:138:      <div className="relative z-10 mb-4 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/TasksPage.tsx:145:        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+dashboard/src/v2/TasksPage.tsx:152:        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
+dashboard/src/v2/TasksPage.tsx:154:            <span className="text-[9px] font-black font-display text-slate-500 dark:text-slate-400">
+dashboard/src/v2/TasksPage.tsx:171:        <div className="relative z-10 mt-3 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/TasksPage.tsx:186:                  : "bg-slate-400/[0.08] border-slate-400/20 text-slate-500"
+dashboard/src/v2/TasksPage.tsx:198:          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors"
+dashboard/src/v2/TasksPage.tsx:205:          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-status-red rounded-full transition-colors"
+dashboard/src/v2/TasksPage.tsx:259:        <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-400"} transition-colors`} strokeWidth={2} />
+dashboard/src/v2/TasksPage.tsx:260:        <span className={`text-sm font-bold tracking-tight ${selected ? "text-ember-600 dark:text-ember-400" : "text-slate-600 dark:text-slate-400"}`}>
+dashboard/src/v2/TasksPage.tsx:263:        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} />
+dashboard/src/v2/TasksPage.tsx:305:                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-[0.1em]">{sprint.date}</span>
+dashboard/src/v2/TasksPage.tsx:309:                  <span className="text-[10px] font-mono font-bold text-slate-500">{sprint.tasksCount}</span>
+dashboard/src/v2/TasksPage.tsx:345:          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-[0.1em]">{sprint.date}</p>
+dashboard/src/v2/TasksPage.tsx:359:          { label: "Queued", value: pending, color: "text-slate-400" },
+dashboard/src/v2/TasksPage.tsx:363:            <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 mt-1">{label}</span>
+dashboard/src/v2/TasksPage.tsx:370:        className="flex items-center gap-1.5 mt-5 pt-4 border-t border-black/[0.05] dark:border-white/[0.04] text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 hover:text-ember-500 transition-colors duration-200 group/link"
+dashboard/src/v2/TasksPage.tsx:513:          <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
+dashboard/src/v2/TasksPage.tsx:536:            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-widest text-slate-500">
+dashboard/src/v2/TasksPage.tsx:577:                  : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+dashboard/src/v2/TasksPage.tsx:599:                  : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+dashboard/src/v2/TasksPage.tsx:619:        <div className="px-6 py-8 rounded-[1.75rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/55 dark:bg-void-800/55 text-slate-500 dark:text-slate-400 text-sm max-w-xl">
+dashboard/src/v2/AgentsPage.tsx:35:      <p className="max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/AgentsPage.tsx:77:        badge: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+dashboard/src/v2/AgentsPage.tsx:141:                <span className="font-mono text-[10px] text-slate-400">
+dashboard/src/v2/AgentsPage.tsx:173:          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Agent Name</span>
+dashboard/src/v2/AgentsPage.tsx:183:          <span className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+dashboard/src/v2/AgentsPage.tsx:196:          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Instruction Markdown</span>
+dashboard/src/v2/AgentsPage.tsx:207:          <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+dashboard/src/v2/AgentsPage.tsx:208:            <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Markdown Source</div>
+dashboard/src/v2/AgentsPage.tsx:214:          <span className="truncate text-slate-400">{preset.id}</span>
+dashboard/src/v2/AgentsPage.tsx:407:        <div className="rounded-[1.5rem] border border-black/[0.06] bg-white/60 px-5 py-4 text-sm leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsPageHero.tsx:33:          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsPageHero.tsx:37:            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/StatsPageHero.tsx:40:            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/StatsPageHero.tsx:43:            <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/StatsPageHero.tsx:47:              <div className={`px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:77:            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:79:            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:83:          <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:116:          <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-12 text-center text-sm text-slate-400 dark:border-white/[0.08]">
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:136:                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:141:                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:148:                            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Last activity</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:155:                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:159:                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:163:                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedger.tsx:180:                <div ref={sentinelRef} className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:border-white/[0.08]">
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:168:            <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:175:            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:181:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Tokens</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:183:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in view</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:186:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Time</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:188:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active model runtime</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:191:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Average Tokens</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:193:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stats.range.resolutionLabel}</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:196:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Invocations</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:198:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">CLI calls in one bucket</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:206:              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Interactive Legend</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:207:              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:210:              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:217:                  className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white ${CHIP_CLASS}`}
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:229:                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{activeBucket.label}</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:234:                        <div className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:393:              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Focused Bucket</div>
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:397:              <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/InteractiveUsageChart.tsx:400:              <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/70 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.05] dark:bg-void-900/40 dark:text-slate-300">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:328:              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:340:            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:392:                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:416:      <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{label}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:417:      <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:424:    <div className="relative z-10 mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:461:      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{series.label}</span>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:465:      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{series.signalLabel}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:507:          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:509:          <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:557:                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:560:                <div className="mt-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:568:              <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-8 text-center text-sm text-slate-400 dark:border-white/[0.08]">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:586:                      <div className="mt-1 text-[11px] font-mono text-slate-400 dark:text-slate-500">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:592:                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">tokens</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:629:            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:639:          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:659:    <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:664:    <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:689:          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Execution Lanes</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:692:        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:703:            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Sprint Focus</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:708:          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:715:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Planning</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:717:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{planningUsage ? formatDuration(planningUsage.usage.activeTimeMs) : "No planning data yet"}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:720:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Providers</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:722:              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active in {stats.range.label.toLowerCase()}</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:729:            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Window Discipline</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:733:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Buckets</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:737:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Generated</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:741:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Window</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:789:          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Purpose Architecture</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:792:        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:802:          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Token Flight</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:877:          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Confidence Board</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:901:          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Audit Notes</div>
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:906:            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:912:            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/pages/stats/components/StatsShared.tsx:933:        : `${CHIP_CLASS} text-slate-500 dark:text-slate-300`
+dashboard/src/v2/pages/stats/components/UsageSeriesSidebar.tsx:46:          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 pl-2">
+dashboard/src/v2/pages/stats/components/UsageSeriesSidebar.tsx:70:                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{s.label}</span>
+dashboard/src/v2/pages/stats/components/UsageSeriesSidebar.tsx:74:                    <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{getSignalLabel(s.id)}</div>
+dashboard/src/v2/pages/stats/components/TelemetryLedgerTabs.tsx:18:              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+dashboard/src/v2/pages/stats/components/TelemetryLedgerTabs.tsx:29:              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+dashboard/src/v2/pages/stats/StatsPage.tsx:69:        <div className="rounded-[2rem] border border-dashed border-black/[0.08] bg-white/68 px-8 py-16 text-center text-base text-slate-400 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/55 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+dashboard/src/v2/pages/stats/StatsPage.tsx:73:        <div className="rounded-[2rem] border border-black/[0.05] bg-white/68 px-8 py-16 text-center text-base text-slate-500 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.05] dark:bg-void-800/55 dark:text-slate-400 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+dashboard/src/v2/pages/sprints/SprintsPage.tsx:200:            <p className="mt-2 max-w-2xl text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+dashboard/src/v2/pages/sprints/SprintsPage.tsx:225:                className="inline-flex items-center gap-3 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300"
+dashboard/src/v2/pages/sprints/SprintsPage.tsx:426:          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-void-800/55 dark:text-slate-400">
+dashboard/src/v2/MemoryPage.tsx:95:        <p className="text-[11px] text-slate-500 leading-relaxed">{model.description}</p>
+dashboard/src/v2/MemoryPage.tsx:96:        <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400">
+dashboard/src/v2/MemoryPage.tsx:107:                <span className="text-[9px] font-mono text-slate-400 flex items-center gap-1.5">
+dashboard/src/v2/MemoryPage.tsx:148:                               text-slate-400 hover:text-status-red transition-colors duration-200">
+dashboard/src/v2/MemoryPage.tsx:198:                <X className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+dashboard/src/v2/MemoryPage.tsx:207:                        <span className="text-[9px] font-mono text-slate-400 ml-auto px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.04]">
+dashboard/src/v2/MemoryPage.tsx:216:                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Strength</span>
+dashboard/src/v2/MemoryPage.tsx:222:                                <span className="text-[10px] font-mono text-slate-400">{Math.round(node.strength * 100)}%</span>
+dashboard/src/v2/MemoryPage.tsx:226:                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">ID</span>
+dashboard/src/v2/MemoryPage.tsx:227:                            <span className="text-[11px] font-mono text-slate-400">{node.id.slice(0, 8)}…</span>
+dashboard/src/v2/MemoryPage.tsx:232:                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+dashboard/src/v2/MemoryPage.tsx:240:                                        <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 font-medium">
+dashboard/src/v2/MemoryPage.tsx:244:                                    <span className="text-[9px] font-mono text-slate-400 shrink-0 mt-0.5"
+dashboard/src/v2/MemoryPage.tsx:323:                        <span className="text-[10px] font-mono text-slate-400">{Math.round(strength * 100)}%</span>
+dashboard/src/v2/MemoryPage.tsx:332:                                   bg-black/[0.04] dark:bg-white/[0.04] text-slate-500 hover:text-slate-900 dark:hover:text-white
+dashboard/src/v2/MemoryPage.tsx:1005:                    <p className="text-base text-slate-500 font-medium max-w-lg leading-relaxed">
+dashboard/src/v2/MemoryPage.tsx:1021:                                        : "bg-black/[0.04] dark:bg-white/[0.04] border border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+dashboard/src/v2/MemoryPage.tsx:1075:                                           : "bg-black/[0.04] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+dashboard/src/v2/MemoryPage.tsx:1088:                                           : "bg-black/[0.04] dark:bg-white/[0.04] border-black/[0.08] dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:border-status-red/50 hover:text-status-red"
+dashboard/src/v2/MemoryPage.tsx:1110:                        <p className="text-sm text-slate-400 font-medium col-span-2 text-center py-8">
+dashboard/src/v2/MemoryPage.tsx:1200:                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" strokeWidth={2} />
+dashboard/src/v2/MemoryPage.tsx:1219:                                <X className="w-3 h-3 text-slate-500" strokeWidth={2} />
+dashboard/src/v2/MemoryPage.tsx:1236:                                       text-slate-500 hover:text-slate-900 dark:hover:text-white
+dashboard/src/v2/MemoryPage.tsx:1250:                                           text-slate-400/80 dark:text-slate-500/80">
+dashboard/src/v2/MemoryPage.tsx:1268:                        <p className="text-lg font-black font-display tracking-tight text-slate-400/60">
+dashboard/src/v2/MemoryPage.tsx:1271:                        <p className="text-xs font-mono text-slate-400/50">
+dashboard/src/v2/MemoryPage.tsx:1307:                                <span className="text-[9px] font-mono text-slate-400">{alive}/{total}</span>
+dashboard/src/v2/LiveSessionPage.tsx:379:                            <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+dashboard/src/v2/LiveSessionPage.tsx:382:                            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+dashboard/src/v2/LiveSessionPage.tsx:423:                <div className="bg-[#F9F8F4] dark:bg-void-900 px-6 py-1.5 border border-black/[0.06] dark:border-white/[0.06] rounded-full shadow-sm relative z-10 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600">
+dashboard/src/v2/LiveSessionPage.tsx:438:                                       : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+dashboard/src/v2/LiveSessionPage.tsx:445:                                : "bg-black/[0.06] dark:bg-white/[0.06] text-slate-400"
+dashboard/src/v2/LiveSessionPage.tsx:472:                                <p className="text-sm text-slate-400 dark:text-slate-600 font-medium">
+dashboard/src/v2/SettingsPage.tsx:77:          <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-mono">
+dashboard/src/v2/SettingsPage.tsx:92:              <span className="text-slate-400 dark:text-slate-500">Integration.</span>
+dashboard/src/v2/SettingsPage.tsx:96:          <p className="mt-1 max-w-2xl text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+dashboard/src/v2/SettingsPage.tsx:108:                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+dashboard/src/v2/SettingsPage.tsx:120:                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+dashboard/src/v2/SettingsPage.tsx:127:            <div className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
+dashboard/src/v2/SettingsPage.tsx:135:            <div className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
+dashboard/src/v2/SettingsPage.tsx:148:          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+dashboard/src/v2/SettingsPage.tsx:153:            <Search className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.1} />
+dashboard/src/v2/SettingsPage.tsx:162:            <div className="rounded-full border border-black/[0.06] bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.04]">
+dashboard/src/v2/SettingsPage.tsx:175:                    : "border-black/[0.06] bg-white/80 text-slate-500 hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-slate-200"
+dashboard/src/v2/SettingsPage.tsx:243:            <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/BrowserPage.tsx:243:        <div className="rounded-[2rem] border border-black/[0.06] bg-white/60 p-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+dashboard/src/v2/BrowserPage.tsx:261:          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+dashboard/src/v2/BrowserPage.tsx:302:              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Selected Sprint</div>
+dashboard/src/v2/BrowserPage.tsx:319:                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Port routing</div>
+dashboard/src/v2/BrowserPage.tsx:324:              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Script path</div>
+dashboard/src/v2/BrowserPage.tsx:387:            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Runtime notes</div>
+dashboard/src/v2/BrowserPage.tsx:398:                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Startup script</div>
+dashboard/src/v2/BrowserPage.tsx:422:            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Container logs</div>
+dashboard/src/v2/ProjectsPage.tsx:27:    idle:         'text-slate-400 dark:text-slate-500',
+dashboard/src/v2/ProjectsPage.tsx:122:                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-[0.14em]">{source.id}</span>
+dashboard/src/v2/ProjectsPage.tsx:149:                        <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-400 mt-1.5">
+dashboard/src/v2/ProjectsPage.tsx:159:                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Completion</span>
+dashboard/src/v2/ProjectsPage.tsx:160:                    <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400">{completion}%</span>
+dashboard/src/v2/ProjectsPage.tsx:176:                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">
+dashboard/src/v2/ProjectsPage.tsx:190:                                       text-slate-400 hover:text-slate-900 dark:hover:text-white
+dashboard/src/v2/ProjectsPage.tsx:201:                                       text-slate-400 hover:text-slate-900 dark:hover:text-white
+dashboard/src/v2/ProjectsPage.tsx:212:                                       text-slate-400 hover:text-status-red
+dashboard/src/v2/ProjectsPage.tsx:366:                        <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
+dashboard/src/v2/ProjectsPage.tsx:388:                                           bg-black/[0.04] dark:bg-white/[0.04] text-slate-500
+dashboard/src/v2/ProjectsPage.tsx:422:                                    : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+dashboard/src/v2/ProjectsPage.tsx:429:                                    : 'bg-black/[0.06] dark:bg-white/[0.06] text-slate-400'
+dashboard/src/v2/lib/overview-telemetry-view-models.ts:47:  return { label: baseLabel, toneClass: "text-slate-500" };
+dashboard/src/v2/lib/live-session-config.ts:17:    PENDING:   { label: "Pending",   hex: "#64748b", dot: "bg-slate-400 dark:bg-slate-600",                                      text: "text-slate-400",    bg: "bg-slate-500/8",    border: "border-slate-500/20", icon: Clock },
+dashboard/src/v2/lib/live-session-config.ts:37:    system:   { border: "border-white/[0.06]",  text: "text-slate-500",  label: "System" },

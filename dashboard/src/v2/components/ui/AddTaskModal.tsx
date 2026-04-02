@@ -198,14 +198,14 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <h2 id="add-task-modal-title" className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
                 {initialTask ? "Edit Task." : "Create Task."}
               </h2>
-              <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
+              <p className="text-xs font-medium text-slate-500 mt-2 tracking-wide">
                 Define sprint scope, execution prompt, and dependencies.
               </p>
             </div>
             <button
               onClick={onClose}
               aria-label="Close"
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -219,7 +219,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Sprint</label>
                 <select
                   value={sprintId}
                   onInput={(event) => {
@@ -239,7 +239,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
 
               <div className="group/field">
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Title</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Title</label>
                 <input
                   type="text"
                   value={title}
@@ -258,7 +258,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Status</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 block mb-2.5">Status</label>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {STATUS_OPTIONS.map((option) => (
                     <button
@@ -268,7 +268,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                       className={`px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.12em] transition-all ${
                         status === option
                           ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
                       {option.replace("_", " ")}
@@ -278,7 +278,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">Priority</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 block mb-2.5">Priority</label>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {PRIORITY_OPTIONS.map((option) => (
                     <button
@@ -288,7 +288,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                       className={`px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.12em] transition-all ${
                         priority === option
                           ? "bg-ember-500 text-void-900 shadow-[0_2px_12px_rgba(255,184,0,0.3)]"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
                       {option}
@@ -301,7 +301,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <div>
               <div className="flex items-center gap-2 mb-2.5">
                 <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Executor</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Executor</label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {EXECUTOR_OPTIONS.map((option) => (
@@ -312,7 +312,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                     className={`rounded-2xl border px-4 py-3 text-left transition-all ${
                       executorType === option.value
                         ? "border-signal-500/45 bg-signal-500/[0.08] text-signal-700 dark:text-signal-300"
-                        : "border-black/[0.08] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] text-slate-500 dark:text-slate-400"
+                        : "border-black/[0.08] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     <div className="text-[10px] font-bold uppercase tracking-[0.14em]">{option.label}</div>
@@ -323,7 +323,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Description</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Description</label>
               <textarea
                 value={description}
                 onInput={(event) => setDescription((event.target as HTMLTextAreaElement).value)}
@@ -333,7 +333,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
 
             <div className="group/field">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Prompt</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Execution Prompt</label>
               <textarea
                 value={promptMarkdown}
                 onInput={(event) => setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
@@ -345,10 +345,10 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
-                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Dependencies</label>
+                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Dependencies</label>
               </div>
               {dependencyOptions.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] px-4 py-4 text-xs text-slate-400">
+                <div className="rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] px-4 py-4 text-xs text-slate-500">
                   No existing tasks in this sprint yet.
                 </div>
               ) : (
@@ -363,7 +363,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                         className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border text-left transition-all ${
                           active
                             ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400"
-                            : "border-black/[0.07] dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] text-slate-500"
+                            : "border-black/[0.07] dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] text-slate-600"
                         }`}
                       >
                         <div className="min-w-0">
@@ -382,7 +382,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                className="text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
               >
                 Cancel
               </button>

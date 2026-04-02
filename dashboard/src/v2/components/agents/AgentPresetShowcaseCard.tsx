@@ -44,13 +44,13 @@ export const AgentPresetShowcaseCard: FunctionComponent<{
             {preset.labels.slice(0, 3).map((l) => (
               <span
                 key={l}
-                className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400"
+                className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-400"
               >
                 {l}
               </span>
             ))}
             {preset.labels.length > 3 && (
-              <span className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
+              <span className="inline-flex items-center rounded-md bg-black/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-400">
                 +{preset.labels.length - 3}
               </span>
             )}
@@ -61,7 +61,7 @@ export const AgentPresetShowcaseCard: FunctionComponent<{
         className={`h-5 w-5 shrink-0 transition-transform ${
           isSelected
             ? "translate-x-1 text-signal-500"
-            : "text-slate-400 group-hover:translate-x-1 group-hover:text-signal-400"
+            : "text-slate-500 group-hover:translate-x-1 group-hover:text-signal-400"
         }`}
         strokeWidth={2}
       />

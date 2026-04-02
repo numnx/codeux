@@ -44,7 +44,7 @@ export function getEventStyle(event: ExecutionRuntimeEventSummary): EventStyle {
     return { label: baseLabel, toneClass: "text-status-blue" };
   }
 
-  return { label: baseLabel, toneClass: "text-slate-500" };
+  return { label: baseLabel, toneClass: "text-slate-600" };
 }
 
 export function getInterventionContent(project: OverviewTelemetryProjectSummary): { title: string } | null {

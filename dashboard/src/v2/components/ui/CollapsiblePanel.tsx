@@ -27,15 +27,15 @@ export const CollapsiblePanel: FunctionComponent<{
             >
                 <div className="flex items-center gap-2.5">
                     <span style={{ color: accentHex }}><Icon className="w-4 h-4" strokeWidth={1.5} /></span>
-                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">{title}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">{title}</span>
                     {badge != null && (
-                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
+                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] text-slate-500">
                             {badge}
                         </span>
                     )}
                 </div>
                 <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                    className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
                     strokeWidth={2}
                 />
             </button>

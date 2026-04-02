@@ -37,7 +37,7 @@ export const PlanningRequestWidget: FunctionComponent<PlanningRequestWidgetProps
         ) : null}
 
         <div class="text-center text-sm">
-          {status === 'queued' && <span class="text-slate-500">Preparing to plan...</span>}
+          {status === 'queued' && <span class="text-slate-600">Preparing to plan...</span>}
           {status === 'running' && <span class="text-signal-600 dark:text-signal-400 font-medium animate-pulse">Navigating solutions...</span>}
           {status === 'completed' && <span class="text-slate-600 dark:text-slate-400">Plan formulated successfully.</span>}
           {status === 'failed' && <span class="text-red-600 dark:text-red-400 font-medium">Failed to create a plan.</span>}

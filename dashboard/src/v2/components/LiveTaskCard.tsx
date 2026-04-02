@@ -107,7 +107,7 @@ export const TaskDuration: FunctionComponent<{
     if (!display.visible) return null;
 
     return (
-        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
             <Timer className="w-3 h-3" strokeWidth={2} />
             <span>{formatDuration(display.elapsedSeconds)}</span>
         </div>
@@ -228,7 +228,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
 
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 mb-1.5">
-                                <span className="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] text-slate-400">
+                                <span className="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] text-slate-500">
                                     #{task.id}
                                 </span>
                                 {/* Status badge */}
@@ -260,7 +260,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                             dispatchTiming={dispatchTiming}
                         />
                         {(hasEventFeed || task.session_id || task.session_name) && (
-                            <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 max-w-[100px] truncate" title={sessionLabel}>
+                            <span className="text-[9px] font-mono text-slate-500 dark:text-slate-600 max-w-[100px] truncate" title={sessionLabel}>
                                 {sessionLabel.substring(0, 16)}
                             </span>
                         )}
@@ -274,7 +274,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                     <button
                         type="button"
                         onClick={handleExpandCollapsed}
-                        className="text-[13px] text-slate-400 dark:text-slate-500 line-clamp-1 text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200 mb-4 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800 focus-visible:rounded"
+                        className="text-[13px] text-slate-500 dark:text-slate-400 line-clamp-1 text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200 mb-4 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800 focus-visible:rounded"
                     >
                         {task.prompt.substring(0, 140)}...
                     </button>
@@ -284,8 +284,8 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                 {expanded && (
                     <div className="mb-5 p-5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.04]">
                         <div className="flex items-center gap-2 mb-3">
-                            <FileText className="w-3 h-3 text-slate-400" strokeWidth={2} />
-                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Task Prompt</span>
+                            <FileText className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Task Prompt</span>
                         </div>
                         <div
                             className="prose prose-sm max-w-none text-slate-600 dark:text-slate-400
@@ -305,7 +305,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                     <div className="mb-5 p-5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.04] dark:border-white/[0.04]">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="w-1.5 h-1.5 rounded-full bg-signal-500 animate-pulse" />
-                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Runtime Feed</span>
+                            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Runtime Feed</span>
                         </div>
                         <RuntimeEventFeed events={events} />
                     </div>
@@ -329,7 +329,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                                            transition-all duration-200 border
                                            ${showFeed
                                                ? 'bg-signal-500/10 text-signal-500 border-signal-500/20 shadow-[0_0_12px_rgba(0,224,160,0.08)]'
-                                               : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border-transparent hover:text-signal-500 hover:border-signal-500/15'
+                                               : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-500 border-transparent hover:text-signal-500 hover:border-signal-500/15'
                                            }`}
                             >
                                 {showFeed ? <EyeOff className="w-3 h-3" strokeWidth={2} /> : <Eye className="w-3 h-3" strokeWidth={2} />}
@@ -343,7 +343,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                                        transition-all duration-200 border
                                        ${expanded
                                            ? 'bg-ember-500/10 text-ember-500 border-ember-500/20'
-                                           : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border-transparent hover:text-ember-500 hover:border-ember-500/15'
+                                           : 'bg-black/[0.03] dark:bg-white/[0.03] text-slate-500 border-transparent hover:text-ember-500 hover:border-ember-500/15'
                                        }`}
                         >
                             {expanded ? <ChevronDown className="w-3 h-3" strokeWidth={2.5} /> : <ChevronRight className="w-3 h-3" strokeWidth={2.5} />}
@@ -353,7 +353,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                             type="button"
                             onClick={handleRerunClick}
                             disabled={isRerunning}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] bg-black/[0.03] dark:bg-white/[0.03] text-slate-400 border border-transparent hover:text-status-amber hover:border-status-amber/15 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] bg-black/[0.03] dark:bg-white/[0.03] text-slate-500 border border-transparent hover:text-status-amber hover:border-status-amber/15 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
                         >
                             <RotateCcw className={`w-3 h-3 ${isRerunning ? 'animate-spin' : ''}`} strokeWidth={2} />
                             {isRerunning ? "Rerunning" : "Rerun"}

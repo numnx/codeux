@@ -14,13 +14,13 @@ import { ExecutionTimeline } from "../ExecutionTimeline.js";
 import type { ExecutionDashboardSnapshot } from "../../../types.js";
 
 export const statusTone = (value: string | null): string => {
-    if (!value) return "text-slate-400";
+    if (!value) return "text-slate-500";
     const n = value.toUpperCase();
     if (n === "SUCCESS" || n === "COMPLETED" || n === "MERGED") return "text-status-green";
     if (n === "CANCEL_REQUESTED") return "text-status-amber";
     if (n === "IN_PROGRESS" || n === "QUEUED" || n === "PENDING" || n === "QUOTA") return "text-status-amber";
     if (n === "FAILURE" || n === "FAILED" || n === "ERROR" || n === "CANCELLED") return "text-status-red";
-    return "text-slate-400";
+    return "text-slate-500";
 };
 
 const EXECUTOR_LABELS: Record<string, string> = {
@@ -63,8 +63,8 @@ export const ATTENTION_STATUS_TONE: Record<string, string> = {
     open: "text-status-amber",
     claimed: "text-signal-500",
     resolved: "text-status-green",
-    dismissed: "text-slate-400",
-    expired: "text-slate-400",
+    dismissed: "text-slate-500",
+    expired: "text-slate-500",
 };
 
 export const shortenRuntimeId = (value: string | null | undefined): string | null => (
@@ -83,9 +83,9 @@ export const ConnectionRuntimePanel: FunctionComponent<{
             <div className="mb-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                     <Radio className="h-4 w-4 text-signal-500" strokeWidth={1.5} />
-                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">Live Connections</span>
+                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">Live Connections</span>
                 </div>
-                <div className="flex items-center gap-4 text-[10px] font-mono text-slate-400">
+                <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
                     <span>{activeConnections.length} active</span>
                     <span>{listeningConnections.length} listening</span>
                     <span>{workerConnections.length} workers</span>
@@ -93,7 +93,7 @@ export const ConnectionRuntimePanel: FunctionComponent<{
             </div>
 
             {snapshot.connections.length === 0 ? (
-                <p className="text-[11px] font-mono text-slate-400 dark:text-slate-600">
+                <p className="text-[11px] font-mono text-slate-500 dark:text-slate-600">
                     No listeners or workers are connected to the selected project yet.
                 </p>
             ) : (
@@ -109,7 +109,7 @@ export const ConnectionRuntimePanel: FunctionComponent<{
                                         <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             {connection.displayName}
                                         </span>
-                                        <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                        <span className="rounded-full border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                             {CONNECTION_ROLE_LABELS[connection.role] || connection.role}
                                         </span>
                                         {connection.listenMode && (
@@ -118,7 +118,7 @@ export const ConnectionRuntimePanel: FunctionComponent<{
                                             </span>
                                         )}
                                     </div>
-                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500">
                                         <span>{connection.transport}</span>
                                         {connection.model && (
                                             <>
@@ -130,7 +130,7 @@ export const ConnectionRuntimePanel: FunctionComponent<{
                                         <span className="truncate">{connection.connectionKey}</span>
                                     </div>
                                     {(connection.machineName || connection.platform || connection.arch || connection.localExecutionRuntime) && (
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500">
                                             {connection.machineName && <span>{connection.machineName}</span>}
                                             {connection.platform && (
                                                 <>
@@ -157,23 +157,23 @@ export const ConnectionRuntimePanel: FunctionComponent<{
                                     <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(connection.status)}`}>
                                         {connection.status}
                                     </div>
-                                    <div className="mt-1 text-[10px] font-mono text-slate-400">
+                                    <div className="mt-1 text-[10px] font-mono text-slate-500">
                                         {connection.lastHeartbeatAt ? formatTime(connection.lastHeartbeatAt) : "no heartbeat"}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold uppercase tracking-[0.12em]">
-                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                     inbox {connection.pendingInboxCount}
                                 </span>
-                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                     dispatch {connection.activeDispatchCount}
                                 </span>
-                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                     threads {connection.threadCount}
                                 </span>
-                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                                <span className="rounded-full border border-black/[0.05] px-2 py-1 text-slate-600 dark:border-white/[0.06] dark:text-slate-400">
                                     runs {connection.tasksRunCount}
                                 </span>
                             </div>
@@ -193,7 +193,7 @@ export const ConnectionRuntimePanel: FunctionComponent<{
                                         </div>
                                     )}
                                     {connection.instruction && (
-                                        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
                                             {connection.instruction}
                                         </p>
                                     )}
@@ -256,7 +256,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                 >
                     <div className="flex items-center gap-2.5">
                         <Workflow className="w-4 h-4 text-signal-500" strokeWidth={1.5} />
-                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Execution Runtime</span>
                         {activeSprintRuns.length > 0 && (
                             <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-signal-500/10 text-signal-500">
                                 {activeSprintRuns.length} active
@@ -264,11 +264,11 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                         )}
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-[9px] font-mono text-slate-400">
+                        <span className="text-[9px] font-mono text-slate-500">
                             {snapshot.updatedAt ? `Updated ${formatTime(snapshot.updatedAt)}` : "No active project"}
                         </span>
                         <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                            className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
                             strokeWidth={2}
                         />
                     </div>
@@ -277,9 +277,9 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                 <div className="relative z-10 flex items-center justify-between gap-4 px-7 pt-7">
                     <div className="flex items-center gap-2.5">
                         <Workflow className="w-4 h-4 text-signal-500" strokeWidth={1.5} />
-                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">Execution Runtime</span>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Execution Runtime</span>
                     </div>
-                    <span className="text-[9px] font-mono text-slate-400">
+                    <span className="text-[9px] font-mono text-slate-500">
                         {snapshot.updatedAt ? `Updated ${formatTime(snapshot.updatedAt)}` : "No active project"}
                     </span>
                 </div>
@@ -300,15 +300,15 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                     ].map(({ label, value, accent }) => (
                         <div key={label} className="rounded-xl bg-black/[0.02] dark:bg-white/[0.02] p-3">
                             <div className={`text-xl font-black font-mono leading-none ${accent}`}>{value}</div>
-                            <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400">{label}</div>
+                            <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</div>
                         </div>
                     ))}
                 </div>
 
                 <div>
-                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Sprint Runs</span>
+                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 block mb-3">Sprint Runs</span>
                     {snapshot.sprintRuns.length === 0 ? (
-                        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No sprint runs recorded for the selected project.</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-600 font-mono">No sprint runs recorded for the selected project.</p>
                     ) : (
                         <div className="space-y-2">
                             {snapshot.sprintRuns.slice(0, 4).map((run) => (
@@ -318,7 +318,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                             <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                                                 {run.sprintName}{run.sprintNumber != null ? ` · Sprint ${run.sprintNumber}` : ""}
                                             </div>
-                                            <div className="mt-1 text-[10px] font-mono text-slate-400">
+                                            <div className="mt-1 text-[10px] font-mono text-slate-500">
                                                 {EXECUTOR_LABELS[run.executorMode] || run.executorMode} · {run.triggerType}
                                                 {run.triggeredBy ? ` · ${run.triggeredBy}` : ""}
                                             </div>
@@ -328,7 +328,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                 {run.status}
                                             </div>
                                             {run.activeLeaseOwnerKey && (
-                                                <div className="mt-1 text-[10px] font-mono text-slate-400">
+                                                <div className="mt-1 text-[10px] font-mono text-slate-500">
                                                     lease {run.activeLeaseOwnerKey}
                                                 </div>
                                             )}
@@ -402,7 +402,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                             <p className="mt-2 text-[12px] leading-relaxed text-slate-600 dark:text-slate-300">
                                                 {run.humanIntervention.reason}
                                             </p>
-                                            <p className="mt-2 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                            <p className="mt-2 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">
                                                 {run.humanIntervention.instructions}
                                             </p>
                                         </div>
@@ -414,9 +414,9 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                 </div>
 
                 <div>
-                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 block mb-3">Dispatch Queue</span>
+                    <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 block mb-3">Dispatch Queue</span>
                     {snapshot.taskDispatches.length === 0 ? (
-                        <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">No task dispatches yet.</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-600 font-mono">No task dispatches yet.</p>
                     ) : (
                         <div className="space-y-2 max-h-72 overflow-y-auto dashboard-scrollbar pr-1">
                             {snapshot.taskDispatches.slice(0, 8).map((dispatch) => (
@@ -426,7 +426,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                             <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                                                 {dispatch.taskKey} · {dispatch.taskTitle}
                                             </div>
-                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500">
                                                 <span>{dispatch.sprintName}</span>
                                                 <span>·</span>
                                                 <span>{EXECUTOR_LABELS[dispatch.executorType] || dispatch.executorType}</span>
@@ -460,7 +460,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                         </div>
                                     </div>
                                     {(dispatch.sessionId || dispatch.workerBranch || dispatch.errorMessage || dispatch.activeLeaseOwnerKey) && (
-                                        <div className="mt-2 border-t border-black/[0.04] dark:border-white/[0.04] pt-2 text-[10px] font-mono text-slate-400 space-y-1">
+                                        <div className="mt-2 border-t border-black/[0.04] dark:border-white/[0.04] pt-2 text-[10px] font-mono text-slate-500 space-y-1">
                                             {dispatch.sessionId && <div>session {dispatch.sessionId}</div>}
                                             {dispatch.workerBranch && <div>branch {dispatch.workerBranch}</div>}
                                             {dispatch.activeLeaseOwnerKey && <div>lease {dispatch.activeLeaseOwnerKey}</div>}

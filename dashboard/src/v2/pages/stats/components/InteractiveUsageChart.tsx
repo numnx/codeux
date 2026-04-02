@@ -165,37 +165,37 @@ export const InteractiveUsageChart: FunctionComponent<{
       <div className="relative flex flex-col gap-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
               <Activity className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} />
               Usage Graph
             </div>
             <div className="mt-4 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               {zoomRange ? "Zoomed telemetry window" : stats.range.label}
             </div>
-            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use the legend to focus the graph.
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 xl:w-[27rem]">
             <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Tokens</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Peak Tokens</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(peakTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in view</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">Highest bucket in view</div>
             </div>
             <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Time</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Peak Time</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatDuration(peakTime)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active model runtime</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">Active model runtime</div>
             </div>
             <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Average Tokens</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Average Tokens</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(averageTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stats.range.resolutionLabel}</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">{stats.range.resolutionLabel}</div>
             </div>
             <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Invocations</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Peak Invocations</div>
               <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{peakInvocations.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">CLI calls in one bucket</div>
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">CLI calls in one bucket</div>
             </div>
           </div>
         </div>
@@ -203,18 +203,18 @@ export const InteractiveUsageChart: FunctionComponent<{
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_16rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className={`${SUBPANEL_CLASS} p-4 md:p-5`}>
             <div className="mb-5 flex flex-wrap items-center gap-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Interactive Legend</div>
-              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Interactive Legend</div>
+              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
                 Hover buckets for exact values
               </div>
-              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+              <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
                 {zoomLabel}
               </div>
               {zoomRange ? (
                 <button
                   type="button"
                   onClick={() => setZoomRange(null)}
-                  className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white ${CHIP_CLASS}`}
+                  className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white ${CHIP_CLASS}`}
                 >
                   Reset zoom
                 </button>
@@ -226,12 +226,12 @@ export const InteractiveUsageChart: FunctionComponent<{
                   className="pointer-events-none absolute top-3 z-10 w-56 -translate-x-1/2 rounded-[1.25rem] border border-black/[0.06] bg-white/88 px-4 py-3 shadow-[0_18px_38px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-900/88 dark:shadow-[0_20px_40px_rgba(0,0,0,0.32)]"
                   style={{ left: `${Math.min(92, Math.max(8, tooltipLeft))}%` }}
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{activeBucket.label}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{activeBucket.label}</div>
                   <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDateTime(activeBucket.bucketStart)}</div>
                   <div className="mt-3 space-y-2">
                     {visibleSeries.map((series) => (
                       <div key={`tooltip-${series.id}`} className="flex items-center justify-between gap-3 text-sm">
-                        <div className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <div className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400">
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.accentHex }} />
                           {series.label}
                         </div>
@@ -390,14 +390,14 @@ export const InteractiveUsageChart: FunctionComponent<{
               }}
             />
             <div className={`${SUBPANEL_CLASS} p-5`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Focused Bucket</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Focused Bucket</div>
               <div className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 {activeBucket ? activeBucket.label : "--"}
               </div>
-              <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              <div className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 {activeBucket ? `${formatDateTime(activeBucket.bucketStart)} to ${formatDateTime(activeBucket.bucketEnd)}` : "No bucket data yet."}
               </div>
-              <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/70 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.05] dark:bg-void-900/40 dark:text-slate-300">
+              <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/70 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/[0.05] dark:bg-void-900/40 dark:text-slate-300">
                 {zoomRange
                   ? `${visibleBuckets.length} buckets in zoom`
                   : `${stats.range.bucketCount} buckets in ${stats.range.label.toLowerCase()}`}

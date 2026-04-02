@@ -71,7 +71,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
       <div className="flex flex-col gap-8 xl:flex-row">
         <div className="flex w-full flex-col gap-6 xl:w-1/2">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
               Agent Name
             </label>
             <input
@@ -85,7 +85,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
               Labels (comma separated)
             </label>
             <input
@@ -98,7 +98,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
               System Instructions
             </label>
             <textarea
@@ -124,7 +124,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
             </label>
             {memoryOverrideEnabled && (
               <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
                   Memory Template Markdown
                 </label>
                 <textarea

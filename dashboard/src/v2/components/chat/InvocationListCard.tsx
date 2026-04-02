@@ -52,7 +52,7 @@ export const InvocationListCard: FunctionComponent<{
                     {invocation.type}
                   </div>
                   {(invocation.sprintId || invocation.taskId) && (
-                    <div className="shrink-0 rounded border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+                    <div className="shrink-0 rounded border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
                       {invocation.taskId ? "Task" : "Sprint"}
                     </div>
                   )}
@@ -62,16 +62,16 @@ export const InvocationListCard: FunctionComponent<{
                     </div>
                   )}
                 </div>
-                <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 capitalize">
+                <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400 capitalize">
                   {invocation.provider} {invocation.model && `· ${invocation.model}`}
                 </div>
               </div>
             </div>
             <div className="shrink-0 text-right">
-            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${invocation.status === "failed" ? "text-status-red" : invocation.status === "completed" ? "text-signal-500" : "text-slate-500"}`}>
+            <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${invocation.status === "failed" ? "text-status-red" : invocation.status === "completed" ? "text-signal-500" : "text-slate-600"}`}>
                 {invocation.status}
               </div>
-              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(invocation.lastMessageAt || invocation.createdAt)}</div>
+              <div className="mt-1 text-[10px] font-mono text-slate-500">{formatRelativeChatTime(invocation.lastMessageAt || invocation.createdAt)}</div>
             </div>
           </div>
         </button>

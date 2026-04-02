@@ -28,7 +28,7 @@ type WindowState = "normal" | "minimized" | "fullscreen" | "closed";
 const statusTone: Record<SprintPreviewSession["status"], string> = {
   running: "border-signal-500/30 bg-signal-500/10 text-signal-500",
   starting: "border-amber-500/30 bg-amber-500/10 text-amber-500",
-  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
+  stopped: "border-black/[0.08] bg-black/[0.04] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400",
   error: "border-status-red/30 bg-status-red/10 text-status-red",
 };
 
@@ -51,7 +51,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
           <div className="flex h-full flex-col items-center justify-center px-8 text-center">
             <Compass className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.5} />
             <h2 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">No preview active</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">
               Start a sprint preview to build the selected sprint into its own isolated container and browse it directly from the dashboard.
             </p>
           </div>
@@ -98,10 +98,10 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
         <div className="overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:border-white/[0.06] dark:bg-[#05080d]/90 dark:shadow-[0_30px_80px_rgba(0,0,0,0.35)] mb-5">
           <div className="relative h-[calc(100vh-23rem)] min-h-[540px] bg-[#f6f8fb] dark:bg-[#04070b] flex flex-col items-center justify-center px-8 text-center">
             <div className="h-12 w-12 rounded-full border border-black/[0.08] flex items-center justify-center mb-4 dark:border-white/[0.08]">
-              <X className="h-5 w-5 text-slate-400" strokeWidth={2} />
+              <X className="h-5 w-5 text-slate-500" strokeWidth={2} />
             </div>
             <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Window Closed</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
               The preview window is closed but the session is still running in the background. Stop the session to end the container, or reopen the window.
             </p>
             <button

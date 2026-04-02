@@ -47,7 +47,7 @@ export const AgentPresetDetailPanel: FunctionComponent<{
       </div>
 
       <div className="prose prose-slate prose-sm max-w-none dark:prose-invert">
-        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
           System Instructions
         </h3>
         <div className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-slate-700 dark:bg-void-800 dark:text-slate-300">
@@ -57,7 +57,7 @@ export const AgentPresetDetailPanel: FunctionComponent<{
 
       {preset.memoryTemplateOverrideEnabled && preset.memoryTemplateMarkdown && (
         <div className="prose prose-slate prose-sm max-w-none dark:prose-invert">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
             Memory Template Override
           </h3>
           <div className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-slate-700 dark:bg-void-800 dark:text-slate-300">

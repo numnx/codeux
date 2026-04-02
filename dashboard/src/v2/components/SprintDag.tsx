@@ -97,7 +97,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         accent: "#64748B",
         edge: "#64748B",
         glow: "shadow-none",
-        badge: "border-black/[0.07] bg-black/[0.04] text-slate-500 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-400",
+        badge: "border-black/[0.07] bg-black/[0.04] text-slate-600 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-400",
         card: "border-black/[0.06] bg-white/70 dark:border-white/[0.06] dark:bg-void-800/68",
         label: node.isReady ? "Ready" : "Pending",
         dim: "opacity-92",
@@ -228,7 +228,7 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+              <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.14em] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
                 {node.task.id}
               </span>
               {node.incoming.length === 0 && (
@@ -262,18 +262,18 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
             {phaseLabel}
           </span>
           {mergeLabel && (
-            <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+            <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
               {mergeLabel}
             </span>
           )}
         </div>
 
         <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-2">
-          <div className="min-w-0 text-[10px] font-mono leading-tight text-slate-400">
+          <div className="min-w-0 text-[10px] font-mono leading-tight text-slate-500">
             <div>{node.incoming.length} deps in</div>
             <div>{node.outgoing.length} deps out</div>
           </div>
-          <div className="flex flex-col items-end text-[10px] font-mono text-slate-400">
+          <div className="flex flex-col items-end text-[10px] font-mono text-slate-500">
             {executorLabel && <span>{executorLabel}</span>}
             {dispatch?.provider && <span>{dispatch.provider}</span>}
             {!executorLabel && !dispatch?.provider && <Clock3 className="h-3.5 w-3.5 opacity-50" strokeWidth={1.8} />}
@@ -385,7 +385,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
           <h3 className="mt-3 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             The DAG wakes up with the sprint.
           </h3>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
             Start a sprint to visualize task dependencies, live execution flow, and which parts of the graph are still waiting on code, merge work, or final completion.
           </p>
         </div>
@@ -417,7 +417,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
             <h3 className="mt-2 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white md:text-[2.35rem]">
               Live sprint DAG, rendered as motion.
             </h3>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               Each node is a task on the current sprint. Flow moves left to right through real dependency edges, while color and motion show what is running, merge-waiting, blocked, or fully complete.
             </p>
           </div>
@@ -448,12 +448,12 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
 
         <div className="rounded-[1.6rem] border border-black/[0.05] bg-black/[0.02] p-3 dark:border-white/[0.05] dark:bg-white/[0.02]">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-2">
-            <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
               <span className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 dark:border-white/[0.06] dark:bg-void-900/55">Scrollable canvas</span>
               <span className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 dark:border-white/[0.06] dark:bg-void-900/55">Dependency depth {Math.max(1, model.columns.length)}</span>
               <span className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 dark:border-white/[0.06] dark:bg-void-900/55">{model.metrics.codingCompletedCount} merge-stage nodes</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-signal-600 dark:text-signal-300">
                 <span className="h-2 w-2 rounded-full bg-signal-500 animate-pulse" />
                 Running
@@ -627,9 +627,9 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                   className="pointer-events-none absolute -translate-x-1/2"
                   style={{ left: `${column.x}px`, top: "18px" }}
                 >
-                  <div className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/60 dark:text-slate-300">
+                  <div className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 shadow-sm backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/60 dark:text-slate-300">
                     <span>{column.label}</span>
-                    <span className="ml-2 font-mono text-slate-400">{column.count}</span>
+                    <span className="ml-2 font-mono text-slate-500">{column.count}</span>
                   </div>
                 </div>
               ))}

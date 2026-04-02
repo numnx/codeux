@@ -40,7 +40,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({ m
             : "rounded-tl-sm border-white/10"
         }`}>
           {/* Header Row */}
-          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-400 ${fromDashboard ? "justify-end flex-row-reverse" : "justify-start"}`}>
+          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-500 ${fromDashboard ? "justify-end flex-row-reverse" : "justify-start"}`}>
             <span className="font-semibold text-slate-300">{senderName}</span>
             {providerLabel && (
               <span className="px-1.5 py-0.5 rounded-sm bg-black/20 text-slate-300">
@@ -63,7 +63,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({ m
           )}
 
           {fromDashboard && (
-             <div className="mt-2 text-[10px] font-mono text-slate-500 text-right">
+             <div className="mt-2 text-[10px] font-mono text-slate-600 text-right">
                {message.deliveryStatus}
              </div>
           )}

@@ -65,7 +65,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         <Radio className="w-3.5 h-3.5 text-status-red" strokeWidth={2.5} />
                         <span className="text-status-red">Live Session</span>
                         {(liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber) != null && (
-                            <span className="text-slate-400 ml-1">· Sprint {liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber}</span>
+                            <span className="text-slate-500 ml-1">· Sprint {liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber}</span>
                         )}
                     </div>
 
@@ -83,7 +83,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         </h1>
                     </div>
 
-                    <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
+                    <p className="text-lg text-slate-600 dark:text-slate-400 font-medium max-w-xl mt-1 leading-relaxed">
                         {hasLiveSprint
                             ? scopedFeatureBranch
                                 ? <>Monitoring <span className="font-mono text-signal-600 dark:text-signal-400">{scopedFeatureBranch}</span> in real-time.</>
@@ -108,7 +108,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             <button
                                 type="button"
                                 onClick={() => setHeaderView("stats")}
-                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "stats" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "stats" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
                                 <BarChart3 className="w-3 h-3" strokeWidth={2} />
                                 Stats
@@ -116,7 +116,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             <button
                                 type="button"
                                 onClick={() => setHeaderView("race")}
-                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "race" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "race" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
                                 <Ship className="w-3 h-3" strokeWidth={2} />
                                 Race
@@ -124,14 +124,14 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             <button
                                 type="button"
                                 onClick={() => setHeaderView("dag")}
-                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "dag" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+                                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${headerView === "dag" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
                                 <Workflow className="w-3 h-3" strokeWidth={2} />
                                 DAG
                             </button>
                         </div>
 
-                        <div className={`px-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/15 dark:border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : pausedIntervention ? "bg-status-amber/10 text-status-amber border-status-amber/20" : "bg-black/[0.04] dark:bg-white/[0.04] text-slate-500 border-black/[0.06] dark:border-white/[0.06]"}`}>
+                        <div className={`px-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/15 dark:border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : pausedIntervention ? "bg-status-amber/10 text-status-amber border-status-amber/20" : "bg-black/[0.04] dark:bg-white/[0.04] text-slate-600 border-black/[0.06] dark:border-white/[0.06]"}`}>
                             <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : pausedIntervention ? "bg-status-amber" : "bg-slate-400"}`}>
                                 {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
                             </span>
@@ -150,7 +150,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         )}
                     </div>
                     {statusTimestamp && hasSprintContext && (
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[10px] font-mono text-slate-500">
                             Updated {formatTime(statusTimestamp)}
                         </span>
                     )}
@@ -171,10 +171,10 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                                 {pausedIntervention.reason}
                             </p>
-                            <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                            <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                                 What to do now
                             </div>
-                            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                                 {pausedIntervention.instructions}
                             </p>
                         </div>

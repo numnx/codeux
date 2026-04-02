@@ -85,7 +85,7 @@ export const BrowserSessionsMenu: FunctionComponent = () => {
             <Link
                 to="/browser"
                 aria-label="Sprint browser"
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.06] bg-black/[0.03] px-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:border-sky-500/30 hover:bg-sky-500/8 hover:text-sky-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-sky-400/30 dark:hover:bg-sky-400/10 dark:hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.06] bg-black/[0.03] px-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:border-sky-500/30 hover:bg-sky-500/8 hover:text-sky-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-sky-400/30 dark:hover:bg-sky-400/10 dark:hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
             >
                 <Compass aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                 Browser
@@ -98,12 +98,12 @@ export const BrowserSessionsMenu: FunctionComponent = () => {
                     className="absolute right-0 top-full mt-2 w-72 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50"
                 >
                     <div className="px-3 pt-3 pb-1.5 flex justify-between items-center">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Active Sessions</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Active Sessions</span>
                     </div>
                     <div className="max-h-64 overflow-y-auto pb-1">
                         {loading ? (
                             <div className="px-4 py-4 text-center">
-                                <p className="text-xs text-slate-400 font-medium">Loading sessions...</p>
+                                <p className="text-xs text-slate-500 font-medium">Loading sessions...</p>
                             </div>
                         ) : sessions.length > 0 ? (
                             sessions.map((session) => (
@@ -122,10 +122,10 @@ export const BrowserSessionsMenu: FunctionComponent = () => {
                                                 {session.sprintName || "Unknown Sprint"}
                                             </span>
                                         </div>
-                                        <ExternalLink aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                                        <ExternalLink aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-500 group-hover:text-sky-500 transition-colors" />
                                     </div>
                                     <div className="flex items-center pl-4">
-                                        <span className="text-[10px] font-mono text-slate-400 truncate">
+                                        <span className="text-[10px] font-mono text-slate-500 truncate">
                                             {formatPort(session)} {session.status !== 'running' ? `(${session.status})` : ''}
                                         </span>
                                     </div>
@@ -133,7 +133,7 @@ export const BrowserSessionsMenu: FunctionComponent = () => {
                             ))
                         ) : (
                             <div className="px-4 py-4 text-center">
-                                <p className="text-xs text-slate-400 font-medium">
+                                <p className="text-xs text-slate-500 font-medium">
                                     {!selectedProject ? "Select a project to view sessions." : "No active browser sessions."}
                                 </p>
                             </div>

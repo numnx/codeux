@@ -56,7 +56,7 @@ export const ChatPageShell: FunctionComponent<{
               Project <span className="text-signal-500">Conversations.</span>
             </h1>
           </div>
-          <p className="max-w-2xl text-lg leading-relaxed text-slate-500 dark:text-slate-400">
+          <p className="max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
             {selectedProject
               ? `Messages sent here are stored in Sprint OS and routed toward listening MCP connections for ${selectedProject.name}.`
               : "Select a project to inspect its conversation threads and route dashboard messages to connected listeners."}
@@ -71,7 +71,7 @@ export const ChatPageShell: FunctionComponent<{
               className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                 chatMode === "threads"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-void-900"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
               Threads
@@ -82,7 +82,7 @@ export const ChatPageShell: FunctionComponent<{
               className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                 chatMode === "invocations"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-void-900"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
               Invocations
@@ -90,7 +90,7 @@ export const ChatPageShell: FunctionComponent<{
           </div>
           {chatMode === "threads" && (
             <>
-              <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+              <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
                 {activeConnectionLabel || "Unassigned"}
               </span>
               <span className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] ${
@@ -106,7 +106,7 @@ export const ChatPageShell: FunctionComponent<{
             type="button"
             onClick={onRefresh}
             disabled={manualRefreshing}
-            className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 transition-colors hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} strokeWidth={2.1} />
             Refresh

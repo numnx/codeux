@@ -197,7 +197,7 @@ export const SprintsPage: FunctionComponent = () => {
               Active <br />
               <span className="text-signal-500">Sprints.</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-500">
+            <p className="mt-2 max-w-2xl text-lg font-medium leading-relaxed text-slate-600 dark:text-slate-400">
               {selectedProject
                 ? `Define the sprint once for ${selectedProject.name}. The Planning agent can improve the prompt, plan subtasks, and launch the sprint without manual task entry.`
                 : "Select a project to manage sprint structure."}
@@ -222,7 +222,7 @@ export const SprintsPage: FunctionComponent = () => {
             ].map(({ label, value, icon: Icon }) => (
               <div
                 key={label}
-                className="inline-flex items-center gap-3 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300"
+                className="inline-flex items-center gap-3 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300"
               >
                 <Icon className="h-3.5 w-3.5 text-signal-500" strokeWidth={2} />
                 {label} <span className="font-mono text-slate-700 dark:text-white">{value}</span>
@@ -423,7 +423,7 @@ export const SprintsPage: FunctionComponent = () => {
             </div>
           </>
         ) : (
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-void-800/55 dark:text-slate-400">
+          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 px-6 py-8 text-sm text-slate-600 dark:border-white/[0.06] dark:bg-void-800/55 dark:text-slate-400">
             Projects scope the sprint gallery. Select a project from the top navigation before creating or planning sprints.
           </div>
         )}

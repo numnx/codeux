@@ -6,7 +6,7 @@ import { ChatAvatar } from "./ChatAvatar.js";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
 
 const statusTone = (pendingCount: number): string => (
-  pendingCount > 0 ? "text-status-amber" : "text-slate-400 dark:text-slate-500"
+  pendingCount > 0 ? "text-status-amber" : "text-slate-500 dark:text-slate-400"
 );
 
 export const ThreadListCard: FunctionComponent<{
@@ -40,7 +40,7 @@ export const ThreadListCard: FunctionComponent<{
                 <div className="truncate font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">
                   {thread.title}
                 </div>
-                <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                   {thread.lastMessagePreview || "No messages yet."}
                 </div>
               </div>
@@ -49,7 +49,7 @@ export const ThreadListCard: FunctionComponent<{
               <div className={`text-[10px] font-bold uppercase tracking-[0.12em] ${statusTone(thread.pendingMessageCount)}`}>
                 {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
               </div>
-              <div className="mt-1 text-[10px] font-mono text-slate-400">{formatRelativeChatTime(thread.lastMessageAt)}</div>
+              <div className="mt-1 text-[10px] font-mono text-slate-500">{formatRelativeChatTime(thread.lastMessageAt)}</div>
             </div>
           </div>
         </button>

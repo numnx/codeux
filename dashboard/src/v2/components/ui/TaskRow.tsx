@@ -20,7 +20,7 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
 
         <div className="flex-1 grid grid-cols-12 gap-5 items-center min-w-0">
             {/* ID */}
-            <div className="col-span-1 font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+            <div className="col-span-1 font-mono text-[10px] font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
                 #{task.id.split('-')[0].substring(0, 4)}
             </div>
 
@@ -33,7 +33,7 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
 
             {/* Source */}
             <div className="col-span-2 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 min-w-0">
-                <FolderGit2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-signal-600 dark:group-hover:text-signal-400 transition-colors shrink-0" strokeWidth={2} />
+                <FolderGit2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 group-hover:text-signal-600 dark:group-hover:text-signal-400 transition-colors shrink-0" strokeWidth={2} />
                 <span className="truncate group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors font-mono">{task.source}</span>
             </div>
 
@@ -47,7 +47,7 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
                         <PlayCircle className="w-4 h-4 text-emerald-700 dark:text-signal-500 relative z-10" strokeWidth={2} />
                     </div>
                 )}
-                {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
+                {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-600 dark:text-slate-400" strokeWidth={2} />}
 
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
                     task.status === 'completed'   ? 'text-emerald-700 dark:text-status-green' :
@@ -62,8 +62,8 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
             {/* Time / Actions */}
             <div className="col-span-2 flex items-center justify-end h-full relative overflow-hidden">
                 <div className="flex items-center gap-2 absolute right-0 transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-3">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{task.time}</span>
+                    <Clock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" strokeWidth={2} />
+                    <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{task.time}</span>
                 </div>
 
                 {/* Quick actions */}

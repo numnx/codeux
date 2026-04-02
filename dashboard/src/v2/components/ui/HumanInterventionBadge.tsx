@@ -48,10 +48,10 @@ export const HumanInterventionBadge: FunctionComponent<HumanInterventionBadgePro
         <p className="mt-2 text-[12px] leading-relaxed text-slate-600 dark:text-slate-300">
           {summary.reason}
         </p>
-        <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+        <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
           What to do
         </div>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">
           {summary.instructions}
         </p>
       </div>

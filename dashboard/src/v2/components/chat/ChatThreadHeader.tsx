@@ -75,7 +75,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
               </span>
             )}
             {isNewOrCompacted && !isReplayRequired && (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-400/30 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1 rounded-sm border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 dark:border-slate-400/30 dark:text-slate-400">
                 New/Compacted
               </span>
             )}
@@ -84,7 +84,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
             {thread?.title || "No Thread Selected"}
           </h2>
         </div>
-        <div className="text-right text-[10px] font-mono text-slate-400">
+        <div className="text-right text-[10px] font-mono text-slate-500">
           <div className="mb-2">
             {thread ? `${thread.messageCount} messages` : "0 messages"}
           </div>
@@ -94,7 +94,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
                 type="button"
                 onClick={onCompact}
                 disabled={isCompacting}
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.03] hover:text-slate-900 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 transition-colors hover:bg-black/[0.03] hover:text-slate-900 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
                 title="Compact Conversation"
               >
                 <Zap className={`h-3.5 w-3.5 ${isCompacting ? "animate-pulse" : ""}`} />
@@ -102,7 +102,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
               </button>
             )}
             <label className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Worker:</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Worker:</span>
               <select
                 value={selectedRouteId}
                 onChange={(event) => {
@@ -115,7 +115,7 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
                   }
                 }}
                 disabled={!thread || isAssigning}
-                className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
+                className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300"
               >
                 <option value="">Unassigned</option>
                 {workerOptions.map((option) => (

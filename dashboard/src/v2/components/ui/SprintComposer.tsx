@@ -258,7 +258,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                 <h2 className="font-display text-[2rem] font-black leading-none tracking-tight text-slate-900 dark:text-white sm:text-[2.35rem]">
                   {state.isEditing ? "Refine The Sprint." : "Compose The Next Sprint."}
                 </h2>
-                <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
+                <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-[15px]">
                   {state.isEditing
                     ? "Adjust the sprint definition. If tasks already exist, you can choose to Replan them."
                     : "The showcase folds away while you write. Define the sprint once, improve the prompt if needed, and let the Planning agent take the first pass at subtasks."}
@@ -269,7 +269,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
               aria-label="Close sprint composer"
             >
               <X className="h-4 w-4" />
@@ -278,14 +278,14 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
           <div data-composer-stagger className="mt-8 grid gap-4 sm:grid-cols-3">
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Key</div>
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Sprint Key</div>
               <div className="mt-2 font-mono text-3xl font-black tracking-tight text-slate-900 dark:text-white">
                 {(initialSprint?.number ? `SPR-${initialSprint.number}` : nextId).toUpperCase()}
               </div>
             </div>
 
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Route</div>
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Planning Route</div>
               <div className="mt-2">
                 <AvantgardeSelect
                   variant="compact"
@@ -309,7 +309,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                 ? "border-signal-500/20 bg-signal-500/[0.04] dark:bg-signal-500/[0.08]" 
                 : "border-black/[0.06] bg-black/[0.025] opacity-40 dark:border-white/[0.06] dark:bg-white/[0.03]"
             }`}>
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Model Override</div>
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Model Override</div>
               <div className="mt-2">
                 <AvantgardeSelect
                   variant="compact"
@@ -328,7 +328,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           </div>
 
           <label data-composer-stagger className="mt-8 block space-y-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Name</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Sprint Name</span>
             <input
               type="text"
               value={state.name}
@@ -342,7 +342,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
           <div data-composer-stagger className="mt-8 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Prompt</label>
+              <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Sprint Prompt</label>
               <button
                 type="button"
                 onClick={() => { void handleImprovePrompt(); }}
@@ -370,8 +370,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
               {state.originalPrompt && (
                 <div className="flex flex-col rounded-[1.7rem] border border-black/[0.05] bg-black/[0.01] p-5 dark:border-white/[0.05] dark:bg-white/[0.015]">
-                  <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Original Prompt</div>
-                  <div className="max-h-[220px] overflow-y-auto text-xs italic leading-relaxed text-slate-400 dark:text-slate-500 sm:max-h-[260px]">
+                  <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Original Prompt</div>
+                  <div className="max-h-[220px] overflow-y-auto text-xs italic leading-relaxed text-slate-500 dark:text-slate-400 sm:max-h-[260px]">
                     {state.originalPrompt}
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
-            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Planning Agent</div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Planning Agent</div>
             <div className="mt-3">
               <AvantgardeSelect
                 variant="card"
@@ -399,7 +399,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           </div>
 
           <div data-composer-stagger>
-            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Execution Mode</div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Execution Mode</div>
             <div className="mt-3 grid gap-3">
               {state.availableModes.map((mode) => {
                 const ModeIcon = mode.icon;
@@ -416,10 +416,10 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-700 dark:text-white">
-                      <ModeIcon className={`h-3.5 w-3.5 ${isActive ? "text-signal-500" : "text-slate-400"}`} strokeWidth={2.1} />
+                      <ModeIcon className={`h-3.5 w-3.5 ${isActive ? "text-signal-500" : "text-slate-500"}`} strokeWidth={2.1} />
                       {mode.label}
                     </div>
-                    <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    <div className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                       {mode.description}
                     </div>
                   </button>
@@ -445,7 +445,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white"
+              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white"
             >
               Cancel
             </button>

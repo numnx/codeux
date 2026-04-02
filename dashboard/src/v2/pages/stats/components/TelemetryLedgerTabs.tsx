@@ -15,7 +15,7 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
           className={`px-4 py-2 text-sm font-bold transition-colors ${
             activeTab === "tasks"
               ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              : "text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
           }`}
         >
           Task Telemetry
@@ -26,7 +26,7 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
           className={`px-4 py-2 text-sm font-bold transition-colors ${
             activeTab === "sprints"
               ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              : "text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
           }`}
         >
           Sprint Telemetry

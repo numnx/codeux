@@ -61,7 +61,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
             : "rounded-tl-sm border-white/10"
         }`}>
           {/* Header Row */}
-          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-400 ${fromUser || fromTool ? "justify-end flex-row-reverse" : "justify-start"}`}>
+          <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-500 ${fromUser || fromTool ? "justify-end flex-row-reverse" : "justify-start"}`}>
             <span className="font-semibold text-slate-300 capitalize">{message.role}</span>
             {providerLabel && (
               <span className="px-1.5 py-0.5 rounded-sm bg-black/20 text-slate-300">
@@ -88,7 +88,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
 
           {message.toolCallsJson && (
             <div className="mt-4 rounded border border-white/10 bg-black/20 p-3 text-xs">
-              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-slate-400">
+              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-slate-500">
                 {JSON.stringify(message.toolCallsJson, null, 2)}
               </pre>
             </div>

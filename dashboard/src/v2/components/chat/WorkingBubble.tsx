@@ -42,7 +42,7 @@ export const WorkingBubble: FunctionComponent<WorkingBubbleProps> = ({ displayNa
               </div>
             </div>
           )}
-          <div className="px-1 text-[10px] font-mono text-slate-400">Working</div>
+          <div className="px-1 text-[10px] font-mono text-slate-500">Working</div>
         </div>
       </div>
     </div>

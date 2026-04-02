@@ -84,7 +84,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
                     <Box aria-hidden="true" className={`w-4 h-4 transition-colors ${
                         activeContainers.length > 0
                             ? "text-signal-500 dark:text-signal-400"
-                            : "text-slate-500 dark:text-slate-400"
+                            : "text-slate-600 dark:text-slate-400"
                         } group-hover:text-slate-900 dark:group-hover:text-white`} strokeWidth={1.5} />
                     {activeContainers.length > 0 && (
                         <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
@@ -104,7 +104,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
                         </span>
                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/[0.03] dark:bg-white/[0.03]">
                             <span className="w-1.5 h-1.5 rounded-full bg-signal-500 animate-pulse" />
-                            <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400">
+                            <span className="text-[10px] font-mono font-medium text-slate-600 dark:text-slate-400">
                                 {activeContainers.length} Active
                             </span>
                         </div>
@@ -113,13 +113,13 @@ export const DockerStatusMenu: FunctionComponent = () => {
                     <div className="max-h-[320px] overflow-y-auto overscroll-contain">
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
-                                <span className="text-xs font-medium text-slate-400">Loading containers...</span>
+                                <span className="text-xs font-medium text-slate-500">Loading containers...</span>
                             </div>
                         ) : containers.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                                 <Box className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" strokeWidth={1.5} />
                                 <span className="text-sm font-medium text-slate-600 dark:text-slate-300">No Containers</span>
-                                <span className="text-xs text-slate-400 mt-1">Docker is not running any containers.</span>
+                                <span className="text-xs text-slate-500 mt-1">Docker is not running any containers.</span>
                             </div>
                         ) : (
                             <div className="flex flex-col p-1.5 gap-1.5">
@@ -136,26 +136,26 @@ export const DockerStatusMenu: FunctionComponent = () => {
                                                     {container.state === "running" ? (
                                                         <Play className="w-3.5 h-3.5 text-signal-500 shrink-0" strokeWidth={2.5} />
                                                     ) : (
-                                                        <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" strokeWidth={2.5} />
+                                                        <Square className="w-3.5 h-3.5 text-slate-500 shrink-0" strokeWidth={2.5} />
                                                     )}
                                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate" title={container.names}>
                                                         {container.names}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] font-medium text-slate-400 shrink-0 tabular-nums">
+                                                <span className="text-[10px] font-medium text-slate-500 shrink-0 tabular-nums">
                                                     {container.runningFor}
                                                 </span>
                                             </div>
 
                                             <div className="flex items-center gap-1.5 mb-2">
-                                                <span className="text-xs text-slate-500 dark:text-slate-400 truncate" title={container.image}>
+                                                <span className="text-xs text-slate-600 dark:text-slate-400 truncate" title={container.image}>
                                                     {container.image}
                                                 </span>
                                             </div>
 
                                             {commandLabel && (
                                                 <div className="flex items-start gap-1.5 px-2 py-1.5 bg-black/[0.03] dark:bg-white/[0.03] rounded-lg">
-                                                    <Terminal className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                                                    <Terminal className="w-3 h-3 text-slate-500 shrink-0 mt-0.5" />
                                                     <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300 break-all line-clamp-2">
                                                         {commandLabel}
                                                     </span>

@@ -115,13 +115,13 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
               <h2 className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
                 {title}
               </h2>
-              <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
+              <p className="text-xs font-medium text-slate-500 mt-2 tracking-wide">
                 {subtitle}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -131,7 +131,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             <div className="grid grid-cols-1 gap-5 flex-1 min-h-0">
               <div className="flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sprint Markdown</label>
+                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Sprint Markdown</label>
                   {mode === "export" && (
                     <div className="flex items-center gap-3">
                       <button
@@ -145,7 +145,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => { void handleCopy("sprint", sprintText); }}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         {copiedField === "sprint" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedField === "sprint" ? "Copied" : "Copy"}
@@ -164,7 +164,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
 
               <div className="flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Task Bundle</label>
+                  <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Task Bundle</label>
                   {mode === "export" && (
                     <div className="flex items-center gap-3">
                       <button
@@ -178,7 +178,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       <button
                         type="button"
                         onClick={() => { void handleCopy("tasks", tasksText); }}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         {copiedField === "tasks" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedField === "tasks" ? "Copied" : "Copy"}
@@ -197,14 +197,14 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500">
                 {mode === "import" ? "Task bundle markers are optional. If omitted, the full textarea is treated as one task." : "Export reflects current DB state, not repo-local markdown files."}
               </div>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  className="text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                 >
                   Close
                 </button>

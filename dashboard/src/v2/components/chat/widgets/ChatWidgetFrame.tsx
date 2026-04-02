@@ -41,7 +41,7 @@ export const ChatWidgetFrame: FunctionComponent<ChatWidgetFrameProps> = ({
         {children}
       </div>
       {footer && (
-        <div class="px-3 py-2 border-t border-inherit bg-black/5 dark:bg-white/5 text-xs text-slate-500">
+        <div class="px-3 py-2 border-t border-inherit bg-black/5 dark:bg-white/5 text-xs text-slate-600">
           {footer}
         </div>
       )}

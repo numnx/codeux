@@ -16,7 +16,7 @@ export const SprintProtocol: FunctionComponent<SprintProtocolProps> = memo(({
 
     const protocolMarkup = useMemo(() => (
         renderMarkdown(hasSprintContext ? instructions : undefined)
-        || '<p class="text-slate-400 dark:text-slate-600 italic">No active sprint protocol.</p>'
+        || '<p class="text-slate-500 dark:text-slate-600 italic">No active sprint protocol.</p>'
     ), [hasSprintContext, instructions]);
 
     return (

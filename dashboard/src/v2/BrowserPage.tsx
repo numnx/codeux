@@ -240,7 +240,7 @@ export const BrowserPage: FunctionComponent = () => {
   if (!selectedProject) {
     return (
       <div className="p-8">
-        <div className="rounded-[2rem] border border-black/[0.06] bg-white/60 p-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+        <div className="rounded-[2rem] border border-black/[0.06] bg-white/60 p-8 text-sm text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
           Select a project first. The in-app browser launches one isolated preview container per sprint.
         </div>
       </div>
@@ -258,7 +258,7 @@ export const BrowserPage: FunctionComponent = () => {
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
             Build previews per sprint, isolated by container.
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
             Each sprint preview runs from its own exported sprint snapshot and container, bound to a private host port and surfaced through the in-app browser.
           </p>
         </div>
@@ -299,7 +299,7 @@ export const BrowserPage: FunctionComponent = () => {
         <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Selected Sprint</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Selected Sprint</div>
               <div className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
                 {scriptTargetSprint?.name || "All sprints"}
               </div>
@@ -316,12 +316,12 @@ export const BrowserPage: FunctionComponent = () => {
             <div className="mt-4 space-y-3 text-sm">
             {selectedSession && (
               <div className="rounded-2xl border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Port routing</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Port routing</div>
                 <div className="mt-1 font-mono text-[12px] text-slate-700 dark:text-slate-300">{formatPortMapping(selectedSession)}</div>
               </div>
             )}
             <div className="rounded-2xl border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Script path</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Script path</div>
               <div className="mt-1 break-all font-mono text-[12px] text-slate-700 dark:text-slate-300">{script?.path || "Loading..."}</div>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -384,7 +384,7 @@ export const BrowserPage: FunctionComponent = () => {
 
         <div className="space-y-5">
           <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Runtime notes</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Runtime notes</div>
             <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
               <p>Ports are assigned from the sprint preview range and bound to `127.0.0.1` to avoid conflicts with the main dashboard.</p>
               <p>Each preview container runs from a dedicated sprint snapshot directory, so multiple active sprints from the same project stay isolated without registering git worktrees.</p>
@@ -395,7 +395,7 @@ export const BrowserPage: FunctionComponent = () => {
             <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Startup script</div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Startup script</div>
                   <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {script?.mode === "script" ? "Custom file" : "Auto-generated fallback"}
                   </div>
@@ -419,7 +419,7 @@ export const BrowserPage: FunctionComponent = () => {
           )}
 
           <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Container logs</div>
+            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Container logs</div>
             <pre className="max-h-[360px] overflow-auto rounded-[1.5rem] bg-[#f7f3ea] p-4 font-mono text-[11px] leading-6 text-slate-700 dark:bg-[#05080d] dark:text-slate-300">
               {logs || "No logs yet."}
             </pre>

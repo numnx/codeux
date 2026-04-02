@@ -16,7 +16,7 @@ export const IdleRuntimeState: FunctionComponent<{
                 <div className="relative w-4 h-4 rounded-full bg-signal-500" />
             </div>
             <div className="text-xs font-bold uppercase tracking-[0.22em] text-signal-500">{title}</div>
-            <div className="mt-3 text-sm text-slate-500 dark:text-slate-500 font-medium">{subtitle}</div>
+            <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 font-medium">{subtitle}</div>
         </div>
     </div>
 );

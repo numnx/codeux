@@ -74,13 +74,13 @@ export const TelemetryLedger: FunctionComponent<{
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">{eyebrow}</div>
             <div className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{title}</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Search, sort, and compare {kindLabel} by recency, tokens, active time, and directional token flow.
             </div>
           </div>
-          <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+          <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
             {filteredItems.length} {kindLabel}
           </div>
         </div>
@@ -113,7 +113,7 @@ export const TelemetryLedger: FunctionComponent<{
         </div>
 
         {filteredItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-12 text-center text-sm text-slate-400 dark:border-white/[0.08]">
+          <div className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-12 text-center text-sm text-slate-500 dark:border-white/[0.08]">
             {emptyLabel}
           </div>
         ) : (
@@ -133,34 +133,34 @@ export const TelemetryLedger: FunctionComponent<{
                             <div className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
                             <div className="mt-1 flex flex-wrap gap-2">
                               {item.secondaryLabel ? (
-                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
                                   {item.secondaryLabel}
                                 </span>
                               ) : null}
                               {item.status ? (
-                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300 ${CHIP_CLASS}`}>
                                   {item.status}
                                 </span>
                               ) : null}
                             </div>
                           </div>
                           <div className="text-left xl:text-right">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Last activity</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Last activity</div>
                             <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{formatDateTime(item.lastActivityAt)}</div>
                           </div>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-3">
                             <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
                             </div>
                             <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Active</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
                             </div>
                             <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Calls</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{item.usage.invocationCount.toLocaleString()}</div>
                             </div>
                           </div>
@@ -177,7 +177,7 @@ export const TelemetryLedger: FunctionComponent<{
                 );
               })}
               {visibleItems.length < filteredItems.length ? (
-                <div ref={sentinelRef} className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:border-white/[0.08]">
+                <div ref={sentinelRef} className="rounded-2xl border border-dashed border-black/[0.08] px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.08]">
                   Loading more telemetry lanes...
                 </div>
               ) : null}

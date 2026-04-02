@@ -84,13 +84,13 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                             <h2 id="rerun-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
                                 Rerun Task
                             </h2>
-                            <p className="text-[11px] text-slate-400 font-mono">#{taskId}</p>
+                            <p className="text-[11px] text-slate-500 font-mono">#{taskId}</p>
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-slate-400 hover:text-slate-700 dark:bg-white/[0.04] dark:text-slate-500 dark:hover:text-white transition-colors"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-slate-500 hover:text-slate-700 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-white transition-colors"
                     >
                         <X className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -98,13 +98,13 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
 
                 {/* Body */}
                 <div className="px-7 pb-6 space-y-5">
-                    <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p className="text-[13px] text-slate-600 dark:text-slate-400 leading-relaxed">
                         This will reset <span className="font-semibold text-slate-700 dark:text-slate-200">{taskTitle}</span> and start a fresh execution.
                     </p>
 
                     {/* Provider selector */}
                     <div className="space-y-2">
-                        <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400" htmlFor="rerun-provider">
+                        <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500" htmlFor="rerun-provider">
                             Provider
                         </label>
                         <select
@@ -118,7 +118,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                             ))}
                         </select>
                         {currentProvider && (
-                            <p className="text-[10px] text-slate-400">
+                            <p className="text-[10px] text-slate-500">
                                 Current provider: <span className="font-mono font-bold">{currentProvider}</span>
                             </p>
                         )}
@@ -134,12 +134,12 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                         />
                         <div>
                             <div className="flex items-center gap-1.5">
-                                <Trash2 className="w-3 h-3 text-slate-400 group-hover:text-status-amber transition-colors" strokeWidth={2} />
+                                <Trash2 className="w-3 h-3 text-slate-500 group-hover:text-status-amber transition-colors" strokeWidth={2} />
                                 <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
                                     Clear worktree
                                 </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
                                 Remove the existing worktree directory before rerunning. Use this for a completely fresh start.
                             </p>
                         </div>
@@ -151,7 +151,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="px-4 py-2 rounded-xl text-[12px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                        className="px-4 py-2 rounded-xl text-[12px] font-bold text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                     >
                         Cancel
                     </button>

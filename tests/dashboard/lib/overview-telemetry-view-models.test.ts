@@ -50,7 +50,7 @@ describe("overview-telemetry-view-models", () => {
     });
 
     it("returns default slate for generic events", () => {
-      expect(getEventStyle({ eventType: "session_created" } as ExecutionRuntimeEventSummary).toneClass).toBe("text-slate-500");
+      expect(getEventStyle({ eventType: "session_created" } as ExecutionRuntimeEvent).toneClass).toEqual("text-slate-600");
     });
 
     it("formats labels without underscores", () => {

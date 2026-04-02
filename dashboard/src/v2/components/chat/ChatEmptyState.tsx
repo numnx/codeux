@@ -8,7 +8,7 @@ export const EmptyChat: FunctionComponent<{ message: string }> = ({ message }) =
         <MessageCircle className="h-6 w-6" strokeWidth={1.6} />
       </div>
       <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">No Chat Thread Yet</h3>
-      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
+      <p className="max-w-md text-sm leading-relaxed text-slate-600 dark:text-slate-400">{message}</p>
     </div>
   </div>
 );
@@ -22,7 +22,7 @@ export const LoadingChat: FunctionComponent<{ label: string }> = ({ label }) => 
         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-signal-500 [animation-delay:280ms]" />
       </div>
       <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-signal-500">{label}</div>
-      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+      <p className="max-w-md text-sm leading-relaxed text-slate-600 dark:text-slate-400">
         Sprint OS is loading the latest stored conversation state.
       </p>
     </div>
