@@ -100,7 +100,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
               : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
           } disabled:cursor-not-allowed disabled:opacity-50`}
         >
-          <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
+          <Heart className={`h-3.5 w-3.5 ${pendingActionIds.has(pinActionId) ? "motion-safe:animate-pulse" : ""}`} fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
         </button>
       </td>
       <td className="px-4 py-3 min-w-[8rem] align-middle">
@@ -171,8 +171,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
                 : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            {activeRun ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
-            {activeRun ? "Stop" : "Start"}
+            {activeRun ? <Square className={`h-3.5 w-3.5 ${pendingActionIds.has(pendingActionId) ? "motion-safe:animate-pulse" : ""}`} fill="currentColor" /> : <Play className={`h-3.5 w-3.5 ${pendingActionIds.has(pendingActionId) ? "motion-safe:animate-pulse" : ""}`} fill="currentColor" />}
+            {pendingActionIds.has(pendingActionId) ? (activeRun ? "Stopping" : "Starting") : (activeRun ? "Stop" : "Start")}
           </button>
           <a
             href={`/tasks?sprint=${encodeURIComponent(sprint.id)}`}

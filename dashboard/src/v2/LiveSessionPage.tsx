@@ -26,6 +26,8 @@ import { CollapsiblePanel } from "./components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider, useExecutionTimeline } from "../hooks/ExecutionTimelineContext.js";
 import { ExecutionTimeline } from "./components/ExecutionTimeline.js";
 import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { ConfirmationDialog } from "./components/ui/ConfirmationDialog.js";
+import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
 import { StatsHeader } from "./components/StatsHeader.js";
 import { SprintProtocol } from "./components/SprintProtocol.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
@@ -119,6 +121,10 @@ export const LiveSessionPage: FunctionComponent = () => {
     const {
         rerunningIds,
         pendingActionIds,
+        feedback,
+        clearFeedback,
+        confirmAction,
+        setConfirmAction,
         handleRerun,
         handleOrchestrateSprint,
         handlePauseSprintRun,
@@ -534,6 +540,24 @@ export const LiveSessionPage: FunctionComponent = () => {
                     />
                 </div>
             </div>
+
+            {feedback.status !== "idle" && (
+                <div className="fixed bottom-6 right-6 z-50 w-[24rem]">
+                    <ActionFeedbackRegion feedback={feedback} onDismiss={clearFeedback} />
+                </div>
+            )}
+
+            {confirmAction && (
+                <ConfirmationDialog
+                    isOpen={true}
+                    title={confirmAction.title}
+                    message={confirmAction.message}
+                    variant={confirmAction.variant}
+                    confirmText={confirmAction.confirmText}
+                    onConfirm={confirmAction.onConfirm}
+                    onCancel={() => setConfirmAction(null)}
+                />
+            )}
         </div>
     );
 };

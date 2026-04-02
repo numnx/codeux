@@ -501,6 +501,20 @@ describe("BrowserPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
     });
 
+    // The handleConfirm from ConfirmationDialog relies on GSAP animations.
+    // To make it execute onComplete synchronously in test, trigger the raw callback
+    // by calling the function attached to onComplete, or just use vi.runAllTimers.
+    // However, the test environment doesn't have fake timers set up here.
+    // Since GSAP animations delay the `onConfirm` callback, let's fast forward or bypass.
+    // The simplest way to test is to click and wait.
+    await act(async () => {
+      const dialog = screen.getByRole("dialog");
+      const confirmButton = dialog.querySelector("button:last-child");
+      fireEvent.click(confirmButton!);
+      // GSAP in vitest-environment-jsdom sometimes just schedules via requestAnimationFrame or setTimeout
+      await new Promise(r => setTimeout(r, 400));
+    });
+
     expect(mockRemovePreviewSession).toHaveBeenCalledWith("sess-1");
     expect(mockRefreshSessions).toHaveBeenCalled();
   });
@@ -520,7 +534,14 @@ describe("BrowserPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
     });
 
-    expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
+    await act(async () => {
+      const dialog = screen.getByRole("dialog");
+      const confirmButton = dialog.querySelector("button:last-child");
+      fireEvent.click(confirmButton!);
+      await new Promise(r => setTimeout(r, 400));
+    });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
 
     await act(async () => {
       resolveRemoval?.();

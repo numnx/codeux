@@ -84,7 +84,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
   const StatusIcon = state.icon;
   const isCompleted = sprint.status === "completed";
   const isRunning = sprint.status === "running";
-  const animationClass = isCompleted ? "" : isEven ? "animate-organic" : "animate-organic-reverse";
+  const animationClass = isCompleted ? "" : isEven ? "motion-safe:animate-organic" : "motion-safe:animate-organic-reverse";
 
   const handleHoverEnter = () => {
     if (!bubbleRef.current || isCompleted) {
@@ -137,7 +137,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
         <BorderTrace accentHex={state.accentHex} />
         {state.ring && !isCompleted && (
           <div
-            className={`absolute inset-0 rounded-[1.75rem] border-2 bg-transparent pointer-events-none mix-blend-screen scale-105 animate-[spin_5s_linear_infinite] ${state.ring}`}
+            className={`absolute inset-0 rounded-[1.75rem] border-2 bg-transparent pointer-events-none mix-blend-screen scale-105 motion-safe:animate-[spin_5s_linear_infinite] ${state.ring}`}
             style={{ clipPath: "inset(-10px)" }}
           />
         )}
@@ -151,7 +151,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
 
       <div className="relative z-20 flex h-full w-full flex-col items-center justify-center p-8 text-center">
         <div className={`absolute top-5 flex items-center gap-1.5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${state.text}`}>
-          <StatusIcon className={`h-3.5 w-3.5 ${isRunning ? "animate-pulse" : ""}`} strokeWidth={2.5} />
+          <StatusIcon className={`h-3.5 w-3.5 ${isRunning ? "motion-safe:animate-pulse" : ""}`} strokeWidth={2.5} />
           <span className="text-[10px] font-bold uppercase tracking-[0.14em]">{state.label}</span>
         </div>
 
@@ -210,8 +210,8 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
             title={isRunning ? "Stop" : "Start"}
           >
             {isRunning
-              ? <Square className={`h-3.5 w-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />
-              : <Play className={`h-3.5 w-3.5 ${primaryBusy ? "animate-pulse" : ""}`} fill="currentColor" />}
+              ? <Square className={`h-3.5 w-3.5 ${primaryBusy ? "motion-safe:animate-pulse" : ""}`} fill="currentColor" />
+              : <Play className={`h-3.5 w-3.5 ${primaryBusy ? "motion-safe:animate-pulse" : ""}`} fill="currentColor" />}
           </button>
           <a
             href={`/tasks?sprint=${encodeURIComponent(sprint.id)}`}
@@ -265,8 +265,8 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
               disabled={showcaseBusy}
               className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
             >
-              <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
-              {sprint.showcasePinned ? "Remove" : "Add"}
+            <Heart className={`h-3.5 w-3.5 ${showcaseBusy ? "motion-safe:animate-pulse" : ""}`} fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
+            {showcaseBusy ? "Saving..." : sprint.showcasePinned ? "Remove" : "Add"}
             </button>
             <button
               type="button"
