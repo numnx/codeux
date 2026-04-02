@@ -21,11 +21,11 @@ export const SectionCard: FunctionComponent<{
     </div>
 
     <div className={`relative z-10 flex items-center justify-between gap-3 border-b border-black/[0.05] px-6 py-4 dark:border-white/[0.04] ${danger ? "bg-status-red/[0.03]" : ""}`}>
-      <h3 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${danger ? "text-status-red/70" : "text-slate-400 dark:text-slate-500"}`}>
+      <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${danger ? "text-status-red/70" : "text-slate-400 dark:text-slate-500"}`}>
         {title}
       </h3>
       {badge ? (
-        <span className="rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-signal-600 dark:text-signal-300">
+        <span className="rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-signal-600 dark:text-signal-300">
           {badge}
         </span>
       ) : null}
