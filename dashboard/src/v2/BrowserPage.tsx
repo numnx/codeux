@@ -26,6 +26,8 @@ import { usePreviewSessions } from "./hooks/use-preview-sessions.js";
 import { useProjectEffectiveSettings } from "./hooks/use-project-effective-settings.js";
 import { PreviewSessionSlider } from "./components/browser/PreviewSessionSlider.js";
 import { PreviewWindowChrome } from "./components/browser/PreviewWindowChrome.js";
+import { ConfirmationDialog } from "./components/ui/ConfirmationDialog.js";
+import { useActionFeedback } from "./hooks/use-action-feedback.js";
 
 const PREVIEW_MESSAGE_TYPE = "sprint-preview:state";
 const PREVIEW_NAVIGATION_TYPE = "sprint-preview:navigate";
@@ -68,6 +70,13 @@ export const BrowserPage: FunctionComponent = () => {
   const [launchSprintId, setLaunchSprintId] = useState("");
   const [frameSrc, setFrameSrc] = useState("");
   const [frameKey, setFrameKey] = useState(0);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    variant?: "destructive" | "neutral";
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const { sessions, selectedSession, loading, error: fetchError, refresh: refreshSessions } = usePreviewSessions({
     projectId: selectedProject?.id || null,
@@ -267,56 +276,85 @@ export const BrowserPage: FunctionComponent = () => {
     }
   };
 
-  const handleRebuild = async () => {
+  const handleRebuild = () => {
     if (!visibleSelectedSession) return;
     if (!previewEnabled) {
       setError("Browser Preview is disabled for this project.");
       return;
     }
-    setSessionActionPending(true);
-    try {
-      await rebuildPreviewSession(visibleSelectedSession.id);
-      await refreshSessions(true);
-      reloadFrame();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : String(actionError));
-    } finally {
-      setSessionActionPending(false);
-    }
+
+    setConfirmAction({
+      title: "Rebuild Container",
+      message: "Are you sure you want to rebuild this preview container? The current container state will be lost.",
+      confirmText: "Rebuild",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setSessionActionPending(true);
+        try {
+          await rebuildPreviewSession(visibleSelectedSession.id);
+          await refreshSessions(true);
+          reloadFrame();
+        } catch (actionError) {
+          setError(actionError instanceof Error ? actionError.message : String(actionError));
+        } finally {
+          setSessionActionPending(false);
+        }
+      },
+    });
   };
 
-  const handleStop = async () => {
+  const handleStop = () => {
     if (!visibleSelectedSession) return;
-    setSessionActionPending(true);
-    try {
-      await stopPreviewSession(visibleSelectedSession.id);
-      await refreshSessions(true);
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : String(actionError));
-    } finally {
-      setSessionActionPending(false);
-    }
+
+    setConfirmAction({
+      title: "Stop Container",
+      message: "Are you sure you want to stop this preview container?",
+      variant: "destructive",
+      confirmText: "Stop",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setSessionActionPending(true);
+        try {
+          await stopPreviewSession(visibleSelectedSession.id);
+          await refreshSessions(true);
+        } catch (actionError) {
+          setError(actionError instanceof Error ? actionError.message : String(actionError));
+        } finally {
+          setSessionActionPending(false);
+        }
+      },
+    });
   };
 
-  const handleRemove = async (sessionId: string) => {
+  const handleRemove = (sessionId: string) => {
     if (removingSessionIdSet.has(sessionId)) {
       return;
     }
-    setRemovingSessionIds((current) => [...current, sessionId]);
-    if (activeSessionId === sessionId) {
-      setActiveSessionId(null);
-      setLogs("");
-      setCurrentPath("/");
-      setAddressValue("/");
-    }
-    try {
-      await removePreviewSession(sessionId);
-      await refreshSessions(true);
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : String(actionError));
-    } finally {
-      setRemovingSessionIds((current) => current.filter((id) => id !== sessionId));
-    }
+
+    setConfirmAction({
+      title: "Remove Container",
+      message: "Are you sure you want to remove this preview container?",
+      variant: "destructive",
+      confirmText: "Remove",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setRemovingSessionIds((current) => [...current, sessionId]);
+        if (activeSessionId === sessionId) {
+          setActiveSessionId(null);
+          setLogs("");
+          setCurrentPath("/");
+          setAddressValue("/");
+        }
+        try {
+          await removePreviewSession(sessionId);
+          await refreshSessions(true);
+        } catch (actionError) {
+          setError(actionError instanceof Error ? actionError.message : String(actionError));
+        } finally {
+          setRemovingSessionIds((current) => current.filter((id) => id !== sessionId));
+        }
+      },
+    });
   };
 
   const handleSaveScript = async () => {
@@ -489,8 +527,8 @@ export const BrowserPage: FunctionComponent = () => {
                   disabled={!visibleSelectedSession || sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white"
                 >
-                  <RotateCcw className="h-4 w-4" strokeWidth={2} />
-                  Rebuild
+                  <RotateCcw className={`h-4 w-4 ${sessionActionPending ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                  {sessionActionPending ? "Rebuilding..." : "Rebuild"}
                 </button>
                 <button
                   type="button"
@@ -498,8 +536,8 @@ export const BrowserPage: FunctionComponent = () => {
                   disabled={!visibleSelectedSession || sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white"
                 >
-                  <Square className="h-4 w-4" strokeWidth={2} />
-                  Stop
+                  <Square className={`h-4 w-4 ${sessionActionPending ? "motion-safe:animate-pulse" : ""}`} strokeWidth={2} />
+                  {sessionActionPending ? "Stopping..." : "Stop"}
                 </button>
                 <a
                   href={visibleSelectedSession ? `${buildPreviewOrigin(visibleSelectedSession.id)}${normalizePath(currentPath)}` : undefined}
@@ -557,6 +595,18 @@ export const BrowserPage: FunctionComponent = () => {
           </div>
         </div>
       </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmationDialog
+          isOpen={true}
+          title={confirmAction.title}
+          message={confirmAction.message}
+          variant={confirmAction.variant}
+          confirmText={confirmAction.confirmText}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
       )}
     </div>
   );

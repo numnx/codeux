@@ -25,6 +25,8 @@ import { SprintMarkdownModal } from "../../components/ui/SprintMarkdownModal.js"
 import { SprintSettingsOverrideModal } from "../../components/ui/SprintSettingsOverrideModal.js";
 import { SprintImportMenu } from "../../components/sprints/SprintImportMenu.js";
 import { useSprintsPageData } from "./use-sprints-page-data.js";
+import { ConfirmationDialog } from "../../components/ui/ConfirmationDialog.js";
+import { ActionFeedbackRegion } from "../../components/ui/ActionFeedbackRegion.js";
 import { useProgressiveList } from "../../hooks/use-progressive-list.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "../../lib/list-window.js";
 import { ExecutionTimelineProvider } from "../../../hooks/ExecutionTimelineContext.js";
@@ -64,6 +66,10 @@ export const SprintsPage: FunctionComponent = () => {
     quicksprintTemplates,
     quicksprintLoading,
     agentPresets,
+    feedback,
+    clearFeedback,
+    confirmAction,
+    setConfirmAction,
     handleQuicksprintExecute,
     handleCreateQuicksprintTemplate,
     handleUpdateQuicksprintTemplate,
@@ -178,8 +184,17 @@ export const SprintsPage: FunctionComponent = () => {
   }, [handleSprintToggle]);
 
   const handleBulkDelete = useCallback((ids: string[]) => {
-    for (const id of ids) void handleDeleteSprint(id);
-  }, [handleDeleteSprint]);
+    setConfirmAction({
+      title: "Delete Sprints",
+      message: `Are you sure you want to delete ${ids.length} sprint${ids.length === 1 ? "" : "s"}? This action cannot be undone.`,
+      variant: "destructive",
+      confirmText: "Delete",
+      onConfirm: () => {
+        for (const id of ids) void handleDeleteSprint(id);
+        setConfirmAction(null);
+      },
+    });
+  }, [handleDeleteSprint, setConfirmAction]);
 
   return (
     <ExecutionTimelineProvider
@@ -307,7 +322,18 @@ export const SprintsPage: FunctionComponent = () => {
                           setEditingSprint(sprint);
                           setShowCreateComposer(false);
                         }}
-                        onDelete={() => { void handleDeleteSprint(sprint.id); }}
+                        onDelete={() => {
+                          setConfirmAction({
+                            title: "Delete Sprint",
+                            message: `Are you sure you want to delete sprint "${sprint.name}"? This action cannot be undone.`,
+                            variant: "destructive",
+                            confirmText: "Delete",
+                            onConfirm: () => {
+                              void handleDeleteSprint(sprint.id);
+                              setConfirmAction(null);
+                            },
+                          });
+                        }}
                         onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
                         onOverrides={() => { setOverrideSprint(sprint); }}
                         onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
@@ -490,7 +516,16 @@ export const SprintsPage: FunctionComponent = () => {
               type="button"
               onClick={() => {
                 setRowMenu(null);
-                void handleDeleteSprint(activeRowMenuSprint.id);
+                setConfirmAction({
+                  title: "Delete Sprint",
+                  message: `Are you sure you want to delete sprint "${activeRowMenuSprint.name}"? This action cannot be undone.`,
+                  variant: "destructive",
+                  confirmText: "Delete",
+                  onConfirm: () => {
+                    void handleDeleteSprint(activeRowMenuSprint.id);
+                    setConfirmAction(null);
+                  },
+                });
               }}
               className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-status-red transition-colors hover:bg-status-red/10"
             >
@@ -539,6 +574,24 @@ export const SprintsPage: FunctionComponent = () => {
             setAddTaskForSprint(null);
           }}
           onSubmit={handleAppendTask}
+        />
+      )}
+
+      {feedback.status !== "idle" && (
+        <div className="fixed bottom-6 right-6 z-50 w-[24rem]">
+          <ActionFeedbackRegion feedback={feedback} onDismiss={clearFeedback} />
+        </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmationDialog
+          isOpen={true}
+          title={confirmAction.title}
+          message={confirmAction.message}
+          variant={confirmAction.variant}
+          confirmText={confirmAction.confirmText}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
         />
       )}
     </ExecutionTimelineProvider>

@@ -31,6 +31,10 @@ vi.mock("../../../dashboard/src/v2/hooks/use-live-session-actions.js", () => ({
     handleClaimAttentionItem: vi.fn(),
     handleResolveAttentionItem: vi.fn(),
     handleDismissAttentionItem: vi.fn(),
+      feedback: { status: "idle", message: "" },
+      clearFeedback: vi.fn(),
+      confirmAction: null,
+      setConfirmAction: vi.fn(),
   }),
 }));
 
