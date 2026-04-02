@@ -11,13 +11,12 @@ import type {
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { buildProviderPrompt } from "./cli-workflow-utils.js";
-import type { IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 
 import { getRepoSprintOsPath } from "../shared/config/sprint-os-paths.js";
 import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
-import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { ProviderTextInvocationService } from "./provider-text-invocation-service.js";
 
 export interface GenerateDashboardReplyInput {
   projectId: string;
@@ -38,10 +37,9 @@ interface WorkerInboxReplyServiceDependencies {
   connectionChatRepository: ConnectionChatRepository;
   taskService: TaskService;
   agentPresetSyncService: AgentPresetSyncService;
-  executionRepository: ExecutionRepository;
+  providerTextInvocationService: ProviderTextInvocationService;
   getDashboardSettings: () => DashboardSettings;
   getGithubToken: () => string | undefined;
-  providerRunner: IProviderRunner;
   logger?: Logger;
 }
 
@@ -70,61 +68,32 @@ export class WorkerInboxReplyService {
       });
     const prompt = buildProviderPrompt(rawPrompt, route.providers[route.provider].thinkingMode);
 
-    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
-      projectId: input.projectId,
-      type: input.mode === "compact_thread" ? "chat_compaction" : "worker_reply",
-      provider: route.provider,
-      model: route.providers[route.provider].model,
-      startedAt: new Date().toISOString(),
-      attentionItemId: null,
-      dispatchId: null,
-      providerInvocationId: null,
-      sprintId: null,
-      sprintRunId: null,
-      taskId: null,
-      taskRunId: null,
-    });
+    const type = input.mode === "compact_thread" ? "chat_compaction" : "worker_reply";
+    const workflowSettings = this.deps.getDashboardSettings().cliWorkflow;
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
-      role: "user",
-      contentMarkdown: rawPrompt,
-    });
-
-    let output: string;
+    let bodyMarkdown: string;
     try {
-      output = await this.runProvider({
+      const result = await this.deps.providerTextInvocationService.runProviderForText({
+        projectId: input.projectId,
+        type,
         provider: route.provider,
+        model: route.providers[route.provider].model,
         prompt,
         repoPath: project.baseDir,
-        model: route.providers[route.provider].model,
         apiKey: route.providers[route.provider].apiKey,
         githubToken: this.deps.getGithubToken(),
+        workflowSettings,
       });
+      bodyMarkdown = result.text;
     } catch (err) {
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
-        status: "failed",
-        finishedAt: new Date().toISOString(),
-      });
+      if (err instanceof Error && err.message.includes("returned an empty reply")) {
+        throw new Error(
+          input.mode === "compact_thread"
+            ? `Provider ${route.provider} returned an empty thread compaction summary.`
+            : `Provider ${route.provider} returned an empty dashboard reply.`
+        );
+      }
       throw err;
-    }
-
-    const bodyMarkdown = this.normalizeProviderReply(output);
-
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
-      role: "assistant",
-      contentMarkdown: bodyMarkdown,
-    });
-    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
-      status: "completed",
-      finishedAt: new Date().toISOString(),
-    });
-
-    if (!bodyMarkdown) {
-      throw new Error(
-        input.mode === "compact_thread"
-          ? `Provider ${route.provider} returned an empty thread compaction summary.`
-          : `Provider ${route.provider} returned an empty dashboard reply.`
-      );
     }
 
     this.deps.logger?.info("Generated dashboard reply for worker connection", {
@@ -189,60 +158,29 @@ export class WorkerInboxReplyService {
 
     const prompt = buildProviderPrompt(fullContextPrompt, route.providers[route.provider].thinkingMode);
 
-    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
-      projectId: args.projectId,
-      type: "worker_reply",
-      provider: route.provider,
-      model: route.providers[route.provider].model,
-      startedAt: new Date().toISOString(),
-      attentionItemId: null,
-      dispatchId: null,
-      providerInvocationId: null,
-      sprintId: null,
-      sprintRunId: null,
-      taskId: invocationTaskId,
-      taskRunId: null,
-    });
+    const workflowSettings = this.deps.getDashboardSettings().cliWorkflow;
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
-      role: "user",
-      contentMarkdown: fullContextPrompt,
-    });
-
-    let output: string;
     try {
-      output = await this.runProvider({
+      const result = await this.deps.providerTextInvocationService.runProviderForText({
+        projectId: args.projectId,
+        type: "worker_reply",
         provider: route.provider,
+        model: route.providers[route.provider].model,
         prompt,
         repoPath: project.baseDir,
-        model: route.providers[route.provider].model,
         apiKey: route.providers[route.provider].apiKey,
         githubToken: this.deps.getGithubToken(),
+        workflowSettings,
+        taskId: invocationTaskId,
       });
+
+      return result.text;
     } catch (err) {
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
-        status: "failed",
-        finishedAt: new Date().toISOString(),
-      });
+      if (err instanceof Error && err.message.includes("returned an empty reply")) {
+        throw new Error(`Provider ${route.provider} returned an empty clarification reply.`);
+      }
       throw err;
     }
-
-    const reply = this.normalizeProviderReply(output);
-
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
-      role: "assistant",
-      contentMarkdown: reply,
-    });
-    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
-      status: "completed",
-      finishedAt: new Date().toISOString(),
-    });
-
-    if (!reply) {
-      throw new Error(`Provider ${route.provider} returned an empty clarification reply.`);
-    }
-
-    return reply;
   }
 
   private getLatestClarificationRequest(task: Subtask): string {
@@ -341,31 +279,6 @@ export class WorkerInboxReplyService {
     ].filter((part) => part.trim().length > 0).join("\n");
   }
 
-  private async runProvider(input: {
-    provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
-    prompt: string;
-    repoPath: string;
-    model: string;
-    apiKey: string;
-    githubToken?: string;
-  }): Promise<string> {
-    const workflowSettings = this.deps.getDashboardSettings().cliWorkflow;
-
-    const result = await this.deps.providerRunner.runProviderForText({
-      provider: input.provider,
-      prompt: input.prompt,
-      cwd: input.repoPath,
-      model: input.model,
-      apiKey: input.apiKey,
-      sessionId: "worker-reply-" + randomUUID(),
-      workflowSettings,
-      repoPath: input.repoPath,
-      githubToken: input.githubToken,
-      onActivity: () => {},
-    });
-    return result.text;
-  }
-
   private normalizeProviderReply(output: string): string {
     const trimmed = output.trim();
     if (!trimmed) {
@@ -406,4 +319,4 @@ export class WorkerInboxReplyService {
     return messages.slice(index + 1);
   }
 
-  }
+}

@@ -4,6 +4,9 @@ import { WorkerInboxReplyService } from "../../../src/services/worker-inbox-repl
 
 describe("WorkerInboxReplyService", () => {
   const mockRunProviderForText = vi.fn();
+  const mockProviderTextInvocationService = {
+    runProviderForText: mockRunProviderForText,
+  };
   const settings = {
     aiProvider: {
       invocationRouting: {},
@@ -29,7 +32,7 @@ describe("WorkerInboxReplyService", () => {
   });
 
   it("generates a markdown reply with worker agent context", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: "Current status: one task is running." });
+    mockRunProviderForText.mockResolvedValue({ text: "Current status: one task is running.", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -56,14 +59,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-1" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => "gh-token",
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     const result = await service.generateReply({
@@ -74,29 +72,22 @@ describe("WorkerInboxReplyService", () => {
     });
 
     expect(result.bodyMarkdown).toBe("Current status: one task is running.");
-    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalled();
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-1", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("What is the current worker status?"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-1", {
-      role: "assistant",
-      contentMarkdown: "Current status: one task is running.",
-    });
-    expect(result.provider).toBe("gemini");
     expect(mockRunProviderForText).toHaveBeenCalledWith(
       expect.objectContaining({
+        type: "worker_reply",
         provider: "gemini",
-        cwd: "/repo",
+        repoPath: "/repo",
         apiKey: "g-key",
         model: "gemini-2.5-pro",
         githubToken: "gh-token",
+        prompt: expect.stringContaining("What is the current worker status?"),
       })
     );
+    expect(result.provider).toBe("gemini");
   });
 
   it("includes the editable worker agent instructions in the reply prompt", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: "Use the worker queue view in Live." });
+    mockRunProviderForText.mockResolvedValue({ text: "Use the worker queue view in Live.", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -123,14 +114,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-2" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     const result = await service.generateReply({
@@ -143,11 +129,7 @@ describe("WorkerInboxReplyService", () => {
   });
 
   it("unwraps provider response envelopes for dashboard replies", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: JSON.stringify({
-        session_id: "b0536833-b397-4d12-b39d-b8818bcf5e12",
-        response: "Only the markdown reply body.",
-        stats: { models: {} },
-      }) });
+    mockRunProviderForText.mockResolvedValue({ text: "Only the markdown reply body.", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -174,14 +156,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Coordinate the sprint and answer blocked clarifications directly.",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-3" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     const result = await service.generateReply({
@@ -194,7 +171,7 @@ describe("WorkerInboxReplyService", () => {
   });
 
   it("runs compact_thread mode as a chat compaction invocation without reply wrapping", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: "## Current Objective\nCompact summary" });
+    mockRunProviderForText.mockResolvedValue({ text: "## Current Objective\nCompact summary", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -221,14 +198,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Project manager guide fallback",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-compact" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     const result = await service.generateReply({
@@ -239,20 +211,14 @@ describe("WorkerInboxReplyService", () => {
     });
 
     expect(result.bodyMarkdown).toBe("## Current Objective\nCompact summary");
-    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalledWith(expect.objectContaining({
-      type: "chat_compaction",
-    }));
     expect(mockRunProviderForText).toHaveBeenCalledWith(expect.objectContaining({
+      type: "chat_compaction",
       prompt: expect.stringContaining("## ROLE\nCompact this thread."),
     }));
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-compact", {
-      role: "user",
-      contentMarkdown: "## ROLE\nCompact this thread.",
-    });
   });
 
   it("replays connected worker replies from the stored compaction summary", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: "Use the compact handoff." });
+    mockRunProviderForText.mockResolvedValue({ text: "Use the compact handoff.", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -293,14 +259,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Project manager guide fallback",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-summary" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     await service.generateReply({
@@ -324,11 +285,7 @@ describe("WorkerInboxReplyService", () => {
   });
 
   it("builds clarification replies from the editable project manager agent and the latest Jules request", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: JSON.stringify({
-        session_id: "b0536833-b397-4d12-b39d-b8818bcf5e12",
-        response: "Only the clarification answer.",
-        stats: { models: {} },
-      }) });
+    mockRunProviderForText.mockResolvedValue({ text: "Only the clarification answer.", nativeSessionId: null });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
@@ -350,14 +307,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Project manager guide fallback",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-4" }),
-        appendExecutionInvocationMessage: vi.fn(),
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     const result = await service.generateClarificationReply({
@@ -400,48 +352,44 @@ describe("WorkerInboxReplyService", () => {
     });
 
     expect(result).toBe("Only the clarification answer.");
-    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalled();
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("Repair the Jules clarification flow."),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("## PROJECT MANAGER INSTRUCTIONS"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("Project manager guide fallback"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("## JULES CLARIFICATION REQUEST"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("Should I preserve the current session semantics or replace them?"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).not.toHaveBeenCalledWith("exec-inv-4", {
-      role: "user",
-      contentMarkdown: expect.stringContaining("## WORKER INSTRUCTIONS"),
-    });
-    expect((service as any).deps.executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-inv-4", {
-      role: "assistant",
-      contentMarkdown: "Only the clarification answer.",
-    });
-    expect((service as any).deps.executionRepository.createExecutionInvocation).toHaveBeenCalledWith(
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: "project-1",
         taskId: "task-123",
         type: "worker_reply",
+        prompt: expect.stringContaining("Repair the Jules clarification flow."),
+      }),
+    );
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("## PROJECT MANAGER INSTRUCTIONS"),
+      }),
+    );
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Project manager guide fallback"),
+      }),
+    );
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("## JULES CLARIFICATION REQUEST"),
+      }),
+    );
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Should I preserve the current session semantics or replace them?"),
+      }),
+    );
+    expect(mockRunProviderForText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.not.stringContaining("## WORKER INSTRUCTIONS"),
       }),
     );
   });
 
   it("falls back to the latest activity summary when Jules did not emit an explicit clarification message", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: "Use the persisted session semantics." });
+    mockRunProviderForText.mockResolvedValue({ text: "Use the persisted session semantics.", nativeSessionId: null });
 
-    const appendMessage = vi.fn();
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {
         getProject: vi.fn().mockReturnValue({
@@ -462,14 +410,9 @@ describe("WorkerInboxReplyService", () => {
           instructionMarkdown: "Project manager guide fallback",
         }),
       } as any,
-      executionRepository: {
-        createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-5" }),
-        appendExecutionInvocationMessage: appendMessage,
-        updateExecutionInvocation: vi.fn(),
-      } as any,
+      providerTextInvocationService: mockProviderTextInvocationService as any,
       getDashboardSettings: () => settings,
       getGithubToken: () => undefined,
-      providerRunner: { runProviderForText: mockRunProviderForText } as any,
     });
 
     await service.generateClarificationReply({
@@ -505,11 +448,10 @@ describe("WorkerInboxReplyService", () => {
       },
     });
 
-    expect(appendMessage).toHaveBeenCalledWith("exec-inv-5", {
-      role: "user",
-      contentMarkdown: expect.stringContaining(
+    expect(mockRunProviderForText).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: expect.stringContaining(
         "No explicit Jules clarification message was captured. Latest related activity summary: Jules is asking whether the new service should preserve session lineage.",
       ),
-    });
+    }));
   });
 });

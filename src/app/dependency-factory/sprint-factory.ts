@@ -9,6 +9,7 @@ import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-s
 import { VirtualWorkerService } from "../../services/virtual-worker-service.js";
 import { SprintOrchestrator } from "../../sprint/sprint-orchestrator.js";
 import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
+import { ProviderTextInvocationService } from "../../services/provider-text-invocation-service.js";
 import type { DashboardSettings, DashboardSettingsScope } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 
@@ -102,15 +103,20 @@ export function createSprintDependencies(
     executionRepository,
   );
 
+  const providerTextInvocationService = new ProviderTextInvocationService({
+    executionRepository,
+    providerRunner: coreDeps.providerRunner,
+    logger: logger.child({ component: "provider-text-invocation-service" }),
+  });
+
   const workerInboxReplyService = new WorkerInboxReplyService({
     projectManagementRepository,
     connectionChatRepository: coreDeps.connectionChatRepository,
     taskService,
     agentPresetSyncService,
-    executionRepository,
+    providerTextInvocationService,
     getDashboardSettings: resolveDashboardSettings,
     getGithubToken: () => context.getEffectiveGithubToken(),
-    providerRunner: coreDeps.providerRunner,
     logger: logger.child({ component: "worker-inbox-reply-service" }),
   });
 
