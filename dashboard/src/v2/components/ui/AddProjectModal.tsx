@@ -146,6 +146,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <div ref={fieldsRef} className="flex flex-col gap-6 flex-1">
 
                             {error && (
+                                // form errors demand immediate user attention to proceed.
                                 <div role="alert" aria-live="assertive" id="project-form-error" className="text-status-red text-sm font-medium">
                                     {error}
                                 </div>

@@ -77,6 +77,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
       <div 
         className="relative mb-12 flex h-32 w-full max-w-md items-center justify-center overflow-hidden"
         role="progressbar"
+        aria-live="polite"
         aria-valuenow={Math.round(feedback.shipProgress * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
