@@ -118,16 +118,15 @@ export const KineticDock: FunctionComponent = () => {
                 />
 
                 {/* Tooltip */}
-                <span className="absolute -top-11 px-2.5 py-1
+                <span className={`absolute -top-11 px-2.5 py-1
                                  bg-void-900/95 dark:bg-white/95
                                  text-white dark:text-void-900
                                  text-[11px] font-bold tracking-wide rounded-xl
-                                 opacity-0 scale-75
-                                 group-hover:opacity-100 group-hover:scale-100
-                                 -translate-y-1 group-hover:-translate-y-0
-                                 pointer-events-none
-                                 transition-all duration-200 ease-out
-                                 shadow-xl backdrop-blur-md whitespace-nowrap">
+                                 pointer-events-none transition-all duration-200 ease-out
+                                 shadow-xl backdrop-blur-md whitespace-nowrap
+                                 ${isActive ? 'opacity-100 scale-100 -translate-y-0' : 'opacity-0 md:opacity-70 scale-75 md:scale-100 -translate-y-1 md:-translate-y-0'}
+                                 group-hover:opacity-100 group-hover:scale-100 group-hover:-translate-y-0
+                                 group-focus-visible:opacity-100 group-focus-visible:scale-100 group-focus-visible:-translate-y-0`}>
                     {item.label}
                 </span>
             </Link>

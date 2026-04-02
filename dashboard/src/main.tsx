@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { KineticDock } from "./v2/components/KineticDock.js";
 import { TopNav } from "./v2/components/TopNav.js";
+import { CommandPalette } from "./v2/components/ui/CommandPalette.js";
 import { ProjectDataProvider } from "./v2/context/project-data.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
@@ -63,6 +64,7 @@ const rootRoute = createRootRoute({
           </div>
 
           <KineticDock />
+          <CommandPalette />
           <footer className="sr-only">Dashboard Footer</footer>
         </div>
       </ProjectDataProvider>
