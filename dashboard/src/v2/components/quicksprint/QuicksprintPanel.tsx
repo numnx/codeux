@@ -29,12 +29,28 @@ const IconMap: Record<string, FunctionComponent<any>> = {
   Shield, Terminal, TestTube2, Wrench,
 };
 
-const TAG_COLOR_PALETTE = [
-  "#22c55e", "#f97316", "#a855f7", "#3b82f6", "#ef4444",
-  "#eab308", "#06b6d4", "#ec4899", "#8b5cf6", "#14b8a6",
-  "#f43f5e", "#84cc16", "#6366f1", "#0ea5e9", "#d946ef",
-  "#fb923c", "#a3e635", "#2dd4bf", "#f472b6", "#818cf8",
+const TAG_STYLES = [
+  { value: "signal", text: "text-signal-500", bg: "bg-signal-500/10", border: "border-signal-500/20", dot: "bg-signal-500" },
+  { value: "ember", text: "text-ember-500", bg: "bg-ember-500/10", border: "border-ember-500/20", dot: "bg-ember-500" },
+  { value: "green", text: "text-status-green", bg: "bg-status-green/10", border: "border-status-green/20", dot: "bg-status-green" },
+  { value: "red", text: "text-status-red", bg: "bg-status-red/10", border: "border-status-red/20", dot: "bg-status-red" },
+  { value: "amber", text: "text-status-amber", bg: "bg-status-amber/10", border: "border-status-amber/20", dot: "bg-status-amber" },
+  { value: "violet", text: "text-violet-500", bg: "bg-violet-500/10", border: "border-violet-500/20", dot: "bg-violet-500" },
+  { value: "cyan", text: "text-cyan-500", bg: "bg-cyan-500/10", border: "border-cyan-500/20", dot: "bg-cyan-500" },
+  { value: "rose", text: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20", dot: "bg-rose-500" },
+  { value: "blue", text: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20", dot: "bg-blue-500" },
+  { value: "slate", text: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20", dot: "bg-slate-500" },
 ];
+
+const getTagStyles = (colorVal: string) => {
+  const found = TAG_STYLES.find(s => s.value === colorVal);
+  if (found) return { ...found, style: {} as React.CSSProperties };
+  // Fallback to CSS variables
+  return {
+    text: "", bg: "", border: "", dot: "", value: colorVal,
+    style: { '--accent': colorVal } as React.CSSProperties
+  };
+};
 
 const ICON_OPTIONS: ReadonlyArray<{ value: string; Icon: FunctionComponent<any> }> = [
   { value: "Sparkles", Icon: Sparkles },
@@ -255,7 +271,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
     setEdDescription(t?.description || "");
     setEdIcon(t?.icon || "Zap");
     setEdCategory(t?.category || "engineering");
-    setEdCategoryColor(t?.categoryColor || "#22c55e");
+    setEdCategoryColor(t?.categoryColor || "signal");
     setShowColorPicker(false);
     setShowIconPicker(false);
     setEdInstruction(t?.agentInstructionMarkdown || "");
@@ -318,7 +334,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   return (
     <section
       ref={cardRef}
-      className={`relative w-full rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)] ${showIconPicker || showColorPicker ? "" : "overflow-hidden"}`}
+      className={`relative w-full rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)] ${showIconPicker || showColorPicker ? "" : "overflow-hidden"}`}
     >
       {/* Radial accents */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.07),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.06),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(255,107,0,0.09),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,224,160,0.07),transparent_34%)]" />
@@ -582,7 +598,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 value={edName}
                 onInput={(e) => setEdName((e.target as HTMLInputElement).value)}
                 placeholder="API Integration Tests"
-                className="w-full border-0 border-b-2 border-black/[0.08] bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-ember-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem]"
+                className="w-full rounded-[1rem] border border-black/[0.06] bg-transparent px-4 py-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:ring-4 focus:ring-signal-500/20 focus:border-signal-500 dark:border-white/[0.08] dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem]"
                 autoFocus
               />
             </label>
@@ -595,7 +611,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 value={edDescription}
                 onInput={(e) => setEdDescription((e.target as HTMLInputElement).value)}
                 placeholder="What this template does in one line"
-                className="w-full border-0 border-b-2 border-black/[0.06] bg-transparent pb-2 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-ember-500/60 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
+                className="w-full rounded-[1rem] border border-black/[0.06] bg-transparent px-4 py-3 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:ring-4 focus:ring-signal-500/20 focus:border-signal-500 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
               />
             </label>
 
@@ -634,8 +650,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                     title="Pick tag color"
                   >
                     <span
-                      className="block h-5 w-5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.4),0_0_0_2px_rgba(0,0,0,0.06)] transition-transform duration-200"
-                      style={{ backgroundColor: edCategoryColor }}
+                      className={`block h-5 w-5 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.4),0_0_0_2px_rgba(0,0,0,0.06)] transition-transform duration-200 ${getTagStyles(edCategoryColor).dot}`}
+                      style={getTagStyles(edCategoryColor).style?.["--accent"] ? { backgroundColor: "var(--accent)", ...getTagStyles(edCategoryColor).style } : undefined}
                     />
                   </button>
 
@@ -645,7 +661,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                     value={edCategory}
                     onInput={(e) => setEdCategory((e.target as HTMLInputElement).value)}
                     placeholder="e.g. engineering..."
-                    className="flex-1 min-w-0 border-0 border-b-2 border-black/[0.06] bg-transparent pb-1 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-ember-500/60 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
+                    className="flex-1 min-w-0 rounded-[1rem] border border-black/[0.06] bg-transparent px-3 py-2 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:ring-4 focus:ring-signal-500/20 focus:border-signal-500 dark:border-white/[0.06] dark:text-slate-300 dark:placeholder:text-slate-600"
                   />
                 </div>
 
@@ -653,10 +669,13 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 {edCategory.trim() && (
                   <div className="mt-3 flex items-center">
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
-                      style={{ backgroundColor: `${edCategoryColor}15`, color: edCategoryColor }}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${getTagStyles(edCategoryColor).bg} ${getTagStyles(edCategoryColor).text}`}
+                      style={getTagStyles(edCategoryColor).style?.["--accent"] ? { backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", ...getTagStyles(edCategoryColor).style } : undefined}
                     >
-                      <span className="block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: edCategoryColor }} />
+                      <span
+                        className={`block h-1.5 w-1.5 rounded-full ${getTagStyles(edCategoryColor).dot}`}
+                        style={getTagStyles(edCategoryColor).style?.["--accent"] ? { backgroundColor: "var(--accent)", ...getTagStyles(edCategoryColor).style } : undefined}
+                      />
                       {edCategory}
                     </span>
                   </div>
@@ -711,23 +730,22 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 style={{ top: pickerPos.top, left: pickerPos.left, animation: "qs-picker-in 0.2s cubic-bezier(0.22,1,0.36,1)" }}
               >
                 <div className="grid grid-cols-5 gap-2">
-                  {TAG_COLOR_PALETTE.map((color) => {
-                    const isActive = color === edCategoryColor;
+                  {TAG_STYLES.map(({ value, dot }) => {
+                    const isActive = value === edCategoryColor;
                     return (
                       <button
-                        key={color}
+                        key={value}
                         type="button"
-                        onClick={() => { setEdCategoryColor(color); setShowColorPicker(false); }}
+                        onClick={() => { setEdCategoryColor(value); setShowColorPicker(false); }}
                         className="group flex min-h-[44px] min-w-[44px] h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-all duration-200 hover:scale-125 active:scale-95"
                       >
                         <span
-                          className="block rounded-full transition-all duration-200"
+                          className={`block rounded-full transition-all duration-200 ${dot}`}
                           style={{
-                            backgroundColor: color,
                             width: isActive ? "1.5rem" : "1.25rem",
                             height: isActive ? "1.5rem" : "1.25rem",
                             boxShadow: isActive
-                              ? `inset 0 1px 3px rgba(255,255,255,0.35), 0 0 0 2.5px ${color}44, 0 0 12px ${color}55`
+                              ? `inset 0 1px 3px rgba(255,255,255,0.35), 0 0 0 2.5px rgba(255,255,255,0.2), 0 0 12px rgba(255,255,255,0.15)`
                               : "inset 0 1px 3px rgba(255,255,255,0.35)",
                           }}
                         />
@@ -768,7 +786,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                 onInput={(e) => setEdInstruction((e.target as HTMLTextAreaElement).value)}
                 placeholder="Write detailed instructions for the planning agent. Leave empty to use only the agent preset's instructions..."
                 rows={10}
-                className="w-full rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 text-sm font-mono leading-relaxed text-slate-700 outline-none transition-all placeholder:text-slate-300 focus:border-ember-500/40 focus:shadow-[0_0_0_1px_rgba(255,107,0,0.16),0_0_30px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:placeholder:text-slate-600 resize-y"
+                className="w-full rounded-[1rem] border border-black/[0.06] bg-black/[0.025] p-5 text-sm font-mono leading-relaxed text-slate-700 outline-none transition-all placeholder:text-slate-300 focus:ring-4 focus:ring-signal-500/20 focus:border-signal-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:placeholder:text-slate-600 resize-y"
               />
             </div>
 
@@ -814,13 +832,13 @@ const TemplateCard: FunctionComponent<{
   onEdit?: () => void;
 }> = ({ template, onSelect, onEdit }) => {
   const Icon = IconMap[template.icon] || Zap;
-  const tagColor = template.categoryColor || "#94a3b8";
+  const tagColor = template.categoryColor || "slate";
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      className="group relative flex flex-col rounded-[1.4rem] border border-black/[0.06] bg-white/60 p-5 text-left transition-all hover:border-ember-500/30 hover:shadow-[0_0_24px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-white/[0.025] dark:hover:border-ember-500/30"
+      className="group relative flex flex-col rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 text-left transition-all hover:border-ember-500/30 hover:shadow-[0_0_24px_rgba(255,107,0,0.08)] dark:border-white/[0.06] dark:bg-void-800/60 dark:hover:border-ember-500/30"
     >
       {!template.isBuiltIn && onEdit && (
         <button
@@ -844,10 +862,13 @@ const TemplateCard: FunctionComponent<{
 
       <div className="flex items-center justify-between">
         <span
-          className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full"
-          style={{ backgroundColor: `${tagColor}15`, color: tagColor }}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${getTagStyles(tagColor).bg} ${getTagStyles(tagColor).text}`}
+          style={getTagStyles(tagColor).style?.["--accent"] ? { backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", ...getTagStyles(tagColor).style } : undefined}
         >
-          <span className="block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tagColor }} />
+          <span
+            className={`block h-1.5 w-1.5 rounded-full ${getTagStyles(tagColor).dot}`}
+            style={getTagStyles(tagColor).style?.["--accent"] ? { backgroundColor: "var(--accent)", ...getTagStyles(tagColor).style } : undefined}
+          />
           {template.category}
         </span>
         <span className="text-[10px] font-medium text-slate-400">
