@@ -145,7 +145,7 @@ export const SettingsPage: FunctionComponent = () => {
         </div>
 
         <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/76 p-4 backdrop-blur-2xl shadow-[0_18px_40px_rgba(15,23,42,0.05)] dark:border-white/[0.06] dark:bg-void-800/66 dark:shadow-[0_24px_52px_rgba(0,0,0,0.24)]">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
             <Compass className="h-3.5 w-3.5" strokeWidth={2.2} />
             Smart Find
           </div>

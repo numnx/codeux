@@ -49,7 +49,7 @@ export const TaskRow: FunctionComponent<{ task: Task }> = memo(({ task }) => (
                 )}
                 {task.status === 'pending' && <Circle className="w-4 h-4 text-slate-500 dark:text-slate-400" strokeWidth={2} />}
 
-                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${
+                <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-[0.14em] ${
                     task.status === 'completed'   ? 'text-status-green dark:text-status-green' :
                     task.status === 'coding_completed' ? 'text-cyan-700 dark:text-cyan-500' :
                     task.status === 'in_progress' ? 'text-signal-600 dark:text-signal-500' :
