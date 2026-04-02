@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type { AgentAvatarConfig } from "../../types.js";
 import type { AgentAvatarExpression } from "../../lib/agent-avatar.js";
 import { DEFAULT_AGENT_AVATAR_CONFIG } from "../../lib/agent-avatar.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface AgentAvatarSceneProps {
   config?: AgentAvatarConfig;
@@ -46,7 +47,7 @@ export function AgentAvatarScene({
 }: AgentAvatarSceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [webglError, setWebglError] = useState(false);
-  const [isReducedMotion, setIsReducedMotion] = useState(false);
+  const isReducedMotion = useReducedMotion();
 
   const sceneRef = useRef<{
     renderer: THREE.WebGLRenderer;
@@ -65,15 +66,6 @@ export function AgentAvatarScene({
     geometries: Record<string, THREE.BufferGeometry>;
     animationId: number;
   } | null>(null);
-
-  // Check for reduced motion preference
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setIsReducedMotion(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setIsReducedMotion(e.matches);
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
 
   // Initialize Scene Once
   useEffect(() => {

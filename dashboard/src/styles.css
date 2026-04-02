@@ -432,7 +432,25 @@
     .ocean-wave,
     .ship-bob,
     .jules-j-glow,
-    .jules-j-draw {
+    .jules-j-draw,
+    .animate-organic,
+    .animate-organic-reverse,
+    .wave-drift,
+    .shimmer,
+    .blink,
+    .typing-dot,
+    .dash-travel,
+    .brain-breathe,
+    .lobotomize-pulse,
+    .dag-aurora,
+    .dag-grid-pan,
+    .dag-running-ring,
+    .stats-delta-chip,
+    .stat-card-premium::after,
+    .expand-grid,
+    .expand-content,
+    .collapsible-section,
+    .collapsible-content {
       animation: none !important;
       transition: none !important;
     }
