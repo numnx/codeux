@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import * as THREE from "three";
+import { isReducedMotion } from "../../lib/motion.js";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * DeepOceanBackground
@@ -177,7 +178,7 @@ export const DeepOceanBackground = () => {
     const el = containerRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (isReducedMotion()) return;
 
     try {
       const tc = document.createElement("canvas");
