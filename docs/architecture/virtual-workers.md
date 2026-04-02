@@ -89,6 +89,10 @@ Today virtual workers handle:
 - queued `mcp_worker` task dispatches
 - worker-owned `merge_conflict` attention
 
+For virtual text-based flows (like dashboard replies and thread compaction), Sprint OS (`src/services/provider-text-invocation-service.ts`):
+
+- provides a centralized lifecycle for creating text-based execution invocations and logging prompts/replies.
+
 For planning flows, Sprint OS (`src/services/planning-agent-service.ts`):
 
 - runs the Planning agent prompt through the configured virtual worker CLI
