@@ -1,3 +1,7 @@
+// ARIA live-region strategy:
+// - Errors / disconnects → aria-live="assertive"
+// - Status updates / progress → aria-live="polite"
+
 import type { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
 import {
@@ -41,7 +45,8 @@ function statusTone(value: string | null): string {
 const GitCIStatusPanel: FunctionComponent<GitCIStatusPanelProps> = memo(({ status, error }) => {
   if (error) {
     return (
-      <div role="alert" className="group relative overflow-hidden rounded-[1.75rem] border border-status-red/20 bg-white/70 p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+      // Using aria-live="assertive" here because a Git tracking error prevents the user from understanding their source control state and requires immediate attention.
+      <div role="alert" aria-live="assertive" className="group relative overflow-hidden rounded-[1.75rem] border border-status-red/20 bg-white/70 p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
         <div className="flex items-center gap-3">
           <XCircle className="h-5 w-5 text-status-red" strokeWidth={1.5} />
           <div>
