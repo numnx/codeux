@@ -5,6 +5,7 @@ import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, Ar
 import { Link } from "@tanstack/react-router";
 import { StatusDot } from "./ui/StatusDot.js";
 import { AddProjectModal } from "./ui/AddProjectModal.js";
+import { InlineFeedback } from "./ui/InlineFeedback.js";
 import { useProjectData } from "../context/project-data.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
 import { useSprints } from "../../hooks/useSprints.js";
@@ -106,6 +107,8 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
     const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false);
     const [showAddProject, setShowAddProject] = useState(false);
     const [workerSwitchBusy, setWorkerSwitchBusy] = useState(false);
+    const [workerError, setWorkerError] = useState<string | null>(null);
+    const [workerSuccess, setWorkerSuccess] = useState<boolean>(false);
     const [sprintDropdownOpen, setSprintDropdownOpen] = useState(false);
     const sprintDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -171,7 +174,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
 
     const handleWorkerSelect = async (option: WorkerOption) => {
         if (!selectedProject || !option.isSelectable || workerSwitchBusy || !effectiveSettings) return;
-        setWorkerDropdownOpen(false);
+        setWorkerError(null);
         setWorkerSwitchBusy(true);
         try {
             const nextSettings = dashboardSettingsToProjectSettings(effectiveSettings.settings);
@@ -195,8 +198,13 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                 });
             }
             await Promise.all([refreshExecution(), refreshEffectiveSettings()]);
+            setWorkerSuccess(true);
+            setTimeout(() => {
+                setWorkerSuccess(false);
+                setWorkerDropdownOpen(false);
+            }, 1000);
         } catch (err) {
-            console.error("Failed to update preferred worker:", err);
+            setWorkerError(err instanceof Error ? err.message : "Failed to update preferred worker");
         } finally {
             setWorkerSwitchBusy(false);
         }
@@ -234,21 +242,23 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     </span>
                 </Link>
 
-                {/* Search Bar */}
+                {/* Search Bar / Quick Jump */}
                 <div className="relative group w-full max-w-[140px] sm:max-w-xs hidden sm:block">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-signal-500 transition-colors" strokeWidth={2} />
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
-                        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
-                            <Command aria-hidden="true" className="w-2.5 h-2.5" /> K
-                        </kbd>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
+                        className="w-full h-9 pl-10 pr-4 sm:pr-12 text-left bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl text-sm text-slate-400 dark:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 transition-all"
+                    >
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <Search aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 group-hover:text-signal-500 transition-colors" strokeWidth={2} />
+                        </div>
+                        <span className="truncate">Search or jump to...</span>
+                        <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
+                            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
+                                <Command aria-hidden="true" className="w-2.5 h-2.5" /> K
+                            </kbd>
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -410,15 +420,24 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
                                 {selectedWorker?.label || (executionLoading ? "Loading..." : "Select Worker")}
                             </span>
-                            <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${workerDropdownOpen ? 'rotate-180' : ''}`} />
+                            {workerSwitchBusy ? (
+                                <span className="text-[10px] font-medium text-signal-500">Switching...</span>
+                            ) : workerSuccess ? (
+                                <span className="text-[10px] font-medium text-status-green">Connected</span>
+                            ) : (
+                                <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${workerDropdownOpen ? 'rotate-180' : ''}`} />
+                            )}
                         </button>
 
                         {/* Worker Dropdown */}
                         {workerDropdownOpen && (
                             <div role="listbox" aria-label="Worker list" className="absolute right-0 top-full mt-2 w-64 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
-                                <div className="px-3 pt-3 pb-1.5">
+                                <div className="px-3 pt-3 pb-1.5 flex justify-between items-center">
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Available Workers</span>
                                 </div>
+                                {workerError && (
+                                    <InlineFeedback type="error" message={workerError} />
+                                )}
                                 <div className="max-h-64 overflow-y-auto">
                                     {workerOptions.map((option) => (
                                         <button

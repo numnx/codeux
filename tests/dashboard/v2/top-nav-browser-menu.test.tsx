@@ -82,6 +82,24 @@ describe("BrowserSessionsMenu", () => {
         });
     });
 
+    it("renders errors inline when fetch fails", async () => {
+        vi.mocked(useProjectData).mockReturnValue({
+            selectedProject: { id: "proj-1" },
+        } as any);
+
+        vi.mocked(browserApi.fetchPreviewSessions).mockRejectedValue(new Error("Network disconnect"));
+
+        render(<BrowserSessionsMenu />);
+
+        // Trigger hover
+        const container = screen.getByTestId("router-link").parentElement!;
+        fireEvent.mouseEnter(container);
+
+        await waitFor(() => {
+            expect(screen.getByText("Network disconnect")).toBeInTheDocument();
+        });
+    });
+
     it("fetches and lists sessions correctly for the selected project", async () => {
         vi.mocked(useProjectData).mockReturnValue({
             selectedProject: { id: "proj-1" },

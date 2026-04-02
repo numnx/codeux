@@ -6,11 +6,13 @@ import { useProjectData } from "../../context/project-data.js";
 import { fetchPreviewSessions } from "../../lib/browser-api.js";
 import { buildPreviewUrl } from "../../lib/preview-origin.js";
 import type { SprintPreviewSession } from "../../../types.js";
+import { InlineFeedback } from "../ui/InlineFeedback.js";
 
 export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ enabled = true }) => {
     const { selectedProject } = useProjectData();
     const [sessions, setSessions] = useState<SprintPreviewSession[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -22,10 +24,11 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
         }
         try {
             setLoading(true);
+            setError(null);
             const data = await fetchPreviewSessions(selectedProject.id);
             setSessions(data || []);
-        } catch (error) {
-            console.error("Failed to fetch browser sessions:", error);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to fetch browser sessions");
             setSessions([]);
         } finally {
             setLoading(false);
@@ -104,6 +107,9 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                     <div className="px-3 pt-3 pb-1.5 flex justify-between items-center">
                         <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active Sessions</span>
                     </div>
+                    {error && (
+                        <InlineFeedback type="error" message={error} />
+                    )}
                     <div className="max-h-64 overflow-y-auto pb-1">
                         {loading ? (
                             <div className="px-4 py-4 text-center">
@@ -117,19 +123,19 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     role="menuitem"
-                                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex flex-col gap-1 px-3 py-2.5 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] group"
+                                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex flex-col gap-1 px-3 py-2.5 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] focus-visible:bg-black/[0.04] dark:focus-visible:bg-white/[0.04] group"
                                 >
                                     <div className="flex items-center justify-between min-w-0 w-full gap-2">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className={`w-2 h-2 rounded-full shrink-0 ${statusColors[session.status] || "bg-slate-400"}`} />
-                                            <span className="text-sm font-bold truncate text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                                            <span className="text-sm font-bold truncate text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white group-focus-visible:text-slate-900 dark:group-focus-visible:text-white transition-colors">
                                                 {session.sprintName || "Unknown Sprint"}
                                             </span>
                                         </div>
-                                        <ExternalLink aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                                        <ExternalLink aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-sky-500 group-focus-visible:text-sky-500 transition-colors" />
                                     </div>
                                     <div className="flex items-center pl-4">
-                                        <span className="text-[10px] font-mono text-slate-400 truncate">
+                                        <span className="text-[10px] font-mono text-slate-400 group-focus-visible:text-slate-500 truncate">
                                             {formatPort(session)} {session.status !== 'running' ? `(${session.status})` : ''}
                                         </span>
                                     </div>
