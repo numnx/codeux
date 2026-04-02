@@ -153,10 +153,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                             {/* Project Name */}
                             <div className="group/field">
-                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
+                                <label htmlFor="add-project-name" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
                                     Project Name
                                 </label>
                                 <input
+                                    id="add-project-name"
                                     type="text"
                                     value={name}
                                     onInput={(e) => {
@@ -173,10 +174,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             </div>
 
                             {/* Source Type Toggle */}
-                            <div>
-                                <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">
+                            <fieldset>
+                                <legend className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 block mb-2.5">
                                     Source Type
-                                </label>
+                                </legend>
                                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
                                     {(['local', 'git'] as SourceType[]).map((type) => (
                                         <button
@@ -197,15 +198,16 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         </button>
                                     ))}
                                 </div>
-                            </div>
+                            </fieldset>
 
                             {/* Conditional fields */}
                             {sourceType === 'local' ? (
                                 <div className="group/field">
-                                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                    <label htmlFor="add-project-path" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                         <FolderInput className="w-3 h-3" /> Directory Path
                                     </label>
                                     <input
+                                        id="add-project-path"
                                         type="text"
                                         value={localPath}
                                         onInput={(e) => {
@@ -222,10 +224,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             ) : (
                                 <>
                                     <div className="group/field">
-                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label htmlFor="add-project-git-url" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                             <Link2 className="w-3 h-3" /> Repository URL
                                         </label>
                                         <input
+                                            id="add-project-git-url"
                                             type="text"
                                             value={gitUrl}
                                             onInput={(e) => {
@@ -240,11 +243,12 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         />
                                     </div>
                                     <div className="group/field">
-                                        <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label htmlFor="add-project-clone-dir" className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
                                             <FolderInput className="w-3 h-3" /> Clone Into Directory
                                             <span className="ml-1 text-slate-300 dark:text-slate-600 normal-case font-medium tracking-normal">(optional)</span>
                                         </label>
                                         <input
+                                            id="add-project-clone-dir"
                                             type="text"
                                             value={cloneDir}
                                             onInput={(e) => setCloneDir((e.target as HTMLInputElement).value)}
