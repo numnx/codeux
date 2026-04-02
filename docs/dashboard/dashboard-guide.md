@@ -221,12 +221,20 @@ Legacy runtime:
 - The Tasks board entrance animation now replays only for project/view/filter changes instead of every background task refresh
 - Stats page is project-scoped and visualizes tracked token/time usage for the selected project with `24h`, `7d`, `30d`, `all time`, and custom date windows
 - Browser page is project-scoped and provides a polished in-app browser surface for sprint preview containers:
-  - floating horizontal slider with large-screen five-card visibility for preview selection
+  - floating horizontal slider in its own top strip, with large-screen five-card visibility for preview selection
+  - the browser window starts directly below the slider instead of sharing a stretched first-row layout with the sprint controls
   - one preview session per sprint
+  - the slider shows preview container cards only, then appends a placeholder `Launch Container` card as the final entry
+  - the launch card includes a sprint selector so any sprint can start a preview container directly from the rail
   - browser window chrome state for fullscreen, minimize, and close
   - same-origin iframe navigation with back, forward, refresh, and editable URL
+  - route changes coming from the Browser chrome use the preview bridge and HTML5 history where possible, so SPA previews stop hard-refreshing on every in-app navigation
+  - when the active preview is stopped, still starting, or otherwise unavailable, the iframe stays on the preview origin and the server returns a same-origin standby page with `Start Container` / `Rebuild Container` controls instead of exposing raw proxy connection errors
+  - non-critical side-panel data such as startup-script contents and container logs now load after the main browser surface, so the page opens faster and the iframe/session rail render first
+  - remove actions on session cards fully delete preview-session entries after stopping any live container
   - rebuild, stop, open-in-tab, startup-script editing, and log viewing
   - sprint previews are proxied through the dashboard instead of embedding raw localhost origins directly
+  - extensionless preview-host deep links such as `/sprints` now recover to the preview app shell when the upstream dev server returns `404`, so direct loads and refreshes stay routable
 - Stats page now matches the high-interaction v2 dashboard card language more closely:
   - animated metric cards
   - a unified glass-panel system that mirrors the premium live card surfaces instead of using a separate visual treatment
@@ -267,7 +275,7 @@ Legacy runtime:
 - Chat composer now sends on `Enter` and inserts a newline on `Shift+Enter`
 - Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
 - Worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or queued for a connected worker
-- Settings page `Sprint Engine` now includes sprint-preview controls for auto-start, rebuild cadence, auto-stop, container app port, preview host port range, and the project-relative preview startup script path
+- Settings page now exposes Browser Preview as its own primary left-rail category, covering preview enablement, in-app browser visibility, launch/rebuild automation, Git sync on rebuild, maximum active preview containers, port allocation, and the project-relative preview startup script path
 
 ### Dashboard view
 - Task statistics

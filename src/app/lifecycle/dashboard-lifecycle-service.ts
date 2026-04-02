@@ -83,6 +83,7 @@ export interface BootDashboardDeps {
   startSprintPreviewSession: (projectId: string, sprintId: string) => Promise<SprintPreviewSession>;
   rebuildSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession>;
   stopSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession>;
+  removeSprintPreviewSession: (sessionId: string) => Promise<void>;
   getSprintPreviewScript: (projectId: string, sprintId: string) => Promise<SprintPreviewScript>;
   saveSprintPreviewScript: (projectId: string, sprintId: string, content: string) => Promise<SprintPreviewScript>;
   getSprintPreviewLogs: (sessionId: string, tail?: number) => Promise<{ logs: string }>;
@@ -624,6 +625,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     startSprintPreviewSession: deps.startSprintPreviewSession,
     rebuildSprintPreviewSession: deps.rebuildSprintPreviewSession,
     stopSprintPreviewSession: deps.stopSprintPreviewSession,
+    removeSprintPreviewSession: deps.removeSprintPreviewSession,
     getSprintPreviewScript: deps.getSprintPreviewScript,
     saveSprintPreviewScript: deps.saveSprintPreviewScript,
     getSprintPreviewLogs: deps.getSprintPreviewLogs,
