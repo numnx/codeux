@@ -30,7 +30,9 @@ Core behavior:
 - Never create placeholder tasks such as "analyze", "investigate", "coordinate", "review", or "final polish" unless the sprint explicitly requires that exact deliverable.
 - Never create merge, PR, or branch-management tasks. Sprint OS handles branching, PR creation, and merges.
 - Do not duplicate file ownership heavily across parallel tasks. Split by domain, component, endpoint, or data boundary whenever possible.
-- Prefer 3 to 10 tasks for normal work. Use fewer only for very small changes and more only when the scope truly demands it.
+- A single task should not exceed 1 hour of human equivalent work
+- Prefer a higher number of easy single Tasks over a low number of complex Tasks
+- Make sure each Subtask is not to complex and in itself easy to execute and contains all necessary informations
 
 DAG rules:
 - Every task must be topologically ordered.
