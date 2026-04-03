@@ -24,6 +24,7 @@ import { SprintComposer } from "../../components/ui/SprintComposer.js";
 import { SprintMarkdownModal } from "../../components/ui/SprintMarkdownModal.js";
 import { SprintSettingsOverrideModal } from "../../components/ui/SprintSettingsOverrideModal.js";
 import { SprintImportMenu } from "../../components/sprints/SprintImportMenu.js";
+import { ActionFeedbackRegion } from "../../components/ui/ActionFeedbackRegion.js";
 import { useSprintsPageData } from "./use-sprints-page-data.js";
 import { useProgressiveList } from "../../hooks/use-progressive-list.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "../../lib/list-window.js";
@@ -68,6 +69,8 @@ export const SprintsPage: FunctionComponent = () => {
     handleCreateQuicksprintTemplate,
     handleUpdateQuicksprintTemplate,
     handleDeleteQuicksprintTemplate,
+    feedback,
+    clearFeedback,
     refreshSprints,
     refreshExecution,
     handleSprintToggle,
@@ -202,6 +205,12 @@ export const SprintsPage: FunctionComponent = () => {
                 ? `Define the sprint once for ${selectedProject.name}. The Planning agent can improve the prompt, plan subtasks, and launch the sprint without manual task entry.`
                 : "Select a project to manage sprint structure."}
             </p>
+            <ActionFeedbackRegion
+              status={feedback.status}
+              message={feedback.message}
+              onDismiss={clearFeedback}
+              className="mt-2"
+            />
             {selectedProject && (
               <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
                 planningRoute.available
