@@ -130,7 +130,7 @@ describe("QuicksprintPanel", () => {
     expect(mockOnExecute).toHaveBeenCalled();
 
     // Dismiss overlay
-    const closeBtn = getByText("Close");
+    const closeBtn = getByText("Minimize");
     fireEvent.click(closeBtn);
 
     // Overlay should disappear
