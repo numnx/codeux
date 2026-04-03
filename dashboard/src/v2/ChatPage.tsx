@@ -100,7 +100,6 @@ export const ChatPage: FunctionComponent = () => {
         {controller.chatMode === "threads" ? (
           <ThreadListCard
             threads={controller.threads}
-            connections={controller.connections}
             selectedThreadId={controller.selectedThreadId}
             deletingThreadId={controller.deletingThreadId}
             onSelect={(threadId) => {
