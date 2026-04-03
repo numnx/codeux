@@ -38,9 +38,9 @@ The current settings are:
 
 Dashboard surface:
 
-- `dashboard/src/v2/AgentsPage.tsx`
+- `dashboard/src/v2/components/settings/panels/SettingsAgentsPanel.tsx`
 
-The Agents page includes a dedicated `Senior QA Agent` card that:
+The `Settings -> Agents` panel includes a dedicated `Quality Assurance` section that:
 
 - stays compact when QA is disabled
 - exposes the three QA triggers when enabled

@@ -8,6 +8,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { SettingsPage } from "../../../dashboard/src/v2/SettingsPage.js";
 import { useProjectData } from "../../../dashboard/src/v2/context/project-data.js";
 import { fetchSystemSettings, saveSystemSettings, saveProjectSettings, resetProjectSettings, fetchProjectEffectiveSettings } from "../../../dashboard/src/v2/lib/settings-api.js";
+import { fetchAgentPresets } from "../../../dashboard/src/v2/lib/agent-preset-api.js";
 import { fetchExternalSettingsHints } from "../../../dashboard/src/lib/api/dashboard-api.js";
 
 expect.extend(matchers);
@@ -23,6 +24,10 @@ vi.mock("../../../dashboard/src/v2/lib/settings-api.js", () => ({
   resetProjectSettings: vi.fn(),
   resetSystemDatabase: vi.fn(),
   fetchProjectEffectiveSettings: vi.fn(),
+}));
+
+vi.mock("../../../dashboard/src/v2/lib/agent-preset-api.js", () => ({
+  fetchAgentPresets: vi.fn(),
 }));
 
 vi.mock("../../../dashboard/src/lib/api/dashboard-api.js", () => ({
@@ -67,6 +72,10 @@ describe("SettingsPage data interactions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockFetchProjectSettings = vi.mocked(fetchProjectEffectiveSettings).mockResolvedValue(mockEffectiveSettingsData);
+    vi.mocked(fetchAgentPresets).mockResolvedValue([
+      { id: "qa-agent-1", name: "QA Agent Alpha" },
+      { id: "qa-agent-2", name: "QA Agent Beta" },
+    ] as any);
     vi.mocked(fetchExternalSettingsHints).mockResolvedValue({
       env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
       settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
@@ -158,5 +167,28 @@ describe("SettingsPage data interactions", () => {
     fireEvent.click(projectScopeBtn);
 
     expect(screen.getByText(/Editing overrides for Test Project/)).toBeInTheDocument();
+  });
+
+  it("renders quality assurance controls in agents settings", async () => {
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(fetchSystemSettings).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Project" })[0]);
+
+    await waitFor(() => {
+      expect(fetchProjectEffectiveSettings).toHaveBeenCalledWith("proj-1");
+      expect(fetchAgentPresets).toHaveBeenCalledWith("proj-1");
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Agents/ })[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Quality Assurance")).toBeInTheDocument();
+      expect(screen.getByText("Enable QA agent")).toBeInTheDocument();
+      expect(screen.getByText("QA is disabled. Enable it to review completed tasks, gate sprint completion, and inspect completed tasks that do not yet have a PR.")).toBeInTheDocument();
+    });
   });
 });

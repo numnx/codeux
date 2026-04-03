@@ -1,9 +1,8 @@
-import type { FunctionComponent, ComponentChildren } from "preact";
+import type { FunctionComponent } from "preact";
 import type { SettingsPageState, AgentInstructionTemplateId } from "../../../hooks/use-settings-page-state.js";
 import { NoticePanel } from "../SettingsSurface.js";
-import { Row, Toggle, TextAreaInput, SelectInput } from "../SettingsFormFields.js";
+import { Row, Toggle, TextAreaInput, SelectInput, NumberInput } from "../SettingsFormFields.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
-import { Bot } from "lucide-preact";
 
   export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
@@ -14,6 +13,7 @@ import { Bot } from "lucide-preact";
     selectedAgentTemplate,
     setSelectedAgentTemplate,
     agentInstructionTemplateOptions,
+    projectAgentPresetOptions,
     updateEditableSettings,
   } = state;
 
@@ -27,6 +27,9 @@ import { Bot } from "lucide-preact";
     const selectedTemplateConfig = agentInstructionTemplateOptions.find((option) => option.value === selectedAgentTemplate)
       ?? agentInstructionTemplateOptions[0]!;
     const selectedTemplateValue = editableSettings.agents.instructionTemplates[selectedAgentTemplate] || "";
+    const qaSettings = editableSettings.agents.qualityAssurance;
+    const qaPresetOptions = [{ value: "", label: activeScope === "project" ? "Default QA agent" : "Use built-in QA agent" }, ...projectAgentPresetOptions];
+    const qaPresetSelectorsDisabled = activeScope !== "project" || !selectedProject;
 
     return (
       <div className="flex flex-col gap-5">
@@ -92,8 +95,203 @@ import { Bot } from "lucide-preact";
           </div>
         </SectionCard>
 
+        <SectionCard title="Quality Assurance" watermark="QA" badge={getBadge("agents", "agents.qualityAssurance")}>
+          <Row
+            label="Enable QA agent"
+            description="Runs a senior QA pass after completion events, using full sprint context and continuing the current task session when fixes are required."
+            badge={getFieldBadge("agents.qualityAssurance.enabled")}
+          >
+            <Toggle
+              value={qaSettings.enabled}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                agents: {
+                  ...current.agents,
+                  qualityAssurance: {
+                    ...current.agents.qualityAssurance,
+                    enabled: value,
+                  },
+                },
+              }))}
+            />
+          </Row>
+
+          {qaSettings.enabled ? (
+            <>
+              <Row
+                label="Task QA max runs"
+                description="Default is 1. Increase this only when you want QA to review fixes made after the first QA pass."
+                badge={getFieldBadge("agents.qualityAssurance.maxTaskReviewRuns")}
+              >
+                <NumberInput
+                  value={qaSettings.maxTaskReviewRuns}
+                  min={1}
+                  max={10}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    agents: {
+                      ...current.agents,
+                      qualityAssurance: {
+                        ...current.agents.qualityAssurance,
+                        maxTaskReviewRuns: Number.isFinite(value) ? Math.min(10, Math.max(1, Math.floor(value))) : 1,
+                      },
+                    },
+                  }))}
+                />
+              </Row>
+
+              <Row
+                label="Review every completed task"
+                description="Runs once after a task completes, then only repeats for QA-driven follow-up loops until the max run count is reached."
+                badge={getFieldBadge("agents.qualityAssurance.taskCompletion.enabled")}
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <Toggle
+                    value={qaSettings.taskCompletion.enabled}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          taskCompletion: {
+                            ...current.agents.qualityAssurance.taskCompletion,
+                            enabled: value,
+                          },
+                        },
+                      },
+                    }))}
+                  />
+                  <SelectInput
+                    value={qaSettings.taskCompletion.agentPresetId || ""}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          taskCompletion: {
+                            ...current.agents.qualityAssurance.taskCompletion,
+                            agentPresetId: value || null,
+                          },
+                        },
+                      },
+                    }))}
+                    options={qaPresetOptions}
+                    disabled={qaPresetSelectorsDisabled}
+                    aria-label="Task completion QA agent preset"
+                  />
+                </div>
+              </Row>
+
+              <Row
+                label="Review before sprint completion"
+                description="Blocks final sprint completion when QA finds integration problems and can route the fix back into the most relevant task."
+                badge={getFieldBadge("agents.qualityAssurance.sprintCompletion.enabled")}
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <Toggle
+                    value={qaSettings.sprintCompletion.enabled}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          sprintCompletion: {
+                            ...current.agents.qualityAssurance.sprintCompletion,
+                            enabled: value,
+                          },
+                        },
+                      },
+                    }))}
+                  />
+                  <SelectInput
+                    value={qaSettings.sprintCompletion.agentPresetId || ""}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          sprintCompletion: {
+                            ...current.agents.qualityAssurance.sprintCompletion,
+                            agentPresetId: value || null,
+                          },
+                        },
+                      },
+                    }))}
+                    options={qaPresetOptions}
+                    disabled={qaPresetSelectorsDisabled}
+                    aria-label="Sprint completion QA agent preset"
+                  />
+                </div>
+              </Row>
+
+              <Row
+                label="Review completed tasks without a PR"
+                description="Lets QA investigate whether a missing PR is valid or whether the task still needs branch and PR hygiene before it can stay complete."
+                badge={getFieldBadge("agents.qualityAssurance.completedTaskWithoutPr.enabled")}
+                last
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <Toggle
+                    value={qaSettings.completedTaskWithoutPr.enabled}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          completedTaskWithoutPr: {
+                            ...current.agents.qualityAssurance.completedTaskWithoutPr,
+                            enabled: value,
+                          },
+                        },
+                      },
+                    }))}
+                  />
+                  <SelectInput
+                    value={qaSettings.completedTaskWithoutPr.agentPresetId || ""}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      agents: {
+                        ...current.agents,
+                        qualityAssurance: {
+                          ...current.agents.qualityAssurance,
+                          completedTaskWithoutPr: {
+                            ...current.agents.qualityAssurance.completedTaskWithoutPr,
+                            agentPresetId: value || null,
+                          },
+                        },
+                      },
+                    }))}
+                    options={qaPresetOptions}
+                    disabled={qaPresetSelectorsDisabled}
+                    aria-label="No PR QA agent preset"
+                  />
+                </div>
+              </Row>
+
+              {qaPresetSelectorsDisabled ? (
+                <div className="rounded-[1.15rem] border border-black/[0.05] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.05] dark:bg-white/[0.02] dark:text-slate-400">
+                  Per-trigger QA preset selection is available in project scope, because agent presets are project-scoped records.
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-[1.15rem] border border-dashed border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-400">
+              QA is disabled. Enable it to review completed tasks, gate sprint completion, and inspect completed tasks that do not yet have a PR.
+            </div>
+          )}
+        </SectionCard>
+
         <NoticePanel title="Agent sync behavior" tone="success">
           The database stays authoritative for agent records, labels, and routing metadata. When the mirror is enabled, dashboard edits also refresh a project-local markdown file, and local markdown drift can be imported back into the dashboard from the Agents page.
+        </NoticePanel>
+
+        <NoticePanel title="Quality assurance behavior">
+          QA uses the dedicated `qa_review` invocation route, gets full sprint context like clarification automation, and can continue the active Jules or CLI session with direct fix instructions when it finds gaps.
         </NoticePanel>
 
         <NoticePanel title="Instruction template storage">

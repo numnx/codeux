@@ -208,7 +208,7 @@ Dashboard behavior:
     - `enabled`
     - `agentPresetId`
 
-Quality assurance settings are project-scoped today and drive the dedicated QA card on the Agents page. When task-level QA is enabled, successful CLI task runs preserve their worktree long enough for a QA follow-up pass to resume the same session/worktree if fixes are required.
+Quality assurance settings are project-scoped today and are edited from `Settings -> Agents`. When task-level QA is enabled, successful CLI task runs preserve their worktree long enough for a QA follow-up pass to resume the same session/worktree if fixes are required.
 
 `cliWorkflow` contains:
 - Retry/cleanup toggles:

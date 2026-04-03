@@ -9,6 +9,7 @@ import {
   saveProjectSettings,
   saveSystemSettings,
 } from "../lib/settings-api.js";
+import { fetchAgentPresets } from "../lib/agent-preset-api.js";
 import {
   applyExternalHintsToSystemSettings,
   cloneProjectSettings,
@@ -168,6 +169,7 @@ export const useSettingsPageState = (
   const [resettingDatabase, setResettingDatabase] = useState(false);
   const [importingHints, setImportingHints] = useState(false);
   const [externalHints, setExternalHints] = useState<import("../../types.js").ExternalSettingsHints | null>(null);
+  const [projectAgentPresetOptions, setProjectAgentPresetOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const loadSettings = useCallback(async (): Promise<void> => {
     if (isDirtyRef.current) {
@@ -184,15 +186,23 @@ export const useSettingsPageState = (
       setExternalHints(hints);
 
       if (selectedProjectId) {
-        const effectiveProject = await fetchProjectEffectiveSettings(selectedProjectId);
+        const [effectiveProject, projectAgentPresets] = await Promise.all([
+          fetchProjectEffectiveSettings(selectedProjectId),
+          fetchAgentPresets(selectedProjectId).catch(() => []),
+        ]);
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
         setProjectSettings(cloneProjectSettings(nextProject));
         setSavedProjectSettings(cloneProjectSettings(nextProject));
         setProjectSources(effectiveProject.sources);
+        setProjectAgentPresetOptions(projectAgentPresets.map((preset) => ({
+          value: preset.id,
+          label: preset.name,
+        })));
       } else {
         setProjectSettings(null);
         setSavedProjectSettings(null);
         setProjectSources({});
+        setProjectAgentPresetOptions([]);
       }
       setError(null);
     } catch (loadError) {
@@ -438,6 +448,7 @@ export const useSettingsPageState = (
     routingProfileOptions,
     integrations: INTEGRATIONS,
     agentInstructionTemplateOptions: AGENT_INSTRUCTION_TEMPLATE_OPTIONS,
+    projectAgentPresetOptions,
     selectedProject,
     updateSystem, updateProject, updateEditableSettings,
     handleImportHints, handleSave, handleResetProject,

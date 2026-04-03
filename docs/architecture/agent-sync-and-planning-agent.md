@@ -226,7 +226,7 @@ The Agents page now shows:
 - out-of-sync state for changed markdown
 - `Import` action for linked markdown agents
 - `Sync All` action for pulling all out-of-sync local markdown back into sqlite
-- a dedicated `Senior QA Agent` settings card for project-scoped QA triggers, max review runs, and per-trigger preset selection
+- agent preset management only; QA execution settings live under `Settings -> Agents`
 
 ### Sprints page
 

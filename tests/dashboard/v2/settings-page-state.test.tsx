@@ -4,6 +4,7 @@ import { renderHook, act, waitFor } from "@testing-library/preact";
 import { useSettingsPageState } from "../../../dashboard/src/v2/hooks/use-settings-page-state.js";
 import { CATEGORIES, CATEGORY_SEARCH_HINTS } from "../../../dashboard/src/v2/components/settings/SettingsCategoryRail.js";
 import * as settingsApi from "../../../dashboard/src/v2/lib/settings-api.js";
+import * as agentPresetApi from "../../../dashboard/src/v2/lib/agent-preset-api.js";
 import * as dashboardApi from "../../../dashboard/src/lib/api/dashboard-api.js";
 
 vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
@@ -21,6 +22,7 @@ let mockFetchProject;
 let mockResetProject;
 let mockResetDatabase;
 let mockFetchExternal;
+let mockFetchAgentPresets;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -30,6 +32,7 @@ beforeEach(() => {
   mockFetchProject = vi.spyOn(settingsApi, 'fetchProjectEffectiveSettings').mockResolvedValue({ settings: {}, sources: {} } as any);
   mockResetProject = vi.spyOn(settingsApi, 'resetProjectSettings').mockResolvedValue();
   mockResetDatabase = vi.spyOn(settingsApi, 'resetSystemDatabase').mockResolvedValue();
+  mockFetchAgentPresets = vi.spyOn(agentPresetApi, 'fetchAgentPresets').mockResolvedValue([]);
   mockFetchExternal = vi.spyOn(dashboardApi, 'fetchExternalSettingsHints').mockResolvedValue({
     env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
     settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
