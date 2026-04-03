@@ -70,6 +70,12 @@ describe("SettingsPage data interactions", () => {
       env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
       settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
       resolved: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+      providerAvailability: {
+        jules: { hasApiKey: false, hasLocalAuth: false },
+        gemini: { hasApiKey: false, hasLocalAuth: false },
+        codex: { hasApiKey: false, hasLocalAuth: false },
+        claudeCode: { hasApiKey: false, hasLocalAuth: false },
+      },
     });
 
     vi.mocked(useProjectData).mockReturnValue({

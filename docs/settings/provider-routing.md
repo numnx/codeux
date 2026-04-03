@@ -16,7 +16,7 @@ Sprint OS now separates:
 - worker runtime defaults
 - invocation-specific routing rules
 
-*(Note: In routing contexts, `available` means detected credentials/auth presence, whereas `enabled` means user-approved routing participation.)*
+*(Note: In routing contexts, `available` means detected credentials/auth presence or an enabled auth mount, whereas `enabled` means user-approved routing participation.)*
 
 ## Configuration Model
 

@@ -124,8 +124,18 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
     const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
     const virtualWorkerModeEnabled = editableSettings.workers.executionMode === "VIRTUAL";
 
+    const getMountAuthEnabled = (providerId: ProviderId): boolean => (
+      providerId === "gemini"
+        ? editableSettings.cliWorkflow.containerMountGeminiAuth
+        : providerId === "codex"
+          ? editableSettings.cliWorkflow.containerMountCodexAuth
+          : providerId === "claude-code"
+            ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth
+            : false
+    );
+
     const visibleProviders = Object.entries(editableSettings.aiProvider.providers).filter(([providerId]) => (
-      isProviderAvailable(providerId as ProviderId, systemSettings, externalHints)
+      isProviderAvailable(providerId as ProviderId, systemSettings, externalHints, getMountAuthEnabled(providerId as ProviderId))
     ));
     const invocationVisibleProviders = getEligibleProviders(systemSettings, editableSettings, externalHints);
     const resolvedActiveProviderId = visibleProviders.some(([providerId]) => providerId === activeProviderPanel)
@@ -292,7 +302,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   <div className="flex flex-col gap-2">
                     {visibleProviders.map(([providerId, provider]) => {
                       const providerKey = providerId as ProviderId;
-                      const authLabel = getProviderAuthLabel(providerKey, systemSettings, externalHints, dockerExecutionEnabled, providerKey === "gemini" ? editableSettings.cliWorkflow.containerMountGeminiAuth : providerKey === "codex" ? editableSettings.cliWorkflow.containerMountCodexAuth : providerKey === "claude-code" ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth : false);
+                      const authLabel = getProviderAuthLabel(providerKey, systemSettings, externalHints, dockerExecutionEnabled, getMountAuthEnabled(providerKey));
                       const isActive = providerId === resolvedActiveProviderId;
                       const isWorkerDefault = editableSettings.workers.virtualWorkerProvider === providerId;
                       const isGlobalDefault = editableSettings.aiProvider.provider === providerId;
@@ -356,7 +366,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   const supportsThinkingMode = providerSupportsThinkingMode(providerKey);
                   const modelOptions = getProviderModelOptions(providerKey);
                   const cardTokens = PROVIDER_CARD_TOKENS[providerKey as ProviderId];
-                  const authLabel = getProviderAuthLabel(providerKey, systemSettings, externalHints, dockerExecutionEnabled, providerKey === "gemini" ? editableSettings.cliWorkflow.containerMountGeminiAuth : providerKey === "codex" ? editableSettings.cliWorkflow.containerMountCodexAuth : providerKey === "claude-code" ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth : false);
+                  const authLabel = getProviderAuthLabel(providerKey, systemSettings, externalHints, dockerExecutionEnabled, getMountAuthEnabled(providerKey));
 
                   return (
                     <div
