@@ -39,7 +39,7 @@ import { RuntimeEventFeed } from "./components/RuntimeEventFeed.js";
 import { GitCIStatusPanel } from "./components/GitCIStatusPanel.js";
 import { deriveLiveDurationDisplay } from "./lib/live-duration-display.js";
 import { useProjectData } from "./context/project-data.js";
-
+import { useReducedMotion } from "./hooks/use-reduced-motion.js";
 
 
 const SprintBoatRace = lazy(() => import("./components/SprintBoatRace.js").then(m => ({ default: m.SprintBoatRace })));
@@ -92,6 +92,7 @@ const EMPTY_LIVE_SESSION_RUNTIME_STATE = {
 export const LiveSessionPage: FunctionComponent = () => {
 
     const contentRef = useRef<HTMLDivElement>(null);
+    const prefersReducedMotion = useReducedMotion();
     const { selectedProjectId } = useProjectData();
     const {
         error,
@@ -137,15 +138,21 @@ export const LiveSessionPage: FunctionComponent = () => {
 
     /* GSAP entrance */
     useLayoutEffect(() => {
-
-        if (contentRef.current) {
-            gsap.fromTo(
-                Array.from(contentRef.current.children),
-                { opacity: 0, y: 50 },
-                { opacity: 1, y: 0, stagger: 0.08, duration: 1, ease: "power4.out", delay: 0.2 },
-            );
-        }
-    }, []);
+        const ctx = gsap.context(() => {
+            if (contentRef.current) {
+                if (prefersReducedMotion) {
+                    gsap.set(Array.from(contentRef.current.children), { opacity: 1, y: 0 });
+                } else {
+                    gsap.fromTo(
+                        Array.from(contentRef.current.children),
+                        { opacity: 0, y: 50 },
+                        { opacity: 1, y: 0, stagger: 0.08, duration: 1, ease: "power4.out", delay: 0.2 },
+                    );
+                }
+            }
+        });
+        return () => ctx.revert();
+    }, [prefersReducedMotion]);
 
     const runtimeState = useMemo(
         () => sprintScopeReady
