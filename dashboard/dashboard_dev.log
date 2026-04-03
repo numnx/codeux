@@ -1,0 +1,21 @@
+
+> jules-subagents@1.2.0 dev
+> node --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));' src/index.ts
+
+(node:80355) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:80355) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+2026-04-03T13:14:07.159Z WARN Dashboard port in use. Trying next port. { service: 'sprint-os', component: 'dashboard-server', attemptedPort: 4444, nextPort: 4445 }
+2026-04-03T13:14:07.161Z WARN Dashboard port in use. Trying next port. { service: 'sprint-os', component: 'dashboard-server', attemptedPort: 4445, nextPort: 4446 }
+2026-04-03T13:14:07.162Z INFO Dashboard server started { service: 'sprint-os', component: 'dashboard-server', port: 4446, localhostUrl: 'http://localhost:4446', loopbackUrl: 'http://127.0.0.1:4446' }
+2026-04-03T13:14:07.162Z WARN Jules API key is not set. Jules-native tools are disabled; Gemini/Codex CLI providers can still run. { service: 'sprint-os' }
+2026-04-03T13:14:07.163Z WARN Jules API key is not configured.
+Set it in one of these locations:
+1. `.env` file (`JULES_API_KEY=...`)
+2. `.settings` file (`.sprint-os/settings.json` with `julesApiKey`)
+3. Dashboard settings at http://localhost:4446
+If your key is already set system-wide, restart this process in that environment.
+After saving the key, retry your command. { service: 'sprint-os' }
+2026-04-03T13:14:07.163Z INFO Sprint OS MCP server running on stdio { service: 'sprint-os', version: '1.2.0' }
