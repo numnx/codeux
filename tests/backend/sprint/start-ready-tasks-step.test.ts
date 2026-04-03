@@ -35,4 +35,38 @@ describe("runStartReadyTasksStep", () => {
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(result.subtasks[0].session_id).toBe("sessions/abc");
   });
+
+  it("does not start tasks that are already running, proving state transition only happens once", async () => {
+    const startTask = vi.fn().mockResolvedValue({ id: "sessions/abc", name: "sessions/abc", provider: "jules" });
+    const subtasks: Subtask[] = [
+      {
+        id: "task-1",
+        title: "Task 1",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+      },
+    ];
+
+    const result = await runStartReadyTasksStep(subtasks, {
+      action: "orchestrate",
+      maxFailures: 5,
+      getConsecutiveFailures: () => 0,
+      setConsecutiveFailures: vi.fn(),
+      startTask,
+      resolveSessionName: (session) => session.name,
+      extractSessionId: (session) => session.id,
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        child: vi.fn().mockReturnThis(),
+      },
+    });
+
+    expect(startTask).not.toHaveBeenCalled();
+    expect(result.subtasks[0].status).toBe("RUNNING");
+  });
 });
