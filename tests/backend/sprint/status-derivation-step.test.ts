@@ -34,4 +34,42 @@ describe("runStatusDerivationStep", () => {
 
     expect(result[1].status).toBe("PENDING");
   });
+
+  it("proves state transition happens once: derivation sets a blocked task to pending exactly once when unblocked", () => {
+    const subtasks: Subtask[] = [
+      {
+        id: "task-1",
+        title: "Task 1",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        is_merged: true,
+        status: "COMPLETED",
+      },
+      {
+        id: "task-2",
+        title: "Task 2",
+        prompt: "",
+        depends_on: ["task-1"],
+        is_independent: false,
+        is_merged: false,
+        status: "BLOCKED",
+      },
+    ];
+
+    const result = runStatusDerivationStep(subtasks, {
+      retryFailed: true,
+      isActionRequiredState,
+    });
+
+    expect(result[1].status).toBe("PENDING");
+
+    // Second derivation should yield identical result without changing status further
+    const result2 = runStatusDerivationStep(result, {
+      retryFailed: true,
+      isActionRequiredState,
+    });
+
+    expect(result2[1].status).toBe("PENDING");
+  });
 });
