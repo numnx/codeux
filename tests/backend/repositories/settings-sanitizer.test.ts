@@ -25,6 +25,12 @@ describe("settings-sanitizer", () => {
         claudeCodeApiKey: "resolved-claude",
         githubToken: "resolved-github",
       },
+      providerAvailability: {
+        jules: { hasApiKey: true, hasLocalAuth: false },
+        gemini: { hasApiKey: true, hasLocalAuth: false },
+        codex: { hasApiKey: true, hasLocalAuth: false },
+        claudeCode: { hasApiKey: true, hasLocalAuth: false },
+      },
     });
 
     expect(settings.aiProvider.julesApiKey).toBe("resolved-jules");
@@ -98,7 +104,7 @@ describe("settings-sanitizer", () => {
     expect(settings.cliWorkflow.executionMode).toBe("HOST");
     expect(settings.cliWorkflow.containerImage).toBe("node:24-bookworm");
     expect(settings.cliWorkflow.containerCacheSetupScriptImage).toBe(false);
-    expect(settings.cliWorkflow.containerMountGeminiAuth).toBe(true);
+    expect(settings.cliWorkflow.containerMountGeminiAuth).toBe(false);
     expect(settings.agents.saveToProjectDirectory).toBe(true);
     expect(settings.agents.instructionTemplates.planningMissing).toContain("Sprint Planning Missing");
     expect(settings.skills.find((skill) => skill.name === "git_manager_remote")?.enabled).toBe(true);

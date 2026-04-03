@@ -33,7 +33,13 @@ beforeEach(() => {
   mockFetchExternal = vi.spyOn(dashboardApi, 'fetchExternalSettingsHints').mockResolvedValue({
     env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
     settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
-    resolved: { julesApiKey: "hint", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" }
+    resolved: { julesApiKey: "hint", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+    providerAvailability: {
+      jules: { hasApiKey: true, hasLocalAuth: false },
+      gemini: { hasApiKey: false, hasLocalAuth: false },
+      codex: { hasApiKey: false, hasLocalAuth: false },
+      claudeCode: { hasApiKey: false, hasLocalAuth: false },
+    },
   });
 });
 

@@ -65,6 +65,12 @@ describe("provider availability helpers", () => {
       claudeCodeApiKey: "",
       githubToken: "",
     },
+    providerAvailability: {
+      jules: { hasApiKey: true, hasLocalAuth: false },
+      gemini: { hasApiKey: false, hasLocalAuth: false },
+      codex: { hasApiKey: false, hasLocalAuth: true },
+      claudeCode: { hasApiKey: false, hasLocalAuth: false },
+    },
   };
 
   const mockSystemSettings: SystemSettings = {
@@ -86,32 +92,33 @@ describe("provider availability helpers", () => {
       },
       invocationRouting: {} as any,
     },
-    cliWorkflow: { executionMode: "DOCKER", containerMountGeminiAuth: false, containerMountCodexAuth: true, containerMountClaudeCodeAuth: false } as any,
+    cliWorkflow: { executionMode: "DOCKER", containerMountGeminiAuth: false, containerMountCodexAuth: true, containerMountClaudeCodeAuth: true } as any,
   } as any;
 
-  it("isProviderAvailable checks system settings and hints", () => {
+  it("isProviderAvailable checks keys, detected local auth, and auth mounts", () => {
     expect(isProviderAvailable("jules", mockSystemSettings, mockHints)).toBe(true); // from hints
     expect(isProviderAvailable("gemini", mockSystemSettings, mockHints)).toBe(true); // from system
-    expect(isProviderAvailable("codex", mockSystemSettings, mockHints)).toBe(false); // nowhere
+    expect(isProviderAvailable("codex", mockSystemSettings, mockHints)).toBe(true); // from detected local auth
+    expect(isProviderAvailable("claude-code", mockSystemSettings, mockHints, true)).toBe(true); // from mount toggle
   });
 
-  it("getProviderAuthLabel prioritizes availability logic and docker mount flags", () => {
+  it("getProviderAuthLabel reflects API keys, detected local auth, and docker mount flags", () => {
     // Jules available via hint
     expect(getProviderAuthLabel("jules", mockSystemSettings, mockHints, false, false)).toBe("API key");
     // Gemini available via system setting + docker mount enabled
-    expect(getProviderAuthLabel("gemini", mockSystemSettings, mockHints, true, true)).toBe("Local auth + API key");
-    // Codex NOT available via key, so it should be null even if mount is enabled
-    expect(getProviderAuthLabel("codex", mockSystemSettings, mockHints, true, true)).toBeNull();
-    // Claude NOT available via key, and docker mount NOT enabled
-    expect(getProviderAuthLabel("claude-code", mockSystemSettings, mockHints, true, false)).toBeNull();
+    expect(getProviderAuthLabel("gemini", mockSystemSettings, mockHints, true, true)).toBe("Auth mount + API key");
+    // Codex is available via detected local auth even without an API key
+    expect(getProviderAuthLabel("codex", mockSystemSettings, mockHints, false, false)).toBe("Local auth");
+    // Claude can still surface an active auth mount in Docker mode without an API key
+    expect(getProviderAuthLabel("claude-code", mockSystemSettings, mockHints, true, true)).toBe("Auth mount enabled");
   });
 
   it("getEligibleProviders returns providers that are available AND enabled", () => {
     const eligible = getEligibleProviders(mockSystemSettings, mockProjectSettings, mockHints);
     // jules is available (hint) and enabled
     // gemini is available (system) but NOT enabled
-    // codex is NOT available via key, but IS enabled
-    // claude-code is NOT available via key, IS enabled
-    expect(eligible).toEqual(["jules"]);
+    // codex is available via detected local auth and enabled
+    // claude-code is activated via auth mount and enabled
+    expect(eligible).toEqual(["jules", "codex", "claude-code"]);
   });
 });
