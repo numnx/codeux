@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { CycleRunner } from "../../../../../src/domain/sprint/orchestrator/cycle-runner.js";
+import {
+  captureCiFailureMemories,
+  captureTaskCompletionMemories,
+  reviewCompletedTasks,
+} from "../../../../../src/domain/sprint/orchestrator/cycle-task-side-effects.js";
 import type { SprintOrchestratorDependencies } from "../../../../../src/sprint/sprint-orchestrator.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../../../src/repositories/settings-defaults.js";
 
@@ -794,8 +799,8 @@ describe("CycleRunner attention sync", () => {
       }
     });
 
-    // Directly call the private method using any cast
-    await (runner as any).captureCiFailureMemories(
+    // Directly call the extracted method
+    await captureCiFailureMemories(
       [
         {
           id: "T1",
@@ -809,24 +814,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       preGateStates,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: true, autoCaptureSprint: true },
-      } as any
+      }
     );
 
     // Give the unawaited promise returned by createMemory inside catch block a chance to resolve.
@@ -861,7 +862,7 @@ describe("CycleRunner attention sync", () => {
       }
     });
 
-    await (runner as any).captureCiFailureMemories(
+    await captureCiFailureMemories(
       [
         {
           id: "T1",
@@ -875,24 +876,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       preGateStates,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: false, autoCaptureSprint: true },
-      } as any
+      }
     );
 
 
@@ -922,7 +919,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    await (runner as any).captureTaskCompletionMemories(
+    await captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -936,24 +933,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       states,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: true, autoCaptureSprint: false },
-      } as any
+      }
     );
 
 
@@ -982,7 +975,7 @@ describe("CycleRunner attention sync", () => {
       }
     });
 
-    await (runner as any).captureCiFailureMemories(
+    await captureCiFailureMemories(
       [
         {
           id: "T1",
@@ -996,24 +989,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       preGateStates,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: true, autoCaptureSprint: false },
-      } as any
+      }
     );
 
 
@@ -1043,7 +1032,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    await (runner as any).captureTaskCompletionMemories(
+    await captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1057,24 +1046,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       states,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: true, autoCaptureSprint: true },
-      } as any
+      }
     );
 
 
@@ -1104,7 +1089,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    await (runner as any).captureTaskCompletionMemories(
+    await captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1118,24 +1103,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       states,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: false, autoCaptureSprint: true },
-      } as any
+      }
     );
 
 
@@ -1216,7 +1197,7 @@ describe("CycleRunner attention sync", () => {
     const states = new Map();
     states.set("T1", "RUNNING");
 
-    await (runner as any).captureTaskCompletionMemories(
+    await captureTaskCompletionMemories(
       [
         {
           id: "T1",
@@ -1230,24 +1211,20 @@ describe("CycleRunner attention sync", () => {
           worker_branch: "worker/T1",
           pr_url: "https://example.com/pr/101",
           merge_indicator: "CI",
-        }
+        } as any
       ],
       states,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        loopSteps: {},
-      } as any,
+        memoryService: deps.memoryService,
+        logger: deps.logger,
+      },
       {
-        ...DEFAULT_DASHBOARD_SETTINGS,
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      {
         memory: { enabled: true, autoCaptureSprint: true },
-      } as any
+      }
     );
 
 
@@ -1308,22 +1285,20 @@ describe("CycleRunner attention sync", () => {
       },
     ];
 
-    await (runner as any).reviewCompletedTasks(
-      subtasks,
+    await reviewCompletedTasks(
+      subtasks as any,
       preStates,
       {
-        executionContext: {
-          project: { id: "project-1", name: "Project 1" } as any,
-          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
-          sprintNumber: 1,
-          repoPath: "/repo/project-1",
-          featureBranch: "feature/sprint-1",
-          defaultBranch: "main",
-        },
-        repoPath: "/repo/project-1",
+        qualityAssuranceService: deps.qualityAssuranceService,
+        logger: deps.logger,
+      },
+      {
+        projectId: "project-1",
+        sprintId: "sprint-1",
         sprintRunId: "run-1",
-      } as any,
-      deps.getDashboardSettings(),
+        repoPath: "/repo/project-1",
+      },
+      deps.getDashboardSettings() as any,
     );
 
     expect(deps.qualityAssuranceService.reviewCompletedTask).toHaveBeenCalledTimes(1);
