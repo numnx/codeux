@@ -31,7 +31,7 @@ When a realtime websocket event arrives (such as `project.structure.updated` or 
 
 The v2 frontend is strictly organized into page-scoped module boundaries:
 - **Overview:** Project collection and aggregate system stats. To avoid redundant waterfall requests in nested components like `HeaderStats` and `TasksList`, the Overview page uses `useOverviewPageData` to hoist selected-project sprint, task, and 7-day snapshot fetches to the page root. The data is then transformed into derived sparkline series (like `completedTasksTrend`) and passed downward.
-- **Sprints:** Project-scoped sprint registry, composer, and markdown export.
+- **Sprints:** Project-scoped sprint registry, composer, and markdown export. The page orchestrates multiple focused hooks (`useSprintActions`, `usePlanningControls`, `useQuicksprintTemplates`) to manage distinct behavioral boundaries without creating a monolithic network controller.
 - **Tasks:** Project-scoped task board, sprint-filtered view based on active sprint selection, and dependency management.
 - **Stats:** Project-scoped usage telemetry, token trends, and performance ledgers.
 - **Live:** Active execution runtime bounded by the selected active sprint, running tasks, and live realtime feeds.
