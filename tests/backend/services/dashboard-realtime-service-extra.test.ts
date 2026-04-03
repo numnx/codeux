@@ -64,6 +64,33 @@ describe("DashboardRealtimeService Extra Coverage", () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
+  it("isolates loader errors so one failing kind does not block others", async () => {
+    const { service, logger } = await createService();
+    let publishedEvents = 0;
+    service.subscribe(() => {
+      publishedEvents++;
+    });
+
+    service.setSnapshotLoaders({
+      getProjectsSnapshot: () => { throw new Error("Projects fail"); }, // Fails
+      getProjectExecutionSnapshot: () => ({ projectId: "p1" } as any), // Succeeds
+      getProjectStatusSnapshot: () => { throw new Error("Status fail"); }, // Fails
+      getProjectLiveSnapshot: () => ({ selectedSprintId: "sprint-1" } as any), // Succeeds
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [] } as any), // Succeeds
+    });
+
+    service.scheduleProjectsRefresh();
+    service.scheduleOverviewRefresh();
+    service.scheduleProjectLiveRefresh("p1");
+    service.scheduleProjectExecutionRefresh("p1");
+    service.scheduleProjectRuntimeStatusRefresh("p1");
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(logger.error).toHaveBeenCalledTimes(2); // Projects and Status failed
+    expect(publishedEvents).toBe(3); // Overview, Live, Execution succeeded
+  });
+
   it("handles normalized projectId validation", async () => {
     const { service } = await createService();
     // Should return early for empty projectId
