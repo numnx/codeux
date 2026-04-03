@@ -54,7 +54,7 @@ interface TaskStateSnapshot {
 export class CycleRunner {
   private readonly ciAutofixRetryCounts = new Map<string, number>();
   private readonly featurePrGate = new FeaturePrGateService();
-  private readonly lastAutoReplyTimestamps = new Map<string, number>();
+  private readonly lastAutomatedInterventionKeys = new Map<string, string>();
 
   constructor(private readonly deps: SprintOrchestratorDependencies) {}
 
@@ -151,7 +151,7 @@ export class CycleRunner {
         approveSessionPlan: this.deps.approveSessionPlan,
         sendSessionMessage: this.deps.sendSessionMessage,
         generateWorkerClarificationReply: this.deps.generateWorkerClarificationReply,
-        lastAutoReplyTimestamps: this.lastAutoReplyTimestamps,
+        lastAutomatedInterventionKeys: this.lastAutomatedInterventionKeys,
         onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
           appendTaskEvent(task, eventType, payload, sourceEventKey);
         },

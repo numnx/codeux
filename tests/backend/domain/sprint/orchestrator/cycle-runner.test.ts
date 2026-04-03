@@ -593,7 +593,7 @@ describe("CycleRunner attention sync", () => {
     expect(deps.startTask).toHaveBeenCalledWith(expect.objectContaining({ id: "T2" }), expect.anything());
   });
 
-  it("does not open action_required attention while clarification cooldown is active", async () => {
+  it("does not open action_required attention while the same clarification request is already answered", async () => {
     const deps = buildDeps();
     deps.isActionRequiredState = (state?: string) => state === "AWAITING_USER_FEEDBACK";
     const runner = new CycleRunner(deps);
@@ -662,7 +662,7 @@ describe("CycleRunner attention sync", () => {
       status: "RUNNING",
       intervention_owner: "AGENT",
     });
-    expect(secondResult.subtasks[0]?.intervention_hint).toContain("Clarification cooldown active");
+    expect(secondResult.subtasks[0]?.intervention_hint).toContain("already answered automatically");
     expect(deps.sendSessionMessage).toHaveBeenCalledTimes(1);
     expect(deps.projectAttentionService.openItem).not.toHaveBeenCalledWith(expect.objectContaining({
       attentionType: "action_required",
