@@ -54,29 +54,56 @@ describe("prepareMemoryGraph", () => {
         expect(node1.targetY).not.toBe(node2.targetY);
     });
 
-    it("should generate category edges when embeddings are absent", () => {
+    it("should generate bounded category edges when embeddings are absent", () => {
         const records = [
             createMockMemory("1", "architecture"),
             createMockMemory("2", "architecture"),
             createMockMemory("3", "context"),
             createMockMemory("4", "context"),
             createMockMemory("5", "architecture"),
+            createMockMemory("6", "architecture"),
         ];
 
         const result = prepareMemoryGraph(records, null);
 
         // Nodes:
-        // 0: arch, 1: arch, 2: ctx, 3: ctx, 4: arch
-        // Edges should connect (0,1), (0,4), (1,4), (2,3) -> total 4 edges
-        expect(result.edges).toHaveLength(4);
+        // 0: arch, 1: arch, 2: ctx, 3: ctx, 4: arch, 5: arch
+        // Architecture edges:
+        // 1 connects to 0
+        // 4 connects to 0, 1
+        // 5 connects to 1, 4 (bounded to last 2, so it shouldn't connect to 0)
+        // Context edges:
+        // 3 connects to 2
+        // Total: 1 + 2 + 2 + 1 = 6 edges
+        expect(result.edges).toHaveLength(6);
 
         // Verify edge connections
         const hasEdge = (a: number, b: number) => result.edges.some(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
         expect(hasEdge(0, 1)).toBe(true);
         expect(hasEdge(0, 4)).toBe(true);
         expect(hasEdge(1, 4)).toBe(true);
+
+        // Node 5 (index 5) should connect to 1 and 4, but NOT 0
+        expect(hasEdge(1, 5)).toBe(true);
+        expect(hasEdge(4, 5)).toBe(true);
+        expect(hasEdge(0, 5)).toBe(false);
+
+        // Context connections
         expect(hasEdge(2, 3)).toBe(true);
         expect(hasEdge(0, 2)).toBe(false); // different categories
+    });
+
+    it("should be deterministic across repeated calls", () => {
+        const records = [
+            createMockMemory("1", "architecture"),
+            createMockMemory("2", "architecture"),
+            createMockMemory("3", "context"),
+        ];
+
+        const result1 = prepareMemoryGraph(records, null);
+        const result2 = prepareMemoryGraph(records, null);
+
+        expect(result1).toEqual(result2);
     });
 
     it("should use provided embedding projections and edges", () => {

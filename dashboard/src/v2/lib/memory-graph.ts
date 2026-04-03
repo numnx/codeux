@@ -111,17 +111,31 @@ function buildEdges(nodes: MemNode[], embeddingMap: EmbeddingMapResult | null): 
             }
         }
     } else {
-        // Fallback edges for nodes in same category
+        // Fallback edges for nodes in same category, bounded to max 2 neighbors
+        const categoryLastSeen: Record<string, number[]> = {};
         for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                if (nodes[i].category === nodes[j].category) {
-                    edges.push({ a: i, b: j, similarity: 0.5 });
-                }
+            const cat = nodes[i].category;
+            const lastSeen = categoryLastSeen[cat] || [];
+            for (const j of lastSeen) {
+                edges.push({ a: j, b: i, similarity: 0.5 });
             }
+            lastSeen.push(i);
+            if (lastSeen.length > 2) {
+                lastSeen.shift();
+            }
+            categoryLastSeen[cat] = lastSeen;
         }
     }
 
     return edges;
+}
+
+export async function prepareMemoryGraphAsync(records: MemoryRecord[], embeddingMap: EmbeddingMapResult | null): Promise<GraphMetadata> {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(prepareMemoryGraph(records, embeddingMap));
+        }, 0);
+    });
 }
 
 export function prepareMemoryGraph(records: MemoryRecord[], embeddingMap: EmbeddingMapResult | null): GraphMetadata {

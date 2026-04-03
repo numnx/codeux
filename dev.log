@@ -1,20 +1,20 @@
 
 > jules-subagents@1.2.0 dev
-> ts-node-esm src/index.ts
+> node --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));' src/index.ts
 
-(node:4202) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(node:71238) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
-Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/app/src/config/app-config.js' imported from /app/src/index.ts
-    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
-    at moduleResolve (node:internal/modules/esm/resolve:861:10)
-    at defaultResolve (node:internal/modules/esm/resolve:985:11)
-    at nextResolve (node:internal/modules/esm/hooks:748:28)
-    at resolve (/app/node_modules/ts-node/dist/child/child-loader.js:15:125)
-    at nextResolve (node:internal/modules/esm/hooks:748:28)
-    at Hooks.resolve (node:internal/modules/esm/hooks:240:30)
-    at handleMessage (node:internal/modules/esm/worker:199:24)
-    at Immediate.checkForMessages (node:internal/modules/esm/worker:141:28)
-    at process.processImmediate (node:internal/timers:484:21) {
-  code: 'ERR_MODULE_NOT_FOUND',
-  url: 'file:///app/src/config/app-config.js'
-}
+(node:71238) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+2026-04-03T13:13:35.321Z WARN Dashboard port in use. Trying next port. { service: 'sprint-os', component: 'dashboard-server', attemptedPort: 4444, nextPort: 4445 }
+2026-04-03T13:13:35.324Z INFO Dashboard server started { service: 'sprint-os', component: 'dashboard-server', port: 4445, localhostUrl: 'http://localhost:4445', loopbackUrl: 'http://127.0.0.1:4445' }
+2026-04-03T13:13:35.324Z WARN Jules API key is not set. Jules-native tools are disabled; Gemini/Codex CLI providers can still run. { service: 'sprint-os' }
+2026-04-03T13:13:35.324Z WARN Jules API key is not configured.
+Set it in one of these locations:
+1. `.env` file (`JULES_API_KEY=...`)
+2. `.settings` file (`.sprint-os/settings.json` with `julesApiKey`)
+3. Dashboard settings at http://localhost:4445
+If your key is already set system-wide, restart this process in that environment.
+After saving the key, retry your command. { service: 'sprint-os' }
+2026-04-03T13:13:35.325Z INFO Sprint OS MCP server running on stdio { service: 'sprint-os', version: '1.2.0' }

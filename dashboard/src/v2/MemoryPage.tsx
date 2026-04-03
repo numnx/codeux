@@ -7,7 +7,7 @@ import type { MemoryRecord, MemoryScope, MemoryCategory } from "./memory-types.j
 import { useProjectData } from "./context/project-data.js";
 import { fetchSprints } from "./lib/project-api.js";
 import { fetchAgentPresets } from "./lib/agent-preset-api.js";
-import { prepareMemoryGraph, type MemNode, type Edge, type GraphMetadata, CLUSTER } from "./lib/memory-graph.js";
+import { prepareMemoryGraphAsync, type MemNode, type Edge, type GraphMetadata, CLUSTER } from "./lib/memory-graph.js";
 import type { SprintRecord, AgentPreset } from "./types.js";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
@@ -449,10 +449,12 @@ export const MemoryPage: FunctionComponent = () => {
             setStats(statsData);
             setMemoryCount(memoriesData.length);
 
-            // Update canvas
+            // Update canvas (async to yield to event loop)
+            const graphMetadata = await prepareMemoryGraphAsync(memoriesData, mapData);
+
             const s = S.current;
             s.embeddingMap = mapData;
-            s.graph = prepareMemoryGraph(memoriesData, mapData);
+            s.graph = graphMetadata;
             s.pulses = s.graph.edges.map((_, i) => ({ edgeIdx: i, progress: Math.random(), speed: 0.002 + Math.random() * 0.003 }));
             s.selectedIdx = -1;
             s.searchMatch = null;
@@ -477,43 +479,35 @@ export const MemoryPage: FunctionComponent = () => {
     useEffect(() => { loadData(); }, [loadData]);
 
     /* ── Polling for model download progress ───────────────────────────── */
-    const isDownloadingRef = useRef(false);
     useEffect(() => {
-        isDownloadingRef.current = models.some(m => m.downloading);
-    }, [models]);
+        const isDownloading = models.some(m => m.downloading);
+        if (!isDownloading) return;
 
-    useEffect(() => {
         const interval = setInterval(async () => {
-            if (!isDownloadingRef.current) return;
             try {
                 const updated = await listEmbeddingModels();
                 setModels(updated);
             } catch { /* ignore */ }
         }, 2000);
         return () => clearInterval(interval);
-    }, []);
+    }, [models]);
 
     /* ── Polling for re-embed progress ────────────────────────────────── */
-    const reembedStateRef = useRef({ active: reembed?.active, pid, loadData });
     useEffect(() => {
-        reembedStateRef.current = { active: reembed?.active, pid, loadData };
-    }, [reembed?.active, pid, loadData]);
+        if (!reembed?.active || !pid) return;
 
-    useEffect(() => {
         const interval = setInterval(async () => {
-            const state = reembedStateRef.current;
-            if (!state.active || !state.pid) return;
             try {
-                const progress = await getReembedProgress(state.pid);
+                const progress = await getReembedProgress(pid);
                 setReembed(progress);
                 if (!progress.active) {
                     // Refresh everything: stats, embedding map, and nodes
-                    state.loadData();
+                    loadData();
                 }
             } catch { /* ignore */ }
         }, 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [reembed?.active, pid, loadData]);
 
     /* ── Canvas setup & render loop ───────────────────────────────────── */
     useLayoutEffect(() => {
