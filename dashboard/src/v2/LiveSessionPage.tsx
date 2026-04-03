@@ -488,6 +488,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             <LiveTaskCard
                                 key={key}
                                 task={task}
+                                allTasks={visibleTasksWithLiveActivities}
                                 taskTiming={taskTiming}
                                 events={events}
                                 onRerun={handleRerun}

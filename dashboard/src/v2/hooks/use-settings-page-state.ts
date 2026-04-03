@@ -167,6 +167,7 @@ export const useSettingsPageState = (
   const [deletingProject, setDeletingProject] = useState(false);
   const [resettingDatabase, setResettingDatabase] = useState(false);
   const [importingHints, setImportingHints] = useState(false);
+  const [externalHints, setExternalHints] = useState<import("../../types.js").ExternalSettingsHints | null>(null);
 
   const [isDeleteProjectDialogOpen, setDeleteProjectDialogOpen] = useState(false);
   const [isResetDatabaseDialogOpen, setResetDatabaseDialogOpen] = useState(false);
@@ -178,9 +179,13 @@ export const useSettingsPageState = (
     }
     setLoading(true);
     try {
-      const nextSystem = await fetchSystemSettings();
+      const [nextSystem, hints] = await Promise.all([
+        fetchSystemSettings(),
+        fetchExternalSettingsHints()
+      ]);
       setSystemSettings(cloneSystemSettings(nextSystem));
       setSavedSystemSettings(cloneSystemSettings(nextSystem));
+      setExternalHints(hints);
 
       if (selectedProjectId) {
         const effectiveProject = await fetchProjectEffectiveSettings(selectedProjectId);
@@ -422,6 +427,7 @@ export const useSettingsPageState = (
     isDeleteProjectDialogOpen, setDeleteProjectDialogOpen,
     isResetDatabaseDialogOpen, setResetDatabaseDialogOpen,
     isResetProjectDialogOpen, setResetProjectDialogOpen,
+    externalHints,
     activeCategoryConfig, filteredCategories,
     categories: categories,
     providerLabels,

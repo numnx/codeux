@@ -261,9 +261,110 @@ const PROVIDER_MODEL_LABEL_OVERRIDES: Partial<Record<ProviderId, Record<string, 
   },
 };
 
+const hasProviderApiKey = (
+  providerId: ProviderId,
+  systemSettings: SystemSettings | null,
+  hints: ExternalSettingsHints | null,
+): boolean => {
+  if (providerId === "jules") {
+    return Boolean(systemSettings?.integrations.julesApiKey?.trim() || hints?.resolved.julesApiKey?.trim());
+  }
+  if (providerId === "gemini") {
+    return Boolean(systemSettings?.integrations.geminiApiKey?.trim() || hints?.resolved.geminiApiKey?.trim());
+  }
+  if (providerId === "codex") {
+    return Boolean(systemSettings?.integrations.codexApiKey?.trim() || hints?.resolved.codexApiKey?.trim());
+  }
+  if (providerId === "claude-code") {
+    return Boolean(systemSettings?.integrations.claudeCodeApiKey?.trim() || hints?.resolved.claudeCodeApiKey?.trim());
+  }
+  return false;
+};
+
+const hasProviderLocalAuth = (
+  providerId: ProviderId,
+  hints: ExternalSettingsHints | null,
+): boolean => {
+  if (providerId === "gemini") {
+    return Boolean(hints?.providerAvailability.gemini?.hasLocalAuth);
+  }
+  if (providerId === "codex") {
+    return Boolean(hints?.providerAvailability.codex?.hasLocalAuth);
+  }
+  if (providerId === "claude-code") {
+    return Boolean(hints?.providerAvailability.claudeCode?.hasLocalAuth);
+  }
+  return false;
+};
+
 export const providerSupportsModelSelection = (providerId: ProviderId): boolean => providerId !== "jules";
 
 export const providerSupportsThinkingMode = (providerId: ProviderId): boolean => providerId !== "jules";
+
+export const isProviderAvailable = (
+  providerId: ProviderId,
+  systemSettings: SystemSettings | null,
+  hints: ExternalSettingsHints | null,
+  mountAuthEnabled = false,
+): boolean => (
+  hasProviderApiKey(providerId, systemSettings, hints)
+  || hasProviderLocalAuth(providerId, hints)
+  || (providerId !== "jules" && mountAuthEnabled)
+);
+
+export const getProviderAuthLabel = (
+  providerId: ProviderId,
+  systemSettings: SystemSettings | null,
+  hints: ExternalSettingsHints | null,
+  dockerExecutionEnabled: boolean,
+  mountAuthEnabled: boolean,
+): string | null => {
+  const hasApiKey = hasProviderApiKey(providerId, systemSettings, hints);
+  const hasLocalAuth = hasProviderLocalAuth(providerId, hints);
+  const hasMountedAuth = providerId !== "jules" && mountAuthEnabled && dockerExecutionEnabled;
+
+  if (providerId === "jules") {
+    return hasApiKey ? "API key" : null;
+  }
+
+  if (hasMountedAuth && hasApiKey) {
+    return "Auth mount + API key";
+  }
+  if (hasMountedAuth && hasLocalAuth) {
+    return "Auth mount + local auth";
+  }
+  if (hasMountedAuth) {
+    return "Auth mount enabled";
+  }
+  if (hasLocalAuth && hasApiKey) {
+    return "Local auth + API key";
+  }
+  if (hasLocalAuth) {
+    return "Local auth";
+  }
+  return hasApiKey ? "API key" : null;
+};
+
+export const getEligibleProviders = (
+  systemSettings: SystemSettings | null,
+  editableSettings: ProjectSettings,
+  hints: ExternalSettingsHints | null,
+): ProviderId[] => {
+  const visibleProviders = Object.entries(editableSettings.aiProvider.providers).filter(([providerId]) => {
+    const mountAuthEnabled = providerId === "gemini"
+      ? editableSettings.cliWorkflow.containerMountGeminiAuth
+      : providerId === "codex"
+        ? editableSettings.cliWorkflow.containerMountCodexAuth
+        : providerId === "claude-code"
+          ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth
+          : false;
+    return isProviderAvailable(providerId as ProviderId, systemSettings, hints, mountAuthEnabled);
+  });
+
+  return visibleProviders
+    .filter(([providerId, provider]) => provider.enabled)
+    .map(([providerId]) => providerId as ProviderId);
+};
 
 export const getProviderModelOptions = (
   providerId: ProviderId,

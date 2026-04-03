@@ -29,6 +29,10 @@ describe("SettingsRepository", () => {
     expect(system.defaults.aiProvider.provider).toBe("jules");
     expect(system.defaults.aiProvider.providers.codex.model).toBe("gpt-5.3-codex");
     expect(system.defaults.git.defaultBranch).toBe("main");
+    expect(system.defaults.cliWorkflow.containerMountGithubAuth).toBe(false);
+    expect(system.defaults.cliWorkflow.containerMountGeminiAuth).toBe(false);
+    expect(system.defaults.cliWorkflow.containerMountCodexAuth).toBe(false);
+    expect(system.defaults.cliWorkflow.containerMountClaudeCodeAuth).toBe(false);
     expect(system.defaults.agents.saveToProjectDirectory).toBe(true);
     expect(system.defaults.agents.instructionTemplates.planningMissing).toContain("Sprint Planning Missing");
     expect(system.mcpTools.length).toBeGreaterThan(0);
