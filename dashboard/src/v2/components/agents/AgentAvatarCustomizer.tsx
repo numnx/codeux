@@ -1,5 +1,8 @@
 import { h } from "preact";
 import { useState } from "preact/hooks";
+import {
+  RefreshCw, Smile, Frown, Angry, Meh, Zap,
+} from "lucide-preact";
 import type { AgentAvatarConfig } from "../../types.js";
 import type { AgentAvatarExpression } from "../../lib/agent-avatar.js";
 import { AgentAvatarScene } from "./AgentAvatarScene.js";
@@ -12,7 +15,6 @@ import {
   SHOWCASE_EXPRESSIONS,
   generateRandomAgentAvatar,
 } from "../../lib/agent-avatar.js";
-import { RefreshCw } from "lucide-preact";
 
 interface AgentAvatarCustomizerProps {
   config: AgentAvatarConfig;
@@ -23,14 +25,16 @@ interface AgentAvatarCustomizerProps {
   disabled?: boolean;
 }
 
-const EXPRESSION_EMOJI: Record<string, string> = {
-  happy: "\u{1F60A}",
-  sad: "\u{1F622}",
-  angry: "\u{1F620}",
-  bored: "\u{1F611}",
-  hyped: "\u{1F929}",
+/* ── Expression icon + label map ── */
+const EXPR_META: Record<string, { Icon: typeof Smile; label: string }> = {
+  happy: { Icon: Smile, label: "Happy" },
+  sad: { Icon: Frown, label: "Sad" },
+  angry: { Icon: Angry, label: "Angry" },
+  bored: { Icon: Meh, label: "Bored" },
+  hyped: { Icon: Zap, label: "Hyped" },
 };
 
+/* ── Reusable tile picker ── */
 function PartPicker<T extends { id: string; label: string }>({
   label,
   options,
@@ -46,10 +50,10 @@ function PartPicker<T extends { id: string; label: string }>({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
         {label}
       </span>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const selected = value === opt.id;
           return (
@@ -58,10 +62,10 @@ function PartPicker<T extends { id: string; label: string }>({
               type="button"
               disabled={disabled}
               onClick={() => onChange(opt.id)}
-              className={`rounded-xl px-3 py-2 text-xs font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`rounded-xl px-3 py-2 text-[11px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 disabled:opacity-50 disabled:cursor-not-allowed ${
                 selected
-                  ? "bg-signal-500 text-void-900 shadow-[0_0_12px_rgba(0,224,160,0.3)] scale-105"
-                  : "border border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-signal-500/40 hover:bg-signal-500/10 hover:text-signal-400"
+                  ? "bg-signal-500 text-slate-900 shadow-[0_0_10px_rgba(0,224,160,0.2)] dark:text-void-900"
+                  : "border border-black/[0.06] bg-slate-50 text-slate-500 hover:border-signal-500/30 hover:bg-signal-500/8 hover:text-signal-600 dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-400 dark:hover:border-signal-500/30 dark:hover:text-signal-400"
               }`}
             >
               {opt.label}
@@ -73,6 +77,7 @@ function PartPicker<T extends { id: string; label: string }>({
   );
 }
 
+/* ── Color swatch picker ── */
 function ColorSwatchPicker({
   value,
   onChange,
@@ -84,7 +89,7 @@ function ColorSwatchPicker({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
         Accent Color
       </span>
       <div className="flex flex-wrap gap-2.5">
@@ -97,22 +102,16 @@ function ColorSwatchPicker({
               disabled={disabled}
               onClick={() => onChange(opt.id)}
               title={opt.label}
-              className={`group relative h-9 w-9 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 disabled:opacity-50 disabled:cursor-not-allowed ${
-                selected ? "scale-110 ring-2 ring-white/40 ring-offset-2 ring-offset-void-900" : "hover:scale-110"
+              className={`group relative h-8 w-8 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 disabled:opacity-50 disabled:cursor-not-allowed ${
+                selected ? "scale-110 ring-2 ring-slate-400/40 ring-offset-2 ring-offset-white dark:ring-white/30 dark:ring-offset-void-900" : "hover:scale-110"
               }`}
               style={{ backgroundColor: opt.hex }}
             >
               {selected && (
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md">
+                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white drop-shadow-sm">
                   &#10003;
                 </span>
               )}
-              <span
-                className="absolute -inset-1 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-                style={{
-                  boxShadow: `0 0 16px ${opt.hex}60`,
-                }}
-              />
             </button>
           );
         })}
@@ -145,10 +144,10 @@ export function AgentAvatarCustomizer({
   const activeExpression = externalExpression ?? previewExpression;
 
   return (
-    <div className={`flex flex-col gap-6 ${className}`}>
-      {/* Preview stage */}
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-void-800/60 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-        <div className="h-[320px] w-full">
+    <div className={`flex flex-col gap-5 ${className}`}>
+      {/* ── Preview stage ── */}
+      <div className="relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-gradient-to-b from-slate-50 to-slate-100 shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:from-void-800/80 dark:to-void-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+        <div className="h-[300px] w-full">
           <AgentAvatarScene
             config={config}
             expression={activeExpression}
@@ -156,88 +155,58 @@ export function AgentAvatarCustomizer({
           />
         </div>
 
-        {/* Floating randomize button */}
+        {/* Randomize button */}
         <button
           onClick={handleRandomize}
           disabled={disabled}
           type="button"
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-void-900/80 text-signal-400 backdrop-blur-sm transition-all hover:bg-signal-500 hover:text-void-900 hover:shadow-[0_0_20px_rgba(0,224,160,0.4)] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-sm backdrop-blur-sm transition-all hover:bg-signal-500 hover:text-white hover:shadow-[0_0_16px_rgba(0,224,160,0.3)] dark:bg-void-900/80 dark:text-slate-400 dark:hover:bg-signal-500 dark:hover:text-void-900 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
           title="Randomize"
         >
-          <RefreshCw size={16} strokeWidth={2.5} />
+          <RefreshCw size={14} strokeWidth={2.5} />
         </button>
 
         {/* Expression bar */}
-        <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-2 bg-gradient-to-t from-void-900/90 to-transparent px-4 py-4">
-          {SHOWCASE_EXPRESSIONS.map((expr) => (
-            <button
-              key={expr}
-              type="button"
-              onClick={() => setPreviewExpression(expr)}
-              className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all focus:outline-none ${
-                activeExpression === expr
-                  ? "bg-signal-500/20 shadow-[0_0_12px_rgba(0,224,160,0.2)]"
-                  : "hover:bg-white/5"
-              }`}
-            >
-              <span className="text-lg leading-none">{EXPRESSION_EMOJI[expr]}</span>
-              <span
-                className={`text-[8px] font-bold uppercase tracking-[0.14em] ${
-                  activeExpression === expr ? "text-signal-400" : "text-slate-500"
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-white/90 to-transparent px-4 py-3 dark:from-void-900/90">
+          {SHOWCASE_EXPRESSIONS.map((expr) => {
+            const meta = EXPR_META[expr];
+            const isActive = activeExpression === expr;
+            return (
+              <button
+                key={expr}
+                type="button"
+                onClick={() => setPreviewExpression(expr)}
+                title={meta.label}
+                className={`flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
+                  isActive
+                    ? "bg-signal-500/12 dark:bg-signal-500/20"
+                    : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                 }`}
               >
-                {expr}
-              </span>
-            </button>
-          ))}
+                <meta.Icon
+                  className={`h-3.5 w-3.5 ${isActive ? "text-signal-600 dark:text-signal-400" : "text-slate-400 dark:text-slate-500"}`}
+                  strokeWidth={2}
+                />
+                <span className={`text-[7px] font-bold uppercase tracking-[0.12em] ${isActive ? "text-signal-600 dark:text-signal-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  {meta.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Part pickers */}
-      <div className="flex flex-col gap-5 rounded-[1.75rem] border border-white/[0.06] bg-void-800/40 p-6 backdrop-blur-xl">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500">
-            Customize Parts
-          </span>
-        </div>
+      {/* ── Part pickers ── */}
+      <div className="flex flex-col gap-4 rounded-[1.75rem] border border-black/[0.06] bg-white/80 p-5 backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-800/40">
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-500">
+          Customize Parts
+        </span>
 
-        <PartPicker
-          label="Chassis"
-          options={ROBOT_CHASSIS_OPTIONS}
-          value={config.chassis}
-          onChange={(id) => handleField("chassis", id)}
-          disabled={disabled}
-        />
-
-        <PartPicker
-          label="Eyes"
-          options={ROBOT_EYE_OPTIONS}
-          value={config.eyes}
-          onChange={(id) => handleField("eyes", id)}
-          disabled={disabled}
-        />
-
-        <PartPicker
-          label="Antenna"
-          options={ROBOT_ANTENNA_OPTIONS}
-          value={config.antenna}
-          onChange={(id) => handleField("antenna", id)}
-          disabled={disabled}
-        />
-
-        <PartPicker
-          label="Propulsion"
-          options={ROBOT_WING_OPTIONS}
-          value={config.wings}
-          onChange={(id) => handleField("wings", id)}
-          disabled={disabled}
-        />
-
-        <ColorSwatchPicker
-          value={config.accent}
-          onChange={(id) => handleField("accent", id)}
-          disabled={disabled}
-        />
+        <PartPicker label="Chassis" options={ROBOT_CHASSIS_OPTIONS} value={config.chassis} onChange={(id) => handleField("chassis", id)} disabled={disabled} />
+        <PartPicker label="Eyes" options={ROBOT_EYE_OPTIONS} value={config.eyes} onChange={(id) => handleField("eyes", id)} disabled={disabled} />
+        <PartPicker label="Antenna" options={ROBOT_ANTENNA_OPTIONS} value={config.antenna} onChange={(id) => handleField("antenna", id)} disabled={disabled} />
+        <PartPicker label="Propulsion" options={ROBOT_WING_OPTIONS} value={config.wings} onChange={(id) => handleField("wings", id)} disabled={disabled} />
+        <ColorSwatchPicker value={config.accent} onChange={(id) => handleField("accent", id)} disabled={disabled} />
       </div>
     </div>
   );

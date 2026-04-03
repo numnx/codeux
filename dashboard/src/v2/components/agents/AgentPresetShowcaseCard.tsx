@@ -1,11 +1,23 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
-import { ChevronRight } from "lucide-preact";
+import { ChevronRight, AlertTriangle } from "lucide-preact";
 import type { AgentPreset } from "../../types.js";
-import { AgentAvatarScene } from "./AgentAvatarScene.js";
+import { AgentAvatarSvg } from "./AgentAvatarSvg.js";
 import { getAccentHex } from "../../lib/agent-avatar.js";
-import { WaveFluid } from "../ui/WaveFluid.js";
+
+const syncBadge = (preset: AgentPreset) => {
+  switch (preset.syncStatus) {
+    case "out_of_sync":
+      return { cls: "border-amber-400/20 bg-amber-400/8 text-amber-600 dark:text-amber-400", label: "Out of Sync", icon: true };
+    case "missing_source":
+      return { cls: "border-status-red/20 bg-status-red/8 text-status-red", label: "Missing", icon: true };
+    case "synced":
+      return { cls: "border-signal-500/20 bg-signal-500/8 text-signal-600 dark:text-signal-400", label: "Synced", icon: false };
+    default:
+      return { cls: "border-black/[0.06] bg-black/[0.03] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400", label: "Local", icon: false };
+  }
+};
 
 export const AgentPresetShowcaseCard: FunctionComponent<{
   preset: AgentPreset;
@@ -14,13 +26,14 @@ export const AgentPresetShowcaseCard: FunctionComponent<{
 }> = ({ preset, isSelected, onClick }) => {
   const cardRef = useRef<HTMLButtonElement>(null);
   const accentHex = getAccentHex(preset.avatarConfig?.accent);
+  const badge = syncBadge(preset);
 
   useLayoutEffect(() => {
     if (!cardRef.current) return;
     gsap.fromTo(
       cardRef.current,
-      { opacity: 0, y: 20, scale: 0.97 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out" }
+      { opacity: 0, y: 16, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "power3.out" }
     );
   }, []);
 
@@ -29,79 +42,66 @@ export const AgentPresetShowcaseCard: FunctionComponent<{
       ref={cardRef}
       type="button"
       onClick={onClick}
-      className={`group relative flex w-full overflow-hidden rounded-[1.75rem] border text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
+      className={`group relative flex w-full overflow-hidden rounded-[1.5rem] border text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
         isSelected
-          ? "border-signal-500/60 bg-void-900 shadow-[0_8px_40px_rgba(0,224,160,0.12)]"
-          : "border-white/[0.06] bg-void-800/50 hover:border-signal-500/30 hover:bg-void-800/80 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
+          ? "border-signal-500/40 bg-white shadow-[0_8px_32px_rgba(0,224,160,0.10)] dark:border-signal-500/40 dark:bg-void-900 dark:shadow-[0_8px_32px_rgba(0,224,160,0.08)]"
+          : "border-black/[0.06] bg-white/80 hover:border-signal-500/25 hover:bg-white hover:shadow-lg dark:border-white/[0.06] dark:bg-void-800/50 dark:hover:border-signal-500/25 dark:hover:bg-void-800/80"
       }`}
     >
-      {isSelected && <WaveFluid accentHex={accentHex} />}
-
-      {/* Accent glow strip on left */}
+      {/* Left accent strip */}
       <div
-        className={`absolute inset-y-0 left-0 w-1 transition-all duration-300 ${
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"
-        }`}
-        style={{ backgroundColor: accentHex, boxShadow: `0 0 12px ${accentHex}60` }}
+        className={`absolute inset-y-0 left-0 w-[3px] rounded-l-full transition-opacity duration-300 ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`}
+        style={{ backgroundColor: accentHex }}
       />
 
-      <div className="relative z-10 flex w-full items-center gap-4 p-5">
-        {/* Avatar thumbnail */}
+      <div className="relative z-10 flex w-full items-center gap-4 px-5 py-4">
+        {/* SVG Avatar thumbnail — no WebGL */}
         <div
-          className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl transition-shadow duration-300 ${
-            isSelected
-              ? "shadow-[0_0_20px_rgba(0,224,160,0.2)]"
-              : "group-hover:shadow-[0_0_12px_rgba(0,224,160,0.1)]"
+          className={`relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl transition-shadow duration-300 ${
+            isSelected ? "shadow-[0_0_16px_rgba(0,224,160,0.12)]" : ""
           }`}
-          style={{
-            background: `linear-gradient(135deg, ${accentHex}15, ${accentHex}08)`,
-          }}
+          style={{ background: `linear-gradient(135deg, ${accentHex}12, ${accentHex}06)` }}
         >
-          <div className="absolute inset-0">
-            <AgentAvatarScene
-              config={preset.avatarConfig}
-              expression={isSelected ? "happy" : "bored"}
-              className="h-full w-full"
-            />
-          </div>
+          <AgentAvatarSvg
+            config={preset.avatarConfig}
+            expression={isSelected ? "happy" : "bored"}
+            className="h-full w-full"
+          />
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <h3
-            className={`font-display text-base font-bold tracking-tight transition-colors ${
-              isSelected ? "text-white" : "text-slate-300 group-hover:text-white"
+            className={`font-display text-[15px] font-bold tracking-tight transition-colors ${
+              isSelected
+                ? "text-slate-900 dark:text-white"
+                : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white"
             }`}
           >
             {preset.name}
           </h3>
-          {preset.labels.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {preset.labels.slice(0, 3).map((l) => (
-                <span
-                  key={l}
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
-                  style={{
-                    backgroundColor: `${accentHex}15`,
-                    color: accentHex,
-                  }}
-                >
-                  {l}
-                </span>
-              ))}
-              {preset.labels.length > 3 && (
-                <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  +{preset.labels.length - 3}
-                </span>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {preset.labels.slice(0, 2).map((l) => (
+              <span
+                key={l}
+                className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+                style={{ backgroundColor: `${accentHex}10`, color: accentHex }}
+              >
+                {l}
+              </span>
+            ))}
+            {preset.labels.length > 2 && (
+              <span className="text-[9px] font-bold text-slate-400">+{preset.labels.length - 2}</span>
+            )}
+            <span className={`ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] ${badge.cls}`}>
+              {badge.icon && <AlertTriangle className="h-2.5 w-2.5" strokeWidth={2.5} />}
+              {badge.label}
+            </span>
+          </div>
         </div>
 
         <ChevronRight
-          className={`h-4.5 w-4.5 shrink-0 transition-all duration-300 ${
-            isSelected
-              ? "translate-x-1 text-signal-500"
-              : "text-slate-600 group-hover:translate-x-1 group-hover:text-signal-400"
+          className={`h-4 w-4 shrink-0 transition-all duration-300 ${
+            isSelected ? "translate-x-0.5 text-signal-500" : "text-slate-300 group-hover:translate-x-0.5 group-hover:text-signal-400 dark:text-slate-600"
           }`}
           strokeWidth={2.5}
         />
