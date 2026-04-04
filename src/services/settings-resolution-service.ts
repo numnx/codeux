@@ -4,6 +4,7 @@ import type {
   McpToolToggle,
   SkillToggle,
 } from "../contracts/app-types.js";
+import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type {
   EffectiveSettingsResponse,
   ProjectSettings,
@@ -542,6 +543,16 @@ export function resolveSprintProjectSettings(
 ): ProjectSettings {
   const projectSettings = resolveProjectSettings(systemSettings, projectOverride);
   return sanitizeProjectSettings(deepMerge(projectSettings, sprintOverride || {}));
+}
+
+export function resolveEffectiveDashboardSettings(
+  settingsRepository: SettingsRepository,
+  projectId: string,
+  sprintId?: string | null,
+): EffectiveSettingsResponse {
+  return sprintId
+    ? settingsRepository.resolveSprintDashboardSettings(projectId, sprintId)
+    : settingsRepository.resolveProjectDashboardSettings(projectId);
 }
 
 export function resolveDashboardSettings(args: {

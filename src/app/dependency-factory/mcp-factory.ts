@@ -8,6 +8,7 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
+import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -36,17 +37,13 @@ export function createMcpDependencies(
   } = coreDeps;
   const { taskService } = sprintDeps;
   const resolveWorkerExecutionMode = (projectId: string, sprintId?: string | null) => (
-    sprintId
-      ? coreDeps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings.workers.executionMode
-      : coreDeps.settingsRepository.resolveProjectDashboardSettings(projectId).settings.workers.executionMode
+    resolveEffectiveDashboardSettings(coreDeps.settingsRepository, projectId, sprintId).settings.workers.executionMode
   );
 
   const getDashboardSettings = (scope?: DashboardSettingsScope): DashboardSettings => {
     let effective: { settings: DashboardSettings; sources: Record<string, string> };
-    if (scope?.sprintId && scope?.projectId) {
-      effective = coreDeps.settingsRepository.resolveSprintDashboardSettings(scope.projectId, scope.sprintId);
-    } else if (scope?.projectId) {
-      effective = coreDeps.settingsRepository.resolveProjectDashboardSettings(scope.projectId);
+    if (scope?.projectId) {
+      effective = resolveEffectiveDashboardSettings(coreDeps.settingsRepository, scope.projectId, scope.sprintId);
     } else {
       effective = {
         settings: context.runtimeContext.dashboardSettings || coreDeps.settingsRepository.getDefaultDashboardSettings(),
