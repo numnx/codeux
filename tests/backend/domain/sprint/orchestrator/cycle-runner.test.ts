@@ -17,9 +17,21 @@ function buildDeps(): SprintOrchestratorDependencies {
     listSessions: vi.fn().mockResolvedValue({ sessions: [] }),
     projectManagementRepository: {
       updateTask: vi.fn(),
+      getTask: vi.fn().mockReturnValue({ executorType: "codex" }),
+      getTasksByIds: vi.fn().mockReturnValue([{ id: "t1", executorType: "codex" }, { id: "t2", executorType: "codex" }]),
+    } as any,
+    taskService: {
+      resolveTaskProvider: vi.fn().mockReturnValue("codex"),
     } as any,
     executionRepository: {
-      getLatestTaskRun: vi.fn().mockReturnValue({ id: "task-run-1" }),
+      getLatestTaskRun: vi.fn().mockReturnValue({ id: "task-run-1", dispatchId: "dispatch-1" }),
+      getTaskDispatch: vi.fn().mockReturnValue({
+        id: "dispatch-1",
+        status: "blocked",
+        startedAt: "2026-03-20T10:00:00.000Z",
+      }),
+      updateTaskRun: vi.fn(),
+      updateTaskDispatch: vi.fn(),
       appendTaskRunEvent: vi.fn(),
     } as any,
     projectAttentionService: {
@@ -653,6 +665,16 @@ describe("CycleRunner attention sync", () => {
     const firstResult = await runner.run(baseArgs);
     expect(firstResult.subtasks[0]).toMatchObject({ status: "RUNNING" });
     expect(deps.sendSessionMessage).toHaveBeenCalledTimes(1);
+    expect(deps.executionRepository.updateTaskRun).toHaveBeenCalledWith("task-run-1", {
+      state: "RUNNING",
+      finishedAt: null,
+      durationMs: null,
+    });
+    expect(deps.executionRepository.updateTaskDispatch).toHaveBeenCalledWith("dispatch-1", expect.objectContaining({
+      status: "running",
+      finishedAt: null,
+      errorMessage: null,
+    }));
 
     vi.mocked(deps.projectAttentionService.openItem).mockClear();
 
@@ -1263,9 +1285,18 @@ describe("CycleRunner attention sync", () => {
   it("runs QA review only for tasks that newly transition to COMPLETED", async () => {
     const deps = buildDeps();
     deps.qualityAssuranceService = {
+      getTaskMergeGateStatus: vi.fn().mockReturnValue({
+        mergeAllowed: false,
+        reason: "pending_review",
+        summary: "QA review is required before merge.",
+        latestRun: null,
+        runsUsed: 0,
+        maxRuns: 1,
+      }),
       reviewCompletedTask: vi.fn().mockResolvedValue({
         reviewed: true,
         reopenedTask: true,
+        mergeBlocked: true,
         reportText: "QA reopened task T1",
       }),
     } as any;
@@ -1342,5 +1373,62 @@ describe("CycleRunner attention sync", () => {
         taskKey: "T1",
       }),
     );
+  });
+
+  it("does not rerun task QA after a passing review even if the task becomes code-complete again", async () => {
+    const deps = buildDeps();
+    deps.qualityAssuranceService = {
+      getTaskMergeGateStatus: vi.fn().mockReturnValue({
+        mergeAllowed: true,
+        reason: "passed",
+        summary: "QA review passed.",
+        latestRun: { id: "qa-run-1" },
+        runsUsed: 1,
+        maxRuns: 3,
+      }),
+      reviewCompletedTask: vi.fn(),
+    } as any;
+    deps.getDashboardSettings = vi.fn().mockReturnValue({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      agents: {
+        ...DEFAULT_DASHBOARD_SETTINGS.agents,
+        qualityAssurance: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+          enabled: true,
+        },
+      },
+    });
+
+    const runner = new CycleRunner(deps);
+    await (runner as any).reviewCompletedTasks(
+      [
+        {
+          id: "T1",
+          record_id: "task-1",
+          title: "Freshly completed task",
+          prompt: "finish implementation",
+          depends_on: [],
+          is_independent: true,
+          status: "COMPLETED",
+          provider: "codex",
+        },
+      ],
+      new Map([["T1", "RUNNING"]]),
+      {
+        executionContext: {
+          project: { id: "project-1", name: "Project 1" } as any,
+          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
+          sprintNumber: 1,
+          repoPath: "/repo/project-1",
+          featureBranch: "feature/sprint-1",
+          defaultBranch: "main",
+        },
+        repoPath: "/repo/project-1",
+        sprintRunId: "run-1",
+      } as any,
+      deps.getDashboardSettings(),
+    );
+
+    expect(deps.qualityAssuranceService.reviewCompletedTask).not.toHaveBeenCalled();
   });
 });

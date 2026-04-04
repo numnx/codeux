@@ -12,6 +12,7 @@ import type {
   GitPullRequestStatus,
   GitTrackingStatus,
   SprintLoopStepSettings,
+  ProviderId,
   Subtask,
 } from "../../../contracts/app-types.js";
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
@@ -24,6 +25,8 @@ import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MemoryCategory } from "../../../contracts/memory-types.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
+import { isTaskCodeComplete } from "../task-merge-state.js";
+import { PROVIDER_IDS } from "../../../repositories/settings-defaults.js";
 
 
 export interface CycleRunnerArgs {
@@ -49,6 +52,11 @@ interface TaskStateSnapshot {
   status: Subtask["status"];
   isMerged: boolean;
   mergeIndicator: Subtask["merge_indicator"];
+}
+
+interface TaskActionRequiredSnapshot {
+  status: Subtask["status"];
+  sessionState: string | undefined;
 }
 
 export class CycleRunner {
@@ -135,12 +143,21 @@ export class CycleRunner {
 
     let reportText = "";
     if (args.loopSteps.startReadyTasks && subtasks.length > 0) {
-      const startResult = await this.runStartReadyTasks(subtasks, args);
+      const startResult = await this.runStartReadyTasks(subtasks, args, dashboardSettings);
       subtasks = startResult.subtasks;
       reportText += startResult.reportText;
     }
 
     if (subtasks.length > 0) {
+      const preAutomationTasks = new Map<string, TaskActionRequiredSnapshot>(
+        subtasks.map((task) => [
+          task.id,
+          {
+            status: task.status,
+            sessionState: task.session_state,
+          },
+        ]),
+      );
       const interventionResult = await applyActionRequiredAutomation(subtasks, {
         projectId: args.executionContext.project.id,
         sprintGoal: args.executionContext.sprint.goal || "",
@@ -157,6 +174,7 @@ export class CycleRunner {
         },
       });
       subtasks = interventionResult.subtasks;
+      this.syncAutoInterventionExecutionState(subtasks, preAutomationTasks, args.sprintRunId);
       reportText += interventionResult.reportText;
     }
 
@@ -175,6 +193,17 @@ export class CycleRunner {
         : null;
 
       const ciAutofixResult = await this.featurePrGate.evaluateCiGate(subtasks, {
+        evaluateTaskQaGate: (() => {
+          const qaService = this.deps.qualityAssuranceService;
+          if (!qaService) {
+            return undefined;
+          }
+          return (task: Subtask) => qaService.getTaskMergeGateStatus({
+            projectId: args.executionContext.project.id,
+            sprintId: args.executionContext.sprint.id,
+            task,
+          });
+        })(),
         automationLevel: args.automationLevel,
         repoPath: args.repoPath,
         featureBranch: args.defaultFeatureBranch,
@@ -251,7 +280,7 @@ export class CycleRunner {
       }
 
       if (ciGateRefreshNeeded && args.loopSteps.startReadyTasks) {
-        const startResult = await this.runStartReadyTasks(subtasks, args);
+        const startResult = await this.runStartReadyTasks(subtasks, args, dashboardSettings);
         subtasks = startResult.subtasks;
         reportText += startResult.reportText;
       }
@@ -295,12 +324,47 @@ export class CycleRunner {
   private runStartReadyTasks(
     subtasks: Subtask[],
     args: CycleRunnerArgs,
+    dashboardSettings: ReturnType<SprintOrchestratorDependencies["getDashboardSettings"]>,
   ): Promise<{ subtasks: Subtask[]; reportText: string }> {
+    const taskIds = subtasks.map(t => t.record_id).filter((id): id is string => !!id);
+    const taskRecords = this.deps.projectManagementRepository.getTasksByIds(taskIds);
+    const taskRecordMap = new Map(taskRecords.map(t => [t.id, t]));
+
     return runStartReadyTasksStep(subtasks, {
       action: args.action,
       maxFailures: this.deps.settings.maxFailures || 5,
       getConsecutiveFailures: this.deps.getConsecutiveFailures,
       setConsecutiveFailures: this.deps.setConsecutiveFailures,
+      getProviderForTask: (task) => {
+        const taskRecord = task.record_id ? taskRecordMap.get(task.record_id) : undefined;
+        return this.deps.taskService?.resolveTaskProvider(
+          task,
+          { projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id },
+          taskRecord?.executorType
+        ) || null;
+      },
+      getProviderSettings: (provider) => {
+        if (typeof provider === "string" && (PROVIDER_IDS as readonly string[]).includes(provider)) {
+          return dashboardSettings.aiProvider.providers[provider as ProviderId] || {};
+        }
+        return {};
+      },
+      getRunningCounts: () => {
+        const counts: Record<string, number> = {};
+        for (const t of subtasks) {
+          if (t.status === "RUNNING") {
+            const p = t.provider || (t.record_id ? this.deps.taskService?.resolveTaskProvider(
+              t,
+              { projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id },
+              taskRecordMap.get(t.record_id)?.executorType
+            ) : null);
+            if (p) {
+              counts[p] = (counts[p] || 0) + 1;
+            }
+          }
+        }
+        return counts;
+      },
       startTask: (task) => {
         if (!args.sprintRunId) {
           throw new Error("Missing sprint run id for orchestrate action.");
@@ -320,6 +384,58 @@ export class CycleRunner {
       logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
       shouldSkipTask: (task) => task.status === "QUOTA",
     });
+  }
+
+  private syncAutoInterventionExecutionState(
+    subtasks: Subtask[],
+    previousTasks: Map<string, TaskActionRequiredSnapshot>,
+    sprintRunId?: string,
+  ): void {
+    if (!sprintRunId) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    for (const task of subtasks) {
+      const previous = previousTasks.get(task.id);
+      if (!previous || !task.record_id) {
+        continue;
+      }
+      if (previous.status !== "BLOCKED" || task.status !== "RUNNING") {
+        continue;
+      }
+      if (!this.deps.isActionRequiredState(previous.sessionState)) {
+        continue;
+      }
+
+      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId);
+      if (!taskRun) {
+        continue;
+      }
+
+      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+        state: "RUNNING",
+        finishedAt: null,
+        durationMs: null,
+      });
+
+      if (!taskRun.dispatchId) {
+        continue;
+      }
+
+      const dispatch = this.deps.executionRepository.getTaskDispatch(taskRun.dispatchId);
+      if (!dispatch) {
+        continue;
+      }
+
+      this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+        status: "running",
+        startedAt: dispatch.startedAt || taskRun.startedAt || now,
+        finishedAt: null,
+        lastHeartbeatAt: now,
+        errorMessage: null,
+      });
+    }
   }
 
   private async captureTaskCompletionMemories(
@@ -423,7 +539,20 @@ export class CycleRunner {
 
     for (const task of subtasks) {
       const prev = preDerivationStates.get(task.id);
-      if (task.status !== "COMPLETED" || prev === "COMPLETED") {
+      const qaGate = this.deps.qualityAssuranceService.getTaskMergeGateStatus({
+        projectId: args.executionContext.project.id,
+        sprintId: args.executionContext.sprint.id,
+        task,
+      });
+      const newlyCodeComplete = isTaskCodeComplete(task) && !isTaskCodeComplete({ status: prev });
+      const shouldRunQaReview = newlyCodeComplete
+        && (
+          qaGate.reason === "pending_review"
+          || qaGate.reason === "changes_requested"
+          || qaGate.reason === "review_failed"
+        );
+
+      if (!shouldRunQaReview || !isTaskCodeComplete(task)) {
         continue;
       }
 
@@ -438,6 +567,13 @@ export class CycleRunner {
 
       if (outcome.reopenedTask) {
         this.deps.logger.info("QA reopened completed task for follow-up fixes", {
+          projectId: args.executionContext.project.id,
+          sprintId: args.executionContext.sprint.id,
+          taskId: task.record_id || task.id,
+          taskKey: task.id,
+        });
+      } else if (outcome.mergeBlocked) {
+        this.deps.logger.info("QA blocked merge until review clears", {
           projectId: args.executionContext.project.id,
           sprintId: args.executionContext.sprint.id,
           taskId: task.record_id || task.id,

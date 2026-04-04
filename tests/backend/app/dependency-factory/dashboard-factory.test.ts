@@ -81,6 +81,13 @@ describe("Dashboard Factory", () => {
       settingsRepository: {
         getDefaultDashboardSettings: vi.fn().mockReturnValue({}),
         resolveProjectDashboardSettings: vi.fn(),
+        resolveSprintDashboardSettings: vi.fn().mockReturnValue({
+          settings: {
+            git: {
+              sprintBranchScheme: "feature/sprint{sprint}",
+            },
+          },
+        }),
       },
       projectAttentionService: {
         resolveItemsForDispatch: vi.fn(),
@@ -154,6 +161,7 @@ describe("Dashboard Factory", () => {
 
     const taskContext = taskRerunArgs.resolveTaskContext("task1");
     expect(mockCoreDeps.projectManagementRepository.getTask).toHaveBeenCalledWith("task1");
+    expect(mockCoreDeps.projectRuntimeRepository.getProjectStatus).toHaveBeenCalledWith("project-1", "sprint-1");
     expect(taskContext).toEqual({
       task: expect.objectContaining({ record_id: "task1", id: "T1" }),
       projectId: "project-1",
@@ -233,6 +241,35 @@ describe("Dashboard Factory", () => {
     expect(ctx!.featureBranch).toBe("feature/sprint3");
     expect(ctx!.repoPath).toBe("/repo");
     expect(ctx!.sprintNumber).toBe(3);
+  });
+
+  it("resolveTaskContext derives the sprint branch instead of reusing stale project runtime data", () => {
+    mockCoreDeps.projectRuntimeRepository.getProjectStatus.mockReturnValue({
+      subtasks: [],
+      feature_branch: "feature/sprint-26",
+      repo_path: "/repo",
+      sprint_number: 26,
+    });
+    mockCoreDeps.projectManagementRepository.getSprint.mockReturnValue({
+      id: "sprint-1",
+      projectId: "project-1",
+      number: 89,
+      featureBranch: null,
+    });
+
+    createDashboardDependencies(
+      mockContext as unknown as ServerContext,
+      mockCoreDeps as unknown as CoreDependencies,
+      mockSprintDeps as unknown as SprintDependencies
+    );
+
+    const taskRerunArgs = vi.mocked(TaskRerunService).mock.calls[0][0];
+    const ctx = taskRerunArgs.resolveTaskContext("task1");
+
+    expect(mockCoreDeps.projectRuntimeRepository.getProjectStatus).toHaveBeenCalledWith("project-1", "sprint-1");
+    expect(ctx).not.toBeNull();
+    expect(ctx!.featureBranch).toBe("feature/sprint89");
+    expect(ctx!.sprintNumber).toBe(89);
   });
 
   it("resolveTaskContext returns null when feature branch and repo path are both unavailable", () => {

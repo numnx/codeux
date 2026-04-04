@@ -1,5 +1,5 @@
 import type { FunctionComponent, RefObject } from "preact";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, ArrowRight, Cpu, Zap, Compass } from "lucide-preact";
 import { Link } from "@tanstack/react-router";
@@ -10,6 +10,7 @@ import { useExecutions } from "../../hooks/useExecutions.js";
 import { useSprints } from "../../hooks/useSprints.js";
 import { DockerStatusMenu } from "./DockerStatusMenu.js";
 import { BrowserSessionsMenu } from "./browser/BrowserSessionsMenu.js";
+import { NotificationPanel } from "./NotificationPanel.js";
 import { dashboardSettingsToProjectSettings } from "../lib/settings-view-models.js";
 import {
     getProjectWorkerOptions,
@@ -23,12 +24,13 @@ import { useProjectEffectiveSettings } from "../hooks/use-project-effective-sett
 export function useDropdownKeyboard(
     isOpen: boolean,
     setIsOpen: (open: boolean) => void,
-    containerRef: RefObject<HTMLElement>
+    containerRef: RefObject<HTMLElement>,
+    onFilterChange?: (val: string) => void
 ) {
     const toggleRef = useRef<HTMLButtonElement>(null);
 
     const onToggleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
             e.preventDefault();
             setIsOpen(!isOpen);
         }
@@ -49,7 +51,7 @@ export function useDropdownKeyboard(
 
             const focusableElements = Array.from(
                 containerRef.current.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), a[href]'
+                    'button:not([disabled]), a[href], input:not([disabled])'
                 )
             ).filter(el => el !== toggleRef.current);
 
@@ -75,7 +77,7 @@ export function useDropdownKeyboard(
                 if (!containerRef.current) return;
                 const focusableElements = Array.from(
                     containerRef.current.querySelectorAll<HTMLElement>(
-                        'button:not([disabled]), a[href]'
+                        'button:not([disabled]), a[href], input:not([disabled])'
                     )
                 ).filter(el => el !== toggleRef.current);
 
@@ -83,10 +85,13 @@ export function useDropdownKeyboard(
                     focusableElements[0]?.focus();
                 }
             }, 0);
-        } else if (!isOpen && toggleRef.current && document.activeElement && containerRef.current?.contains(document.activeElement)) {
-            toggleRef.current.focus();
+        } else if (!isOpen) {
+            onFilterChange?.("");
+            if (toggleRef.current && document.activeElement && containerRef.current?.contains(document.activeElement)) {
+                toggleRef.current.focus();
+            }
         }
-    }, [isOpen, containerRef]);
+    }, [isOpen, containerRef, onFilterChange]);
 
     return { toggleRef, onToggleKeyDown, onContainerKeyDown };
 }
@@ -99,6 +104,21 @@ interface TopNavProps {
 }
 
 export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) => {
+    const formatSprintDisplay = (sprint: any) => {
+        if (!sprint) return "All Sprints";
+        let num = sprint.sprintNumber;
+        if (!num && sprint.name) {
+            const match = sprint.name.match(/^SPR-(\d+)/i);
+            if (match) {
+                num = match[1];
+            }
+        }
+        if (num) {
+            return `SPR-${num} : ${sprint.name}`;
+        }
+        return sprint.name;
+    };
+
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const workerDropdownRef = useRef<HTMLDivElement>(null);
@@ -106,8 +126,73 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
     const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false);
     const [showAddProject, setShowAddProject] = useState(false);
     const [workerSwitchBusy, setWorkerSwitchBusy] = useState(false);
+    const [projectSwitchBusy, setProjectSwitchBusy] = useState(false);
+    const [sprintSwitchBusy, setSprintSwitchBusy] = useState(false);
+    const [projectFilter, setProjectFilter] = useState('');
+
+    // Notification Panel State
+    const [notificationInteractionState, setNotificationInteractionState] = useState<'closed' | 'hover' | 'open'>('closed');
+    const isNotificationMenuVisible = notificationInteractionState !== 'closed';
+    const notificationHoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const notificationContainerRef = useRef<HTMLDivElement>(null);
+
+    const handleNotificationMouseEnter = () => {
+        if (notificationHoverTimeout.current) clearTimeout(notificationHoverTimeout.current);
+        if (notificationInteractionState === 'closed') {
+            setNotificationInteractionState('hover');
+        }
+    };
+
+    const handleNotificationMouseLeave = () => {
+        if (notificationInteractionState === 'hover') {
+            notificationHoverTimeout.current = setTimeout(() => {
+                setNotificationInteractionState((prev) => (prev === 'hover' ? 'closed' : prev));
+            }, 150);
+        }
+    };
+
+    const handleNotificationFocus = () => {
+        if (notificationHoverTimeout.current) clearTimeout(notificationHoverTimeout.current);
+        setNotificationInteractionState('open');
+    };
+
+    const handleNotificationBlur = (e: FocusEvent) => {
+        if (!notificationContainerRef.current?.contains(e.relatedTarget as Node)) {
+            setNotificationInteractionState('closed');
+        }
+    };
+
+    const toggleNotificationMenu = () => {
+        if (notificationHoverTimeout.current) clearTimeout(notificationHoverTimeout.current);
+        setNotificationInteractionState((prev) => (prev === 'closed' || prev === 'hover' ? 'open' : 'closed'));
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isNotificationMenuVisible) {
+                setNotificationInteractionState('closed');
+                const triggerBtn = notificationContainerRef.current?.querySelector('button');
+                triggerBtn?.focus();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isNotificationMenuVisible]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (isNotificationMenuVisible && notificationContainerRef.current && !notificationContainerRef.current.contains(e.target as Node)) {
+                setNotificationInteractionState('closed');
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isNotificationMenuVisible]);
+    const [sprintFilter, setSprintFilter] = useState('');
+    const [workerFilter, setWorkerFilter] = useState('');
     const [sprintDropdownOpen, setSprintDropdownOpen] = useState(false);
     const sprintDropdownRef = useRef<HTMLDivElement>(null);
+    const [sprintDropdownWidth, setSprintDropdownWidth] = useState<number>(0);
 
     const {
         projects,
@@ -133,9 +218,19 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
 
     const { options: workerOptions, selectedOption: selectedWorker } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
 
-    const projectKb = useDropdownKeyboard(dropdownOpen, setDropdownOpen, dropdownRef);
-    const sprintKb = useDropdownKeyboard(sprintDropdownOpen, setSprintDropdownOpen, sprintDropdownRef);
-    const workerKb = useDropdownKeyboard(workerDropdownOpen, setWorkerDropdownOpen, workerDropdownRef);
+    const projectKb = useDropdownKeyboard(dropdownOpen, setDropdownOpen, dropdownRef, setProjectFilter);
+    const sprintKb = useDropdownKeyboard(sprintDropdownOpen, setSprintDropdownOpen, sprintDropdownRef, setSprintFilter);
+    const workerKb = useDropdownKeyboard(workerDropdownOpen, setWorkerDropdownOpen, workerDropdownRef, setWorkerFilter);
+
+    const filteredProjects = useMemo(() => projects.filter(p => p.name.toLowerCase().includes(projectFilter.toLowerCase())), [projects, projectFilter]);
+    const filteredSprints = useMemo(() => sprints.filter(s => s.name.toLowerCase().includes(sprintFilter.toLowerCase())), [sprints, sprintFilter]);
+    const filteredWorkers = useMemo(() => workerOptions.filter(w => w.label.toLowerCase().includes(workerFilter.toLowerCase()) || (w.subLabel && w.subLabel.toLowerCase().includes(workerFilter.toLowerCase()))), [workerOptions, workerFilter]);
+
+    useLayoutEffect(() => {
+        if (sprintDropdownOpen && sprintDropdownRef.current) {
+            setSprintDropdownWidth(sprintDropdownRef.current.offsetWidth);
+        }
+    }, [sprintDropdownOpen]);
 
     useLayoutEffect(() => {
         if (navRef.current) {
@@ -265,7 +360,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     >
                         <StatusDot status={selectedProject?.status || "idle"} />
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
-                            {selectedProject?.name || (loading ? "Loading..." : "Select Project")}
+                            {projectSwitchBusy ? "Switching..." : (selectedProject?.name || (loading ? "Loading..." : "Select Project"))}
                         </span>
                         <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -276,14 +371,29 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                             <div className="px-3 pt-3 pb-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Projects</span>
                             </div>
-                            {projects.map((source) => (
+                            <div className="px-2 pb-2">
+                                <input
+                                    type="text"
+                                    placeholder="Filter projects..."
+                                    value={projectFilter}
+                                    onInput={(e) => setProjectFilter(e.currentTarget.value)}
+                                    className="w-full px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-signal-500/30"
+                                />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto dropdown-scrollbar">
+                            {filteredProjects.map((source) => (
                                 <button
                                     key={source.id}
                                     role="option"
                                     aria-selected={selectedProject?.id === source.id}
-                                    onClick={() => {
-                                        void selectProject(source.id);
-                                        setDropdownOpen(false);
+                                    onClick={async () => {
+                                        setProjectSwitchBusy(true);
+                                        try {
+                                            await selectProject(source.id);
+                                            setDropdownOpen(false);
+                                        } finally {
+                                            setProjectSwitchBusy(false);
+                                        }
                                     }}
                                     className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedProject?.id === source.id ? 'bg-signal-500/8' : ''}`}
                                 >
@@ -296,6 +406,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                     )}
                                 </button>
                             ))}
+                            </div>
                             {!loading && projects.length === 0 && (
                                 <div className="px-3 py-4 text-xs text-slate-400 font-medium">
                                     No projects connected yet.
@@ -338,8 +449,11 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                     : 'opacity-50 cursor-not-allowed'
                             }`}
                         >
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
-                                {sprintsLoading ? "Loading..." : (selectedSprint ? selectedSprint.name : "All Sprints")}
+                            {selectedSprint && (
+                                <StatusDot status={selectedSprint.status as any} />
+                            )}
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono truncate max-w-[180px]">
+                                {sprintSwitchBusy ? "Switching..." : (sprintsLoading ? "Loading..." : formatSprintDisplay(selectedSprint))}
                             </span>
                             {sprints.length > 0 && (
                                 <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${sprintDropdownOpen ? 'rotate-180' : ''}`} />
@@ -348,16 +462,31 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
 
                         {/* Sprint Dropdown */}
                         {sprintDropdownOpen && sprints.length > 0 && (
-                            <div role="listbox" aria-label="Sprint list" className="absolute right-0 top-full mt-2 w-56 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                            <div role="listbox" aria-label="Sprint list" className="absolute right-0 top-full mt-2 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50" style={{ minWidth: Math.max(sprintDropdownWidth, 224) + 'px' }}>
                                 <div className="px-3 pt-3 pb-1.5">
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Sprint Scope</span>
                                 </div>
+                                <div className="px-2 pb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Filter sprints..."
+                                        value={sprintFilter}
+                                        onInput={(e) => setSprintFilter(e.currentTarget.value)}
+                                        className="w-full px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-signal-500/30"
+                                    />
+                                </div>
+                                <div className="max-h-64 overflow-y-auto dropdown-scrollbar">
                                 <button
                                     role="option"
                                     aria-selected={selectedSprintId === null}
-                                    onClick={() => {
-                                        void selectSprint(null);
-                                        setSprintDropdownOpen(false);
+                                    onClick={async () => {
+                                        setSprintSwitchBusy(true);
+                                        try {
+                                            await selectSprint(null);
+                                            setSprintDropdownOpen(false);
+                                        } finally {
+                                            setSprintSwitchBusy(false);
+                                        }
                                     }}
                                     className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedSprintId === null ? 'bg-signal-500/8' : ''}`}
                                 >
@@ -368,26 +497,32 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                         <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                     )}
                                 </button>
-                                {sprints.map((sprint) => (
+                                {filteredSprints.map((sprint) => (
                                     <button
                                         key={sprint.id}
                                         role="option"
                                         aria-selected={selectedSprintId === sprint.id}
-                                        onClick={() => {
-                                            void selectSprint(sprint.id);
-                                            setSprintDropdownOpen(false);
+                                        onClick={async () => {
+                                            setSprintSwitchBusy(true);
+                                            try {
+                                                await selectSprint(sprint.id);
+                                                setSprintDropdownOpen(false);
+                                            } finally {
+                                                setSprintSwitchBusy(false);
+                                            }
                                         }}
                                         className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedSprintId === sprint.id ? 'bg-signal-500/8' : ''}`}
                                     >
                                         <StatusDot status={sprint.status as any} />
                                         <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSprintId === sprint.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
-                                            {sprint.name}
+                                            {formatSprintDisplay(sprint)}
                                         </span>
                                         {selectedSprintId === sprint.id && (
                                             <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                         )}
                                     </button>
                                 ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -408,7 +543,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                 <Cpu aria-hidden="true" className="w-3 h-3" strokeWidth={2.5} />
                             </div>
                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
-                                {selectedWorker?.label || (executionLoading ? "Loading..." : "Select Worker")}
+                                {workerSwitchBusy ? "Switching..." : (selectedWorker?.label || (executionLoading ? "Loading..." : "Select Worker"))}
                             </span>
                             <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${workerDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -419,8 +554,17 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                                 <div className="px-3 pt-3 pb-1.5">
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Available Workers</span>
                                 </div>
-                                <div className="max-h-64 overflow-y-auto">
-                                    {workerOptions.map((option) => (
+                                <div className="px-2 pb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Filter workers..."
+                                        value={workerFilter}
+                                        onInput={(e) => setWorkerFilter(e.currentTarget.value)}
+                                        className="w-full px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-signal-500/30"
+                                    />
+                                </div>
+                                <div className="max-h-64 overflow-y-auto dropdown-scrollbar">
+                                    {filteredWorkers.map((option) => (
                                         <button
                                             key={option.id}
                                             role="option"
@@ -488,13 +632,27 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                 <BrowserSessionsMenu enabled={browserVisible} />
 
                 {/* Notifications */}
-                <button
-                    aria-label="Notifications"
-                    className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
+                <div
+                    className="relative hidden md:inline-block"
+                    ref={notificationContainerRef}
+                    onMouseEnter={handleNotificationMouseEnter}
+                    onMouseLeave={handleNotificationMouseLeave}
                 >
-                    <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
-                    <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
-                </button>
+                    <button
+                        type="button"
+                        onClick={toggleNotificationMenu}
+                        onFocus={handleNotificationFocus}
+                        onBlur={handleNotificationBlur}
+                        aria-haspopup="menu"
+                        aria-expanded={isNotificationMenuVisible}
+                        aria-label="Notifications"
+                        className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
+                    >
+                        <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
+                        <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
+                    </button>
+                    {isNotificationMenuVisible && <NotificationPanel />}
+                </div>
 
                 {/* Theme Toggle */}
                 <button

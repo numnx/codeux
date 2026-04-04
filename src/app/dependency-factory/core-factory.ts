@@ -41,6 +41,7 @@ import { getRepoDebugLogPath, SPRINT_OS_SERVICE_NAME } from "../../shared/config
 import { ProviderRunner } from "../../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../../infrastructure/providers/cli/docker-runner.js";
 import type { IProviderRunner } from "../../infrastructure/providers/cli/provider-runner.js";
+import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
 
 export interface CoreDependencies {
   providerRunner: IProviderRunner;
@@ -90,9 +91,7 @@ export function createCoreDependencies(
   const dashboardSettings = settingsRepository.getDefaultDashboardSettings();
   context.runtimeContext.dashboardSettings = dashboardSettings;
   const resolveWorkerExecutionMode = (projectId: string, sprintId?: string | null) => (
-    sprintId
-      ? settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings.workers.executionMode
-      : settingsRepository.resolveProjectDashboardSettings(projectId).settings.workers.executionMode
+    resolveEffectiveDashboardSettings(settingsRepository, projectId, sprintId).settings.workers.executionMode
   );
 
   const logFilePath = dashboardSettings.enableDebugLogFile

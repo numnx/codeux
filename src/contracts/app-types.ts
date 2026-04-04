@@ -47,7 +47,7 @@ export interface JulesActivity {
 }
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA";
-export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY";
+export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY" | "QA_PENDING";
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code";
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -320,6 +320,35 @@ export interface ExecutionUsageTotals {
   unsupportedInvocationCount: number;
 }
 
+export interface ExecutionGitMetrics {
+  insertions: number;
+  deletions: number;
+  filesChanged: number;
+  prCount: number;
+  mergedCount: number;
+}
+
+export interface ExecutionGitStatsEntitySummary {
+  id: string;
+  label: string;
+  secondaryLabel: string | null;
+  metrics: ExecutionGitMetrics;
+}
+
+export interface ExecutionGitStatsBucketSummary {
+  bucketStart: string;
+  bucketEnd: string;
+  label: string;
+  metrics: ExecutionGitMetrics;
+}
+
+export interface ExecutionGitStatsSummary {
+  totals: ExecutionGitMetrics;
+  buckets: ExecutionGitStatsBucketSummary[];
+  tasks: ExecutionGitStatsEntitySummary[];
+  sprints: ExecutionGitStatsEntitySummary[];
+}
+
 export interface ExecutionUsageBucketSummary {
   bucketStart: string;
   bucketEnd: string;
@@ -374,6 +403,7 @@ export interface ProjectExecutionStatsSnapshot {
   range: ProjectStatsRangeSummary;
   generatedAt: string;
   usage: ExecutionUsageTotals;
+  git: ExecutionGitStatsSummary;
   activeSprint: {
     sprintId: string;
     sprintName: string;
@@ -505,6 +535,7 @@ export interface ProviderSettings {
   weight: number;
   thinkingMode: ThinkingMode;
   apiKey: string;
+  maxConcurrentTasks: number;
 }
 
 export interface InvocationProviderOverrideSettings {

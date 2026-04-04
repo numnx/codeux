@@ -496,6 +496,39 @@ export class ProjectManagementRepository {
 
   updateTask(taskId: string, input: UpdateTaskInput): TaskRecord {
     const current = this.requireTask(taskId);
+    const nextTitle = input.title?.trim() || current.title;
+    const nextPromptMarkdown = input.promptMarkdown === undefined ? current.promptMarkdown : input.promptMarkdown;
+    const nextDescription = input.description === undefined ? current.description : input.description;
+    const nextStatus = input.status || current.status;
+    const nextPriority = input.priority || current.priority;
+    const nextExecutorType = input.executorType || current.executorType;
+    const nextSortOrder = input.sortOrder === undefined ? current.sortOrder : input.sortOrder;
+    const nextIsIndependent = input.isIndependent === undefined ? current.isIndependent : input.isIndependent;
+    const nextIsMerged = input.isMerged === undefined ? current.isMerged : input.isMerged;
+    const nextMergeIndicator = input.mergeIndicator === undefined ? current.mergeIndicator : input.mergeIndicator;
+    const nextSourceType = input.sourceType === undefined ? current.sourceType : input.sourceType;
+    const nextSourcePath = input.sourcePath === undefined ? current.sourcePath : input.sourcePath;
+    const nextDependsOnTaskIds = input.dependsOnTaskIds
+      ? this.normalizeDependencyIds(input.dependsOnTaskIds)
+      : current.dependsOnTaskIds;
+    const dependenciesChanged = input.dependsOnTaskIds !== undefined
+      && !sameStringArray(nextDependsOnTaskIds, current.dependsOnTaskIds);
+    const taskChanged = nextTitle !== current.title
+      || nextPromptMarkdown !== current.promptMarkdown
+      || nextDescription !== current.description
+      || nextStatus !== current.status
+      || nextPriority !== current.priority
+      || nextExecutorType !== current.executorType
+      || nextSortOrder !== current.sortOrder
+      || nextIsIndependent !== current.isIndependent
+      || nextIsMerged !== current.isMerged
+      || nextMergeIndicator !== current.mergeIndicator
+      || nextSourceType !== current.sourceType
+      || nextSourcePath !== current.sourcePath;
+    if (!taskChanged && !dependenciesChanged) {
+      return current;
+    }
+
     const now = new Date().toISOString();
     const updateTask = this.db.prepare(`
       UPDATE tasks
@@ -511,25 +544,25 @@ export class ProjectManagementRepository {
 
     this.runInTransaction(() => {
       updateTask.run(
-        input.title?.trim() || current.title,
-        input.promptMarkdown === undefined ? current.promptMarkdown : input.promptMarkdown,
-        input.description === undefined ? current.description : input.description,
-        input.status || current.status,
-        input.priority || current.priority,
-        input.executorType || current.executorType,
-        input.sortOrder === undefined ? current.sortOrder : input.sortOrder,
-        input.isIndependent === undefined ? Number(current.isIndependent) : Number(input.isIndependent),
-        input.isMerged === undefined ? Number(current.isMerged) : Number(input.isMerged),
-        input.mergeIndicator === undefined ? current.mergeIndicator : input.mergeIndicator,
-        input.sourceType === undefined ? current.sourceType : input.sourceType,
-        input.sourcePath === undefined ? current.sourcePath : input.sourcePath,
+        nextTitle,
+        nextPromptMarkdown,
+        nextDescription,
+        nextStatus,
+        nextPriority,
+        nextExecutorType,
+        nextSortOrder,
+        Number(nextIsIndependent),
+        Number(nextIsMerged),
+        nextMergeIndicator,
+        nextSourceType,
+        nextSourcePath,
         now,
         taskId
       );
 
       if (input.dependsOnTaskIds) {
         deleteDependencies.run(taskId);
-        for (const dependencyId of this.normalizeDependencyIds(input.dependsOnTaskIds)) {
+        for (const dependencyId of nextDependsOnTaskIds) {
           insertDependency.run(taskId, dependencyId);
         }
       }
@@ -689,6 +722,19 @@ export class ProjectManagementRepository {
     } catch {
       return null;
     }
+  }
+
+  getTasksByIds(taskIds: string[]): TaskRecord[] {
+    if (taskIds.length === 0) {
+      return [];
+    }
+
+    const rows = this.storage.executeChunkedInQuery<TaskRow>({
+      sqlPrefix: "SELECT * FROM tasks WHERE id",
+      items: taskIds,
+    });
+
+    return this.inflateTasks(rows);
   }
 
   private requireProject(projectId: string): ProjectSummary {
@@ -1032,6 +1078,18 @@ function toNumber(value: number | string | null | undefined): number {
 
 function toBoolean(value: number | string | null | undefined): boolean {
   return toNumber(value) > 0;
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function deriveRepoName(sourceRef: string): string {

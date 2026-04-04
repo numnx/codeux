@@ -4,6 +4,7 @@ import type {
   McpToolToggle,
   SkillToggle,
 } from "../contracts/app-types.js";
+import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type {
   EffectiveSettingsResponse,
   ProjectSettings,
@@ -309,24 +310,28 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
           model: aiProvider.providers.jules.model,
           weight: aiProvider.providers.jules.weight,
           thinkingMode: aiProvider.providers.jules.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.jules.maxConcurrentTasks,
         },
         gemini: {
           enabled: aiProvider.providers.gemini.enabled,
           model: aiProvider.providers.gemini.model,
           weight: aiProvider.providers.gemini.weight,
           thinkingMode: aiProvider.providers.gemini.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.gemini.maxConcurrentTasks,
         },
         codex: {
           enabled: aiProvider.providers.codex.enabled,
           model: aiProvider.providers.codex.model,
           weight: aiProvider.providers.codex.weight,
           thinkingMode: aiProvider.providers.codex.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.codex.maxConcurrentTasks,
         },
         "claude-code": {
           enabled: aiProvider.providers["claude-code"].enabled,
           model: aiProvider.providers["claude-code"].model,
           weight: aiProvider.providers["claude-code"].weight,
           thinkingMode: aiProvider.providers["claude-code"].thinkingMode,
+          maxConcurrentTasks: aiProvider.providers["claude-code"].maxConcurrentTasks,
         },
       },
       invocationRouting: cloneInvocationRouting(aiProvider.invocationRouting),
@@ -401,24 +406,28 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
           model: aiProvider.providers.jules.model,
           weight: aiProvider.providers.jules.weight,
           thinkingMode: aiProvider.providers.jules.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.jules.maxConcurrentTasks,
         },
         gemini: {
           enabled: aiProvider.providers.gemini.enabled,
           model: aiProvider.providers.gemini.model,
           weight: aiProvider.providers.gemini.weight,
           thinkingMode: aiProvider.providers.gemini.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.gemini.maxConcurrentTasks,
         },
         codex: {
           enabled: aiProvider.providers.codex.enabled,
           model: aiProvider.providers.codex.model,
           weight: aiProvider.providers.codex.weight,
           thinkingMode: aiProvider.providers.codex.thinkingMode,
+          maxConcurrentTasks: aiProvider.providers.codex.maxConcurrentTasks,
         },
         "claude-code": {
           enabled: aiProvider.providers["claude-code"].enabled,
           model: aiProvider.providers["claude-code"].model,
           weight: aiProvider.providers["claude-code"].weight,
           thinkingMode: aiProvider.providers["claude-code"].thinkingMode,
+          maxConcurrentTasks: aiProvider.providers["claude-code"].maxConcurrentTasks,
         },
       },
       invocationRouting: cloneInvocationRouting(aiProvider.invocationRouting),
@@ -534,6 +543,16 @@ export function resolveSprintProjectSettings(
 ): ProjectSettings {
   const projectSettings = resolveProjectSettings(systemSettings, projectOverride);
   return sanitizeProjectSettings(deepMerge(projectSettings, sprintOverride || {}));
+}
+
+export function resolveEffectiveDashboardSettings(
+  settingsRepository: SettingsRepository,
+  projectId: string,
+  sprintId?: string | null,
+): EffectiveSettingsResponse {
+  return sprintId
+    ? settingsRepository.resolveSprintDashboardSettings(projectId, sprintId)
+    : settingsRepository.resolveProjectDashboardSettings(projectId);
 }
 
 export function resolveDashboardSettings(args: {
