@@ -1332,7 +1332,7 @@ describe("dashboard project management API", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: `Failed to update preferred worker: Preferred worker target not found: ${listener.connection.id}`,
+      error: `Preferred worker target not found: ${listener.connection.id}`,
     });
   });
 });
