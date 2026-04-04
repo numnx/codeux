@@ -287,7 +287,7 @@ export const SprintsPage: FunctionComponent = () => {
                     : "max-h-[240rem] overflow-visible translate-y-0 scale-100 opacity-100 blur-0"
                 }`}
               >
-                <div ref={bubblesRef} className="flex flex-wrap justify-center gap-10 py-6 xl:gap-12">
+                <div ref={bubblesRef} className="flex flex-wrap justify-center gap-6 sm:gap-10 py-6 xl:gap-12">
                   {showcaseSprints.map((sprint, index) => {
                     const activeRun = activeRunsBySprintId.get(sprint.id);
                     const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
@@ -322,7 +322,7 @@ export const SprintsPage: FunctionComponent = () => {
                       setShowCreateComposer(true);
                     }}
                     disabled={!selectedProject}
-                    className="group relative flex h-72 w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80"
+                    className="group relative flex h-[16.5rem] w-[16.5rem] sm:h-72 sm:w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80"
                   >
                     <div
                       className="absolute inset-0 animate-organic border-2 border-dashed border-signal-500/25 transition-all duration-500 group-hover:border-signal-500/60"

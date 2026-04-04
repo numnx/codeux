@@ -472,7 +472,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                       {activeBuiltinPurpose.description}
                     </p>
                   )}
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                     {visibleBuiltinTemplates.map((t) => (
                       <TemplateCard key={t.id} template={t} onSelect={() => handleSelectTemplate(t)} />
                     ))}
@@ -504,7 +504,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
                       <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">Combine agent presets with custom prompts for reusable sprint flows</div>
                     </button>
                   ) : (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                       {customTemplates.map((t) => (
                         <TemplateCard key={t.id} template={t} onSelect={() => handleSelectTemplate(t)} onEdit={() => openEditor(t)} />
                       ))}
@@ -518,9 +518,9 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
         {/* ─── CONFIGURE PHASE ────────────────────────────────────── */}
         {phase === "configure" && selectedTemplate && (
-          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_22rem]">
             {/* Left: Template preview */}
-            <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
+            <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 2xl:border-b-0 2xl:border-r">
               <div data-qs-stagger className="flex items-center gap-3">
                 <button
                   onClick={() => setPhase("browse")}
@@ -542,7 +542,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
               </p>
 
               {/* Planning Route + Model Override */}
-              <div data-qs-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div data-qs-stagger className="mt-8 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
                   <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Planning Route</div>
                   <div className="mt-2">
@@ -697,7 +697,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             </label>
 
             {/* Icon + Color + Category Tag + Default Tasks */}
-            <div data-qs-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div data-qs-stagger className="mt-8 grid gap-4 lg:grid-cols-2">
               <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
                 <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">Category Tag</div>
                 <div className="flex items-center gap-3">

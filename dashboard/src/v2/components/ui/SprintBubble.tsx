@@ -117,7 +117,7 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
       ref={bubbleRef}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
-      className={`group relative flex h-72 w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80 hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] rounded-[1.75rem] transition-shadow duration-300 ${isCompleted ? "opacity-80" : ""}`}
+      className={`group relative flex h-[16.5rem] w-[16.5rem] sm:h-72 sm:w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80 hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] rounded-[1.75rem] transition-shadow duration-300 ${isCompleted ? "opacity-80" : ""}`}
     >
       <div
         className={`pointer-events-none absolute inset-0 rounded-[1.75rem] shadow-[0_24px_48px_rgba(0,0,0,0.07)] transition-all duration-700 dark:shadow-[0_24px_48px_rgba(0,0,0,0.5)] ${animationClass}`}
