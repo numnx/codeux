@@ -2436,7 +2436,7 @@ export const SettingsPage: FunctionComponent = () => {
                 key={category.id}
                 type="button"
                 onClick={() => switchCategory(category.id)}
-                className={`group relative flex w-full items-center gap-3.5 rounded-[1.1rem] px-4 py-3.5 text-left transition-colors duration-200 ${
+                className={`group relative flex w-full items-center gap-3.5 rounded-[1.1rem] px-4 py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal-500 transition-colors duration-200 ${
                   isActive
                     ? isDanger
                       ? "bg-status-red/[0.07] dark:bg-status-red/[0.08]"
@@ -2445,7 +2445,7 @@ export const SettingsPage: FunctionComponent = () => {
                 }`}
               >
                 {isActive ? (
-                  <div className={`absolute left-0 top-3 bottom-3 w-[2.5px] rounded-full ${isDanger ? "bg-status-red" : "bg-signal-500"}`} />
+                  <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-full ${isDanger ? "bg-status-red" : "bg-signal-500"}`} />
                 ) : null}
 
                 <span className="w-5 shrink-0 text-right font-mono text-[9px] font-bold text-slate-300 dark:text-slate-600">
@@ -2464,12 +2464,12 @@ export const SettingsPage: FunctionComponent = () => {
                 />
 
                 <div className="min-w-0 flex-1">
-                  <div className={`text-sm font-semibold transition-colors duration-200 ${
+                  <div className={`text-sm transition-colors duration-200 ${
                     isActive
                       ? isDanger
-                        ? "text-status-red"
-                        : "text-signal-600 dark:text-signal-400"
-                      : "text-slate-700 dark:text-slate-300"
+                        ? "text-status-red font-semibold"
+                        : "text-signal-600 dark:text-signal-400 font-semibold"
+                      : "text-slate-700 dark:text-slate-300 font-medium group-focus-visible:font-semibold"
                   }`}
                   >
                     {category.label}
