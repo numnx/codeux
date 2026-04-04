@@ -321,11 +321,20 @@ export class QualityAssuranceService {
     }
 
     const latestRun = this.deps.qaReviewRepository.getLatestSprintRun(args.sprintId);
+    const maxRuns = qaSettings.maxTaskReviewRuns;
+    const latestTaskSnapshot = readSprintQaSnapshot(latestRun);
+    const currentTaskSnapshot = buildSprintQaSnapshot(args.subtasks);
     const latestTaskUpdatedAt = this.getLatestSprintTaskUpdatedAt(args.projectId, args.sprintId);
     const latestRunFinishedAtMs = latestRun?.finishedAt ? Date.parse(latestRun.finishedAt) : Number.NaN;
     const hasTaskUpdatesSinceLatestRun = latestRun
       ? !Number.isFinite(latestRunFinishedAtMs) || latestTaskUpdatedAt > latestRunFinishedAtMs
       : true;
+    const hasMeaningfulChangesSinceLatestRun = latestRun
+      ? (latestTaskSnapshot
+        ? latestTaskSnapshot !== currentTaskSnapshot
+        : hasTaskUpdatesSinceLatestRun)
+      : true;
+    const retriesExhausted = typeof latestRun?.runIndex === "number" && latestRun.runIndex >= maxRuns;
 
     if (latestRun?.status === "running") {
       return {
@@ -335,10 +344,13 @@ export class QualityAssuranceService {
         reportText: renderSprintQaPendingReport(latestRun),
       };
     }
-    if (latestRun?.outcome === "pass" && !hasTaskUpdatesSinceLatestRun) {
+    if (latestRun?.outcome === "pass") {
       return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
     }
-    if ((latestRun?.outcome === "changes_requested" || latestRun?.status === "failed") && !hasTaskUpdatesSinceLatestRun) {
+    if (retriesExhausted) {
+      return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
+    }
+    if ((latestRun?.outcome === "changes_requested" || latestRun?.status === "failed") && !hasMeaningfulChangesSinceLatestRun) {
       return {
         reviewed: false,
         blockedCompletion: true,
@@ -361,6 +373,7 @@ export class QualityAssuranceService {
       agentName: agent.name,
       payload: {
         sprintRunId: args.sprintRunId,
+        taskSnapshot: currentTaskSnapshot,
       },
     });
 
@@ -383,7 +396,10 @@ export class QualityAssuranceService {
           status: "completed",
           outcome: "pass",
           summaryMarkdown: review.summary,
-          payload: review.raw,
+          payload: {
+            ...review.raw,
+            taskSnapshot: currentTaskSnapshot,
+          },
           finishedAt: new Date().toISOString(),
         });
         return {
@@ -432,6 +448,7 @@ export class QualityAssuranceService {
           continued: continued.applied,
           continuationMode: continued.mode,
           createdFollowUpTaskKeys: createdFollowUpTasks.map((task) => task.taskKey),
+          taskSnapshot: currentTaskSnapshot,
         },
         finishedAt: new Date().toISOString(),
       });
@@ -1129,6 +1146,27 @@ function normalizeFollowUpTask(value: unknown): NormalizedQaFollowUpTask | null 
     dependsOnTaskKeys,
     priority,
   };
+}
+
+function buildSprintQaSnapshot(subtasks: Subtask[]): string {
+  return JSON.stringify(
+    subtasks
+      .map((task) => ({
+        id: task.id,
+        title: task.title || "",
+        prompt: task.prompt || "",
+        status: task.status || "",
+        dependsOn: [...task.depends_on].sort(),
+        isMerged: Boolean(task.is_merged),
+        mergeIndicator: task.merge_indicator || "",
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  );
+}
+
+function readSprintQaSnapshot(run: QaReviewRunRecord | null): string | null {
+  const snapshot = run?.payload?.taskSnapshot;
+  return typeof snapshot === "string" && snapshot.trim().length > 0 ? snapshot : null;
 }
 
 function renderQaPassReport(taskKey: string, summary: string): string {

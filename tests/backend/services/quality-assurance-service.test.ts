@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import { QaReviewRepository } from "../../../src/repositories/qa-review-repository.js";
 import { QualityAssuranceService } from "../../../src/services/quality-assurance-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
@@ -146,5 +147,252 @@ describe("QualityAssuranceService", () => {
     expect(tasks[1]?.title).toBe("Add rollback coverage");
     expect(tasks[1]?.promptMarkdown).toContain("rollback path");
     expect(tasks[1]?.dependsOnTaskIds).toEqual([task.id]);
+  });
+
+  it("does not rerun sprint QA after a passing result with no meaningful sprint changes", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qa-service-pass-"));
+    tempDirs.push(dir);
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+    const qaReviewRepository = new QaReviewRepository(storage);
+    const providerRunner = {
+      runProviderForText: vi.fn(),
+      runProvider: vi.fn(),
+    };
+
+    const project = projectRepository.createProject({
+      name: "QA Project",
+      sourceType: "local",
+      sourceRef: dir,
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Sprint 1",
+      goal: "Ship safely",
+      status: "running",
+      featureBranch: "feature/sprint-1",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T1",
+      title: "Initial task",
+      promptMarkdown: "Implement the initial feature.",
+      status: "completed",
+      isIndependent: true,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+
+    const service = new QualityAssuranceService({
+      projectManagementRepository: projectRepository,
+      executionRepository,
+      sessionTracking: {} as any,
+      qaReviewRepository,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: providerRunner as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+          },
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    const subtasks = [
+      {
+        record_id: task.id,
+        project_id: project.id,
+        sprint_id: sprint.id,
+        id: "T1",
+        title: "Initial task",
+        prompt: "Implement the initial feature.",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+      },
+    ];
+    const snapshot = JSON.stringify([
+      {
+        id: "T1",
+        title: "Initial task",
+        prompt: "Implement the initial feature.",
+        status: "COMPLETED",
+        dependsOn: [],
+        isMerged: false,
+        mergeIndicator: "",
+      },
+    ]);
+    const run = qaReviewRepository.createRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      triggerType: "sprint_completion",
+      runIndex: 1,
+    });
+    qaReviewRepository.updateRun(run.id, {
+      status: "completed",
+      outcome: "pass",
+      summaryMarkdown: "Looks good.",
+      payload: { taskSnapshot: snapshot },
+      finishedAt: new Date().toISOString(),
+    });
+
+    const outcome = await service.reviewSprintCompletion({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      repoPath: dir,
+      subtasks: subtasks as any,
+    });
+
+    expect(outcome).toEqual({
+      reviewed: false,
+      blockedCompletion: false,
+      mergeBlocked: false,
+      reportText: "",
+    });
+    expect(providerRunner.runProviderForText).not.toHaveBeenCalled();
+  });
+
+  it("does not rerun sprint QA after fixes when maxTaskReviewRuns is 1", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qa-service-max-runs-"));
+    tempDirs.push(dir);
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+    const qaReviewRepository = new QaReviewRepository(storage);
+    const providerRunner = {
+      runProviderForText: vi.fn(),
+      runProvider: vi.fn(),
+    };
+
+    const project = projectRepository.createProject({
+      name: "QA Project",
+      sourceType: "local",
+      sourceRef: dir,
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Sprint 1",
+      goal: "Ship safely",
+      status: "running",
+      featureBranch: "feature/sprint-1",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T1",
+      title: "Initial task",
+      promptMarkdown: "Implement the initial feature.",
+      status: "completed",
+      isIndependent: true,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+
+    const service = new QualityAssuranceService({
+      projectManagementRepository: projectRepository,
+      executionRepository,
+      sessionTracking: {} as any,
+      qaReviewRepository,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: providerRunner as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+            maxTaskReviewRuns: 1,
+          },
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    const initialSubtasks = [
+      {
+        record_id: task.id,
+        project_id: project.id,
+        sprint_id: sprint.id,
+        id: "T1",
+        title: "Initial task",
+        prompt: "Implement the initial feature.",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+      },
+    ];
+    const initialSnapshot = JSON.stringify([
+      {
+        id: "T1",
+        title: "Initial task",
+        prompt: "Implement the initial feature.",
+        status: "COMPLETED",
+        dependsOn: [],
+        isMerged: false,
+        mergeIndicator: "",
+      },
+    ]);
+    const run = qaReviewRepository.createRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      triggerType: "sprint_completion",
+      runIndex: 1,
+    });
+    qaReviewRepository.updateRun(run.id, {
+      status: "completed",
+      outcome: "changes_requested",
+      summaryMarkdown: "Needs a follow-up fix.",
+      payload: { taskSnapshot: initialSnapshot },
+      finishedAt: new Date().toISOString(),
+    });
+
+    projectRepository.updateTask(task.id, {
+      promptMarkdown: "Implement the initial feature with the QA fix applied.",
+    });
+
+    const outcome = await service.reviewSprintCompletion({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      repoPath: dir,
+      subtasks: [
+        {
+          record_id: task.id,
+          project_id: project.id,
+          sprint_id: sprint.id,
+          id: "T1",
+          title: "Initial task",
+          prompt: "Implement the initial feature with the QA fix applied.",
+          depends_on: [],
+          is_independent: true,
+          status: "COMPLETED",
+        },
+      ] as any,
+    });
+
+    expect(outcome).toEqual({
+      reviewed: false,
+      blockedCompletion: false,
+      mergeBlocked: false,
+      reportText: "",
+    });
+    expect(providerRunner.runProviderForText).not.toHaveBeenCalled();
   });
 });

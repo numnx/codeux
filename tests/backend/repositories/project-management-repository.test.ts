@@ -361,4 +361,28 @@ describe("ProjectManagementRepository", () => {
     expect(notifier.scheduleProjectsRefresh).toHaveBeenCalled();
     expect(notifier.scheduleProjectStructureRefresh).toHaveBeenCalledWith(project.id, { includeProjects: true });
   });
+
+  it("does not touch updatedAt on no-op task updates", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "No Op Project",
+      sourceType: "local",
+      sourceRef: "/workspace/no-op-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Sprint 1",
+    });
+    const task = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Task 1",
+      promptMarkdown: "Do the work.",
+      status: "completed",
+    });
+
+    const updated = repository.updateTask(task.id, {
+      status: "completed",
+    });
+
+    expect(updated.updatedAt).toBe(task.updatedAt);
+  });
 });

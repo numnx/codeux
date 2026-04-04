@@ -545,9 +545,14 @@ export class CycleRunner {
         task,
       });
       const newlyCodeComplete = isTaskCodeComplete(task) && !isTaskCodeComplete({ status: prev });
-      const shouldRetryFailedReview = isTaskCodeComplete(task) && qaGate.reason === "review_failed";
+      const shouldRunQaReview = newlyCodeComplete
+        && (
+          qaGate.reason === "pending_review"
+          || qaGate.reason === "changes_requested"
+          || qaGate.reason === "review_failed"
+        );
 
-      if ((!newlyCodeComplete && !shouldRetryFailedReview) || !isTaskCodeComplete(task)) {
+      if (!shouldRunQaReview || !isTaskCodeComplete(task)) {
         continue;
       }
 

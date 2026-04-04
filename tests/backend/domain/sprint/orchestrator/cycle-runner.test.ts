@@ -1374,4 +1374,61 @@ describe("CycleRunner attention sync", () => {
       }),
     );
   });
+
+  it("does not rerun task QA after a passing review even if the task becomes code-complete again", async () => {
+    const deps = buildDeps();
+    deps.qualityAssuranceService = {
+      getTaskMergeGateStatus: vi.fn().mockReturnValue({
+        mergeAllowed: true,
+        reason: "passed",
+        summary: "QA review passed.",
+        latestRun: { id: "qa-run-1" },
+        runsUsed: 1,
+        maxRuns: 3,
+      }),
+      reviewCompletedTask: vi.fn(),
+    } as any;
+    deps.getDashboardSettings = vi.fn().mockReturnValue({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      agents: {
+        ...DEFAULT_DASHBOARD_SETTINGS.agents,
+        qualityAssurance: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+          enabled: true,
+        },
+      },
+    });
+
+    const runner = new CycleRunner(deps);
+    await (runner as any).reviewCompletedTasks(
+      [
+        {
+          id: "T1",
+          record_id: "task-1",
+          title: "Freshly completed task",
+          prompt: "finish implementation",
+          depends_on: [],
+          is_independent: true,
+          status: "COMPLETED",
+          provider: "codex",
+        },
+      ],
+      new Map([["T1", "RUNNING"]]),
+      {
+        executionContext: {
+          project: { id: "project-1", name: "Project 1" } as any,
+          sprint: { id: "sprint-1", name: "Sprint 1" } as any,
+          sprintNumber: 1,
+          repoPath: "/repo/project-1",
+          featureBranch: "feature/sprint-1",
+          defaultBranch: "main",
+        },
+        repoPath: "/repo/project-1",
+        sprintRunId: "run-1",
+      } as any,
+      deps.getDashboardSettings(),
+    );
+
+    expect(deps.qualityAssuranceService.reviewCompletedTask).not.toHaveBeenCalled();
+  });
 });
