@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
-import { toErrorMessage } from "./dashboard-server.js";
+import { toErrorResponse, syncRoute, requireTrimmedString, parseTrimmedString } from "./route-utils.js";
 import type {
   CreateSprintInput,
   SprintMarkdownImportInput,
@@ -9,99 +9,99 @@ import type {
 import type { SprintSettingsOverride } from "../contracts/settings-scope-types.js";
 
 export function registerSprintRoutes(router: Express, deps: DashboardDependencies): void {
-  router.get("/api/projects/:projectId/sprints", (req, res) => {
+  router.get("/api/projects/:projectId/sprints", syncRoute((req, res) => {
     try {
-      res.json(deps.listSprints(String(req.params.projectId || "").trim()));
+      res.json(deps.listSprints(requireTrimmedString(req.params.projectId, "projectId")));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to list sprints") });
+      res.status(400).json(toErrorResponse(error, "Failed to list sprints"));
     }
-  });
+  }));
 
-  router.post("/api/projects/:projectId/sprints", (req, res) => {
+  router.post("/api/projects/:projectId/sprints", syncRoute((req, res) => {
     try {
-      res.status(201).json(deps.createSprint(String(req.params.projectId || "").trim(), req.body as CreateSprintInput));
+      res.status(201).json(deps.createSprint(requireTrimmedString(req.params.projectId, "projectId"), req.body as CreateSprintInput));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to create sprint") });
+      res.status(400).json(toErrorResponse(error, "Failed to create sprint"));
     }
-  });
+  }));
 
-  router.post("/api/projects/:projectId/sprints/import", (req, res) => {
+  router.post("/api/projects/:projectId/sprints/import", syncRoute((req, res) => {
     try {
       res.status(201).json(
-        deps.importSprintFromMarkdown(String(req.params.projectId || "").trim(), req.body as SprintMarkdownImportInput)
+        deps.importSprintFromMarkdown(requireTrimmedString(req.params.projectId, "projectId"), req.body as SprintMarkdownImportInput)
       );
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to import sprint markdown") });
+      res.status(400).json(toErrorResponse(error, "Failed to import sprint markdown"));
     }
-  });
+  }));
 
-  router.get("/api/projects/:projectId/sprints/:sprintId/export", (req, res) => {
+  router.get("/api/projects/:projectId/sprints/:sprintId/export", syncRoute((req, res) => {
     try {
-      res.json(deps.exportSprintToMarkdown(String(req.params.projectId || "").trim(), String(req.params.sprintId || "").trim()));
+      res.json(deps.exportSprintToMarkdown(requireTrimmedString(req.params.projectId, "projectId"), requireTrimmedString(req.params.sprintId, "sprintId")));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to export sprint markdown") });
+      res.status(400).json(toErrorResponse(error, "Failed to export sprint markdown"));
     }
-  });
+  }));
 
-  router.patch("/api/sprints/:sprintId", (req, res) => {
+  router.patch("/api/sprints/:sprintId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateSprint(String(req.params.sprintId || "").trim(), req.body as UpdateSprintInput));
+      res.json(deps.updateSprint(requireTrimmedString(req.params.sprintId, "sprintId"), req.body as UpdateSprintInput));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to update sprint") });
+      res.status(400).json(toErrorResponse(error, "Failed to update sprint"));
     }
-  });
+  }));
 
-  router.get("/api/sprints/:sprintId/settings", (req, res) => {
+  router.get("/api/sprints/:sprintId/settings", syncRoute((req, res) => {
     try {
-      res.json(deps.getSprintSettings(String(req.params.sprintId || "").trim()));
+      res.json(deps.getSprintSettings(requireTrimmedString(req.params.sprintId, "sprintId")));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to load sprint settings") });
+      res.status(400).json(toErrorResponse(error, "Failed to load sprint settings"));
     }
-  });
+  }));
 
-  router.put("/api/sprints/:sprintId/settings", (req, res) => {
-    const projectId = typeof req.body?.projectId === "string" ? req.body.projectId.trim() : "";
+  router.put("/api/sprints/:sprintId/settings", syncRoute((req, res) => {
+    const projectId = parseTrimmedString(req.body?.projectId);
     if (!projectId) {
       res.status(400).json({ error: "projectId is required when saving sprint settings." });
       return;
     }
 
     try {
-      const sprintId = String(req.params.sprintId || "").trim();
+      const sprintId = requireTrimmedString(req.params.sprintId, "sprintId");
       const payload = { ...(req.body as Record<string, unknown>) };
       delete payload.projectId;
       res.json(deps.saveSprintSettings(projectId, sprintId, payload as SprintSettingsOverride));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to save sprint settings") });
+      res.status(400).json(toErrorResponse(error, "Failed to save sprint settings"));
     }
-  });
+  }));
 
-  router.delete("/api/sprints/:sprintId/settings", (req, res) => {
+  router.delete("/api/sprints/:sprintId/settings", syncRoute((req, res) => {
     try {
-      deps.resetSprintSettings(String(req.params.sprintId || "").trim());
+      deps.resetSprintSettings(requireTrimmedString(req.params.sprintId, "sprintId"));
       res.json({ ok: true });
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to reset sprint settings") });
+      res.status(400).json(toErrorResponse(error, "Failed to reset sprint settings"));
     }
-  });
+  }));
 
-  router.get("/api/projects/:projectId/sprints/:sprintId/settings/effective", (req, res) => {
+  router.get("/api/projects/:projectId/sprints/:sprintId/settings/effective", syncRoute((req, res) => {
     try {
       res.json(deps.getSprintEffectiveSettings(
-        String(req.params.projectId || "").trim(),
-        String(req.params.sprintId || "").trim(),
+        requireTrimmedString(req.params.projectId, "projectId"),
+        requireTrimmedString(req.params.sprintId, "sprintId"),
       ));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to load effective sprint settings") });
+      res.status(400).json(toErrorResponse(error, "Failed to load effective sprint settings"));
     }
-  });
+  }));
 
-  router.delete("/api/sprints/:sprintId", (req, res) => {
+  router.delete("/api/sprints/:sprintId", syncRoute((req, res) => {
     try {
-      deps.deleteSprint(String(req.params.sprintId || "").trim());
+      deps.deleteSprint(requireTrimmedString(req.params.sprintId, "sprintId"));
       res.json({ ok: true });
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to delete sprint") });
+      res.status(400).json(toErrorResponse(error, "Failed to delete sprint"));
     }
-  });
+  }));
 }
