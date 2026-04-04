@@ -129,7 +129,7 @@ function createSurfaceNormalMap(): THREE.Texture | null {
 }
 
 /* ── Shared materials factory ── */
-function makeMaterials(accent: number, baseColor: number, envMap: THREE.CubeTexture, normalMap: THREE.Texture) {
+function makeMaterials(accent: number, baseColor: number, envMap: THREE.CubeTexture | null, normalMap: THREE.Texture | null) {
   const midColor = lightenColor(baseColor, 0.35);
   const trimColor = lightenColor(baseColor, 0.7);
 

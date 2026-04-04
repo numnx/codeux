@@ -34,9 +34,13 @@ vi.mock("three", () => {
     scale = mockScale();
     children: any[] = [];
     add(c: any) { this.children.push(c); }
-    traverse(fn: any) { fn(this); this.children.forEach((c: any) => { if (c.traverse) c.traverse(fn); else fn(c); }); }
-    geometry: any = { type: "MockGeo", dispose: vi.fn(), scale: vi.fn() };
-    material: any = { opacity: 0, dispose: vi.fn() };
+    traverse(fn: any) { 
+      fn(this); 
+      this.children.forEach((c: any) => { 
+        if (c.traverse) c.traverse(fn); 
+        else fn(c); 
+      }); 
+    }
   }
 
   return {
@@ -50,8 +54,26 @@ vi.mock("three", () => {
     DirectionalLight: class extends Base {},
     PointLight: class extends Base {},
     Group: class extends Base { isGroup = true; },
-    Mesh: class extends Base {},
-    Points: class extends Base {},
+    Mesh: class extends Base { 
+      isMesh = true; 
+      geometry: any;
+      material: any;
+      constructor(geometry?: any, material?: any) {
+        super();
+        this.geometry = geometry || { type: "MockGeo", dispose: vi.fn(), scale: vi.fn() };
+        this.material = material || { opacity: 0, dispose: vi.fn() };
+      }
+    },
+    Points: class extends Base { 
+      isPoints = true; 
+      geometry: any;
+      material: any;
+      constructor(geometry?: any, material?: any) {
+        super();
+        this.geometry = geometry || { type: "MockGeo", dispose: vi.fn(), scale: vi.fn() };
+        this.material = material || { opacity: 0, dispose: vi.fn() };
+      }
+    },
     MeshStandardMaterial: class { dispose() {} color = { setHex: vi.fn() }; },
     MeshBasicMaterial: class { opacity = 0; dispose() {} color = { setHex: vi.fn() }; },
     PointsMaterial: class { dispose() {} },
