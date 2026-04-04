@@ -417,6 +417,19 @@ export class WatchLoopRunner {
 
     if (subtasks.length > 0 && subtasks.every((task) => isCompletedTaskSettled(task))) {
       try {
+        if (this.deps.qualityAssuranceService) {
+          const qaOutcome = await this.deps.qualityAssuranceService.reviewSprintCompletion({
+            projectId: scopedExecutionContext.project.id,
+            sprintId: scopedExecutionContext.sprint.id,
+            sprintRunId,
+            repoPath,
+            subtasks,
+          });
+          report += qaOutcome.reportText;
+          if (qaOutcome.blockedCompletion) {
+            return { status: "wait", report };
+          }
+        }
         const completionGuidance = await runCompletionStep({
           defaultBranch,
           featureBranch: defaultFeatureBranch,
@@ -524,19 +537,6 @@ export class WatchLoopRunner {
           report += mergeFeedback.text;
           report += "\n⏳ **Sprint Still Active:** Waiting for the final main-branch merge to finish before completing the sprint.\n";
           return { status: "wait", report };
-        }
-        if (this.deps.qualityAssuranceService) {
-          const qaOutcome = await this.deps.qualityAssuranceService.reviewSprintCompletion({
-            projectId: scopedExecutionContext.project.id,
-            sprintId: scopedExecutionContext.sprint.id,
-            sprintRunId,
-            repoPath,
-            subtasks,
-          });
-          report += qaOutcome.reportText;
-          if (qaOutcome.blockedCompletion) {
-            return { status: "wait", report };
-          }
         }
         this.deps.completedSprints.add(`${scopedExecutionContext.project.id}:${scopedExecutionContext.sprint.id}`);
         transitionSprintRun(
@@ -827,6 +827,7 @@ export function evaluateSprintRunState(params: {
 
   const runningTasks = tasksByStatus.get("RUNNING") || [];
   const readyTasks = tasksByStatus.get("PENDING") || [];
+  const qaPendingTasks = subtasks.filter((task) => task.merge_indicator === "QA_PENDING");
   const activeWorkerAttentionItems = activeProjectAttentionItems.filter((item) => item.ownerType === "worker");
   const activeWorkerMergeConflictAttention = activeWorkerAttentionItems.some((item) => item.attentionType === "merge_conflict");
   const activeMainMergeAttentionItems = activeProjectAttentionItems.filter((item) => (
@@ -842,7 +843,10 @@ export function evaluateSprintRunState(params: {
 
   const allTerminal = subtasks.length > 0 && ((statusCounts["FAILED"] || 0) + settledCount) === subtasks.length;
   const quotaTasks = tasksByStatus.get("QUOTA") || [];
-  const noMoreActionPossible = runningTasks.length === 0 && readyTasks.length === 0 && quotaTasks.length === 0;
+  const noMoreActionPossible = runningTasks.length === 0
+    && readyTasks.length === 0
+    && quotaTasks.length === 0
+    && qaPendingTasks.length === 0;
   const needsManualMerge = manualMergeTasks.length > 0;
   const waitingOnWorkerAttention = workerEscalatedMergeConflictTasks.length > 0
     || activeWorkerMergeConflictAttention
@@ -856,6 +860,7 @@ export function evaluateSprintRunState(params: {
     activeWorkerAttentionItems,
     activeWorkerMergeConflictAttention,
     activeMainMergeAttentionItems,
+    qaPendingTasks,
     allTerminal,
     quotaTasks,
     noMoreActionPossible,
