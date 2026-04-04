@@ -7,6 +7,7 @@ import { ExecutionControlService } from "../../services/execution-control-servic
 import { PlanningAgentService } from "../../services/planning-agent-service.js";
 import { QuicksprintService } from "../../services/quicksprint-service.js";
 import { WorkspaceManager } from "../../infrastructure/providers/cli/workspace-manager.js";
+import { formatSprintBranch } from "../../git/sprint-branch-scheme.js";
 
 import { ChatThreadRuntimeService } from "../../services/chat-thread-runtime-service.js";
 
@@ -79,10 +80,13 @@ export function createDashboardDependencies(
       if (!sprint || !project) {
         return null;
       }
-      const runtimeStatus = projectRuntimeRepository.getProjectStatus(taskRecord.projectId);
+      const runtimeStatus = projectRuntimeRepository.getProjectStatus(taskRecord.projectId, sprint.id);
       const runtimeTask = (runtimeStatus.subtasks || []).find((task) => task.record_id === taskId || task.id === taskRecord.taskKey);
-      // Prefer sprint record data — runtime status may be stale from a different sprint
-      const featureBranch = sprint.featureBranch || runtimeStatus.feature_branch || null;
+      const effectiveSettings = settingsRepository.resolveSprintDashboardSettings(taskRecord.projectId, sprint.id).settings;
+      const derivedFeatureBranch = typeof sprint.number === "number"
+        ? formatSprintBranch(effectiveSettings.git.sprintBranchScheme, sprint.number)
+        : null;
+      const featureBranch = sprint.featureBranch || derivedFeatureBranch || runtimeStatus.feature_branch || null;
       const repoPath = project.baseDir || runtimeStatus.repo_path || null;
       const sprintNumber = sprint.number ?? runtimeStatus.sprint_number ?? null;
 
