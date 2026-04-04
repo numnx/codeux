@@ -438,15 +438,15 @@ describe("Dashboard Route Error Handlers", () => {
   });
 
 
-import { toErrorMessage } from "../../../src/server/dashboard-server.js";
+import { toErrorResponse } from "../../../src/server/route-utils.js";
 
-describe("toErrorMessage helper", () => {
+describe("toErrorResponse helper", () => {
   it("formats Error objects", () => {
-    expect(toErrorMessage(new Error("Test error"), "Prefix")).toBe("Prefix: Test error");
+    expect(toErrorResponse(new Error("Test error"), "Prefix")).toEqual({ error: "Prefix: Test error" });
   });
 
   it("formats string errors", () => {
-    expect(toErrorMessage("String error", "Prefix")).toBe("Prefix: String error");
+    expect(toErrorResponse("String error", "Prefix")).toEqual({ error: "Prefix: String error" });
   });
 });
 
@@ -596,13 +596,13 @@ describe("More success/edge cases for dashboard server", () => {
   });
 });
 
-describe("toErrorMessage helper details", () => {
+describe("toErrorResponse helper details", () => {
   it("formats string errors", () => {
-    expect(toErrorMessage("A plain string", "Prefix")).toBe("Prefix: A plain string");
+    expect(toErrorResponse("A plain string", "Prefix")).toEqual({ error: "Prefix: A plain string" });
   });
 
   it("formats object errors", () => {
-    expect(toErrorMessage({ message: "Internal" }, "Prefix")).toBe("Prefix: [object Object]");
+    expect(toErrorResponse({ message: "Internal" }, "Prefix")).toEqual({ error: "Prefix: [object Object]" });
   });
 });
 

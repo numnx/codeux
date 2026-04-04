@@ -1,42 +1,40 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
-import { toErrorMessage } from "./dashboard-server.js";
+import { toErrorResponse, syncRoute, requireTrimmedString, parseTrimmedString } from "./route-utils.js";
 import type { CreateTaskInput, UpdateTaskInput } from "../contracts/project-management-types.js";
 
 export function registerTaskRoutes(router: Express, deps: DashboardDependencies): void {
-  router.get("/api/projects/:projectId/tasks", (req, res) => {
+  router.get("/api/projects/:projectId/tasks", syncRoute((req, res) => {
     try {
-      const sprintId = typeof req.query.sprintId === "string" && req.query.sprintId.trim()
-        ? req.query.sprintId.trim()
-        : undefined;
-      res.json(deps.listTasks(String(req.params.projectId || "").trim(), sprintId));
+      const sprintId = parseTrimmedString(req.query.sprintId);
+      res.json(deps.listTasks(requireTrimmedString(req.params.projectId, "projectId"), sprintId));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to list tasks") });
+      res.status(400).json(toErrorResponse(error, "Failed to list tasks"));
     }
-  });
+  }));
 
-  router.post("/api/projects/:projectId/tasks", (req, res) => {
+  router.post("/api/projects/:projectId/tasks", syncRoute((req, res) => {
     try {
-      res.status(201).json(deps.createTask(String(req.params.projectId || "").trim(), req.body as CreateTaskInput));
+      res.status(201).json(deps.createTask(requireTrimmedString(req.params.projectId, "projectId"), req.body as CreateTaskInput));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to create task") });
+      res.status(400).json(toErrorResponse(error, "Failed to create task"));
     }
-  });
+  }));
 
-  router.patch("/api/tasks/:taskId", (req, res) => {
+  router.patch("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateTask(String(req.params.taskId || "").trim(), req.body as UpdateTaskInput));
+      res.json(deps.updateTask(requireTrimmedString(req.params.taskId, "taskId"), req.body as UpdateTaskInput));
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to update task") });
+      res.status(400).json(toErrorResponse(error, "Failed to update task"));
     }
-  });
+  }));
 
-  router.delete("/api/tasks/:taskId", (req, res) => {
+  router.delete("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      deps.deleteTask(String(req.params.taskId || "").trim());
+      deps.deleteTask(requireTrimmedString(req.params.taskId, "taskId"));
       res.json({ ok: true });
     } catch (error) {
-      res.status(400).json({ error: toErrorMessage(error, "Failed to delete task") });
+      res.status(400).json(toErrorResponse(error, "Failed to delete task"));
     }
-  });
+  }));
 }
