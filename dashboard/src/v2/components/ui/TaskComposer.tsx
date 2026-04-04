@@ -77,9 +77,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
       <form
         ref={fieldsRef}
         onSubmit={handleSubmit}
-        className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1fr)_21rem]"
+        className="relative z-10 grid gap-0 2xl:grid-cols-[minmax(0,1fr)_21rem]"
       >
-        <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
+        <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 2xl:border-b-0 2xl:border-r">
           <div data-composer-stagger className="flex items-start justify-between gap-4">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-signal-500/15 bg-signal-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-600 dark:text-signal-300">
@@ -161,7 +161,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Details</label>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-4 2xl:grid-cols-2">
               <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
                 <textarea
                   value={state.description}

@@ -194,7 +194,7 @@ const TaskCard: FunctionComponent<{
         </div>
       )}
 
-      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
+      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-0 opacity-100 lg:translate-y-[-8px] lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
         <button
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors"
           title="Edit task"
@@ -265,7 +265,7 @@ const SprintSelector: FunctionComponent<{
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 z-50 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
+        <div className="absolute left-0 top-full mt-2 w-[calc(100vw-4rem)] sm:w-80 max-w-[20rem] z-50 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
           <button
             onClick={() => { onSelect(null); setOpen(false); }}
             className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors duration-200 ${
@@ -566,10 +566,12 @@ export const TasksPage: FunctionComponent = () => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
-        <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} />
+      <div className="flex flex-row items-center gap-4 -mt-4 overflow-x-auto w-full max-w-full pb-2" style={{ scrollbarWidth: 'none' }}>
+        <div className="shrink-0">
+          <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} />
+        </div>
 
-        <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl">
+        <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl shrink-0">
           {[
             { key: "all" as StatusFilter, label: "All" },
             { key: "in_progress" as StatusFilter, label: "Running" },
@@ -590,7 +592,7 @@ export const TasksPage: FunctionComponent = () => {
           ))}
         </div>
 
-        <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl">
+        <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl shrink-0">
           {[
             { key: "all" as PriorityFilter, label: "Any Priority" },
             { key: "critical" as PriorityFilter, label: "Critical" },
@@ -612,7 +614,7 @@ export const TasksPage: FunctionComponent = () => {
           ))}
         </div>
 
-        <div className="ml-auto">
+        <div className="ml-auto shrink-0">
           <ListWindowSelector value={listWindow} onChange={setListWindow} label="Show" />
         </div>
       </div>
