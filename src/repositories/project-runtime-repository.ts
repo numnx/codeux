@@ -104,10 +104,10 @@ function toNumber(value: number | string | null | undefined): number {
 }
 
 function runtimeContextKey(projectId: string, sprintId?: string | null): string {
-  if (sprintId) {
-    return `${RUNTIME_CONTEXT_PREFIX}${projectId}:${sprintId}`;
+  if (!sprintId) {
+    throw new Error("Sprint runtime context requires a sprint id.");
   }
-  return `${RUNTIME_CONTEXT_PREFIX}${projectId}`;
+  return `${RUNTIME_CONTEXT_PREFIX}${projectId}:${sprintId}`;
 }
 
 function normalizePath(value: string | null | undefined): string | null {
@@ -187,20 +187,23 @@ export class ProjectRuntimeRepository {
     const now = new Date().toISOString();
 
     this.runInTransaction(() => {
-      this.saveRuntimeContext({
-        projectId: project.id,
-        sprintId: sprint?.id ?? null,
-        sprintNumber: sprint?.number === null || sprint?.number === undefined
-          ? (typeof status.sprint_number === "number" ? status.sprint_number : null)
-          : toNumber(sprint.number),
-        sourceId: typeof status.source_id === "string" ? status.source_id : null,
-        repoPath: typeof status.repo_path === "string" ? status.repo_path : null,
-        featureBranch: typeof status.feature_branch === "string" ? status.feature_branch : null,
-        reportText: typeof status.reportText === "string" ? status.reportText : "",
-        statusTable: typeof status.statusTable === "string" ? status.statusTable : "",
-        instructions: typeof status.instructions === "string" ? status.instructions : "",
-        timestamp: typeof status.timestamp === "string" ? status.timestamp : now,
-      });
+      if (sprint?.id) {
+        this.saveRuntimeContext({
+          projectId: project.id,
+          sprintId: sprint.id,
+          sprintNumber: sprint.number === null || sprint.number === undefined
+            ? (typeof status.sprint_number === "number" ? status.sprint_number : null)
+            : toNumber(sprint.number),
+          sourceId: typeof status.source_id === "string" ? status.source_id : null,
+          repoPath: typeof status.repo_path === "string" ? status.repo_path : null,
+          featureBranch: typeof status.feature_branch === "string" ? status.feature_branch : null,
+          reportText: typeof status.reportText === "string" ? status.reportText : "",
+          statusTable: typeof status.statusTable === "string" ? status.statusTable : "",
+          instructions: typeof status.instructions === "string" ? status.instructions : "",
+          timestamp: typeof status.timestamp === "string" ? status.timestamp : now,
+        });
+        this.clearLegacyProjectRuntimeContext(project.id);
+      }
 
       let hasRunning = false;
       let hasFailure = false;
@@ -266,7 +269,7 @@ export class ProjectRuntimeRepository {
 
     this.realtimeNotifier?.scheduleProjectRuntimeStatusRefresh(project.id);
 
-    return this.getProjectStatus(project.id);
+    return this.getProjectStatus(project.id, sprint?.id ?? null);
   }
 
   getSelectedProjectStatus(): DashboardStatus {
@@ -292,8 +295,8 @@ export class ProjectRuntimeRepository {
   }
 
   getProjectStatus(projectId: string, explicitSprintId?: string | null): DashboardStatus {
-    const context = this.getRuntimeContext(projectId, explicitSprintId);
-    const sprintIdToLoad = explicitSprintId ?? context?.sprintId ?? null;
+    const sprintIdToLoad = explicitSprintId ?? this.getSelectedSprintId(projectId) ?? null;
+    const context = sprintIdToLoad ? this.getRuntimeContext(projectId, sprintIdToLoad) : null;
     const tasks = this.getMappedTasks(projectId, sprintIdToLoad);
     const latestRuns = this.getLatestRuns(tasks.map((task) => task.row.id));
     const recentActivitiesByTaskId = this.getRecentActivitiesByTask(tasks.map((task) => task.row.id));
@@ -465,15 +468,6 @@ export class ProjectRuntimeRepository {
       }
     }
 
-    const existing = this.getRuntimeContext(projectId);
-    if (existing?.sprintId) {
-      return this.db.prepare(`
-        SELECT id, number
-        FROM sprints
-        WHERE id = ?
-      `).get(existing.sprintId) as SprintRow | undefined || null;
-    }
-
     return null;
   }
 
@@ -518,21 +512,15 @@ export class ProjectRuntimeRepository {
   }
 
   private getRuntimeContext(projectId: string, sprintId?: string | null): RuntimeContextPayload | null {
+    if (!sprintId) {
+      return null;
+    }
     const primaryKey = runtimeContextKey(projectId, sprintId);
-    let row = this.db.prepare(`
+    const row = this.db.prepare(`
       SELECT payload
       FROM app_settings
       WHERE key = ?
     `).get(primaryKey) as { payload: string } | undefined;
-
-    if (!row && sprintId) {
-      // Fallback to project-level context if sprint-specific context is not found
-      row = this.db.prepare(`
-        SELECT payload
-        FROM app_settings
-        WHERE key = ?
-      `).get(runtimeContextKey(projectId)) as { payload: string } | undefined;
-    }
 
     if (!row) {
       return null;
@@ -546,6 +534,9 @@ export class ProjectRuntimeRepository {
   }
 
   private saveRuntimeContext(context: RuntimeContextPayload): void {
+    if (!context.sprintId) {
+      return;
+    }
     const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO app_settings (key, payload, updated_at)
@@ -556,6 +547,13 @@ export class ProjectRuntimeRepository {
       JSON.stringify(context),
       now
     );
+  }
+
+  private clearLegacyProjectRuntimeContext(projectId: string): void {
+    this.db.prepare(`
+      DELETE FROM app_settings
+      WHERE key = ?
+    `).run(`${RUNTIME_CONTEXT_PREFIX}${projectId}`);
   }
 
   private getMappedTasks(projectId: string, sprintId: string | null): MappedTask[] {

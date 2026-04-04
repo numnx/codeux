@@ -45,7 +45,8 @@ Storage:
   - `app_settings` is retained only as a one-time legacy migration source for development data that predates the scoped model
 - provider session DB at `~/.sprint-os/session-tracking.db`
 - Sprint OS app DB at `~/.sprint-os/app.db`
-  - includes project planning tables (sprints with `original_prompt` and `goal`) plus selected-project runtime projection in `app_settings`, `task_runs`, and `task_run_events`
+  - includes project planning tables (sprints with `original_prompt` and `goal`) plus sprint-scoped runtime projection in `app_settings`, `task_runs`, and `task_run_events`
+  - runtime context rows are keyed by sprint (`runtime_context:<projectId>:<sprintId>`); legacy unscoped project-level runtime rows are deprecated and are no longer used for explicit sprint reads or rerun context
   - also stores sprint preview runtime state in `sprint_preview_sessions`
 
 Runtime resolution:

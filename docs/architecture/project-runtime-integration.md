@@ -29,7 +29,7 @@ The orchestrator still emits the same `DashboardStatus` payload shape during exe
 
 That payload is now written into the app database as:
 - `app_settings`
-  - `runtime_context:<projectId>` stores project-scoped runtime context such as sprint number, repo path, feature branch, report text, instructions, and timestamp
+  - `runtime_context:<projectId>:<sprintId>` stores sprint-scoped runtime context such as sprint number, repo path, feature branch, report text, instructions, and timestamp
 - `task_runs`
   - stores the latest known run/session state per task
 - `task_run_events`
@@ -46,11 +46,15 @@ Project matching:
 Sprint matching:
 - prefers `sprint_number`
 - falls back to `feature_branch`
-- falls back to the previously stored runtime context for the same project
+- does not borrow runtime context from another sprint when an explicit sprint scope is known
 
 Task matching:
 - prefers DB task record id when present
 - otherwise matches by `task_key`
+
+Legacy cleanup:
+- unscoped project-level runtime rows from the pre-multi-sprint bridge are treated as deprecated
+- explicit sprint reads and rerun flows now use sprint-scoped runtime only, so stale data from an old sprint cannot override the active sprint branch
 
 ## Current Boundaries
 
