@@ -245,9 +245,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       <form
         ref={fieldsRef}
         onSubmit={handleSubmit}
-        className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1fr)_21rem]"
+        className="relative z-10 grid gap-0 2xl:grid-cols-[minmax(0,1fr)_21rem]"
       >
-        <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
+        <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 2xl:border-b-0 2xl:border-r">
           <div data-composer-stagger className="flex items-start justify-between gap-4">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-signal-500/15 bg-signal-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-600 dark:text-signal-300">
@@ -276,7 +276,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             </button>
           </div>
 
-          <div data-composer-stagger className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div data-composer-stagger className="mt-8 grid gap-4 lg:grid-cols-3">
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Sprint Key</div>
               <div className="mt-2 font-mono text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -354,7 +354,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               </button>
             </div>
 
-            <div className={state.originalPrompt ? "grid gap-4 xl:grid-cols-2" : "grid gap-4"}>
+            <div className={state.originalPrompt ? "grid gap-4 2xl:grid-cols-2" : "grid gap-4"}>
               <div className={`rounded-[1.7rem] border bg-black/[0.025] transition-all dark:bg-white/[0.03] ${
                 isImproving
                   ? "border-signal-500/35 shadow-[0_0_0_1px_rgba(0,224,160,0.16),0_0_30px_rgba(0,224,160,0.1)]"
