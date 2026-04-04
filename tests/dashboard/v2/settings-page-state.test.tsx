@@ -271,9 +271,9 @@ describe("useSettingsPageState", () => {
     const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    window.confirm = vi.fn(() => true);
+    const mockRequestConfirm = vi.fn().mockResolvedValue(true);
     await act(async () => {
-      await result.current.handleDeleteProject();
+      await result.current.handleDeleteProject(mockRequestConfirm);
     });
   });
 
@@ -281,9 +281,9 @@ describe("useSettingsPageState", () => {
     const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    window.confirm = vi.fn(() => true);
+    const mockRequestConfirm = vi.fn().mockResolvedValue(true);
     await act(async () => {
-      await result.current.handleResetDatabase();
+      await result.current.handleResetDatabase(mockRequestConfirm);
     });
     expect(mockResetDatabase).toHaveBeenCalled();
   });

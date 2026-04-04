@@ -24,7 +24,7 @@ import { SprintComposer } from "../../components/ui/SprintComposer.js";
 import { SprintMarkdownModal } from "../../components/ui/SprintMarkdownModal.js";
 import { SprintSettingsOverrideModal } from "../../components/ui/SprintSettingsOverrideModal.js";
 import { SprintImportMenu } from "../../components/sprints/SprintImportMenu.js";
-import { ActionFeedbackRegion } from "../../components/ui/ActionFeedbackRegion.js";
+import { NoticePanel } from "../../components/ui/NoticePanel.js";
 import { useSprintsPageData } from "./use-sprints-page-data.js";
 import { useProgressiveList } from "../../hooks/use-progressive-list.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "../../lib/list-window.js";
@@ -222,12 +222,16 @@ export const SprintsPage: FunctionComponent = () => {
                 ? `Define the sprint once for ${selectedProject.name}. The Planning agent can improve the prompt, plan subtasks, and launch the sprint without manual task entry.`
                 : "Select a project to manage sprint structure."}
             </p>
-            <ActionFeedbackRegion
-              status={feedback.status}
-              message={feedback.message}
-              onDismiss={clearFeedback}
-              className="mt-2"
-            />
+            {feedback.message && feedback.status !== "idle" && (
+                <div className="mb-8">
+                    <NoticePanel
+                        title={feedback.status.charAt(0).toUpperCase() + feedback.status.slice(1)}
+                        tone={feedback.status === "error" || feedback.status === "warning" ? "warning" : feedback.status === "success" ? "success" : "neutral"}
+                    >
+                        {feedback.message}
+                    </NoticePanel>
+                </div>
+            )}
             {selectedProject && (
               <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
                 planningRoute.available

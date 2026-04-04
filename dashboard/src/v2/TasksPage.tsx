@@ -425,23 +425,39 @@ export const TasksPage: FunctionComponent = () => {
   );
 
   useLayoutEffect(() => {
-    if (headerRef.current) {
-      gsap.fromTo(Array.from(headerRef.current.children), { opacity: 0, y: 40 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.9, ease: "power4.out", delay: 0.05 });
-    }
+    const ctx = gsap.context(() => {
+      const isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (headerRef.current) {
+        if (isReducedMotion) {
+          gsap.set(Array.from(headerRef.current.children), { opacity: 1, y: 0 });
+        } else {
+          gsap.fromTo(Array.from(headerRef.current.children), { opacity: 0, y: 40 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.9, ease: "power4.out", delay: 0.05 });
+        }
+      }
+    });
+    return () => ctx.revert();
   }, []);
 
   useLayoutEffect(() => {
-    if (boardRef.current) {
-      gsap.fromTo(Array.from(boardRef.current.children), { opacity: 0, y: 15, scale: 0.98 }, {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        stagger: { amount: 0.2, from: "start" },
-        duration: 0.6,
-        ease: "power2.out",
-        delay: 0.1,
-      });
-    }
+    const ctx = gsap.context(() => {
+      const isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (boardRef.current) {
+        if (isReducedMotion) {
+          gsap.set(Array.from(boardRef.current.children), { opacity: 1, y: 0, scale: 1 });
+        } else {
+          gsap.fromTo(Array.from(boardRef.current.children), { opacity: 0, y: 15, scale: 0.98 }, {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            stagger: { amount: 0.2, from: "start" },
+            duration: 0.6,
+            ease: "power2.out",
+            delay: 0.1,
+          });
+        }
+      }
+    });
+    return () => ctx.revert();
   }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId]);
 
   const dependenciesMap = useMemo(() => buildDependentTasksMap(tasks), [tasks]);

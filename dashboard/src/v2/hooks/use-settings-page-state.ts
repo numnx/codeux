@@ -396,11 +396,17 @@ export const useSettingsPageState = (
     }
   }, [selectedProject]);
 
-  const handleDeleteProject = useCallback(async (): Promise<void> => {
+  const handleDeleteProject = useCallback(async (requestConfirm: any): Promise<void> => {
     if (!selectedProject) {
       return;
     }
-    if (!window.confirm(`Delete project "${selectedProject.name}" and all of its sprints, tasks, chats, and runtime records?`)) {
+    const confirmed = await requestConfirm({
+        title: "Delete Project",
+        body: `Delete project "${selectedProject.name}" and all of its sprints, tasks, chats, and runtime records?`,
+        confirmLabel: "Delete Project",
+        destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -418,8 +424,14 @@ export const useSettingsPageState = (
     }
   }, [selectedProject, deleteProject]);
 
-  const handleResetDatabase = useCallback(async (): Promise<void> => {
-    if (!window.confirm("Reset the full database and scoped settings back to a clean development state? This deletes all projects, sprints, tasks, runtime state, chats, and saved settings.")) {
+  const handleResetDatabase = useCallback(async (requestConfirm: any): Promise<void> => {
+    const confirmed = await requestConfirm({
+        title: "Reset Database",
+        body: "Reset the full database and scoped settings back to a clean development state? This deletes all projects, sprints, tasks, runtime state, chats, and saved settings.",
+        confirmLabel: "Reset Everything",
+        destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 

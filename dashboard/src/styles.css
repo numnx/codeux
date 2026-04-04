@@ -446,7 +446,13 @@
     .animate-organic-reverse,
     .dag-aurora,
     .dag-grid-pan,
-    .dag-running-ring {
+    .dag-running-ring,
+    .stat-card-premium::after,
+    .stats-delta-chip,
+    [style*="animation"],
+    .animate-pulse,
+    .animate-spin,
+    .animate-bounce {
       animation: none !important;
       transition: none !important;
     }
