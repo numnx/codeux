@@ -24,6 +24,7 @@ import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MemoryCategory } from "../../../contracts/memory-types.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
+import { isTaskCodeComplete } from "../task-merge-state.js";
 
 
 export interface CycleRunnerArgs {
@@ -190,6 +191,17 @@ export class CycleRunner {
         : null;
 
       const ciAutofixResult = await this.featurePrGate.evaluateCiGate(subtasks, {
+        evaluateTaskQaGate: (() => {
+          const qaService = this.deps.qualityAssuranceService;
+          if (!qaService) {
+            return undefined;
+          }
+          return (task: Subtask) => qaService.getTaskMergeGateStatus({
+            projectId: args.executionContext.project.id,
+            sprintId: args.executionContext.sprint.id,
+            task,
+          });
+        })(),
         automationLevel: args.automationLevel,
         repoPath: args.repoPath,
         featureBranch: args.defaultFeatureBranch,
@@ -516,7 +528,15 @@ export class CycleRunner {
 
     for (const task of subtasks) {
       const prev = preDerivationStates.get(task.id);
-      if (task.status !== "COMPLETED" || prev === "COMPLETED") {
+      const qaGate = this.deps.qualityAssuranceService.getTaskMergeGateStatus({
+        projectId: args.executionContext.project.id,
+        sprintId: args.executionContext.sprint.id,
+        task,
+      });
+      const newlyCodeComplete = isTaskCodeComplete(task) && !isTaskCodeComplete({ status: prev });
+      const shouldRetryFailedReview = isTaskCodeComplete(task) && qaGate.reason === "review_failed";
+
+      if ((!newlyCodeComplete && !shouldRetryFailedReview) || !isTaskCodeComplete(task)) {
         continue;
       }
 
@@ -531,6 +551,13 @@ export class CycleRunner {
 
       if (outcome.reopenedTask) {
         this.deps.logger.info("QA reopened completed task for follow-up fixes", {
+          projectId: args.executionContext.project.id,
+          sprintId: args.executionContext.sprint.id,
+          taskId: task.record_id || task.id,
+          taskKey: task.id,
+        });
+      } else if (outcome.mergeBlocked) {
+        this.deps.logger.info("QA blocked merge until review clears", {
           projectId: args.executionContext.project.id,
           sprintId: args.executionContext.sprint.id,
           taskId: task.record_id || task.id,

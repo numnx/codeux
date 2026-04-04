@@ -174,18 +174,34 @@ export class QaReviewRepository {
     return row ? Number(row.count || 0) : 0;
   }
 
-  hasSprintReviewRun(sprintId: string): boolean {
+  getLatestTaskRun(taskId: string): QaReviewRunRecord | null {
     const row = this.db.prepare(`
-      SELECT id
+      SELECT *
+      FROM qa_review_runs
+      WHERE task_id = ?
+        AND trigger_type IN ('task_completion', 'completed_task_without_pr')
+      ORDER BY started_at DESC
+      LIMIT 1
+    `).get(taskId) as QaReviewRunRow | undefined;
+
+    return row ? this.mapRow(row) : null;
+  }
+
+  getLatestSprintRun(sprintId: string): QaReviewRunRecord | null {
+    const row = this.db.prepare(`
+      SELECT *
       FROM qa_review_runs
       WHERE sprint_id = ?
         AND trigger_type = 'sprint_completion'
-        AND status IN ('running', 'completed', 'failed')
       ORDER BY started_at DESC
       LIMIT 1
-    `).get(sprintId) as { id?: string } | undefined;
+    `).get(sprintId) as QaReviewRunRow | undefined;
 
-    return Boolean(row?.id);
+    return row ? this.mapRow(row) : null;
+  }
+
+  hasSprintReviewRun(sprintId: string): boolean {
+    return Boolean(this.getLatestSprintRun(sprintId)?.id);
   }
 
   listRunsForTask(taskId: string): QaReviewRunRecord[] {

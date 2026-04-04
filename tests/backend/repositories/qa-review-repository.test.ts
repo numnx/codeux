@@ -75,6 +75,7 @@ describe("QaReviewRepository", () => {
     expect(completedTaskRun.outcome).toBe("changes_requested");
     expect(repository.countTaskRuns(task.id)).toBe(1);
     expect(repository.listRunsForTask(task.id)).toHaveLength(1);
+    expect(repository.getLatestTaskRun(task.id)?.id).toBe(completedTaskRun.id);
 
     expect(repository.hasSprintReviewRun(sprint.id)).toBe(false);
 
@@ -91,5 +92,6 @@ describe("QaReviewRepository", () => {
     const storedSprintRun = repository.getRun(sprintRun.id);
     expect(storedSprintRun?.triggerType).toBe("sprint_completion");
     expect(storedSprintRun?.payload).toEqual({ summary: "sprint review" });
+    expect(repository.getLatestSprintRun(sprint.id)?.id).toBe(sprintRun.id);
   });
 });

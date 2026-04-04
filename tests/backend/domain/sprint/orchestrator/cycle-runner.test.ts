@@ -1284,9 +1284,18 @@ describe("CycleRunner attention sync", () => {
   it("runs QA review only for tasks that newly transition to COMPLETED", async () => {
     const deps = buildDeps();
     deps.qualityAssuranceService = {
+      getTaskMergeGateStatus: vi.fn().mockReturnValue({
+        mergeAllowed: false,
+        reason: "pending_review",
+        summary: "QA review is required before merge.",
+        latestRun: null,
+        runsUsed: 0,
+        maxRuns: 1,
+      }),
       reviewCompletedTask: vi.fn().mockResolvedValue({
         reviewed: true,
         reopenedTask: true,
+        mergeBlocked: true,
         reportText: "QA reopened task T1",
       }),
     } as any;
