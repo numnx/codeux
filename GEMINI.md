@@ -4,85 +4,69 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
 
 ## 🚀 Project Overview
 
-- **Core Purpose**: Bridging LLMs (like Gemini, Claude, Codex) with the Jules Agent API via the MCP standard.
+- **Core Purpose**: Bridging LLMs (Gemini, Claude, Codex) with the Jules Agent API via the MCP standard.
 - **Main Technologies**:
-  - **Runtime**: Node.js (ES Modules)
-  - **Language**: TypeScript
-  - **Protocols**: MCP (Model Context Protocol)
-  - **Key Libraries**: `@modelcontextprotocol/sdk`, `axios`, `dotenv`
-- **Architecture**:
-  - `src/index.ts`: The central entry point implementing the MCP server and its 12+ tools.
-  - `dashboard/`: A real-time Preact-based web dashboard for visualizing sprint progress.
-  - `.jules-subagents/`: The primary directory for agent configuration and sprint management.
-    - `agents/`: Contains Markdown guides that define the technical standards and orchestration logic for Jules agents.
-      - `worker.md`: Defines the "Technical Baseline" for all subtasks.
-      - `orchestrator.md`: Defines the logic for the `sprint_agent` tool.
-      - `sprint_agent_guide.md`: Operating instructions for the main orchestrator agent.
-      - `watch.md`: Operating instructions for the continuous orchestration loop.
-      - `watch-skill.md`: A skill-like instruction for re-entering the watch loop.
-    - `sprints/`: Contains sprint definitions (`sprint-<N>.md`) and their corresponding subtasks.
+  - **Runtime**: Node.js (ESM), TypeScript 5.x.
+  - **Protocols**: MCP (Model Context Protocol).
+  - **Key Libraries**: `@modelcontextprotocol/sdk`, `axios`, `vitest`, `preact`, `tailwind`.
+- **Architecture**: Domain-driven design with a clean separation between MCP tools, business logic, and infrastructure.
 
-## 🛠️ Building and Running
+## 🏗️ Architecture & Structure
 
-### Development
-- **Install Dependencies**: `npm install`
-- **Run in Dev Mode**: `npm run dev` (uses `ts-node-esm`)
-- **Build**: `npm run build` (runs `tsc`)
+- `src/`: Core logic for the MCP server.
+  - `src/mcp/`: Tool registration and MCP protocol handling.
+  - `src/domain/`: Core business logic (sprints, workers, orchestration).
+  - `src/contracts/`: Shared types and interfaces.
+  - `src/repositories/`: File-based data access (sprints, tasks, settings).
+  - `src/integrations/`: Jules API client and external services.
+- `dashboard/`: Preact-based live monitoring dashboard.
+  - `dashboard/src/v2/`: Modernized dashboard components and state management.
+- `.jules-subagents/`: Agent guidance and local sprint data.
+  - `agents/`: Markdown guides defining the technical baseline for Jules agents.
+  - `sprints/`: Sprint definitions and subtask management.
 
-### Production / CLI Usage
-- **Start**: `npm start` (runs `node dist/index.js`)
-- **Direct Execution**: `node dist/index.js --api-key YOUR_KEY`
-- **Global Command**: Once linked via `npm link`, use the `jules-subagents` command.
+## 🛠️ Development & Validation
 
-### Configuration & Safety
-The server looks for settings and guides in a hierarchical order (CWD > Project Root > Home Dir):
-1.  **API Key**: `--api-key` flag, `JULES_API_KEY` env, or `.env` file.
-2.  **Settings**: `settings.json` in `.jules-subagents/` folders.
-3.  **Emergency Stop**: Automatically halts task creation after 5 (default) consecutive failures, configurable via `maxFailures` or `JULES_API_MAX_FAILS`.
+### Key Commands
+- `npm run dev`: Start the server in development mode using `ts-node-esm`.
+- `npm run build`: Full build (TSC + Vite for dashboard).
+- `npm run typecheck`: Strict TypeScript validation.
+- `npm run lint`: ESLint and Prettier check.
+- `npm run test`: Run the Vitest test suite.
+- `npm run ci`: Full local validation (lint + typecheck + test + build).
 
-## 🏗️ Agent Orchestration Architecture
+### Standards & Constraints
+- **ESM Strictness**: All imports in `.ts` files MUST include the `.js` extension.
+- **Strict Typing**: No `any` without strong justification. Use explicit return types for public APIs.
+- **Testing**: 80% line coverage target for core logic. Every feature must have a corresponding test.
+- **Design Quality**: Dashboard UI must target award-winning standards—polished, interactive, and responsive.
 
-The system uses a **tri-agent skill architecture** to ensure absolute precision in sprint execution. Instructions are delivered via specific Markdown guides injected into agent contexts.
+## 🏗️ Agent Orchestration Strategy
 
-### 1. The Orchestrator (`.jules-subagents/agents/orchestrator.md`)
-- **Role**: High-level manager connecting via MCP.
-- **Tools**: `sprint_agent(action: "status" | "orchestrate" | "plan")`, `create_session`, `wait_for_session_completion`.
-- **Operating Protocol**: Follows a strict tool-to-phase mapping and error recovery algorithm.
+The system employs a **Tri-Agent Skill Architecture**:
+1.  **The Orchestrator** (`orchestrator.md`): Manages high-level sprint lifecycle via MCP.
+2.  **The Planning Specialist** (`sprint_agent_guide.md`): Decomposes sprints into atomic, "Jules-Ready" subtasks.
+3.  **The Jules Technical Worker** (`worker.md`): The engineering baseline for every execution session, focusing on research-led implementation.
 
-### 2. The Planning Specialist (`.jules-subagents/agents/sprint_agent_guide.md`)
-- **Role**: Decomposes `.jules-subagents/sprints/sprint-<N>.md` into a DAG of subtasks.
-- **Output**: Atomic markdown files in `.jules-subagents/sprints/sprint<N>-subtasks/`.
-- **Constraint**: Each task must be "Jules-Ready" (atomic, testable, and independent).
+## 🛡️ Repository Safety & Cleanliness (MANDATORY)
 
-### 3. The Jules Technical Skill (`.jules-subagents/agents/worker.md`)
-- **Role**: The engineering baseline injected into EVERY Jules session.
-- **Focus**: Award-winning design, strict TypeScript, and mandatory quality gates (Playwright).
-- **Workflow**: Research -> Strategy -> Execution -> Validation.
+To maintain a production-grade codebase, the following rules are **ABSOLUTE**:
+
+1.  **Clear Temporary Files**: ALWAYS clear any temporary or local utility files before completing a task.
+    - Specifically: `*.cjs` and `*.log` files are considered temporary unless explicitly tracked in `.gitignore`.
+2.  **Commit Lock**: **COMMITS ARE NOT ALLOWED** as long as temporary files (`.cjs`, `.log`) are present in the workspace.
+    - You must delete these files before staging or committing changes.
+3.  **Credential Protection**: Never commit `.env` files or hardcode API keys. Use `.env.example` for templates.
 
 ## 🛠️ Tool-to-Phase Mapping Reference
 
-| Phase | Primary MCP Tool | Secondary Tools |
+| Phase | Primary Tool | Description |
 |---|---|---|
-| **Discovery** | `list_all_sources` | `get_source` |
-| **Planning** | `sprint_agent(action: "plan")` | `read_file`, `write_file` |
-| **Execution** | `sprint_agent(action: "orchestrate")` | `create_session` |
-| **One-off Implementation** | `task_agent` | `wait_for_session_completion` |
-| **Monitoring** | `sprint_agent(action: "status")` | `get_session`, `wait_for_session_completion` |
-| **Verification** | `list_all_activities` | `get_activity` |
+| **Discovery** | `list_all_sources` | Identify project structure and files. |
+| **Planning** | `sprint_agent(action: "plan")` | Generate atomic subtasks for the sprint. |
+| **Execution** | `sprint_agent(action: "orchestrate")` | Launch and monitor agent sessions. |
+| **Monitoring** | `sprint_agent(action: "status")` | Real-time status of the sprint and tasks. |
+| **Verification** | `list_all_activities` | Audit the actual changes made by agents. |
 
-## 📁 Key Files & Directories
-
-- `src/index.ts`: The MCP server implementation.
-- `dashboard/`: The Preact-based live monitoring dashboard.
-- `.jules-subagents/`: Agent guidance and sprint data.
-- `package.json`: Project metadata and dependency management.
-- `tsconfig.json`: TypeScript configuration (ESNext, Node16 resolution).
-- `.env.example`: Template for required environment variables.
-
-## Technical Standards for Preact App
-
-- Do not install external libraries beyond dependencies that already exist in the project.
-- Build modular, high-quality in-house modules for core features (small, testable, reusable).
-- Keep app bundle size as low as possible (code splitting, dead-code avoidance, lean assets).
-- Treat award-winning design as the quality target for UX, visuals, and interactions.
-- Use Tailwind as the default styling approach (no additional UI styling frameworks).
+---
+*Last Updated: Saturday, April 4, 2026*
