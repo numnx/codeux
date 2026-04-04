@@ -12,6 +12,7 @@ import type {
   GitPullRequestStatus,
   GitTrackingStatus,
   SprintLoopStepSettings,
+  ProviderId,
   Subtask,
 } from "../../../contracts/app-types.js";
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
@@ -25,6 +26,7 @@ import type { MemoryCategory } from "../../../contracts/memory-types.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
 import { isTaskCodeComplete } from "../task-merge-state.js";
+import { PROVIDER_IDS } from "../../../repositories/settings-defaults.js";
 
 
 export interface CycleRunnerArgs {
@@ -337,7 +339,12 @@ export class CycleRunner {
           taskRecord?.executorType
         ) || null;
       },
-      getProviderSettings: (provider) => (dashboardSettings.aiProvider.providers as any)[provider] || {},
+      getProviderSettings: (provider) => {
+        if (typeof provider === "string" && (PROVIDER_IDS as readonly string[]).includes(provider)) {
+          return dashboardSettings.aiProvider.providers[provider as ProviderId] || {};
+        }
+        return {};
+      },
       getRunningCounts: () => {
         const counts: Record<string, number> = {};
         for (const t of subtasks) {
