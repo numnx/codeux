@@ -114,7 +114,7 @@ const TaskCard: FunctionComponent<{
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       tabIndex={0}
-      className="group relative flex flex-col bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+      className={`group relative flex flex-col bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"}`}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
@@ -415,6 +415,7 @@ export const TasksPage: FunctionComponent = () => {
   const [listWindow, setListWindow] = useState<ListWindowOption>(DEFAULT_LIST_WINDOW);
   const [showComposer, setShowComposer] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]);
   const composerRef = useRef<HTMLDivElement>(null);
 
   const { tasks, loading, error, refresh: refreshTasks } = useProjectTasks(
@@ -444,11 +445,12 @@ export const TasksPage: FunctionComponent = () => {
     }
   }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId]);
 
-  const dependenciesMap = useMemo(() => buildDependentTasksMap(tasks), [tasks]);
+  const allTasks = useMemo(() => [...optimisticTasks, ...tasks], [optimisticTasks, tasks]);
+  const dependenciesMap = useMemo(() => buildDependentTasksMap(allTasks), [allTasks]);
 
   const { filteredTasks, visibleTasks, stats, columns } = useMemo(() => {
-    return deriveTaskBoardState(tasks, statusFilter, priorityFilter, listWindow);
-  }, [tasks, statusFilter, priorityFilter, listWindow]);
+    return deriveTaskBoardState(allTasks, statusFilter, priorityFilter, listWindow);
+  }, [allTasks, statusFilter, priorityFilter, listWindow]);
 
   const selectedSprintModel = taskScopeSprintId ? sprints.find((sprint: Sprint) => sprint.id === taskScopeSprintId) || null : null;
 
@@ -479,16 +481,50 @@ export const TasksPage: FunctionComponent = () => {
   }) => {
     if (!selectedProject) return;
 
-    if (editingTask) {
-      await updateTask(editingTask.recordId, draft);
-    } else {
-      await createTask(selectedProject.id, draft);
+    const isEditing = !!editingTask;
+    const optId = `opt-${Date.now()}`;
+
+    if (!isEditing) {
+      const optimisticTask: Task = {
+        recordId: optId,
+        id: "OPT-...",
+        source: "dash",
+        sprint: sprints.find((s: Sprint) => s.id === draft.sprintId)?.name || "...",
+        sprintId: draft.sprintId,
+        title: draft.title,
+        status: draft.status,
+        priority: draft.priority,
+        executorType: draft.executorType,
+        assignee: "Pending",
+        time: "...",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        promptMarkdown: draft.promptMarkdown,
+        description: draft.description,
+        dependsOnTaskIds: draft.dependsOnTaskIds,
+        isIndependent: false,
+        isMerged: false,
+        mergeIndicator: null,
+        isOptimistic: true,
+      };
+      setOptimisticTasks((prev) => [optimisticTask, ...prev]);
     }
 
-    await Promise.all([refreshTasks(), refreshSprints()]);
-    setEditingTask(null);
-    setShowComposer(false);
-  }, [selectedProject, editingTask, refreshTasks, refreshSprints]);
+    try {
+      if (isEditing) {
+        await updateTask(editingTask.recordId, draft);
+      } else {
+        await createTask(selectedProject.id, draft);
+      }
+      await Promise.all([refreshTasks(), refreshSprints()]);
+      setEditingTask(null);
+      setShowComposer(false);
+    } finally {
+      if (!isEditing) {
+        setOptimisticTasks((prev) => prev.filter((t) => t.recordId !== optId));
+      }
+    }
+  }, [selectedProject, editingTask, refreshTasks, refreshSprints, sprints]);
 
   const handleDeleteTask = useCallback(async (task: Task) => {
     await deleteTask(task.recordId);

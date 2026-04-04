@@ -326,7 +326,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               ) : (
                 <Plus className="h-4 w-4" strokeWidth={2.3} />
               )}
-              {state.isSubmitting ? "Saving..." : state.isEditing ? "Save Task" : "Create Task"}
+              {state.isSubmitting ? (state.isEditing ? "Saving Task..." : "Creating Task...") : state.isEditing ? "Save Task" : "Create Task"}
             </button>
             <button
               type="button"
