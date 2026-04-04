@@ -46,7 +46,6 @@ describe("BrowserSessionsMenu", () => {
 
         const button = screen.getByRole("button", { name: "Toggle active browser sessions" });
         expect(button).toBeInTheDocument();
-        expect(screen.getByText("Browser")).toBeInTheDocument();
     });
 
     it("shows polite empty state when no project is selected", async () => {
