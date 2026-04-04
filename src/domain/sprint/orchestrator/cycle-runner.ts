@@ -12,6 +12,7 @@ import type {
   GitPullRequestStatus,
   GitTrackingStatus,
   SprintLoopStepSettings,
+  ProviderId,
   Subtask,
 } from "../../../contracts/app-types.js";
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
@@ -25,6 +26,7 @@ import type { MemoryCategory } from "../../../contracts/memory-types.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
 import { isTaskCodeComplete } from "../task-merge-state.js";
+import { PROVIDER_IDS } from "../../../repositories/settings-defaults.js";
 
 
 export interface CycleRunnerArgs {
@@ -324,20 +326,29 @@ export class CycleRunner {
     args: CycleRunnerArgs,
     dashboardSettings: ReturnType<SprintOrchestratorDependencies["getDashboardSettings"]>,
   ): Promise<{ subtasks: Subtask[]; reportText: string }> {
+    const taskIds = subtasks.map(t => t.record_id).filter((id): id is string => !!id);
+    const taskRecords = this.deps.projectManagementRepository.getTasksByIds(taskIds);
+    const taskRecordMap = new Map(taskRecords.map(t => [t.id, t]));
+
     return runStartReadyTasksStep(subtasks, {
       action: args.action,
       maxFailures: this.deps.settings.maxFailures || 5,
       getConsecutiveFailures: this.deps.getConsecutiveFailures,
       setConsecutiveFailures: this.deps.setConsecutiveFailures,
       getProviderForTask: (task) => {
-        const taskRecord = task.record_id ? this.deps.projectManagementRepository.getTask(task.record_id) : undefined;
+        const taskRecord = task.record_id ? taskRecordMap.get(task.record_id) : undefined;
         return this.deps.taskService?.resolveTaskProvider(
           task,
           { projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id },
           taskRecord?.executorType
         ) || null;
       },
-      getProviderSettings: (provider) => (dashboardSettings.aiProvider.providers as any)[provider] || {},
+      getProviderSettings: (provider) => {
+        if (typeof provider === "string" && (PROVIDER_IDS as readonly string[]).includes(provider)) {
+          return dashboardSettings.aiProvider.providers[provider as ProviderId] || {};
+        }
+        return {};
+      },
       getRunningCounts: () => {
         const counts: Record<string, number> = {};
         for (const t of subtasks) {
@@ -345,7 +356,7 @@ export class CycleRunner {
             const p = t.provider || (t.record_id ? this.deps.taskService?.resolveTaskProvider(
               t,
               { projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id },
-              this.deps.projectManagementRepository.getTask(t.record_id)?.executorType
+              taskRecordMap.get(t.record_id)?.executorType
             ) : null);
             if (p) {
               counts[p] = (counts[p] || 0) + 1;

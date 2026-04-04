@@ -22,6 +22,7 @@ import { ProjectWorkerAssignmentService } from "../domain/workers/project-worker
 import { WorkerTaskDispatchService } from "./worker-task-dispatch-service.js";
 import { CliWorkflowService } from "./cli-workflow-service.js";
 import { resolveProviderForInvocation } from "./provider-routing.js";
+import { resolveEffectiveDashboardSettings } from "./settings-resolution-service.js";
 import type { WorkerInboxReplyService } from "./worker-inbox-reply-service.js";
 import type { InstructionService } from "../instructions/instruction-template-service.js";
 import type { SprintExecutionStateService } from "./sprint-execution-state-service.js";
@@ -178,17 +179,11 @@ export class VirtualWorkerService {
   }
 
   private resolveWorkerExecutionMode(projectId: string, sprintId?: string | null): WorkerExecutionMode {
-    if (sprintId) {
-      return this.deps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings.workers.executionMode;
-    }
-    return this.deps.settingsRepository.resolveProjectDashboardSettings(projectId).settings.workers.executionMode;
+    return resolveEffectiveDashboardSettings(this.deps.settingsRepository, projectId, sprintId).settings.workers.executionMode;
   }
 
   private resolveDashboardSettings(projectId: string, sprintId?: string | null): DashboardSettings {
-    if (sprintId) {
-      return this.deps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings;
-    }
-    return this.deps.settingsRepository.resolveProjectDashboardSettings(projectId).settings;
+    return resolveEffectiveDashboardSettings(this.deps.settingsRepository, projectId, sprintId).settings;
   }
 
   private projectNeedsVirtualWorker(projectId: string): boolean {
