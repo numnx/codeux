@@ -115,7 +115,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
 
     return (
         <div
-            className="relative hidden md:inline-block"
+            className="relative hidden md:block"
             ref={containerRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -128,14 +128,13 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                 aria-haspopup="menu"
                 aria-expanded={isMenuVisible}
                 aria-label="Toggle active browser sessions"
-                className={`inline-flex h-11 items-center gap-2 rounded-xl border px-3.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 ${
+                className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
                     isMenuVisible
-                    ? "border-sky-500/30 bg-sky-500/8 text-sky-600 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-300"
-                    : "border-black/[0.06] bg-black/[0.03] text-slate-500 hover:border-sky-500/30 hover:bg-sky-500/8 hover:text-sky-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-sky-400/30 dark:hover:bg-sky-400/10 dark:hover:text-sky-300"
+                    ? "bg-sky-500/8 dark:bg-sky-400/10"
+                    : "hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"
                 }`}
             >
-                <Compass aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-                Browser
+                <Compass aria-hidden="true" className={"w-4 h-4 transition-colors " + (isMenuVisible ? "text-sky-600 dark:text-sky-300" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white")} strokeWidth={1.5} />
             </button>
 
             {isMenuVisible && (
