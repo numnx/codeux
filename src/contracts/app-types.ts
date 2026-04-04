@@ -505,6 +505,7 @@ export interface ProviderSettings {
   weight: number;
   thinkingMode: ThinkingMode;
   apiKey: string;
+  maxConcurrentTasks: number;
 }
 
 export interface InvocationProviderOverrideSettings {
