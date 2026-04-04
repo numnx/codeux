@@ -94,14 +94,15 @@ Behavior:
 
 If task QA is still pending, running, or has failed without exhausting `maxTaskReviewRuns`, Sprint OS marks the task merge state as `QA_PENDING` and keeps the sprint active instead of auto-merging.
 
-Normal default:
+Run budgeting:
 
-- task QA runs once after the first completion only
-
-If `maxTaskReviewRuns > 1`:
-
-- a task can be reviewed again after a QA-requested fix loop until the cap is reached
+- the initial completed task review always counts as run `1`
+- extra QA runs only happen after QA requested fixes and the task reaches code-complete again
+- `maxTaskReviewRuns = 1` means only the initial task review runs; QA does not re-check later fixes
+- `maxTaskReviewRuns = 2` means the initial task review plus one QA re-check after fixes
+- `maxTaskReviewRuns = N` means the initial task review plus up to `N - 1` QA re-checks for later fix iterations
 - if QA still has not produced a green light after that cap, Sprint OS stops holding the merge on QA alone and treats the retry budget as exhausted
+- a passing task QA result is final for that completion state and is not retriggered just because orchestration loops again
 
 ### Sprint completion QA
 
@@ -114,7 +115,12 @@ Behavior:
 - QA can return structured `followUpTasks` with full task instructions so Sprint OS creates new pending sprint tasks automatically
 - if QA requests follow-up work and Sprint OS can continue that task session, sprint completion is held open
 - if QA creates follow-up tasks, sprint completion is held open until those new tasks finish and sprint QA passes on a later run
-- sprint QA runs again only after sprint task state changes since the last sprint QA run
+- sprint QA runs once for the finished sprint, then only runs again after a prior `changes_requested` or failed result and meaningful sprint task state changes have occurred
+- a passing sprint QA result is final for that sprint state and is not retriggered by another orchestration cycle with no real work changes
+- sprint QA uses the same `maxTaskReviewRuns` budget semantics as task QA:
+  - run `1` is the initial finished-sprint review
+  - later runs are only used to check QA-requested fixes or follow-up work
+  - `maxTaskReviewRuns = 1` means sprint fixes are not re-checked by QA
 - if sprint QA passes, Sprint OS proceeds to main-merge evaluation and eventual completion
 - if sprint QA is still running, failed, or waiting on follow-up work, the main merge stays blocked
 

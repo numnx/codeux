@@ -215,10 +215,15 @@ QA merge-gate notes:
 - task QA now runs on code-complete tasks before Sprint OS auto-merges their feature PRs
 - enabled task QA blocks feature merge until QA passes or `maxTaskReviewRuns` is exhausted
 - while task QA is pending or retrying, the runtime merge indicator can be `QA_PENDING`
+- the initial task review always counts as run `1`; later runs are only used for QA-requested fix checks
+- `maxTaskReviewRuns = 1` means only the initial task or sprint review is checked by QA
+- `maxTaskReviewRuns = 2` means the initial review plus one QA re-check after fixes
+- a passed task QA result is reused and does not restart by itself on the next orchestration cycle
 - sprint QA now runs before the final `feature -> default` merge gate
 - enabled sprint QA blocks main-branch merge until sprint QA passes
 - sprint QA can resume an existing target task session and can also create new follow-up tasks with full `promptMarkdown` instructions when the review finds broader sprint work
-- sprint QA reruns only after sprint task state changes after the last sprint QA run; a passed sprint QA result is reused while no task updates have occurred
+- sprint QA reruns only after a prior `changes_requested` or failed result and meaningful sprint task state changes after the last sprint QA run
+- a passed sprint QA result is reused and never restarts by itself without real work changes
 
 `cliWorkflow` contains:
 - Retry/cleanup toggles:
