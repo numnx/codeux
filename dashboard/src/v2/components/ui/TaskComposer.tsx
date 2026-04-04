@@ -116,7 +116,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/78 text-slate-400 transition-all hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-95 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-white"
               aria-label="Close task composer"
             >
               <X className="h-4 w-4" />
@@ -264,9 +264,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                   key={option}
                   type="button"
                   onClick={() => state.setPriority(option)}
-                  className={`px-3 py-2 rounded-[1.1rem] border text-[10px] font-bold uppercase tracking-[0.14em] transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
+                  className={`px-3 py-2 rounded-[1.1rem] border text-[10px] font-bold uppercase tracking-[0.14em] transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-95 ${
                     state.priority === option
-                      ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400"
+                      ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400 shadow-[0_4px_12px_rgba(255,184,0,0.15)]"
                       : "border-black/[0.06] bg-black/[0.025] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
                   }`}
                 >
@@ -289,7 +289,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     key={option.value}
                     type="button"
                     onClick={() => state.setExecutorType(option.value)}
-                    className={`rounded-[1.35rem] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
+                    className={`rounded-[1.35rem] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-[0.98] ${
                       isActive
                         ? "border-signal-500/30 bg-signal-500/[0.08] shadow-[0_12px_24px_rgba(0,224,160,0.08)]"
                         : "border-black/[0.06] bg-white/66 hover:border-black/[0.1] hover:bg-white dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.1]"
@@ -318,7 +318,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <button
               type="submit"
               disabled={!state.isValid || state.isSubmitting}
-              className="inline-flex items-center justify-center gap-2.5 rounded-[1.2rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-px hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:bg-white dark:text-void-900 dark:focus-visible:ring-offset-void-900"
+              className="inline-flex items-center justify-center gap-2.5 rounded-[1.2rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-px hover:opacity-92 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 dark:bg-white dark:text-void-900"
             >
               {state.isSubmitting ? (
                 <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white dark:border-void-900/20 dark:border-t-void-900 animate-spin" />
@@ -332,7 +332,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white dark:focus-visible:ring-offset-void-900"
+              className="rounded-[1.2rem] border border-black/[0.06] bg-white/66 px-5 py-3 text-sm font-semibold text-slate-500 transition-all hover:text-slate-900 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white"
             >
               Cancel
             </button>
