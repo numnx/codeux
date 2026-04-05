@@ -10,9 +10,10 @@ import { getAccentHex } from "../../lib/agent-avatar.js";
 export const AgentPresetEditorPanel: FunctionComponent<{
   preset: AgentPreset;
   saving: boolean;
+  defaultMemoryInstruction?: string;
   onSave: (id: string, updates: Partial<AgentPreset>) => void;
   onCancel: () => void;
-}> = ({ preset, saving, onSave, onCancel }) => {
+}> = ({ preset, saving, defaultMemoryInstruction = "", onSave, onCancel }) => {
   const panelRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState(preset.name);
   const [labels, setLabels] = useState(preset.labels.join(", "));
@@ -119,7 +120,13 @@ export const AgentPresetEditorPanel: FunctionComponent<{
                 <input
                   type="checkbox"
                   checked={memoryOverrideEnabled}
-                  onChange={(e) => setMemoryOverrideEnabled(e.currentTarget.checked)}
+                  onChange={(e) => {
+                    const checked = e.currentTarget.checked;
+                    setMemoryOverrideEnabled(checked);
+                    if (checked && memoryMarkdown.trim() === "") {
+                      setMemoryMarkdown(defaultMemoryInstruction);
+                    }
+                  }}
                   className="peer sr-only"
                 />
                 <div className="h-6 w-11 rounded-full border border-black/[0.08] bg-slate-200 peer-checked:bg-signal-500/25 transition-colors dark:border-white/[0.08] dark:bg-void-800" />
