@@ -9,6 +9,8 @@ import { AddProjectModal } from "./ui/AddProjectModal.js";
 import { useProjectData } from "../context/project-data.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
 import { useSprints } from "../../hooks/useSprints.js";
+import { useProjectTasks } from "../hooks/use-project-tasks.js";
+import { usePreviewSessions } from "../hooks/use-preview-sessions.js";
 import { formatSprintDisplay } from "../lib/format-sprint.js";
 import { DockerStatusMenu } from "./DockerStatusMenu.js";
 import { BrowserSessionsMenu } from "./browser/BrowserSessionsMenu.js";
@@ -194,6 +196,70 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
 
     const { data: execution, loading: executionLoading, refetch: refreshExecution } = useExecutions(selectedProject?.id || null);
     const { data: sprints, selectedSprintId, selectedSprint, selectSprint, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
+    const projectId = selectedProject?.id || null;
+
+    const { tasks } = useProjectTasks(projectId, selectedProject ? [selectedProject] : [], sprints);
+    const { sessions } = usePreviewSessions({ projectId });
+
+    const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const searchResults = useMemo(() => {
+        if (!debouncedQuery.trim()) {
+            return { sprints: [], tasks: [], agents: [], containers: [] };
+        }
+
+        const lowerQuery = debouncedQuery.toLowerCase();
+
+        const filteredSprints = sprints.filter(s =>
+            s.name.toLowerCase().includes(lowerQuery) ||
+            `spr-${s.number}`.includes(lowerQuery)
+        ).map(s => ({
+            id: s.id,
+            title: `SPR-${s.number}: ${s.name}`,
+            status: s.status
+        }));
+
+        const filteredTasks = tasks.filter((t: any) =>
+            t.title.toLowerCase().includes(lowerQuery) ||
+            (t.recordId && t.recordId.toLowerCase().includes(lowerQuery)) ||
+            (t.description && t.description.toLowerCase().includes(lowerQuery))
+        ).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            sprint: t.sprint,
+            status: t.status
+        }));
+
+        const filteredAgents = (selectedProject?.agentBindings || []).filter(a =>
+            a.workerDisplayName?.toLowerCase().includes(lowerQuery) ||
+            a.workerEndpointType?.toLowerCase().includes(lowerQuery)
+        ).map(a => ({
+            id: a.id || `${a.workerEndpointType}-${a.workerDisplayName}`,
+            name: a.workerDisplayName || a.workerEndpointType,
+            status: 'idle'
+        }));
+
+        const filteredContainers = sessions.filter((s: any) =>
+            (s.containerName && s.containerName.toLowerCase().includes(lowerQuery)) ||
+            (s.sprintId && s.sprintId.toLowerCase().includes(lowerQuery))
+        ).map((s: any) => ({
+            id: s.id,
+            name: s.containerName || 'Unnamed Container',
+            status: s.status
+        }));
+
+        return {
+            sprints: filteredSprints,
+            tasks: filteredTasks,
+            agents: filteredAgents,
+            containers: filteredContainers
+        };
+    }, [debouncedQuery, sprints, tasks, selectedProject, sessions]);
 
     const { data: effectiveSettings, refresh: refreshEffectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
     const browserVisible = !selectedProject || (
@@ -327,6 +393,8 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     <input
                         type="text"
                         placeholder="Search..."
+                        value={searchQuery}
+                        onInput={(e) => setSearchQuery(e.currentTarget.value)}
                         onFocus={() => setIsSearchOpen(true)}
                         className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
@@ -692,6 +760,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                 onClose={() => setIsSearchOpen(false)}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
+                results={searchResults}
             />
         </>
     );
