@@ -1,6 +1,14 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
-import { asyncRoute, parseTrimmedString, requireTrimmedString, syncRoute } from "./route-utils.js";
+import {
+  asyncRoute,
+  parseTrimmedString,
+  requireTrimmedString,
+  syncRoute,
+  parsePreferredWorkerAssignment,
+  parseClaimAttentionItemPayload,
+  parseResolveAttentionItemPayload,
+} from "./route-utils.js";
 import type { ProjectStatsQuery, ProjectStatsWindow } from "../contracts/app-types.js";
 
 export function parseProjectStatsQuery(query: Record<string, unknown>): ProjectStatsQuery {
@@ -27,18 +35,6 @@ export function parseProjectStatsQuery(query: Record<string, unknown>): ProjectS
     from,
     to,
   };
-}
-
-export function parseNullableTrimmedString(value: unknown): string | null | undefined {
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function registerRuntimeRoutes(app: Express, options: DashboardDependencies): void {
@@ -77,11 +73,7 @@ export function registerRuntimeRoutes(app: Express, options: DashboardDependenci
 
     res.json(options.setPreferredWorker(
       requireTrimmedString(req.params.projectId, "projectId"),
-      {
-        workerConnectionId: parseNullableTrimmedString(req.body?.workerConnectionId),
-        workerEndpointId: parseNullableTrimmedString(req.body?.workerEndpointId),
-        workerEndpointKey: parseNullableTrimmedString(req.body?.workerEndpointKey),
-      },
+        parsePreferredWorkerAssignment(req.body)
     ));
   }));
 
@@ -94,10 +86,7 @@ export function registerRuntimeRoutes(app: Express, options: DashboardDependenci
     res.json(options.claimAttentionItem(
       requireTrimmedString(req.params.projectId, "projectId"),
       requireTrimmedString(req.params.attentionItemId, "attentionItemId"),
-      {
-        workerEndpointId: typeof req.body?.workerEndpointId === "string" ? req.body.workerEndpointId.trim() : undefined,
-        claimReason: typeof req.body?.claimReason === "string" ? req.body.claimReason.trim() : undefined,
-      },
+        parseClaimAttentionItemPayload(req.body)
     ));
   }));
 
@@ -107,17 +96,10 @@ export function registerRuntimeRoutes(app: Express, options: DashboardDependenci
       return;
     }
 
-    const requestedStatus = typeof req.body?.status === "string" ? req.body.status.trim() : undefined;
     res.json(options.resolveAttentionItem(
       requireTrimmedString(req.params.projectId, "projectId"),
       requireTrimmedString(req.params.attentionItemId, "attentionItemId"),
-      {
-        status: requestedStatus === "dismissed" ? "dismissed" : "resolved",
-        reason: typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined,
-        resolutionSummaryMarkdown: typeof req.body?.resolutionSummaryMarkdown === "string"
-          ? req.body.resolutionSummaryMarkdown
-          : undefined,
-      },
+        parseResolveAttentionItemPayload(req.body)
     ));
   }));
 }

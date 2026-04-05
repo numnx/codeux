@@ -5,6 +5,8 @@ import { registerSprintRoutes } from "../../../src/server/sprint-routes.js";
 import { registerTaskRoutes } from "../../../src/server/task-routes.js";
 import { registerRuntimeRoutes } from "../../../src/server/runtime-routes.js";
 import { registerExecutionControlRoutes } from "../../../src/server/execution-control-routes.js";
+import { registerConversationRoutes } from "../../../src/server/conversation-routes.js";
+import { registerPlanningRoutes } from "../../../src/server/planning-routes.js";
 import type { DashboardDependencies } from "../../../src/server/dashboard-server.js";
 
 // We need an express router to expose _router, but app does expose _router after the first route is added sometimes, but wait, `app._router` is internal.
@@ -533,6 +535,12 @@ describe("Full Branch/Function Coverage Hits", () => {
       cancelTaskDispatch: () => { throw new Error("Mock Error"); },
       forceCancelTaskDispatch: () => { throw new Error("Mock Error"); },
       retryTaskDispatch: () => { throw new Error("Mock Error"); },
+      improveSprintPrompt: () => { throw new Error("Mock Error"); },
+      planSprint: () => { throw new Error("Mock Error"); },
+      createConversationThread: () => { throw new Error("Mock Error"); },
+      updateConversationThread: () => { throw new Error("Mock Error"); },
+      updateThreadRoute: () => { throw new Error("Mock Error"); },
+      postConversationMessage: () => { throw new Error("Mock Error"); },
     } as unknown as DashboardDependencies;
 
     registerProjectRoutes(app, options);
@@ -540,6 +548,8 @@ describe("Full Branch/Function Coverage Hits", () => {
     registerTaskRoutes(app, options);
     registerRuntimeRoutes(app, options);
     registerExecutionControlRoutes(app, options);
+    registerConversationRoutes(app, options);
+    registerPlanningRoutes(app, options);
 
     const server = await new Promise<Server>((resolve) => {
       const s = app.listen(0, "127.0.0.1", () => resolve(s));
@@ -597,6 +607,20 @@ describe("Full Branch/Function Coverage Hits", () => {
     expect((await testUrl("/api/task-dispatches/1/cancel", "POST")).status).toBe(400);
     expect((await testUrl("/api/task-dispatches/1/force-cancel", "POST")).status).toBe(400);
     expect((await testUrl("/api/task-dispatches/1/retry", "POST")).status).toBe(400);
+
+    // Conversation and new route error testing
+    expect((await testUrl("/api/projects/1/conversations/threads", "POST", {})).status).toBe(400);
+    expect((await testUrl("/api/projects/1/conversations/threads", "POST", { title: "  " })).status).toBe(400);
+    expect((await testUrl("/api/projects/1/conversations/threads", "POST", { title: "Valid", scope: "invalid" })).status).toBe(400);
+    expect((await testUrl("/api/conversations/threads/1", "PATCH", null)).status).toBe(400);
+    expect((await testUrl("/api/projects/1/conversations/messages", "POST", {})).status).toBe(400);
+    expect((await testUrl("/api/projects/1/conversations/messages", "POST", { bodyMarkdown: "  " })).status).toBe(400);
+    expect((await testUrl("/api/conversations/threads/1/route", "PUT", { routeKind: "invalid" })).status).toBe(400);
+
+    // Other parses tests
+    expect((await testUrl("/api/projects/1/planning/improve-sprint-prompt", "POST", null)).status).toBe(400);
+    expect((await testUrl("/api/projects/1/sprints/1/plan", "POST", null)).status).toBe(400);
+    expect((await testUrl("/api/tasks/1/rerun", "POST", null)).status).toBe(400);
 
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });

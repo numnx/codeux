@@ -1,16 +1,12 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
-import { asyncRoute, requireTrimmedString } from "./route-utils.js";
+import { asyncRoute, requireTrimmedString, parseRerunTaskOptions } from "./route-utils.js";
 
 export function registerExecutionControlRoutes(app: Express, options: DashboardDependencies): void {
   app.post("/api/tasks/:taskId/rerun", asyncRoute(async (req, res) => {
     const taskId = requireTrimmedString(req.params.taskId, "taskId");
-    const body = req.body as { provider?: string; clearWorktree?: boolean; resetDependents?: boolean } | undefined;
-    const task = await options.rerunTask(taskId, {
-      provider: typeof body?.provider === "string" ? body.provider : undefined,
-      clearWorktree: body?.clearWorktree === true,
-      resetDependents: body?.resetDependents === true,
-    });
+    const parsedOptions = parseRerunTaskOptions(req.body);
+    const task = await options.rerunTask(taskId, parsedOptions);
     res.json({ ok: true, task });
   }));
 
