@@ -158,7 +158,7 @@ describe("dashboard-server quicksprint routes", () => {
     const res = await request(app).post("/api/projects/p1/quicksprints/execute").send({ templateId: "t1" });
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: "s1" });
-    expect(quicksprintService.executeQuicksprint).toHaveBeenCalledWith("p1", { templateId: "t1" });
+    expect(quicksprintService.executeQuicksprint).toHaveBeenCalledWith("p1", { templateId: "t1" }, expect.any(AbortSignal));
   });
 
   it("Handles missing quicksprintService", async () => {

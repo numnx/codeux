@@ -93,7 +93,7 @@ type BuiltinPurposeOption = {
 interface QuicksprintPanelProps {
   projectId: string;
   onClose: () => void;
-  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null) => Promise<void>;
+  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null, signal?: AbortSignal) => Promise<void>;
   templates: QuicksprintTemplateRecord[];
   loading?: boolean;
   agentPresets?: AgentPreset[];
@@ -171,6 +171,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   const [executingMode, setExecutingMode] = useState<"plan_only" | "plan_and_start" | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const isBusy = executingMode !== null;
 
   const selectedTemplate = useMemo(
@@ -376,12 +377,37 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   const handleExecute = useCallback(async (mode: "plan_only" | "plan_and_start") => {
     if (!selectedTemplate) return;
     setExecutingMode(mode);
+    setIsOverlayDismissed(false);
+    setElapsedMs(0);
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+
     try {
-      await onExecute(selectedTemplate.id, taskCount, mode, additionalPrompt.trim() || undefined, routeOverride, modelOverride);
+      await onExecute(selectedTemplate.id, taskCount, mode, additionalPrompt.trim() || undefined, routeOverride, modelOverride, ac.signal);
     } finally {
-      setExecutingMode(null);
+      if (abortControllerRef.current === ac) {
+        setExecutingMode(null);
+        abortControllerRef.current = null;
+      }
     }
   }, [selectedTemplate, taskCount, additionalPrompt, onExecute, routeOverride, modelOverride]);
+
+  const handleCancelExecute = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setExecutingMode(null);
+  }, []);
+
+  const handleNewQuicksprint = useCallback(() => {
+    setIsOverlayDismissed(true);
+    setPhase("browse");
+  }, []);
 
   /* ─── Render ──────────────────────────────────────────────────── */
   return (
@@ -402,6 +428,9 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
         actionType="quicksprint"
         themeAccent="ember"
         onDismiss={() => setIsOverlayDismissed(true)}
+        onCancel={handleCancelExecute}
+        secondaryActionLabel="New Quicksprint"
+        onSecondaryAction={handleNewQuicksprint}
       />
 
       {/* ═══ Content ═══ */}
