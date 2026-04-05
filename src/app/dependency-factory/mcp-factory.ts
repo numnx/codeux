@@ -3,6 +3,7 @@ import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { CoreToolHandler } from "../../mcp/core-tool-handler.js";
 import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
+import { ManagementToolHandler } from "../../mcp/management-tool-handler.js";
 import { type DashboardSettings, type DashboardSettingsScope } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
@@ -13,6 +14,7 @@ import { resolveEffectiveDashboardSettings } from "../../services/settings-resol
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
   agentToolHandler: AgentToolHandler;
+  managementToolHandler: ManagementToolHandler;
 }
 
 export function createMcpDependencies(
@@ -124,8 +126,11 @@ export function createMcpDependencies(
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
   });
 
+  const managementToolHandler = new ManagementToolHandler();
+
   return {
     coreToolHandler,
     agentToolHandler,
+    managementToolHandler,
   };
 }
