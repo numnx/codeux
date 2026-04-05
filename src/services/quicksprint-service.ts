@@ -129,7 +129,7 @@ export class QuicksprintService {
     this.templateCache.delete(projectId);
   }
 
-  async executeQuicksprint(projectId: string, input: QuicksprintExecutionInput): Promise<SprintRecord> {
+  async executeQuicksprint(projectId: string, input: QuicksprintExecutionInput, signal?: AbortSignal): Promise<SprintRecord> {
     const template = this.getTemplate(projectId, input.templateId);
     if (!template) {
       throw new Error(`Template ${input.templateId} not found`);
@@ -166,7 +166,7 @@ export class QuicksprintService {
       autoStart,
       replan: false,
       overrides: input.planningOverrides ?? (input.modelOverride ? { virtualModel: input.modelOverride } : undefined),
-    });
+    }, signal);
 
     return sprint;
   }
