@@ -36,6 +36,58 @@ export interface ProcessManagementActionArgs {
 export class ChatManagementActionService {
   constructor(private readonly deps: ChatManagementActionServiceDeps) {}
 
+  async executeApprovedAction(projectId: string, provider: string, model: string, action: ManageSprintOsArgs): Promise<ManagementActionProposedResult> {
+    const startedAt = new Date().toISOString();
+    const execInvocationId = this.deps.executionRepository.createExecutionInvocation({
+      projectId,
+      sprintId: null,
+      taskId: null,
+      sprintRunId: null,
+      dispatchId: null,
+      taskRunId: null,
+      attentionItemId: null,
+      type: "worker_reply",
+      provider,
+      model,
+      startedAt,
+    }).id;
+
+    try {
+      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+        role: "system",
+        contentMarkdown: `Executing user-approved management action: ${JSON.stringify(action, null, 2)}`,
+      });
+
+      const approvedAction = { ...action, approval: { confirmed: true } };
+      const envelopeJson = await this.deps.managementToolHandler.handleManageSprintOs(approvedAction);
+      const envelopeText = envelopeJson.content[0].text;
+      const envelope = JSON.parse(envelopeText) as ManagementResponseEnvelope;
+
+      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+        role: "system",
+        contentMarkdown: `Action result: ${JSON.stringify(envelope, null, 2)}`,
+      });
+
+      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+        status: "completed",
+        finishedAt: new Date().toISOString(),
+      });
+
+      return {
+        replyMarkdown: "_Approved action execution completed._",
+        action: approvedAction,
+        approvalRequired: false,
+        result: envelope.result,
+      };
+    } catch (err: unknown) {
+      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+      });
+      throw err;
+    }
+  }
+
   async processManagementAction(args: ProcessManagementActionArgs): Promise<ManagementActionProposedResult> {
     const purpose = "dashboard_reply";
     const startedAt = new Date().toISOString();
