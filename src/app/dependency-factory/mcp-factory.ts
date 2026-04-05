@@ -10,7 +10,8 @@ import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-s
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
 import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
-import { SprintPreviewService } from "../../services/sprint-preview-service.js";
+
+import type { DashboardDependencies } from "./dashboard-factory.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -21,7 +22,8 @@ export interface McpDependencies {
 export function createMcpDependencies(
   context: ServerContext,
   coreDeps: CoreDependencies,
-  sprintDeps: SprintDependencies
+  sprintDeps: SprintDependencies,
+  dashboardDeps: DashboardDependencies
 ): McpDependencies {
   const {
     logger,
@@ -128,9 +130,12 @@ export function createMcpDependencies(
   });
 
   const managementToolHandler = new ManagementToolHandler({
-    sprintPreviewService: null as any, // Re-injected at the top-level by jules-agent-server if needed, or by setting it on the object
+    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected at the top-level by jules-agent-server if needed
     executionRepository: coreDeps.executionRepository,
     getDashboardSettings: () => getDashboardSettings(),
+    projectManagementRepository: coreDeps.projectManagementRepository,
+    executionControlService: dashboardDeps.executionControlService,
+    taskRerunService: dashboardDeps.taskRerunService,
   });
 
   return {
