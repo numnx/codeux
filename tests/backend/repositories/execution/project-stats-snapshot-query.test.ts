@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { queryProjectStatsSnapshot } from "../../../../src/repositories/execution/project-stats-snapshot-query.js";
-import { ProjectStatsQueryDependencies } from "../../../../src/repositories/execution/project-stats-snapshot-query.js";
+import { ProjectStatsQueryDependencies } from "../../../../src/repositories/execution/execution-stats-types.js";
 import { mapProviderInvocationUsageRow, mapExecutionSprintRunSummaryRow } from "../../../../src/repositories/execution/execution-read-model-mappers.js";
 import { ProviderInvocationUsageRow, ExecutionSprintRunSummaryRow } from "../../../../src/repositories/execution/execution-repository-types.js";
 import { ExecutionUsageTotals } from "../../../../src/contracts/app-types.js";

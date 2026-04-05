@@ -6,12 +6,15 @@ import {
   ExecutionUsageTotals,
 } from "../../contracts/app-types.js";
 import { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
+import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
 import { toNumber, parsePayloadJson } from "./execution-utils.js";
 import {
   ExecutionSprintRunSummaryRow,
   ExecutionTaskDispatchSummaryRow,
   ExecutionRuntimeEventSummaryRow,
   ProviderInvocationUsageRow,
+  ExecutionInvocationRow,
+  ExecutionInvocationMessageRow,
 } from "./execution-repository-types.js";
 
 export function mapProviderInvocationUsageRow(row: ProviderInvocationUsageRow): ProviderInvocationUsageRecord {
@@ -143,5 +146,46 @@ export function mapExecutionRuntimeEventSummaryRow(row: ExecutionRuntimeEventSum
     connectionRole: row.connection_role,
     createdAt: row.created_at,
     payload: parsePayloadJson(row.payload_json),
+  };
+}
+
+export function mapExecutionInvocationRow(row: ExecutionInvocationRow): ExecutionInvocationRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sprintId: row.sprint_id,
+    taskId: row.task_id,
+    dispatchId: row.dispatch_id,
+    sprintRunId: row.sprint_run_id,
+    taskRunId: row.task_run_id,
+    attentionItemId: row.attention_item_id,
+    providerInvocationId: row.provider_invocation_id,
+    type: row.type,
+    status: row.status as any,
+    provider: row.provider,
+    model: row.model,
+    systemPrompt: row.system_prompt,
+    errorMessage: row.error_message,
+    lastErrorCategory: row.last_error_category as any,
+    lastErrorMessage: row.last_error_message,
+    lastRetryAfterIso: row.last_retry_after_iso,
+    messageCount: toNumber(row.message_count),
+    lastMessageAt: row.last_message_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+  };
+}
+
+export function mapExecutionInvocationMessageRow(row: ExecutionInvocationMessageRow): ExecutionInvocationMessageRecord {
+  return {
+    id: row.id,
+    invocationId: row.invocation_id,
+    role: row.role as any,
+    contentMarkdown: row.content_markdown,
+    toolCallsJson: row.tool_calls_json ? parsePayloadJson(row.tool_calls_json) : null,
+    metadata: row.metadata_json ? parsePayloadJson(row.metadata_json) : null,
+    createdAt: row.created_at,
   };
 }

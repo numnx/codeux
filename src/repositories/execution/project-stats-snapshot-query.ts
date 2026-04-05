@@ -1,9 +1,12 @@
-import { StatsEntityMetadata } from "../execution-repository.js";
-
 import { normalizeProjectStatsQuery } from "./project-stats-query.js";
 import { createUsageBuckets, createEmptyUsageTotals, InternalStatsBucket } from "./stats-buckets.js";
 import { queryProjectGitStats } from "./project-stats-git-query.js";
-import { ProjectStatsQuery, ProjectStatsWindow, ProjectExecutionStatsChartSeries, ProjectExecutionStatsSnapshot } from "../../contracts/app-types.js";
+import {
+  ProjectStatsQuery,
+  ProjectStatsWindow,
+  ProjectExecutionStatsChartSeries,
+  ProjectExecutionStatsSnapshot,
+} from "../../contracts/app-types.js";
 import { DatabaseAdapter as Database } from "../db/database-adapter.js";
 import { AppDbStorage } from "../app-db-storage.js";
 import { queryExecutionSprintRuns } from "./execution-sprint-runs-query.js";
@@ -19,6 +22,7 @@ import {
 import { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
 import { toNumber } from "./execution-utils.js";
 import { ProviderInvocationUsageRow } from "./execution-repository-types.js";
+import { StatsEntityMetadata, ProjectStatsQueryDependencies } from "./execution-stats-types.js";
 import {
   mapProviderInvocationUsageRow,
   mapExecutionSprintRunSummaryRow,
@@ -73,18 +77,6 @@ export function queryProjectExecutionSnapshot(
     recentEvents: runtimeEvents.map((row) => mapExecutionRuntimeEventSummaryRow(row)),
     updatedAt: new Date().toISOString(),
   };
-}
-
-export interface ProjectStatsQueryDependencies {
-  requireProject: (id: string) => void;
-  getWallTimeTotalsByTaskIdsForRange: (id: string, s: string, e: string, n: string) => Map<string, number>;
-  getWallTimeTotalsBySprintRunIdsForRange: (id: string, s: string, e: string, n: string) => Map<string, number>;
-  getTaskMetadata: (id: string) => Map<string, StatsEntityMetadata>;
-  getSprintMetadata: (id: string) => Map<string, StatsEntityMetadata>;
-  mapProviderInvocationUsageRow: (row: any) => ProviderInvocationUsageRecord;
-  mergeUsageTotals: (target: ExecutionUsageTotals, source: any) => void;
-  mergeUsageMap: (map: Map<string, ExecutionUsageTotals>, key: string | null, source: any) => void;
-  updateLastActivity: (map: Map<string, string>, key: string | null, date: string | null) => void;
 }
 
 export function queryProjectStatsSnapshot(

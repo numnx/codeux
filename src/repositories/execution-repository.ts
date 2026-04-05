@@ -1,3 +1,10 @@
+import {
+  queryExecutionInvocation,
+  queryExecutionInvocations,
+  queryExecutionInvocationMessages,
+  queryProviderInvocationUsage,
+  queryLatestProviderInvocationUsageBySession
+} from "./execution/execution-invocation-query.js";
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
@@ -513,14 +520,7 @@ export class ExecutionRepository {
   }
 
   getExecutionInvocation(id: string): ExecutionInvocationRecord | null {
-    const row = this.db.prepare(`
-      SELECT *
-      FROM execution_invocations
-      WHERE id = ?
-    `).get(id) as any;
-
-    if (!row) return null;
-    return this.mapExecutionInvocationRow(row);
+    return queryExecutionInvocation(this.db, id);
   }
 
   listExecutionInvocations(params: {
@@ -530,43 +530,11 @@ export class ExecutionRepository {
     limit?: number;
     offset?: number;
   }): ExecutionInvocationRecord[] {
-    const conditions = ["project_id = ?"];
-    const values: any[] = [params.projectId];
-
-    if (params.sprintRunId) {
-      conditions.push("sprint_run_id = ?");
-      values.push(params.sprintRunId);
-    }
-
-    if (params.taskRunId) {
-      conditions.push("task_run_id = ?");
-      values.push(params.taskRunId);
-    }
-
-    const limit = params.limit ?? 100;
-    const offset = params.offset ?? 0;
-
-    const sql = `
-      SELECT *
-      FROM execution_invocations
-      WHERE ${conditions.join(" AND ")}
-      ORDER BY started_at DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    const rows = this.db.prepare(sql).all(...values, limit, offset) as any[];
-    return rows.map(this.mapExecutionInvocationRow);
+    return queryExecutionInvocations(this.db, params);
   }
 
   listExecutionInvocationMessages(invocationId: string): ExecutionInvocationMessageRecord[] {
-    const sql = `
-      SELECT *
-      FROM execution_invocation_messages
-      WHERE invocation_id = ?
-      ORDER BY created_at ASC
-    `;
-    const rows = this.db.prepare(sql).all(invocationId) as any[];
-    return rows.map(this.mapExecutionInvocationMessageRow);
+    return queryExecutionInvocationMessages(this.db, invocationId);
   }
 
   appendExecutionInvocationMessage(invocationId: string, input: AppendExecutionInvocationMessageInput): ExecutionInvocationMessageRecord {
@@ -616,47 +584,6 @@ export class ExecutionRepository {
 
     this.realtimeNotifier?.scheduleProjectExecutionRefresh(invocation.projectId, { includeOverview: false });
     return record;
-  }
-
-  private mapExecutionInvocationRow(row: any): ExecutionInvocationRecord {
-    return {
-      id: row.id,
-      projectId: row.project_id,
-      sprintId: row.sprint_id,
-      taskId: row.task_id,
-      sprintRunId: row.sprint_run_id,
-      dispatchId: row.dispatch_id,
-      taskRunId: row.task_run_id,
-      attentionItemId: row.attention_item_id,
-      providerInvocationId: row.provider_invocation_id,
-      type: row.type,
-      status: row.status,
-      provider: row.provider,
-      model: row.model,
-      systemPrompt: row.system_prompt,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      errorMessage: row.error_message,
-      lastErrorCategory: row.last_error_category,
-      lastErrorMessage: row.last_error_message,
-      lastRetryAfterIso: row.last_retry_after_iso,
-      messageCount: row.message_count,
-      lastMessageAt: row.last_message_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-
-  private mapExecutionInvocationMessageRow(row: any): ExecutionInvocationMessageRecord {
-    return {
-      id: row.id,
-      invocationId: row.invocation_id,
-      role: row.role,
-      contentMarkdown: row.content_markdown,
-      toolCallsJson: row.tool_calls_json ? JSON.parse(row.tool_calls_json) : null,
-      metadata: row.metadata_json ? JSON.parse(row.metadata_json) : null,
-      createdAt: row.created_at,
-    };
   }
 
   createSprintRun(input: CreateSprintRunInput): SprintRunRecord {
@@ -1094,41 +1021,14 @@ export class ExecutionRepository {
   }
 
   getProviderInvocationUsage(invocationId: string): ProviderInvocationUsageRecord | null {
-    const row = this.db.prepare(`
-      SELECT *
-      FROM provider_invocations
-      WHERE id = ?
-    `).get(invocationId) as ProviderInvocationUsageRow | undefined;
-    return row ? this.mapProviderInvocationUsageRow(row) : null;
+    return queryProviderInvocationUsage(this.db, invocationId);
   }
 
   getLatestProviderInvocationUsageBySession(
     sessionId: string,
     purpose?: ProviderInvocationUsageRecord["purpose"],
   ): ProviderInvocationUsageRecord | null {
-    const trimmedSessionId = sessionId.trim();
-    if (!trimmedSessionId) {
-      return null;
-    }
-
-    const row = purpose
-      ? this.db.prepare(`
-        SELECT *
-        FROM provider_invocations
-        WHERE session_id = ?
-          AND purpose = ?
-        ORDER BY started_at DESC, rowid DESC
-        LIMIT 1
-      `).get(trimmedSessionId, purpose) as ProviderInvocationUsageRow | undefined
-      : this.db.prepare(`
-        SELECT *
-        FROM provider_invocations
-        WHERE session_id = ?
-        ORDER BY started_at DESC, rowid DESC
-        LIMIT 1
-      `).get(trimmedSessionId) as ProviderInvocationUsageRow | undefined;
-
-    return row ? this.mapProviderInvocationUsageRow(row) : null;
+    return queryLatestProviderInvocationUsageBySession(this.db, sessionId, purpose);
   }
 
   getLatestTaskRunBySessionId(sessionId: string): TaskRunRecord | null {
@@ -1202,7 +1102,7 @@ export class ExecutionRepository {
       getWallTimeTotalsBySprintRunIdsForRange: (id, start, end, now) => this.getWallTimeTotalsBySprintRunIdsForRange(id, start, end, now),
       getTaskMetadata: (id) => this.getTaskMetadata(id),
       getSprintMetadata: (id) => this.getSprintMetadata(id),
-      mapProviderInvocationUsageRow: (row) => this.mapProviderInvocationUsageRow(row),
+      mapProviderInvocationUsageRow: (row: any) => this.mapProviderInvocationUsageRow(row as any),
       mergeUsageTotals: (target, source) => this.mergeUsageTotals(target, source),
       mergeUsageMap: (map, key, source) => this.mergeUsageMap(map, key, source),
       updateLastActivity: (map, key, date) => this.updateLastActivity(map, key, date),
