@@ -1,16 +1,22 @@
 import type { ManageSprintOsArgs, ManagementResponseEnvelope } from "../contracts/internal-management-types.js";
+import type { SprintPreviewService } from "../services/sprint-preview-service.js";
+import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { DashboardSettings } from "../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionControlService } from "../services/execution-control-service.js";
-import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { TaskRerunService } from "../services/task-rerun-service.js";
+import { handlePreviewActions } from "./management/preview-actions.js";
+import { handleTelemetryActions } from "./management/telemetry-actions.js";
 import { handleProjectAction } from "./management/project-actions.js";
 import { handleSprintAction } from "./management/sprint-actions.js";
 import { TaskActions } from "./management/task-actions.js";
 
 export interface ManagementToolHandlerDeps {
+  sprintPreviewService: SprintPreviewService;
+  executionRepository: ExecutionRepository;
+  getDashboardSettings: () => DashboardSettings;
   projectManagementRepository: ProjectManagementRepository;
   executionControlService: ExecutionControlService;
-  executionRepository: ExecutionRepository;
   taskRerunService: TaskRerunService;
 }
 
@@ -26,7 +32,7 @@ export class ManagementToolHandler {
     );
   }
 
-  async handleManageSprintOs(args: ManageSprintOsArgs) {
+  async handleManageSprintOs(args: ManageSprintOsArgs): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       let envelope: ManagementResponseEnvelope;
 
@@ -50,6 +56,11 @@ export class ManagementToolHandler {
         );
       } else if (args.domain === "tasks") {
         envelope = await this.taskActions.handleTaskAction(args);
+      } else if (args.domain === "preview") {
+        const currentHost = null; // serverHost is not available on DashboardSettings, we'll fall back to localhost in preview-origin
+        envelope = await handlePreviewActions(args, this.deps.sprintPreviewService, currentHost);
+      } else if (args.domain === "telemetry") {
+        envelope = await handleTelemetryActions(args, this.deps.executionRepository);
       } else {
         const isDestructive = args.action.startsWith("delete_") || args.action.startsWith("reset_") || args.action.startsWith("replace_");
 
