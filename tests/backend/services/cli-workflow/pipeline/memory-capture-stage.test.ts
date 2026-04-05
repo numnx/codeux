@@ -1,18 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseLearningsMarkdown, executeMemoryCaptureStage } from "../../../../../src/services/cli-workflow/pipeline/memory-capture-stage.js";
+import { executeMemoryCaptureStage } from "../../../../../src/services/cli-workflow/pipeline/memory-capture-stage.js";
+import { parseLearningsMarkdown } from "../../../../../src/services/memory-service.js";
 import type { PipelineContext } from "../../../../../src/services/cli-workflow/pipeline/pipeline-context.js";
 import type { DashboardSettings } from "../../../../../src/contracts/app-types.js";
-
-// Mock fs/promises
-vi.mock("fs/promises", () => ({
-  readFile: vi.fn(),
-  unlink: vi.fn().mockResolvedValue(undefined),
-}));
-
-import { readFile, unlink } from "fs/promises";
-
-const mockReadFile = vi.mocked(readFile);
-const mockUnlink = vi.mocked(unlink);
 
 describe("parseLearningsMarkdown", () => {
   it("parses multiple categories with bullet points", () => {
@@ -75,7 +65,7 @@ describe("parseLearningsMarkdown", () => {
 
 describe("executeMemoryCaptureStage", () => {
   const mockMemoryService = {
-    createMemory: vi.fn().mockResolvedValue({ id: "mem-1" }),
+    captureMemoriesFromWorktree: vi.fn().mockResolvedValue(0),
   };
 
   const mockSessionTracking = {
@@ -141,60 +131,32 @@ describe("executeMemoryCaptureStage", () => {
     const ctx = buildCtx({ memoryEnabled: false });
     const result = await executeMemoryCaptureStage(ctx);
     expect(result.memoriesCaptured).toBe(0);
-    expect(mockReadFile).not.toHaveBeenCalled();
+    expect(mockMemoryService.captureMemoriesFromWorktree).not.toHaveBeenCalled();
   });
 
   it("returns 0 when autoCaptureSprint is off", async () => {
     const ctx = buildCtx({ autoCapture: false });
     const result = await executeMemoryCaptureStage(ctx);
     expect(result.memoriesCaptured).toBe(0);
+    expect(mockMemoryService.captureMemoriesFromWorktree).not.toHaveBeenCalled();
   });
 
-  it("returns 0 when learnings file does not exist", async () => {
-    mockReadFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
-    const ctx = buildCtx();
-    const result = await executeMemoryCaptureStage(ctx);
-    expect(result.memoriesCaptured).toBe(0);
-  });
-
-  it("parses learnings file and creates memories", async () => {
-    mockReadFile.mockResolvedValue(`## Category: architecture
-- Uses constructor-based DI
-- SQLite for persistence
-
-## Category: error
-- Build failed on first try due to missing import
-` as any);
-
+  it("calls memoryService.captureMemoriesFromWorktree and passes params", async () => {
+    mockMemoryService.captureMemoriesFromWorktree.mockResolvedValue(3);
     const ctx = buildCtx();
     const result = await executeMemoryCaptureStage(ctx);
     expect(result.memoriesCaptured).toBe(3);
-    expect(mockMemoryService.createMemory).toHaveBeenCalledTimes(3);
-
-    const firstCall = mockMemoryService.createMemory.mock.calls[0];
-    expect(firstCall[0]).toBe("proj-1");
-    expect(firstCall[1].scope).toBe("sprint");
-    expect(firstCall[1].sprintId).toBe("sprint-1");
-    expect(firstCall[1].category).toBe("architecture");
-    expect(firstCall[1].content).toBe("Uses constructor-based DI");
-    expect(firstCall[1].strength).toBe(0.6);
-    expect(firstCall[1].source.type).toBe("auto_capture");
-    expect(firstCall[1].source.originType).toBe("worker_learnings_file");
-  });
-
-  it("deletes the learnings file after reading", async () => {
-    mockReadFile.mockResolvedValue(`## Category: learning
-- Something learned
-` as any);
-    const ctx = buildCtx();
-    await executeMemoryCaptureStage(ctx);
-    expect(mockUnlink).toHaveBeenCalled();
+    expect(mockMemoryService.captureMemoriesFromWorktree).toHaveBeenCalledWith(
+      "proj-1",
+      "sprint-1",
+      null,
+      "/repo/.worktrees/test",
+      "run-1"
+    );
   });
 
   it("logs activity about captured memories", async () => {
-    mockReadFile.mockResolvedValue(`## Category: codebase
-- ESM throughout with .js extensions
-` as any);
+    mockMemoryService.captureMemoriesFromWorktree.mockResolvedValue(1);
     const ctx = buildCtx();
     await executeMemoryCaptureStage(ctx);
     expect(mockSessionTracking.appendActivity).toHaveBeenCalledWith("session-1", {
@@ -203,28 +165,26 @@ describe("executeMemoryCaptureStage", () => {
     });
   });
 
-  it("passes agentPresetId from pipeline context to createMemory", async () => {
-    mockReadFile.mockResolvedValue(`## Category: learning
-- Worker learned something
-` as any);
+  it("does not log activity when no memories are captured", async () => {
+    mockMemoryService.captureMemoriesFromWorktree.mockResolvedValue(0);
+    const ctx = buildCtx();
+    await executeMemoryCaptureStage(ctx);
+    expect(mockSessionTracking.appendActivity).not.toHaveBeenCalled();
+  });
+
+  it("passes agentPresetId from pipeline context to captureMemoriesFromWorktree", async () => {
+    mockMemoryService.captureMemoriesFromWorktree.mockResolvedValue(1);
     const ctx = buildCtx();
     ctx.agentPresetId = "worker-agent-preset-123";
     const result = await executeMemoryCaptureStage(ctx);
     expect(result.memoriesCaptured).toBe(1);
-    const call = mockMemoryService.createMemory.mock.calls[0];
-    expect(call[1].agentPresetId).toBe("worker-agent-preset-123");
-  });
-
-  it("sets agentPresetId to null when not provided on context", async () => {
-    mockReadFile.mockResolvedValue(`## Category: learning
-- Worker learned something
-` as any);
-    const ctx = buildCtx();
-    // agentPresetId is undefined by default
-    const result = await executeMemoryCaptureStage(ctx);
-    expect(result.memoriesCaptured).toBe(1);
-    const call = mockMemoryService.createMemory.mock.calls[0];
-    expect(call[1].agentPresetId).toBeNull();
+    expect(mockMemoryService.captureMemoriesFromWorktree).toHaveBeenCalledWith(
+      "proj-1",
+      "sprint-1",
+      "worker-agent-preset-123",
+      "/repo/.worktrees/test",
+      "run-1"
+    );
   });
 
   it("returns 0 when no memoryService is available", async () => {
