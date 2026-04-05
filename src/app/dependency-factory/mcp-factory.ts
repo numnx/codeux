@@ -129,11 +129,12 @@ export function createMcpDependencies(
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
   });
 
-  const managementToolHandler = new ManagementToolHandler(
-    coreDeps.projectManagementRepository,
-    dashboardDeps.executionControlService,
-    coreDeps.executionRepository
-  );
+  const managementToolHandler = new ManagementToolHandler({
+    projectManagementRepository: coreDeps.projectManagementRepository,
+    executionControlService: dashboardDeps.executionControlService,
+    executionRepository: coreDeps.executionRepository,
+    taskRerunService: dashboardDeps.taskRerunService,
+  });
 
   return {
     coreToolHandler,
