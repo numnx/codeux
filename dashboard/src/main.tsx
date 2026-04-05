@@ -9,13 +9,58 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { KineticDock } from "./v2/components/KineticDock.js";
+import { Sidebar } from "./v2/components/Sidebar.js";
 import { TopNav } from "./v2/components/TopNav.js";
-import { ProjectDataProvider } from "./v2/context/project-data.js";
+import { ProjectDataProvider, useProjectData } from "./v2/context/project-data.js";
+import { useProjectEffectiveSettings } from "./v2/hooks/use-project-effective-settings.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
 import { DeepOceanBackground } from "./v2/components/chat/DeepOceanBackground.js";
 import "./styles.css";
+
+// 0. AppLayout extracted to use context hooks
+const AppLayout = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => void }) => {
+  const { selectedProject } = useProjectData();
+  const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
+
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const navMode = effectiveSettings?.settings.appearance?.navigationMode || "DOCK";
+  const showSidebar = isMobile || navMode === "SIDEBAR";
+
+  return (
+    <div className="flex h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
+      {showSidebar && <Sidebar />}
+
+      <div className="flex flex-col flex-1 h-screen overflow-hidden relative">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
+          Skip to main content
+        </a>
+        <DeepOceanBackground />
+
+        <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
+          <TopNav isDark={isDark} toggleTheme={toggleTheme} />
+
+          <main id="main-content" tabIndex={-1} aria-label="Main content" className={`flex-1 overflow-y-auto dashboard-scrollbar relative ${showSidebar ? '' : 'pb-32'}`}>
+            <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
+              <Outlet />
+            </Suspense>
+          </main>
+        </div>
+
+        {!showSidebar && <KineticDock />}
+        <footer className="sr-only">Dashboard Footer</footer>
+      </div>
+    </div>
+  );
+};
 
 // Route components — each dynamic import becomes its own chunk in the build
 const SprintsPage   = lazy(() => import("./v2/pages/sprints/SprintsPage.js").then(m => ({ default: m.SprintsPage })));
@@ -63,25 +108,7 @@ const rootRoute = createRootRoute({
 
     return (
       <ProjectDataProvider>
-        <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
-          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
-            Skip to main content
-          </a>
-          <DeepOceanBackground />
-
-          <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
-            <TopNav isDark={isDark} toggleTheme={toggleTheme} />
-
-            <main id="main-content" tabIndex={-1} aria-label="Main content" className="flex-1 overflow-y-auto dashboard-scrollbar relative pb-32">
-              <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
-                <Outlet />
-              </Suspense>
-            </main>
-          </div>
-
-          <KineticDock />
-          <footer className="sr-only">Dashboard Footer</footer>
-        </div>
+        <AppLayout isDark={isDark} toggleTheme={toggleTheme} />
       </ProjectDataProvider>
     );
   },
