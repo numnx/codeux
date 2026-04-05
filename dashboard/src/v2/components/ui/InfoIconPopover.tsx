@@ -6,9 +6,11 @@ import { Info } from "lucide-preact";
 
 interface InfoIconPopoverProps {
     className?: string;
+    title?: string;
+    items?: Array<{ key: string; desc: string }>;
 }
 
-export const InfoIconPopover: FunctionComponent<InfoIconPopoverProps> = ({ className = "" }) => {
+export const InfoIconPopover: FunctionComponent<InfoIconPopoverProps> = ({ className = "", title = "Placeholders", items = [] }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isRendered, setIsRendered] = useState(false);
 
@@ -93,14 +95,6 @@ export const InfoIconPopover: FunctionComponent<InfoIconPopoverProps> = ({ class
         };
     }, []);
 
-    const placeholders = [
-        { key: "{sprint}", desc: "Sprint identifier" },
-        { key: "{sprintNumber}", desc: "Sprint sequence number" },
-        { key: "{sprintName}", desc: "Name of the sprint" },
-        { key: "{date}", desc: "Current date" },
-        { key: "{taskCount}", desc: "Number of tasks" },
-    ];
-
     return (
         <div
             ref={wrapperRef}
@@ -120,11 +114,13 @@ export const InfoIconPopover: FunctionComponent<InfoIconPopoverProps> = ({ class
                     style={{ top: coords.top, left: coords.left }}
                     role="tooltip"
                 >
-                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-3">
-                        Placeholders
-                    </div>
+                    {title ? (
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-3">
+                            {title}
+                        </div>
+                    ) : null}
                     <ul className="space-y-2">
-                        {placeholders.map(p => (
+                        {items.map(p => (
                             <li key={p.key} className="flex flex-col gap-0.5">
                                 <span className="font-mono text-[11px] text-signal-500">{p.key}</span>
                                 <span className="text-[11px] text-slate-600 dark:text-slate-300">{p.desc}</span>
