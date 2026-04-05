@@ -11,11 +11,12 @@ export const fetchQuicksprintTemplates = async (projectId: string): Promise<Quic
   return fetchJson<QuicksprintTemplateRecord[]>(`/api/projects/${encodeURIComponent(projectId)}/quicksprints/templates`);
 };
 
-export const executeQuicksprint = async (projectId: string, input: QuicksprintExecutionInput): Promise<SprintRecord> => {
+export const executeQuicksprint = async (projectId: string, input: QuicksprintExecutionInput, signal?: AbortSignal): Promise<SprintRecord> => {
   return fetchJson<SprintRecord>(`/api/projects/${encodeURIComponent(projectId)}/quicksprints/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+    signal,
   });
 };
 
