@@ -50,6 +50,13 @@ export const MEMORY_CATEGORIES: MemoryCategory[] = [
   "learning",
 ];
 
+export const LEARNINGS_FILENAME = ".task-learnings.md";
+
+export interface ParsedMemoryEntry {
+  category: MemoryCategory;
+  content: string;
+}
+
 export type EmbeddingModelId = "bge-small-en-v1.5" | "multilingual-e5-large";
 
 export const EMBEDDING_MODEL_IDS: EmbeddingModelId[] = [

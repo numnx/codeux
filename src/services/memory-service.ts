@@ -11,6 +11,41 @@ import type {
 import { MemoryRepository } from "../repositories/memory-repository.js";
 import { EmbeddingService } from "./embedding-service.js";
 import type { Logger } from "../shared/logging/logger.js";
+import { readFile, unlink } from "fs/promises";
+import { join } from "path";
+import { LEARNINGS_FILENAME, type ParsedMemoryEntry } from "../contracts/memory-types.js";
+
+const VALID_CATEGORIES = new Set<MemoryCategory>([
+  "architecture", "codebase", "context", "preferences", "patterns", "decision", "error", "learning",
+]);
+
+function parseCategory(header: string): MemoryCategory {
+  const name = header.trim().toLowerCase();
+  return VALID_CATEGORIES.has(name as MemoryCategory) ? (name as MemoryCategory) : "learning";
+}
+
+export function parseLearningsMarkdown(raw: string): ParsedMemoryEntry[] {
+  const entries: ParsedMemoryEntry[] = [];
+  let currentCategory: MemoryCategory = "learning";
+
+  for (const line of raw.split("\n")) {
+    const headerMatch = line.match(/^##\s+Category:\s*(.+)/i);
+    if (headerMatch) {
+      currentCategory = parseCategory(headerMatch[1]!);
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      const content = bulletMatch[1]!.trim();
+      if (content.length > 0) {
+        entries.push({ category: currentCategory, content });
+      }
+    }
+  }
+
+  return entries;
+}
 
 function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let dot = 0;
@@ -82,6 +117,51 @@ export class MemoryService {
     this.memoryRepository = memoryRepository;
     this.embeddingService = embeddingService;
     this.logger = logger;
+  }
+
+  async captureMemoriesFromWorktree(
+    projectId: string,
+    sprintId: string | undefined,
+    agentPresetId: string | null,
+    worktreePath: string,
+    originId: string
+  ): Promise<number> {
+    const filePath = join(worktreePath, LEARNINGS_FILENAME);
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf-8");
+    } catch {
+      return 0;
+    }
+
+    const entries = parseLearningsMarkdown(raw);
+    if (entries.length === 0) {
+      await unlink(filePath).catch(() => {});
+      return 0;
+    }
+
+    let captured = 0;
+    for (const entry of entries) {
+      this.createMemory(projectId, {
+        scope: "sprint",
+        sprintId,
+        agentPresetId,
+        content: entry.content,
+        category: entry.category,
+        strength: 0.6,
+        source: {
+          type: "auto_capture",
+          originType: "worker_learnings_file",
+          originId,
+        },
+      }).catch((err) => {
+        this.logger.warn(`Failed to capture worker learning memory for origin ${originId}: ${err instanceof Error ? err.message : String(err)}`);
+      });
+      captured++;
+    }
+
+    await unlink(filePath).catch(() => {});
+    return captured;
   }
 
   async createMemory(projectId: string, input: CreateMemoryInput): Promise<MemoryRecord> {
