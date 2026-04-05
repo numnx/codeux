@@ -9,6 +9,7 @@ import { AddProjectModal } from "./ui/AddProjectModal.js";
 import { useProjectData } from "../context/project-data.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
 import { useSprints } from "../../hooks/useSprints.js";
+import { formatSprintDisplay } from "../lib/format-sprint.js";
 import { DockerStatusMenu } from "./DockerStatusMenu.js";
 import { BrowserSessionsMenu } from "./browser/BrowserSessionsMenu.js";
 import { NotificationPanel } from "./NotificationPanel.js";
@@ -106,21 +107,6 @@ interface TopNavProps {
 }
 
 export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) => {
-    const formatSprintDisplay = (sprint: any) => {
-        if (!sprint) return "All Sprints";
-        let num = sprint.sprintNumber;
-        if (!num && sprint.name) {
-            const match = sprint.name.match(/^SPR-(\d+)/i);
-            if (match) {
-                num = match[1];
-            }
-        }
-        if (num) {
-            return `SPR-${num} : ${sprint.name}`;
-        }
-        return sprint.name;
-    };
-
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const workerDropdownRef = useRef<HTMLDivElement>(null);
