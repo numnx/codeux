@@ -4,17 +4,34 @@ import type { ProjectManagementRepository } from "../repositories/project-manage
 import type { ExecutionControlService } from "../services/execution-control-service.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { TaskRerunService } from "../services/task-rerun-service.js";
+import type { SettingsRepository } from "../repositories/settings-repository.js";
+import type { AgentPresetSyncService } from "../services/agent-preset-sync-service.js";
+import type { MemoryService } from "../services/memory-service.js";
+import type { MemoryPromotionService } from "../services/memory-promotion-service.js";
+import type { EmbeddingModelManager } from "../services/embedding-model-manager.js";
+
 import { TaskActions } from "./management/task-actions.js";
+import { SettingsActions } from "./management/settings-actions.js";
+import { AgentActions } from "./management/agent-actions.js";
+import { MemoryActions } from "./management/memory-actions.js";
 
 export interface ManagementToolHandlerDeps {
   projectManagementRepository: ProjectManagementRepository;
   executionControlService: ExecutionControlService;
   executionRepository: ExecutionRepository;
   taskRerunService: TaskRerunService;
+  settingsRepository: SettingsRepository;
+  agentPresetSyncService: AgentPresetSyncService;
+  memoryService: MemoryService;
+  memoryPromotionService: MemoryPromotionService;
+  embeddingModelManager: EmbeddingModelManager;
 }
 
 export class ManagementToolHandler {
   private readonly taskActions: TaskActions;
+  private readonly settingsActions: SettingsActions;
+  private readonly agentActions: AgentActions;
+  private readonly memoryActions: MemoryActions;
 
   constructor(deps: ManagementToolHandlerDeps) {
     this.taskActions = new TaskActions(
@@ -23,6 +40,9 @@ export class ManagementToolHandler {
       deps.executionRepository,
       deps.taskRerunService
     );
+    this.settingsActions = new SettingsActions(deps.settingsRepository);
+    this.agentActions = new AgentActions(deps.agentPresetSyncService);
+    this.memoryActions = new MemoryActions(deps.memoryService, deps.memoryPromotionService, deps.embeddingModelManager);
   }
 
   async handleManageSprintOs(args: ManageSprintOsArgs) {
@@ -41,6 +61,12 @@ export class ManagementToolHandler {
 
       if (args.domain === "tasks") {
         envelope = await this.taskActions.handleTaskAction(args);
+      } else if (args.domain === "settings") {
+        envelope = await this.settingsActions.handleSettingsAction(args);
+      } else if (args.domain === "agents") {
+        envelope = await this.agentActions.handleAgentAction(args);
+      } else if (args.domain === "memory") {
+        envelope = await this.memoryActions.handleMemoryAction(args);
       } else {
         envelope = {
           result: {

@@ -133,6 +133,11 @@ export function createMcpDependencies(
     executionControlService,
     executionRepository: coreDeps.executionRepository,
     taskRerunService,
+    settingsRepository: coreDeps.settingsRepository,
+    agentPresetSyncService: coreDeps.agentPresetSyncService,
+    memoryService: coreDeps.memoryService,
+    memoryPromotionService: coreDeps.memoryPromotionService,
+    embeddingModelManager: coreDeps.embeddingModelManager,
   });
 
   return {
