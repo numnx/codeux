@@ -3,11 +3,12 @@ export type GitProvider = "github" | "gitlab" | "local";
 export interface RepositoryHostMetadata {
   provider: GitProvider;
   hostDomain: string | null;
+  repoTarget: string | null;
 }
 
 export function resolveRepositoryHost(remoteUrl: string | null): RepositoryHostMetadata {
   if (!remoteUrl) {
-    return { provider: "local", hostDomain: null };
+    return { provider: "local", hostDomain: null, repoTarget: null };
   }
 
   let hostDomain: string | null = null;
@@ -15,7 +16,7 @@ export function resolveRepositoryHost(remoteUrl: string | null): RepositoryHostM
 
   // Reject local file paths and Windows drive letters masquerading as remotes
   if (remoteUrl.startsWith("file://") || /^[a-zA-Z]:[/\\]/.test(remoteUrl) || remoteUrl.startsWith("/")) {
-    return { provider: "local", hostDomain: null };
+    return { provider: "local", hostDomain: null, repoTarget: null };
   }
 
   // Match SSH and HTTPS URLs
@@ -29,7 +30,7 @@ export function resolveRepositoryHost(remoteUrl: string | null): RepositoryHostM
     hostDomain = sshMatch[1];
     path = sshMatch[2];
   } else {
-    return { provider: "local", hostDomain: null };
+    return { provider: "local", hostDomain: null, repoTarget: null };
   }
 
   // Remove .git extension for segment counting
@@ -48,5 +49,5 @@ export function resolveRepositoryHost(remoteUrl: string | null): RepositoryHostM
     provider = "local";
   }
 
-  return { provider, hostDomain };
+  return { provider, hostDomain, repoTarget: path };
 }
