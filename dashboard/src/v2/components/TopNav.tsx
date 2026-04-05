@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, ArrowRight, Cpu, Zap, Compass } from "lucide-preact";
 import { Link } from "@tanstack/react-router";
 import { StatusDot } from "./ui/StatusDot.js";
+import { SearchOverlay } from "./search/SearchOverlay.js";
 import { AddProjectModal } from "./ui/AddProjectModal.js";
 import { useProjectData } from "../context/project-data.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
@@ -123,6 +124,8 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const workerDropdownRef = useRef<HTMLDivElement>(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false);
     const [showAddProject, setShowAddProject] = useState(false);
@@ -338,6 +341,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     <input
                         type="text"
                         placeholder="Search..."
+                        onFocus={() => setIsSearchOpen(true)}
                         className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
@@ -697,6 +701,12 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     onAdd={(project) => { void handleCreateProject(project); }}
                 />
             )}
+            <SearchOverlay
+                isOpen={isSearchOpen}
+                onClose={() => setIsSearchOpen(false)}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+            />
         </>
     );
 };
