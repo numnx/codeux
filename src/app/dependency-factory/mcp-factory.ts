@@ -10,6 +10,7 @@ import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-s
 import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
 import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
 import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
+import { SprintPreviewService } from "../../services/sprint-preview-service.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
@@ -126,7 +127,11 @@ export function createMcpDependencies(
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
   });
 
-  const managementToolHandler = new ManagementToolHandler();
+  const managementToolHandler = new ManagementToolHandler({
+    sprintPreviewService: null as any, // Re-injected at the top-level by jules-agent-server if needed, or by setting it on the object
+    executionRepository: coreDeps.executionRepository,
+    getDashboardSettings: () => getDashboardSettings(),
+  });
 
   return {
     coreToolHandler,
