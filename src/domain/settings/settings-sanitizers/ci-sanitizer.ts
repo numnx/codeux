@@ -83,6 +83,7 @@ export const sanitizeCiIntelligence = (
 
   if (githubMode === "LOCAL") {
     ciIntelligence.enableLivePrMonitoring = false;
+    ciIntelligence.waitForJulesCiAutofix = false;
   }
 
   return ciIntelligence;
