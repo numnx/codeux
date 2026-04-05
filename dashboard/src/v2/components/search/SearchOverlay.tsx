@@ -2,49 +2,38 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import gsap from "gsap";
 import { Search, X, Layers, Activity, Cpu, Box, ArrowRight } from "lucide-preact";
-import { Link } from "@tanstack/react-router";
+
+export type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string };
+
+export interface SearchResults {
+    sprints: SearchItem[];
+    tasks: SearchItem[];
+    agents: SearchItem[];
+    containers: SearchItem[];
+}
 
 interface SearchOverlayProps {
     isOpen: boolean;
     onClose: () => void;
     searchQuery: string;
     onSearchChange: (query: string) => void;
+    results: SearchResults;
 }
 
-export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange }) => {
+export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange, results }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [focusedIndex, setFocusedIndex] = useState(-1);
 
-    const MOCK_RESULTS = {
-        sprints: [
-            { id: '1', title: 'SPR-142: Authentication Flow', status: 'active' },
-            { id: '2', title: 'SPR-141: Dashboard Redesign', status: 'completed' }
-        ],
-        tasks: [
-            { id: '1', title: 'Implement JWT validation middleware', sprint: 'SPR-142' },
-            { id: '2', title: 'Update TopNav styles', sprint: 'SPR-141' }
-        ],
-        agents: [
-            { id: '1', name: 'Frontend Architect', status: 'idle' },
-            { id: '2', name: 'Backend Specialist', status: 'working' }
-        ],
-        containers: [
-            { id: '1', name: 'auth-service-preview', status: 'running' }
-        ]
-    };
-
-    type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string };
-
-    const MOCK_CATEGORIES: Array<{ id: string; title: string; icon: any; items: ReadonlyArray<SearchItem> }> = [
-        { id: 'sprints', title: 'Sprints', icon: Layers, items: MOCK_RESULTS.sprints },
-        { id: 'tasks', title: 'Tasks', icon: Activity, items: MOCK_RESULTS.tasks },
-        { id: 'agents', title: 'Agents', icon: Cpu, items: MOCK_RESULTS.agents },
-        { id: 'containers', title: 'Preview Containers', icon: Box, items: MOCK_RESULTS.containers }
+    const CATEGORIES: Array<{ id: string; title: string; icon: any; items: ReadonlyArray<SearchItem> }> = [
+        { id: 'sprints', title: 'Sprints', icon: Layers, items: results.sprints },
+        { id: 'tasks', title: 'Tasks', icon: Activity, items: results.tasks },
+        { id: 'agents', title: 'Agents', icon: Cpu, items: results.agents },
+        { id: 'containers', title: 'Preview Containers', icon: Box, items: results.containers }
     ];
 
-    const allItems = MOCK_CATEGORIES.flatMap(c => c.items);
+    const allItems = CATEGORIES.flatMap(c => c.items);
 
     useLayoutEffect(() => {
         if (!overlayRef.current || !containerRef.current) return;
@@ -162,7 +151,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2">
-                            {MOCK_CATEGORIES.map((category) => (
+                            {CATEGORIES.map((category) => (
                                 <div key={category.id} className="flex flex-col">
                                     <div className="flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                         <category.icon className="w-4 h-4" />
