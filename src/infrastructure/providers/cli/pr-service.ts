@@ -1,5 +1,7 @@
 import { runCommandStrict, CommandResult } from "../../../services/cli-process-runner.js";
 import { ProviderId } from "../../../contracts/app-types.js";
+import { GitStatusQueryClient } from "../../git/git-status-query-client.js";
+import { resolveRepositoryHost } from "../../git/repository-host-resolver.js";
 
 export type Runner = (command: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv) => Promise<CommandResult>;
 
@@ -32,18 +34,19 @@ export class PrService implements IPrService {
     worktreePath: string,
     githubToken?: string
   ): Promise<string | undefined> {
-    const env = githubToken ? { ...process.env, GH_TOKEN: githubToken, GITHUB_TOKEN: githubToken } : process.env;
-
+    const client = new GitStatusQueryClient(worktreePath);
     try {
-      const existingResult = await runCommandStrict(
-        "gh",
-        ["pr", "list", "--state", "open", "--base", args.featureBranch, "--head", args.workerBranch, "--json", "url", "--limit", "1"],
-        worktreePath,
-        env
-      );
-      const parsed = JSON.parse(existingResult.stdout) as Array<{ url?: string }>;
-      const existingUrl = parsed.find((entry) => typeof entry.url === "string" && entry.url.trim().length > 0)?.url?.trim();
-      if (existingUrl) return existingUrl;
+      const remoteRes = await client.gitRemoteUrl("origin", githubToken);
+      const remoteUrl = remoteRes.ok ? remoteRes.stdout.trim() : null;
+      const { provider, hostDomain, repoTarget } = resolveRepositoryHost(remoteUrl);
+      client.setProvider(provider, hostDomain, repoTarget);
+
+      const existingResult = await client.ghPrListOpenMatching(args.featureBranch, args.workerBranch, githubToken);
+      if (existingResult.ok) {
+        const parsed = JSON.parse(existingResult.stdout) as Array<{ url?: string }>;
+        const existingUrl = parsed.find((entry) => typeof entry.url === "string" && entry.url.trim().length > 0)?.url?.trim();
+        if (existingUrl) return existingUrl;
+      }
     } catch { /* fall through */ }
 
     try {
@@ -59,13 +62,11 @@ export class PrService implements IPrService {
       bodyLines.push(`Base: \`${args.featureBranch}\``, `Head: \`${args.workerBranch}\``);
 
       const prTitle = `${args.title} (${args.provider})`;
-      const createResult = await runCommandStrict(
-        "gh",
-        ["pr", "create", "--base", args.featureBranch, "--head", args.workerBranch, "--title", prTitle, "--body", bodyLines.join("\n")],
-        worktreePath,
-        env
-      );
-      return createResult.stdout.trim().split("\n").find((line) => line.startsWith("http"));
+      const createResult = await client.ghPrCreate(args.featureBranch, args.workerBranch, prTitle, bodyLines.join("\n"), githubToken);
+
+      if (createResult.ok) {
+        return createResult.stdout.trim().split("\n").find((line) => line.startsWith("http"));
+      }
     } catch {
       return undefined;
     }

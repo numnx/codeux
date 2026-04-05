@@ -6,6 +6,7 @@ import type {
   GitMergeStatus,
   AutoMergeFeaturePrResult,
 } from "../contracts/app-types.js";
+import { resolveRepositoryHost } from "../infrastructure/git/repository-host-resolver.js";
 import {
   GitStatusQueryClient,
   CommandRunner,
@@ -54,6 +55,12 @@ function detectMergeConflictMessage(message: string | null | undefined): boolean
 }
 
 export class GitStatusService {
+  private async resolveProvider(effectiveToken?: string): Promise<void> {
+    const remoteUrlRes = await this.queryClient.gitRemoteUrl("origin", effectiveToken);
+    const remoteUrl = remoteUrlRes.ok ? remoteUrlRes.stdout.trim() : null;
+    const { provider, hostDomain, repoTarget } = resolveRepositoryHost(remoteUrl);
+    this.queryClient.setProvider(provider, hostDomain, repoTarget);
+  }
   private static statusCache = new Map<string, { timestamp: number; promise: Promise<GitTrackingStatus> }>();
 
   public static invalidateCache(repoPath?: string): void {
@@ -255,6 +262,10 @@ export class GitStatusService {
       warnings.push("Remote mode is selected but no git remote is configured.");
     }
 
+    if (mode === "REMOTE") {
+      await this.resolveProvider(effectiveToken);
+    }
+
     if (mode === "LOCAL") {
       return {
         mode,
@@ -352,6 +363,7 @@ export class GitStatusService {
 
   async mergePullRequest(prNumber: number, ghToken?: string): Promise<AutoMergeFeaturePrResult> {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
+    await this.resolveProvider(effectiveToken);
     const result = await this.queryClient.ghPrMerge(prNumber, effectiveToken);
     if (!result.ok) {
       const message = result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.";
@@ -402,6 +414,7 @@ export class GitStatusService {
     body: string;
   }, ghToken?: string): Promise<ResolvePullRequestResult | null> {
     const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
+    await this.resolveProvider(effectiveToken);
 
     const existing = await this.findMatchingOpenPr(args.baseBranch, args.headBranch, effectiveToken);
     if (existing) {

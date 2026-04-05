@@ -1,8 +1,10 @@
 import { commandRunner, CommandResult } from "../../shared/subprocess/command-runner.js";
+import { GitProvider } from "./repository-host-resolver.js";
+import { GitHostCli, createGitHostCli } from "./git-host-cli.js";
 
 export interface CommandContext {
   cwd: string;
-  ghToken?: string;
+  hostToken?: string;
 }
 
 export type CommandRunner = (command: string, args: string[], context: CommandContext) => Promise<CommandResult>;
@@ -10,8 +12,12 @@ export type CommandRunner = (command: string, args: string[], context: CommandCo
 const DEFAULT_TIMEOUT_MS = 8000;
 
 export const defaultRunner: CommandRunner = (command, args, context) => {
-  const env = context.ghToken && command === "gh"
-    ? { ...process.env, GH_TOKEN: context.ghToken, GITHUB_TOKEN: context.ghToken }
+  const env = context.hostToken
+    ? {
+        ...process.env,
+        ...(command === "gh" ? { GH_TOKEN: context.hostToken, GITHUB_TOKEN: context.hostToken } : {}),
+        ...(command === "glab" ? { GITLAB_TOKEN: context.hostToken, GLAB_TOKEN: context.hostToken } : {}),
+      }
     : process.env;
 
   return commandRunner.run(command, args, {
@@ -22,121 +28,84 @@ export const defaultRunner: CommandRunner = (command, args, context) => {
 };
 
 export class GitStatusQueryClient {
+  private hostCli: GitHostCli;
+
   constructor(
     private readonly repoPath: string,
     private readonly runner: CommandRunner = defaultRunner
-  ) {}
-
-  private async run(command: string, args: string[], ghToken?: string): Promise<CommandResult> {
-    return this.runner(command, args, { cwd: this.repoPath, ghToken });
+  ) {
+    this.hostCli = createGitHostCli("github", this.runner, this.repoPath); // Default to github before setProvider is called
   }
 
-  async gitRevParseIsInsideWorkTree(ghToken?: string): Promise<CommandResult> {
-    return this.run("git", ["rev-parse", "--is-inside-work-tree"], ghToken);
+  setProvider(provider: GitProvider, hostDomain?: string | null, repoTarget?: string | null): void {
+    this.hostCli = createGitHostCli(provider, this.runner, this.repoPath, hostDomain, repoTarget);
   }
 
-  async gitRevParseShowToplevel(ghToken?: string): Promise<CommandResult> {
-    return this.run("git", ["rev-parse", "--show-toplevel"], ghToken);
+  private async run(command: string, args: string[], hostToken?: string): Promise<CommandResult> {
+    return this.runner(command, args, { cwd: this.repoPath, hostToken });
   }
 
-  async gitBranchShowCurrent(ghToken?: string): Promise<CommandResult> {
-    return this.run("git", ["branch", "--show-current"], ghToken);
+  async gitRevParseIsInsideWorkTree(hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["rev-parse", "--is-inside-work-tree"], hostToken);
   }
 
-  async gitRemote(ghToken?: string): Promise<CommandResult> {
-    return this.run("git", ["remote"], ghToken);
+  async gitRevParseShowToplevel(hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["rev-parse", "--show-toplevel"], hostToken);
   }
 
-  async gitStatusPorcelain(ghToken?: string): Promise<CommandResult> {
-    return this.run("git", ["status", "--porcelain"], ghToken);
+  async gitBranchShowCurrent(hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["branch", "--show-current"], hostToken);
   }
 
-  async ghVersion(ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", ["--version"], ghToken);
+  async gitRemote(hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["remote"], hostToken);
   }
 
-  async ghAuthStatus(ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", ["auth", "status"], ghToken);
+  async gitRemoteUrl(remoteName: string = "origin", hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["remote", "get-url", remoteName], hostToken);
   }
 
-  async ghPrListOpen(ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", [
-      "pr",
-      "list",
-      "--state",
-      "open",
-      "--limit",
-      "50",
-      "--json",
-      "number,title,url,state,isDraft,headRefName,baseRefName,mergeStateStatus,reviewDecision,updatedAt,comments,statusCheckRollup",
-    ], ghToken);
+  async gitStatusPorcelain(hostToken?: string): Promise<CommandResult> {
+    return this.run("git", ["status", "--porcelain"], hostToken);
   }
 
-  async ghPrListOpenMatching(baseBranch: string, headBranch: string, ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", [
-      "pr",
-      "list",
-      "--state",
-      "open",
-      "--base",
-      baseBranch,
-      "--head",
-      headBranch,
-      "--limit",
-      "1",
-      "--json",
-      "number,url",
-    ], ghToken);
+  async ghVersion(hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.version(hostToken);
   }
 
-  async ghPrCreate(baseBranch: string, headBranch: string, title: string, body: string, ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", [
-      "pr",
-      "create",
-      "--base",
-      baseBranch,
-      "--head",
-      headBranch,
-      "--title",
-      title,
-      "--body",
-      body,
-    ], ghToken);
+  async ghAuthStatus(hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.authStatus(hostToken);
   }
 
-  async ghRunList(ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", [
-      "run",
-      "list",
-      "--limit",
-      "50",
-      "--json",
-      "databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt",
-    ], ghToken);
+  async ghPrListOpen(hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.prListOpen(hostToken);
   }
 
-  async ghPrListMerged(ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", [
-      "pr",
-      "list",
-      "--state",
-      "merged",
-      "--limit",
-      "100",
-      "--json",
-      "number,title,url,headRefName,baseRefName,mergedAt,mergedBy",
-    ], ghToken);
+  async ghPrListOpenMatching(baseBranch: string, headBranch: string, hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.prListOpenMatching(baseBranch, headBranch, hostToken);
   }
 
-  async ghRunViewJobs(runId: number, ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", ["run", "view", String(runId), "--json", "jobs"], ghToken);
+  async ghPrCreate(baseBranch: string, headBranch: string, title: string, body: string, hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.prCreate(baseBranch, headBranch, title, body, hostToken);
   }
 
-  async ghRunViewLogFailed(runId: number, jobId: number, ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", ["run", "view", String(runId), "--job", String(jobId), "--log-failed"], ghToken);
+  async ghRunList(hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.runList(hostToken);
   }
 
-  async ghPrMerge(prNumber: number, ghToken?: string): Promise<CommandResult> {
-    return this.run("gh", ["pr", "merge", String(prNumber), "--merge", "--delete-branch"], ghToken);
+  async ghPrListMerged(hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.prListMerged(hostToken);
+  }
+
+  async ghRunViewJobs(runId: number, hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.runViewJobs(runId, hostToken);
+  }
+
+  async ghRunViewLogFailed(runId: number, jobId: number, hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.runViewLogFailed(runId, jobId, hostToken);
+  }
+
+  async ghPrMerge(prNumber: number, hostToken?: string): Promise<CommandResult> {
+    return this.hostCli.prMerge(prNumber, hostToken);
   }
 }
