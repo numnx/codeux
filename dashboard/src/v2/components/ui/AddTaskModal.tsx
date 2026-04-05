@@ -70,7 +70,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   }, [sprintId, title]);
 
   useLayoutEffect(() => {
-    const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
+    const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.entry.duration;
     const d_card = reducedMotion ? 0 : MODAL_MOTION.entry.duration;
     gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: d_backdrop, ease: MODAL_MOTION.backdrop.ease });
     gsap.fromTo(cardRef.current,
