@@ -42,6 +42,10 @@ const mockSettings = (
     virtualWorkerProvider: "gemini",
     model: "gemini-2.5-flash",
   },
+  git: {
+    ...DEFAULT_DASHBOARD_SETTINGS.git,
+    githubMode: "REMOTE",
+  },
 });
 
 const mockTask = (overrides: Partial<Subtask> = {}): Subtask => ({
@@ -157,6 +161,18 @@ describe("Provider Routing Logic", () => {
   });
 
   describe("resolveProviderForInvocation", () => {
+  it("filters out jules when githubMode is LOCAL", () => {
+    const settings = mockSettings("ORCHESTRATOR", "jules", { jules: true, gemini: true });
+    settings.git.githubMode = "LOCAL";
+    const result = resolveProviderForInvocation(settings, {
+      invocation: "task_coding",
+      task: mockTask(),
+    });
+    // jules is explicitly disabled because LOCAL mode, so it should fallback to the next provider
+    expect(result.provider).not.toBe("jules");
+    expect(result.enabledProviders).not.toContain("jules");
+    expect(result.enabledProviders).toContain("gemini");
+  });
     it("uses worker profile defaults for dashboard replies", () => {
       const settings = mockSettings("MANUAL", "jules");
 
