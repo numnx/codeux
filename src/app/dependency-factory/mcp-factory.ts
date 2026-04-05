@@ -11,6 +11,8 @@ import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-e
 import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
 import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
 
+import type { DashboardDependencies } from "./dashboard-factory.js";
+
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
   agentToolHandler: AgentToolHandler;
@@ -20,7 +22,8 @@ export interface McpDependencies {
 export function createMcpDependencies(
   context: ServerContext,
   coreDeps: CoreDependencies,
-  sprintDeps: SprintDependencies
+  sprintDeps: SprintDependencies,
+  dashboardDeps: DashboardDependencies
 ): McpDependencies {
   const {
     logger,
@@ -126,7 +129,11 @@ export function createMcpDependencies(
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
   });
 
-  const managementToolHandler = new ManagementToolHandler();
+  const managementToolHandler = new ManagementToolHandler(
+    coreDeps.projectManagementRepository,
+    dashboardDeps.executionControlService,
+    coreDeps.executionRepository
+  );
 
   return {
     coreToolHandler,
