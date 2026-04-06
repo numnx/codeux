@@ -73,6 +73,107 @@ describe("ProjectRuntimeRepository", () => {
     } finally {
       db.exec = originalExec;
     }
+
+    const tasksCount = db.prepare("SELECT COUNT(*) as count FROM tasks").get() as { count: number };
+    expect(tasksCount.count).toBe(0);
+    const sprintCount = db.prepare("SELECT status FROM sprints WHERE id = ?").get(sprint.id) as { status: string };
+    expect(sprintCount.status).not.toBe("running");
+  });
+
+  it("emits task-run events on status sync", async () => {
+    const { runtimeRepository, projectRepository, storage } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Task Event Project",
+      sourceType: "local",
+      sourceRef: "/task-events",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Event Sprint",
+      number: 1,
+    });
+
+    const db = storage.getDatabase();
+
+    projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "task-1",
+      title: "Initial Task",
+      status: "TODO",
+      sortOrder: 1,
+    });
+
+    runtimeRepository.syncDashboardStatus({
+      project_id: project.id,
+      sprint_id: sprint.id,
+      subtasks: [
+        {
+          id: "task-1",
+          title: "Initial Task",
+          status: "RUNNING",
+          provider: "openai",
+          session_id: "session-1",
+        } as any,
+      ],
+      status: "AWAITING_PLAN_APPROVAL",
+    });
+
+    const events = db.prepare("SELECT * FROM task_run_events").all() as any[];
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].event_type).toBe("status_sync");
+
+    // Change state to trigger a second event
+    runtimeRepository.syncDashboardStatus({
+      project_id: project.id,
+      sprint_id: sprint.id,
+      subtasks: [
+        {
+          id: "task-1",
+          title: "Initial Task",
+          status: "COMPLETED",
+          provider: "openai",
+          session_id: "session-1",
+        } as any,
+      ],
+      status: "AWAITING_PLAN_APPROVAL",
+    });
+
+    const newEvents = db.prepare("SELECT * FROM task_run_events").all() as any[];
+    expect(newEvents.length).toBe(2);
+  });
+
+  it("persists and returns runtime-context properties like reportText and statusTable", async () => {
+    const { runtimeRepository, projectRepository } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Context Project",
+      sourceType: "local",
+      sourceRef: "/ctx",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Context Sprint",
+      number: 1,
+    });
+
+    const reportText = "Sprint Report Output";
+    const statusTable = "Status Table Format";
+    const instructions = "Do this specifically";
+
+    runtimeRepository.syncDashboardStatus({
+      project_id: project.id,
+      sprint_id: sprint.id,
+      subtasks: [],
+      status: "AWAITING_PLAN_APPROVAL",
+      reportText,
+      statusTable,
+      instructions,
+    });
+
+    const status = runtimeRepository.getProjectStatus(project.id, sprint.id);
+
+    expect(status.reportText).toBe(reportText);
+    expect(status.statusTable).toBe(statusTable);
+    expect(status.instructions).toBe(instructions);
   });
 
   it("persists orchestration context and task runs for the selected project", async () => {
