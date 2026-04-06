@@ -10,7 +10,7 @@ export class TaskActions {
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly executionControlService: ExecutionControlService,
     private readonly executionRepository: ExecutionRepository,
-    private readonly taskRerunService: TaskRerunService,
+    private readonly getTaskRerunService: () => TaskRerunService,
   ) {}
 
   async handleTaskAction(args: ManageSprintOsArgs): Promise<ManagementResponseEnvelope> {
@@ -142,7 +142,7 @@ export class TaskActions {
       throw new Error("taskId is required");
     }
 
-    const task = await this.taskRerunService.rerunTask(taskId, {
+    const task = await this.getTaskRerunService().rerunTask(taskId, {
         provider: typeof payload.provider === "string" ? payload.provider as any : undefined,
     });
     return { result: { task } };

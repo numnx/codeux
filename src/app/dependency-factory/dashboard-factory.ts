@@ -49,7 +49,7 @@ export function createDashboardDependencies(
     projectManagementRepository,
     executionRepository,
     projectAttentionService,
-    taskRerunService: {} as any, // Will link below
+    getTaskRerunService: () => taskRerunService,
     sprintOrchestrator,
     julesApi,
     activeDispatchRegistry,
@@ -57,12 +57,12 @@ export function createDashboardDependencies(
   });
 
   const managementToolHandler = new ManagementToolHandler({
-    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected top-level later
+    getSprintPreviewService: () => (sprintDeps as any).sprintPreviewService || null,
     executionRepository: coreDeps.executionRepository,
     getDashboardSettings: () => settingsRepository.getDefaultDashboardSettings(),
     projectManagementRepository: coreDeps.projectManagementRepository,
     executionControlService,
-    taskRerunService: {} as any, // Will link below
+    getTaskRerunService: () => taskRerunService,
     settingsRepository: coreDeps.settingsRepository,
     agentPresetSyncService: coreDeps.agentPresetSyncService,
     memoryService: coreDeps.memoryService,
@@ -297,10 +297,6 @@ export function createDashboardDependencies(
     },
     logger: logger.child({ component: "task-rerun-service" }),
   });
-
-  // Link the taskRerunService to the executionControlService and managementToolHandler
-  (executionControlService as any).deps.taskRerunService = taskRerunService;
-  (managementToolHandler as any).deps.taskRerunService = taskRerunService;
 
   const planningAgentService = new PlanningAgentService({
     projectManagementRepository,

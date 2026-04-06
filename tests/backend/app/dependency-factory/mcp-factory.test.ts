@@ -16,6 +16,11 @@ vi.mock("../../../../src/mcp/agent-tool-handler.js", () => {
   return { AgentToolHandler };
 });
 
+vi.mock("../../../../src/mcp/management-tool-handler.js", () => {
+  const ManagementToolHandler = vi.fn();
+  return { ManagementToolHandler };
+});
+
 vi.mock("../../../../src/git/sprint-branch-scheme.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
@@ -138,6 +143,26 @@ describe("MCP Factory", () => {
 
     expect(agentArgs.workerDispatchExecutionService).toBeDefined();
     expect(agentArgs.workerInboxReplyService).toBeDefined();
+  });
+
+  it("ManagementToolHandler successfully resolves preview and rerun services dynamically", async () => {
+    const { ManagementToolHandler } = await import("../../../../src/mcp/management-tool-handler.js");
+
+    mockSprintDeps.sprintPreviewService = { isPreview: true };
+    mockDashboardDeps.taskRerunService = { isRerun: true };
+
+    createMcpDependencies(
+      mockContext as unknown as ServerContext,
+      mockCoreDeps as unknown as CoreDependencies,
+      mockSprintDeps as unknown as SprintDependencies,
+      mockDashboardDeps as any
+    );
+
+    expect(ManagementToolHandler).toHaveBeenCalledTimes(1);
+    const mcpArgs = vi.mocked(ManagementToolHandler).mock.calls[0][0];
+
+    expect(mcpArgs.getSprintPreviewService()).toBe(mockSprintDeps.sprintPreviewService);
+    expect(mcpArgs.getTaskRerunService()).toBe(mockDashboardDeps.taskRerunService);
   });
 
   it("handles missing dashboardSettings and maxFailures", () => {

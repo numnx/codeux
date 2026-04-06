@@ -443,6 +443,34 @@ describe("Dashboard Factory", () => {
     );
   });
 
+  it("executionControlService successfully consumes taskRerunService dynamically without post-hoc mutation", async () => {
+    mockCoreDeps.projectManagementRepository.getTask.mockReturnValue({
+      id: "task-1",
+      taskKey: "T1",
+      projectId: "project-1",
+      sprintId: "sprint-1",
+    });
+
+    const deps = createDashboardDependencies(
+      mockContext as unknown as ServerContext,
+      mockCoreDeps as unknown as CoreDependencies,
+      mockSprintDeps as unknown as SprintDependencies
+    );
+
+    const getTaskRerunService = (deps.executionControlService as any).deps.getTaskRerunService;
+    const taskRerunService = getTaskRerunService();
+
+    taskRerunService.rerunTask = vi.fn().mockResolvedValue({ id: "T1" } as any);
+    const rerunTaskSpy = vi.spyOn(taskRerunService, "rerunTask");
+    mockCoreDeps.executionRepository.getTaskDispatch = vi.fn().mockReturnValue({ id: "dispatch-1", status: "cancelled", taskId: "task-1" });
+    mockCoreDeps.executionRepository.getTaskRunByDispatchId = vi.fn().mockReturnValue({ id: "run-1" });
+    mockCoreDeps.projectAttentionService.resolveItemsForDispatch = vi.fn();
+
+    await deps.executionControlService.retryTaskDispatch("dispatch-1");
+
+    expect(rerunTaskSpy).toHaveBeenCalledWith("task-1");
+  });
+
   it("updates executor overrides and cancels active dispatches correctly", async () => {
     mockCoreDeps.executionRepository.listTaskDispatches = vi.fn().mockReturnValue([
       { id: "queued-1", status: "queued" },

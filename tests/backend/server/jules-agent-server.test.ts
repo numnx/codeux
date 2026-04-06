@@ -39,6 +39,12 @@ describe("JulesAgentServer", () => {
     expect(context.runtimeContext).toBeDefined();
   });
 
+  it("should create services cleanly without mutable backfills", async () => {
+    await server.run(); // Ensure boot finishes correctly
+    expect((server as any).managementToolHandler.deps.sprintPreviewService).toBeUndefined();
+    expect(typeof (server as any).managementToolHandler.deps.getSprintPreviewService).toBe("function");
+  });
+
   describe("getEffectiveJulesApiKey", () => {
     it("should return the key from dashboard settings if available", () => {
       const runtimeContext = (server as any).runtimeContext;

@@ -22,6 +22,7 @@ This project is a Model Context Protocol (MCP) server with an integrated dashboa
 - Runtime composition file: `src/server/jules-agent-server.ts`
 - Responsibilities:
   - Instantiate repositories, services, handlers, orchestrator.
+  - Avoid post-hoc mutation by resolving dependencies lazily via getters.
   - Register MCP request handlers via `src/server/mcp-request-router.ts`.
   - Start dashboard HTTP server.
   - Start MCP stdio transport.

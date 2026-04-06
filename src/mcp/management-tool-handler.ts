@@ -21,12 +21,12 @@ import { AgentActions } from "./management/agent-actions.js";
 import { MemoryActions } from "./management/memory-actions.js";
 
 export interface ManagementToolHandlerDeps {
-  sprintPreviewService: SprintPreviewService;
+  getSprintPreviewService: () => SprintPreviewService | null;
   executionRepository: ExecutionRepository;
   getDashboardSettings: () => DashboardSettings;
   projectManagementRepository: ProjectManagementRepository;
   executionControlService: ExecutionControlService;
-  taskRerunService: TaskRerunService;
+  getTaskRerunService: () => TaskRerunService;
   settingsRepository: SettingsRepository;
   agentPresetSyncService: AgentPresetSyncService;
   memoryService: MemoryService;
@@ -45,7 +45,7 @@ export class ManagementToolHandler {
       deps.projectManagementRepository,
       deps.executionControlService,
       deps.executionRepository,
-      deps.taskRerunService
+      deps.getTaskRerunService
     );
     this.settingsActions = new SettingsActions(deps.settingsRepository);
     this.agentActions = new AgentActions(deps.agentPresetSyncService);
@@ -84,7 +84,11 @@ export class ManagementToolHandler {
         envelope = await this.memoryActions.handleMemoryAction(args);
       } else if (args.domain === "preview") {
         const currentHost = null; // serverHost is not available on DashboardSettings, we'll fall back to localhost in preview-origin
-        envelope = await handlePreviewActions(args, this.deps.sprintPreviewService, currentHost);
+        const sprintPreviewService = this.deps.getSprintPreviewService();
+        if (!sprintPreviewService) {
+          throw new Error("Sprint preview service is not available in the current context.");
+        }
+        envelope = await handlePreviewActions(args, sprintPreviewService, currentHost);
       } else if (args.domain === "telemetry") {
         envelope = await handleTelemetryActions(args, this.deps.executionRepository);
       } else {

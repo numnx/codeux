@@ -13,7 +13,7 @@ interface ExecutionControlServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
   projectAttentionService: ProjectAttentionService;
-  taskRerunService: TaskRerunService;
+  getTaskRerunService: () => TaskRerunService;
   sprintOrchestrator: SprintOrchestrator;
   julesApi: JulesApiClient;
   activeDispatchRegistry: ActiveDispatchRegistry;
@@ -277,7 +277,7 @@ export class ExecutionControlService {
 
     this.deps.projectAttentionService.resolveItemsForDispatch(dispatchId, "dispatch_retry_requested");
 
-    return await this.deps.taskRerunService.rerunTask(task.id);
+    return await this.deps.getTaskRerunService().rerunTask(task.id);
   }
 
   private cancelDispatchInternal(dispatch: TaskDispatchRecord, now: string, message: string): TaskDispatchRecord {

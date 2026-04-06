@@ -130,12 +130,12 @@ export function createMcpDependencies(
   });
 
   const managementToolHandler = new ManagementToolHandler({
-    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected at the top-level by jules-agent-server if needed
+    getSprintPreviewService: () => (sprintDeps as any).sprintPreviewService || null,
     executionRepository: coreDeps.executionRepository,
     getDashboardSettings: () => getDashboardSettings(),
     projectManagementRepository: coreDeps.projectManagementRepository,
     executionControlService: dashboardDeps.executionControlService,
-    taskRerunService: dashboardDeps.taskRerunService,
+    getTaskRerunService: () => dashboardDeps.taskRerunService,
     settingsRepository: coreDeps.settingsRepository,
     agentPresetSyncService: coreDeps.agentPresetSyncService,
     memoryService: coreDeps.memoryService,
