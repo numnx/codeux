@@ -270,7 +270,7 @@ describe("QuicksprintService", () => {
         overrides: {
           virtualModel: "gpt-4",
         }
-      });
+      }, undefined);
     });
 
     it("should throw if template does not exist", async () => {
@@ -334,7 +334,7 @@ describe("QuicksprintService", () => {
         autoStart: false,
         replan: false,
         overrides: undefined,
-      });
+      }, undefined);
     });
   });
 });

@@ -1,13 +1,17 @@
 import type { FunctionComponent, RefObject } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, ArrowRight, Cpu, Zap, Compass } from "lucide-preact";
+import { Bell, Command, Search, Moon, Sun, ChevronDown, Activity, FolderOpen, ArrowRight, Cpu, Zap, Compass, Menu } from "lucide-preact";
 import { Link } from "@tanstack/react-router";
 import { StatusDot } from "./ui/StatusDot.js";
+import { SearchOverlay } from "./search/SearchOverlay.js";
 import { AddProjectModal } from "./ui/AddProjectModal.js";
 import { useProjectData } from "../context/project-data.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
 import { useSprints } from "../../hooks/useSprints.js";
+import { useProjectTasks } from "../hooks/use-project-tasks.js";
+import { usePreviewSessions } from "../hooks/use-preview-sessions.js";
+import { formatSprintDisplay } from "../lib/format-sprint.js";
 import { DockerStatusMenu } from "./DockerStatusMenu.js";
 import { BrowserSessionsMenu } from "./browser/BrowserSessionsMenu.js";
 import { NotificationPanel } from "./NotificationPanel.js";
@@ -102,27 +106,16 @@ const LIVE_WORKER_STATUSES = new Set(["connected", "listening", "idle"]);
 interface TopNavProps {
     isDark: boolean;
     toggleTheme: () => void;
+    onMenuToggle?: () => void;
+    isMobile?: boolean;
 }
 
-export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) => {
-    const formatSprintDisplay = (sprint: any) => {
-        if (!sprint) return "All Sprints";
-        let num = sprint.sprintNumber;
-        if (!num && sprint.name) {
-            const match = sprint.name.match(/^SPR-(\d+)/i);
-            if (match) {
-                num = match[1];
-            }
-        }
-        if (num) {
-            return `SPR-${num} : ${sprint.name}`;
-        }
-        return sprint.name;
-    };
-
+export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, onMenuToggle, isMobile }) => {
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const workerDropdownRef = useRef<HTMLDivElement>(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false);
     const [showAddProject, setShowAddProject] = useState(false);
@@ -205,6 +198,70 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
 
     const { data: execution, loading: executionLoading, refetch: refreshExecution } = useExecutions(selectedProject?.id || null);
     const { data: sprints, selectedSprintId, selectedSprint, selectSprint, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
+    const projectId = selectedProject?.id || null;
+
+    const { tasks } = useProjectTasks(projectId, selectedProject ? [selectedProject] : [], sprints);
+    const { sessions } = usePreviewSessions({ projectId });
+
+    const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const searchResults = useMemo(() => {
+        if (!debouncedQuery.trim()) {
+            return { sprints: [], tasks: [], agents: [], containers: [] };
+        }
+
+        const lowerQuery = debouncedQuery.toLowerCase();
+
+        const filteredSprints = sprints.filter(s =>
+            s.name.toLowerCase().includes(lowerQuery) ||
+            `spr-${s.number}`.includes(lowerQuery)
+        ).map(s => ({
+            id: s.id,
+            title: `SPR-${s.number}: ${s.name}`,
+            status: s.status
+        }));
+
+        const filteredTasks = tasks.filter((t: any) =>
+            t.title.toLowerCase().includes(lowerQuery) ||
+            (t.recordId && t.recordId.toLowerCase().includes(lowerQuery)) ||
+            (t.description && t.description.toLowerCase().includes(lowerQuery))
+        ).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            sprint: t.sprint,
+            status: t.status
+        }));
+
+        const filteredAgents = (selectedProject?.agentBindings || []).filter(a =>
+            a.workerDisplayName?.toLowerCase().includes(lowerQuery) ||
+            a.workerEndpointType?.toLowerCase().includes(lowerQuery)
+        ).map(a => ({
+            id: a.id || `${a.workerEndpointType}-${a.workerDisplayName}`,
+            name: a.workerDisplayName || a.workerEndpointType,
+            status: 'idle'
+        }));
+
+        const filteredContainers = sessions.filter((s: any) =>
+            (s.containerName && s.containerName.toLowerCase().includes(lowerQuery)) ||
+            (s.sprintId && s.sprintId.toLowerCase().includes(lowerQuery))
+        ).map((s: any) => ({
+            id: s.id,
+            name: s.containerName || 'Unnamed Container',
+            status: s.status
+        }));
+
+        return {
+            sprints: filteredSprints,
+            tasks: filteredTasks,
+            agents: filteredAgents,
+            containers: filteredContainers
+        };
+    }, [debouncedQuery, sprints, tasks, selectedProject, sessions]);
 
     const { data: effectiveSettings, refresh: refreshEffectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
     const browserVisible = !selectedProject || (
@@ -319,6 +376,16 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
             </a>
             <nav aria-label="Primary navigation" className="contents">
             <div className="flex items-center gap-4 md:gap-10 flex-1">
+                {isMobile && (
+                    <button
+                        type="button"
+                        onClick={onMenuToggle}
+                        aria-label="Toggle Navigation Menu"
+                        className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30 shrink-0"
+                    >
+                        <Menu aria-hidden="true" className="w-5 h-5 text-slate-600 dark:text-slate-300" strokeWidth={2} />
+                    </button>
+                )}
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-3 cursor-pointer group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-xl">
                     <div className="relative w-8 h-8 flex items-center justify-center bg-void-900 dark:bg-white rounded-xl overflow-hidden shadow-[0_0_20px_rgba(0,224,160,0.25)]">
@@ -338,6 +405,9 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     <input
                         type="text"
                         placeholder="Search..."
+                        value={searchQuery}
+                        onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                        onFocus={() => setIsSearchOpen(true)}
                         className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
@@ -697,6 +767,13 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme }) 
                     onAdd={(project) => { void handleCreateProject(project); }}
                 />
             )}
+            <SearchOverlay
+                isOpen={isSearchOpen}
+                onClose={() => setIsSearchOpen(false)}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                results={searchResults}
+            />
         </>
     );
 };

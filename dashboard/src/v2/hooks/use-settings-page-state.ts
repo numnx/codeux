@@ -27,7 +27,7 @@ import type {
 import { AlertTriangle, Bot, BrainCircuit, Cpu, Plug, Settings, SlidersHorizontal, Target } from "lucide-preact";
 
 type SettingsScope = "system" | "project";
-type CategoryId = "general" | "models" | "sprint" | "browser" | "agents" | "memory" | "integrations" | "danger";
+type CategoryId = "general" | "appearance" | "models" | "sprint" | "browser" | "agents" | "memory" | "integrations" | "danger";
 type AgentInstructionTemplateId = keyof ProjectSettings["agents"]["instructionTemplates"];
 
 interface Category {
@@ -169,7 +169,7 @@ export const useSettingsPageState = (
 
   const [activeCategory, setActiveCategory] = useState<CategoryId>("general");
   const [activeScope, setActiveScope] = useState<SettingsScope>("system");
-  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationId>("github");
+  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationId | null>(null);
   const [selectedAgentTemplate, setSelectedAgentTemplate] = useState<AgentInstructionTemplateId>("planningMissing");
   const [activeInvocationRoute, setActiveInvocationRoute] = useState<InvocationRoutingId>("task_coding");
   const [activeProviderPanel, setActiveProviderPanel] = useState<ProviderId>("gemini");

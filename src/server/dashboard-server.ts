@@ -1178,7 +1178,9 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       res.status(404).json({ error: "Quicksprint service is not enabled." });
       return;
     }
-    const sprint = await options.quicksprintService.executeQuicksprint(projectId, req.body as QuicksprintExecutionInput);
+    const ac = new AbortController();
+    res.on("close", () => { if (!res.writableFinished) ac.abort(); });
+    const sprint = await options.quicksprintService.executeQuicksprint(projectId, req.body as QuicksprintExecutionInput, ac.signal);
     res.status(201).json(sprint);
   }));
 
