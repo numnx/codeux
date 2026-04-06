@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { fetchExternalSettingsHints } from "../../lib/api/dashboard-api.js";
 import { useProjectData } from "../context/project-data.js";
+import { isStructurallyEqual } from "../lib/structural-equality.js";
 import {
   fetchProjectEffectiveSettings,
   fetchSystemSettings,
@@ -256,13 +257,13 @@ export const useSettingsPageState = (
 
   const systemDirty = useMemo(() => (
     systemSettings && savedSystemSettings
-      ? JSON.stringify(systemSettings) !== JSON.stringify(savedSystemSettings)
+      ? !isStructurallyEqual(systemSettings, savedSystemSettings)
       : false
   ), [savedSystemSettings, systemSettings]);
 
   const projectDirty = useMemo(() => (
     projectSettings && savedProjectSettings
-      ? JSON.stringify(projectSettings) !== JSON.stringify(savedProjectSettings)
+      ? !isStructurallyEqual(projectSettings, savedProjectSettings)
       : false
   ), [projectSettings, savedProjectSettings]);
 

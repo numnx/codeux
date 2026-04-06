@@ -52,6 +52,49 @@ beforeEach(() => {
   });
 });
 
+import { isStructurallyEqual } from "../../../dashboard/src/v2/lib/structural-equality.js";
+
+describe("isStructurallyEqual", () => {
+  it("returns true for identical objects and values", () => {
+    expect(isStructurallyEqual(1, 1)).toBe(true);
+    expect(isStructurallyEqual("a", "a")).toBe(true);
+    expect(isStructurallyEqual(null, null)).toBe(true);
+    expect(isStructurallyEqual(undefined, undefined)).toBe(true);
+    expect(isStructurallyEqual({ a: 1 }, { a: 1 })).toBe(true);
+  });
+
+  it("returns false for different types or nulls", () => {
+    expect(isStructurallyEqual(1, "1")).toBe(false);
+    expect(isStructurallyEqual(null, {})).toBe(false);
+    expect(isStructurallyEqual({}, null)).toBe(false);
+    expect(isStructurallyEqual(undefined, null)).toBe(false);
+  });
+
+  it("handles arrays correctly", () => {
+    expect(isStructurallyEqual([1, 2, 3], [1, 2, 3])).toBe(true);
+    expect(isStructurallyEqual([1, 2, 3], [1, 2, 4])).toBe(false);
+    expect(isStructurallyEqual([1, 2], [1, 2, 3])).toBe(false);
+    expect(isStructurallyEqual([1, { a: 1 }], [1, { a: 1 }])).toBe(true);
+  });
+
+  it("handles object key reordering", () => {
+    expect(isStructurallyEqual({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(true);
+    expect(isStructurallyEqual({ a: 1, b: { c: 3, d: 4 } }, { b: { d: 4, c: 3 }, a: 1 })).toBe(true);
+  });
+
+  it("returns false for objects with different keys or values", () => {
+    expect(isStructurallyEqual({ a: 1, b: 2 }, { a: 1, c: 2 })).toBe(false);
+    expect(isStructurallyEqual({ a: 1, b: 2 }, { a: 1, b: 3 })).toBe(false);
+    expect(isStructurallyEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(isStructurallyEqual({ a: 1, b: 2 }, { a: 1 })).toBe(false);
+  });
+
+  it("handles array vs object mismatch", () => {
+    expect(isStructurallyEqual([], {})).toBe(false);
+    expect(isStructurallyEqual({}, [])).toBe(false);
+  });
+});
+
 describe("useSettingsPageState", () => {
   it("updates editable settings for project scope", async () => {
     const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));

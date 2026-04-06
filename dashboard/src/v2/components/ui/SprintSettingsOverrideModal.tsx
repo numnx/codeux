@@ -15,6 +15,7 @@ import {
   dashboardSettingsToProjectSettings,
 } from "../../lib/settings-view-models.js";
 import type { ProjectSettings, SettingsValueSource } from "../../../types.js";
+import { isStructurallyEqual } from "../../lib/structural-equality.js";
 
 interface SprintSettingsOverrideModalProps {
   projectId: string;
@@ -85,7 +86,7 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
   }, [message]);
 
   const dirty = settings && savedSettings
-    ? JSON.stringify(settings) !== JSON.stringify(savedSettings)
+    ? !isStructurallyEqual(settings, savedSettings)
     : false;
 
   const handleSave = async () => {
