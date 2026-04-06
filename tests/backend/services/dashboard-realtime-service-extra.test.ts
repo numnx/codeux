@@ -124,7 +124,7 @@ describe("DashboardRealtimeService Extra Coverage", () => {
     it("publishes ready scopes in parallel despite mixed fast/slow loaders", async () => {
       const { service, logger } = await createService();
 
-      let fastResolved = false;
+      let fastResolvedCount = 0;
       service.setSnapshotLoaders({
         getProjectsSnapshot: () => ({ projects: [], selectedProjectId: "fast-p" }),
         getProjectExecutionSnapshot: async (projectId) => {
@@ -132,7 +132,7 @@ describe("DashboardRealtimeService Extra Coverage", () => {
             await new Promise((resolve) => setTimeout(resolve, 5000));
             return { projectId: "slow-p" } as any;
           }
-          fastResolved = true;
+          fastResolvedCount++;
           return { projectId: "fast-p" } as any;
         },
         getProjectStatusSnapshot: () => ({} as any),
@@ -148,11 +148,21 @@ describe("DashboardRealtimeService Extra Coverage", () => {
 
       // Fast one should resolve immediately and be published before the slow one completes
       await Promise.resolve(); // flush async tick
-      await Promise.resolve(); // allSettled tick
+      await Promise.resolve(); // tick
 
-      expect(fastResolved).toBe(true);
+      expect(fastResolvedCount).toBe(1);
+
+      // Schedule another fast flush while slow one is still pending
+      service.scheduleProjectExecutionRefresh("fast-p");
+      vi.advanceTimersByTime(350); // Advance past 300ms throttle interval
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(fastResolvedCount).toBe(2);
+
       // Wait for slow one to finish
       vi.advanceTimersByTime(5000);
+      await Promise.resolve();
       await Promise.resolve();
 
       expect(logger.error).not.toHaveBeenCalled();
@@ -161,14 +171,14 @@ describe("DashboardRealtimeService Extra Coverage", () => {
     it("continues publishing ready scopes when one fails", async () => {
       const { service, logger } = await createService();
 
-      let fastResolved = false;
+      let fastResolvedCount = 0;
       service.setSnapshotLoaders({
         getProjectsSnapshot: () => ({ projects: [], selectedProjectId: "fast-p" }),
         getProjectExecutionSnapshot: async (projectId) => {
           if (projectId === "fail-p") {
             throw new Error("Deliberate failure");
           }
-          fastResolved = true;
+          fastResolvedCount++;
           return { projectId: "fast-p" } as any;
         },
         getProjectStatusSnapshot: () => ({} as any),
@@ -185,8 +195,16 @@ describe("DashboardRealtimeService Extra Coverage", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(fastResolved).toBe(true);
+      expect(fastResolvedCount).toBe(1);
       expect(logger.error).toHaveBeenCalledWith("Failed to publish project execution realtime snapshot", expect.any(Object));
+
+      // Schedule another fast flush after the failure
+      service.scheduleProjectExecutionRefresh("fast-p");
+      vi.advanceTimersByTime(350); // Advance past 300ms throttle interval
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(fastResolvedCount).toBe(2);
     });
   });
 });
