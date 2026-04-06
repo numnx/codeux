@@ -40,6 +40,7 @@ export interface SprintReviewSummary {
   summary: string | null;
   reviewer: string | null;
   finishedAt: string | null;
+  findings?: string[];
 }
 
 export interface SprintRecord {
