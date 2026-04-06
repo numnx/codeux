@@ -11,7 +11,7 @@ expect.extend(matchers);
 
 if (typeof window !== "undefined" && !window.requestAnimationFrame) {
   window.requestAnimationFrame = (callback: FrameRequestCallback) => {
-    return setTimeout(() => callback(performance.now()), 0);
+    return setTimeout(() => callback(performance.now()), 0) as unknown as number;
   };
   window.cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
