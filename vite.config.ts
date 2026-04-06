@@ -19,9 +19,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["preact", "react", "react-dom"],
-          three: ["three"],
+                manualChunks(id) {
+          if (id.includes("node_modules/three")) return "three";
+          if (id.includes("node_modules/preact") || id.includes("node_modules/react")) return "vendor";
         },
       },
     },
