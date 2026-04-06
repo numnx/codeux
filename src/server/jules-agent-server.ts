@@ -473,6 +473,10 @@ export class JulesAgentServer {
     if (liveEnvToken && liveEnvToken.length > 0) {
       return liveEnvToken;
     }
+    const gitlabToken = process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim();
+    if (gitlabToken && gitlabToken.length > 0) {
+      return gitlabToken;
+    }
     const fallback = this.externalSettingsHints?.resolved?.githubToken?.trim();
     return (fallback && fallback.length > 0) ? fallback : undefined;
   }

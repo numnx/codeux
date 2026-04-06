@@ -8,7 +8,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -32,7 +33,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -49,7 +51,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -67,7 +70,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -88,7 +92,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -133,7 +138,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -166,7 +172,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -211,7 +218,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       return { ok: true, stdout: "" };
     });
@@ -234,7 +242,8 @@ describe("GitStatusService", () => {
       if (args.includes("--is-inside-work-tree")) return { ok: true, stdout: "true\n" };
       if (args.includes("--show-toplevel")) return { ok: true, stdout: "/repo\n" };
       if (args.includes("--show-current")) return { ok: true, stdout: "main\n" };
-      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\n" };
+      if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, stdout: "https://github.com/owner/repo.git\n" };
+      if (cmd === "git" && args[0] === "remote") return { ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" };
       if (args.includes("--porcelain")) return { ok: true, stdout: "" };
       if (cmd === "gh" && args[0] === "--version") return { ok: true, stdout: "gh version 2.0.0\n" };
       if (cmd === "gh" && args[0] === "auth") return { ok: true, stdout: "logged in\n" };
@@ -254,6 +263,9 @@ describe("GitStatusService", () => {
 
   it("merges a pull request", async () => {
     runner.mockImplementation(async (command, args) => {
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
       const fullCmd = `${command} ${args.join(" ")}`;
       const responses: Record<string, any> = {
         "gh pr merge 123 --merge --delete-branch": { ok: true, stdout: "merged", stderr: "" },
@@ -277,6 +289,9 @@ describe("GitStatusService", () => {
 
   it("treats an open PR after merge command as auto-merge armed, not merged", async () => {
     runner.mockImplementation(async (command, args) => {
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
       const fullCmd = `${command} ${args.join(" ")}`;
       const responses: Record<string, any> = {
         "gh pr merge 123 --merge --delete-branch": { ok: true, stdout: "auto-merge enabled", stderr: "" },
@@ -299,7 +314,11 @@ describe("GitStatusService", () => {
   });
 
   it("returns error message if merge fails", async () => {
-    runner.mockResolvedValue({ ok: false, stdout: "", stderr: "conflict" });
+    runner.mockImplementation(async (command, args) => {
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+      return { ok: false, stdout: "", stderr: "conflict" };
+    });
     const result = await service.mergePullRequest(123);
     expect(result.ok).toBe(false);
     expect(result.message).toBe("conflict");
@@ -307,6 +326,9 @@ describe("GitStatusService", () => {
 
   it("resolves an existing matching pull request without creating a new one", async () => {
     runner.mockImplementation(async (command, args) => {
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
       const fullCmd = `${command} ${args.join(" ")}`;
       const responses: Record<string, any> = {
         "gh pr list --state open --base main --head feature/sprint1 --limit 1 --json number,url": {
@@ -334,6 +356,9 @@ describe("GitStatusService", () => {
   it("creates a new matching pull request when none exists", async () => {
     let lookupCount = 0;
     runner.mockImplementation(async (command, args) => {
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
       const fullCmd = `${command} ${args.join(" ")}`;
       if (fullCmd === "gh pr list --state open --base main --head feature/sprint1 --limit 1 --json number,url") {
         lookupCount += 1;
@@ -369,9 +394,12 @@ describe("GitStatusService", () => {
     let executionCount = 0;
     const service = new GitStatusService("/tmp/repo", async (command, args) => {
       const fullCmd = `${command} ${args.join(" ")}`;
-      if (fullCmd.startsWith("gh --version")) {
+      if (fullCmd.startsWith("git branch")) {
         executionCount++;
       }
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+
       const responses: Record<string, any> = {
         "git rev-parse --is-inside-work-tree": { ok: true, stdout: "true\n" },
         "git rev-parse --show-toplevel": { ok: true, stdout: "/tmp/repo\n" },
@@ -384,7 +412,7 @@ describe("GitStatusService", () => {
         "gh run list --limit 50 --json databaseId,name,workflowName,status,conclusion,event,headBranch,url,updatedAt": { ok: true, stdout: "[]" },
         "gh pr list --state merged --limit 100 --json number,title,url,headRefName,baseRefName,mergedAt,mergedBy": { ok: true, stdout: "[]" },
       };
-      return responses[fullCmd] || { ok: false };
+      return responses[fullCmd] || { ok: true, stdout: "" };
     });
 
     GitStatusService.invalidateCache();
@@ -398,9 +426,12 @@ describe("GitStatusService", () => {
     let executionCount = 0;
     const service = new GitStatusService("/tmp/repo", async (command, args) => {
       const fullCmd = `${command} ${args.join(" ")}`;
-      if (fullCmd.startsWith("gh --version")) {
+      if (fullCmd.startsWith("git branch")) {
         executionCount++;
       }
+      if (command === "git" && args[0] === "remote" && args[1] === "get-url") return { ok: true, code: 0, stdout: "https://github.com/owner/repo.git\n", stderr: "" };
+      if (command === "git" && args[0] === "remote") return { ok: true, code: 0, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n", stderr: "" };
+
       const responses: Record<string, any> = {
         "git rev-parse --is-inside-work-tree": { ok: true, stdout: "true\n" },
         "git rev-parse --show-toplevel": { ok: true, stdout: "/tmp/repo\n" },

@@ -8,6 +8,7 @@ export type SprintStatus = "running" | "paused" | "completed" | "failed" | "canc
 export type TaskStatus = "pending" | "in_progress" | "coding_completed" | "completed";
 export type TaskPriority = "critical" | "high" | "medium" | "low";
 export type TaskExecutorType = "auto" | "docker_cli" | "jules" | "mcp_worker";
+export type GitProvider = "github" | "gitlab" | "local";
 
 export interface ProjectSummary {
   id: string;
@@ -17,6 +18,8 @@ export interface ProjectSummary {
   repoUrl: string | null;
   sourceType: ProjectSourceType;
   sourceRef: string;
+  gitProvider: GitProvider;
+  gitHostDomain: string | null;
   defaultBranch: string | null;
   featureBranchPrefix: string | null;
   status: ProjectStatus;

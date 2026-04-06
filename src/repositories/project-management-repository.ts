@@ -22,6 +22,7 @@ import { SettingsRepository } from "./settings-repository.js";
 import { ProjectWorkerAssignmentRepository } from "./project-worker-assignment-repository.js";
 import type { ProjectSettingsOverride } from "../contracts/settings-scope-types.js";
 import type { ProjectWorkerAssignmentRecord } from "../contracts/worker-types.js";
+import { resolveRepositoryHost } from "../infrastructure/git/repository-host-resolver.js";
 
 const SELECTED_PROJECT_KEY = "selected_project_id";
 
@@ -904,14 +905,20 @@ export class ProjectManagementRepository {
     settingsOverrides: ProjectSettingsOverride,
     agentBindings: ProjectWorkerAssignmentRecord[]
   ): ProjectSummary {
+    const sourceType = row.source_type || "local";
+    const sourceRef = row.source_ref || row.base_dir;
+    const { provider, hostDomain } = resolveRepositoryHost(row.repo_url || (sourceType === "git" ? sourceRef : null));
+
     return {
       id: row.id,
       slug: row.slug,
       name: row.name,
       baseDir: row.base_dir,
       repoUrl: row.repo_url,
-      sourceType: row.source_type || "local",
-      sourceRef: row.source_ref || row.base_dir,
+      sourceType,
+      sourceRef,
+      gitProvider: provider,
+      gitHostDomain: hostDomain,
       defaultBranch: row.default_branch,
       featureBranchPrefix: row.feature_branch_prefix,
       status: row.status,

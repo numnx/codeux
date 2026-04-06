@@ -147,6 +147,8 @@ describe("ProjectManagementRepository", () => {
       isRunning: true,
       settingsOverrides: {},
       agentBindings: [],
+      gitProvider: "local",
+      gitHostDomain: null,
     });
 
     expect(sprints[0]).toMatchObject({
