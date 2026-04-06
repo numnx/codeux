@@ -28,6 +28,9 @@ export function extractJsonLikeBlock(bodyMarkdown: string): string {
     if ("tasks" in parsed && Array.isArray(parsed.tasks)) return true;
     if ("subtasks" in parsed && Array.isArray(parsed.subtasks)) return true;
 
+    // Direct QA review result
+    if ("verdict" in parsed && ("summary" in parsed || "findings" in parsed)) return true;
+
     // Top-level array of tasks
     if (Array.isArray(parsed) && parsed.length > 0) {
       const first = parsed[0];

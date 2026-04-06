@@ -24,6 +24,7 @@ import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import { resolveProviderForInvocation } from "./provider-routing.js";
 import { extractJsonLikeBlock } from "./planning-json-extractor.js";
+import { normalizePlannedSprintPayload, type PlannedSprintPayload, type PlannedTaskDraft } from "./agent-json-contracts.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
 import { StructuredAgentRequestService, type StructuredAgentRequestResult } from "./structured-agent-request-service.js";
 import { StructuredProviderResponseService } from "./structured-provider-response-service.js";
@@ -58,20 +59,6 @@ interface PlanSprintResult {
   started: boolean;
 }
 
-interface PlannedTaskDraft {
-  key: string;
-  title: string;
-  description: string;
-  promptMarkdown: string;
-  priority?: TaskPriority;
-  executorType?: TaskExecutorType;
-  dependsOn?: string[];
-}
-
-interface PlannedSprintPayload {
-  goal?: string;
-  tasks: PlannedTaskDraft[];
-}
 
 interface PlanningResultContext {
   provider: DashboardSettings["workers"]["virtualWorkerProvider"];
@@ -175,7 +162,7 @@ export class PlanningAgentService {
             contentMarkdown: reply.bodyMarkdown,
           });
         }
-        payload = this.parseJsonReply<{ goal?: string }>(reply.bodyMarkdown);
+        payload = JSON.parse(extractJsonLikeBlock(reply.bodyMarkdown)) as { goal?: string };
       } else {
         const virtualResult = await this.runVirtualPlanningRequest({
           projectId,
@@ -186,7 +173,7 @@ export class PlanningAgentService {
           rawPrompt: prompt,
           overrides: input.overrides,
           signal,
-          parseFn: (bodyMarkdown) => this.parseJsonReply<{ goal?: string }>(bodyMarkdown),
+          parseFn: (bodyMarkdown) => JSON.parse(extractJsonLikeBlock(bodyMarkdown)) as { goal?: string },
           buildRetryPrompt: (lastError) => [
             "Your previous output could not be parsed as valid JSON.",
             `Parse error: ${lastError.message}`,
@@ -316,7 +303,7 @@ export class PlanningAgentService {
             contentMarkdown: reply.bodyMarkdown,
           });
         }
-        payload = this.parsePlannedSprintReply(reply.bodyMarkdown);
+        payload = normalizePlannedSprintPayload(reply.bodyMarkdown);
       } else {
         const virtualResult = await this.runVirtualPlanningRequest({
           projectId,
@@ -327,7 +314,7 @@ export class PlanningAgentService {
           rawPrompt: prompt,
           overrides: options.overrides,
           signal,
-          parseFn: (bodyMarkdown) => this.parsePlannedSprintReply(bodyMarkdown),
+          parseFn: (bodyMarkdown) => normalizePlannedSprintPayload(bodyMarkdown),
           buildRetryPrompt: (lastError) => [
             "Your previous output could not be parsed as valid JSON.",
             `Parse error: ${lastError.message}`,
@@ -396,8 +383,8 @@ export class PlanningAgentService {
         title: task.title.trim(),
         description: task.description.trim(),
         promptMarkdown: task.promptMarkdown.trim(),
-        priority: this.normalizePriority(task.priority),
-        executorType: this.normalizeExecutor(task.executorType),
+        priority: task.priority || "medium",
+        executorType: task.executorType || "auto",
         dependsOnTaskIds,
         sortOrder: index,
         status: "pending",
@@ -764,93 +751,6 @@ export class PlanningAgentService {
       "Return JSON only with this exact shape and no surrounding commentary:",
       '{"goal":"Optional refined sprint goal","tasks":[{"key":"T01","title":"Task title","description":"Short intent","promptMarkdown":"## Objective\\n...\\n\\n## Scope\\n- ...\\n\\n## Implementation Requirements\\n1. ...\\n\\n## Constraints\\n- ...\\n\\n## Verification\\n- ...","priority":"medium","executorType":"auto","dependsOn":[]}]}',
     ].join("\n");
-  }
-
-  private parsePlannedSprintReply(bodyMarkdown: string): PlannedSprintPayload {
-    const payload = this.parseJsonReply<PlannedSprintPayload & { subtasks?: unknown[] }>(bodyMarkdown);
-    const rawTasks = Array.isArray(payload.tasks)
-      ? payload.tasks
-      : Array.isArray(payload.subtasks)
-        ? payload.subtasks
-        : [];
-    if (rawTasks.length === 0) {
-      throw new Error("Planning agent reply did not include any tasks.");
-    }
-
-    const seenKeys = new Set<string>();
-    const tasks = rawTasks.map((task, index) => {
-      const draft = task as PlannedTaskDraft & {
-        id?: string;
-        name?: string;
-        prompt?: string;
-        instructions?: string;
-        depends_on?: string[];
-        dependencies?: string[];
-      };
-      const key = String(draft.key || draft.id || "").trim() || `T${String(index + 1).padStart(2, "0")}`;
-      if (seenKeys.has(key)) {
-        throw new Error(`Planning agent returned duplicate task key: ${key}.`);
-      }
-      seenKeys.add(key);
-
-      const title = String(draft.title || draft.name || "").trim();
-      const description = String(draft.description || "").trim();
-      const promptMarkdown = String(draft.promptMarkdown || draft.prompt || draft.instructions || draft.description || "").trim();
-      if (!title || !promptMarkdown) {
-        throw new Error(`Planning agent returned an incomplete task for key ${key}.`);
-      }
-      return {
-        key,
-        title,
-        description,
-        promptMarkdown,
-        priority: draft.priority,
-        executorType: draft.executorType,
-        dependsOn: Array.isArray(draft.dependsOn)
-          ? draft.dependsOn.map((dependency) => String(dependency || "").trim()).filter(Boolean)
-          : Array.isArray(draft.depends_on)
-            ? draft.depends_on.map((dependency) => String(dependency || "").trim()).filter(Boolean)
-            : Array.isArray(draft.dependencies)
-              ? draft.dependencies.map((dependency) => String(dependency || "").trim()).filter(Boolean)
-          : [],
-      };
-    });
-
-    return {
-      goal: typeof payload.goal === "string" ? payload.goal : undefined,
-      tasks,
-    };
-  }
-
-  private parseJsonReply<T>(bodyMarkdown: string): T {
-    const rawJson = extractJsonLikeBlock(bodyMarkdown);
-
-    try {
-      return JSON.parse(rawJson) as T;
-    } catch (error) {
-      this.deps.logger?.warn("Failed to parse Planning agent reply", {
-        bodyMarkdown,
-        rawJson,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw new Error("Planning agent reply was not valid JSON.");
-    }
-  }
-
-  private normalizePriority(value: string | undefined): TaskPriority {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "critical" || normalized === "high" || normalized === "medium" || normalized === "low") {
-      return normalized;
-    }
-    return "medium";
-  }
-
-  private normalizeExecutor(value: string | undefined): TaskExecutorType {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "auto" || normalized === "mcp_worker" || normalized === "docker_cli" || normalized === "jules") {
-      return normalized;
-    }
-    return "auto";
   }
 
   private requirePlanningWorker(projectId: string): McpConnectionRecord {
