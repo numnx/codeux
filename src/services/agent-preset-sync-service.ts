@@ -7,6 +7,7 @@ import { parseAgentMarkdown, formatAgentMarkdown } from "./agent-preset-markdown
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import { getHomeSprintOsPath, getRepoSprintOsPath } from "../shared/config/sprint-os-paths.js";
 import type { Logger } from "../shared/logging/logger.js";
+import { structuralEquality } from "../shared/structural-equality.js";
 
 interface AgentPresetSyncServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
@@ -181,7 +182,7 @@ export class AgentPresetSyncService {
 
       const contentChanged = source.instructionMarkdown.trim() !== existing.instructionMarkdown.trim();
       const nameChanged = source.normalizedName !== this.normalizeName(existing.name);
-      const avatarChanged = JSON.stringify(source.avatarConfig || {}) !== JSON.stringify(existing.avatarConfig || {});
+      const avatarChanged = !structuralEquality(source.avatarConfig || {}, existing.avatarConfig || {});
       const memoryEnabledChanged = Boolean(source.memoryTemplateOverrideEnabled) !== Boolean(existing.memoryTemplateOverrideEnabled);
       const memoryMarkdownChanged = (source.memoryTemplateMarkdown || "") !== (existing.memoryTemplateMarkdown || "");
 

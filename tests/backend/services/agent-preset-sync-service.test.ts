@@ -60,6 +60,17 @@ describe("AgentPresetSyncService", () => {
     expect(drifted[0]?.instructionMarkdown).toContain("Updated planning instructions");
     expect(drifted[0]?.avatarConfig).toBeUndefined();
     expect(drifted[0]?.memoryTemplateOverrideEnabled).toBe(false);
+
+    // Verify unchanged structural metadata logic isn't flagged as drift
+    await fs.writeFile(agentPath, "---json\n{\"avatarConfig\":{\"body\":\"alien\"},\"memoryTemplateOverrideEnabled\":true}\n---\nUpdated planning instructions.\n", "utf8");
+    await syncService.syncAllAgentPresetsFromMarkdown(project.id);
+    // Write same exact conceptual value but different stringified layout / format:
+    await fs.writeFile(agentPath, "---json\n{\n  \"memoryTemplateOverrideEnabled\": true,\n  \"avatarConfig\": {\n    \"body\": \"alien\"\n  }\n}\n---\nUpdated planning instructions.\n", "utf8");
+
+    // Now trigger a sync check
+    const stable = await syncService.listAgentPresets(project.id);
+    const stableAgent = stable.find((p) => p.name === "Planning agent");
+    expect(stableAgent?.syncStatus).toBe("synced");
   });
 
   it("normalizes project_manager sources and resolves the Project manager agent", async () => {

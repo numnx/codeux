@@ -24,6 +24,7 @@ import { sanitizeWorkers } from "../domain/settings/settings-sanitizers/worker-s
 import { sanitizeMcpToolToggles } from "../mcp/mcp-tool-availability.js";
 import { DEFAULT_INSTRUCTION_TEMPLATES, INSTRUCTION_TEMPLATE_IDS, type InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
 import { DEFAULT_DASHBOARD_SETTINGS, DEFAULT_SKILLS, INTERNAL_SKILL_NAMES, INTERNAL_SKILL_SET } from "../repositories/settings-defaults.js";
+import { structuralMerge, structuralDiff } from "../shared/structural-equality.js";
 
 function cloneSkills(skills: SkillToggle[]): SkillToggle[] {
   return skills.map((skill) => ({ ...skill }));
@@ -70,56 +71,6 @@ function cloneInvocationRouting(
 
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function deepMerge<T>(base: T, patch: unknown): T {
-  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
-    return (patch === undefined ? base : patch) as T;
-  }
-
-  const baseRecord = toRecord(base);
-  const patchRecord = toRecord(patch);
-  const result: Record<string, unknown> = { ...baseRecord };
-
-  for (const [key, value] of Object.entries(patchRecord)) {
-    const current = result[key];
-    if (Array.isArray(value)) {
-      result[key] = value.map((entry) => (
-        entry && typeof entry === "object" ? JSON.parse(JSON.stringify(entry)) : entry
-      ));
-      continue;
-    }
-    if (value && typeof value === "object") {
-      result[key] = deepMerge(current ?? {}, value);
-      continue;
-    }
-    result[key] = value;
-  }
-
-  return result as T;
-}
-
-function deepDiff(base: unknown, value: unknown): unknown {
-  if (Array.isArray(base) || Array.isArray(value)) {
-    return JSON.stringify(base) === JSON.stringify(value) ? undefined : value;
-  }
-
-  if (!base || typeof base !== "object" || !value || typeof value !== "object") {
-    return JSON.stringify(base) === JSON.stringify(value) ? undefined : value;
-  }
-
-  const baseRecord = toRecord(base);
-  const valueRecord = toRecord(value);
-  const result: Record<string, unknown> = {};
-
-  for (const key of Object.keys(valueRecord)) {
-    const nextDiff = deepDiff(baseRecord[key], valueRecord[key]);
-    if (nextDiff !== undefined) {
-      result[key] = nextDiff;
-    }
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function flattenSources(
@@ -381,11 +332,11 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
   const input = toRecord(value);
   const aiInput = {
     ...DEFAULT_DASHBOARD_SETTINGS,
-    aiProvider: deepMerge(DEFAULT_DASHBOARD_SETTINGS.aiProvider, input.aiProvider),
+    aiProvider: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.aiProvider, input.aiProvider),
   };
   const gitInput = {
     ...DEFAULT_DASHBOARD_SETTINGS,
-    git: deepMerge(DEFAULT_DASHBOARD_SETTINGS.git, input.git),
+    git: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.git, input.git),
   };
   const git = sanitizeGit(gitInput, externalHints);
   const aiProvider = sanitizeAiProvider(aiInput, externalHints);
@@ -448,20 +399,20 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
     },
     ciIntelligence: sanitizeCiIntelligence({
       ...DEFAULT_DASHBOARD_SETTINGS,
-      ciIntelligence: deepMerge(DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, input.ciIntelligence),
+      ciIntelligence: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, input.ciIntelligence),
     }, git.githubMode),
     sprintLoopSteps: sanitizeSprintLoopSteps({
       ...DEFAULT_DASHBOARD_SETTINGS,
-      sprintLoopSteps: deepMerge(DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps, input.sprintLoopSteps),
+      sprintLoopSteps: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps, input.sprintLoopSteps),
     }),
     cliWorkflow: sanitizeCliWorkflow({
       ...DEFAULT_DASHBOARD_SETTINGS,
-      cliWorkflow: deepMerge(DEFAULT_DASHBOARD_SETTINGS.cliWorkflow, input.cliWorkflow),
+      cliWorkflow: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.cliWorkflow, input.cliWorkflow),
     }),
-    sprintPreview: sanitizeSprintPreviewSettings(deepMerge(DEFAULT_DASHBOARD_SETTINGS.sprintPreview, input.sprintPreview)),
+    sprintPreview: sanitizeSprintPreviewSettings(structuralMerge(DEFAULT_DASHBOARD_SETTINGS.sprintPreview, input.sprintPreview)),
     workers: sanitizeWorkers({
       ...DEFAULT_DASHBOARD_SETTINGS,
-      workers: deepMerge(DEFAULT_DASHBOARD_SETTINGS.workers, input.workers),
+      workers: structuralMerge(DEFAULT_DASHBOARD_SETTINGS.workers, input.workers),
     }),
     agents: {
       saveToProjectDirectory: typeof toRecord(input.agents).saveToProjectDirectory === "boolean"
@@ -540,7 +491,7 @@ export function resolveProjectSettings(
   systemSettings: SystemSettings,
   projectOverride?: ProjectSettingsOverride | null,
 ): ProjectSettings {
-  return sanitizeProjectSettings(deepMerge(systemSettings.defaults, projectOverride || {}));
+  return sanitizeProjectSettings(structuralMerge(systemSettings.defaults, projectOverride || {}));
 }
 
 export function resolveSprintProjectSettings(
@@ -549,7 +500,7 @@ export function resolveSprintProjectSettings(
   sprintOverride?: SprintSettingsOverride | null,
 ): ProjectSettings {
   const projectSettings = resolveProjectSettings(systemSettings, projectOverride);
-  return sanitizeProjectSettings(deepMerge(projectSettings, sprintOverride || {}));
+  return sanitizeProjectSettings(structuralMerge(projectSettings, sprintOverride || {}));
 }
 
 export function resolveEffectiveDashboardSettings(
@@ -617,8 +568,8 @@ export function toProjectSettingsOverride(
   patch: unknown,
   externalHints?: ExternalSettingsHints,
 ): ProjectSettingsOverride {
-  const merged = sanitizeProjectSettings(deepMerge(base, patch), externalHints);
-  return (deepDiff(base, merged) || {}) as ProjectSettingsOverride;
+  const merged = sanitizeProjectSettings(structuralMerge(base, patch), externalHints);
+  return (structuralDiff(base, merged) || {}) as ProjectSettingsOverride;
 }
 
 export function toSprintSettingsOverride(
@@ -626,6 +577,6 @@ export function toSprintSettingsOverride(
   patch: unknown,
   externalHints?: ExternalSettingsHints,
 ): SprintSettingsOverride {
-  const merged = sanitizeProjectSettings(deepMerge(base, patch), externalHints);
-  return (deepDiff(base, merged) || {}) as SprintSettingsOverride;
+  const merged = sanitizeProjectSettings(structuralMerge(base, patch), externalHints);
+  return (structuralDiff(base, merged) || {}) as SprintSettingsOverride;
 }

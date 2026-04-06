@@ -6,6 +6,8 @@ import {
   sanitizeSystemSettings,
   resolveProjectSettings,
   resolveSprintProjectSettings,
+  toProjectSettingsOverride,
+  toSprintSettingsOverride,
 } from "../../../src/services/settings-resolution-service.js";
 import { ScopedEffectiveSettingsResolver } from "../../../src/repositories/settings-repository.js";
 import { DEFAULT_DASHBOARD_SETTINGS, DEFAULT_SKILLS } from "../../../src/repositories/settings-defaults.js";
@@ -191,6 +193,39 @@ describe("Settings Resolution Service", () => {
       expect(resolved1).toBe(resolved2);
       expect(mockRepo.getProjectSettings).toHaveBeenCalledTimes(1);
       expect(mockRepo.getSystemSettings).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Sparse Overrides (toProjectSettingsOverride / toSprintSettingsOverride)", () => {
+    it("should return empty object when generating overrides for unchanged values", () => {
+      const base = buildDefaultProjectSettings();
+      // Clone exactly so structural equality passes
+      const patch = { ...base, agents: { ...base.agents, qualityAssurance: { ...base.agents.qualityAssurance } } };
+      const override = toProjectSettingsOverride(base, patch);
+      expect(override).toEqual({});
+    });
+
+    it("should generate deep diffs for partial array modifications", () => {
+      const base = buildDefaultProjectSettings();
+      const newSkills = [...base.skills, { name: "test_skill", enabled: true, isInternal: false }];
+      const patch = { skills: newSkills };
+      const override = toSprintSettingsOverride(base, patch);
+      expect(override).toEqual({ skills: newSkills });
+    });
+
+    it("should recognize unchanged nested structural records instead of matching identical order strings", () => {
+      const base = buildDefaultProjectSettings();
+      // Different key ordering, structural equality must not fail
+      const a = { b: 1, c: 2 };
+      const b = { c: 2, b: 1 };
+
+      // Since defaults dont have b or c, this isn't exactly the right domain mock for order,
+      // but testing structural diff specifically:
+      // A change in default will cause a diff, so we just mutate base first:
+      base.automationInterventions = { ...base.automationInterventions, ...a } as any;
+      const secondOverride = toProjectSettingsOverride(base, { automationInterventions: b });
+
+      expect(secondOverride).toEqual({});
     });
   });
 });
