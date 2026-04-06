@@ -172,9 +172,7 @@ export function useRealtimeResource<T>(options: RealtimeResourceOptions<T>): Rea
       setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
     } finally {
       if (!abortController.signal.aborted && fetchIdRef.current === currentFetchId) {
-        if (isForeground) {
-          setLoading((prev) => (prev !== false ? false : prev));
-        }
+        setLoading((prev) => (prev !== false ? false : prev));
         setIsRecovering((prev) => (prev !== false ? false : prev));
         isRecoveringRef.current = false;
       }
