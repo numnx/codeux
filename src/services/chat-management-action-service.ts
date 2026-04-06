@@ -31,6 +31,7 @@ export interface ProcessManagementActionArgs {
   sessionId: string;
   settings: DashboardSettings;
   prompt: string;
+  repoPath: string;
 }
 
 export class ChatManagementActionService {
@@ -107,6 +108,11 @@ export class ChatManagementActionService {
       startedAt,
     }).id;
 
+    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      role: "user",
+      contentMarkdown: args.prompt,
+    });
+
     try {
       const response = await this.deps.structuredProviderResponseService.executeAndParse<ParsedProviderManagementJSON>({
         projectId: args.projectId,
@@ -118,7 +124,7 @@ export class ChatManagementActionService {
         apiKey: args.apiKey,
         sessionId: args.sessionId,
         workflowSettings: args.settings.cliWorkflow,
-        repoPath: "/", // Fallback or dummy, the provider execution service might not need it for pure completion
+        repoPath: args.repoPath,
         settings: args.settings,
         providerLabel: args.provider,
         invocationId: execInvocationId,
@@ -140,6 +146,11 @@ export class ChatManagementActionService {
       });
 
       const parsed = response.parsed;
+
+      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+        role: "assistant",
+        contentMarkdown: response.bodyMarkdown || parsed.replyMarkdown,
+      });
 
       if (!parsed.action || !parsed.action.domain || !parsed.action.action) {
         // No action proposed, just a reply
@@ -183,6 +194,11 @@ export class ChatManagementActionService {
       };
 
     } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+        role: "system",
+        contentMarkdown: `Error: ${errMessage}`,
+      });
       this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
         status: "failed",
         finishedAt: new Date().toISOString(),

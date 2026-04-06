@@ -347,6 +347,7 @@ export class ChatThreadRuntimeService {
         sessionId: continueSessionId || thread.id,
         settings: dashboardSettings,
         prompt: finalPrompt,
+        repoPath: project.baseDir,
       });
 
       this.deps.connectionChatRepository.markDashboardMessagesProcessed(thread.id, {

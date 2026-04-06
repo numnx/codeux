@@ -61,6 +61,7 @@ describe("ChatManagementActionService", () => {
       sessionId: "sess1",
       settings: mockSettings,
       prompt: "Update sprint",
+      repoPath: "/tmp/test-repo",
     });
 
     expect(result).toEqual({
@@ -83,6 +84,15 @@ describe("ChatManagementActionService", () => {
 
     expect(executionRepository.createExecutionInvocation).toHaveBeenCalled();
     expect(executionRepository.updateExecutionInvocation).toHaveBeenCalledWith("exec-123", { status: "completed", finishedAt: expect.any(String) });
+
+    // Verify full conversation is tracked: user prompt, assistant response, action proposed, action result
+    const calls = executionRepository.appendExecutionInvocationMessage.mock.calls;
+    expect(calls[0]).toEqual(["exec-123", { role: "user", contentMarkdown: "Update sprint" }]);
+    expect(calls[1]).toEqual(["exec-123", { role: "assistant", contentMarkdown: "I will update the sprint." }]);
+    expect(calls[2][1].role).toBe("system");
+    expect(calls[2][1].contentMarkdown).toContain("Action proposed:");
+    expect(calls[3][1].role).toBe("system");
+    expect(calls[3][1].contentMarkdown).toContain("Action result:");
   });
 
   it("should handle approval-gated actions correctly without mutating state", async () => {
@@ -111,6 +121,7 @@ describe("ChatManagementActionService", () => {
       sessionId: "sess1",
       settings: mockSettings,
       prompt: "Delete project",
+      repoPath: "/tmp/test-repo",
     });
 
     expect(result).toEqual({
@@ -144,12 +155,38 @@ describe("ChatManagementActionService", () => {
       sessionId: "sess1",
       settings: mockSettings,
       prompt: "Say hello",
+      repoPath: "/tmp/test-repo",
     });
 
     expect(result.replyMarkdown).toBe("Hello world");
     expect(result.action).toBeNull();
     expect(result.approvalRequired).toBe(false);
     expect(managementToolHandler.handleManageSprintOs).not.toHaveBeenCalled();
+
+    // Verify prompt and response are tracked even without an action
+    const calls = executionRepository.appendExecutionInvocationMessage.mock.calls;
+    expect(calls[0]).toEqual(["exec-123", { role: "user", contentMarkdown: "Say hello" }]);
+    expect(calls[1]).toEqual(["exec-123", { role: "assistant", contentMarkdown: "Hello world" }]);
+  });
+
+  it("should track error in invocation on failure", async () => {
+    structuredProviderResponseService.executeAndParse.mockRejectedValue(new Error("Provider timeout"));
+
+    await expect(service.processManagementAction({
+      projectId: "proj1",
+      provider: "claude-code",
+      model: "claude-3",
+      apiKey: "test-key",
+      sessionId: "sess1",
+      settings: mockSettings,
+      prompt: "Do something",
+      repoPath: "/tmp/test-repo",
+    })).rejects.toThrow("Provider timeout");
+
+    const calls = executionRepository.appendExecutionInvocationMessage.mock.calls;
+    expect(calls[0]).toEqual(["exec-123", { role: "user", contentMarkdown: "Do something" }]);
+    expect(calls[1]).toEqual(["exec-123", { role: "system", contentMarkdown: "Error: Provider timeout" }]);
+    expect(executionRepository.updateExecutionInvocation).toHaveBeenCalledWith("exec-123", { status: "failed", finishedAt: expect.any(String) });
   });
 
   it("should provide parsing logic that extracts JSON correctly", async () => {
@@ -167,6 +204,7 @@ describe("ChatManagementActionService", () => {
        sessionId: "sess1",
        settings: mockSettings,
        prompt: "Say hello",
+       repoPath: "/tmp/test-repo",
      });
 
      expect(parseFn('```json\n{"replyMarkdown": "Hi", "action": null}\n```')).toEqual({replyMarkdown: "Hi", action: null});
