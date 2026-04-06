@@ -17,6 +17,7 @@ import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { runCommandStrict } from "./cli-process-runner.js";
+import type { MemoryService } from "./memory-service.js";
 
 type CliQaProvider = Extract<ProviderId, "gemini" | "codex" | "claude-code">;
 
@@ -93,6 +94,7 @@ interface QualityAssuranceServiceDependencies {
   getGithubToken: () => string | undefined;
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
   logger?: Logger;
+  memoryService?: MemoryService;
   structuredProviderResponseService?: StructuredProviderResponseService;
 }
 
@@ -165,6 +167,11 @@ export class QualityAssuranceService {
       : qaSettings.taskCompletion.agentPresetId;
     const agent = await this.deps.agentPresetSyncService.resolveTargetedQualityAssuranceAgent(args.projectId, agentPresetId);
 
+    let memoryInstructions = agent.memoryTemplateOverrideEnabled
+      ? (agent.memoryTemplateMarkdown || "")
+      : (settings.memory?.workerLearningsInstruction || "");
+    let agentInstructions = agent.instructionMarkdown + (memoryInstructions ? `\n\n### Memory Capture Instructions\n${memoryInstructions}` : "");
+
     const run = this.deps.qaReviewRepository.createRun({
       projectId: args.projectId,
       sprintId: args.sprintId,
@@ -191,11 +198,12 @@ export class QualityAssuranceService {
         projectName: project.name,
         sprintGoal: sprint.goal || "",
         repoPath: args.repoPath,
-        agentInstructions: agent.instructionMarkdown,
+        agentInstructions: agentInstructions,
         subtasks: args.subtasks,
         currentTask: args.task,
         taskRun,
         sprintRunId: args.sprintRunId || null,
+        agentPresetId: agent.id,
       });
 
       if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
@@ -386,17 +394,23 @@ export class QualityAssuranceService {
     });
 
     try {
+      let memoryInstructions = agent.memoryTemplateOverrideEnabled
+        ? (agent.memoryTemplateMarkdown || "")
+        : (settings.memory?.workerLearningsInstruction || "");
+      let agentInstructions = agent.instructionMarkdown + (memoryInstructions ? `\n\n### Memory Capture Instructions\n${memoryInstructions}` : "");
+
       const review = await this.runReview({
         triggerType: "sprint_completion",
         scope,
         projectName: project.name,
         sprintGoal: sprint.goal || "",
         repoPath: args.repoPath,
-        agentInstructions: agent.instructionMarkdown,
+        agentInstructions: agentInstructions,
         subtasks: args.subtasks,
         currentTask: null,
         taskRun: null,
         sprintRunId: args.sprintRunId,
+        agentPresetId: agent.id,
       });
 
       if (review.verdict === "pass") {
@@ -612,6 +626,7 @@ export class QualityAssuranceService {
     currentTask: Subtask | null;
     taskRun: TaskRunRecord | null;
     sprintRunId: string | null;
+    agentPresetId: string | null;
   }): Promise<NormalizedQaReviewResult> {
     const pseudoTask: Subtask = args.currentTask || {
       id: "SPRINT",
@@ -648,36 +663,53 @@ export class QualityAssuranceService {
       contentMarkdown: args.agentInstructions.trim(),
     });
 
-    const result = await this.structuredProviderResponseService.executeAndParse<NormalizedQaReviewResult>({
-      projectId: args.scope.projectId!,
-      sprintId: args.scope.sprintId,
-      taskId: args.taskRun?.taskId,
-      sprintRunId: args.sprintRunId,
-      taskRunId: args.taskRun?.id,
-      purpose: "qa_review",
-      type: "qa_review",
-      provider,
-      prompt: providerPrompt,
-      model: route.providers[provider].model,
-      apiKey: route.providers[provider].apiKey,
-      sessionId,
-      workflowSettings: {
-        ...DEFAULT_CLI_WORKFLOW_SETTINGS,
-        ...this.deps.getDashboardSettings(args.scope).cliWorkflow,
-      },
-      repoPath: args.repoPath,
-      invocationId: invocation.id,
-      onActivity: () => undefined,
-      settings: this.deps.getDashboardSettings(args.scope),
-      parseFn: (text) => normalizeQaReviewResult(text),
-      buildRetryPrompt: (error) => [
-        "Your previous response failed validation with this error:",
-        error.message,
-        "",
-        "Please provide a valid JSON object matching the requested schema exactly.",
-      ].join("\n"),
-      providerLabel: "QA",
-    });
+    const settings = this.deps.getDashboardSettings(args.scope);
+
+    let result;
+    try {
+      result = await this.structuredProviderResponseService.executeAndParse<NormalizedQaReviewResult>({
+        projectId: args.scope.projectId!,
+        sprintId: args.scope.sprintId,
+        taskId: args.taskRun?.taskId,
+        sprintRunId: args.sprintRunId,
+        taskRunId: args.taskRun?.id,
+        purpose: "qa_review",
+        type: "qa_review",
+        provider,
+        prompt: providerPrompt,
+        model: route.providers[provider].model,
+        apiKey: route.providers[provider].apiKey,
+        sessionId,
+        workflowSettings: {
+          ...DEFAULT_CLI_WORKFLOW_SETTINGS,
+          ...settings.cliWorkflow,
+        },
+        repoPath: args.repoPath,
+        invocationId: invocation.id,
+        onActivity: () => undefined,
+        settings,
+        parseFn: (text) => normalizeQaReviewResult(text),
+        buildRetryPrompt: (error) => [
+          "Your previous response failed validation with this error:",
+          error.message,
+          "",
+          "Please provide a valid JSON object matching the requested schema exactly.",
+        ].join("\n"),
+        providerLabel: "QA",
+      });
+    } finally {
+      if (settings.memory?.enabled && settings.memory.autoCaptureSprint && this.deps.memoryService) {
+        const worktreePath = await this.workspaceManager.resolveResumeWorktreePath(
+          args.repoPath,
+          sessionId,
+          settings.cliWorkflow.executionMode,
+        ).catch(() => undefined);
+
+        if (worktreePath) {
+          await this.deps.memoryService.captureMemoriesFromWorktree(args.scope.projectId!, args.scope.sprintId || undefined, args.agentPresetId || null, worktreePath, invocation.id);
+        }
+      }
+    }
 
     return result.parsed;
   }

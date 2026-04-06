@@ -260,6 +260,7 @@ export const AgentsPage: FunctionComponent = () => {
                 <AgentPresetEditorPanel
                   preset={selectedPreset}
                   saving={savingId === selectedPreset.id}
+                  defaultMemoryInstruction={effectiveSettings?.settings.memory.workerLearningsInstruction || ""}
                   onSave={handleSave}
                   onCancel={() => setIsEditing(false)}
                 />
