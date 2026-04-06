@@ -246,7 +246,7 @@ export class DockerRunner implements IDockerRunner {
     if (provider === "claude-code") {
       const config = {
         mcpServers: {
-          "sprint-os": {
+          "sprint_os": {
             type: "http",
             url: conn.url,
             ...(Object.keys(headers).length > 0 ? { headers } : {}),
@@ -256,7 +256,7 @@ export class DockerRunner implements IDockerRunner {
       await fs.writeFile(path.join(runtimeHome, ".mcp.json"), JSON.stringify(config, null, 2));
     } else if (provider === "gemini") {
       const mcpServers = {
-        "sprint-os": {
+        "sprint_os": {
           httpUrl: conn.url,
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         },

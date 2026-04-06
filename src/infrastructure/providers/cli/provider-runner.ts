@@ -310,7 +310,7 @@ export class ProviderRunner implements IProviderRunner {
       const configPath = path.join(cwd, ".mcp.json");
       const config = {
         mcpServers: {
-          "sprint-os": {
+          "sprint_os": {
             type: "http",
             url: conn.url,
             ...(Object.keys(headers).length > 0 ? { headers } : {}),
@@ -325,7 +325,7 @@ export class ProviderRunner implements IProviderRunner {
       await fs.mkdir(dirPath, { recursive: true });
       const configPath = path.join(dirPath, "settings.json");
       const mcpServers = {
-        "sprint-os": {
+        "sprint_os": {
           httpUrl: conn.url,
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         },
