@@ -17,13 +17,5 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ["preact", "react", "react-dom"],
-          three: ["three"],
-        },
-      },
-    },
   },
 });

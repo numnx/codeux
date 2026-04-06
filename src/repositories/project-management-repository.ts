@@ -26,6 +26,8 @@ import { resolveRepositoryHost } from "../infrastructure/git/repository-host-res
 import { projectSummaryQuery } from "./project-management/project-summary-query.js";
 import { sprintSummaryQuery } from "./project-management/sprint-summary-query.js";
 import { validateTaskDependencies } from "./project-management/task-dependency-graph.js";
+import { SelectionStore } from "./project-management/selection-store.js";
+import { TaskWriteStore } from "./project-management/task-write-store.js";
 
 const SELECTED_PROJECT_KEY = "selected_project_id";
 
@@ -97,6 +99,8 @@ interface DependencyRow {
 
 export class ProjectManagementRepository {
   private readonly db: DatabaseAdapter;
+  private readonly selectionStore: SelectionStore;
+  private readonly taskWriteStore: TaskWriteStore;
 
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
@@ -105,6 +109,8 @@ export class ProjectManagementRepository {
     private readonly projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository = new ProjectWorkerAssignmentRepository(storage)
   ) {
     this.db = storage.getDatabase();
+    this.selectionStore = new SelectionStore(this.db);
+    this.taskWriteStore = new TaskWriteStore(this.db);
   }
 
   listProjects(): ProjectCollectionResponse {
@@ -386,15 +392,16 @@ export class ProjectManagementRepository {
         sort_order, is_independent, is_merged, merge_indicator, source_type, source_path, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const insertDependency = this.db.prepare(`
-      INSERT INTO task_dependencies (task_id, depends_on_task_id)
-      VALUES (?, ?)
-    `);
-
-    const normalizedDependsOnTaskIds = this.normalizeDependencyIds(input.dependsOnTaskIds);
-    if (normalizedDependsOnTaskIds.length > 0) {
-      const sprintTasks = this.listTasks(projectId, input.sprintId);
-      validateTaskDependencies(id, input.sprintId, normalizedDependsOnTaskIds, sprintTasks);
+    const sprintTasks = this.listTasks(projectId, input.sprintId);
+    let normalizedDependsOnTaskIds: string[] = [];
+    if (input.dependsOnTaskIds) {
+      normalizedDependsOnTaskIds = this.taskWriteStore.normalizeDependencyIds(
+        input.dependsOnTaskIds,
+        (taskId) => this.requireTask(taskId)
+      );
+      if (normalizedDependsOnTaskIds.length > 0) {
+        validateTaskDependencies(id, input.sprintId, normalizedDependsOnTaskIds, sprintTasks);
+      }
     }
 
     this.runInTransaction(() => {
@@ -419,9 +426,14 @@ export class ProjectManagementRepository {
         now
       );
 
-      for (const dependencyId of normalizedDependsOnTaskIds) {
-        insertDependency.run(id, dependencyId);
-      }
+      this.taskWriteStore.saveDependencies(
+        id,
+        input.sprintId,
+        normalizedDependsOnTaskIds,
+        sprintTasks,
+        (taskId) => this.requireTask(taskId),
+        false
+      );
     });
 
     this.touchProject(projectId, now);
@@ -444,14 +456,14 @@ export class ProjectManagementRepository {
     const nextMergeIndicator = input.mergeIndicator === undefined ? current.mergeIndicator : input.mergeIndicator;
     const nextSourceType = input.sourceType === undefined ? current.sourceType : input.sourceType;
     const nextSourcePath = input.sourcePath === undefined ? current.sourcePath : input.sourcePath;
+    const sprintTasks = this.listTasks(current.projectId, current.sprintId);
     const nextDependsOnTaskIds = input.dependsOnTaskIds
-      ? this.normalizeDependencyIds(input.dependsOnTaskIds)
+      ? this.taskWriteStore.normalizeDependencyIds(input.dependsOnTaskIds, (tId) => this.requireTask(tId))
       : current.dependsOnTaskIds;
     const dependenciesChanged = input.dependsOnTaskIds !== undefined
       && !sameStringArray(nextDependsOnTaskIds, current.dependsOnTaskIds);
 
-    if (dependenciesChanged) {
-      const sprintTasks = this.listTasks(current.projectId, current.sprintId);
+    if (dependenciesChanged && nextDependsOnTaskIds.length > 0) {
       validateTaskDependencies(taskId, current.sprintId, nextDependsOnTaskIds, sprintTasks);
     }
 
@@ -478,11 +490,7 @@ export class ProjectManagementRepository {
           is_independent = ?, is_merged = ?, merge_indicator = ?, source_type = ?, source_path = ?, updated_at = ?
       WHERE id = ?
     `);
-    const deleteDependencies = this.db.prepare(`DELETE FROM task_dependencies WHERE task_id = ?`);
-    const insertDependency = this.db.prepare(`
-      INSERT INTO task_dependencies (task_id, depends_on_task_id)
-      VALUES (?, ?)
-    `);
+
 
     this.runInTransaction(() => {
       updateTask.run(
@@ -502,11 +510,15 @@ export class ProjectManagementRepository {
         taskId
       );
 
-      if (input.dependsOnTaskIds) {
-        deleteDependencies.run(taskId);
-        for (const dependencyId of nextDependsOnTaskIds) {
-          insertDependency.run(taskId, dependencyId);
-        }
+      if (input.dependsOnTaskIds !== undefined) {
+        this.taskWriteStore.saveDependencies(
+          taskId,
+          current.sprintId,
+          nextDependsOnTaskIds,
+          sprintTasks,
+          (tId) => this.requireTask(tId),
+          true
+        );
       }
     });
 
@@ -533,22 +545,7 @@ export class ProjectManagementRepository {
 
   getSelectedSprintId(projectId: string): string | null {
     this.requireProject(projectId);
-    const row = this.db.prepare(`
-      SELECT payload
-      FROM app_settings
-      WHERE key = ?
-    `).get(`selected_sprint_id_${projectId}`) as { payload: string } | undefined;
-
-    if (!row) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(row.payload) as { sprintId?: string | null };
-      return parsed.sprintId ?? null;
-    } catch {
-      return null;
-    }
+    return this.selectionStore.getSelectedSprintId(projectId);
   }
 
   setSelectedSprintId(projectId: string, sprintId: string | null): string | null {
@@ -559,55 +556,18 @@ export class ProjectManagementRepository {
         throw new Error(`Sprint ${sprintId} does not belong to project ${projectId}`);
       }
     }
-    const now = new Date().toISOString();
-    this.db.prepare(`
-      INSERT INTO app_settings (key, payload, updated_at)
-      VALUES (?, ?, ?)
-      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
-    `).run(
-      `selected_sprint_id_${projectId}`,
-      JSON.stringify({ sprintId }),
-      now
-    );
-
-    return sprintId;
+    return this.selectionStore.setSelectedSprintId(projectId, sprintId);
   }
 
   getSelectedProjectId(): string | null {
-    const row = this.db.prepare(`
-      SELECT payload
-      FROM app_settings
-      WHERE key = ?
-    `).get(SELECTED_PROJECT_KEY) as { payload: string } | undefined;
-
-    if (!row) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(row.payload) as { projectId?: string | null };
-      return parsed.projectId ?? null;
-    } catch {
-      return null;
-    }
+    return this.selectionStore.getSelectedProjectId();
   }
 
   setSelectedProjectId(projectId: string | null): string | null {
     if (projectId) {
       this.requireProject(projectId);
     }
-    const now = new Date().toISOString();
-    this.db.prepare(`
-      INSERT INTO app_settings (key, payload, updated_at)
-      VALUES (?, ?, ?)
-      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
-    `).run(
-      SELECTED_PROJECT_KEY,
-      JSON.stringify({ projectId }),
-      now
-    );
-
-    return projectId;
+    return this.selectionStore.setSelectedProjectId(projectId);
   }
 
   notifyProjectsUpdated(): void {
@@ -901,20 +861,7 @@ export class ProjectManagementRepository {
     return `T${String(maxNumber + 1).padStart(2, "0")}`;
   }
 
-  private normalizeDependencyIds(dependencyIds: string[] | undefined): string[] {
-    const seen = new Set<string>();
-    const output: string[] = [];
-    for (const dependencyId of dependencyIds || []) {
-      const normalized = dependencyId.trim();
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      this.requireTask(normalized);
-      seen.add(normalized);
-      output.push(normalized);
-    }
-    return output;
-  }
+
 
   private resolveBaseDir(
     sourceType: ProjectSourceType,
