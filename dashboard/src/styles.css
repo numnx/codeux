@@ -287,30 +287,6 @@
     transition-delay: 80ms;
   }
 
-  /* Stat card premium shimmer */
-  @keyframes stat-shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-
-  .stat-card-premium::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 40%,
-      rgba(255, 255, 255, 0.03) 45%,
-      rgba(255, 255, 255, 0.06) 50%,
-      rgba(255, 255, 255, 0.03) 55%,
-      transparent 60%
-    );
-    background-size: 200% 100%;
-    animation: stat-shimmer 4s ease-in-out infinite;
-    pointer-events: none;
-    border-radius: inherit;
-  }
-
   @keyframes stats-delta-pop {
     0% {
       opacity: 0;
