@@ -52,6 +52,13 @@ describe("WorkspaceManager", () => {
     expect(workspace).toMatch(/^docker-volume:\/\/sprint-os-project-[a-f0-9]{12}-session-1-snapshot$/);
     expect(runCommandStrict).toHaveBeenCalledWith("docker", expect.arrayContaining(["volume", "create"]), expect.any(String));
     expect(runCommandStrict).toHaveBeenCalledWith("git", ["bundle", "create", "/tmp/sprint-os-bundle-123/repo.bundle", "--all"], "/repo/project");
+    const bootstrapCall = vi.mocked(runCommandStrict).mock.calls.find((call) => call[0] === "bash");
+    const bootstrapCommand = bootstrapCall?.[1]?.join(" ") || "";
+    expect(bootstrapCommand).toContain("--entrypoint sh");
+    if (typeof process.getuid === "function" && typeof process.getgid === "function") {
+      expect(bootstrapCommand).toContain("chown -R");
+      expect(bootstrapCommand).toContain(`${process.getuid()}:${process.getgid()}`);
+    }
   });
 
   it("builds workspace guidance with in-volume path checks", async () => {

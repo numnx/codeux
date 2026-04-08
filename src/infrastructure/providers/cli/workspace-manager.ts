@@ -45,6 +45,15 @@ const parseWorkspaceHandle = (value: string): { volumeName: string } => {
   return { volumeName };
 };
 
+const getWorkspaceOwnerSpec = (): string | undefined => {
+  const getUid = (process as NodeJS.Process & { getuid?: () => number }).getuid;
+  const getGid = (process as NodeJS.Process & { getgid?: () => number }).getgid;
+  if (!getUid || !getGid) {
+    return undefined;
+  }
+  return `${getUid()}:${getGid()}`;
+};
+
 export class WorkspaceManager implements IWorkspaceManager {
   private readonly repoLocks = new Map<string, Promise<void>>();
 
@@ -215,6 +224,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-bundle-"));
     const bundlePath = path.join(tempDir, "repo.bundle");
     const originUrl = await this.resolveOriginUrl(repoPath);
+    const ownerSpec = getWorkspaceOwnerSpec();
 
     try {
       await runCommandStrict("git", ["bundle", "create", bundlePath, "--all"], repoPath);
@@ -229,7 +239,8 @@ export class WorkspaceManager implements IWorkspaceManager {
           ? `git -C /workspace remote set-url origin ${shellQuote(originUrl)}`
           : "git -C /workspace remote remove origin >/dev/null 2>&1 || true",
         "mkdir -p /workspace/.sprint-os-home",
-      ].join(" && ");
+        ownerSpec ? `chown -R ${shellQuote(ownerSpec)} /workspace` : null,
+      ].filter((step): step is string => Boolean(step)).join(" && ");
 
       await runCommandStrict(
         "bash",
