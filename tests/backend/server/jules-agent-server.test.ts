@@ -11,7 +11,7 @@ vi.mock("../../../src/app/lifecycle/mcp-lifecycle-service.js", () => ({
   bootMcpHttpTransport: vi.fn().mockResolvedValue(null)
 }));
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JulesAgentServer } from "../../../src/server/jules-agent-server.js";
 import { loadAppConfig } from "../../../src/config/app-config.js";
 import axios from "axios";
@@ -26,6 +26,10 @@ describe("JulesAgentServer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     server = new JulesAgentServer({ projectRoot, appConfig });
+  });
+
+  afterEach(async () => {
+    await (server as any).handleSigint?.().catch?.(() => undefined);
   });
 
   it("should be defined", () => {
