@@ -60,9 +60,9 @@ export type InvocationRoutingId =
   | "qa_review"
   | "ci_fix"
   | "merge_conflict";
-export type CliExecutionMode = "HOST" | "DOCKER";
+export type CliExecutionMode = "DOCKER";
 export type FeaturePrAutoMergeMode = "OFF" | "CREATE_PR" | "WHEN_GREEN" | "ALWAYS";
-export type WorkerExecutionMode = "CONNECTED_MCP" | "VIRTUAL";
+export type WorkerExecutionMode = "VIRTUAL";
 export type VirtualWorkerProvider = Exclude<ProviderId, "jules">;
 
 export interface Subtask {

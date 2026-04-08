@@ -163,9 +163,9 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
     return (
 <div className="flex flex-col gap-5">
         <SectionCard title="Worker Runtime" watermark="WRK" badge={getBadge("workers")}>
-          <Row label="Worker execution mode" description="Choose whether worker-owned dispatches and supervision run through connected MCP listeners or a short-lived internal virtual worker." badge={getFieldBadge("workers.executionMode")}>
+          <Row label="Worker execution mode" description="Worker-owned supervision now always runs through a short-lived internal virtual worker." badge={getFieldBadge("workers.executionMode")}>
             <PillChoiceGroup
-              value={editableSettings.workers.executionMode}
+              value="VIRTUAL"
               onChange={(value) => updateEditableSettings((current) => ({
                 ...current,
                 workers: {
@@ -174,7 +174,6 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                 },
               }))}
               options={[
-                { value: "CONNECTED_MCP", label: "Connected MCP", hint: "Use connected external workers." },
                 { value: "VIRTUAL", label: "Virtual", hint: "Spin up an internal CLI worker only when needed." },
               ]}
             />

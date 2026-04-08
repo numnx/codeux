@@ -1,23 +1,11 @@
-import type { WorkerDispatchExecutionService } from "../services/worker-dispatch-execution-service.js";
 import type { WorkerInboxReplyService } from "../services/worker-inbox-reply-service.js";
 
 interface AgentToolHandlerDependencies {
-  workerDispatchExecutionService: WorkerDispatchExecutionService;
   workerInboxReplyService: WorkerInboxReplyService;
 }
 
 export class AgentToolHandler {
   constructor(private readonly deps: AgentToolHandlerDependencies) {}
-
-  async handleExecuteWorkerDispatch(args: { dispatch_id: string }) {
-    const result = await this.deps.workerDispatchExecutionService.executeDispatch(args.dispatch_id);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-
-  async handleCancelLocalDispatch(args: { dispatch_id: string; reason?: string }) {
-    const result = await this.deps.workerDispatchExecutionService.cancelLocalDispatch(args.dispatch_id, args.reason);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
 
   async handleGenerateDashboardReply(args: {
     project_id: string;

@@ -352,9 +352,9 @@ describe("Dashboard Factory", () => {
     await taskRerunArgs.clearTaskWorktree({ taskId: "task1", repoPath: "/repo" });
 
     expect(mockCoreDeps.executionRepository.getLatestTaskRun).toHaveBeenCalledWith("task1");
-    expect(WorkspaceManager).toHaveBeenCalledTimes(1);
-    const workspaceManagerInstance = vi.mocked(WorkspaceManager).mock.results[0]?.value;
-    expect(workspaceManagerInstance.buildWorktreePath).toHaveBeenCalledWith("/repo", "session-1", "HOST");
+    expect(WorkspaceManager).toHaveBeenCalled();
+    const workspaceManagerInstance = vi.mocked(WorkspaceManager).mock.results.at(-1)?.value;
+    expect(workspaceManagerInstance.buildWorktreePath).toHaveBeenCalledWith("/repo", "session-1", "DOCKER");
     expect(workspaceManagerInstance.removeWorktree).toHaveBeenCalledWith("/repo", "/repo/.worktrees/session-1");
   });
 
@@ -371,7 +371,8 @@ describe("Dashboard Factory", () => {
     await taskRerunArgs.clearTaskWorktree({ taskId: "task1", repoPath: "/repo" });
 
     expect(mockCoreDeps.executionRepository.getLatestTaskRun).toHaveBeenCalledWith("task1");
-    expect(WorkspaceManager).not.toHaveBeenCalled();
+    const workspaceManagerInstances = vi.mocked(WorkspaceManager).mock.results.map((result) => result.value);
+    expect(workspaceManagerInstances.every((instance) => !instance.removeWorktree.mock.calls.length)).toBe(true);
   });
 
   it("creates a clean pending task run snapshot for dependent resets", async () => {

@@ -2,6 +2,7 @@ import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask, Think
 import type { IWorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
 import type { IPrService } from "../../../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../../../infrastructure/providers/cli/provider-runner.js";
+import type { WorkspaceArtifactService } from "../../../infrastructure/providers/cli/workspace-artifact-service.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 import type { SessionTrackingRepository } from "../../../repositories/session-tracking-repository.js";
 import type { ProjectManagementRepository } from "../../../repositories/project-management-repository.js";
@@ -35,6 +36,7 @@ export interface PipelineContext {
   title: string;
   repoPath: string;
   worktreePath: string;
+  workspaceSessionId: string;
   abortSignal?: AbortSignal;
   workflowSettings: CliWorkflowSettings;
   settings: DashboardSettings;
@@ -47,6 +49,7 @@ export interface PipelineContext {
   memoryTemplateMarkdown?: string;
 
   workspaceManager: IWorkspaceManager;
+  workspaceArtifactService: WorkspaceArtifactService;
   prService: IPrService;
   providerRunner: IProviderRunner;
   deps: PipelineContextDeps;

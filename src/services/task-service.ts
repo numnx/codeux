@@ -80,9 +80,6 @@ export class TaskService {
     if (task.provider) {
       return task.provider;
     }
-    if (executorType === "mcp_worker") {
-      return null;
-    }
     if (executorType === "jules") {
       return "jules";
     }

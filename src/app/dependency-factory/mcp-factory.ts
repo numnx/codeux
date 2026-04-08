@@ -6,9 +6,6 @@ import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
 import { ManagementToolHandler } from "../../mcp/management-tool-handler.js";
 import { type DashboardSettings, type DashboardSettingsScope } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
-import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
-import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
-import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
 import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
 
 import type { DashboardDependencies } from "./dashboard-factory.js";
@@ -41,9 +38,6 @@ export function createMcpDependencies(
     agentPresetSyncService,
   } = coreDeps;
   const { taskService } = sprintDeps;
-  const resolveWorkerExecutionMode = (projectId: string, sprintId?: string | null) => (
-    resolveEffectiveDashboardSettings(coreDeps.settingsRepository, projectId, sprintId).settings.workers.executionMode
-  );
 
   const getDashboardSettings = (scope?: DashboardSettingsScope): DashboardSettings => {
     let effective: { settings: DashboardSettings; sources: Record<string, string> };
@@ -70,18 +64,6 @@ export function createMcpDependencies(
     return settings;
   };
 
-  const workerTaskDispatchService = new WorkerTaskDispatchService(
-    executionRepository,
-    projectManagementRepository,
-    connectionChatRepository,
-    workerEndpointRepository,
-    projectWorkerAssignmentService,
-    projectAttentionService,
-    getDashboardSettings,
-    resolveWorkerExecutionMode,
-    logger.child({ component: "worker-task-dispatch-service" }),
-  );
-
   const coreToolHandler = new CoreToolHandler({
     julesApi,
     activitySummary,
@@ -97,35 +79,10 @@ export function createMcpDependencies(
     getTrackedSession: (sessionId) => sessionTracking.getSession(sessionId),
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     connectionChatRepository,
-    workerEndpointRepository,
-    projectWorkerAssignmentService,
-    projectAttentionService,
-    workerAttentionOutcomeService,
-    workerTaskDispatchService,
-    workerListenEventService: new WorkerListenEventService(
-      connectionChatRepository,
-      workerEndpointRepository,
-      projectManagementRepository,
-      coreDeps.projectWorkerAssignmentRepository,
-      coreDeps.projectAttentionRepository,
-      executionRepository,
-      getDashboardSettings,
-      resolveWorkerExecutionMode,
-    ),
-    resolveWorkerExecutionMode,
     logger: logger.child({ component: "core-tool-handler" }),
   });
 
   const agentToolHandler = new AgentToolHandler({
-    workerDispatchExecutionService: new WorkerDispatchExecutionService(
-      executionRepository,
-      projectManagementRepository,
-      taskService,
-      activeDispatchRegistry,
-      julesApi,
-      getDashboardSettings,
-      logger.child({ component: "worker-dispatch-execution-service" }),
-    ),
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
   });
 

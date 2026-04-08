@@ -117,7 +117,7 @@ describe("settings-sanitizer", () => {
     expect(settings.ciIntelligence.waitForJulesCiAutofix).toBe(false);
     expect(settings.sprintLoopSteps.watchLoopIntervalSeconds).toBe(120);
     expect(settings.sprintLoopSteps.watchLoopOutputIntervalSeconds).toBe(300);
-    expect(settings.cliWorkflow.executionMode).toBe("HOST");
+    expect(settings.cliWorkflow.executionMode).toBe("DOCKER");
     expect(settings.cliWorkflow.containerImage).toBe("node:24-bookworm");
     expect(settings.cliWorkflow.containerCacheSetupScriptImage).toBe(false);
     expect(settings.cliWorkflow.containerMountGeminiAuth).toBe(false);

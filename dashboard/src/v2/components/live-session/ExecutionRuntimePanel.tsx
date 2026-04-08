@@ -26,7 +26,6 @@ export const statusTone = (value: string | null): string => {
 const EXECUTOR_LABELS: Record<string, string> = {
     docker_cli: "CLI",
     jules: "Jules",
-    mcp_worker: "Worker",
     mixed: "Mixed",
 };
 
@@ -238,7 +237,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
         dispatch.status === "queued" || dispatch.status === "claimed" || dispatch.status === "running"
     ));
     const activeConnections = snapshot.connections.filter((connection) => connection.status !== "offline");
-    const workerDispatches = activeDispatches.filter((dispatch) => dispatch.executorType === "mcp_worker");
+    const workerDispatches = activeDispatches.filter((dispatch) => dispatch.executorType === "docker_cli");
     const queuedWorkers = workerDispatches.filter((dispatch) => dispatch.status === "queued").length;
     const runningWorkers = workerDispatches.filter((dispatch) => dispatch.status === "claimed" || dispatch.status === "running").length;
 

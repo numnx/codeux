@@ -26,7 +26,6 @@ export const thinkingModeOptions: Array<{ value: "SMALL" | "MEDIUM" | "HIGH"; la
 ];
 
 export const executionModeOptions: Array<{ value: DashboardSettings["cliWorkflow"]["executionMode"]; label: string }> = [
-  { value: "HOST", label: "Host Process" },
   { value: "DOCKER", label: "Docker Container" },
 ];
 

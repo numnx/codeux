@@ -31,13 +31,6 @@ export const registerMcpRequestHandlers = (args: McpRequestRouterArgs): void => 
     .register("start_listen", (input) => args.coreToolHandler.handleStartListen(input))
     .register("pull_inbox", (input) => args.coreToolHandler.handlePullInbox(input))
     .register("post_listen_reply", (input) => args.coreToolHandler.handlePostListenReply(input))
-    .register("pull_task_dispatch", (input) => args.coreToolHandler.handlePullTaskDispatch(input))
-    .register("update_task_dispatch", (input) => args.coreToolHandler.handleUpdateTaskDispatch(input))
-    .register("claim_attention_item", (input) => args.coreToolHandler.handleClaimAttentionItem(input))
-    .register("resolve_attention_item", (input) => args.coreToolHandler.handleResolveAttentionItem(input))
-    .register("report_attention_outcome", (input) => args.coreToolHandler.handleReportAttentionOutcome(input))
-    .register("execute_worker_dispatch", async (input) => (await args.agentToolHandler.handleExecuteWorkerDispatch(input)) as McpToolResponse)
-    .register("cancel_local_dispatch", async (input) => (await args.agentToolHandler.handleCancelLocalDispatch(input)) as McpToolResponse)
     .register("generate_dashboard_reply", async (input) => (await args.agentToolHandler.handleGenerateDashboardReply(input)) as McpToolResponse)
     .register("manage_sprint_os", async (input) => (await args.managementToolHandler.handleManageSprintOs(input)) as McpToolResponse);
 

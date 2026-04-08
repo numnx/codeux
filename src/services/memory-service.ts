@@ -134,9 +134,20 @@ export class MemoryService {
       return 0;
     }
 
+    const captured = await this.captureMemoriesFromContent(projectId, sprintId, agentPresetId, raw, originId);
+    await unlink(filePath).catch(() => {});
+    return captured;
+  }
+
+  async captureMemoriesFromContent(
+    projectId: string,
+    sprintId: string | undefined,
+    agentPresetId: string | null,
+    raw: string,
+    originId: string,
+  ): Promise<number> {
     const entries = parseLearningsMarkdown(raw);
     if (entries.length === 0) {
-      await unlink(filePath).catch(() => {});
       return 0;
     }
 
@@ -159,8 +170,6 @@ export class MemoryService {
       });
       captured++;
     }
-
-    await unlink(filePath).catch(() => {});
     return captured;
   }
 

@@ -44,9 +44,9 @@ export const INVOCATION_ROUTING_IDS: InvocationRoutingId[] = [
   "ci_fix",
   "merge_conflict",
 ];
-export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["HOST", "DOCKER"];
+export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["DOCKER"];
 export const FEATURE_PR_AUTOMERGE_MODES: FeaturePrAutoMergeMode[] = ["OFF", "CREATE_PR", "WHEN_GREEN", "ALWAYS"];
-export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["CONNECTED_MCP", "VIRTUAL"];
+export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["VIRTUAL"];
 export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code"];
 
 // AI Models catalog — available model identifiers per virtual worker provider
@@ -278,7 +278,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     rateLimitRetryDelaySeconds: 10,
     maxRateLimitRetries: 5,
     resumeFailedTaskInSameWorkspace: true,
-    executionMode: "HOST",
+    executionMode: "DOCKER",
     containerImage: "node:24-bookworm",
     containerSetupScriptPath: "",
     containerCacheSetupScriptImage: false,
@@ -309,7 +309,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     startupScriptPath: ".sprint-os/browser/start-preview.sh",
   },
   workers: {
-    executionMode: "CONNECTED_MCP",
+    executionMode: "VIRTUAL",
     virtualWorkerProvider: "codex",
     model: "gpt-5.3-codex",
     maxConcurrency: 1,

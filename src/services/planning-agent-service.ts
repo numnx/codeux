@@ -9,7 +9,6 @@ import type {
   PlanSprintOptions,
   PlanningOverrides,
 } from "../contracts/project-management-types.js";
-import type { McpConnectionRecord, McpConnectionRole } from "../contracts/connection-chat-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -47,7 +46,7 @@ interface ImprovePromptResult {
   goal: string;
   invocationId: string;
   agentId: string;
-  workerConnectionId: string | null;
+  workerConnectionId: null;
 }
 
 interface PlanSprintResult {
@@ -116,24 +115,12 @@ export class PlanningAgentService {
       input.overrides?.planningAgentPresetId,
     );
     const runtime = this.resolvePlanningRuntime(projectId, input.overrides);
-    const worker = runtime.mode === "CONNECTED_MCP" ? runtime.connection : null;
-
-    let threadId: string | undefined;
-    if (worker) {
-      const thread = this.deps.connectionChatRepository.createThread(projectId, {
-        title: `Planning agent · ${input.name.trim() || "Untitled sprint"} · Improve`,
-        connectionId: worker.id,
-        scope: "connection",
-      });
-      threadId = thread.id;
-    }
-
     const invocation = this.deps.executionRepository?.createExecutionInvocation({
       projectId,
       sprintId: null,
       type: "planning",
       status: "running",
-      provider: runtime.mode === "VIRTUAL" ? runtime.settings.workers.virtualWorkerProvider : worker?.displayName || null,
+      provider: runtime.settings.workers.virtualWorkerProvider,
       systemPrompt: null,
     });
 
@@ -167,36 +154,25 @@ export class PlanningAgentService {
     signal?.throwIfAborted();
     let payload: { goal?: string };
     try {
-      if (worker && threadId) {
-        const reply = await this.postRequestAndWaitForReply(projectId, threadId, worker.id, prompt, signal);
-        if (invocation) {
-          this.deps.executionRepository?.appendExecutionInvocationMessage(invocation.id, {
-            role: "assistant",
-            contentMarkdown: reply.bodyMarkdown,
-          });
-        }
-        payload = this.parseJsonReply<{ goal?: string }>(reply.bodyMarkdown);
-      } else {
-        const virtualResult = await this.runVirtualPlanningRequest({
-          projectId,
-          sprintId: null,
-          invocationId: invocation?.id,
-          repoPath: project.baseDir,
-          settings: runtime.settings,
-          rawPrompt: prompt,
-          overrides: input.overrides,
-          signal,
-          parseFn: (bodyMarkdown) => this.parseJsonReply<{ goal?: string }>(bodyMarkdown),
-          buildRetryPrompt: (lastError) => [
-            "Your previous output could not be parsed as valid JSON.",
-            `Parse error: ${lastError.message}`,
-            "",
-            "Please output ONLY valid JSON.",
-            "- Output raw JSON only — no markdown fences, no commentary, no prose before or after."
-          ].join("\n"),
-        });
-        payload = virtualResult.parsed;
-      }
+      const virtualResult = await this.runVirtualPlanningRequest({
+        projectId,
+        sprintId: null,
+        invocationId: invocation?.id,
+        repoPath: project.baseDir,
+        settings: runtime.settings,
+        rawPrompt: prompt,
+        overrides: input.overrides,
+        signal,
+        parseFn: (bodyMarkdown) => this.parseJsonReply<{ goal?: string }>(bodyMarkdown),
+        buildRetryPrompt: (lastError) => [
+          "Your previous output could not be parsed as valid JSON.",
+          `Parse error: ${lastError.message}`,
+          "",
+          "Please output ONLY valid JSON.",
+          "- Output raw JSON only — no markdown fences, no commentary, no prose before or after."
+        ].join("\n"),
+      });
+      payload = virtualResult.parsed;
 
       if (invocation) {
         this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
@@ -239,7 +215,7 @@ export class PlanningAgentService {
       goal,
       invocationId: invocation?.id || "",
       agentId: planningAgent.id,
-      workerConnectionId: worker?.id || null,
+      workerConnectionId: null,
     };
   }
 
@@ -251,21 +227,9 @@ export class PlanningAgentService {
       options.overrides?.planningAgentPresetId,
     );
     const runtime = this.resolvePlanningRuntime(projectId, options.overrides);
-    const worker = runtime.mode === "CONNECTED_MCP" ? runtime.connection : null;
-
     const existingTasks = this.deps.projectManagementRepository.listTasks(projectId, sprintId);
     if (existingTasks.length > 0 && !options.replan) {
       throw new Error(`Sprint ${sprint.name} already has ${existingTasks.length} task(s). Clear or edit them before running Planning agent.`);
-    }
-
-    let threadId: string | undefined;
-    if (worker) {
-      const thread = this.deps.connectionChatRepository.createThread(projectId, {
-        title: `Planning agent · ${sprint.name} · Plan`,
-        connectionId: worker.id,
-        scope: "connection",
-      });
-      threadId = thread.id;
     }
 
     const invocation = this.deps.executionRepository?.createExecutionInvocation({
@@ -273,7 +237,7 @@ export class PlanningAgentService {
       sprintId,
       type: "planning",
       status: "running",
-      provider: runtime.mode === "VIRTUAL" ? runtime.settings.workers.virtualWorkerProvider : worker?.displayName || null,
+      provider: runtime.settings.workers.virtualWorkerProvider,
       systemPrompt: null,
     });
 
@@ -308,38 +272,27 @@ export class PlanningAgentService {
 
     let payload: PlannedSprintPayload;
     try {
-      if (worker && threadId) {
-        const reply = await this.postRequestAndWaitForReply(projectId, threadId, worker.id, prompt, signal);
-        if (invocation) {
-          this.deps.executionRepository?.appendExecutionInvocationMessage(invocation.id, {
-            role: "assistant",
-            contentMarkdown: reply.bodyMarkdown,
-          });
-        }
-        payload = this.parsePlannedSprintReply(reply.bodyMarkdown);
-      } else {
-        const virtualResult = await this.runVirtualPlanningRequest({
-          projectId,
-          sprintId,
-          invocationId: invocation?.id,
-          repoPath: project.baseDir,
-          settings: runtime.settings,
-          rawPrompt: prompt,
-          overrides: options.overrides,
-          signal,
-          parseFn: (bodyMarkdown) => this.parsePlannedSprintReply(bodyMarkdown),
-          buildRetryPrompt: (lastError) => [
-            "Your previous output could not be parsed as valid JSON.",
-            `Parse error: ${lastError.message}`,
-            "",
-            "Please output ONLY the valid JSON sprint definition. Requirements:",
-            "- Output raw JSON only — no markdown fences, no commentary, no prose before or after.",
-            "- Ensure all string values are properly escaped (especially quotes and newlines inside promptMarkdown).",
-            "- Use the exact schema from the original instructions: {\"goal\":\"...\",\"tasks\":[...]}"
-          ].join("\n"),
-        });
-        payload = virtualResult.parsed;
-      }
+      const virtualResult = await this.runVirtualPlanningRequest({
+        projectId,
+        sprintId,
+        invocationId: invocation?.id,
+        repoPath: project.baseDir,
+        settings: runtime.settings,
+        rawPrompt: prompt,
+        overrides: options.overrides,
+        signal,
+        parseFn: (bodyMarkdown) => this.parsePlannedSprintReply(bodyMarkdown),
+        buildRetryPrompt: (lastError) => [
+          "Your previous output could not be parsed as valid JSON.",
+          `Parse error: ${lastError.message}`,
+          "",
+          "Please output ONLY the valid JSON sprint definition. Requirements:",
+          "- Output raw JSON only — no markdown fences, no commentary, no prose before or after.",
+          "- Ensure all string values are properly escaped (especially quotes and newlines inside promptMarkdown).",
+          "- Use the exact schema from the original instructions: {\"goal\":\"...\",\"tasks\":[...]}"
+        ].join("\n"),
+      });
+      payload = virtualResult.parsed;
 
       if (invocation) {
         this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
@@ -426,67 +379,12 @@ export class PlanningAgentService {
     };
   }
 
-  private async postRequestAndWaitForReply(
-    projectId: string,
-    threadId: string,
-    connectionId: string,
-    bodyMarkdown: string,
-    signal?: AbortSignal,
-  ): Promise<{ bodyMarkdown: string }> {
-    signal?.throwIfAborted();
-    const sentMessage = this.deps.connectionChatRepository.postDashboardMessage(projectId, {
-      threadId,
-      connectionId,
-      bodyMarkdown,
-    });
-
-    try {
-      const reply = await waitUntil<{ bodyMarkdown: string } | undefined>({
-        action: async () => {
-          const message = this.deps.connectionChatRepository.getFirstReplyAfterMessage(threadId, sentMessage.id);
-          if (message && message.direction === "connection_to_dashboard") {
-            return message;
-          }
-          return undefined;
-        },
-        predicate: (result) => result !== undefined,
-        intervalMs: 1000,
-        timeoutMs: 60_000,
-        signal,
-        description: `worker reply in thread ${threadId}`,
-      });
-
-      if (!reply) {
-         // Should not be reachable since predicate guarantees definition, but satisfies TS.
-         throw new Error(`Planning agent request timed out while waiting for worker reply in thread ${threadId}.`);
-      }
-      return reply;
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.startsWith("Timeout waiting for")) {
-        throw new Error(`Planning agent request timed out while waiting for worker reply in thread ${threadId}.`);
-      }
-      throw err;
-    }
-  }
-
   private resolvePlanningRuntime(projectId: string, overrides?: PlanningOverrides): {
-    mode: "CONNECTED_MCP" | "VIRTUAL";
+    mode: "VIRTUAL";
     settings: DashboardSettings;
-    connection: McpConnectionRecord | null;
+    connection: null;
   } {
     const settings = this.deps.settingsRepository.resolveProjectDashboardSettings(projectId).settings;
-
-    if (overrides?.workerId) {
-      const connections = this.deps.connectionChatRepository.listConnections(projectId);
-      const connection = connections.find(c => c.id === overrides.workerId);
-      if (connection && (connection.status === "listening" || connection.status === "connected" || connection.status === "idle")) {
-        return {
-          mode: "CONNECTED_MCP",
-          settings,
-          connection,
-        };
-      }
-    }
 
     if (overrides?.virtualProvider) {
       return {
@@ -503,18 +401,10 @@ export class PlanningAgentService {
       };
     }
 
-    if (settings.workers.executionMode === "VIRTUAL") {
-      return {
-        mode: "VIRTUAL",
-        settings,
-        connection: null,
-      };
-    }
-
     return {
-      mode: "CONNECTED_MCP",
+      mode: "VIRTUAL",
       settings,
-      connection: this.requirePlanningWorker(projectId),
+      connection: null,
     };
   }
 
@@ -688,7 +578,7 @@ export class PlanningAgentService {
       "- Each task key must use `T01`, `T02`, `T03`, ... in topological order.",
       "- Dependencies must only reference keys defined earlier in the task list.",
       "- Do not create branch, PR, merge, coordination, analysis-only, or placeholder tasks.",
-      "- Use `auto` executor unless a task clearly needs `mcp_worker`, `docker_cli`, or `jules`.",
+      "- Use `auto` executor unless a task clearly needs `docker_cli` or `jules`.",
       "- `description` must be one concise sentence.",
       "- `promptMarkdown` must use this exact section order: `## Objective`, `## Scope`, `## Implementation Requirements`, `## Constraints`, `## Verification`.",
       "- `promptMarkdown` must name exact files, modules, or symbols whenever they can be inferred.",
@@ -847,25 +737,10 @@ export class PlanningAgentService {
 
   private normalizeExecutor(value: string | undefined): TaskExecutorType {
     const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "auto" || normalized === "mcp_worker" || normalized === "docker_cli" || normalized === "jules") {
+    if (normalized === "auto" || normalized === "docker_cli" || normalized === "jules") {
       return normalized;
     }
     return "auto";
-  }
-
-  private requirePlanningWorker(projectId: string): McpConnectionRecord {
-    const connections = this.deps.connectionChatRepository.listConnections(projectId);
-    const preferredRoles: McpConnectionRole[] = ["worker", "listener"];
-    const worker = preferredRoles
-      .flatMap((role) => connections.filter((connection) => connection.role === role))
-      .find((connection) => (
-        connection.capabilities.listenMode === true
-        && ["connected", "listening", "idle"].includes(connection.status)
-      ));
-    if (!worker) {
-      throw new Error("No connected listen-mode planning connection is available for this project.");
-    }
-    return worker;
   }
 
   private getProviderLabel(provider: DashboardSettings["workers"]["virtualWorkerProvider"]): string {

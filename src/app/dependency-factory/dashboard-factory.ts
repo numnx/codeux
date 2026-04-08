@@ -242,7 +242,7 @@ export function createDashboardDependencies(
       const sessionId = latestRun?.sessionId;
       if (!sessionId) return;
       const wsManager = new WorkspaceManager();
-      const worktreePath = wsManager.buildWorktreePath(repoPath, sessionId, "HOST");
+      const worktreePath = wsManager.buildWorktreePath(repoPath, sessionId, "DOCKER");
       await wsManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
     },
     resolveTaskAttention: async ({ taskId, projectId }) => {

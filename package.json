@@ -5,8 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "jules-subagents": "dist/index.js",
-    "sprint-os-worker": "dist/worker/index.js"
+    "jules-subagents": "dist/index.js"
   },
   "scripts": {
     "build": "tsc && tsc -p dashboard/tsconfig.json --noEmit && vite build",

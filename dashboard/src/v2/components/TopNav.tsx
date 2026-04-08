@@ -338,14 +338,6 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                     nextSettings.workers.model = "default";
                 }
                 await saveProjectSettings(selectedProject.id, nextSettings);
-            } else {
-                nextSettings.workers.executionMode = "CONNECTED_MCP";
-                await saveProjectSettings(selectedProject.id, nextSettings);
-                await setProjectPreferredWorker(selectedProject.id, {
-                    workerConnectionId: option.connectionId,
-                    workerEndpointId: option.workerEndpointId,
-                    workerEndpointKey: option.workerEndpointKey,
-                });
             }
             await Promise.all([refreshExecution(), refreshEffectiveSettings()]);
         } catch (err) {

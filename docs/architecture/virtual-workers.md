@@ -5,23 +5,20 @@ Implemented
 
 ## Purpose
 
-Virtual workers provide a second worker runtime alongside connected MCP workers.
+Virtual workers are now the only worker runtime.
 
-Instead of keeping an external worker in a long-lived `listen` loop, Sprint OS can now:
+Instead of keeping an external worker in a long-lived `listen` loop, Sprint OS now:
 
-- detect queued `mcp_worker` dispatches or open worker-owned attention
+- detect open worker-owned attention
 - create an ephemeral internal `virtual_cli` worker endpoint
 - execute exactly one worker unit of work
 - release and delete the endpoint when that unit finishes
-
-This gives worker-mode automation even when no external MCP worker is attached.
 
 ## Settings Model
 
 Worker routing is now controlled by the inherited `workers` settings section:
 
 - `executionMode`
-  - `CONNECTED_MCP`
   - `VIRTUAL`
 - `virtualWorkerProvider`
   - `gemini`
@@ -30,9 +27,8 @@ Worker routing is now controlled by the inherited `workers` settings section:
 
 When a project or sprint resolves to `VIRTUAL`:
 
-- connected MCP workers no longer receive worker dispatches for that scope
 - worker-owned attention is opened without assigning a connected endpoint
-- the internal virtual worker scheduler becomes responsible for draining the queue
+- the internal virtual worker scheduler becomes responsible for handling the attention cycle
 
 Dashboard operators can also force a specific virtual provider for one planning action without changing the project default worker mode:
 
@@ -49,20 +45,14 @@ Primary files:
 - `src/domain/workers/project-attention-service.ts`
 - `src/repositories/worker-endpoint-repository.ts`
 
-Virtual workers use the same worker abstractions as connected workers:
+Virtual workers use the same worker abstractions as the rest of the execution model:
 
 - worker endpoints
 - project worker assignments
 - worker-owned attention items
 - worker dispatch leases
 
-The key difference is transport:
-
-- connected workers are backed by `mcp_connections`
-- virtual workers create `worker_endpoints.endpoint_type = virtual_cli`
-- virtual workers do not create MCP connection rows
-
-That keeps the connection surfaces MCP-specific while still exposing worker ownership through the execution model.
+Virtual workers create `worker_endpoints.endpoint_type = virtual_cli` and do not require MCP connection rows.
 
 ## Cycle Behavior
 
@@ -70,7 +60,7 @@ Each virtual cycle is project-scoped and one-shot:
 
 1. Scheduler notices worker work for a project.
 2. Sprint OS creates an ephemeral virtual endpoint and project assignment.
-3. The cycle prefers worker-owned attention over queued task dispatches.
+3. The cycle handles one worker-owned attention item.
 4. It handles one item.
 5. It releases the assignment and deletes the endpoint.
 6. If more worker work remains, it schedules another cycle.
@@ -86,8 +76,9 @@ Today virtual workers handle:
 - Dashboard chat conversations via `routeKind === "virtual"` and `virtualProvider`
 - Planning agent prompt improvement
 - Planning agent sprint planning
-- queued `mcp_worker` task dispatches
 - worker-owned `merge_conflict` attention
+- worker-owned `ci_fix_required` attention
+- worker-owned `action_required` attention that can be auto-answered or auto-approved
 
 For planning flows, Sprint OS (`src/services/planning-agent-service.ts`):
 
@@ -101,12 +92,13 @@ For planning flows, Sprint OS (`src/services/planning-agent-service.ts`):
 
 For merge conflicts, Sprint OS:
 
-- prepares a worktree on the PR source branch
+- prepares an isolated Docker workspace on the PR source branch
 - merges the target branch into it
 - runs the selected CLI provider against the conflict context
 - accepts both the original merge-conflict prompt payload fields (`currentTaskPrompt`, `mergedTaskPrompts`) and the newer task-context payload fields (`currentTask`, `featureBranchTaskContexts`) when constructing that provider prompt
 - verifies conflicts are resolved
-- commits and pushes the updated source branch
+- exports a Git patch artifact from the isolated workspace
+- applies that patch back onto the host branch and pushes it
 
 Unsupported worker-owned attention types are escalated back to human attention with a summary.
 

@@ -261,7 +261,7 @@ export class JulesAgentServer {
     process.exit(0);
   }
 
-  private configureMcpServer(server: Server, runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): void {
+  private configureMcpServer(server: Server, runtimeRole: "project_manager"): void {
     registerMcpRequestHandlers({
       server,
       coreToolHandler: this.coreToolHandler,
@@ -279,7 +279,7 @@ export class JulesAgentServer {
     };
   }
 
-  private createMcpServerInstance(runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): Server {
+  private createMcpServerInstance(runtimeRole: "project_manager"): Server {
     const server = new Server(
       {
         name: SPRINT_OS_SERVICE_NAME,
@@ -293,49 +293,7 @@ export class JulesAgentServer {
         },
       },
     );
-    if (runtimeRole === "worker_gateway") {
-      // For the worker gateway, wrap the management tool handler to strip approval.confirmed
-      // so virtual workers cannot self-approve destructive actions.
-      // Also track approval-required responses for the dashboard approval flow.
-      const original = this.managementToolHandler;
-      const approvalTracker = this.mcpApprovalTracker;
-      const safeHandler = {
-        handleManageSprintOs: async (args: Parameters<typeof original.handleManageSprintOs>[0]) => {
-          const sanitized = { ...args };
-          if (sanitized.approval) {
-            sanitized.approval = { ...sanitized.approval, confirmed: false };
-          }
-          const result = await original.handleManageSprintOs(sanitized);
-          try {
-            const envelope = JSON.parse(result.content[0].text);
-            if (envelope.approvalRequired) {
-              approvalTracker.setPending({
-                action: args,
-                approvalMessage: envelope.approvalMessage || "Action requires approval.",
-                proposedAt: new Date().toISOString(),
-              });
-            }
-          } catch { /* parse failure is non-fatal for tracking */ }
-          return result;
-        },
-      };
-      registerMcpRequestHandlers({
-        server,
-        coreToolHandler: this.coreToolHandler,
-        agentToolHandler: this.agentToolHandler,
-        managementToolHandler: safeHandler as typeof original,
-        getDashboardSettings: () => this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
-        getRuntimeRole: () => runtimeRole,
-        formatError: (error: unknown) => this.formatError(error),
-        logger: this.logger.child({ component: "mcp-request-router", runtimeRole }),
-        withCorrelationContext: (request, operation) => this.runWithMcpCorrelationContext(request, operation),
-      });
-      server.onerror = (error) => {
-        this.logger.error("MCP server error", { error, runtimeRole });
-      };
-    } else {
-      this.configureMcpServer(server, runtimeRole);
-    }
+    this.configureMcpServer(server, runtimeRole);
     return server;
   }
 
@@ -1002,7 +960,7 @@ export class JulesAgentServer {
       path: this.appConfig.mcpHttpPath,
       authToken: this.appConfig.mcpHttpAuthToken,
       logger: this.logger.child({ component: "mcp-http-transport" }),
-      createServer: () => this.createMcpServerInstance("worker_gateway"),
+      createServer: () => this.createMcpServerInstance("project_manager"),
     });
     this.mcpServiceBound = true;
     this.startRuntimeCleanupLoop();

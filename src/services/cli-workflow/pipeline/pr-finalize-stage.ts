@@ -15,7 +15,7 @@ export async function executePrFinalizeStage(ctx: PipelineContext): Promise<{ pr
         taskDescription: ctx.task.prompt,
         sprintDescription: sprint?.goal,
       },
-      ctx.worktreePath,
+      ctx.repoPath,
       ctx.deps.getGithubToken()
     );
   }

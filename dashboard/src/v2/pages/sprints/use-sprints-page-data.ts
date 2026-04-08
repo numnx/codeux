@@ -90,7 +90,7 @@ export function useSprintsPageData() {
   const [addTaskForSprint, setAddTaskForSprint] = useState<Sprint | null>(null);
   const [addTaskSprintTasks, setAddTaskSprintTasks] = useState<Task[]>([]);
   const [workerMode, setWorkerMode] = useState<null | {
-    executionMode: "CONNECTED_MCP" | "VIRTUAL";
+    executionMode: "VIRTUAL";
     virtualWorkerProvider: string;
   }>(null);
   const [agentPresets, setAgentPresets] = useState<AgentPreset[]>([]);

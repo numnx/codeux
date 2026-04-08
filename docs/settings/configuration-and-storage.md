@@ -285,15 +285,20 @@ Preview runtime notes:
   - default/home markdown sources are never modified by dashboard edits; Sprint OS creates a project-level override file instead
 
 `workers` contains:
-- `executionMode` (default `CONNECTED_MCP`)
-  - `CONNECTED_MCP`: worker-owned dispatches and attention are routed only to connected MCP workers
-  - `VIRTUAL`: Sprint OS spins up an internal one-shot CLI worker when worker work exists, handles one planning request, task dispatch, or worker-owned attention item, then tears it down
+- `executionMode` (default `VIRTUAL`)
+  - `VIRTUAL`: Sprint OS spins up an internal one-shot CLI worker when worker-owned attention exists, handles one cycle in an isolated container workspace, then tears it down
 - `virtualWorkerProvider` (default `codex`)
   - allowed values: `gemini`, `codex`, `claude-code`
-  - used only when `executionMode = VIRTUAL`
   - Jules is intentionally excluded from worker mode; virtual workers are CLI-only
-- Dashboard worker-runtime editors now surface `virtualWorkerProvider` and worker-model override controls only while `executionMode = VIRTUAL`; connected MCP mode hides those virtual-only controls.
+- Dashboard worker-runtime editors now expose only the virtual-worker provider and worker-model override controls because connected MCP worker mode has been removed.
 - In the dashboard, these controls are exposed in the active v2 settings page under `Sprint Engine -> Worker Runtime`
+
+Container execution notes:
+- `cliWorkflow.executionMode` is now always `DOCKER`
+- task, planning, QA, chat, CI-fix, and merge-conflict CLI runs execute inside isolated Docker-volume workspaces
+- repo-local `.sprint-os/worktrees/*` are no longer used for Docker execution
+- `~/.sprint-os/runtime/docker/` should now contain only cache-like artifacts such as reusable setup-image state, not per-session workspaces
+- write-back from isolated CLI runs uses a Git patch artifact applied on the host branch, not direct file syncing from the container
 
 `sprintLoopSteps` also includes:
 - `watchLoopIntervalSeconds` (default `120`, clamped to `1..3600`)
@@ -303,7 +308,7 @@ Preview runtime notes:
 - `enableLivePrMonitoring` (default `true`): controls live PR/CI monitoring gates in sprint loop (`REMOTE` mode only; auto-disabled in `LOCAL` mode).
 - Sprint OS state is currently backed by SQLite via `DatabaseAdapter`, but is staged for a Postgres migration (see [Postgres Migration Plan](../architecture/postgres-migration-plan.md)).
 - `resolveMainMergeConflicts` (default `false`): when enabled, a `feature -> main` PR in `DIRTY` merge state opens a worker-owned `merge_conflict` attention item with repo path, working-directory hint, conflicting branches, PR metadata, sprint context, and merged task prompts already present on the feature branch.
-- `resolveMergeConflicts` (default `false`): when enabled, feature PRs in `DIRTY` merge state open a dedicated worker-owned `merge_conflict` attention item instead of a generic merge-required item. The payload includes repo path, working directory hint, source/target branches, PR details, the current task prompt, and merged task prompts already on the feature branch so the connected worker can resolve the conflict with full context.
+- `resolveMergeConflicts` (default `false`): when enabled, feature PRs in `DIRTY` merge state open a dedicated worker-owned `merge_conflict` attention item instead of a generic merge-required item. The payload includes repo path, working directory hint, source/target branches, PR details, the current task prompt, and merged task prompts already on the feature branch so the virtual worker can resolve the conflict with full context.
 - worker-owned merge conflicts do not end the watch loop as manual merge work anymore; Sprint OS keeps the loop alive while the selected worker runtime is expected to handle the conflict, and the dashboard no longer projects those worker-owned conflict items as human intervention.
 - feature PRs with `mergeStateStatus = DIRTY` short-circuit the feature-merge CI wait path; Sprint OS marks them as merge conflicts immediately instead of waiting for checks that cannot start until the conflict is resolved.
 - completed tasks with no recorded worker branch or PR URL are treated as already settled for dependency unlocks and sprint finalization; only tasks with merge evidence enter the feature-merge wait path.
@@ -353,7 +358,7 @@ Repository demo script:
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
 
 Worker runtime notes:
-- connected MCP workers remain the default worker mode
+- virtual workers are now the only supported worker mode
 - virtual workers create ephemeral `worker_endpoints` rows with `endpoint_type = virtual_cli`
 - virtual workers do not create MCP connection rows, so the connection tab remains MCP-only
 

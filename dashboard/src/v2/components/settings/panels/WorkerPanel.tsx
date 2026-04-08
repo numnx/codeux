@@ -9,26 +9,16 @@ export const WorkerPanel: FunctionComponent<{
   update: (patch: Partial<ProjectSettings>) => void;
   getBadge: (path: string) => string | undefined;
 }> = ({ settings, update, getBadge }) => {
-  const virtualWorkerModeEnabled = settings.workers.executionMode === "VIRTUAL";
-
   return (
         <div className="grid gap-4 lg:grid-cols-2 mb-4">
-          <Row label="Worker mode" description="Connected workers stay in listen mode. Virtual workers wake only when worker work exists, run one unit of work, then shut down." badge={getBadge("workers.executionMode")}>
+          <Row label="Worker mode" description="Worker automation is now always virtual and containerized." badge={getBadge("workers.executionMode")}>
             <SelectInput
-              value={settings.workers.executionMode}
-              onChange={(value) => update({
-                workers: {
-                  ...settings.workers,
-                  executionMode: value as ProjectSettings["workers"]["executionMode"],
-                },
-              })}
-              options={[
-                { value: "CONNECTED_MCP", label: "Connected MCP" },
-                { value: "VIRTUAL", label: "Virtual on-demand" },
-              ]}
+              value="VIRTUAL"
+              onChange={() => undefined}
+              options={[{ value: "VIRTUAL", label: "Virtual on-demand" }]}
             />
           </Row>
-          {virtualWorkerModeEnabled ? (
+          {
             <Row label="Virtual worker CLI" description="Preferred provider when worker mode is virtual. Jules is intentionally excluded from worker execution." badge={getBadge("workers.virtualWorkerProvider")}>
               <SelectInput
                 value={settings.workers.virtualWorkerProvider}
@@ -46,8 +36,8 @@ export const WorkerPanel: FunctionComponent<{
                 ]}
               />
             </Row>
-          ) : null}
-          {virtualWorkerModeEnabled ? (
+          }
+          {
             <Row label="Worker model" description="Override the global model for virtual workers. If set to 'Default', the global model for the selected CLI provider is used." badge={getBadge("workers.model")}>
               <SelectInput
                 value={settings.workers.model || "default"}
@@ -63,7 +53,7 @@ export const WorkerPanel: FunctionComponent<{
                 ]}
               />
             </Row>
-          ) : null}
+          }
           <Row label="Max concurrency" description="Maximum number of parallel tasks a worker can handle simultaneously." badge={getBadge("workers.maxConcurrency")}>
             <NumberInput
               value={settings.workers.maxConcurrency}

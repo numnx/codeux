@@ -340,7 +340,7 @@ describe("Dashboard Chat API", () => {
     });
     expect(invalidWorkerResponse.status).toBe(400);
     const result2 = await invalidWorkerResponse.json() as any;
-    expect(result2.error).toContain("Worker not found or not active");
+    expect(result2.error).toContain("Connected MCP worker routes are no longer supported");
 
   });
 

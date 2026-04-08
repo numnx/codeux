@@ -4,7 +4,7 @@ import { sanitizeCliWorkflow } from "../../../../../src/domain/settings/settings
 describe("sanitizeCliWorkflow", () => {
   it("applies fallback execution mode", () => {
     const result = sanitizeCliWorkflow({ cliWorkflow: { executionMode: "INVALID_MODE" as any } });
-    expect(result.executionMode).toBe("HOST"); // Default mode
+    expect(result.executionMode).toBe("DOCKER");
   });
 
   it("keeps provider credential mounts independent", () => {

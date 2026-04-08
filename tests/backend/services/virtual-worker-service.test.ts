@@ -136,7 +136,7 @@ describe("VirtualWorkerService", () => {
       severity: "high",
       ownerType: "worker",
       title: "Connected attention",
-      summaryMarkdown: "Should stay on MCP workers.",
+      summaryMarkdown: "Clarification cooldown active for this project.",
       payload: null,
     });
 
@@ -163,129 +163,6 @@ describe("VirtualWorkerService", () => {
 
     expect(scheduleSpy).toHaveBeenCalledTimes(1);
     expect(scheduleSpy).toHaveBeenCalledWith(virtualProject.id, "reconcile");
-  });
-
-  it("claims queued virtual worker dispatches and cleans up its ephemeral endpoint", async () => {
-    const {
-      settingsRepository,
-      sessionTracking,
-      projectManagementRepository,
-      executionRepository,
-      workerEndpointRepository,
-      projectWorkerAssignmentRepository,
-      projectAttentionService,
-      workerTaskDispatchService,
-    } = await createFixture();
-
-    const project = projectManagementRepository.createProject({
-      name: "Virtual Worker Project",
-      sourceType: "local",
-      sourceRef: "/workspace/virtual-worker-project",
-      defaultBranch: "main",
-    });
-    const sprint = projectManagementRepository.createSprint(project.id, {
-      name: "Virtual Worker Sprint",
-      number: 12,
-      featureBranch: "feature/sprint-12",
-    });
-    const task = projectManagementRepository.createTask(project.id, {
-      sprintId: sprint.id,
-      title: "Execute through virtual worker",
-      promptMarkdown: "Handle this task with the virtual worker.",
-      executorType: "mcp_worker",
-      priority: "high",
-    });
-    const sprintRun = executionRepository.createSprintRun({
-      projectId: project.id,
-      sprintId: sprint.id,
-      executorMode: "mcp_worker",
-      status: "running",
-    });
-    const dispatch = executionRepository.createTaskDispatch({
-      projectId: project.id,
-      sprintId: sprint.id,
-      taskId: task.id,
-      sprintRunId: sprintRun.id,
-      executorType: "mcp_worker",
-    });
-    const taskRun = executionRepository.createTaskRun({
-      projectId: project.id,
-      sprintId: sprint.id,
-      taskId: task.id,
-      sprintRunId: sprintRun.id,
-      dispatchId: dispatch.id,
-      mode: "mcp_worker",
-      state: "RUNNING",
-      startedAt: "2026-03-15T10:00:00.000Z",
-    });
-
-    settingsRepository.saveProjectSettings(project.id, {
-      workers: {
-        executionMode: "VIRTUAL",
-        virtualWorkerProvider: "codex",
-      },
-    });
-
-    const cliWorkflowService = {
-      startTask: vi.fn().mockImplementation(async (args: { provider: string }) => {
-        const session = sessionTracking.createSession({
-          id: "cli-codex-virtual-worker",
-          provider: "codex",
-          taskId: task.id,
-          title: "Virtual worker session",
-          prompt: "virtual worker task",
-          state: "RUNNING",
-          featureBranch: sprint.featureBranch || "feature/sprint-12",
-          workerBranch: "task/virtual-worker-branch",
-          repoPath: project.baseDir,
-        });
-
-        setTimeout(() => {
-          sessionTracking.updateSession(session.id, {
-            state: "COMPLETED",
-            prUrl: "https://example.com/pr/999",
-            workerBranch: "task/virtual-worker-branch",
-          });
-          executionRepository.updateTaskRun(taskRun.id, {
-            state: "COMPLETED",
-            sessionId: session.id,
-            sessionName: session.name,
-            provider: args.provider,
-            prUrl: "https://example.com/pr/999",
-            workerBranch: "task/virtual-worker-branch",
-            finishedAt: "2026-03-15T10:00:05.000Z",
-          });
-        }, 10);
-
-        return session;
-      }),
-    };
-
-    const virtualWorkerService = new VirtualWorkerService({
-      settingsRepository,
-      sessionTracking,
-      executionRepository,
-      projectManagementRepository,
-      workerEndpointRepository,
-      projectWorkerAssignmentRepository,
-      projectWorkerAssignmentService: new ProjectWorkerAssignmentService(
-        projectWorkerAssignmentRepository,
-        workerEndpointRepository,
-      ),
-      projectAttentionService,
-      workerTaskDispatchService,
-      cliWorkflowService: cliWorkflowService as any,
-    });
-
-    virtualWorkerService.scheduleProject(project.id, "test");
-    await vi.runAllTicks();
-    await vi.advanceTimersByTimeAsync(6_000);
-
-    expect(cliWorkflowService.startTask).toHaveBeenCalledTimes(1);
-    expect(executionRepository.getTaskDispatch(dispatch.id)?.status).toBe("completed");
-    expect(projectManagementRepository.getTask(task.id)?.status).toBe("coding_completed");
-    expect(workerEndpointRepository.listWorkerEndpoints().filter((endpoint) => endpoint.endpointType === "virtual_cli")).toHaveLength(0);
-    expect(projectWorkerAssignmentRepository.listAssignmentsForProject(project.id, { activeOnly: true })).toHaveLength(0);
   });
 
   it("escalates unsupported worker attention items to a human attention item", async () => {
@@ -508,7 +385,7 @@ describe("VirtualWorkerService", () => {
     expect(workerEndpointRepository.listWorkerEndpoints().filter(e => e.endpointType === "virtual_cli")).toHaveLength(0);
   });
 
-  it("projectNeedsVirtualWorker returns true when queued dispatches exist", async () => {
+  it("projectNeedsVirtualWorker returns true when open worker attention exists", async () => {
     const {
       settingsRepository,
       sessionTracking,
@@ -543,21 +420,24 @@ describe("VirtualWorkerService", () => {
       sprintId: sprint.id,
       title: "Dispatch task",
       promptMarkdown: "Do the thing.",
-      executorType: "mcp_worker",
+      executorType: "docker_cli",
       priority: "high",
     });
-    const sprintRun = executionRepository.createSprintRun({
-      projectId: project.id,
-      sprintId: sprint.id,
-      executorMode: "mcp_worker",
-      status: "running",
-    });
-    executionRepository.createTaskDispatch({
+    projectAttentionService.openItem({
       projectId: project.id,
       sprintId: sprint.id,
       taskId: task.id,
-      sprintRunId: sprintRun.id,
-      executorType: "mcp_worker",
+      sprintRunId: null,
+      dispatchId: null,
+      attentionType: "action_required",
+      severity: "high",
+      ownerType: "worker",
+      title: "Plan approval required",
+      summaryMarkdown: "Needs automated worker follow-up.",
+      payload: {
+        sessionId: "session-1",
+        sessionState: "AWAITING_PLAN_APPROVAL",
+      },
     });
 
     const virtualWorkerService = new VirtualWorkerService({
