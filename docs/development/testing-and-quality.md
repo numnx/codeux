@@ -46,6 +46,8 @@ GitHub Actions optimization notes:
 - dashboard tests still run as a separate Vitest invocation because coverage thresholds target `src/**/*.ts`, not the dashboard bundle under `dashboard/`
 - dependency installation uses the cached npm package store with `npm ci --prefer-offline --no-audit --ignore-scripts`
 - Vite, Vitest, and TypeScript incremental metadata now write into repo-local `.cache/` directories so GitHub Actions can restore them across workflow runs and the `build` step can reuse prior typecheck work
+- the shared Vitest setup defaults `LOG_LEVEL` to `error` during tests and installs lightweight canvas stubs so dashboard-heavy suites avoid noisy server logs and repeated DOM warnings
+- prefer `happy-dom` for simple dashboard component and hook tests; reserve `jsdom` for cases that need stricter browser behavior
 
 - Build backend and dashboard
 ```bash
@@ -69,11 +71,13 @@ npm run typecheck:dashboard
 - Git status service parsing
 - Task service prompt construction
 - Instruction template rendering and fallback behavior
+- Route-level server tests should prefer in-process `supertest` requests over binding ephemeral TCP listeners unless host routing or socket behavior is the thing under test
 
 ### Dashboard
 - Settings default cloning
 - Activity helpers
 - Status helpers
+- UI tests that only need DOM events and markup assertions should use `@vitest-environment happy-dom` to reduce environment startup cost
 
 ## Quality Expectations
 

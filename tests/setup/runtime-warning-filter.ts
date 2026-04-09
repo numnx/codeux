@@ -1,4 +1,5 @@
 const originalEmitWarning = process.emitWarning.bind(process);
+const originalLogLevel = process.env.LOG_LEVEL;
 
 process.emitWarning = ((warning: string | Error, ...args: unknown[]) => {
   const message = typeof warning === "string" ? warning : warning?.message ?? "";
@@ -14,6 +15,8 @@ process.emitWarning = ((warning: string | Error, ...args: unknown[]) => {
 
   return originalEmitWarning(warning as never, ...(args as []));
 }) as typeof process.emitWarning;
+
+process.env.LOG_LEVEL = originalLogLevel ?? "error";
 
 const installAnimationFramePolyfill = (): void => {
   const target = globalThis as typeof globalThis & {
@@ -41,3 +44,58 @@ const installAnimationFramePolyfill = (): void => {
 };
 
 installAnimationFramePolyfill();
+
+const createCanvasGradientStub = (): CanvasGradient => ({
+  addColorStop: () => {},
+}) as CanvasGradient;
+
+const createCanvasContextStub = (): CanvasRenderingContext2D => {
+  return new Proxy({
+    canvas: null,
+    createLinearGradient: createCanvasGradientStub,
+    createRadialGradient: createCanvasGradientStub,
+    measureText: () => ({ width: 0 }),
+    getImageData: () => ({ data: new Uint8ClampedArray(0) }),
+    createImageData: () => ({ data: new Uint8ClampedArray(0) }),
+  } as Record<string, unknown>, {
+    get(target, property) {
+      if (property in target) {
+        return target[property as keyof typeof target];
+      }
+      return () => undefined;
+    },
+    set(target, property, value) {
+      target[property as keyof typeof target] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+};
+
+const installCanvasContextPolyfill = (): void => {
+  const target = globalThis as typeof globalThis & {
+    HTMLCanvasElement?: {
+      prototype?: {
+        getContext?: (contextId: string) => RenderingContext | null;
+      };
+    };
+  };
+
+  const canvasPrototype = target.HTMLCanvasElement?.prototype;
+  if (!canvasPrototype) {
+    return;
+  }
+
+  canvasPrototype.getContext = (contextId: string): RenderingContext | null => {
+    if (
+      contextId === "2d"
+      || contextId === "webgl"
+      || contextId === "experimental-webgl"
+      || contextId === "webgl2"
+    ) {
+      return createCanvasContextStub() as unknown as RenderingContext;
+    }
+    return null;
+  };
+};
+
+installCanvasContextPolyfill();
