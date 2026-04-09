@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -12,10 +12,21 @@ import { StructuredProviderResponseService } from "../../../src/services/structu
 import { StructuredAgentRequestService } from "../../../src/services/structured-agent-request-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
+vi.mock("../../../src/services/git-branch-sync-service.js", () => ({
+  fetchOriginIfAvailable: vi.fn(),
+}));
+
+import { fetchOriginIfAvailable } from "../../../src/services/git-branch-sync-service.js";
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(fetchOriginIfAvailable).mockResolvedValue(true);
 });
 
 describe("QualityAssuranceService", () => {
@@ -627,5 +638,107 @@ describe("QualityAssuranceService", () => {
     expect(outcome.reviewed).toBe(true);
     expect(outcome.reportText).toContain("Fix it");
     expect(mockProviderRunner.runProvider).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes origin before running QA review in REMOTE git mode", async () => {
+    vi.mocked(fetchOriginIfAvailable).mockRejectedValueOnce(new Error("fetch failed"));
+
+    const service = new QualityAssuranceService({
+      projectManagementRepository: {} as any,
+      executionRepository: {} as any,
+      sessionTracking: {} as any,
+      qaReviewRepository: {} as any,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: {} as any,
+      structuredAgentRequestService: {
+        executeRequest: vi.fn(),
+      } as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        git: {
+          ...DEFAULT_DASHBOARD_SETTINGS.git,
+          githubMode: "REMOTE",
+          defaultBranch: "dev",
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    await expect((service as any).runReview({
+      triggerType: "task_completion",
+      scope: {
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      projectName: "QA Project",
+      sprintGoal: "Ship safely",
+      repoPath: "/repo",
+      agentInstructions: "QA Agent",
+      subtasks: [],
+      currentTask: {
+        id: "T1",
+        title: "Fix thing",
+        prompt: "Implement the fix",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+        worker_branch: "feature/task-1",
+      },
+      taskRun: null,
+      sprintRunId: null,
+      agentPresetId: null,
+    })).rejects.toThrow("Failed to refresh origin before running QA review on feature/task-1: fetch failed");
+
+    expect(fetchOriginIfAvailable).toHaveBeenCalledWith("/repo");
+  });
+
+  it("refreshes origin before continuing QA follow-up in REMOTE git mode", async () => {
+    vi.mocked(fetchOriginIfAvailable).mockRejectedValueOnce(new Error("fetch failed"));
+
+    const service = new QualityAssuranceService({
+      projectManagementRepository: {} as any,
+      executionRepository: {} as any,
+      sessionTracking: {} as any,
+      qaReviewRepository: {} as any,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: {} as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        git: {
+          ...DEFAULT_DASHBOARD_SETTINGS.git,
+          githubMode: "REMOTE",
+          defaultBranch: "dev",
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    await expect((service as any).continueCliTaskSession({
+      provider: "gemini",
+      sessionId: "session-1",
+      task: {
+        id: "T1",
+        title: "Fix thing",
+        prompt: "Implement the fix",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+        worker_branch: "feature/task-1",
+      },
+      taskRun: null,
+      repoPath: "/repo",
+      featureBranch: "feature/sprint-1",
+      scope: {
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      followUpPrompt: "Address QA findings",
+    })).rejects.toThrow("Failed to refresh origin before continuing QA follow-up on feature/task-1: fetch failed");
+
+    expect(fetchOriginIfAvailable).toHaveBeenCalledWith("/repo");
   });
 });

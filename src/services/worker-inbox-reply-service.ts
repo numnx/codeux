@@ -22,6 +22,7 @@ import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
 
 export interface GenerateDashboardReplyInput {
   projectId: string;
@@ -43,7 +44,7 @@ interface WorkerInboxReplyServiceDependencies {
   taskService: TaskService;
   agentPresetSyncService: AgentPresetSyncService;
   executionRepository: ExecutionRepository;
-  getDashboardSettings: () => DashboardSettings;
+  getDashboardSettings: (scope?: { projectId?: string; sprintId?: string }) => DashboardSettings;
   getGithubToken: () => string | undefined;
   providerRunner: IProviderRunner;
   logger?: Logger;
@@ -51,6 +52,25 @@ interface WorkerInboxReplyServiceDependencies {
 
 export class WorkerInboxReplyService {
   constructor(private readonly deps: WorkerInboxReplyServiceDependencies) {}
+
+  private async syncRemoteBranchesIfNeeded(
+    repoPath: string,
+    branch: string | undefined,
+    scope?: { projectId?: string; sprintId?: string },
+  ): Promise<void> {
+    const settings = this.deps.getDashboardSettings(scope);
+    if (settings.git.githubMode !== "REMOTE") {
+      return;
+    }
+
+    try {
+      await fetchOriginIfAvailable(repoPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const branchLabel = branch?.trim() || settings.git.defaultBranch || "the requested branch";
+      throw new Error(`Failed to refresh origin before generating clarification reply from ${branchLabel}: ${message}`);
+    }
+  }
 
   async generateReply(input: GenerateDashboardReplyInput): Promise<GenerateDashboardReplyResult> {
     const project = this.deps.projectManagementRepository.getProject(input.projectId);
@@ -160,6 +180,15 @@ export class WorkerInboxReplyService {
     if (!project) {
       throw new Error(`Project not found: ${args.projectId}`);
     }
+
+    await this.syncRemoteBranchesIfNeeded(
+      project.baseDir,
+      typeof args.task.worker_branch === "string" ? args.task.worker_branch : undefined,
+      {
+        projectId: args.projectId,
+        sprintId: typeof args.task.sprint_id === "string" ? args.task.sprint_id : undefined,
+      },
+    );
 
     const route = this.resolveProviderRoute("clarification_reply", args.task.prompt || args.task.title);
     const invocationTaskId = typeof args.task.record_id === "string" && args.task.record_id.trim().length > 0

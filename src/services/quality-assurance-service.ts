@@ -21,6 +21,7 @@ import type { Logger } from "../shared/logging/logger.js";
 import { runCommandStrict } from "./cli-process-runner.js";
 import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import type { MemoryService } from "./memory-service.js";
+import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
 
 type CliQaProvider = Extract<ProviderId, "gemini" | "codex" | "claude-code">;
 
@@ -132,6 +133,26 @@ export class QualityAssuranceService {
         structuredProviderResponseService,
         logger: deps.logger,
       });
+    }
+  }
+
+  private async syncRemoteBranchesIfNeeded(
+    repoPath: string,
+    branch: string | undefined,
+    scope: DashboardSettingsScope,
+    contextLabel: string,
+  ): Promise<void> {
+    const settings = this.deps.getDashboardSettings(scope);
+    if (settings.git.githubMode !== "REMOTE") {
+      return;
+    }
+
+    try {
+      await fetchOriginIfAvailable(repoPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const branchLabel = branch?.trim() || settings.git.defaultBranch || "the requested branch";
+      throw new Error(`Failed to refresh origin before ${contextLabel} on ${branchLabel}: ${message}`);
     }
   }
 
@@ -644,6 +665,13 @@ export class QualityAssuranceService {
     sprintRunId: string | null;
     agentPresetId: string | null;
   }): Promise<NormalizedQaReviewResult> {
+    await this.syncRemoteBranchesIfNeeded(
+      args.repoPath,
+      args.currentTask?.worker_branch || args.taskRun?.workerBranch || undefined,
+      args.scope,
+      "running QA review",
+    );
+
     const pseudoTask: Subtask = args.currentTask || {
       id: "SPRINT",
       title: "Sprint completion review",
@@ -904,6 +932,13 @@ export class QualityAssuranceService {
     if (!workerBranch) {
       throw new Error(`Cannot continue CLI QA fixes for ${args.task.id}: worker branch is missing.`);
     }
+
+    await this.syncRemoteBranchesIfNeeded(
+      args.repoPath,
+      workerBranch,
+      args.scope,
+      "continuing QA follow-up",
+    );
 
     const worktreePath = await this.workspaceManager.resolveResumeWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode)
       || this.workspaceManager.buildWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode);
