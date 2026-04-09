@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskService } from "../../../src/services/task-service.js";
 
+vi.mock("../../../src/services/git-branch-sync-service.js", () => ({
+  fetchOriginIfAvailable: vi.fn(),
+}));
+
+import { fetchOriginIfAvailable } from "../../../src/services/git-branch-sync-service.js";
+
 describe("TaskService", () => {
   const createSession = vi.fn();
   const getWorkerAgent = vi.fn();
@@ -22,7 +28,7 @@ describe("TaskService", () => {
           codex: { enabled: true, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
         },
       },
-      git: { defaultBranch: "main" },
+      git: { githubMode: "REMOTE", defaultBranch: "main" },
     }) as any,
     isJulesApiConfigured: () => true,
     cliWorkflowService: { startTask: startCliTask } as any,
@@ -30,6 +36,7 @@ describe("TaskService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fetchOriginIfAvailable).mockResolvedValue(true);
     resolveJulesSourceId.mockImplementation(async ({ sourceId }: { sourceId?: string }) =>
       sourceId?.startsWith("sources/") ? sourceId : `sources/${sourceId || "auto"}`
     );
@@ -114,6 +121,7 @@ describe("TaskService", () => {
     expect(payload.sourceContext.source).toBe("sources/999");
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/sprint1");
     expect(payload.prompt).toContain("SUBTASK TO EXECUTE");
+    expect(fetchOriginIfAvailable).toHaveBeenCalledWith("/tmp/repo");
   });
 
   it("falls back to cli provider when jules is unavailable", async () => {
@@ -132,7 +140,7 @@ describe("TaskService", () => {
             codex: { enabled: true, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
           },
         },
-        git: { defaultBranch: "main" },
+        git: { githubMode: "REMOTE", defaultBranch: "main" },
       }) as any,
       isJulesApiConfigured: () => false,
       cliWorkflowService: {
@@ -241,6 +249,67 @@ describe("TaskService", () => {
       is_independent: true,
       status: "PENDING",
     })).toThrow("requires a CLI provider");
+  });
+
+  it("does not fetch origin before starting sprint tasks in LOCAL git mode", async () => {
+    const localModeService = new TaskService({
+      julesApi: { createSession } as any,
+      agentPresetSyncService: { getOptionalWorkerAgentForRepoPath: getWorkerAgent } as any,
+      resolveJulesSourceId,
+      getDashboardSettings: () => ({
+        aiProvider: {
+          provider: "jules",
+          strategy: "MANUAL",
+          julesApiKey: "",
+          providers: {
+            jules: { enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "" },
+            gemini: { enabled: true, model: "default", weight: 20, thinkingMode: "MEDIUM", apiKey: "" },
+            codex: { enabled: true, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
+          },
+        },
+        git: { githubMode: "LOCAL", defaultBranch: "main" },
+      }) as any,
+      isJulesApiConfigured: () => true,
+      cliWorkflowService: { startTask: startCliTask } as any,
+    });
+
+    getWorkerAgent.mockResolvedValue({ instructionMarkdown: "Rules" });
+    startCliTask.mockResolvedValue({ id: "cli-local", name: "sessions/cli-local", provider: "gemini", state: "RUNNING", prompt: "" });
+    createSession.mockResolvedValue({ id: "s-local" });
+
+    await localModeService.startSprintTask(
+      {
+        id: "01-task",
+        title: "Do Thing",
+        prompt: "Implement",
+        depends_on: [],
+        is_independent: true,
+      },
+      "999",
+      "feature/sprint1",
+      "/tmp/repo",
+      1,
+    );
+
+    expect(fetchOriginIfAvailable).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a clear error when remote origin refresh fails before starting a sprint task", async () => {
+    vi.mocked(fetchOriginIfAvailable).mockRejectedValueOnce(new Error("fetch failed"));
+
+    await expect(service.startSprintTask(
+      {
+        id: "01-task",
+        title: "Do Thing",
+        prompt: "Implement",
+        depends_on: [],
+        is_independent: true,
+      },
+      "999",
+      "feature/sprint1",
+      "/tmp/repo",
+      1,
+    )).rejects.toThrow("Failed to refresh origin before starting work from feature/sprint1: fetch failed");
   });
 
   it("throws a clear error when a CLI-only invocation has no eligible CLI providers", () => {
