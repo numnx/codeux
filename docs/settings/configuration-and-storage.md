@@ -334,14 +334,10 @@ Container execution notes:
 Repository demo script:
 - `.sprint-os/container/setup.sh` is included as a baseline bootstrap script.
 - It installs/updates `npm`, ensures `git` + `gh`, installs `pnpm`, `@google/gemini-cli`, `@openai/codex`, and Playwright Chromium (+ deps when root/apt is available).
-- Docker provider runner stores runtime state outside the project under `~/.sprint-os/runtime/docker/<repo-hash>/` by default:
-  - `home/` (container `HOME`)
-  - `npm-global/` (CLI fallback install prefix)
-  - `npm-cache/` (npm cache)
-  - `setup-image-cache/` (generated Docker build contexts for setup-script-derived images)
-  - Codex runs use isolated per-session homes (`home-codex-<session-id>`) to avoid stale local state interference between runs.
-  - Runtime cleanup automatically prunes stale per-session Codex homes and stale shared runtime temp directories after sessions are no longer active.
-  - Optional override: `JULES_DOCKER_RUNTIME_ROOT` (absolute path, `~` supported, repo-relative when relative)
+- Docker CLI execution now uses isolated Docker volumes as the workspace backing store instead of repo-local worktrees or persistent host-side runtime homes.
+  - container `HOME` lives inside the isolated workspace at `/workspace/.sprint-os-home`
+  - write-back happens via Git patch artifacts applied on the host, not direct file sync from the container
+  - the remaining persistent Docker-side cache is the optional setup-image cache, not per-session provider home directories under `~/.sprint-os/runtime/docker`
 - If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
   - CLI model settings continue to flow into Docker-backed providers:
     - Gemini: `GEMINI_MODEL`
@@ -356,6 +352,7 @@ Repository demo script:
   - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
   - GitHub sync still copies directory contents into a fixed destination (`~/.config/gh`); Gemini now avoids recursive state copy so concurrent Docker sessions do not race on shared `.gemini/tmp` output files.
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
+  - Provider-generated MCP/config files are no longer bind-mounted directly into `/workspace/.sprint-os-home/...`; runtime stages them under `/opt/provider-config/*` and copies them into the writable home during bootstrap so provider CLIs can still update adjacent state like Gemini project registry files.
 
 Worker runtime notes:
 - virtual workers are now the only supported worker mode

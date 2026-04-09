@@ -17,6 +17,7 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash "/opt/jules/setup.sh" || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;;     codex) npm install -g @openai/codex ;;     claude) if command -v curl >/dev/null 2>&1; then curl -fsSL https://claude.ai/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl not found; cannot install claude" >&2; fi ;; esac; fi
+copy_if_present "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"
   copy_if_present "/opt/credentials/gemini/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"
@@ -24,11 +25,13 @@ if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/installation_id" "$HOME/.gemini/installation_id" "gemini installation_id"
   copy_if_present "/opt/credentials/gemini/state.json" "$HOME/.gemini/state.json" "gemini state.json"
   copy_if_present "/opt/credentials/gemini/trustedFolders.json" "$HOME/.gemini/trustedFolders.json" "gemini trustedFolders.json"
+  copy_if_present "/opt/provider-config/gemini-settings.json" "$HOME/.gemini/settings.json" "gemini mcp settings.json"
 fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
 fi
+copy_if_present "/opt/provider-config/codex-config.toml" "$HOME/.codex/config.toml" "codex mcp config"
 exec "$@""
 `;
 
@@ -49,6 +52,7 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash "/opt/jules/setup.sh" || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;;     codex) npm install -g @openai/codex ;;     claude) if command -v curl >/dev/null 2>&1; then curl -fsSL https://claude.ai/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl not found; cannot install claude" >&2; fi ;; esac; fi
+copy_if_present "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"
   copy_if_present "/opt/credentials/gemini/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"
@@ -56,11 +60,13 @@ if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/installation_id" "$HOME/.gemini/installation_id" "gemini installation_id"
   copy_if_present "/opt/credentials/gemini/state.json" "$HOME/.gemini/state.json" "gemini state.json"
   copy_if_present "/opt/credentials/gemini/trustedFolders.json" "$HOME/.gemini/trustedFolders.json" "gemini trustedFolders.json"
+  copy_if_present "/opt/provider-config/gemini-settings.json" "$HOME/.gemini/settings.json" "gemini mcp settings.json"
 fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
 fi
+copy_if_present "/opt/provider-config/codex-config.toml" "$HOME/.codex/config.toml" "codex mcp config"
 exec "$@""
 `;
 
@@ -81,6 +87,7 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash "/opt/jules/setup.sh" || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;; esac; fi
+copy_if_present "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"
   copy_if_present "/opt/credentials/gemini/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"
@@ -88,11 +95,13 @@ if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/installation_id" "$HOME/.gemini/installation_id" "gemini installation_id"
   copy_if_present "/opt/credentials/gemini/state.json" "$HOME/.gemini/state.json" "gemini state.json"
   copy_if_present "/opt/credentials/gemini/trustedFolders.json" "$HOME/.gemini/trustedFolders.json" "gemini trustedFolders.json"
+  copy_if_present "/opt/provider-config/gemini-settings.json" "$HOME/.gemini/settings.json" "gemini mcp settings.json"
 fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
 fi
+copy_if_present "/opt/provider-config/codex-config.toml" "$HOME/.codex/config.toml" "codex mcp config"
 exec "$@""
 `;
 
@@ -112,6 +121,7 @@ export pnpm_config_store_dir="$PNPM_STORE_DIR"
 mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash "/opt/jules/setup.sh" || echo "provider-runner: setup script failed" >&2; fi
+copy_if_present "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"
   copy_if_present "/opt/credentials/gemini/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"
@@ -119,10 +129,12 @@ if [ "$1" = "gemini" ]; then
   copy_if_present "/opt/credentials/gemini/installation_id" "$HOME/.gemini/installation_id" "gemini installation_id"
   copy_if_present "/opt/credentials/gemini/state.json" "$HOME/.gemini/state.json" "gemini state.json"
   copy_if_present "/opt/credentials/gemini/trustedFolders.json" "$HOME/.gemini/trustedFolders.json" "gemini trustedFolders.json"
+  copy_if_present "/opt/provider-config/gemini-settings.json" "$HOME/.gemini/settings.json" "gemini mcp settings.json"
 fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
 fi
+copy_if_present "/opt/provider-config/codex-config.toml" "$HOME/.codex/config.toml" "codex mcp config"
 exec "$@""
 `;

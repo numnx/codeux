@@ -7,6 +7,9 @@ import {
   GEMINI_CREDENTIALS_MOUNT,
   CLAUDE_CODE_CREDENTIALS_MOUNT,
   GITCONFIG_CREDENTIALS_MOUNT,
+  CLAUDE_CODE_MCP_CONFIG_MOUNT,
+  GEMINI_MCP_SETTINGS_MOUNT,
+  CODEX_MCP_CONFIG_MOUNT,
 } from "../../../../../src/infrastructure/providers/cli/docker-bootstrap-builder.js";
 import { CONTAINER_SETUP_SCRIPT } from "../../../../../src/services/cli-workflow-utils.js";
 import { DockerCredentialMountBuilder } from "../../../../../src/infrastructure/providers/cli/docker-credential-mount-builder.js";
@@ -61,6 +64,17 @@ describe("DockerBootstrapBuilder", () => {
     expect(script).toContain("if [ \"$1\" = \"gemini\" ]; then");
     expect(script).toContain("oauth_creds.json");
     expect(script).not.toContain(`sync_dir_contents "${GEMINI_CREDENTIALS_MOUNT}" "$HOME/.gemini"`);
+  });
+
+  it("copies provider-generated MCP config into runtime home instead of mounting it there directly", () => {
+    const script = builder.build({
+      runtimeNpmPrefix: "/runtime/npm-global",
+      runtimeNpmCache: "/runtime/npm-cache",
+    });
+
+    expect(script).toContain(`copy_if_present "${CLAUDE_CODE_MCP_CONFIG_MOUNT}" "$HOME/.mcp.json"`);
+    expect(script).toContain(`copy_if_present "${GEMINI_MCP_SETTINGS_MOUNT}" "$HOME/.gemini/settings.json"`);
+    expect(script).toContain(`copy_if_present "${CODEX_MCP_CONFIG_MOUNT}" "$HOME/.codex/config.toml"`);
   });
 
   it("should not include fallback install if no providers specified", () => {

@@ -7,6 +7,9 @@ export const GEMINI_CREDENTIALS_MOUNT = "/opt/credentials/gemini";
 export const CLAUDE_CODE_CREDENTIALS_MOUNT = "/opt/credentials/claude-code";
 export const CLAUDE_CODE_AUTH_JSON_MOUNT = "/opt/credentials/claude-code-auth.json";
 export const GITCONFIG_CREDENTIALS_MOUNT = "/opt/credentials/gitconfig";
+export const CLAUDE_CODE_MCP_CONFIG_MOUNT = "/opt/provider-config/claude-mcp.json";
+export const GEMINI_MCP_SETTINGS_MOUNT = "/opt/provider-config/gemini-settings.json";
+export const CODEX_MCP_CONFIG_MOUNT = "/opt/provider-config/codex-config.toml";
 
 export interface DockerBootstrapOptions {
   runtimeNpmPrefix: string;
@@ -86,6 +89,7 @@ export class DockerBootstrapBuilder {
 
   private claudeAuth(): string {
     return [
+      `copy_if_present "${CLAUDE_CODE_MCP_CONFIG_MOUNT}" "$HOME/.mcp.json" "claude mcp config"`,
       "if [ \"$1\" = \"gemini\" ]; then",
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"`,
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"`,
@@ -93,11 +97,13 @@ export class DockerBootstrapBuilder {
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/installation_id" "$HOME/.gemini/installation_id" "gemini installation_id"`,
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/state.json" "$HOME/.gemini/state.json" "gemini state.json"`,
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/trustedFolders.json" "$HOME/.gemini/trustedFolders.json" "gemini trustedFolders.json"`,
+      `  copy_if_present "${GEMINI_MCP_SETTINGS_MOUNT}" "$HOME/.gemini/settings.json" "gemini mcp settings.json"`,
       "fi",
       "if [ \"$1\" = \"claude\" ]; then",
       `  if [ -f "${CLAUDE_CODE_CREDENTIALS_MOUNT}/.credentials.json" ]; then cp -f "${CLAUDE_CODE_CREDENTIALS_MOUNT}/.credentials.json" "$HOME/.claude/.credentials.json"; fi`,
       `  if [ -f "${CLAUDE_CODE_AUTH_JSON_MOUNT}" ]; then cp -f "${CLAUDE_CODE_AUTH_JSON_MOUNT}" "$HOME/.claude.json"; fi`,
       "fi",
+      `copy_if_present "${CODEX_MCP_CONFIG_MOUNT}" "$HOME/.codex/config.toml" "codex mcp config"`,
     ].join("\n");
   }
 

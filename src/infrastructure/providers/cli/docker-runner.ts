@@ -20,6 +20,11 @@ import { DockerCredentialMountBuilder } from "./docker-credential-mount-builder.
 import { DockerSetupImageCache } from "./docker-setup-image-cache.js";
 import { WorkspaceManager } from "./workspace-manager.js";
 import { getHomeSprintOsPath, getRepoSprintOsPath } from "../../../shared/config/sprint-os-paths.js";
+import {
+  CLAUDE_CODE_MCP_CONFIG_MOUNT,
+  CODEX_MCP_CONFIG_MOUNT,
+  GEMINI_MCP_SETTINGS_MOUNT,
+} from "./docker-bootstrap-builder.js";
 
 const BUNDLED_CONTAINER_SETUP_SCRIPT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -314,7 +319,7 @@ export class DockerRunner implements IDockerRunner {
           },
         },
       }, null, 2));
-      return [{ source: filePath, destination: pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".sprint-os-home", ".mcp.json"), readonly: true }];
+      return [{ source: filePath, destination: CLAUDE_CODE_MCP_CONFIG_MOUNT, readonly: true }];
     }
 
     if (provider === "gemini") {
@@ -327,7 +332,7 @@ export class DockerRunner implements IDockerRunner {
           },
         },
       }, null, 2));
-      return [{ source: filePath, destination: pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".sprint-os-home", ".gemini", "settings.json"), readonly: true }];
+      return [{ source: filePath, destination: GEMINI_MCP_SETTINGS_MOUNT, readonly: true }];
     }
 
     const filePath = path.join(tempRoot, "codex-config.toml");
@@ -336,7 +341,7 @@ export class DockerRunner implements IDockerRunner {
       lines.push(`http_headers = { "Authorization" = "Bearer ${conn.authToken}" }`);
     }
     await fs.writeFile(filePath, lines.join("\n") + "\n");
-    return [{ source: filePath, destination: pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".sprint-os-home", ".codex", "config.toml"), readonly: true }];
+    return [{ source: filePath, destination: CODEX_MCP_CONFIG_MOUNT, readonly: true }];
   }
 
   private resolveWorkspace(cwd: string): { volumeName: string } {

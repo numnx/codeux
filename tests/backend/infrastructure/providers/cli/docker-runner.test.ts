@@ -7,6 +7,9 @@ vi.mock("../../../../../src/services/cli-process-runner.js", () => ({
   runStreamingCommand: vi.fn(),
 }));
 vi.mock("../../../../../src/infrastructure/providers/cli/docker-bootstrap-builder.js", () => ({
+  CLAUDE_CODE_MCP_CONFIG_MOUNT: "/opt/provider-config/claude-mcp.json",
+  GEMINI_MCP_SETTINGS_MOUNT: "/opt/provider-config/gemini-settings.json",
+  CODEX_MCP_CONFIG_MOUNT: "/opt/provider-config/codex-config.toml",
   DockerBootstrapBuilder: vi.fn().mockImplementation(function DockerBootstrapBuilder() {
     return {
     build: vi.fn(() => "bootstrap"),
@@ -113,5 +116,37 @@ describe("DockerRunner", () => {
     const dockerArgs = vi.mocked(runStreamingCommand).mock.calls[0]?.[1] as string[];
     expect(dockerArgs.some((arg) => arg.includes("type=volume") && arg.includes("source=workspace-1"))).toBe(true);
     expect(dockerArgs).toContain("HOME=/workspace/.sprint-os-home");
+  });
+
+  it("stages generated Gemini MCP config outside runtime home and copies it during bootstrap", async () => {
+    await runner.runProviderInDocker({
+      command: "gemini",
+      args: ["--prompt", "plan"],
+      cwd: "docker-volume://workspace-1",
+      providerEnv: {},
+      sessionId: "session-1",
+      providerLabel: "gemini",
+      workflowSettings: {
+        executionMode: "DOCKER",
+        containerImage: "node:24",
+        containerSetupScriptPath: "",
+        containerCacheSetupScriptImage: false,
+      } as any,
+      repoPath: "/repo/project",
+      onActivity: vi.fn(),
+      mcpConnection: {
+        url: "http://127.0.0.1:3000/mcp",
+        authToken: "secret",
+      },
+    });
+
+    const dockerArgs = vi.mocked(runStreamingCommand).mock.calls[0]?.[1] as string[];
+    expect(dockerArgs).toEqual(expect.arrayContaining([
+      "--mount",
+      expect.stringContaining("target=/opt/provider-config/gemini-settings.json"),
+    ]));
+    expect(dockerArgs).not.toEqual(expect.arrayContaining([
+      expect.stringContaining("target=/workspace/.sprint-os-home/.gemini/settings.json"),
+    ]));
   });
 });
