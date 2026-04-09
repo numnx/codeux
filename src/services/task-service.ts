@@ -12,6 +12,7 @@ import type { CliWorkflowService } from "./cli-workflow-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import { buildTaskRunTag } from "./task-run-key.js";
 import type { Logger } from "../shared/logging/logger.js";
+import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
 
 export interface TaskServiceDependencies {
   julesApi: JulesApiClient;
@@ -33,6 +34,25 @@ export interface TaskAgentSessionArgs {
 
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
+
+  private async syncRemoteBranchesIfNeeded(
+    repoPath: string,
+    branch: string | undefined,
+    scope?: DashboardSettingsScope,
+  ): Promise<void> {
+    const settings = this.deps.getDashboardSettings(scope);
+    if (settings.git.githubMode !== "REMOTE") {
+      return;
+    }
+
+    try {
+      await fetchOriginIfAvailable(repoPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const branchLabel = branch?.trim() || settings.git.defaultBranch || "the requested branch";
+      throw new Error(`Failed to refresh origin before starting work from ${branchLabel}: ${message}`);
+    }
+  }
 
   resolveInvocationProvider(
     invocation: InvocationRoutingId,
@@ -108,6 +128,8 @@ export class TaskService {
   }
 
   async createTaskAgentSession(args: TaskAgentSessionArgs): Promise<JulesSession> {
+    await this.syncRemoteBranchesIfNeeded(args.repo_path, args.branch);
+
     const pseudoTask: Subtask = {
       id: `adhoc-${Date.now().toString(36)}`,
       title: args.title || "Adhoc Task",
@@ -172,6 +194,8 @@ export class TaskService {
     dispatchId?: string,
     taskRunId?: string,
   ): Promise<JulesSession> {
+    await this.syncRemoteBranchesIfNeeded(repoPath, baseBranch, settingsScope);
+
     // Respect task.provider if already set (e.g. from a rerun with provider override)
     const route = this.resolveInvocationProvider("task_coding", task, { scope: settingsScope });
     const provider = task.provider || route.provider;

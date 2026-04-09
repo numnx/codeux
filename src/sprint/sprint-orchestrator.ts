@@ -6,6 +6,7 @@ import {
   DEFAULT_SPRINT_LOOP_STEP_SETTINGS,
 } from "./sprint-orchestrator-defaults.js";
 import { prepareBranchForOrchestration, runBranchPreflightStep } from "./steps/branch-preflight-step.js";
+import { fetchOriginIfAvailable } from "../services/git-branch-sync-service.js";
 import type { SprintAgentArgs } from "./sprint-types.js";
 import type {
   AutomationInterventionsSettings,
@@ -466,6 +467,36 @@ export class SprintOrchestrator {
     }
 
     if (loopSteps.branchPreflight && (args.action === "plan" || args.action === "orchestrate")) {
+      if (githubMode === "REMOTE") {
+        try {
+          await fetchOriginIfAvailable(repoPath);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const branchBlocker = [
+            "Branch preparation blocked",
+            "",
+            `Sprint OS could not refresh origin before checking \`${defaultBranch}\` and \`${defaultFeatureBranch}\`.`,
+            "",
+            `Fetch error: ${message}`,
+            "",
+            "What to do now",
+            "Check git authentication, remote connectivity, and local branch state, then resume the sprint.",
+          ].join("\n");
+          this.recordBlockedSprintRun({
+            action: args.action,
+            projectId: executionContext.project.id,
+            sprintId: executionContext.sprint.id,
+            eventType: "branch_preflight_blocked",
+            payload: {
+              featureBranch: defaultFeatureBranch,
+              defaultBranch,
+              fetchError: message,
+            },
+          });
+          return { content: [{ type: "text", text: branchBlocker }] };
+        }
+      }
+
       const branchAvailability = args.action === "orchestrate"
         ? await prepareBranchForOrchestration(repoPath, defaultFeatureBranch, defaultBranch)
         : await runBranchPreflightStep(repoPath, defaultFeatureBranch);

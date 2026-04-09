@@ -51,17 +51,19 @@ const hasRemoteOrigin = async (repoPath: string): Promise<boolean> => {
 
 const createLocalBranch = async (repoPath: string, branch: string, defaultBranch: string): Promise<boolean> => {
   try {
+    const hasRemoteDefaultBranch = await commandRunner.run("git", ["show-ref", "--verify", `refs/remotes/origin/${defaultBranch}`], { cwd: repoPath });
+    if (hasRemoteDefaultBranch.ok) {
+      const result = await commandRunner.run("git", ["branch", branch, `origin/${defaultBranch}`], { cwd: repoPath });
+      return result.ok;
+    }
+
     const hasLocalDefaultBranch = await commandRunner.run("git", ["show-ref", "--verify", `refs/heads/${defaultBranch}`], { cwd: repoPath });
     if (hasLocalDefaultBranch.ok) {
       const result = await commandRunner.run("git", ["branch", branch, defaultBranch], { cwd: repoPath });
       return result.ok;
     }
 
-    const hasRemoteDefaultBranch = await commandRunner.run("git", ["show-ref", "--verify", `refs/remotes/origin/${defaultBranch}`], { cwd: repoPath });
-    const result = hasRemoteDefaultBranch.ok
-      ? await commandRunner.run("git", ["branch", branch, `origin/${defaultBranch}`], { cwd: repoPath })
-      : await commandRunner.run("git", ["branch", branch], { cwd: repoPath });
-    return result.ok;
+    return (await commandRunner.run("git", ["branch", branch], { cwd: repoPath })).ok;
   } catch {
     return false;
   }

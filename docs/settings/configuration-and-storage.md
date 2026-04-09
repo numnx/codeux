@@ -61,6 +61,9 @@ Runtime resolution:
   3. Project metadata `defaultBranch` field (Database)
   4. System setting default (Dashboard)
   5. Hardcoded default (`main`)
+- In remote git mode, Sprint OS refreshes `origin` before sprint branch preflight and before each task start so branch resolution is based on current remote state instead of stale local refs.
+- When Sprint OS has to create a missing feature branch, it prefers `origin/<defaultBranch>` over the local `<defaultBranch>` ref when the remote-tracking base branch exists.
+- `main` is only the final fallback when no sprint, project, or system base branch is configured. Normal sprint and task flows use the resolved `git.defaultBranch` value from settings and project metadata.
 - the old global `/api/settings` contract is removed in favor of explicit scoped endpoints
 
 ## Persisted Scoped Settings Model
