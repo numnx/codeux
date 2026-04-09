@@ -5,6 +5,7 @@ import { buildMockSubtask } from "../../builders/subtask-builder.js";
 
 const buildDeps = () => ({
   renderInstruction: vi.fn().mockResolvedValue("instruction"),
+  sleep: vi.fn().mockResolvedValue(undefined),
   updateLastStatus: vi.fn(),
   getDashboardSettings: () => buildMockSettings(),
   completedSprints: new Set<string>(),

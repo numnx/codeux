@@ -230,82 +230,13 @@ export interface DashboardServerHandle {
   server: Server;
 }
 
-const bindDashboardServer = async (
-  app: Express,
-  startPort: number,
-  logger: Logger
-): Promise<DashboardServerHandle> => {
-  const host = (process.env.DASHBOARD_HOST || "127.0.0.1").trim() || "127.0.0.1";
-  let port = Math.max(1, Math.min(65535, Math.round(startPort)));
-
-  while (port <= 65535) {
-    try {
-      const server = await new Promise<Server>((resolve, reject) => {
-        const listeningServer = createServer(app);
-        listeningServer.listen(port, host, () => resolve(listeningServer));
-        listeningServer.on("error", reject);
-      });
-      return { port, server };
-    } catch (error) {
-      const message = error as NodeJS.ErrnoException;
-      if (message.code !== "EADDRINUSE") {
-        throw error;
-      }
-      logger.warn("Dashboard port in use. Trying next port.", {
-        attemptedPort: port,
-        nextPort: port + 1,
-      });
-      port += 1;
-    }
-  }
-
-  throw new Error("No available dashboard port found in range 1-65535.");
-};
-
-export const setupDashboardServer = async (options: DashboardServerOptions): Promise<DashboardServerHandle> => {
+export const configureDashboardApp = (options: DashboardServerOptions): Logger => {
   const {
     app,
     dashboardDir,
-    port,
     liveActivityCacheMs,
-    getStatus,
-    getLiveActivities,
-    getGitStatus,
-    getExternalSettingsHints,
-    getSystemSettings,
-    saveSystemSettings,
-    resetDatabase,
-    getProjectSettings,
-    saveProjectSettings,
-    resetProjectSettings,
-    getProjectEffectiveSettings,
-    getSprintSettings,
-    saveSprintSettings,
-    resetSprintSettings,
-    getSprintEffectiveSettings,
-    rerunTask,
-    orchestrateSprint,
-    improveSprintPrompt,
-    planSprint,
-    pauseSprintRun,
-    cancelSprintRun,
-    forceCancelSprintRun,
-    cancelTaskDispatch,
-    forceCancelTaskDispatch,
-    retryTaskDispatch,
     logger,
     isReady,
-    listDockerContainers,
-    listSprintPreviewSessions,
-    getSprintPreviewSession,
-    startSprintPreviewSession,
-    rebuildSprintPreviewSession,
-    stopSprintPreviewSession,
-    removeSprintPreviewSession,
-    getSprintPreviewScript,
-    saveSprintPreviewScript,
-    getSprintPreviewLogs,
-    proxySprintPreviewRequest,
   } = options;
 
   const dashboardLogger = logger ?? createLogger({ bindings: { component: "dashboard-server" } });
@@ -325,7 +256,6 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
   });
 
   app.use(createPreviewHostMiddleware(options));
-
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (req, res) => {
@@ -346,12 +276,6 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     }
   });
 
-
-
-
-
-
-
   const deps: DashboardDependencies = options;
   registerProjectRoutes(app, deps);
   registerSprintRoutes(app, deps);
@@ -367,17 +291,12 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
   registerExecutionInvocationRoutes(app, deps);
   registerQuicksprintRoutes(app, deps);
 
-
   app.get("/favicon.ico", (req, res) => res.status(204).end());
 
   const builtDashboardDir = path.join(path.resolve(dashboardDir), "dist");
   const staticDir = fs.existsSync(builtDashboardDir) ? builtDashboardDir : path.resolve(dashboardDir);
-  
-  // 1. Serve static files (JS, CSS, etc.) first
-  app.use(express.static(staticDir));
 
-  // 2. SPA Fallback: For any GET request that isn't for an API and doesn't have an extension,
-  // serve the index.html to allow client-side routing (TanStack Router) to take over.
+  app.use(express.static(staticDir));
   app.use((req, res, next) => {
     const isGet = req.method === "GET";
     const isApi = req.path.startsWith("/api/") || req.path.startsWith("/health") || req.path.startsWith("/ready");
@@ -388,7 +307,6 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       const indexPath = path.join(path.resolve(staticDir), "index.html");
       res.sendFile(indexPath, (err: any) => {
         if (err) {
-          // If the file is simply not found, pass to the next middleware (usually resulting in a 404).
           if ((err as any).code === "ENOENT" || (err as any).status === 404) {
             next();
           } else {
@@ -401,6 +319,78 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     next();
   });
 
+  return dashboardLogger;
+};
+
+const listenDashboardServer = async (
+  app: Express,
+  host: string,
+  port: number
+): Promise<DashboardServerHandle> => {
+  const server = await new Promise<Server>((resolve, reject) => {
+    const listeningServer = createServer(app);
+    if (typeof (listeningServer as Partial<Server>).once === "function") {
+      listeningServer.once("error", reject);
+    } else {
+      listeningServer.on("error", reject);
+    }
+    listeningServer.listen(port, host, () => resolve(listeningServer));
+  });
+
+  const address = typeof server.address === "function" ? server.address() : null;
+  if (!address || typeof address === "string") {
+    if (port === 0) {
+      throw new Error("Dashboard server did not bind to a TCP port.");
+    }
+    return { port, server };
+  }
+
+  return { port: address.port, server };
+};
+
+const bindDashboardServer = async (
+  app: Express,
+  startPort: number,
+  logger: Logger
+): Promise<DashboardServerHandle> => {
+  const host = (process.env.DASHBOARD_HOST || "127.0.0.1").trim() || "127.0.0.1";
+  const roundedPort = Math.round(startPort);
+  const initialPort = Number.isFinite(roundedPort)
+    ? Math.max(0, Math.min(65535, roundedPort))
+    : 1;
+
+  if (initialPort === 0) {
+    return await listenDashboardServer(app, host, 0);
+  }
+
+  let port = initialPort;
+
+  while (port <= 65535) {
+    try {
+      return await listenDashboardServer(app, host, port);
+    } catch (error) {
+      const message = error as NodeJS.ErrnoException;
+      if (message.code !== "EADDRINUSE") {
+        throw error;
+      }
+      logger.warn("Dashboard port in use. Trying next port.", {
+        attemptedPort: port,
+        nextPort: port + 1,
+      });
+      port += 1;
+    }
+  }
+
+  throw new Error("No available dashboard port found in range 1-65535.");
+};
+
+export const setupDashboardServer = async (options: DashboardServerOptions): Promise<DashboardServerHandle> => {
+  const {
+    app,
+    port,
+    getSprintPreviewSession,
+  } = options;
+  const dashboardLogger = configureDashboardApp(options);
   const handle = await bindDashboardServer(app, port, dashboardLogger);
 
   handle.server.on("upgrade", (req, socket, head) => {
@@ -445,4 +435,3 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
 
   return handle;
 };
-

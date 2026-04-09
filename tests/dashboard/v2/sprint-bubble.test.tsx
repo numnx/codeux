@@ -2,7 +2,7 @@ import { cleanup } from "@testing-library/preact";
 import { afterEach } from "vitest";
 afterEach(() => { cleanup(); });
 /** @jsx h */
-/** @vitest-environment jsdom */
+/** @vitest-environment happy-dom */
 import { h } from "preact";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";

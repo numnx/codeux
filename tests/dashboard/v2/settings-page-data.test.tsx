@@ -1,4 +1,4 @@
-/** @vitest-environment jsdom */
+/** @vitest-environment happy-dom */
 /** @jsx h */
 /** @jsxFrag Fragment */
 import { h, Fragment } from "preact";
@@ -12,6 +12,88 @@ import { fetchAgentPresets } from "../../../dashboard/src/v2/lib/agent-preset-ap
 import { fetchExternalSettingsHints } from "../../../dashboard/src/lib/api/dashboard-api.js";
 
 expect.extend(matchers);
+
+vi.mock("gsap", () => ({
+  default: {
+    context: (callback: () => void) => {
+      callback();
+      return { revert: vi.fn() };
+    },
+    fromTo: vi.fn(),
+    set: vi.fn(),
+    to: vi.fn((_: unknown, options?: { onComplete?: () => void }) => {
+      options?.onComplete?.();
+    }),
+  },
+}));
+
+vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: () => true,
+}));
+
+vi.mock("../../../dashboard/src/v2/components/settings/SettingsCategoryRail.js", () => {
+  const icon = () => null;
+  const categories = [
+    { id: "general", num: "01", label: "General", icon, description: "General settings" },
+    { id: "agents", num: "06", label: "Agents", icon, description: "Agent settings" },
+  ];
+
+  return {
+    CATEGORIES: categories,
+    CATEGORY_SEARCH_HINTS: {
+      general: ["general"],
+      agents: ["agents"],
+    },
+    SettingsCategoryRail: ({
+      filteredCategories,
+      onSwitchCategory,
+    }: {
+      filteredCategories: Array<{ id: string; label: string }>;
+      onSwitchCategory: (categoryId: "general" | "agents") => void;
+    }) => (
+      <div>
+        {filteredCategories.map((category) => (
+          <button key={category.id} type="button" onClick={() => onSwitchCategory(category.id as "general" | "agents")}>
+            {category.label}
+          </button>
+        ))}
+      </div>
+    ),
+  };
+});
+
+vi.mock("../../../dashboard/src/v2/components/settings/SettingsContentPanels.js", () => ({
+  SettingsContentPanels: ({
+    state,
+  }: {
+    state: { activeCategory: string; updateEditableSettings: (recipe: (current: any) => any) => void };
+  }) => {
+    if (state.activeCategory === "agents") {
+      return (
+        <section>
+          <div>Quality Assurance</div>
+          <div>Enable QA agent</div>
+          <div>QA is disabled. Enable it to review completed tasks, gate sprint completion, and inspect completed tasks that do not yet have a PR.</div>
+        </section>
+      );
+    }
+
+    return (
+      <section>
+        <div>{state.activeCategory}</div>
+        <button
+          type="button"
+          onClick={() => state.updateEditableSettings((current) => ({
+            ...current,
+            automationLevel: current.automationLevel === "high" ? "low" : "high",
+          }))}
+        >
+          Mutate setting
+        </button>
+      </section>
+    );
+  },
+}));
 
 vi.mock("../../../dashboard/src/v2/context/project-data.js", () => {
   return {
@@ -167,6 +249,8 @@ describe("SettingsPage data interactions", () => {
     await waitFor(() => {
       expect(fetchProjectEffectiveSettings).toHaveBeenCalledWith("proj-1");
     });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Mutate setting" })[0]!);
 
     // Save project settings
     const saveBtns = screen.getAllByRole("button", { name: /Save changes/i });

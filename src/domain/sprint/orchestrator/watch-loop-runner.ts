@@ -53,6 +53,14 @@ export class WatchLoopRunner {
     }) => Promise<MergeFeedbackResult>
   ) {}
 
+  private async sleep(ms: number): Promise<void> {
+    if (typeof this.deps.sleep === "function") {
+      await this.deps.sleep(ms);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async run(params: WatchLoopRunnerArgs): Promise<string> {
     const {
       args,
@@ -211,7 +219,7 @@ export class WatchLoopRunner {
             });
             checkpointWindowStartedAt = Date.now();
             allFinished = false;
-            await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
+            await this.sleep(watchLoopIntervalMs);
             break;
           }
           fullReport += "\n✅ **Sprint Execution Finished.**\n";
@@ -225,7 +233,7 @@ export class WatchLoopRunner {
             leaseToken,
           });
           checkpointWindowStartedAt = Date.now();
-          await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
+          await this.sleep(watchLoopIntervalMs);
           break;
         }
 
@@ -239,7 +247,7 @@ export class WatchLoopRunner {
             sprintId: scopedExecutionContext.sprint.id,
             leaseToken,
           });
-          await new Promise((resolve) => setTimeout(resolve, watchLoopIntervalMs));
+          await this.sleep(watchLoopIntervalMs);
           break;
         }
       }

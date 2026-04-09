@@ -96,6 +96,7 @@ export interface SprintOrchestratorDependencies {
     body: string;
   }) => Promise<ResolvePullRequestResult | null>;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
+  sleep?: (ms: number) => Promise<void>;
   logger: Logger;
   memoryService?: MemoryService;
   memoryPromotionService?: MemoryPromotionService;

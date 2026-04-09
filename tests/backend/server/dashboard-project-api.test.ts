@@ -1,10 +1,10 @@
 import express from "express";
+import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Server } from "http";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import { setupDashboardServer } from "../../../src/server/dashboard-server.js";
+import { configureDashboardApp } from "../../../src/server/dashboard-server.js";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { ProjectRuntimeRepository } from "../../../src/repositories/project-runtime-repository.js";
@@ -21,8 +21,12 @@ import { ProjectAttentionService } from "../../../src/domain/workers/project-att
 import { ProjectWorkerAssignmentService } from "../../../src/domain/workers/project-worker-assignment-service.js";
 import type { McpConnectionRecord } from "../../../src/contracts/connection-chat-types.js";
 
-const serversToClose: Server[] = [];
 const tempDirs: string[] = [];
+
+type TestFetchResponse = {
+  status: number;
+  json: () => Promise<unknown>;
+};
 
 const mapExecutionConnections = (connections: McpConnectionRecord[]) => (
   connections.map((connection) => ({
@@ -104,41 +108,18 @@ const mapAttentionItems = (projectAttentionRepository: ProjectAttentionRepositor
   }))
 );
 
-const closeServer = async (server: Server): Promise<void> => {
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error && error.message !== "Server is not running.") reject(error);
-      else resolve();
-    });
-  });
-};
-
-const DASHBOARD_PORT_RANGE_START = 41000;
-const DASHBOARD_PORT_RANGE_END = 46000;
-let nextDashboardPort = DASHBOARD_PORT_RANGE_START + ((process.pid % 997) % (DASHBOARD_PORT_RANGE_END - DASHBOARD_PORT_RANGE_START));
-
-const allocateDashboardPort = (): number => {
-  const port = nextDashboardPort;
-  nextDashboardPort += 17;
-  if (nextDashboardPort > DASHBOARD_PORT_RANGE_END) {
-    nextDashboardPort = DASHBOARD_PORT_RANGE_START;
-  }
-  return port;
-};
-
 afterEach(async () => {
-  while (serversToClose.length > 0) {
-    const server = serversToClose.pop();
-    if (server) {
-      await closeServer(server);
-    }
-  }
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
 async function createServerHandle(): Promise<{
   dir: string;
-  port: number;
+  fetch: (input: string, init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    signal?: AbortSignal;
+  }) => Promise<TestFetchResponse>;
   storage: AppDbStorage;
   repository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
@@ -194,11 +175,10 @@ async function createServerHandle(): Promise<{
   };
 
   const app = express();
-  const port = allocateDashboardPort();
-  const handle = await setupDashboardServer({
+  configureDashboardApp({
     app,
     dashboardDir: "dashboard",
-    port,
+    port: 0,
     liveActivityCacheMs: 1000,
     getStatus: () => runtimeRepository.getSelectedProjectStatus(),
     getExecutionSnapshot: () => {
@@ -401,11 +381,53 @@ async function createServerHandle(): Promise<{
       return { ok: true, invocationId: "invocation-2", agentId: "agent-2", createdTaskIds: ["task-1"], started: options.autoStart };
     },
   });
-  serversToClose.push(handle.server);
+
+  const fetch = async (
+    input: string,
+    init?: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+      signal?: AbortSignal;
+    },
+  ): Promise<TestFetchResponse> => {
+    if (init?.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+    await Promise.resolve();
+    if (init?.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
+    const url = new URL(input, "http://127.0.0.1");
+    const method = (init?.method || "GET").toUpperCase();
+    let req = request(app)[method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete"](url.pathname + url.search);
+
+    if (init?.headers) {
+      for (const [name, value] of Object.entries(init.headers)) {
+        req = req.set(name, value);
+      }
+    }
+
+    if (typeof init?.body === "string") {
+      const contentType = init.headers?.["Content-Type"] || init.headers?.["content-type"] || "";
+      if (contentType.toLowerCase().includes("application/json")) {
+        req = req.send(JSON.parse(init.body));
+      } else {
+        req = req.send(init.body);
+      }
+    }
+
+    const response = await req;
+    return {
+      status: response.status,
+      json: async () => response.body,
+    };
+  };
 
   return {
     dir,
-    port: handle.port,
+    fetch,
     storage,
     repository,
     executionRepository,
@@ -424,8 +446,8 @@ async function createServerHandle(): Promise<{
 describe("dashboard project management API", () => {
 
   it("supports optional sprint review summaries in API listSprints", async () => {
-    const { port, storage } = await createServerHandle();
-    const baseUrl = `http://localhost:${port}`;
+    const { fetch, storage } = await createServerHandle();
+    const baseUrl = "http://127.0.0.1";
 
     const projectResponse = await fetch(`${baseUrl}/api/projects`, {
       method: "POST",
@@ -484,7 +506,7 @@ describe("dashboard project management API", () => {
   it("creates and queries DB-backed projects, sprints, tasks, and markdown export", async () => {
     const {
       dir,
-      port,
+      fetch,
       runtimeRepository,
       controlCalls,
       connectionRepository,
@@ -494,7 +516,7 @@ describe("dashboard project management API", () => {
       executionRepository,
       repository,
     } = await createServerHandle();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const baseUrl = "http://127.0.0.1";
     const projectSourceRef = path.join(dir, "workspace", "dashboard-api-project");
 
     const projectResponse = await fetch(`${baseUrl}/api/projects`, {
@@ -1155,8 +1177,8 @@ describe("dashboard project management API", () => {
   });
 
   it("supports planning prompt improvement and task generation with overrides and replanning", async () => {
-    const { dir, port, repository } = await createServerHandle();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const { dir, fetch, repository } = await createServerHandle();
+    const baseUrl = "http://127.0.0.1";
     const project = repository.createProject({
       name: "Planning API Project",
       sourceType: "local",
@@ -1203,8 +1225,8 @@ describe("dashboard project management API", () => {
   });
 
   it("aborted improve and plan requests do not leave behind tasks or break subsequent calls", async () => {
-    const { port, repository } = await createServerHandle();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const { fetch, repository } = await createServerHandle();
+    const baseUrl = "http://127.0.0.1";
     const project = repository.createProject({
       name: "Abort API Project",
       sourceType: "local",
@@ -1270,13 +1292,13 @@ describe("dashboard project management API", () => {
 
   it("promotes and clears a preferred worker through the project API while keeping execution snapshots consistent", async () => {
     const {
-      port,
+      fetch,
       repository,
       connectionRepository,
       workerEndpointRepository,
       projectWorkerAssignmentService,
     } = await createServerHandle();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const baseUrl = "http://127.0.0.1";
     const projectA = repository.createProject({
       name: "Preferred Worker API Project A",
       sourceType: "local",
@@ -1402,11 +1424,11 @@ describe("dashboard project management API", () => {
 
   it("rejects invalid preferred worker selections through the project API", async () => {
     const {
-      port,
+      fetch,
       repository,
       connectionRepository,
     } = await createServerHandle();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const baseUrl = "http://127.0.0.1";
     const project = repository.createProject({
       name: "Preferred Worker Validation Project",
       sourceType: "local",
