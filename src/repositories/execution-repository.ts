@@ -1179,21 +1179,8 @@ export class ExecutionRepository {
   }
 
   listWorkerProjectAffinity(connectionId: string): string[] {
-    const rows = this.db.prepare(`
-      SELECT
-        project_id,
-        SUM(CASE WHEN status IN ('claimed', 'running', 'cancel_requested') THEN 1 ELSE 0 END) AS active_count,
-        MAX(COALESCE(last_heartbeat_at, started_at, claimed_at, queued_at, created_at)) AS last_seen_at
-      FROM task_dispatches
-      WHERE connection_id = ?
-        AND executor_type = 'mcp_worker'
-      GROUP BY project_id
-      ORDER BY active_count DESC, last_seen_at DESC, project_id ASC
-    `).all(connectionId) as unknown as WorkerProjectAffinityRow[];
-
-    return rows
-      .map((row) => String(row.project_id || "").trim())
-      .filter(Boolean);
+    void connectionId;
+    return [];
   }
 
   acquireLease(input: AcquireExecutionLeaseInput): ExecutionLeaseRecord {

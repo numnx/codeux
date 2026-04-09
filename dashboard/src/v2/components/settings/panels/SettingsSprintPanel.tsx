@@ -73,7 +73,7 @@ import { ExternalLink } from "lucide-preact";
               }))}
             />
           </Row>
-          <Row label="Resolve main merge conflicts" description="Escalate `feature -> main` merge conflicts to the connected worker with sprint context." badge={getFieldBadge("ciIntelligence.resolveMainMergeConflicts")}>
+          <Row label="Resolve main merge conflicts" description="Escalate `feature -> main` merge conflicts to the virtual worker with sprint context." badge={getFieldBadge("ciIntelligence.resolveMainMergeConflicts")}>
             <Toggle
               value={editableSettings.ciIntelligence.resolveMainMergeConflicts}
               onChange={() => updateEditableSettings((current) => ({
@@ -112,7 +112,7 @@ import { ExternalLink } from "lucide-preact";
         </SectionCard>
 
         <SectionCard title="Autofix Policy" watermark="FIX" badge={getBadge("ciIntelligence")}>
-          <Row label="Resolve feature merge conflicts" description="Escalate feature-branch merge conflicts to the connected worker with full branch and task context." badge={getFieldBadge("ciIntelligence.resolveMergeConflicts")}>
+          <Row label="Resolve feature merge conflicts" description="Escalate feature-branch merge conflicts to the virtual worker with full branch and task context." badge={getFieldBadge("ciIntelligence.resolveMergeConflicts")}>
             <Toggle
               value={editableSettings.ciIntelligence.resolveMergeConflicts}
               onChange={() => updateEditableSettings((current) => ({

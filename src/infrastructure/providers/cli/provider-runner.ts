@@ -5,6 +5,7 @@ import type { IDockerRunner } from "./docker-runner.js";
 import { isDockerWorkspaceMountError } from "../../../services/cli-docker-utils.js";
 import * as fs from "fs/promises";
 import * as path from "path";
+import * as pathPosix from "path/posix";
 import { randomUUID } from "crypto";
 import { getRepoSprintOsPath } from "../../../shared/config/sprint-os-paths.js";
 import { collectProviderUsageTelemetry, type ProviderUsageTelemetry } from "./provider-usage.js";
@@ -64,26 +65,54 @@ export class ProviderRunner implements IProviderRunner {
   constructor(private readonly dockerRunner: IDockerRunner) { }
 
   async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
-    return await this.runProviderInternal(input);
+    const prepared = input.workflowSettings.executionMode === "DOCKER"
+      ? await this.dockerRunner.ensureWorkspace({
+        cwd: input.cwd,
+        repoPath: input.repoPath,
+        sessionId: input.sessionId,
+      })
+      : { cwd: input.cwd, cleanup: async () => undefined };
+
+    try {
+      return await this.runProviderInternal({
+        ...input,
+        cwd: prepared.cwd,
+      });
+    } finally {
+      await prepared.cleanup();
+    }
   }
 
   async runProviderForText(input: ProviderRunInput): Promise<ProviderRunResult & { text: string }> {
+    const prepared = input.workflowSettings.executionMode === "DOCKER"
+      ? await this.dockerRunner.ensureWorkspace({
+        cwd: input.cwd,
+        repoPath: input.repoPath,
+        sessionId: input.sessionId,
+      })
+      : { cwd: input.cwd, cleanup: async () => undefined };
+
     const outputPath = input.provider === "codex"
-      ? path.join(getRepoSprintOsPath(input.repoPath, "tmp"), `provider-last-message-${input.sessionId}.txt`)
+      ? input.workflowSettings.executionMode === "DOCKER"
+        ? pathPosix.join("/workspace", ".sprint-os", "tmp", `provider-last-message-${input.sessionId}.txt`)
+        : path.join(getRepoSprintOsPath(input.repoPath, "tmp"), `provider-last-message-${input.sessionId}.txt`)
       : null;
 
-    if (outputPath) {
+    if (outputPath && !outputPath.startsWith("/workspace/")) {
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
     }
 
     try {
       const result = await this.runProviderInternal({
         ...input,
+        cwd: prepared.cwd,
         codexOutputPath: outputPath,
       });
 
       const capturedText = outputPath
-        ? (await fs.readFile(outputPath, "utf8").catch(() => "")).trim()
+        ? outputPath.startsWith("/workspace/")
+          ? ((await this.dockerRunner.readWorkspaceFile?.(prepared.cwd, outputPath).catch(() => null)) || "").trim()
+          : (await fs.readFile(outputPath, "utf8").catch(() => "")).trim()
         : "";
 
       return {
@@ -91,8 +120,11 @@ export class ProviderRunner implements IProviderRunner {
         text: capturedText || result.usageTelemetry.transcriptText || result.stdout || result.stderr,
       };
     } finally {
+      await prepared.cleanup();
       if (outputPath) {
-        await fs.rm(outputPath, { force: true }).catch(() => undefined);
+        if (!outputPath.startsWith("/workspace/")) {
+          await fs.rm(outputPath, { force: true }).catch(() => undefined);
+        }
       }
     }
   }

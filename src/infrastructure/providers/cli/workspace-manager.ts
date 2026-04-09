@@ -1,43 +1,85 @@
 import * as fs from "fs/promises";
+import * as os from "os";
 import * as path from "path";
+import * as pathPosix from "path/posix";
 import { createHash } from "crypto";
 import { sanitizeToken } from "../../../services/cli-workflow-utils.js";
 import { CliWorkflowSettings } from "../../../contracts/app-types.js";
-import { runCommandStrict } from "../../../services/cli-process-runner.js";
+import { CommandResult, runCommandStrict } from "../../../services/cli-process-runner.js";
 import { extractPathHints } from "../../../services/cli-workflow-text-utils.js";
-import { getHomeSprintOsPath, getRepoSprintOsPath } from "../../../shared/config/sprint-os-paths.js";
+
+const WORKSPACE_HANDLE_PREFIX = "docker-volume://";
+const CONTAINER_WORKSPACE_ROOT = "/workspace";
+const WORKSPACE_HELPER_IMAGE = "alpine/git";
+
+export interface WorkspaceCommandOptions {
+  env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
+}
 
 export interface IWorkspaceManager {
   buildWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): string;
+  createSnapshotWorkspace(repoPath: string, sessionId: string): Promise<string>;
   resolveResumeWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): Promise<string | undefined>;
   prepareWorktree(repoPath: string, worktreePath: string, workerBranch: string, featureBranch: string, resumeSessionId?: string): Promise<{ worktreePath: string; resumed: boolean }>;
   removeWorktree(repoPath: string, worktreePath: string): Promise<void>;
   buildWorkspaceGuidance(taskPrompt: string, worktreePath: string): Promise<string>;
+  runWorkspaceCommand(worktreePath: string, command: string, args: string[], options?: WorkspaceCommandOptions): Promise<CommandResult>;
+  readWorkspaceFile(worktreePath: string, relativePath: string): Promise<string | null>;
+  workspaceExists(worktreePath: string): Promise<boolean>;
+  getWorkspaceDirectory(worktreePath: string): string;
 }
+
+const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+
+const isWorkspaceHandle = (value: string): boolean => value.startsWith(WORKSPACE_HANDLE_PREFIX);
+
+const parseWorkspaceHandle = (value: string): { volumeName: string } => {
+  if (!isWorkspaceHandle(value)) {
+    throw new Error(`Unsupported workspace reference: ${value}`);
+  }
+  const volumeName = value.slice(WORKSPACE_HANDLE_PREFIX.length).trim();
+  if (!volumeName) {
+    throw new Error(`Missing Docker volume name in workspace reference: ${value}`);
+  }
+  return { volumeName };
+};
+
+const getWorkspaceOwnerSpec = (): string | undefined => {
+  const getUid = (process as NodeJS.Process & { getuid?: () => number }).getuid;
+  const getGid = (process as NodeJS.Process & { getgid?: () => number }).getgid;
+  if (!getUid || !getGid) {
+    return undefined;
+  }
+  return `${getUid()}:${getGid()}`;
+};
 
 export class WorkspaceManager implements IWorkspaceManager {
   private readonly repoLocks = new Map<string, Promise<void>>();
 
-  buildWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): string {
-    if (executionMode === "DOCKER") {
-      return getRepoSprintOsPath(repoPath, "worktrees", sanitizeToken(sessionId));
-    }
+  buildWorktreePath(repoPath: string, sessionId: string, _executionMode: CliWorkflowSettings["executionMode"]): string {
     const normalizedRepoPath = path.resolve(repoPath);
     const repoName = sanitizeToken(path.basename(normalizedRepoPath)) || "repo";
     const repoHash = createHash("sha256").update(normalizedRepoPath).digest("hex").slice(0, 12);
-    return getHomeSprintOsPath("worktrees", `${repoName}-${repoHash}`, sanitizeToken(sessionId));
+    const volumeName = `sprint-os-${repoName}-${repoHash}-${sanitizeToken(sessionId)}`;
+    return `${WORKSPACE_HANDLE_PREFIX}${volumeName}`;
+  }
+
+  async createSnapshotWorkspace(repoPath: string, sessionId: string): Promise<string> {
+    const workspaceRef = this.buildWorktreePath(repoPath, `${sessionId}-snapshot`, "DOCKER");
+    await this.removeWorktree(repoPath, workspaceRef).catch(() => undefined);
+    await this.createVolume(workspaceRef);
+    await this.seedWorkspaceFromBundle(repoPath, workspaceRef);
+    return workspaceRef;
   }
 
   async resolveResumeWorktreePath(
     repoPath: string,
     sessionId: string,
-    executionMode: CliWorkflowSettings["executionMode"]
+    executionMode: CliWorkflowSettings["executionMode"],
   ): Promise<string | undefined> {
-    const primary = this.buildWorktreePath(repoPath, sessionId, executionMode);
-    if (await this.pathExists(primary)) {
-      return primary;
-    }
-    return executionMode !== "DOCKER" ? primary : undefined;
+    const workspaceRef = this.buildWorktreePath(repoPath, sessionId, executionMode);
+    return await this.workspaceExists(workspaceRef) ? workspaceRef : undefined;
   }
 
   async prepareWorktree(
@@ -45,84 +87,57 @@ export class WorkspaceManager implements IWorkspaceManager {
     worktreePath: string,
     workerBranch: string,
     featureBranch: string,
-    resumeSessionId?: string
+    resumeSessionId?: string,
   ): Promise<{ worktreePath: string; resumed: boolean }> {
     let resumed = false;
-    let finalWorktreePath = worktreePath;
+    const workspaceRef = worktreePath;
 
     await this.withRepoLock(repoPath, async () => {
-      this.assertSafeWorktreePath(repoPath, finalWorktreePath, "prepare");
-      await fs.mkdir(path.dirname(finalWorktreePath), { recursive: true });
-      await runCommandStrict("git", ["worktree", "prune"], repoPath);
       try {
         await runCommandStrict("git", ["fetch", "origin"], repoPath);
       } catch {
-        // Fetch can fail when stale worktrees or dangling branch refs
-        // reference bad objects. Clean up and retry.
-        await this.repairStaleGitState(repoPath);
-        await runCommandStrict("git", ["fetch", "origin"], repoPath);
+        // continue with local refs when origin is unavailable
       }
 
-      if (resumeSessionId) {
-        const resumablePath = await this.resolveResumableWorktreePath(repoPath, workerBranch, finalWorktreePath);
-        if (resumablePath) {
-          finalWorktreePath = resumablePath;
-          resumed = true;
-          return;
-        }
+      if (resumeSessionId && await this.workspaceExists(workspaceRef) && await this.canResumeExistingWorkspace(workspaceRef, workerBranch)) {
+        resumed = true;
+        return;
       }
 
-      await this.removeWorktreeInternal(repoPath, finalWorktreePath);
-      // Remove any existing worktree that has the target branch checked out
-      // (e.g. from a previous failed merge attempt with a different session ID)
-      const existingWorktree = await this.findWorktreePathForBranch(repoPath, workerBranch);
-      if (existingWorktree) {
-        await this.removeWorktreeInternal(repoPath, existingWorktree);
-      }
-      await runCommandStrict("git", ["worktree", "prune"], repoPath);
+      await this.removeWorktree(repoPath, workspaceRef).catch(() => undefined);
+      await this.createVolume(workspaceRef);
+      await this.seedWorkspaceFromBundle(repoPath, workspaceRef);
+
       const startRef = await this.resolveWorktreeStartRef(repoPath, featureBranch);
-      await runCommandStrict(
-        "git",
-        ["worktree", "add", "--force", "-B", workerBranch, finalWorktreePath, startRef],
-        repoPath
-      );
+      await this.runWorkspaceCommand(workspaceRef, "git", ["checkout", "-B", workerBranch, startRef]);
     });
 
-    return { worktreePath: finalWorktreePath, resumed };
+    return { worktreePath: workspaceRef, resumed };
   }
 
-  async removeWorktree(repoPath: string, worktreePath: string): Promise<void> {
-    await this.withRepoLock(repoPath, async () => {
-      await this.removeWorktreeInternal(repoPath, worktreePath);
-    });
-  }
-
-  private async removeWorktreeInternal(repoPath: string, worktreePath: string): Promise<void> {
-    this.assertSafeWorktreePath(repoPath, worktreePath, "remove");
-    try {
-      await runCommandStrict("git", ["worktree", "remove", "--force", worktreePath], repoPath);
-    } catch {
-      // ignore
+  async removeWorktree(_repoPath: string, worktreePath: string): Promise<void> {
+    if (!await this.workspaceExists(worktreePath)) {
+      return;
     }
-    await fs.rm(worktreePath, { recursive: true, force: true });
+    const { volumeName } = parseWorkspaceHandle(worktreePath);
+    await runCommandStrict("docker", ["volume", "rm", "-f", volumeName], process.cwd()).catch(() => undefined);
   }
 
   async buildWorkspaceGuidance(taskPrompt: string, worktreePath: string): Promise<string> {
-    const repoRoot = (await runCommandStrict("git", ["rev-parse", "--show-toplevel"], worktreePath)).stdout.trim();
     const hints = extractPathHints(taskPrompt).slice(0, 10);
     const hintStatuses = await Promise.all(
       hints.map(async (hint) => {
-        const safePath = path.resolve(worktreePath, hint);
-        if (!safePath.startsWith(worktreePath)) {
+        const safePath = pathPosix.normalize(pathPosix.join(CONTAINER_WORKSPACE_ROOT, hint));
+        if (!safePath.startsWith(`${CONTAINER_WORKSPACE_ROOT}/`) && safePath !== CONTAINER_WORKSPACE_ROOT) {
           return `- ${hint}: outside-workspace`;
         }
-        try {
-          await fs.access(safePath);
-          return `- ${hint}: exists`;
-        } catch {
-          return `- ${hint}: not-found`;
-        }
-      })
+        const probe = await this.runWorkspaceCommand(
+          worktreePath,
+          "sh",
+          ["-lc", `if [ -e ${shellQuote(safePath)} ]; then echo exists; else echo not-found; fi`],
+        );
+        return `- ${hint}: ${probe.stdout.trim() || "not-found"}`;
+      }),
     );
 
     const hintSection = hintStatuses.length > 0
@@ -134,8 +149,8 @@ export class WorkspaceManager implements IWorkspaceManager {
 
     return [
       "## Workspace Context (Headless Session)",
-      `Repository root: ${repoRoot}`,
-      `Current working directory: ${worktreePath}`,
+      `Repository root: ${CONTAINER_WORKSPACE_ROOT}`,
+      `Current working directory: ${CONTAINER_WORKSPACE_ROOT}`,
       "",
       "Path safety requirements:",
       "- Before any read_file call, discover exact paths first (glob/grep/find).",
@@ -147,67 +162,113 @@ export class WorkspaceManager implements IWorkspaceManager {
     ].join("\n");
   }
 
-  private async pathExists(targetPath: string): Promise<boolean> {
+  async runWorkspaceCommand(
+    worktreePath: string,
+    command: string,
+    args: string[],
+    options: WorkspaceCommandOptions = {},
+  ): Promise<CommandResult> {
+    const { volumeName } = parseWorkspaceHandle(worktreePath);
+    const dockerArgs = [
+      "run",
+      "--rm",
+      "-i",
+      "--workdir",
+      CONTAINER_WORKSPACE_ROOT,
+      "--mount",
+      `type=volume,source=${volumeName},target=${CONTAINER_WORKSPACE_ROOT}`,
+      "--entrypoint",
+      command,
+      "-e",
+      `HOME=${CONTAINER_WORKSPACE_ROOT}/.sprint-os-home`,
+      WORKSPACE_HELPER_IMAGE,
+      ...args,
+    ];
+    return await runCommandStrict("docker", dockerArgs, process.cwd(), options.env ?? process.env, { signal: options.signal });
+  }
+
+  async readWorkspaceFile(worktreePath: string, relativePath: string): Promise<string | null> {
+    const normalized = pathPosix.normalize(pathPosix.join(CONTAINER_WORKSPACE_ROOT, relativePath));
+    if (!normalized.startsWith(`${CONTAINER_WORKSPACE_ROOT}/`)) {
+      return null;
+    }
     try {
-      await fs.access(targetPath);
+      const result = await this.runWorkspaceCommand(worktreePath, "cat", [normalized]);
+      return result.stdout;
+    } catch {
+      return null;
+    }
+  }
+
+  async workspaceExists(worktreePath: string): Promise<boolean> {
+    const { volumeName } = parseWorkspaceHandle(worktreePath);
+    try {
+      await runCommandStrict("docker", ["volume", "inspect", volumeName], process.cwd());
       return true;
     } catch {
       return false;
     }
   }
 
-  private async resolveResumableWorktreePath(repoPath: string, expectedBranch: string, preferredPath: string): Promise<string | undefined> {
-    if (this.isSafeWorktreePath(repoPath, preferredPath) && await this.canResumeExistingWorktree(preferredPath, expectedBranch)) {
-      return preferredPath;
-    }
-    const branchWorktreePath = await this.findWorktreePathForBranch(repoPath, expectedBranch);
-    if (branchWorktreePath && branchWorktreePath !== preferredPath) {
-      if (await this.canResumeExistingWorktree(branchWorktreePath, expectedBranch)) {
-        return branchWorktreePath;
-      }
-      await this.removeStaleWorktreeRegistration(repoPath, branchWorktreePath);
-    }
-    return undefined;
+  getWorkspaceDirectory(_worktreePath: string): string {
+    return CONTAINER_WORKSPACE_ROOT;
   }
 
-  private async canResumeExistingWorktree(worktreePath: string, expectedBranch: string): Promise<boolean> {
+  private async createVolume(worktreePath: string): Promise<void> {
+    const { volumeName } = parseWorkspaceHandle(worktreePath);
+    await runCommandStrict("docker", ["volume", "create", volumeName], process.cwd());
+  }
+
+  private async seedWorkspaceFromBundle(repoPath: string, worktreePath: string): Promise<void> {
+    const { volumeName } = parseWorkspaceHandle(worktreePath);
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-bundle-"));
+    const bundlePath = path.join(tempDir, "repo.bundle");
+    const originUrl = await this.resolveOriginUrl(repoPath);
+    const ownerSpec = getWorkspaceOwnerSpec();
+
     try {
-      await fs.access(worktreePath);
-      const result = await runCommandStrict("git", ["rev-parse", "--is-inside-work-tree"], worktreePath);
-      if (result.stdout.trim() !== "true") return false;
-      const currentBranch = (await runCommandStrict("git", ["rev-parse", "--abbrev-ref", "HEAD"], worktreePath)).stdout.trim();
-      if (currentBranch !== expectedBranch) {
-        await runCommandStrict("git", ["checkout", expectedBranch], worktreePath);
+      await runCommandStrict("git", ["bundle", "create", bundlePath, "--all"], repoPath);
+      const initScript = [
+        "set -e",
+        "tmp=$(mktemp)",
+        "cat > \"$tmp\"",
+        "rm -rf /workspace/* /workspace/.[!.]* /workspace/..?* 2>/dev/null || true",
+        "git clone \"$tmp\" /workspace >/dev/null",
+        "rm -f \"$tmp\"",
+        originUrl
+          ? `git -C /workspace remote set-url origin ${shellQuote(originUrl)}`
+          : "git -C /workspace remote remove origin >/dev/null 2>&1 || true",
+        "mkdir -p /workspace/.sprint-os-home",
+        ownerSpec ? `chown -R ${shellQuote(ownerSpec)} /workspace` : null,
+      ].filter((step): step is string => Boolean(step)).join(" && ");
+
+      await runCommandStrict(
+        "bash",
+        [
+          "-lc",
+          `cat ${shellQuote(bundlePath)} | docker run --rm -i --mount type=volume,source=${shellQuote(volumeName)},target=${shellQuote(CONTAINER_WORKSPACE_ROOT)} --entrypoint sh ${shellQuote(WORKSPACE_HELPER_IMAGE)} -lc ${shellQuote(initScript)}`,
+        ],
+        repoPath,
+      );
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
+  private async canResumeExistingWorkspace(worktreePath: string, expectedBranch: string): Promise<boolean> {
+    try {
+      const inside = await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "--is-inside-work-tree"]);
+      if (inside.stdout.trim() !== "true") {
+        return false;
+      }
+      const branch = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "--abbrev-ref", "HEAD"])).stdout.trim();
+      if (branch !== expectedBranch) {
+        await this.runWorkspaceCommand(worktreePath, "git", ["checkout", expectedBranch]);
       }
       return true;
     } catch {
       return false;
     }
-  }
-
-  private async findWorktreePathForBranch(repoPath: string, branch: string): Promise<string | undefined> {
-    const listing = await runCommandStrict("git", ["worktree", "list", "--porcelain"], repoPath);
-    const targetRef = `refs/heads/${branch}`;
-    const normalizedRepoPath = path.resolve(repoPath);
-    let currentPath: string | undefined;
-
-    for (const rawLine of listing.stdout.split("\n")) {
-      const line = rawLine.trim();
-      if (line.startsWith("worktree ")) {
-        currentPath = line.slice("worktree ".length).trim();
-        continue;
-      }
-      if (line.startsWith("branch ")) {
-        const ref = line.slice("branch ".length).trim();
-        if (ref === targetRef && currentPath) {
-          if (path.resolve(currentPath) !== normalizedRepoPath) {
-            return currentPath;
-          }
-        }
-      }
-      if (line.length === 0) currentPath = undefined;
-    }
-    return undefined;
   }
 
   private async resolveWorktreeStartRef(repoPath: string, branch: string): Promise<string> {
@@ -217,7 +278,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     if (await this.refExists(repoPath, `refs/heads/${branch}`)) {
       return branch;
     }
-    throw new Error(`Cannot prepare worktree: branch ${branch} does not exist locally or on origin.`);
+    throw new Error(`Cannot prepare isolated workspace: branch ${branch} does not exist locally or on origin.`);
   }
 
   private async refExists(repoPath: string, ref: string): Promise<boolean> {
@@ -229,103 +290,32 @@ export class WorkspaceManager implements IWorkspaceManager {
     }
   }
 
-  private async repairStaleGitState(repoPath: string): Promise<void> {
-    // 1. Remove stale worktree registrations whose physical dirs are gone.
-    const gitWorktreesDir = path.join(repoPath, ".git", "worktrees");
+  private async resolveOriginUrl(repoPath: string): Promise<string | null> {
     try {
-      const entries = await fs.readdir(gitWorktreesDir);
-      for (const entry of entries) {
-        const entryPath = path.join(gitWorktreesDir, entry);
-        const gitdirFile = path.join(entryPath, "gitdir");
-        try {
-          const gitdir = (await fs.readFile(gitdirFile, "utf-8")).trim();
-          await fs.access(gitdir);
-        } catch {
-          await fs.rm(entryPath, { recursive: true, force: true }).catch(() => undefined);
-        }
-      }
-    } catch { /* worktrees dir may not exist */ }
-    try {
-      await runCommandStrict("git", ["worktree", "prune"], repoPath);
-    } catch { /* ignore */ }
-
-    // 2. Remove broken local branch refs by scanning the filesystem directly.
-    //    git for-each-ref silently skips refs it can't parse (e.g. empty files),
-    //    so we must walk refs/heads/ ourselves.
-    await this.removeCorruptRefsInDir(repoPath, path.join(repoPath, ".git", "refs", "heads"));
-  }
-
-  private async removeCorruptRefsInDir(repoPath: string, dirPath: string): Promise<void> {
-    let entries: Array<{ name: string; isDirectory: () => boolean }>;
-    try {
-      entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const result = await runCommandStrict("git", ["remote", "get-url", "origin"], repoPath);
+      const value = result.stdout.trim();
+      return value.length > 0 ? value : null;
     } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        await this.removeCorruptRefsInDir(repoPath, fullPath);
-        continue;
-      }
-      try {
-        const content = (await fs.readFile(fullPath, "utf-8")).trim();
-        if (!content || !/^[0-9a-f]{40}$/.test(content)) {
-          // Empty or malformed ref file — remove it.
-          await fs.rm(fullPath, { force: true }).catch(() => undefined);
-          continue;
-        }
-        await runCommandStrict("git", ["cat-file", "-t", content], repoPath);
-      } catch {
-        await fs.rm(fullPath, { force: true }).catch(() => undefined);
-      }
+      return null;
     }
   }
 
-  private async removeStaleWorktreeRegistration(repoPath: string, worktreePath: string): Promise<void> {
-    if (!this.isSafeWorktreePath(repoPath, worktreePath)) {
-      return;
-    }
+  private async withRepoLock<T>(repoPath: string, operation: () => Promise<T>): Promise<T> {
+    const key = path.resolve(repoPath);
+    const previous = this.repoLocks.get(key) || Promise.resolve();
+    let release!: () => void;
+    const next = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.repoLocks.set(key, previous.then(() => next));
     try {
-      await runCommandStrict("git", ["worktree", "remove", "--force", worktreePath], repoPath);
-    } catch { /* ignore */ }
-    try {
-      await runCommandStrict("git", ["worktree", "prune"], repoPath);
-    } catch { /* ignore */ }
-  }
-
-  private async withRepoLock<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
-    const current = this.repoLocks.get(repoPath) || Promise.resolve();
-    let releaseLock: () => void = () => { };
-    const next = new Promise<void>((resolve) => { releaseLock = resolve; });
-    const queueEntry = current.then(() => next);
-    this.repoLocks.set(repoPath, queueEntry);
-    await current;
-    try {
-      return await fn();
+      await previous;
+      return await operation();
     } finally {
-      releaseLock();
-      if (this.repoLocks.get(repoPath) === queueEntry) this.repoLocks.delete(repoPath);
+      release();
+      if (this.repoLocks.get(key) === next) {
+        this.repoLocks.delete(key);
+      }
     }
-  }
-
-  private isSafeWorktreePath(repoPath: string, worktreePath: string): boolean {
-    const normalizedRepoPath = path.resolve(repoPath);
-    const normalizedWorktreePath = path.resolve(worktreePath);
-    return normalizedWorktreePath !== normalizedRepoPath
-      && !normalizedRepoPath.startsWith(`${normalizedWorktreePath}${path.sep}`);
-  }
-
-  private assertSafeWorktreePath(repoPath: string, worktreePath: string, operation: "prepare" | "remove"): void {
-    if (this.isSafeWorktreePath(repoPath, worktreePath)) {
-      return;
-    }
-
-    const normalizedRepoPath = path.resolve(repoPath);
-    const normalizedWorktreePath = path.resolve(worktreePath);
-    const targetDescription = normalizedWorktreePath === normalizedRepoPath
-      ? "repository root"
-      : "repository ancestor";
-    throw new Error(`Refusing to ${operation} worktree at ${normalizedWorktreePath}: path resolves to the protected ${targetDescription} ${normalizedRepoPath}.`);
   }
 }

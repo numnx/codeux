@@ -127,7 +127,7 @@ describe("PrService", () => {
                 .mockResolvedValueOnce({ stdout: "1" });
 
             const service = new PrService();
-            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "f", runner);
+            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "worker", "f", runner);
             expect(res).toBe(true);
             expect(runner).toHaveBeenCalledWith("git", ["show-ref", "--verify", "--quiet", "refs/remotes/origin/f"], "/path");
         });
@@ -139,7 +139,7 @@ describe("PrService", () => {
                 .mockResolvedValueOnce({ stdout: "2" });
 
             const service = new PrService();
-            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "f", runner);
+            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "worker", "f", runner);
             expect(res).toBe(true);
             expect(runner).toHaveBeenCalledWith("git", ["show-ref", "--verify", "--quiet", "refs/heads/f"], "/path");
         });
@@ -150,7 +150,7 @@ describe("PrService", () => {
                 .mockRejectedValueOnce(new Error());
 
             const service = new PrService();
-            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "f", runner);
+            const res = await service.hasWorkerBranchCommitsAgainstFeature("/path", "worker", "f", runner);
             expect(res).toBe(false);
         });
     });

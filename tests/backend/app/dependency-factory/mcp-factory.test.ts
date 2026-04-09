@@ -136,7 +136,6 @@ describe("MCP Factory", () => {
     // Get the arguments passed to AgentToolHandler constructor
     const agentArgs = vi.mocked(AgentToolHandler).mock.calls[0][0];
 
-    expect(agentArgs.workerDispatchExecutionService).toBeDefined();
     expect(agentArgs.workerInboxReplyService).toBeDefined();
   });
 
@@ -152,6 +151,6 @@ describe("MCP Factory", () => {
     );
 
     const agentArgs = vi.mocked(AgentToolHandler).mock.calls[0][0];
-    expect(agentArgs.workerDispatchExecutionService).toBeDefined();
+    expect(agentArgs.workerInboxReplyService).toBeDefined();
   });
 });

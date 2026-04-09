@@ -7,7 +7,7 @@ export interface ActiveDispatchHandle {
   dispatchId: string;
   taskRunId?: string;
   sessionId?: string;
-  executorType: "docker_cli" | "jules" | "mcp_worker";
+  executorType: "docker_cli" | "jules";
   requestStop: (reason: string) => Promise<ActiveDispatchStopResult> | ActiveDispatchStopResult;
 }
 

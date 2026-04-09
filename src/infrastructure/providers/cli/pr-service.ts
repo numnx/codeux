@@ -14,10 +14,10 @@ export interface IPrService {
     workerBranch: string;
     taskDescription?: string;
     sprintDescription?: string;
-  }, worktreePath: string, githubToken?: string): Promise<string | undefined>;
+  }, repoPath: string, githubToken?: string): Promise<string | undefined>;
 
-  hasUnpushedCommits(worktreePath: string, workerBranch: string, featureBranch: string, runner?: Runner): Promise<boolean>;
-  hasWorkerBranchCommitsAgainstFeature(worktreePath: string, featureBranch: string, runner?: Runner): Promise<boolean>;
+  hasUnpushedCommits(repoPath: string, workerBranch: string, featureBranch: string, runner?: Runner): Promise<boolean>;
+  hasWorkerBranchCommitsAgainstFeature(repoPath: string, workerBranch: string, featureBranch: string, runner?: Runner): Promise<boolean>;
 }
 
 export class PrService implements IPrService {
@@ -31,10 +31,10 @@ export class PrService implements IPrService {
       taskDescription?: string;
       sprintDescription?: string;
     },
-    worktreePath: string,
+    repoPath: string,
     githubToken?: string
   ): Promise<string | undefined> {
-    const client = new GitStatusQueryClient(worktreePath);
+    const client = new GitStatusQueryClient(repoPath);
     try {
       const remoteRes = await client.gitRemoteUrl("origin", githubToken);
       const remoteUrl = remoteRes.ok ? remoteRes.stdout.trim() : null;
@@ -72,42 +72,42 @@ export class PrService implements IPrService {
     }
   }
 
-  async hasUnpushedCommits(worktreePath: string, workerBranch: string, featureBranch: string, runner: Runner = runCommandStrict): Promise<boolean> {
+  async hasUnpushedCommits(repoPath: string, workerBranch: string, featureBranch: string, runner: Runner = runCommandStrict): Promise<boolean> {
     const remoteWorkerRef = `refs/remotes/origin/${workerBranch}`;
-    if (await this.gitRefExists(worktreePath, remoteWorkerRef, runner)) {
-      return (await this.gitRevListCount(worktreePath, `origin/${workerBranch}..HEAD`, runner)) > 0;
+    if (await this.gitRefExists(repoPath, remoteWorkerRef, runner)) {
+      return (await this.gitRevListCount(repoPath, `origin/${workerBranch}..refs/heads/${workerBranch}`, runner)) > 0;
     }
     const remoteFeatureRef = `refs/remotes/origin/${featureBranch}`;
-    if (await this.gitRefExists(worktreePath, remoteFeatureRef, runner)) {
-      return (await this.gitRevListCount(worktreePath, `origin/${featureBranch}..HEAD`, runner)) > 0;
+    if (await this.gitRefExists(repoPath, remoteFeatureRef, runner)) {
+      return (await this.gitRevListCount(repoPath, `origin/${featureBranch}..refs/heads/${workerBranch}`, runner)) > 0;
     }
     return false;
   }
 
-  async hasWorkerBranchCommitsAgainstFeature(worktreePath: string, featureBranch: string, runner: Runner = runCommandStrict): Promise<boolean> {
+  async hasWorkerBranchCommitsAgainstFeature(repoPath: string, workerBranch: string, featureBranch: string, runner: Runner = runCommandStrict): Promise<boolean> {
     const remoteFeatureRef = `refs/remotes/origin/${featureBranch}`;
-    if (await this.gitRefExists(worktreePath, remoteFeatureRef, runner)) {
-      return (await this.gitRevListCount(worktreePath, `origin/${featureBranch}..HEAD`, runner)) > 0;
+    if (await this.gitRefExists(repoPath, remoteFeatureRef, runner)) {
+      return (await this.gitRevListCount(repoPath, `origin/${featureBranch}..refs/heads/${workerBranch}`, runner)) > 0;
     }
     const localFeatureRef = `refs/heads/${featureBranch}`;
-    if (await this.gitRefExists(worktreePath, localFeatureRef, runner)) {
-      return (await this.gitRevListCount(worktreePath, `${featureBranch}..HEAD`, runner)) > 0;
+    if (await this.gitRefExists(repoPath, localFeatureRef, runner)) {
+      return (await this.gitRevListCount(repoPath, `${featureBranch}..refs/heads/${workerBranch}`, runner)) > 0;
     }
     return false;
   }
 
-  private async gitRefExists(worktreePath: string, ref: string, runner: Runner): Promise<boolean> {
+  private async gitRefExists(repoPath: string, ref: string, runner: Runner): Promise<boolean> {
     try {
-      await runner("git", ["show-ref", "--verify", "--quiet", ref], worktreePath);
+      await runner("git", ["show-ref", "--verify", "--quiet", ref], repoPath);
       return true;
     } catch {
       return false;
     }
   }
 
-  private async gitRevListCount(worktreePath: string, range: string, runner: Runner): Promise<number> {
+  private async gitRevListCount(repoPath: string, range: string, runner: Runner): Promise<number> {
     try {
-      const result = await runner("git", ["rev-list", "--count", range], worktreePath);
+      const result = await runner("git", ["rev-list", "--count", range], repoPath);
       return parseInt(result.stdout.trim(), 10) || 0;
     } catch {
       return 0;

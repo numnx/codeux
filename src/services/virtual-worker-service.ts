@@ -13,6 +13,7 @@ import { buildTaskRunKey } from "./task-run-key.js";
 import { buildProviderPrompt, DEFAULT_CLI_WORKFLOW_SETTINGS, sanitizeToken } from "./cli-workflow-utils.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
+import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 import { ProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
@@ -85,6 +86,7 @@ export interface VirtualWorkerServiceDependencies {
 
 export class VirtualWorkerService {
   private readonly workspaceManager = new WorkspaceManager();
+  private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
 
   private readonly providerRunner = new ProviderRunner(new DockerRunner());
 
@@ -194,19 +196,7 @@ export class VirtualWorkerService {
       return false;
     }
 
-    const pickableAttention = this.pickNextWorkerAttention(projectId);
-    if (pickableAttention) {
-      return true;
-    }
-
-    const pickableDispatch = this.deps.executionRepository.listTaskDispatches({ projectId })
-      .some((dispatch) => (
-        dispatch.executorType === "mcp_worker"
-        && dispatch.status === "queued"
-        && this.projectUsesVirtualWorkers(dispatch.projectId, dispatch.sprintId)
-      ));
-
-    return pickableDispatch;
+    return this.pickNextWorkerAttention(projectId) !== null;
   }
 
   private async runProjectCycle(projectId: string, reason: string): Promise<void> {
@@ -228,17 +218,6 @@ export class VirtualWorkerService {
       const attentionItem = this.pickNextWorkerAttention(projectId);
       if (attentionItem) {
         await this.handleAttentionItem(endpoint.id, attentionItem, reason);
-        return;
-      }
-
-      const dispatchClaim = this.deps.workerTaskDispatchService.claimNextDispatchForWorker({
-        projectId,
-        workerEndpointId: endpoint.id,
-        executionMode: "VIRTUAL",
-        ownerKey: endpoint.endpointKey,
-      });
-      if (dispatchClaim) {
-        await this.handleTaskDispatch(endpoint.id, dispatchClaim);
       }
     } finally {
       this.deps.projectWorkerAssignmentService.releaseWorkerAssignment(projectId, endpoint.id, "virtual_worker_cycle_complete");
@@ -393,12 +372,6 @@ export class VirtualWorkerService {
       return this.resolveDashboardSettings(projectId, attentionItem.sprintId);
     }
 
-    const queuedDispatch = this.deps.executionRepository.listTaskDispatches({ projectId })
-      .find((dispatch) => dispatch.executorType === "mcp_worker" && dispatch.status === "queued" && this.projectUsesVirtualWorkers(dispatch.projectId, dispatch.sprintId));
-    if (queuedDispatch) {
-      return this.resolveDashboardSettings(projectId, queuedDispatch.sprintId);
-    }
-
     return this.resolveDashboardSettings(projectId);
   }
 
@@ -537,6 +510,7 @@ export class VirtualWorkerService {
     let worktreePath = this.workspaceManager.buildWorktreePath(repoPath, sessionId, workflowSettings.executionMode);
     const title = item.title;
     let succeeded = false;
+    let initialHead = "";
 
     this.deps.sessionTracking.createSession({
       id: sessionId,
@@ -559,6 +533,7 @@ export class VirtualWorkerService {
       const prepared = await this.workspaceManager.prepareWorktree(repoPath, worktreePath, sourceBranch, sourceBranch);
       const finalWorktreePath = prepared.worktreePath;
       worktreePath = finalWorktreePath;
+      initialHead = (await this.runWorkspaceCommand(finalWorktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
       const hasConflicts = await this.runMergeIntoSource(finalWorktreePath, targetBranch, sessionId);
       if (hasConflicts) {
         const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(item.summaryMarkdown, finalWorktreePath);
@@ -579,9 +554,15 @@ export class VirtualWorkerService {
       }
       await this.ensureMergeConflictResolved(finalWorktreePath);
       await this.finalizeMergeCommit(finalWorktreePath, sourceBranch, targetBranch);
-      await runCommandStrict("git", ["push", "origin", `HEAD:${sourceBranch}`], finalWorktreePath);
-
-      const headSha = (await runCommandStrict("git", ["rev-parse", "HEAD"], finalWorktreePath)).stdout.trim();
+      const patchText = await this.workspaceArtifactService.exportBinaryPatch(finalWorktreePath, initialHead);
+      const applyResult = await this.workspaceArtifactService.applyPatchToBranch({
+        repoPath,
+        baseRef: initialHead,
+        workerBranch: sourceBranch,
+        patchText,
+        commitMessage: `fix(merge): resolve ${targetBranch} into ${sourceBranch}`,
+      });
+      const headSha = applyResult.commitSha || initialHead;
       this.deps.sessionTracking.updateSession(sessionId, { state: "COMPLETED" });
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
@@ -681,6 +662,7 @@ export class VirtualWorkerService {
     let worktreePath = this.workspaceManager.buildWorktreePath(repoPath, sessionId, workflowSettings.executionMode);
     const title = item.title;
     let succeeded = false;
+    let initialHead = "";
 
     this.deps.sessionTracking.createSession({
       id: sessionId,
@@ -703,6 +685,7 @@ export class VirtualWorkerService {
       const prepared = await this.workspaceManager.prepareWorktree(repoPath, worktreePath, branchName, branchName);
       const finalWorktreePath = prepared.worktreePath;
       worktreePath = finalWorktreePath;
+      initialHead = (await this.runWorkspaceCommand(finalWorktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
 
       const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(item.summaryMarkdown, finalWorktreePath);
       const providerPrompt = buildProviderPrompt(this.buildCiFixPrompt(item, branchName, workspaceGuidance), providerSettings.thinkingMode);
@@ -720,9 +703,15 @@ export class VirtualWorkerService {
         githubToken: settings.git.githubToken,
       });
 
-      await runCommandStrict("git", ["push", "origin", `HEAD:${branchName}`], finalWorktreePath);
-
-      const headSha = (await runCommandStrict("git", ["rev-parse", "HEAD"], finalWorktreePath)).stdout.trim();
+      const patchText = await this.workspaceArtifactService.exportBinaryPatch(finalWorktreePath, initialHead);
+      const applyResult = await this.workspaceArtifactService.applyPatchToBranch({
+        repoPath,
+        baseRef: initialHead,
+        workerBranch: branchName,
+        patchText,
+        commitMessage: `fix(ci): resolve failing checks on ${branchName}`,
+      });
+      const headSha = applyResult.commitSha || initialHead;
       this.deps.sessionTracking.updateSession(sessionId, { state: "COMPLETED" });
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
@@ -889,26 +878,26 @@ export class VirtualWorkerService {
   }
 
   private async listUnresolvedFiles(worktreePath: string): Promise<string[]> {
-    const result = await runCommandStrict("git", ["diff", "--name-only", "--diff-filter=U"], worktreePath);
+    const result = await this.runWorkspaceCommand(worktreePath, "git", ["diff", "--name-only", "--diff-filter=U"]);
     return result.stdout.split("\n").map((entry) => entry.trim()).filter(Boolean);
   }
 
   private async finalizeMergeCommit(worktreePath: string, sourceBranch: string, targetBranch: string): Promise<void> {
     const mergeHead = await this.hasMergeHead(worktreePath);
-    const status = (await runCommandStrict("git", ["status", "--porcelain"], worktreePath)).stdout.trim();
+    const status = (await this.runWorkspaceCommand(worktreePath, "git", ["status", "--porcelain"])).stdout.trim();
     if (!mergeHead && status.length === 0) {
       return;
     }
 
-    await runCommandStrict("git", ["add", "-A"], worktreePath);
+    await this.runWorkspaceCommand(worktreePath, "git", ["add", "-A"]);
     try {
-      await runCommandStrict(
+      await this.runWorkspaceCommand(
+        worktreePath,
         "git",
         ["commit", "-m", `Resolve merge conflict: ${targetBranch} into ${sourceBranch}`],
-        worktreePath,
       );
     } catch (error) {
-      const nextStatus = (await runCommandStrict("git", ["status", "--porcelain"], worktreePath)).stdout.trim();
+      const nextStatus = (await this.runWorkspaceCommand(worktreePath, "git", ["status", "--porcelain"])).stdout.trim();
       if (nextStatus.length > 0 || await this.hasMergeHead(worktreePath)) {
         throw error;
       }
@@ -917,7 +906,7 @@ export class VirtualWorkerService {
 
   private async hasMergeHead(worktreePath: string): Promise<boolean> {
     try {
-      await runCommandStrict("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], worktreePath);
+      await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"]);
       return true;
     } catch {
       return false;
@@ -1067,5 +1056,12 @@ export class VirtualWorkerService {
     return value && typeof value === "object" && !Array.isArray(value)
       ? value as Record<string, unknown>
       : null;
+  }
+
+  private async runWorkspaceCommand(worktreePath: string, command: string, args: string[]) {
+    if (worktreePath.startsWith("docker-volume://")) {
+      return this.workspaceManager.runWorkspaceCommand(worktreePath, command, args);
+    }
+    return runCommandStrict(command, args, worktreePath);
   }
 }

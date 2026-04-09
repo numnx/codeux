@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import type { DashboardSettings, ProviderId, Subtask } from "../contracts/app-types.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ProjectWorkerAssignmentRepository } from "../repositories/project-worker-assignment-repository.js";
@@ -37,19 +36,12 @@ interface ChatThreadRuntimeServiceDependencies {
 }
 
 export interface ThreadRouteResolution {
-  mode: "CONNECTED_MCP" | "VIRTUAL";
-  connectionId?: string;
+  mode: "VIRTUAL";
   providerId?: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
   model?: string;
   apiKey?: string;
   thinkingMode?: string;
 }
-
-const THREAD_COMPACTION_REQUEST = "thread_compaction_request";
-const THREAD_COMPACTION_RESULT = "thread_compaction_result";
-const HIDDEN_INTERNAL_VISIBILITY = "hidden";
-const CONNECTED_COMPACTION_TIMEOUT_MS = 45_000;
-const CONNECTED_COMPACTION_POLL_MS = 500;
 
 export class ChatThreadRuntimeService {
   constructor(private readonly deps: ChatThreadRuntimeServiceDependencies) {}
@@ -61,28 +53,7 @@ export class ChatThreadRuntimeService {
     latestMessageBody: string,
   ): ThreadRouteResolution {
     const runtimeState = thread.runtimeState || null;
-
-    if (runtimeState?.routeKind === "worker") {
-      const explicitWorker = runtimeState.workerEndpointId
-        ? liveAssignments.find((assignment) => (
-          (assignment.workerEndpointId === runtimeState.workerEndpointId
-          || assignment.connectionId === runtimeState.workerEndpointId)
-          && assignment.workerStatus !== "offline"
-          && assignment.workerStatus !== "stale"
-          && assignment.connectionId
-        ))
-        : null;
-      if (explicitWorker?.connectionId) {
-        return { mode: "CONNECTED_MCP", connectionId: explicitWorker.connectionId };
-      }
-    }
-
-    if (thread.connectionId) {
-      const isLive = liveAssignments.some((a) => a.connectionId === thread.connectionId && a.workerStatus !== "offline" && a.workerStatus !== "stale");
-      if (isLive) {
-        return { mode: "CONNECTED_MCP", connectionId: thread.connectionId };
-      }
-    }
+    void liveAssignments;
 
     const pseudoTask: Subtask = {
       id: "dashboard-reply",
@@ -108,20 +79,21 @@ export class ChatThreadRuntimeService {
       };
     }
 
-    const primary = liveAssignments.find((a) => a.assignmentRole === "primary" && a.capabilities.canSuperviseProjects && a.workerStatus !== "stale" && a.workerStatus !== "offline");
-    if (primary && primary.connectionId) return { mode: "CONNECTED_MCP", connectionId: primary.connectionId };
-
-    const overflow = liveAssignments.find((a) => a.assignmentRole === "overflow" && a.capabilities.canSuperviseProjects && a.workerStatus !== "stale" && a.workerStatus !== "offline");
-    if (overflow && overflow.connectionId) return { mode: "CONNECTED_MCP", connectionId: overflow.connectionId };
-
-    const providerId = route.provider as Extract<ProviderId, "gemini" | "codex" | "claude-code">;
+    const providerId = route.provider as Extract<ProviderId, "gemini" | "codex" | "claude-code"> | undefined;
+    if (!providerId) {
+      throw new Error("Dashboard replies require an enabled CLI provider, but no eligible provider was resolved.");
+    }
+    const providerSettings = route.providers[providerId];
+    if (!providerSettings) {
+      throw new Error(`Dashboard reply routing resolved provider ${providerId}, but no provider settings were available.`);
+    }
 
     return {
       mode: "VIRTUAL",
       providerId,
-      model: route.providers[providerId].model,
-      apiKey: route.providers[providerId].apiKey,
-      thinkingMode: route.providers[providerId].thinkingMode,
+      model: providerSettings.model,
+      apiKey: providerSettings.apiKey,
+      thinkingMode: providerSettings.thinkingMode,
     };
   }
 
@@ -130,21 +102,7 @@ export class ChatThreadRuntimeService {
     let connectionId: string | null = null;
 
     if (input.routeKind === "worker") {
-      if (!input.workerEndpointId) {
-        throw new Error("workerEndpointId is required for worker route.");
-      }
-      const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(thread.projectId, { activeOnly: true });
-      const worker = assignments.find((a) => (
-        a.workerEndpointId === input.workerEndpointId
-        || a.connectionId === input.workerEndpointId
-      ));
-      if (!worker) {
-        throw new Error(`Worker not found or not active: ${input.workerEndpointId}`);
-      }
-      if (worker.workerStatus === "offline" || worker.workerStatus === "stale") {
-        throw new Error(`Worker is unavailable: ${input.workerEndpointId}`);
-      }
-      connectionId = worker.connectionId;
+      throw new Error("Connected MCP worker routes are no longer supported.");
     } else if (input.routeKind === "virtual") {
       if (!input.virtualProvider) {
         throw new Error("virtualProvider is required for virtual route.");
@@ -162,9 +120,7 @@ export class ChatThreadRuntimeService {
       routeKind: input.routeKind,
       virtualProvider: input.virtualProvider,
       modelLabel: input.virtualModel,
-      workerEndpointId: input.routeKind === "worker"
-        ? connectionId || input.workerEndpointId
-        : undefined,
+      workerEndpointId: undefined,
       replayRequired: true,
     };
 
@@ -194,11 +150,7 @@ export class ChatThreadRuntimeService {
     const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(thread.projectId, { activeOnly: true });
     const settings = this.deps.getDashboardSettings();
     const route = this.resolveThreadRoute(thread, assignments, settings, messages[messages.length - 1]?.bodyMarkdown || thread.title);
-    if (route.mode === "CONNECTED_MCP" && route.connectionId) {
-      return await this.runConnectedWorkerCompaction(project.id, project.baseDir, project.name, thread, messages, route.connectionId);
-    }
-
-    if (route.mode !== "VIRTUAL" || !route.providerId || !route.model || typeof route.apiKey !== "string") {
+    if (!route.providerId || !route.model || typeof route.apiKey !== "string") {
       throw new Error("Failed to resolve a chat worker for thread compaction.");
     }
 
@@ -228,13 +180,6 @@ export class ChatThreadRuntimeService {
     const settings = this.deps.getDashboardSettings();
 
     const route = this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
-
-    if (route.mode === "CONNECTED_MCP") {
-      if (thread.connectionId !== route.connectionId) {
-        this.deps.connectionChatRepository.updateThread(thread.id, { connectionId: route.connectionId });
-      }
-      return userMessage;
-    }
 
     await this.runVirtualProvider(projectId, thread, userMessage, route);
     return userMessage;
@@ -516,83 +461,5 @@ export class ChatThreadRuntimeService {
       });
       throw err;
     }
-  }
-
-  private async runConnectedWorkerCompaction(
-    projectId: string,
-    repoPath: string,
-    projectName: string,
-    thread: ConversationThreadRecord,
-    messages: ConversationMessageRecord[],
-    connectionId: string,
-  ): Promise<ConversationThreadRecord> {
-    const requestId = randomUUID();
-    const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(projectId)).instructionMarkdown.trim();
-    const compactionPrompt = buildChatCompactionPrompt({ projectId, repoPath, projectName, thread, messages, workerInstructions });
-    const boundThread = thread.connectionId === connectionId
-      ? thread
-      : this.deps.connectionChatRepository.updateThread(thread.id, { connectionId });
-
-    this.deps.connectionChatRepository.postDashboardMessage(projectId, {
-      threadId: boundThread.id,
-      connectionId,
-      bodyMarkdown: compactionPrompt,
-      metadata: {
-        internalVisibility: HIDDEN_INTERNAL_VISIBILITY,
-        internalOperation: THREAD_COMPACTION_REQUEST,
-        requestId,
-      },
-    });
-
-    const reply = await this.waitForConnectedCompactionReply(boundThread.id, requestId);
-    const provider = typeof reply.metadata?.provider === "string" ? reply.metadata.provider : "connected-worker";
-    const model = typeof reply.metadata?.model === "string" ? reply.metadata.model : "unknown";
-    const generatedAt = typeof reply.metadata?.generatedAt === "string"
-      ? reply.metadata.generatedAt
-      : new Date().toISOString();
-
-    return this.deps.connectionChatRepository.updateThread(boundThread.id, {
-      runtimeState: {
-        ...boundThread.runtimeState,
-        routeKind: "worker",
-        workerEndpointId: connectionId,
-        replayRequired: true,
-        sessionIds: [],
-        compactionSummary: {
-          markdown: reply.bodyMarkdown,
-          generatedAt,
-          provider,
-          model,
-          sourceMessageId: messages[messages.length - 1]?.id || null,
-          sourceMessageCount: messages.length,
-        },
-      },
-    });
-  }
-
-  private async waitForConnectedCompactionReply(
-    threadId: string,
-    requestId: string,
-  ): Promise<ConversationMessageRecord> {
-    const deadline = Date.now() + CONNECTED_COMPACTION_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
-      const messages = this.deps.connectionChatRepository.listMessages(threadId, { includeHidden: true });
-      const reply = messages.find((message) => (
-        message.authorType === "connection"
-        && message.metadata?.internalOperation === THREAD_COMPACTION_RESULT
-        && message.metadata?.requestId === requestId
-      ));
-      if (reply) {
-        return reply;
-      }
-      await this.sleep(CONNECTED_COMPACTION_POLL_MS);
-    }
-
-    throw new Error("Timed out waiting for the selected chat worker to return a compaction summary.");
-  }
-
-  private async sleep(ms: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

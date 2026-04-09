@@ -28,7 +28,6 @@ export class SprintTaskDispatchService {
     private readonly executionRepository: ExecutionRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly taskService: TaskService,
-    private readonly onWorkerDispatchQueued?: (projectId: string) => void,
     private readonly logger?: Logger,
   ) {}
 
@@ -45,11 +44,7 @@ export class SprintTaskDispatchService {
       sprintId: args.sprintId,
     };
     const provider = this.taskService.resolveTaskProvider(args.task, settingsScope, preferredExecutor);
-    const executorType: TaskDispatchExecutorType = preferredExecutor === "mcp_worker" && !args.task.provider
-      ? "mcp_worker"
-      : provider === "jules"
-        ? "jules"
-        : "docker_cli";
+    const executorType: TaskDispatchExecutorType = provider === "jules" ? "jules" : "docker_cli";
     const queuedAt = new Date().toISOString();
     const dispatch = this.executionRepository.createTaskDispatch({
       projectId: args.projectId,
@@ -72,7 +67,7 @@ export class SprintTaskDispatchService {
       startedAt: queuedAt,
     });
 
-    this.executionRepository.appendTaskRunEvent(taskRun.id, executorType === "mcp_worker" ? "dispatch_queued" : "dispatch_started", "system", {
+    this.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_started", "system", {
       dispatchId: dispatch.id,
       executorType,
       provider,
@@ -80,15 +75,6 @@ export class SprintTaskDispatchService {
     this.projectManagementRepository.updateTask(taskRecordId, {
       status: "in_progress",
     });
-
-    if (executorType === "mcp_worker") {
-      this.onWorkerDispatchQueued?.(args.projectId);
-      return {
-        id: dispatch.id,
-        name: `dispatches/${dispatch.id}`,
-        runtimeLabel: "MCP WORKER",
-      };
-    }
 
     this.executionRepository.updateTaskDispatch(dispatch.id, {
       status: "running",

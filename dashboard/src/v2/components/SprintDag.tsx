@@ -159,8 +159,6 @@ function formatExecutor(dispatch?: ExecutionTaskDispatchSummary): string | null 
   switch (dispatch.executorType) {
     case "docker_cli":
       return "CLI";
-    case "mcp_worker":
-      return "Worker";
     case "jules":
       return "Jules";
     default:

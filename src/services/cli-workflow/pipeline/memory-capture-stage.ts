@@ -28,13 +28,27 @@ export async function executeMemoryCaptureStage(
     return { memoriesCaptured: 0 };
   }
 
-  const captured = await memoryService.captureMemoriesFromWorktree(
-    projectId,
-    sprintId,
-    ctx.agentPresetId ?? null,
-    ctx.worktreePath,
-    ctx.taskRunId || ctx.sessionId
-  );
+  const captured = ctx.worktreePath.startsWith("docker-volume://")
+    ? await (async () => {
+      const raw = await ctx.workspaceManager.readWorkspaceFile(ctx.worktreePath, LEARNINGS_FILENAME);
+      if (!raw) {
+        return 0;
+      }
+      return memoryService.captureMemoriesFromContent(
+        projectId,
+        sprintId,
+        ctx.agentPresetId ?? null,
+        raw,
+        ctx.taskRunId || ctx.sessionId,
+      );
+    })()
+    : await memoryService.captureMemoriesFromWorktree(
+      projectId,
+      sprintId,
+      ctx.agentPresetId ?? null,
+      ctx.worktreePath,
+      ctx.taskRunId || ctx.sessionId,
+    );
 
   if (captured > 0) {
     ctx.deps.sessionTracking.appendActivity(ctx.sessionId, {

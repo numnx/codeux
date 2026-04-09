@@ -27,7 +27,7 @@ describe("dashboard settings helpers", () => {
     expect(second.ciIntelligence.julesCiAutofixMaxRetries).toBe(3);
     expect(second.cliWorkflow.cleanupWorktreeOnFailure).toBe(false);
     expect(second.cliWorkflow.resumeFailedTaskInSameWorkspace).toBe(true);
-    expect(second.cliWorkflow.executionMode).toBe("HOST");
+    expect(second.cliWorkflow.executionMode).toBe("DOCKER");
     expect(second.cliWorkflow.containerImage).toBe("node:24-bookworm");
     expect(second.cliWorkflow.containerCacheSetupScriptImage).toBe(false);
     expect(second.mcpTools[0].enabled).toBe(true);

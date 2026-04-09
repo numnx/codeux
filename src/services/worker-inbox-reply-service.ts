@@ -137,7 +137,7 @@ export class WorkerInboxReplyService {
       );
     }
 
-    this.deps.logger?.info("Generated dashboard reply for worker connection", {
+    this.deps.logger?.info("Generated dashboard reply", {
       provider: route.provider,
       projectId: input.projectId,
       threadId: input.threadId,
@@ -323,6 +323,12 @@ export class WorkerInboxReplyService {
     const route = this.deps.taskService.resolveInvocationProvider(invocation, pseudoTask, {
       cliOnly: true,
     });
+    if (!route.provider) {
+      throw new Error(`Invocation ${invocation} requires an enabled CLI provider, but none was resolved.`);
+    }
+    if (!route.providers[route.provider]) {
+      throw new Error(`Invocation ${invocation} resolved provider ${route.provider}, but no provider settings were available.`);
+    }
     return {
       ...route,
       provider: route.provider as Extract<ProviderId, "gemini" | "codex" | "claude-code">,

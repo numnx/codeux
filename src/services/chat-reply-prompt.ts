@@ -103,7 +103,7 @@ export function buildChatReplayPrompt(args: {
   }
 
   const instructions = [
-    "You are a Sprint OS connected worker replying to a dashboard chat message.",
+    "You are a Sprint OS virtual assistant replying to a dashboard chat message.",
     "Reply in concise markdown.",
     "Do not claim code changes, PRs, or completed execution unless they actually happened.",
     "If the message asks for status you do not know, say so plainly and ask for the next action.",

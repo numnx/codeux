@@ -11,7 +11,7 @@ export class ProjectAttentionService {
   constructor(
     private readonly projectAttentionRepository: ProjectAttentionRepository,
     private readonly projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository,
-    private readonly resolveWorkerExecutionMode: (projectId: string, sprintId?: string | null) => WorkerExecutionMode = () => "CONNECTED_MCP",
+    private readonly resolveWorkerExecutionMode: (projectId: string, sprintId?: string | null) => WorkerExecutionMode = () => "VIRTUAL",
   ) {}
 
   setWorkerAttentionOpenedCallback(callback: ((projectId: string) => void) | undefined): void {

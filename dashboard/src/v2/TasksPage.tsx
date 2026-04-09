@@ -54,7 +54,6 @@ const EXECUTOR_LABEL: Record<Task["executorType"], string> = {
   auto: "Auto",
   docker_cli: "CLI",
   jules: "Jules",
-  mcp_worker: "Worker",
 };
 
 const EMPTY_DEPENDENTS: DependentTaskMetadata[] = [];

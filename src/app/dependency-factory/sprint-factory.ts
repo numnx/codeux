@@ -173,7 +173,6 @@ export function createSprintDependencies(
     executionRepository,
     projectManagementRepository,
     taskService,
-    (projectId) => virtualWorkerService.scheduleProject(projectId, "worker_dispatch_queued"),
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
 

@@ -4,6 +4,7 @@ import { extractJsonLikeBlock } from "./planning-json-extractor.js";
 import { StructuredAgentRequestService } from "./structured-agent-request-service.js";
 import { StructuredProviderResponseService } from "./structured-provider-response-service.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
+import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
@@ -102,6 +103,7 @@ interface QualityAssuranceServiceDependencies {
 
 export class QualityAssuranceService {
   private readonly workspaceManager = new WorkspaceManager();
+  private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
 
   private readonly prService = new PrService();
 
@@ -926,7 +928,7 @@ export class QualityAssuranceService {
     const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(args.followUpPrompt, worktreePath);
     const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, settings.aiProvider.providers[args.provider].thinkingMode);
     const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
-    const initialHead = (await runCommandStrict("git", ["rev-parse", "HEAD"], worktreePath)).stdout.trim();
+    const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
     this.deps.sessionTracking.updateSession(args.sessionId, { state: "RUNNING" });
     this.deps.sessionTracking.appendActivity(args.sessionId, {
       originator: "system",
@@ -961,23 +963,20 @@ export class QualityAssuranceService {
       throw new Error(result.stderr || result.stdout || "CLI QA follow-up failed.");
     }
 
-    const currentBranch = (await runCommandStrict("git", ["rev-parse", "--abbrev-ref", "HEAD"], worktreePath)).stdout.trim();
-    if (currentBranch !== workerBranch) {
-      await runCommandStrict("git", ["checkout", workerBranch], worktreePath);
-    }
-    const finalHead = (await runCommandStrict("git", ["rev-parse", "HEAD"], worktreePath)).stdout.trim();
-    const hasWorkingTreeChanges = (await runCommandStrict("git", ["status", "--porcelain"], worktreePath)).stdout.trim().length > 0;
-    const hasCommittedChanges = finalHead !== initialHead;
-    const hasUnpushed = await this.prService.hasUnpushedCommits(worktreePath, workerBranch, args.featureBranch);
-    const hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(worktreePath, args.featureBranch);
+    const patchText = await this.workspaceArtifactService.exportBinaryPatch(worktreePath, initialHead);
+    const applyResult = await this.workspaceArtifactService.applyPatchToBranch({
+      repoPath: args.repoPath,
+      baseRef: initialHead,
+      workerBranch,
+      patchText,
+      commitMessage: `fix(task ${args.task.id}): address qa review via ${args.provider}`,
+    });
+
+    const hasUnpushed = applyResult.hasChanges || await this.prService.hasUnpushedCommits(args.repoPath, workerBranch, args.featureBranch);
+    const hasAhead = applyResult.hasChanges || await this.prService.hasWorkerBranchCommitsAgainstFeature(args.repoPath, workerBranch, args.featureBranch);
 
     let prUrl = args.task.pr_url || args.taskRun?.prUrl || null;
-    if (hasWorkingTreeChanges || hasCommittedChanges || hasUnpushed || hasAhead) {
-      if (hasWorkingTreeChanges) {
-        await runCommandStrict("git", ["add", "-A"], worktreePath);
-        await runCommandStrict("git", ["commit", "-m", `fix(task ${args.task.id}): address qa review via ${args.provider}`], worktreePath);
-      }
-      await runCommandStrict("git", ["push", "-u", "origin", workerBranch], worktreePath);
+    if (hasUnpushed || hasAhead) {
       if (settings.git.autoCreatePr) {
         const sprint = args.task.sprint_id ? this.deps.projectManagementRepository.getSprint(args.task.sprint_id) : null;
         prUrl = (await this.prService.resolveOrCreateFeaturePr(
@@ -990,7 +989,7 @@ export class QualityAssuranceService {
             taskDescription: args.task.prompt,
             sprintDescription: sprint?.goal,
           },
-          worktreePath,
+          args.repoPath,
           this.deps.getGithubToken(),
         )) ?? null;
       }
@@ -1030,12 +1029,22 @@ export class QualityAssuranceService {
   }
 
   private async workspacePathExists(targetPath: string): Promise<boolean> {
+    if (targetPath.startsWith("docker-volume://")) {
+      return this.workspaceManager.workspaceExists(targetPath);
+    }
     try {
       await fs.access(targetPath);
       return true;
     } catch {
       return false;
     }
+  }
+
+  private async runWorkspaceCommand(worktreePath: string, command: string, args: string[]) {
+    if (worktreePath.startsWith("docker-volume://")) {
+      return this.workspaceManager.runWorkspaceCommand(worktreePath, command, args);
+    }
+    return runCommandStrict(command, args, worktreePath);
   }
 
   private resolveTaskTriggerType(
