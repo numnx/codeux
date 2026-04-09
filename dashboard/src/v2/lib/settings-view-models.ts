@@ -8,6 +8,7 @@ import type {
   SettingsValueSource,
   SkillToggle,
   SystemSettings,
+  ThinkingMode,
 } from "../../types.js";
 
 const cloneSkills = (skills: SkillToggle[]): SkillToggle[] => skills.map((skill) => ({ ...skill }));
@@ -30,6 +31,7 @@ const cloneInvocationRouting = (
 );
 
 export const dashboardSettingsToProjectSettings = (settings: DashboardSettings): ProjectSettings => ({
+  appearance: { ...settings.appearance },
   automationLevel: settings.automationLevel,
   automationInterventions: {
     ...settings.automationInterventions,
@@ -107,6 +109,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
 });
 
 export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings => ({
+  appearance: { ...settings.appearance },
   automationLevel: settings.automationLevel,
   automationInterventions: {
     ...settings.automationInterventions,
@@ -208,6 +211,33 @@ export const getSectionSource = (
 };
 
 export type SettingsEditorScope = "project" | "sprint";
+
+export const sourceLabel = (source: SettingsValueSource | "mixed"): string => {
+  switch (source) {
+    case "project":
+      return "Project override";
+    case "sprint":
+      return "Sprint override";
+    case "mixed":
+      return "Mixed sources";
+    case "system":
+    default:
+      return "Inherited";
+  }
+};
+
+export const thinkingModeOptions: Array<{ value: ThinkingMode; label: string }> = [
+  { value: "SMALL", label: "Small" },
+  { value: "MEDIUM", label: "Medium" },
+  { value: "HIGH", label: "High" },
+];
+
+export const providerLabels: Record<keyof ProjectSettings["aiProvider"]["providers"], string> = {
+  jules: "Jules",
+  gemini: "Gemini",
+  codex: "Codex",
+  "claude-code": "Claude Code",
+};
 
 export const getFieldSource = (
   sources: Record<string, SettingsValueSource>,

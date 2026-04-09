@@ -5,8 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "jules-subagents": "dist/index.js",
-    "sprint-os-worker": "dist/worker/index.js"
+    "jules-subagents": "dist/index.js"
   },
   "scripts": {
     "build": "tsc && tsc -p dashboard/tsconfig.json --noEmit && vite build",
@@ -39,6 +38,7 @@
     "gsap": "^3.14.2",
     "js-tiktoken": "^1.0.21",
     "lucide-preact": "^0.577.0",
+    "lucide-react": "^1.7.0",
     "marked": "^17.0.3",
     "onnxruntime-node": "^1.24.3",
     "preact": "^10.29.0",
@@ -53,6 +53,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/preact": "^3.2.4",
+    "@testing-library/user-event": "^14.6.1",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.2",
     "@types/supertest": "^7.2.0",
@@ -67,7 +68,7 @@
     "tailwindcss": "^4.2.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1",
+    "vite": "^8.0.5",
     "vitest": "^4.1.2"
   }
 }

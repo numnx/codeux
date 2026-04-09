@@ -11,6 +11,41 @@ import type {
 import { MemoryRepository } from "../repositories/memory-repository.js";
 import { EmbeddingService } from "./embedding-service.js";
 import type { Logger } from "../shared/logging/logger.js";
+import { readFile, unlink } from "fs/promises";
+import { join } from "path";
+import { LEARNINGS_FILENAME, type ParsedMemoryEntry } from "../contracts/memory-types.js";
+
+const VALID_CATEGORIES = new Set<MemoryCategory>([
+  "architecture", "codebase", "context", "preferences", "patterns", "decision", "error", "learning",
+]);
+
+function parseCategory(header: string): MemoryCategory {
+  const name = header.trim().toLowerCase();
+  return VALID_CATEGORIES.has(name as MemoryCategory) ? (name as MemoryCategory) : "learning";
+}
+
+export function parseLearningsMarkdown(raw: string): ParsedMemoryEntry[] {
+  const entries: ParsedMemoryEntry[] = [];
+  let currentCategory: MemoryCategory = "learning";
+
+  for (const line of raw.split("\n")) {
+    const headerMatch = line.match(/^##\s+Category:\s*(.+)/i);
+    if (headerMatch) {
+      currentCategory = parseCategory(headerMatch[1]!);
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      const content = bulletMatch[1]!.trim();
+      if (content.length > 0) {
+        entries.push({ category: currentCategory, content });
+      }
+    }
+  }
+
+  return entries;
+}
 
 function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let dot = 0;
@@ -82,6 +117,60 @@ export class MemoryService {
     this.memoryRepository = memoryRepository;
     this.embeddingService = embeddingService;
     this.logger = logger;
+  }
+
+  async captureMemoriesFromWorktree(
+    projectId: string,
+    sprintId: string | undefined,
+    agentPresetId: string | null,
+    worktreePath: string,
+    originId: string
+  ): Promise<number> {
+    const filePath = join(worktreePath, LEARNINGS_FILENAME);
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf-8");
+    } catch {
+      return 0;
+    }
+
+    const captured = await this.captureMemoriesFromContent(projectId, sprintId, agentPresetId, raw, originId);
+    await unlink(filePath).catch(() => {});
+    return captured;
+  }
+
+  async captureMemoriesFromContent(
+    projectId: string,
+    sprintId: string | undefined,
+    agentPresetId: string | null,
+    raw: string,
+    originId: string,
+  ): Promise<number> {
+    const entries = parseLearningsMarkdown(raw);
+    if (entries.length === 0) {
+      return 0;
+    }
+
+    let captured = 0;
+    for (const entry of entries) {
+      this.createMemory(projectId, {
+        scope: "sprint",
+        sprintId,
+        agentPresetId,
+        content: entry.content,
+        category: entry.category,
+        strength: 0.6,
+        source: {
+          type: "auto_capture",
+          originType: "worker_learnings_file",
+          originId,
+        },
+      }).catch((err) => {
+        this.logger.warn(`Failed to capture worker learning memory for origin ${originId}: ${err instanceof Error ? err.message : String(err)}`);
+      });
+      captured++;
+    }
+    return captured;
   }
 
   async createMemory(projectId: string, input: CreateMemoryInput): Promise<MemoryRecord> {
@@ -316,7 +405,7 @@ export class MemoryService {
     }
 
     const records = this.memoryRepository.loadEmbeddingsForScope(
-      projectId, modelId, scope, sprintId, agentPresetId,
+      projectId, modelId, scope, sprintId, agentPresetId, 1000,
     );
 
     if (records.length === 0) {
@@ -383,28 +472,32 @@ export class MemoryService {
     // --- Top-K nearest neighbors per node ---
     // For each node, keep only its K strongest connections.
     // This produces a sparse, meaningful graph instead of a near-complete one.
-    const simMatrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const sim = cosineSimilarity(vectors[i], vectors[j]);
-        simMatrix[i][j] = sim;
-        simMatrix[j][i] = sim;
+    const topNeighbors: Array<Array<{ j: number; sim: number }>> = Array.from({ length: n }, () => []);
+
+    const insertNeighbor = (list: Array<{ j: number; sim: number }>, neighborId: number, sim: number) => {
+      if (list.length < topKPerNode) {
+        list.push({ j: neighborId, sim });
+        list.sort((a, b) => b.sim - a.sim);
+      } else if (sim > list[list.length - 1].sim) {
+        list.pop();
+        list.push({ j: neighborId, sim });
+        list.sort((a, b) => b.sim - a.sim);
       }
-    }
+    };
 
     const edgeSet = new Set<string>();
     const edges: EmbeddingMapEdge[] = [];
 
     for (let i = 0; i < n; i++) {
-      // Find top-K neighbors for node i
-      const neighbors: Array<{ j: number; sim: number }> = [];
-      for (let j = 0; j < n; j++) {
-        if (j === i) continue;
-        neighbors.push({ j, sim: simMatrix[i][j] });
+      for (let j = i + 1; j < n; j++) {
+        const sim = cosineSimilarity(vectors[i], vectors[j]);
+        insertNeighbor(topNeighbors[i], j, sim);
+        insertNeighbor(topNeighbors[j], i, sim);
       }
-      neighbors.sort((a, b) => b.sim - a.sim);
+    }
 
-      for (const nb of neighbors.slice(0, topKPerNode)) {
+    for (let i = 0; i < n; i++) {
+      for (const nb of topNeighbors[i]) {
         const lo = Math.min(i, nb.j);
         const hi = Math.max(i, nb.j);
         const key = `${lo}:${hi}`;

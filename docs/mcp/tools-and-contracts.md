@@ -4,6 +4,13 @@ This guide defines the MCP tool surface, behavior expectations, and key operatio
 
 ## Tool Handler Split
 
+### Management tools
+Implemented in:
+- `src/mcp/management-tool-handler.ts`
+
+These cover:
+- `manage_sprint_os`
+
 ### Core tools
 Implemented in:
 - `src/mcp/core-tool-handler.ts`
@@ -11,16 +18,16 @@ Implemented in:
 These cover:
 - `get_session`
 - listen-mode connection registration and inbox/reply flow
-- worker dispatch claim and completion flow
 
 ### Agent tools
 Implemented in:
 - `src/mcp/agent-tool-handler.ts`
 
 These cover:
-- `execute_worker_dispatch`
-- `cancel_local_dispatch`
 - `generate_dashboard_reply`
+
+### Management
+- `manage_sprint_os`
 
 ## Registered Tools
 
@@ -35,11 +42,7 @@ Typed tool argument contracts and registry dispatch are defined in `src/api/mcp/
 - `pull_inbox`
 - `post_listen_reply`
 
-### Worker execution
-- `pull_task_dispatch`
-- `update_task_dispatch`
-- `execute_worker_dispatch`
-- `cancel_local_dispatch`
+### Agent execution
 - `generate_dashboard_reply`
 
 ### Output minimization
@@ -70,21 +73,27 @@ Errors return:
 
 Unknown tool names raise MCP `MethodNotFound`.
 
+### Destructive Action Approvals
+
+Destructive actions (e.g., actions starting with `delete_`, `reset_`, `replace_`) executed via the `manage_sprint_os` tool follow an explicit approval flow to prevent accidental data loss:
+1. The initial call is sent without an `approval` block, or with `approval.confirmed: false`.
+2. The server short-circuits the action, returning an early envelope with `approvalRequired: true` and an explanatory `approvalMessage`.
+3. The agent reviews the message and issues the exact same call again, but with `approval.confirmed: true` added to the payload.
+4. The server executes the operation and returns the `result` block.
+
 ## Important Runtime Behaviors
 
 ### Listen-mode behavior
 - `listen` is now the primary listening contract for both normal stdio MCP clients and workers.
 - `listen` registers or refreshes the connection, then blocks until one actionable event is available or timeout expires.
-- `listen` returns exactly one event at a time: a dashboard message, a worker dispatch, or a timeout result with explicit "call listen again" continuation guidance.
+- `listen` returns exactly one event at a time: a dashboard message or a timeout result with explicit "call listen again" continuation guidance.
 - `listen` now returns compact event payloads instead of full connection/message records:
   - dashboard messages: `id`, `threadId`, `projectId`, `bodyMarkdown`, optional `metadata`
-  - task dispatches: full dispatch claim payload
   - timeout: continuation only
 - The default `listen` timeout is derived from dashboard settings `sprintLoopSteps.watchLoopOutputIntervalSeconds` and currently defaults to `300`.
 - The default internal idle polling cadence inside one blocking `listen` call is now `3000ms`, which reduces idle listener churn without changing the external MCP loop contract.
 - Connection heartbeat writes are throttled while listeners stay idle, so a healthy long-poll listener no longer rewrites connection state every second.
-- Workers may set `include_task_dispatch = true` so the same blocking listener call can also claim and return the next queued worker dispatch.
-- `listen` is exposed on both the normal stdio `project_manager` runtime and the remote Streamable HTTP `worker_gateway` runtime.
+- `listen` is exposed on the project-manager runtime over both stdio and HTTP.
 - `start_listen` registers or refreshes an MCP connection in sqlite and returns pending dashboard messages for the active project.
 - `pull_inbox` is the pull-based inbox endpoint for listening MCPs.
 - `post_listen_reply` writes a connection reply back into the project conversation thread and marks the handled dashboard message as processed.
@@ -92,22 +101,10 @@ Unknown tool names raise MCP `MethodNotFound`.
 - `start_listen` and `pull_inbox` now remain as low-level compatibility primitives and should not be the first-choice listener workflow for normal human-driven MCP clients.
 - New dashboard threads should remain unassigned by default until explicitly targeted or claimed by a real listener.
 
-### Worker-dispatch behavior
-- Worker MCPs register through `listen` or `start_listen` with `role = worker`.
-- `pull_task_dispatch` claims the next queued `mcp_worker` dispatch for one of the worker's active projects.
-- Claiming a dispatch acquires a DB-backed lease on that dispatch and returns the full task payload plus project/sprint branch context.
-- `execute_worker_dispatch` starts the claimed dispatch on a headless worker-host Sprint OS server using the existing provider execution path.
+### Agent reply behavior
 - `generate_dashboard_reply` generates a reply-only markdown response for a dashboard inbox message using the editable `Worker` agent plus the project repo context.
 - `generate_dashboard_reply` also accepts `mode = compact_thread`, which treats the supplied markdown as a prepared compaction prompt and records the run as a `chat_compaction` invocation.
 - `post_listen_reply` accepts optional `metadata`, which Sprint OS uses for hidden control-plane replies such as connected-worker thread compaction.
-- `update_task_dispatch` is used for heartbeats and terminal worker outcomes (`RUNNING`, `COMPLETED`, `FAILED`, `BLOCKED`).
-- `update_task_dispatch` now returns both the persisted dispatch state and an optional `controlAction`.
-- When the dashboard cancels a running worker dispatch, the next worker heartbeat receives `controlAction = "cancel"` while the dispatch remains `cancel_requested`.
-- `cancel_local_dispatch` is the worker-host side stop hook for active local execution.
-- Workers are expected to stop promptly and send a terminal `update_task_dispatch` result to close the dispatch cleanly.
-- Worker execution writes back into the same `task_dispatches`, `task_runs`, and `task_run_events` records used by the rest of Sprint OS.
-- The external `sprint-os-worker` client now uses the same blocking `listen` contract for both inbox and dispatch work.
-- In remote mode, the worker uses Streamable HTTP for the control plane and a local stdio `worker_host` runtime for execution hooks.
 
 ## Removed Legacy Surface
 
@@ -162,15 +159,10 @@ Sprint OS now also filters tools by runtime role before applying dashboard toggl
 Current roles:
 
 - `project_manager`
-- `worker_host`
-- `worker_gateway`
 
 Behavior:
 
-- normal Sprint OS server processes expose the project-manager/listener tool surface
-- headless worker-host processes expose only the worker-local execution tool surface they actually need
-- the Streamable HTTP worker gateway exposes the remote worker control-plane tool surface
-- worker-only tools such as `execute_worker_dispatch`, `cancel_local_dispatch`, and `generate_dashboard_reply` are no longer visible on normal human-driven MCP connections
-- dashboard-only orchestration stays outside the worker gateway; the worker gateway exposes only the listener and worker-control-plane tools it actually needs
+- Sprint OS now exposes only the project-manager tool surface
+- the same tool list is used for stdio and HTTP transports
 
 This keeps Gemini CLI and other regular MCP clients compatible without cluttering them with worker-local controls.

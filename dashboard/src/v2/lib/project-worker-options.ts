@@ -29,7 +29,7 @@ export const VIRTUAL_WORKER_OPTIONS: Array<{
 ];
 
 export interface WorkerRoutingPreference {
-  executionMode: "CONNECTED_MCP" | "VIRTUAL";
+  executionMode: "VIRTUAL";
   virtualWorkerProvider: VirtualWorkerProvider;
 }
 

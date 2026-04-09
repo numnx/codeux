@@ -14,6 +14,7 @@ import { useExecutions } from "../../../hooks/useExecutions.js";
 import {
   createSprint,
   createTask,
+  updateSprintShowcase,
   deleteSprint,
   exportSprintMarkdown,
   fetchProjectExecution,
@@ -89,7 +90,7 @@ export function useSprintsPageData() {
   const [addTaskForSprint, setAddTaskForSprint] = useState<Sprint | null>(null);
   const [addTaskSprintTasks, setAddTaskSprintTasks] = useState<Task[]>([]);
   const [workerMode, setWorkerMode] = useState<null | {
-    executionMode: "CONNECTED_MCP" | "VIRTUAL";
+    executionMode: "VIRTUAL";
     virtualWorkerProvider: string;
   }>(null);
   const [agentPresets, setAgentPresets] = useState<AgentPreset[]>([]);
@@ -347,6 +348,52 @@ export function useSprintsPageData() {
       });
     }
   }, [refresh, refreshExecution, selectedProject]);
+
+  const handleMarkCompleted = useCallback(async (sprintId: string) => {
+    const actionId = `sprint-mark-completed:${sprintId}`;
+    if (pendingActionIds.has(actionId)) {
+      return;
+    }
+    setPendingActionIds((current) => new Set(current).add(actionId));
+    try {
+      await updateSprint(sprintId, { status: "completed" });
+      await refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPendingActionIds((current) => {
+        const next = new Set(current);
+        next.delete(actionId);
+        return next;
+      });
+    }
+  }, [pendingActionIds, refresh, setError]);
+
+  const handleBulkToggleShowcase = useCallback(async (sprintIds: string[], state: boolean) => {
+    const availableIds = sprintIds.filter((id) => !pendingActionIds.has(`sprint-showcase:${id}`));
+    if (availableIds.length === 0) return;
+
+    setPendingActionIds((current) => {
+      const next = new Set(current);
+      for (const id of availableIds) next.add(`sprint-showcase:${id}`);
+      return next;
+    });
+
+    try {
+      await Promise.all(
+        availableIds.map((id) => updateSprintShowcase(id, state))
+      );
+      await refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPendingActionIds((current) => {
+        const next = new Set(current);
+        for (const id of availableIds) next.delete(`sprint-showcase:${id}`);
+        return next;
+      });
+    }
+  }, [pendingActionIds, refresh, setError]);
 
   const handleSprintToggle = useCallback((sprintId: string) => {
     if (!selectedProject) {
@@ -640,12 +687,14 @@ export function useSprintsPageData() {
     refreshSprints: refresh,
     refreshExecution,
     handleSprintToggle,
+    handleMarkCompleted,
     handleSubmitSprint,
     handleImprovePrompt,
     handleOpenAppendTasks,
     handleAppendTask,
     handleDeleteSprint,
     handleToggleShowcase,
+    handleBulkToggleShowcase,
     handleOpenExport,
     handleImportSprint,
   };

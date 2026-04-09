@@ -3,21 +3,24 @@ import { CoreDependencies } from "./core-factory.js";
 import { SprintDependencies } from "./sprint-factory.js";
 import { CoreToolHandler } from "../../mcp/core-tool-handler.js";
 import { AgentToolHandler } from "../../mcp/agent-tool-handler.js";
+import { ManagementToolHandler } from "../../mcp/management-tool-handler.js";
 import { type DashboardSettings, type DashboardSettingsScope } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
-import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
-import { WorkerDispatchExecutionService } from "../../services/worker-dispatch-execution-service.js";
-import { WorkerListenEventService } from "../../domain/workers/worker-listen-event-service.js";
+import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
+
+import type { DashboardDependencies } from "./dashboard-factory.js";
 
 export interface McpDependencies {
   coreToolHandler: CoreToolHandler;
   agentToolHandler: AgentToolHandler;
+  managementToolHandler: ManagementToolHandler;
 }
 
 export function createMcpDependencies(
   context: ServerContext,
   coreDeps: CoreDependencies,
-  sprintDeps: SprintDependencies
+  sprintDeps: SprintDependencies,
+  dashboardDeps: DashboardDependencies
 ): McpDependencies {
   const {
     logger,
@@ -35,18 +38,11 @@ export function createMcpDependencies(
     agentPresetSyncService,
   } = coreDeps;
   const { taskService } = sprintDeps;
-  const resolveWorkerExecutionMode = (projectId: string, sprintId?: string | null) => (
-    sprintId
-      ? coreDeps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings.workers.executionMode
-      : coreDeps.settingsRepository.resolveProjectDashboardSettings(projectId).settings.workers.executionMode
-  );
 
   const getDashboardSettings = (scope?: DashboardSettingsScope): DashboardSettings => {
     let effective: { settings: DashboardSettings; sources: Record<string, string> };
-    if (scope?.sprintId && scope?.projectId) {
-      effective = coreDeps.settingsRepository.resolveSprintDashboardSettings(scope.projectId, scope.sprintId);
-    } else if (scope?.projectId) {
-      effective = coreDeps.settingsRepository.resolveProjectDashboardSettings(scope.projectId);
+    if (scope?.projectId) {
+      effective = resolveEffectiveDashboardSettings(coreDeps.settingsRepository, scope.projectId, scope.sprintId);
     } else {
       effective = {
         settings: context.runtimeContext.dashboardSettings || coreDeps.settingsRepository.getDefaultDashboardSettings(),
@@ -68,18 +64,6 @@ export function createMcpDependencies(
     return settings;
   };
 
-  const workerTaskDispatchService = new WorkerTaskDispatchService(
-    executionRepository,
-    projectManagementRepository,
-    connectionChatRepository,
-    workerEndpointRepository,
-    projectWorkerAssignmentService,
-    projectAttentionService,
-    getDashboardSettings,
-    resolveWorkerExecutionMode,
-    logger.child({ component: "worker-task-dispatch-service" }),
-  );
-
   const coreToolHandler = new CoreToolHandler({
     julesApi,
     activitySummary,
@@ -95,40 +79,30 @@ export function createMcpDependencies(
     getTrackedSession: (sessionId) => sessionTracking.getSession(sessionId),
     getDashboardSettings: () => context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
     connectionChatRepository,
-    workerEndpointRepository,
-    projectWorkerAssignmentService,
-    projectAttentionService,
-    workerAttentionOutcomeService,
-    workerTaskDispatchService,
-    workerListenEventService: new WorkerListenEventService(
-      connectionChatRepository,
-      workerEndpointRepository,
-      projectManagementRepository,
-      coreDeps.projectWorkerAssignmentRepository,
-      coreDeps.projectAttentionRepository,
-      executionRepository,
-      getDashboardSettings,
-      resolveWorkerExecutionMode,
-    ),
-    resolveWorkerExecutionMode,
     logger: logger.child({ component: "core-tool-handler" }),
   });
 
   const agentToolHandler = new AgentToolHandler({
-    workerDispatchExecutionService: new WorkerDispatchExecutionService(
-      executionRepository,
-      projectManagementRepository,
-      taskService,
-      activeDispatchRegistry,
-      julesApi,
-      getDashboardSettings,
-      logger.child({ component: "worker-dispatch-execution-service" }),
-    ),
     workerInboxReplyService: sprintDeps.workerInboxReplyService,
+  });
+
+  const managementToolHandler = new ManagementToolHandler({
+    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected at the top-level by jules-agent-server if needed
+    executionRepository: coreDeps.executionRepository,
+    getDashboardSettings: () => getDashboardSettings(),
+    projectManagementRepository: coreDeps.projectManagementRepository,
+    executionControlService: dashboardDeps.executionControlService,
+    taskRerunService: dashboardDeps.taskRerunService,
+    settingsRepository: coreDeps.settingsRepository,
+    agentPresetSyncService: coreDeps.agentPresetSyncService,
+    memoryService: coreDeps.memoryService,
+    memoryPromotionService: coreDeps.memoryPromotionService,
+    embeddingModelManager: coreDeps.embeddingModelManager,
   });
 
   return {
     coreToolHandler,
     agentToolHandler,
+    managementToolHandler,
   };
 }

@@ -3,45 +3,48 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import gsap from 'gsap';
 import { Activity } from 'lucide-preact';
 import type {
-  ExecutionUsageBucketSummary,
   ProjectExecutionStatsSnapshot,
-  ProjectExecutionStatsChartSeries,
 } from '../../../types.js';
 import {
   formatTokens,
   formatDuration,
   formatDateTime,
-  sumUsage,
 } from '../stats-utils.js';
 import {
   CHIP_CLASS,
   PANEL_CLASS,
   SUBPANEL_CLASS,
-  type ChartZoomRange,
-  type ChartPoint,
-  buildPoints,
-  buildSmoothPath,
-  buildSmoothAreaPath,
   getAxisLabelStep,
   formatAxisLabel,
 } from './StatsShared.js';
 import { UsageSeriesSidebar } from './UsageSeriesSidebar.js';
+import type { UsageChartState } from '../use-usage-chart-state.js';
+import {
+  getVisibleBuckets,
+  normalizeChartSeries,
+  groupChartSeries,
+  calculateChartMetrics,
+  getTooltipState,
+} from '../chart-view-models.js';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
-}> = ({ stats }) => {
+  chartState: UsageChartState;
+}> = ({ stats, chartState }) => {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [zoomRange, setZoomRange] = useState<ChartZoomRange | null>(null);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
-  const [dragCurrentIndex, setDragCurrentIndex] = useState<number | null>(null);
 
-  const [enabledSeries, setEnabledSeries] = useState<Record<string, boolean>>(() => {
-    return stats.chartSeries.reduce((acc, s) => {
-      acc[s.id] = s.defaultEnabled;
-      return acc;
-    }, {} as Record<string, boolean>);
-  });
+  const {
+    zoomRange,
+    setZoomRange,
+    hoveredIndex,
+    setHoveredIndex,
+    dragStartIndex,
+    setDragStartIndex,
+    dragCurrentIndex,
+    setDragCurrentIndex,
+    enabledSeries,
+    setEnabledSeries,
+  } = chartState;
 
   const buckets = stats.buckets;
 
@@ -50,36 +53,23 @@ export const InteractiveUsageChart: FunctionComponent<{
   const padding = 34;
   const viewStart = zoomRange?.start ?? 0;
   const viewEnd = zoomRange?.end ?? Math.max(0, buckets.length - 1);
-  const visibleBuckets = buckets.slice(viewStart, viewEnd + 1);
+  const visibleBuckets = getVisibleBuckets(buckets, viewStart, viewEnd);
 
   const chartData = useMemo(() => {
-    return stats.chartSeries.map((series, idx) => {
-      const accentHex = series.id === 'tokens' ? '#00E0A0' : series.id === 'active' ? '#FFB800' : series.id === 'invocations' ? '#0EA5E9' : ['#F43F5E', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6'][idx % 7]!;
-      const formatter = series.id.includes('time') || series.id.includes('active') ? formatDuration : series.id.includes('invocations') || series.id.includes('calls') ? (val: number) => val.toLocaleString() : formatTokens;
-      const values = visibleBuckets.map((_, bucketIdx) => series.data[viewStart + bucketIdx] || 0);
-      const points = buildPoints(values.length > 0 ? values : [0], width, height, padding);
-      return {
-        ...series,
-        accentHex,
-        formatter,
-        signalLabel: series.id === 'tokens' ? 'Throughput' : series.id === 'active' ? 'Latency' : series.id === 'invocations' ? 'Volume' : 'Metric',
-        values,
-        points,
-        path: buildSmoothPath(points),
-        areaPath: buildSmoothAreaPath(points, height, padding),
-        max: Math.max(...(values.length > 0 ? values : [0]), 1),
-      };
-    });
+    return normalizeChartSeries(stats.chartSeries, visibleBuckets, viewStart, width, height, padding);
   }, [stats.chartSeries, visibleBuckets, viewStart, width, height, padding]);
+
+  const seriesGroups = useMemo(() => {
+    return groupChartSeries(stats.chartSeries);
+  }, [stats.chartSeries]);
 
   const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
   const activeSeriesCount = visibleSeries.length;
-  const activeIndex = hoveredIndex ?? (visibleBuckets.length > 0 ? visibleBuckets.length - 1 : 0);
-  const activeBucket = visibleBuckets[activeIndex] ?? null;
-  const xPositions = chartData[0]?.points.map((point) => point.x) ?? [];
-  const tooltipLeft = xPositions[activeIndex]
-    ? ((xPositions[activeIndex]! - padding) / Math.max(1, width - padding * 2)) * 100
-    : 50;
+
+  const { activeIndex, activeBucket, tooltipLeft, xPositions } = getTooltipState(
+    visibleBuckets, chartData, hoveredIndex, padding, width
+  );
+
   const selectionBounds = dragStartIndex !== null && dragCurrentIndex !== null
     ? {
       start: Math.min(dragStartIndex, dragCurrentIndex),
@@ -91,19 +81,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     : stats.range.label;
   const axisLabelStep = getAxisLabelStep(stats.range);
 
-  const peakTokens = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.totalTokens));
-  const peakTime = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.activeTimeMs));
-  const peakInvocations = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.invocationCount));
-  const averageTokens = visibleBuckets.length > 0 ? Math.round(sumUsage(visibleBuckets.map((bucket) => ({
-    id: bucket.bucketStart,
-    label: bucket.label,
-    secondaryLabel: null,
-    status: null,
-    purpose: null,
-    provider: null,
-    usage: bucket.usage,
-    lastActivityAt: bucket.bucketEnd,
-  }))).totalTokens / visibleBuckets.length) : 0;
+  const { peakTokens, peakTime, peakInvocations, averageTokens } = calculateChartMetrics(visibleBuckets);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -122,17 +100,6 @@ export const InteractiveUsageChart: FunctionComponent<{
     globalThis.window.addEventListener("mouseup", handleMouseUp);
     return () => globalThis.window.removeEventListener("mouseup", handleMouseUp);
   }, [dragCurrentIndex, dragStartIndex, buckets]);
-
-  useEffect(() => {
-    setHoveredIndex(null);
-    setZoomRange(null);
-    setDragStartIndex(null);
-    setDragCurrentIndex(null);
-    setEnabledSeries(stats.chartSeries.reduce((acc, s) => {
-      acc[s.id] = s.defaultEnabled;
-      return acc;
-    }, {} as Record<string, boolean>));
-  }, [stats.range.from, stats.range.to, stats.range.resolution, stats.chartSeries]);
 
   useLayoutEffect(() => {
     if (!panelRef.current) {
@@ -221,6 +188,41 @@ export const InteractiveUsageChart: FunctionComponent<{
               ) : null}
             </div>
             <div className="relative">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap gap-x-6 gap-y-4 px-4 py-3">
+                {Object.entries(seriesGroups).map(([grouping, groupSeries]) => (
+                  <div key={grouping} className="flex flex-col gap-2">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 pl-1">{grouping}</div>
+                    <div className="pointer-events-auto flex flex-wrap gap-2">
+                      {groupSeries.map((s, idx) => {
+                        const active = enabledSeries[s.id] || false;
+                        const disabled = activeSeriesCount === 1 && active;
+                        const fallbackColors = ['#F43F5E', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6'];
+                        const accentHex = s.color || fallbackColors[idx % fallbackColors.length];
+
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              if (activeSeriesCount === 1 && enabledSeries[s.id]) return;
+                              setEnabledSeries((curr: Record<string, boolean>) => ({ ...curr, [s.id]: !curr[s.id] }));
+                            }}
+                            disabled={disabled}
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-all border ${
+                              active
+                                ? 'bg-white/68 dark:bg-void-900/35 border-signal-500/18 text-slate-800 dark:text-slate-200'
+                                : 'border-black/[0.05] bg-white/60 dark:border-white/[0.05] dark:bg-void-900/30 text-slate-500 dark:text-slate-400 opacity-72 hover:opacity-100'
+                            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+                          >
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentHex }} />
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
               {activeBucket ? (
                 <div
                   className="pointer-events-none absolute top-3 z-10 w-56 -translate-x-1/2 rounded-[1.25rem] border border-black/[0.06] bg-white/88 px-4 py-3 shadow-[0_18px_38px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-900/88 dark:shadow-[0_20px_40px_rgba(0,0,0,0.32)]"
@@ -381,13 +383,9 @@ export const InteractiveUsageChart: FunctionComponent<{
 
           <div className="flex flex-col gap-4">
             <UsageSeriesSidebar
-              series={stats.chartSeries}
+              series={chartData}
               enabledSeries={enabledSeries}
               activeIndex={activeIndex}
-              onToggle={(id) => {
-                if (activeSeriesCount === 1 && enabledSeries[id]) return;
-                setEnabledSeries((curr) => ({ ...curr, [id]: !curr[id] }));
-              }}
             />
             <div className={`${SUBPANEL_CLASS} p-5`}>
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Focused Bucket</div>

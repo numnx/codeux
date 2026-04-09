@@ -60,14 +60,16 @@ export class TaskService {
       }
     }
 
-    if (options?.cliOnly && resolved.provider === "jules") {
+    const requiresCli = options?.cliOnly || settings.git.githubMode === "LOCAL";
+
+    if (requiresCli && resolved.provider === "jules") {
       const fallbackPool = resolved.enabledProviders.filter((provider) => provider !== "jules");
       if (fallbackPool.length > 0) {
         resolved = buildRoute(fallbackPool);
       }
     }
 
-    if (options?.cliOnly && resolved.provider === "jules") {
+    if (requiresCli && resolved.provider === "jules") {
       throw new Error(`Invocation ${invocation} requires a CLI provider, but no eligible CLI provider is enabled.`);
     }
 
@@ -77,9 +79,6 @@ export class TaskService {
   resolveTaskProvider(task: Subtask, scope?: DashboardSettingsScope, executorType?: string): ProviderId | null {
     if (task.provider) {
       return task.provider;
-    }
-    if (executorType === "mcp_worker") {
-      return null;
     }
     if (executorType === "jules") {
       return "jules";

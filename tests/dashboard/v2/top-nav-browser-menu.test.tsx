@@ -12,7 +12,9 @@ import { buildPreviewUrl } from "../../../dashboard/src/v2/lib/preview-origin.js
 expect.extend(matchers);
 
 vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
-    useProjectData: vi.fn(),
+
+
+  useProjectData: vi.fn(),
 }));
 
 vi.mock("../../../dashboard/src/v2/lib/browser-api.js", () => ({
@@ -46,7 +48,6 @@ describe("BrowserSessionsMenu", () => {
 
         const button = screen.getByRole("button", { name: "Toggle active browser sessions" });
         expect(button).toBeInTheDocument();
-        expect(screen.getByText("Browser")).toBeInTheDocument();
     });
 
     it("shows polite empty state when no project is selected", async () => {

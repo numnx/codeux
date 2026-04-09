@@ -404,6 +404,52 @@ describe("ProjectRuntimeRepository", () => {
     expect(liveStatus.subtasks[0].id).toBe("CUR");
   });
 
+  it("does not reuse legacy project-level runtime context for an explicit sprint", async () => {
+    const { storage, projectRepository, runtimeRepository } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Scoped Runtime Project",
+      sourceType: "local",
+      sourceRef: "/workspace/scoped-runtime",
+    });
+    const olderSprint = projectRepository.createSprint(project.id, { name: "Older Sprint", number: 26 });
+    const currentSprint = projectRepository.createSprint(project.id, { name: "Current Sprint", number: 89 });
+    projectRepository.createTask(project.id, {
+      sprintId: currentSprint.id,
+      taskKey: "CUR",
+      title: "Current task",
+      status: "pending",
+    });
+
+    storage.getDatabase().prepare(`
+      INSERT INTO app_settings (key, payload, updated_at)
+      VALUES (?, ?, ?)
+    `).run(
+      `runtime_context:${project.id}`,
+      JSON.stringify({
+        projectId: project.id,
+        sprintId: olderSprint.id,
+        sprintNumber: 26,
+        sourceId: null,
+        repoPath: "/workspace/scoped-runtime",
+        featureBranch: "feature/sprint-26",
+        reportText: "stale",
+        statusTable: "",
+        instructions: "",
+        timestamp: "2026-03-30T05:40:00.000Z",
+      }),
+      "2026-03-30T05:40:00.000Z",
+    );
+
+    const status = runtimeRepository.getProjectStatus(project.id, currentSprint.id);
+    expect(status.sprint_id).toBe(currentSprint.id);
+    expect(status.feature_branch).toBeUndefined();
+    expect(status.sprint_number).toBeUndefined();
+    expect(status.reportText).toBeUndefined();
+    expect(status.subtasks).toHaveLength(1);
+    expect(status.subtasks[0].id).toBe("CUR");
+  });
+
   it("projects recent provider activity into task activities without a secondary fetch path", async () => {
     const { executionRepository, projectRepository, runtimeRepository } = await createRepositories();
 

@@ -95,7 +95,6 @@ const GEMINI_PATTERNS: ErrorPattern[] = [
       /uv_os_get_passwd/i,
       /apiKeyCredentialStorage/i,
       /Config\.refreshAuth/i,
-      /ENOENT.*\.gemini/i,
     ],
   },
   {
@@ -191,6 +190,11 @@ const PROVIDER_LABELS: Record<string, string> = {
   codex: "Codex",
 };
 
+function isGeminiRuntimeStorageError(text: string): boolean {
+  return /ENOENT/i.test(text)
+    && /\.sprint-os-home\/\.gemini\//i.test(text);
+}
+
 function computeResetAtIso(resetAfter: string): string | null {
   const hours = parseInt(resetAfter.match(/(\d+)h/)?.[1] ?? "0", 10);
   const minutes = parseInt(resetAfter.match(/(\d+)m/)?.[1] ?? "0", 10);
@@ -243,6 +247,16 @@ export function classifyProviderError(
         resetAtIso,
       };
     }
+  }
+
+  if (provider === "gemini" && isGeminiRuntimeStorageError(combined)) {
+    return {
+      category: "UNKNOWN",
+      provider,
+      userMessage: buildUserMessage(provider, "UNKNOWN", null),
+      resetAfter: null,
+      resetAtIso: null,
+    };
   }
 
   if (PROVIDER_NOT_FOUND_PATTERNS.some((pattern) => pattern.test(combined))) {

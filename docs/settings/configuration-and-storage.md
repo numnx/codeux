@@ -45,7 +45,8 @@ Storage:
   - `app_settings` is retained only as a one-time legacy migration source for development data that predates the scoped model
 - provider session DB at `~/.sprint-os/session-tracking.db`
 - Sprint OS app DB at `~/.sprint-os/app.db`
-  - includes project planning tables (sprints with `original_prompt` and `goal`) plus selected-project runtime projection in `app_settings`, `task_runs`, and `task_run_events`
+  - includes project planning tables (sprints with `original_prompt` and `goal`) plus sprint-scoped runtime projection in `app_settings`, `task_runs`, and `task_run_events`
+  - runtime context rows are keyed by sprint (`runtime_context:<projectId>:<sprintId>`); legacy unscoped project-level runtime rows are deprecated and are no longer used for explicit sprint reads or rerun context
   - also stores sprint preview runtime state in `sprint_preview_sessions`
 
 Runtime resolution:
@@ -137,6 +138,8 @@ Dashboard behavior:
 - project settings now render a per-setting override badge only when a control is actually overridden at project scope
 - sprint override dialogs use the same field-level source metadata and show override badges only for sprint-local overrides
 - the v2 settings page includes a quick-find field (keyboard shortcut `/`) that filters categories without changing the scoped settings model
+- the main settings editor is composed of smaller panel modules for better maintainability (e.g., automation, provider, worker, QA controls) instead of one monolithic component.
+- AI provider configuration and catalog metadata are centralized in `settings-view-models.ts` instead of directly within the editor.
 - AI provider configuration now uses compact focused workspaces instead of only long card grids:
   - one provider is edited at a time in the provider deck detail panel
   - invocation routing is edited in a split-pane route workspace with resolved default, provider-pool, and override summaries
@@ -210,6 +213,20 @@ Dashboard behavior:
 
 Quality assurance settings are project-scoped today and are edited from `Settings -> Agents`. When task-level QA is enabled, successful CLI task runs preserve their worktree long enough for a QA follow-up pass to resume the same session/worktree if fixes are required.
 
+QA merge-gate notes:
+- task QA now runs on code-complete tasks before Sprint OS auto-merges their feature PRs
+- enabled task QA blocks feature merge until QA passes or `maxTaskReviewRuns` is exhausted
+- while task QA is pending or retrying, the runtime merge indicator can be `QA_PENDING`
+- the initial task review always counts as run `1`; later runs are only used for QA-requested fix checks
+- `maxTaskReviewRuns = 1` means only the initial task or sprint review is checked by QA
+- `maxTaskReviewRuns = 2` means the initial review plus one QA re-check after fixes
+- a passed task QA result is reused and does not restart by itself on the next orchestration cycle
+- sprint QA now runs before the final `feature -> default` merge gate
+- enabled sprint QA blocks main-branch merge until sprint QA passes
+- sprint QA can resume an existing target task session and can also create new follow-up tasks with full `promptMarkdown` instructions when the review finds broader sprint work
+- sprint QA reruns only after a prior `changes_requested` or failed result and meaningful sprint task state changes after the last sprint QA run
+- a passed sprint QA result is reused and never restarts by itself without real work changes
+
 `cliWorkflow` contains:
 - Retry/cleanup toggles:
   - `cleanupWorktreeOnSuccess`
@@ -268,15 +285,20 @@ Preview runtime notes:
   - default/home markdown sources are never modified by dashboard edits; Sprint OS creates a project-level override file instead
 
 `workers` contains:
-- `executionMode` (default `CONNECTED_MCP`)
-  - `CONNECTED_MCP`: worker-owned dispatches and attention are routed only to connected MCP workers
-  - `VIRTUAL`: Sprint OS spins up an internal one-shot CLI worker when worker work exists, handles one planning request, task dispatch, or worker-owned attention item, then tears it down
+- `executionMode` (default `VIRTUAL`)
+  - `VIRTUAL`: Sprint OS spins up an internal one-shot CLI worker when worker-owned attention exists, handles one cycle in an isolated container workspace, then tears it down
 - `virtualWorkerProvider` (default `codex`)
   - allowed values: `gemini`, `codex`, `claude-code`
-  - used only when `executionMode = VIRTUAL`
   - Jules is intentionally excluded from worker mode; virtual workers are CLI-only
-- Dashboard worker-runtime editors now surface `virtualWorkerProvider` and worker-model override controls only while `executionMode = VIRTUAL`; connected MCP mode hides those virtual-only controls.
+- Dashboard worker-runtime editors now expose only the virtual-worker provider and worker-model override controls because connected MCP worker mode has been removed.
 - In the dashboard, these controls are exposed in the active v2 settings page under `Sprint Engine -> Worker Runtime`
+
+Container execution notes:
+- `cliWorkflow.executionMode` is now always `DOCKER`
+- task, planning, QA, chat, CI-fix, and merge-conflict CLI runs execute inside isolated Docker-volume workspaces
+- repo-local `.sprint-os/worktrees/*` are no longer used for Docker execution
+- `~/.sprint-os/runtime/docker/` should now contain only cache-like artifacts such as reusable setup-image state, not per-session workspaces
+- write-back from isolated CLI runs uses a Git patch artifact applied on the host branch, not direct file syncing from the container
 
 `sprintLoopSteps` also includes:
 - `watchLoopIntervalSeconds` (default `120`, clamped to `1..3600`)
@@ -286,7 +308,7 @@ Preview runtime notes:
 - `enableLivePrMonitoring` (default `true`): controls live PR/CI monitoring gates in sprint loop (`REMOTE` mode only; auto-disabled in `LOCAL` mode).
 - Sprint OS state is currently backed by SQLite via `DatabaseAdapter`, but is staged for a Postgres migration (see [Postgres Migration Plan](../architecture/postgres-migration-plan.md)).
 - `resolveMainMergeConflicts` (default `false`): when enabled, a `feature -> main` PR in `DIRTY` merge state opens a worker-owned `merge_conflict` attention item with repo path, working-directory hint, conflicting branches, PR metadata, sprint context, and merged task prompts already present on the feature branch.
-- `resolveMergeConflicts` (default `false`): when enabled, feature PRs in `DIRTY` merge state open a dedicated worker-owned `merge_conflict` attention item instead of a generic merge-required item. The payload includes repo path, working directory hint, source/target branches, PR details, the current task prompt, and merged task prompts already on the feature branch so the connected worker can resolve the conflict with full context.
+- `resolveMergeConflicts` (default `false`): when enabled, feature PRs in `DIRTY` merge state open a dedicated worker-owned `merge_conflict` attention item instead of a generic merge-required item. The payload includes repo path, working directory hint, source/target branches, PR details, the current task prompt, and merged task prompts already on the feature branch so the virtual worker can resolve the conflict with full context.
 - worker-owned merge conflicts do not end the watch loop as manual merge work anymore; Sprint OS keeps the loop alive while the selected worker runtime is expected to handle the conflict, and the dashboard no longer projects those worker-owned conflict items as human intervention.
 - feature PRs with `mergeStateStatus = DIRTY` short-circuit the feature-merge CI wait path; Sprint OS marks them as merge conflicts immediately instead of waiting for checks that cannot start until the conflict is resolved.
 - completed tasks with no recorded worker branch or PR URL are treated as already settled for dependency unlocks and sprint finalization; only tasks with merge evidence enter the feature-merge wait path.
@@ -312,14 +334,10 @@ Preview runtime notes:
 Repository demo script:
 - `.sprint-os/container/setup.sh` is included as a baseline bootstrap script.
 - It installs/updates `npm`, ensures `git` + `gh`, installs `pnpm`, `@google/gemini-cli`, `@openai/codex`, and Playwright Chromium (+ deps when root/apt is available).
-- Docker provider runner stores runtime state outside the project under `~/.sprint-os/runtime/docker/<repo-hash>/` by default:
-  - `home/` (container `HOME`)
-  - `npm-global/` (CLI fallback install prefix)
-  - `npm-cache/` (npm cache)
-  - `setup-image-cache/` (generated Docker build contexts for setup-script-derived images)
-  - Codex runs use isolated per-session homes (`home-codex-<session-id>`) to avoid stale local state interference between runs.
-  - Runtime cleanup automatically prunes stale per-session Codex homes and stale shared runtime temp directories after sessions are no longer active.
-  - Optional override: `JULES_DOCKER_RUNTIME_ROOT` (absolute path, `~` supported, repo-relative when relative)
+- Docker CLI execution now uses isolated Docker volumes as the workspace backing store instead of repo-local worktrees or persistent host-side runtime homes.
+  - container `HOME` lives inside the isolated workspace at `/workspace/.sprint-os-home`
+  - write-back happens via Git patch artifacts applied on the host, not direct file sync from the container
+  - the remaining persistent Docker-side cache is the optional setup-image cache, not per-session provider home directories under `~/.sprint-os/runtime/docker`
 - If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
   - CLI model settings continue to flow into Docker-backed providers:
     - Gemini: `GEMINI_MODEL`
@@ -334,9 +352,11 @@ Repository demo script:
   - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
   - GitHub sync still copies directory contents into a fixed destination (`~/.config/gh`); Gemini now avoids recursive state copy so concurrent Docker sessions do not race on shared `.gemini/tmp` output files.
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
+  - Provider-generated MCP/config files are no longer bind-mounted directly into `/workspace/.sprint-os-home/...`; runtime stages them under `/opt/provider-config/*` and copies them into the writable home during bootstrap so provider CLIs can still update adjacent state like Gemini project registry files.
+  - Gemini bootstrap now pre-seeds `~/.gemini/projects.json` plus the `tmp/`, `history/`, and `memory/` directories so the CLI does not hit its first-write race on a brand-new isolated home.
 
 Worker runtime notes:
-- connected MCP workers remain the default worker mode
+- virtual workers are now the only supported worker mode
 - virtual workers create ephemeral `worker_endpoints` rows with `endpoint_type = virtual_cli`
 - virtual workers do not create MCP connection rows, so the connection tab remains MCP-only
 

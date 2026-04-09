@@ -1,30 +1,89 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useLayoutEffect } from "preact/hooks";
+import { Link, useRouterState } from "@tanstack/react-router";
 import gsap from "gsap";
-import { LayoutDashboard, FolderGit2, ListTodo, Settings, Sparkles, Zap } from "lucide-preact";
+import { Hexagon, Layers, ListChecks, Zap, Settings, Inbox, Cpu, BarChart3, Compass, MessageCircle } from "lucide-preact";
+import { useProjectData } from "../context/project-data.js";
+import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
+import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 
-export const Sidebar: FunctionComponent = () => {
+const ALL_NAV_ITEMS = [
+    { icon: MessageCircle, label: "Chat",     path: "/chat" },
+    { icon: Hexagon,    label: "Overview", path: "/" },
+    { icon: Layers,     label: "Sprints",  path: "/sprints" },
+    { icon: ListChecks, label: "Tasks",    path: "/tasks" },
+    { icon: Cpu,        label: "Agents",   path: "/agents" },
+    { icon: BarChart3,  label: "Stats",    path: "/stats" },
+    { icon: Inbox,    label: "Memory",   path: "/memory" },
+    { icon: Compass,  label: "Browser",  path: "/browser" },
+    { icon: Zap,      label: "Live",     path: "/live" },
+];
+
+interface SidebarProps {
+    isMobile?: boolean;
+    isOpen?: boolean;
+    onClose?: () => void;
+}
+
+export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onClose }) => {
     const sidebarRef = useRef<HTMLElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
     const lineRef = useRef<SVGPathElement>(null);
     const navRef = useRef<HTMLDivElement>(null);
-    const [activeIndex, setActiveIndex] = useState(0);
+    const { selectedProject } = useProjectData();
+    const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
 
-    const navItems = [
-        { icon: LayoutDashboard, label: "Overview" },
-        { icon: FolderGit2, label: "Sources" },
-        { icon: ListTodo, label: "Sprints" },
-        { icon: Zap, label: "Live" },
-        { icon: Sparkles, label: "Automations" },
-    ];
+    const browserVisible = !selectedProject || (
+        (effectiveSettings?.settings.sprintPreview.enabled ?? true)
+        && (effectiveSettings?.settings.sprintPreview.showInAppBrowser ?? true)
+    );
+
+    const navItems = browserVisible ? ALL_NAV_ITEMS : ALL_NAV_ITEMS.filter((item) => item.path !== "/browser");
+
+    const prefersReducedMotion = useReducedMotion();
+
+    const matches = useRouterState({ select: (s) => s.matches });
+    const currentPath = matches[matches.length - 1]?.pathname || "/";
+    const activeIndex = Math.max(0, navItems.findIndex(i => i.path === currentPath));
 
     useEffect(() => {
-        if (sidebarRef.current) {
-            gsap.fromTo(sidebarRef.current, { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 1.2, ease: "power4.out" });
+        if (!isMobile && sidebarRef.current) {
+            if (prefersReducedMotion) {
+                gsap.set(sidebarRef.current, { x: 0, opacity: 1 });
+            } else {
+                gsap.fromTo(sidebarRef.current, { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 1.2, ease: "power4.out" });
+            }
         }
-    }, []);
+    }, [isMobile, prefersReducedMotion]);
 
     useEffect(() => {
+        if (isMobile) {
+            const animDuration = prefersReducedMotion ? 0 : 0.4;
+            const overlayDuration = prefersReducedMotion ? 0 : 0.3;
+
+            if (isOpen) {
+                gsap.to(sidebarRef.current, { x: 0, opacity: 1, duration: animDuration, ease: "power3.out" });
+                if (overlayRef.current) {
+                    gsap.to(overlayRef.current, { opacity: 1, duration: overlayDuration, ease: "power2.out", display: "block" });
+                }
+            } else {
+                gsap.to(sidebarRef.current, { x: "-100%", opacity: 0, duration: animDuration, ease: "power3.in" });
+                if (overlayRef.current) {
+                    gsap.to(overlayRef.current, { opacity: 0, duration: overlayDuration, ease: "power2.in", display: "none" });
+                }
+            }
+        } else {
+            // Reset transforms if returning to desktop
+            gsap.set(sidebarRef.current, { x: 0, opacity: 1 });
+            if (overlayRef.current) {
+                gsap.set(overlayRef.current, { display: "none", opacity: 0 });
+            }
+        }
+    }, [isMobile, isOpen, prefersReducedMotion]);
+
+    const updateLinePosition = () => {
         if (lineRef.current && navRef.current) {
+            // navRef has h2 as children[0], so children[activeIndex + 1] is the correct item
             const button = navRef.current.children[activeIndex + 1] as HTMLElement;
             if (button) {
                 const targetY = button.offsetTop + (button.offsetHeight / 2);
@@ -32,17 +91,40 @@ export const Sidebar: FunctionComponent = () => {
                 gsap.to(lineRef.current, {
                     attr: { d: path },
                     duration: 0.6,
-                    ease: "power2.out"
+                    ease: "power2.out",
+                    overwrite: "auto",
                 });
             }
         }
+    };
+
+    useLayoutEffect(() => {
+        updateLinePosition();
+    }, [activeIndex]);
+
+    useEffect(() => {
+        window.addEventListener('resize', updateLinePosition);
+        const timer = setTimeout(updateLinePosition, 50);
+        return () => {
+            window.removeEventListener('resize', updateLinePosition);
+            clearTimeout(timer);
+        };
     }, [activeIndex]);
 
     return (
+        <>
+        {isMobile && (
+            <div
+                ref={overlayRef}
+                className="fixed inset-0 bg-black/50 z-40 hidden backdrop-blur-sm"
+                aria-hidden="true"
+                onClick={onClose}
+            />
+        )}
         <aside
             aria-label="Primary Navigation"
             ref={sidebarRef}
-            className="w-[260px] h-screen shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 relative z-40"
+            className={`w-[260px] h-screen shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 z-50 ${isMobile ? 'fixed left-0 top-0 -translate-x-full opacity-0 shadow-2xl bg-[#F5F3EF] dark:bg-void-900' : 'relative'}`}
         >
             {/* Animated SVG Spline — signal jade to warm ember */}
             <svg
@@ -90,36 +172,41 @@ export const Sidebar: FunctionComponent = () => {
                 {navItems.map((item, idx) => {
                     const isActive = activeIndex === idx;
                     return (
-                        <button
+                        <Link
                             key={item.label}
-                            type="button"
-                            onMouseEnter={() => setActiveIndex(idx)}
+                            to={item.path}
                             aria-current={isActive ? "page" : undefined}
-                            className="relative flex items-center gap-3.5 px-5 py-3 rounded-2xl transition-colors duration-200 w-full text-left group overflow-hidden mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10"
+                            className="relative flex items-center gap-3.5 px-5 py-3 min-h-[44px] rounded-2xl transition-colors duration-200 w-full text-left group overflow-hidden mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none"
                         >
-                            <div className={`absolute inset-0 rounded-2xl transition-opacity duration-300 pointer-events-none ${isActive ? 'bg-signal-500/[0.10] dark:bg-signal-500/[0.10] opacity-100' : 'bg-transparent opacity-0 group-hover:bg-black/[0.05] dark:group-hover:bg-white/[0.05] group-hover:opacity-100'}`} />
+                            <div className={`absolute inset-0 rounded-2xl transition-all duration-300 pointer-events-none origin-left ${isActive ? 'bg-signal-500/[0.10] dark:bg-signal-500/[0.10] opacity-100 translate-x-0' : 'bg-black/[0.05] dark:bg-white/[0.05] opacity-0 -translate-x-full group-hover:translate-x-0 group-hover:opacity-100'}`} />
                             <div className={`absolute inset-0 rounded-2xl pointer-events-none transition-all duration-300 ${isActive ? 'shadow-[inset_0_0_0_1px_rgba(0,224,160,0.12)] dark:shadow-[inset_0_0_0_1px_rgba(0,224,160,0.1)]' : 'shadow-none'}`} />
+
+                            {/* Vertical Accent Indicator */}
+                            {isActive && (
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-2/3 w-1 bg-signal-500 rounded-r-full shadow-[0_0_8px_rgba(0,224,160,0.6)]" />
+                            )}
 
                             <item.icon aria-hidden="true" className={`relative z-10 w-4 h-4 transition-all duration-300 ${isActive ? 'text-signal-600 dark:text-signal-400 drop-shadow-[0_0_8px_rgba(0,224,160,0.5)]' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`} strokeWidth={isActive ? 2 : 1.5} />
 
                             <span className={`relative z-10 font-medium text-sm tracking-wide transition-colors duration-300 ${isActive ? 'text-slate-900 dark:text-white font-semibold' : 'text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`}>
                                 {item.label}
                             </span>
-                        </button>
+                        </Link>
                     );
                 })}
             </nav>
 
             {/* Settings */}
             <div className="px-4 relative z-10">
-                <button type="button" aria-label="Settings" className="relative w-full flex items-center gap-3.5 px-5 py-3 rounded-2xl transition-colors duration-200 text-left group overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10">
-                    <div className="absolute inset-0 rounded-2xl bg-transparent group-hover:bg-black/[0.05] dark:group-hover:bg-white/[0.05] transition-opacity duration-300 pointer-events-none opacity-0 group-hover:opacity-100" />
+                <Link to="/config" aria-label="Settings" className="relative w-full flex items-center gap-3.5 px-5 py-3 min-h-[44px] rounded-2xl transition-colors duration-200 text-left group overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none">
+                    <div className="absolute inset-0 rounded-2xl bg-black/[0.05] dark:bg-white/[0.05] transition-all duration-300 pointer-events-none origin-left opacity-0 -translate-x-full group-hover:translate-x-0 group-hover:opacity-100" />
                     <Settings aria-hidden="true" className="relative z-10 w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 group-hover:rotate-90 transition-all duration-700 ease-in-out" strokeWidth={1.5} />
                     <span className="relative z-10 font-medium text-sm tracking-wide text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">Settings</span>
-                </button>
+                </Link>
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#F5F3EF] dark:from-void-900 to-transparent pointer-events-none z-0" />
         </aside>
+        </>
     );
 };

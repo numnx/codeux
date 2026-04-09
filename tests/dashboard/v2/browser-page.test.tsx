@@ -3,6 +3,7 @@
 import { h } from "preact";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, act, cleanup } from "@testing-library/preact";
+import userEvent from "@testing-library/user-event";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { BrowserPage } from "../../../dashboard/src/v2/BrowserPage.js";
 import { PreviewSessionSlider } from "../../../dashboard/src/v2/components/browser/PreviewSessionSlider.js";
@@ -12,11 +13,14 @@ import { fetchPreviewScript } from "../../../dashboard/src/v2/lib/browser-api.js
 
 expect.extend(matchers);
 
-vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
-  useProjectData: vi.fn(() => ({
-    selectedProject: { id: "p1", name: "Project 1" },
-  })),
-}));
+vi.mock("../../../dashboard/src/v2/context/project-data.js", () => {
+  return {
+    ProjectDataContext: {},
+    useProjectData: vi.fn(() => ({
+      selectedProject: { id: "p1", name: "Project 1" },
+    })),
+  };
+});
 
 vi.mock("../../../dashboard/src/hooks/useSprints.js", () => ({
   useSprints: vi.fn(() => ({
@@ -133,22 +137,14 @@ describe("PreviewSessionSlider", () => {
             updatedAt: ""
           },
         ]}
-        sprints={[
-          { id: "s1", name: "Sprint 1" } as any,
-          { id: "s2", name: "Sprint 2" } as any,
-        ]}
         selectedSessionId="slider-sess-1"
-        launchSprintId="s1"
         onSelectSession={onSelect}
-        onLaunchSprintChange={vi.fn()}
-        onLaunchContainer={vi.fn()}
         onRemoveSession={vi.fn()}
       />
     );
 
     expect(screen.getByText("Unique Sprint A")).toBeInTheDocument();
     expect(screen.getByText("Unique Sprint B")).toBeInTheDocument();
-    expect(screen.getAllByText("Launch Container").length).toBeGreaterThan(0);
 
     const openLinks = screen.getAllByText("Open Link");
     expect(openLinks.length).toBe(2);
@@ -170,12 +166,8 @@ describe("PreviewSessionSlider", () => {
             updatedAt: ""
           },
         ]}
-        sprints={[{ id: "s1", name: "Sprint 1" } as any]}
         selectedSessionId={null}
-        launchSprintId="s1"
         onSelectSession={onSelect}
-        onLaunchSprintChange={vi.fn()}
-        onLaunchContainer={vi.fn()}
         onRemoveSession={vi.fn()}
       />
     );
@@ -188,8 +180,7 @@ describe("PreviewSessionSlider", () => {
     expect(onSelect).toHaveBeenCalledWith("slider-sess-1");
   });
 
-  it("fires launch and remove actions from the rail", () => {
-    const onLaunchContainer = vi.fn();
+  it("fires remove actions from the rail", () => {
     const onRemoveSession = vi.fn();
 
     render(
@@ -207,54 +198,14 @@ describe("PreviewSessionSlider", () => {
             updatedAt: ""
           },
         ]}
-        sprints={[
-          { id: "s1", name: "Sprint Alpha" } as any,
-          { id: "s2", name: "Sprint Beta" } as any,
-        ]}
         selectedSessionId="slider-sess-1"
-        launchSprintId="s2"
         onSelectSession={vi.fn()}
-        onLaunchSprintChange={vi.fn()}
-        onLaunchContainer={onLaunchContainer}
         onRemoveSession={onRemoveSession}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Launch Container" }));
-    expect(onLaunchContainer).toHaveBeenCalled();
-
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(onRemoveSession).toHaveBeenCalledWith("slider-sess-1");
-  });
-
-  it("keeps remove enabled while launch is busy", () => {
-    render(
-      <PreviewSessionSlider
-        sessions={[
-          {
-            id: "slider-sess-1",
-            projectId: "p1",
-            sprintId: "s1",
-            sprintName: "Sprint Alpha",
-            status: "running",
-            healthStatus: "healthy",
-            createdAt: "",
-            updatedAt: ""
-          },
-        ]}
-        sprints={[{ id: "s1", name: "Sprint Alpha" } as any]}
-        selectedSessionId="slider-sess-1"
-        launchSprintId="s1"
-        onSelectSession={vi.fn()}
-        onLaunchSprintChange={vi.fn()}
-        onLaunchContainer={vi.fn()}
-        onRemoveSession={vi.fn()}
-        launchBusy
-      />
-    );
-
-    expect(screen.getByRole("button", { name: "Remove" })).toHaveAttribute("aria-disabled", "false");
-    expect(screen.getByRole("button", { name: "Starting..." })).toHaveAttribute("aria-disabled", "true");
   });
 });
 
@@ -480,15 +431,14 @@ describe("BrowserPage", () => {
   });
 
   it("launches a container from the placeholder card for any sprint", async () => {
+    const user = userEvent.setup();
     render(<BrowserPage />);
 
-    await act(async () => {
-      fireEvent.change(screen.getByRole("combobox"), { target: { value: "s3" } });
-    });
+    const combobox = screen.getByRole("combobox");
+    await user.selectOptions(combobox, "s3");
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Launch Container" }));
-    });
+    const button = screen.getByRole("button", { name: "Launch Container" });
+    await user.click(button);
 
     expect(mockStartPreviewSession).toHaveBeenCalledWith("p1", "s3");
     expect(mockRefreshSessions).toHaveBeenCalled();

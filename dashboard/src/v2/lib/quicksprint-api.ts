@@ -5,26 +5,18 @@ import type {
   UpdateQuicksprintTemplateInput,
 } from "../../../../src/contracts/quicksprint-types.js";
 import type { SprintRecord } from "../types.js";
-
-const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(path, init);
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = typeof errorBody?.error === "string" ? errorBody.error : `Request failed: ${path}`;
-    throw new Error(errorMessage);
-  }
-  return await response.json() as T;
-};
+import { fetchJson } from "../../lib/api/fetch-json.js";
 
 export const fetchQuicksprintTemplates = async (projectId: string): Promise<QuicksprintTemplateRecord[]> => {
   return fetchJson<QuicksprintTemplateRecord[]>(`/api/projects/${encodeURIComponent(projectId)}/quicksprints/templates`);
 };
 
-export const executeQuicksprint = async (projectId: string, input: QuicksprintExecutionInput): Promise<SprintRecord> => {
+export const executeQuicksprint = async (projectId: string, input: QuicksprintExecutionInput, signal?: AbortSignal): Promise<SprintRecord> => {
   return fetchJson<SprintRecord>(`/api/projects/${encodeURIComponent(projectId)}/quicksprints/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+    signal,
   });
 };
 

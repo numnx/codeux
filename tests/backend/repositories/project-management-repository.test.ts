@@ -10,6 +10,7 @@ import { SprintMarkdownService } from "../../../src/services/sprint-markdown-ser
 const tempDirs: string[] = [];
 
 async function createRepository(): Promise<{
+  storage: AppDbStorage;
   repository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
   markdownService: SprintMarkdownService;
@@ -20,7 +21,7 @@ async function createRepository(): Promise<{
   const repository = new ProjectManagementRepository(storage);
   const executionRepository = new ExecutionRepository(storage);
   const markdownService = new SprintMarkdownService(repository);
-  return { repository, executionRepository, markdownService };
+  return { storage, repository, executionRepository, markdownService };
 }
 
 afterEach(async () => {
@@ -146,6 +147,8 @@ describe("ProjectManagementRepository", () => {
       isRunning: true,
       settingsOverrides: {},
       agentBindings: [],
+      gitProvider: "local",
+      gitHostDomain: null,
     });
 
     expect(sprints[0]).toMatchObject({
@@ -164,6 +167,55 @@ describe("ProjectManagementRepository", () => {
     });
   });
 
+
+  it("supports optional sprint review summaries in listSprints and ignores task-level QA", async () => {
+    const { repository, storage } = await createRepository();
+
+    const project = repository.createProject({
+      name: "QA Review Summary Project",
+      sourceType: "local",
+      sourceRef: "/tmp/qa",
+    });
+
+    const sprint1 = repository.createSprint(project.id, {
+      name: "Sprint Unreviewed",
+      goal: "No QA review run yet",
+    });
+
+    const sprint2 = repository.createSprint(project.id, {
+      name: "Sprint Reviewed",
+      goal: "Has QA review run",
+    });
+
+    const db = storage.getDatabase();
+
+    // Insert task level QA run for Sprint 1
+    db.prepare(`
+      INSERT INTO qa_review_runs (
+        id, project_id, sprint_id, trigger_type, status, outcome, run_index, summary_markdown, agent_name, started_at, finished_at, created_at, updated_at
+      ) VALUES (?, ?, ?, 'task_completion', 'completed', 'pass', 1, 'Task looks good', 'Task Bot', ?, ?, ?, ?)
+    `).run('task-qa-run', project.id, sprint1.id, new Date().toISOString(), new Date().toISOString(), new Date().toISOString(), new Date().toISOString());
+
+    // Insert sprint completion QA run for Sprint 2
+    db.prepare(`
+      INSERT INTO qa_review_runs (
+        id, project_id, sprint_id, trigger_type, status, outcome, run_index, summary_markdown, agent_name, started_at, finished_at, created_at, updated_at
+      ) VALUES (?, ?, ?, 'sprint_completion', 'completed', 'pass', 1, 'Looks good!', 'QA Bot', ?, ?, ?, ?)
+    `).run('qa-run-123', project.id, sprint2.id, new Date().toISOString(), new Date().toISOString(), new Date().toISOString(), new Date().toISOString());
+
+    const { sprints } = repository.listSprints(project.id);
+    expect(sprints.length).toBe(2);
+
+    const mappedUnreviewed = sprints.find(s => s.id === sprint1.id);
+    expect(mappedUnreviewed?.latestReview).toBeUndefined(); // Ignored task-level QA
+
+    const mappedReviewed = sprints.find(s => s.id === sprint2.id);
+    expect(mappedReviewed?.latestReview).toBeDefined();
+    expect(mappedReviewed?.latestReview?.status).toBe('completed');
+    expect(mappedReviewed?.latestReview?.outcome).toBe('pass');
+    expect(mappedReviewed?.latestReview?.summary).toBe('Looks good!');
+    expect(mappedReviewed?.latestReview?.reviewer).toBe('QA Bot');
+  });
   it("handles originalPrompt in sprints and supports clearing tasks", async () => {
     const { repository } = await createRepository();
 
@@ -326,6 +378,32 @@ describe("ProjectManagementRepository", () => {
     });
   });
 
+  it("loads task records by id through the chunked IN helper", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "Batch Lookup Project",
+      sourceType: "local",
+      sourceRef: "/workspace/batch-lookup-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Batch Lookup Sprint",
+      number: 1,
+    });
+    const taskA = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "First lookup task",
+    });
+    const taskB = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Second lookup task",
+    });
+
+    const records = repository.getTasksByIds([taskA.id, taskB.id, taskA.id]);
+
+    expect(records).toHaveLength(2);
+    expect(records.map((record) => record.id).sort()).toEqual([taskA.id, taskB.id].sort());
+  });
+
   it("publishes project collection and structure refreshes on project mutations", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-project-repo-realtime-"));
     tempDirs.push(dir);
@@ -360,5 +438,99 @@ describe("ProjectManagementRepository", () => {
 
     expect(notifier.scheduleProjectsRefresh).toHaveBeenCalled();
     expect(notifier.scheduleProjectStructureRefresh).toHaveBeenCalledWith(project.id, { includeProjects: true });
+  });
+
+  it("allows valid DAG dependencies within the same sprint", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "DAG Project",
+      sourceType: "local",
+      sourceRef: "/workspace/dag",
+    });
+    const sprint = repository.createSprint(project.id, { name: "Sprint 1" });
+
+    const taskA = repository.createTask(project.id, { sprintId: sprint.id, title: "A" });
+    const taskB = repository.createTask(project.id, { sprintId: sprint.id, title: "B", dependsOnTaskIds: [taskA.id] });
+    const taskC = repository.createTask(project.id, { sprintId: sprint.id, title: "C", dependsOnTaskIds: [taskB.id] });
+
+    const tasks = repository.listTasks(project.id, sprint.id);
+    expect(tasks.find((t) => t.id === taskB.id)?.dependsOnTaskIds).toEqual([taskA.id]);
+    expect(tasks.find((t) => t.id === taskC.id)?.dependsOnTaskIds).toEqual([taskB.id]);
+  });
+
+  it("rejects self-dependencies during creation and update", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "Self Dep Project",
+      sourceType: "local",
+      sourceRef: "/workspace/self-dep",
+    });
+    const sprint = repository.createSprint(project.id, { name: "Sprint 1" });
+
+    const taskA = repository.createTask(project.id, { sprintId: sprint.id, title: "A" });
+
+    expect(() => {
+      repository.updateTask(taskA.id, { dependsOnTaskIds: [taskA.id] });
+    }).toThrow("cannot depend on itself");
+  });
+
+  it("rejects cross-sprint dependencies", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "Cross Sprint Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cross-sprint",
+    });
+    const sprint1 = repository.createSprint(project.id, { name: "Sprint 1" });
+    const sprint2 = repository.createSprint(project.id, { name: "Sprint 2" });
+
+    const task1 = repository.createTask(project.id, { sprintId: sprint1.id, title: "Task 1" });
+
+    expect(() => {
+      repository.createTask(project.id, { sprintId: sprint2.id, title: "Task 2", dependsOnTaskIds: [task1.id] });
+    }).toThrow(/does not belong to the same sprint/);
+  });
+
+  it("rejects cycles created via updates", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "Cycle Project",
+      sourceType: "local",
+      sourceRef: "/workspace/cycle",
+    });
+    const sprint = repository.createSprint(project.id, { name: "Sprint 1" });
+
+    const taskA = repository.createTask(project.id, { sprintId: sprint.id, title: "A" });
+    const taskB = repository.createTask(project.id, { sprintId: sprint.id, title: "B", dependsOnTaskIds: [taskA.id] });
+    const taskC = repository.createTask(project.id, { sprintId: sprint.id, title: "C", dependsOnTaskIds: [taskB.id] });
+
+    // Try to make A depend on C (creating a cycle: A -> C -> B -> A)
+    expect(() => {
+      repository.updateTask(taskA.id, { dependsOnTaskIds: [taskC.id] });
+    }).toThrow(/circular dependency graph/);
+  });
+
+  it("does not touch updatedAt on no-op task updates", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "No Op Project",
+      sourceType: "local",
+      sourceRef: "/workspace/no-op-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Sprint 1",
+    });
+    const task = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Task 1",
+      promptMarkdown: "Do the work.",
+      status: "completed",
+    });
+
+    const updated = repository.updateTask(task.id, {
+      status: "completed",
+    });
+
+    expect(updated.updatedAt).toBe(task.updatedAt);
   });
 });

@@ -59,6 +59,7 @@ import { DefaultRuntimeContext, RuntimeContext } from "../app/runtime-context.js
 import { bootSettings, syncGitSettingsFromDashboard } from "../app/lifecycle/settings-lifecycle-service.js";
 import { bootDashboard } from "../app/lifecycle/dashboard-lifecycle-service.js";
 import { bootMcpHttpTransport, bootMcpTransport, type McpHttpTransportHandle } from "../app/lifecycle/mcp-lifecycle-service.js";
+import { McpApprovalTracker } from "../services/mcp-approval-tracker.js";
 import { getSprintSubtasksDir, SPRINT_OS_SERVICE_NAME } from "../shared/config/sprint-os-paths.js";
 import { SprintMarkdownService } from "../services/sprint-markdown-service.js";
 import { VirtualWorkerService } from "../services/virtual-worker-service.js";
@@ -125,6 +126,7 @@ export class JulesAgentServer {
   private projectAttentionRepository: ProjectAttentionRepository;
   private agentPresetRepository: AgentPresetRepository;
   private dockerService: DockerService;
+  private managementToolHandler: import("../mcp/management-tool-handler.js").ManagementToolHandler;
   private sprintPreviewRepository: SprintPreviewRepository;
   private sprintPreviewService: SprintPreviewService;
   private agentPresetSyncService: AgentPresetSyncService;
@@ -156,6 +158,7 @@ export class JulesAgentServer {
   private liveSnapshotInterval: ReturnType<typeof setInterval> | null = null;
   private mcpHttpHandle: McpHttpTransportHandle | null = null;
   private mcpServiceBound = false;
+  private readonly mcpApprovalTracker = new McpApprovalTracker();
   private readonly sigintHandler: () => void;
 
   constructor(options: JulesAgentServerOptions) {
@@ -199,6 +202,9 @@ export class JulesAgentServer {
     this.cliWorkflowService = deps.cliWorkflowService;
     this.coreToolHandler = deps.coreToolHandler;
     this.agentToolHandler = deps.agentToolHandler;
+    this.managementToolHandler = deps.managementToolHandler;
+    // Re-inject dependencies since sprintPreviewService is created late
+    (this.managementToolHandler as any).deps.sprintPreviewService = this.sprintPreviewService;
     this.activityCacheService = deps.activityCacheService;
     this.taskRerunService = deps.taskRerunService;
     this.executionControlService = deps.executionControlService;
@@ -255,11 +261,12 @@ export class JulesAgentServer {
     process.exit(0);
   }
 
-  private configureMcpServer(server: Server, runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): void {
+  private configureMcpServer(server: Server, runtimeRole: "project_manager"): void {
     registerMcpRequestHandlers({
       server,
       coreToolHandler: this.coreToolHandler,
       agentToolHandler: this.agentToolHandler,
+      managementToolHandler: this.managementToolHandler,
       getDashboardSettings: () => this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
       getRuntimeRole: () => runtimeRole,
       formatError: (error: unknown) => this.formatError(error),
@@ -272,7 +279,7 @@ export class JulesAgentServer {
     };
   }
 
-  private createMcpServerInstance(runtimeRole: "project_manager" | "worker_host" | "worker_gateway"): Server {
+  private createMcpServerInstance(runtimeRole: "project_manager"): Server {
     const server = new Server(
       {
         name: SPRINT_OS_SERVICE_NAME,
@@ -371,6 +378,13 @@ export class JulesAgentServer {
       persistTaskMergedFlag: (args) => this.persistTaskMergedFlag(args),
       normalizeName: (type, id) => this.normalizeName(type, id),
       isTrackedCliSession: (sessionId) => this.isTrackedCliSession(sessionId),
+      getMcpConnectionInfo: () => this.mcpHttpHandle
+        ? {
+            url: `http://${this.mcpHttpHandle.host}:${this.mcpHttpHandle.port}${this.mcpHttpHandle.path}`,
+            authToken: this.appConfig.mcpHttpAuthToken,
+          }
+        : null,
+      getMcpApprovalTracker: () => this.mcpApprovalTracker,
     };
   }
 
@@ -467,6 +481,10 @@ export class JulesAgentServer {
     const liveEnvToken = process.env.GITHUB_TOKEN?.trim();
     if (liveEnvToken && liveEnvToken.length > 0) {
       return liveEnvToken;
+    }
+    const gitlabToken = process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim();
+    if (gitlabToken && gitlabToken.length > 0) {
+      return gitlabToken;
     }
     const fallback = this.externalSettingsHints?.resolved?.githubToken?.trim();
     return (fallback && fallback.length > 0) ? fallback : undefined;
@@ -942,7 +960,7 @@ export class JulesAgentServer {
       path: this.appConfig.mcpHttpPath,
       authToken: this.appConfig.mcpHttpAuthToken,
       logger: this.logger.child({ component: "mcp-http-transport" }),
-      createServer: () => this.createMcpServerInstance("worker_gateway"),
+      createServer: () => this.createMcpServerInstance("project_manager"),
     });
     this.mcpServiceBound = true;
     this.startRuntimeCleanupLoop();

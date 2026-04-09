@@ -22,7 +22,6 @@ export function getShipType(
     (task.id ? dispatchIndex.get(task.id) : undefined);
 
   if (d?.executorType === "docker_cli") return "container";
-  if (d?.executorType === "mcp_worker") return "wooden";
   if (task.provider === "jules") return "wooden";
   return "container";
 }

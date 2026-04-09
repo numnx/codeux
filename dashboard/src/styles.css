@@ -32,6 +32,14 @@
     outline: 2px solid var(--signal-600);
     outline-offset: 2px;
   }
+
+  button {
+    @apply transition-all duration-200;
+  }
+
+  button:hover:not(:disabled) {
+    @apply brightness-110;
+  }
 }
 
 @layer utilities {
@@ -81,6 +89,24 @@
   }
 
   .dashboard-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(0, 224, 160, 0.8), rgba(0, 184, 130, 0.7));
+  }
+
+  .dropdown-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 224, 160, 0.35) transparent;
+  }
+  .dropdown-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .dropdown-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dropdown-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(0, 224, 160, 0.5), rgba(0, 184, 130, 0.4));
+    border-radius: 9999px;
+  }
+  .dropdown-scrollbar::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, rgba(0, 224, 160, 0.8), rgba(0, 184, 130, 0.7));
   }
 
@@ -261,30 +287,6 @@
     transition-delay: 80ms;
   }
 
-  /* Stat card premium shimmer */
-  @keyframes stat-shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-
-  .stat-card-premium::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 40%,
-      rgba(255, 255, 255, 0.03) 45%,
-      rgba(255, 255, 255, 0.06) 50%,
-      rgba(255, 255, 255, 0.03) 55%,
-      transparent 60%
-    );
-    background-size: 200% 100%;
-    animation: stat-shimmer 4s ease-in-out infinite;
-    pointer-events: none;
-    border-radius: inherit;
-  }
-
   @keyframes stats-delta-pop {
     0% {
       opacity: 0;
@@ -442,6 +444,8 @@
     .ship-bob,
     .jules-j-glow,
     .jules-j-draw,
+    .agent-float,
+    .agent-orb,
     .animate-organic,
     .animate-organic-reverse,
     .dag-aurora,
@@ -451,4 +455,46 @@
       transition: none !important;
     }
   }
+}
+
+/* ── Agent page animations ── */
+@keyframes agent-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes agent-orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  33% { transform: translate(12px, -8px) scale(1.1); opacity: 0.8; }
+  66% { transform: translate(-8px, 6px) scale(0.95); opacity: 0.5; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+.agent-float {
+  animation: agent-float 3s ease-in-out infinite;
+}
+
+.agent-orb {
+  animation: agent-orb-drift 8s ease-in-out infinite;
+}
+
+.agent-orb:nth-child(2) {
+  animation-delay: -3s;
+  animation-duration: 10s;
+}
+
+.agent-orb:nth-child(3) {
+  animation-delay: -5s;
+  animation-duration: 12s;
 }

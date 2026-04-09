@@ -130,6 +130,9 @@ const getEnabledProviders = (
     if (!providers[provider]?.enabled) {
       return false;
     }
+    if (settings.git.githubMode === "LOCAL" && provider === "jules") {
+      return false;
+    }
     if (allowedProviders && !allowedProviders.has(provider)) {
       return false;
     }

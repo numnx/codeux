@@ -1,10 +1,11 @@
 import type { FunctionComponent } from "preact";
-import { useRef, useEffect, useState } from "preact/hooks";
+import { useRef, useEffect, useState, useLayoutEffect, useCallback } from "preact/hooks";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { MessageCircle, Hexagon, Layers, ListChecks, Zap, Settings, Inbox, Cpu, BarChart3, Compass } from "lucide-preact";
 import gsap from "gsap";
 import { useProjectData } from "../context/project-data.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
+import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 
 /* Chat sits left of the divider — the rest are standard nav */
 const LEFT_ITEMS = [
@@ -37,34 +38,54 @@ export const KineticDock: FunctionComponent = () => {
     );
     const rightItems = browserVisible ? RIGHT_ITEMS : RIGHT_ITEMS.filter((item) => item.path !== "/browser");
     const allItems = [...LEFT_ITEMS, ...rightItems];
+    const prefersReducedMotion = useReducedMotion();
 
     const matches     = useRouterState({ select: (s) => s.matches });
     const currentPath = matches[matches.length - 1]?.pathname || "/";
     const activeIndex = Math.max(0, allItems.findIndex(i => i.path === currentPath));
 
-    /* Entrance */
-    useEffect(() => {
-        if (dockRef.current) {
-            gsap.fromTo(dockRef.current,
-                { y: 100, opacity: 0, scale: 0.8 },
-                { y: 0, opacity: 1, scale: 1, duration: 1.4, ease: "elastic.out(1, 0.7)", delay: 0.2 },
-            );
-        }
-    }, []);
-
-    /* Active indicator — DOM-based so the divider doesn't break the math */
-    useEffect(() => {
+    /* Active indicator position update */
+    const updateIndicatorPosition = useCallback(() => {
         const el = itemRefs.current[activeIndex];
         if (!el || !dockRef.current) return;
-        const dockRect = dockRef.current.getBoundingClientRect();
-        const elRect   = el.getBoundingClientRect();
-        const center   = elRect.left - dockRect.left + elRect.width / 2;
+
+        // Use offsetLeft to make calculation transformation-invariant (GSAP scaling won't affect it)
+        const center = el.offsetLeft + (el.offsetWidth / 2);
         setIndicatorLeft(center - 14); // 14 = half of 28px indicator
     }, [activeIndex]);
 
+    /* Entrance */
+    useEffect(() => {
+        if (dockRef.current) {
+            if (prefersReducedMotion) {
+                gsap.set(dockRef.current, { y: 0, opacity: 1, scale: 1 });
+            } else {
+                gsap.fromTo(dockRef.current,
+                    { y: 100, opacity: 0, scale: 0.8 },
+                    { y: 0, opacity: 1, scale: 1, duration: 1.4, ease: "elastic.out(1, 0.7)", delay: 0.2 },
+                );
+            }
+        }
+    }, [prefersReducedMotion]);
+
+    /* Active indicator — DOM-based so the divider doesn't break the math */
+    useLayoutEffect(() => {
+        updateIndicatorPosition();
+    }, [updateIndicatorPosition]);
+
+    useEffect(() => {
+        window.addEventListener('resize', updateIndicatorPosition);
+        // Also run once after a small delay to handle font loading/layout stabilization
+        const timer = setTimeout(updateIndicatorPosition, 50);
+        return () => {
+            window.removeEventListener('resize', updateIndicatorPosition);
+            clearTimeout(timer);
+        };
+    }, [updateIndicatorPosition]);
+
     /* Magnetic fisheye */
     const handleMouseMove = (e: MouseEvent) => {
-        if (!dockRef.current) return;
+        if (!dockRef.current || prefersReducedMotion) return;
         const dockRect = dockRef.current.getBoundingClientRect();
         const mouseX   = e.clientX;
 

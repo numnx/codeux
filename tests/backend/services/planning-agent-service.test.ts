@@ -21,185 +21,9 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
+
+
 describe("PlanningAgentService", () => {
-  it("resolves connected-worker reply when it arrives in the thread", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-resolve-"));
-    tempDirs.push(dir);
-
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
-    const projectRepository = new ProjectManagementRepository(storage);
-    const connectionRepository = new ConnectionChatRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
-    const syncService = new AgentPresetSyncService({
-      projectManagementRepository: projectRepository,
-      agentPresetRepository: new AgentPresetRepository(storage),
-      settingsRepository,
-      projectRoot: dir,
-    });
-
-    const service = new PlanningAgentService({
-      projectManagementRepository: projectRepository,
-      connectionChatRepository: connectionRepository,
-      settingsRepository,
-      agentPresetSyncService: syncService,
-      executionControlService: { orchestrateSprint: vi.fn() } as any,
-    });
-
-    const project = projectRepository.createProject({
-      name: "Resolve Project",
-      sourceType: "local",
-      sourceRef: dir,
-    });
-
-    const worker = connectionRepository.upsertConnection({
-      connectionKey: "resolve-worker",
-      displayName: "Resolve Worker",
-      role: "worker",
-      transport: "stdio",
-      status: "listening",
-      capabilities: { listenMode: true },
-      projectIds: [project.id],
-      activeProjectIds: [project.id],
-    });
-
-    const projectRepoPath = path.join(dir, "repo");
-    await fs.mkdir(path.join(projectRepoPath, ".sprint-os", "agents"), { recursive: true });
-    await fs.writeFile(
-      path.join(projectRepoPath, ".sprint-os", "agents", "planning_agent.md"),
-      "Turn sprint goals into concrete executable tasks.\n",
-      "utf8",
-    );
-
-    settingsRepository.saveProjectSettings(project.id, {
-      workers: { executionMode: "CONNECTED_MCP" },
-    });
-
-    const sprint = projectRepository.createSprint(project.id, {
-      name: "Resolve Sprint",
-      goal: "Goal",
-    });
-
-    const projectRepoPathTimeout = path.join(dir, "repo");
-    await fs.mkdir(path.join(projectRepoPathTimeout, ".sprint-os", "agents"), { recursive: true });
-    await fs.writeFile(
-      path.join(projectRepoPathTimeout, ".sprint-os", "agents", "planning_agent.md"),
-      "Turn sprint goals into concrete executable tasks.\n",
-      "utf8",
-    );
-
-    projectRepository.updateProject(project.id, { sourceRef: projectRepoPath });
-
-    // We must create a thread before we can post messages to it
-    const thread = connectionRepository.createThread(project.id, {
-      title: "Test Planning",
-      scope: "dashboard",
-    });
-
-    // Mock an old, unrelated message before the planning request starts
-    connectionRepository.postDashboardMessage(project.id, {
-      threadId: thread.id, // improveSprintPrompt doesn't need to post directly to a pre-existing explicit thread here because it resolves it. We just need to mock it catching the reply.
-      connectionId: worker.id,
-      bodyMarkdown: "old dash message",
-    });
-
-    // Let's hook into the connectionChatRepository to capture the thread ID and simulate a reply
-    const originalPostMessage = connectionRepository.postDashboardMessage.bind(connectionRepository);
-    vi.spyOn(connectionRepository, "postDashboardMessage").mockImplementation((projId, input) => {
-      const msg = originalPostMessage(projId, input);
-
-      // If it's a dashboard->connection message, schedule a reply
-      if (msg.direction === "dashboard_to_connection") {
-        setTimeout(() => {
-          connectionRepository.postListenReply({
-            connectionKey: worker.connectionKey,
-            threadId: input.threadId,
-            bodyMarkdown: JSON.stringify({
-              goal: "Successfully resolved!",
-              tasks: [{ key: "T01", title: "Task 1", description: "D", promptMarkdown: "P", priority: "high", executorType: "auto", dependsOn: [] }]
-            }),
-          });
-        }, 50);
-      }
-      return msg;
-    });
-
-    const result = await service.improveSprintPrompt(project.id, { name: "Sprint", goal: "Initial goal" });
-
-    expect(result.goal).toBe("Successfully resolved!");
-    expect(result.tasks).toBeUndefined(); // improve sprint just returns a goal (or tasks object if returned, but here the mock doesn't set it for tasks return on improve sprint)
-
-    vi.restoreAllMocks();
-  });
-
-  it("throws a timeout error if connected-worker reply does not arrive", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-timeout-"));
-    tempDirs.push(dir);
-
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
-    const projectRepository = new ProjectManagementRepository(storage);
-    const connectionRepository = new ConnectionChatRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
-    const syncService = new AgentPresetSyncService({
-      projectManagementRepository: projectRepository,
-      agentPresetRepository: new AgentPresetRepository(storage),
-      settingsRepository,
-      projectRoot: dir,
-    });
-
-    const service = new PlanningAgentService({
-      projectManagementRepository: projectRepository,
-      connectionChatRepository: connectionRepository,
-      settingsRepository,
-      agentPresetSyncService: syncService,
-      executionControlService: { orchestrateSprint: vi.fn() } as any,
-    });
-
-    const project = projectRepository.createProject({
-      name: "Timeout Project",
-      sourceType: "local",
-      sourceRef: dir,
-    });
-
-    connectionRepository.upsertConnection({
-      connectionKey: "timeout-worker",
-      displayName: "Timeout Worker",
-      role: "worker",
-      transport: "stdio",
-      status: "listening",
-      capabilities: { listenMode: true },
-      projectIds: [project.id],
-      activeProjectIds: [project.id],
-    });
-
-    const repoPathTimeout = path.join(dir, "repo");
-    await fs.mkdir(path.join(repoPathTimeout, ".sprint-os", "agents"), { recursive: true });
-    await fs.writeFile(
-      path.join(repoPathTimeout, ".sprint-os", "agents", "planning_agent.md"),
-      "Turn sprint goals into concrete executable tasks.\n",
-      "utf8",
-    );
-
-    projectRepository.updateProject(project.id, { sourceRef: repoPathTimeout });
-
-    settingsRepository.saveProjectSettings(project.id, {
-      workers: { executionMode: "CONNECTED_MCP" },
-    });
-
-    // vi.useFakeTimers interacting badly with the while loop and setTimeout.
-    // WaitUntil is abort aware, let's inject a very short timeout for this test
-    // or test the abort controller instead since they functionally test the same exit mechanism.
-
-    // Instead of messing with real timers in a while loop which causes hangs,
-    // let's test aborting the request since it uses the same return/throw path out of the loop
-
-    const ac = new AbortController();
-    const improvePromise = service.improveSprintPrompt(project.id, { name: "Sprint", goal: "Initial goal" }, ac.signal);
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    ac.abort();
-
-    await expect(improvePromise).rejects.toThrow(/Wait for worker reply in thread .+ aborted/);
-  });
 
   it("uses the Planning agent reply to improve prompts and create tasks", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-agent-"));
@@ -228,6 +52,94 @@ describe("PlanningAgentService", () => {
     const executionControlService = {
       orchestrateSprint: vi.fn(async () => ({ ok: true })),
     } as const;
+    const providerRunner: IProviderRunner = {
+      runProvider: vi.fn(),
+      runProviderForText: vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          stdout: "",
+          stderr: "",
+          code: 0,
+          signal: null,
+          nativeSessionId: null,
+          usageTelemetry: {
+            inputTokens: 20,
+            cachedInputTokens: 0,
+            outputTokens: 10,
+            reasoningOutputTokens: 0,
+            totalTokens: 30,
+            usageSource: "reported",
+            rawUsageJson: {},
+            transcriptText: '{"goal":"Sharper sprint prompt from the Planning agent."}',
+            nativeSessionId: null,
+          },
+          text: '{"goal":"Sharper sprint prompt from the Planning agent."}',
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          stdout: "",
+          stderr: "",
+          code: 0,
+          signal: null,
+          nativeSessionId: null,
+          usageTelemetry: {
+            inputTokens: 40,
+            cachedInputTokens: 0,
+            outputTokens: 20,
+            reasoningOutputTokens: 0,
+            totalTokens: 60,
+            usageSource: "reported",
+            rawUsageJson: {},
+            transcriptText: JSON.stringify({
+              goal: "Sharper sprint prompt from the Planning agent.",
+              tasks: [
+                {
+                  key: "TASK-1",
+                  title: "Redesign sprint gallery",
+                  description: "Refresh the top sprint cells and completed-state visuals.",
+                  promptMarkdown: "Update the sprint gallery UI and completed-state styling.",
+                  priority: "high",
+                  executorType: "auto",
+                  dependsOn: [],
+                },
+                {
+                  key: "TASK-2",
+                  title: "Wire planning actions",
+                  description: "Connect improve and planning flows to the isolated runtime.",
+                  promptMarkdown: "Hook the sprint modal into Planning agent endpoints and verify behavior.",
+                  priority: "medium",
+                  executorType: "docker_cli",
+                  dependsOn: ["TASK-1"],
+                },
+              ],
+            }),
+            nativeSessionId: null,
+          },
+          text: JSON.stringify({
+            goal: "Sharper sprint prompt from the Planning agent.",
+            tasks: [
+              {
+                key: "TASK-1",
+                title: "Redesign sprint gallery",
+                description: "Refresh the top sprint cells and completed-state visuals.",
+                promptMarkdown: "Update the sprint gallery UI and completed-state styling.",
+                priority: "high",
+                executorType: "auto",
+                dependsOn: [],
+              },
+              {
+                key: "TASK-2",
+                title: "Wire planning actions",
+                description: "Connect improve and planning flows to the isolated runtime.",
+                promptMarkdown: "Hook the sprint modal into Planning agent endpoints and verify behavior.",
+                priority: "medium",
+                executorType: "docker_cli",
+                dependsOn: ["TASK-1"],
+              },
+            ],
+          }),
+        }),
+    };
 
     const service = new PlanningAgentService({
       projectManagementRepository: projectRepository,
@@ -236,6 +148,7 @@ describe("PlanningAgentService", () => {
       settingsRepository,
       agentPresetSyncService: syncService,
       executionControlService: executionControlService as any,
+      providerRunner,
     });
 
     const project = projectRepository.createProject({
@@ -248,60 +161,11 @@ describe("PlanningAgentService", () => {
       goal: "Polish the sprint page and make planning automatic.",
     });
 
-    const connection = connectionRepository.upsertConnection({
-      connectionKey: "planning-worker",
-      displayName: "Planning Worker",
-      role: "worker",
-      transport: "stdio",
-      status: "listening",
-      capabilities: {
-        listenMode: true,
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: {
+        executionMode: "VIRTUAL",
+        virtualWorkerProvider: "codex",
       },
-      projectIds: [project.id],
-      activeProjectIds: [project.id],
-    });
-
-    const originalPostDashboardMessage = connectionRepository.postDashboardMessage.bind(connectionRepository);
-    let replyIndex = 0;
-    vi.spyOn(connectionRepository, "postDashboardMessage").mockImplementation((projectId, input) => {
-      const message = originalPostDashboardMessage(projectId, input);
-      const replyBodies = [
-        '{"goal":"Sharper sprint prompt from the Planning agent."}',
-        JSON.stringify({
-          goal: "Sharper sprint prompt from the Planning agent.",
-          tasks: [
-            {
-              key: "TASK-1",
-              title: "Redesign sprint gallery",
-              description: "Refresh the top sprint cells and completed-state visuals.",
-              promptMarkdown: "Update the sprint gallery UI and completed-state styling.",
-              priority: "high",
-              executorType: "auto",
-              dependsOn: [],
-            },
-            {
-              key: "TASK-2",
-              title: "Wire planning actions",
-              description: "Connect improve and planning flows to worker-backed endpoints.",
-              promptMarkdown: "Hook the sprint modal into Planning agent endpoints and verify behavior.",
-              priority: "medium",
-              executorType: "mcp_worker",
-              dependsOn: ["TASK-1"],
-            },
-          ],
-        }),
-      ];
-      const replyBody = replyBodies[replyIndex] || replyBodies[replyBodies.length - 1]!;
-      replyIndex += 1;
-      setTimeout(() => {
-        connectionRepository.postListenReply({
-          connectionKey: connection.connectionKey,
-          threadId: message.threadId,
-          bodyMarkdown: replyBody,
-          replyToMessageId: message.id,
-        });
-      }, 10);
-      return message;
     });
 
     const improved = await service.improveSprintPrompt(project.id, {
@@ -318,83 +182,7 @@ describe("PlanningAgentService", () => {
     const createdTasks = projectRepository.listTasks(project.id, sprint.id);
     expect(createdTasks).toHaveLength(2);
     expect(createdTasks[1]?.dependsOnTaskIds).toHaveLength(1);
-    expect(createdTasks[1]?.executorType).toBe("mcp_worker");
-  });
-
-  it("accepts a listen-mode listener connection for planning flows", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-listener-"));
-    tempDirs.push(dir);
-
-    const repoPath = path.join(dir, "repo");
-    await fs.mkdir(path.join(repoPath, ".sprint-os", "agents"), { recursive: true });
-    await fs.writeFile(
-      path.join(repoPath, ".sprint-os", "agents", "planning_agent.md"),
-      "Turn sprint goals into concrete executable tasks.\n",
-      "utf8",
-    );
-
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
-    const projectRepository = new ProjectManagementRepository(storage);
-    const agentPresetRepository = new AgentPresetRepository(storage);
-    const connectionRepository = new ConnectionChatRepository(storage);
-    const executionRepository = new ExecutionRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
-    const syncService = new AgentPresetSyncService({
-      projectManagementRepository: projectRepository,
-      agentPresetRepository,
-      settingsRepository,
-      projectRoot: dir,
-    });
-
-    const service = new PlanningAgentService({
-      projectManagementRepository: projectRepository,
-      connectionChatRepository: connectionRepository,
-      settingsRepository,
-      agentPresetSyncService: syncService,
-      executionControlService: {
-        orchestrateSprint: vi.fn(async () => ({ ok: true })),
-      } as any,
-    });
-
-    const project = projectRepository.createProject({
-      name: "Listener Project",
-      sourceType: "local",
-      sourceRef: repoPath,
-    });
-
-    connectionRepository.upsertConnection({
-      connectionKey: "gemini-cli",
-      displayName: "Gemini CLI",
-      role: "listener",
-      transport: "stdio",
-      status: "listening",
-      capabilities: {
-        listenMode: true,
-      },
-      projectIds: [project.id],
-      activeProjectIds: [project.id],
-    });
-
-    const originalPostDashboardMessage = connectionRepository.postDashboardMessage.bind(connectionRepository);
-    vi.spyOn(connectionRepository, "postDashboardMessage").mockImplementation((projectId, input) => {
-      const message = originalPostDashboardMessage(projectId, input);
-      setTimeout(() => {
-        connectionRepository.postListenReply({
-          connectionKey: "gemini-cli",
-          threadId: message.threadId,
-          bodyMarkdown: '{"goal":"Improved by listener connection."}',
-          replyToMessageId: message.id,
-        });
-      }, 10);
-      return message;
-    });
-
-    const improved = await service.improveSprintPrompt(project.id, {
-      name: "Listener Sprint",
-      goal: "Raw sprint prompt",
-    });
-
-    expect(improved.goal).toBe("Improved by listener connection.");
+    expect(createdTasks[1]?.executorType).toBe("docker_cli");
   });
 
   it("plans through a virtual worker when the project worker mode is virtual", async () => {
@@ -905,11 +693,11 @@ describe("PlanningAgentService", () => {
     const createdTasks = projectRepository.listTasks(project.id, sprint.id);
     expect(createdTasks).toHaveLength(2);
     expect(createdTasks[0]?.priority).toBe("high");
-    expect(createdTasks[1]?.executorType).toBe("mcp_worker");
+    expect(createdTasks[1]?.executorType).toBe("auto");
     expect(createdTasks[1]?.dependsOnTaskIds).toHaveLength(1);
   });
 
-  it("supports worker, virtual provider, and model overrides and explicit replanning", async () => {
+  it("supports virtual provider and model overrides and explicit replanning", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-overrides-"));
     tempDirs.push(dir);
 
@@ -992,7 +780,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: {
-        executionMode: "CONNECTED_MCP",
+        executionMode: "VIRTUAL",
         virtualWorkerProvider: "gemini",
       },
       aiProvider: {
@@ -1011,7 +799,7 @@ describe("PlanningAgentService", () => {
       },
     });
 
-    // Test virtual provider + model override even when connected workers are the project default
+    // Test virtual provider + model override
     await service.improveSprintPrompt(project.id, {
       name: "Sprint",
       goal: "Prompt",
@@ -1024,39 +812,6 @@ describe("PlanningAgentService", () => {
       provider: "codex",
       model: "custom-model",
     }));
-
-    // Test worker override (CONNECTED_MCP)
-    const workerConnection = connectionRepository.upsertConnection({
-      connectionKey: "custom-worker",
-      displayName: "Custom Worker",
-      role: "worker",
-      transport: "stdio",
-      status: "listening",
-      capabilities: { listenMode: true },
-      projectIds: [project.id],
-    });
-
-    const originalPostDashboardMessage = connectionRepository.postDashboardMessage.bind(connectionRepository);
-    vi.spyOn(connectionRepository, "postDashboardMessage").mockImplementation((projectId, input) => {
-      const message = originalPostDashboardMessage(projectId, input);
-      setTimeout(() => {
-        connectionRepository.postListenReply({
-          connectionKey: "custom-worker",
-          threadId: input.threadId,
-          bodyMarkdown: '{"goal":"Improved by custom worker."}',
-          replyToMessageId: message.id,
-        });
-      }, 10);
-      return message;
-    });
-
-    const improved = await service.improveSprintPrompt(project.id, {
-      name: "Sprint",
-      goal: "Prompt",
-      overrides: { workerId: workerConnection.id },
-    });
-    expect(improved.goal).toBe("Improved by custom worker.");
-    expect(improved.workerConnectionId).toBe(workerConnection.id);
 
     // Test replanning
     projectRepository.createTask(project.id, { sprintId: sprint.id, title: "Old Task" });
@@ -1297,70 +1052,6 @@ describe("PlanningAgentService", () => {
     const tasksAfterAbort = projectRepository.listTasks(project.id, sprint.id);
     expect(tasksAfterAbort).toHaveLength(1);
     expect(tasksAfterAbort[0]?.title).toBe("Existing task that must survive");
-  });
-
-  it("aborts a connected-worker polling loop when signal fires", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-os-planning-abort-connected-"));
-    tempDirs.push(dir);
-
-    const repoPath = path.join(dir, "repo");
-    await fs.mkdir(path.join(repoPath, ".sprint-os", "agents"), { recursive: true });
-    await fs.writeFile(
-      path.join(repoPath, ".sprint-os", "agents", "planning_agent.md"),
-      "Turn sprint goals into concrete executable tasks.\n",
-      "utf8",
-    );
-
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
-    const projectRepository = new ProjectManagementRepository(storage);
-    const agentPresetRepository = new AgentPresetRepository(storage);
-    const connectionRepository = new ConnectionChatRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
-    const syncService = new AgentPresetSyncService({
-      projectManagementRepository: projectRepository,
-      agentPresetRepository,
-      settingsRepository,
-      projectRoot: dir,
-    });
-
-    const service = new PlanningAgentService({
-      projectManagementRepository: projectRepository,
-      connectionChatRepository: connectionRepository,
-      settingsRepository,
-      agentPresetSyncService: syncService,
-      executionControlService: { orchestrateSprint: vi.fn() } as any,
-    });
-
-    const project = projectRepository.createProject({
-      name: "Abort Connected Project",
-      sourceType: "local",
-      sourceRef: repoPath,
-    });
-
-    connectionRepository.upsertConnection({
-      connectionKey: "abort-worker",
-      displayName: "Abort Worker",
-      role: "worker",
-      transport: "stdio",
-      status: "listening",
-      capabilities: { listenMode: true },
-      projectIds: [project.id],
-      activeProjectIds: [project.id],
-    });
-
-    // Do NOT mock postDashboardMessage to post a reply — the poll loop will wait forever
-    const ac = new AbortController();
-    const improvePromise = service.improveSprintPrompt(
-      project.id,
-      { name: "Sprint", goal: "A goal" },
-      ac.signal,
-    );
-
-    // Give the poll loop one tick to start, then abort
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    ac.abort();
-
-    await expect(improvePromise).rejects.toThrow();
   });
 
   it("retries virtual planning requests on invalid JSON and recovers on success", async () => {

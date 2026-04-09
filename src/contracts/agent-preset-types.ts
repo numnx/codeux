@@ -7,6 +7,13 @@ export interface AgentAvatarConfig {
   face?: string;
   shirt?: string;
   bottom?: string;
+  /** Robot avatar fields */
+  chassis?: string;
+  eyes?: string;
+  antenna?: string;
+  wings?: string;
+  accent?: string;
+  baseColor?: string;
 }
 
 export interface AgentPresetRecord {

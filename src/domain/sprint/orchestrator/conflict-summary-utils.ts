@@ -79,7 +79,7 @@ export function buildConflictSummaryMarkdown(params: BuildConflictSummaryParams)
     }
     lines.push(
       "",
-      "Resolve this directly on the connected worker so the sprint can continue without a manual dashboard merge handoff.",
+      "Resolve this through the virtual worker flow so the sprint can continue without a manual dashboard merge handoff.",
       "",
       `Repo path: \`${repoPath}\``,
       `Working directory: \`${workingDir}\``,

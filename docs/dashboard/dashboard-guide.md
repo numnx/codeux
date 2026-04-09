@@ -72,12 +72,12 @@ Project management:
 - `POST /api/projects/:projectId/agent-presets/sync-markdown`
   - Re-imports every out-of-sync linked markdown agent for the selected project
 - `POST /api/projects/:projectId/planning/improve-sprint-prompt`
-  - Sends a draft sprint prompt to the Planning agent through a connected worker and returns the improved prompt
-  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a live worker connection or a virtual CLI provider/model for that one request.
+  - Sends a draft sprint prompt to the Planning agent through the configured virtual worker provider and returns the improved prompt
+  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a virtual CLI provider/model for that one request.
 - `POST /api/projects/:projectId/sprints/:sprintId/plan`
-  - Sends a created sprint to the Planning agent through a connected worker, creates subtasks from the reply, and can auto-start the sprint
+  - Sends a created sprint to the Planning agent through the configured virtual worker provider, creates subtasks from the reply, and can auto-start the sprint
   - Auto-start orchestration now prepares the local sprint feature branch automatically and attempts to push it to `origin` when that remote exists
-  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a live worker connection or a virtual CLI provider/model for that one request.
+  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a virtual CLI provider/model for that one request.
 - `GET /api/projects/:projectId/conversations/threads`
   - Lists project conversation threads
 - `POST /api/projects/:projectId/conversations/threads`
@@ -162,7 +162,7 @@ Legacy runtime:
 - Creating a new sprint automatically updates the active sprint selection to that new sprint
 - The top-nav worker selector now always lists the built-in virtual workers even when no live MCP worker is connected
 - Selecting a virtual worker from the top nav switches the selected project into `workers.executionMode = VIRTUAL` with that provider
-- Selecting a live worker from the top nav switches the project back to `workers.executionMode = CONNECTED_MCP` and updates the preferred live worker assignment
+- Connected MCP worker selection has been removed; the worker selector is now virtual-only
 - Projects page is DB-backed and can create/select/delete projects
 - The `Add Project` dialog now keeps keyboard focus inside the active form field while typing, and its initial focus respects the form's `autofocus` input instead of jumping to the header close button
 - Project selector and project cards now refresh over websocket when the project collection or selected project changes
@@ -171,6 +171,7 @@ Legacy runtime:
 - Sprint cells and ledger rows now surface a dedicated human-intervention badge when a paused sprint needs merge work, planning, or another operator action, and the hover card explains what to do before resuming
 - Sprints page now also starts and stops sprint orchestration directly from sprint cards, with optimistic visual state updates tied to project-scoped execution data
 - The organic sprint bubble cells use the same live start/stop control path as the registry list, so the hover play/stop action is now functional instead of decorative
+- Sprint cells now surface a QA-reviewed indicator with a hover summary and allow marking sprints completed directly from the cell menu
 - Sprint creation no longer asks for start/end dates
 - Sprint creation now uses an in-page composer that replaces the showcase while writing, instead of opening a detached modal
 - The sprint composer supports `Plan & Start`, `Plan Only`, and `Save Draft`.
@@ -191,7 +192,7 @@ Legacy runtime:
   - task keys should use `T01`, `T02`, `T03`, ...
   - the `tasks` array is returned in DAG order
   - each task prompt is standardized to `Objective`, `Scope`, `Implementation Requirements`, `Constraints`, and `Verification`
-- The sprint page now shows a visible planning-connection indicator, preferring a listen-mode project `worker` and then a listen-mode project `listener`
+- The sprint page now routes planning through the configured virtual worker provider instead of waiting on a connected worker
 - New sprints are showcased by default, showcased sprints are controlled by the heart toggle, and the showcase gallery is no longer capped to 3 sprint cells
 - Showcase pinning is now fully operator-controlled; pinned sprints remain in the gallery until explicitly unpinned, surviving transitions like sprint start, pause, and completion
 - Showcase heart controls in the sprint ledger remain available for completed sprints, so completed work can stay pinned in or be removed from the gallery manually
@@ -219,7 +220,7 @@ Legacy runtime:
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
 - Tasks and sprints now refresh silently on background realtime invalidation, so opening the Tasks page no longer repeatedly flashes loading state when project metadata or structure updates arrive
 - Tasks board is now scoped to the active sprint selection when one is set, filtering the view to only tasks for that sprint
-- Tasks page also stores explicit task executor preference (`auto`, `docker_cli`, `jules`, `mcp_worker`)
+- Tasks page stores explicit task executor preference (`auto`, `docker_cli`, `jules`)
 - The Tasks board entrance animation now replays only for project/view/filter changes instead of every background task refresh
 - Stats page is project-scoped and visualizes tracked token, time, and Git usage (insertions, deletions, PRs) for the selected project with `24h`, `7d`, `30d`, `all time`, and custom date windows
 - Browser page is project-scoped and provides a polished in-app browser surface for sprint preview containers:
@@ -237,15 +238,16 @@ Legacy runtime:
   - rebuild, stop, open-in-tab, startup-script editing, and log viewing
   - sprint previews are proxied through the dashboard instead of embedding raw localhost origins directly
   - extensionless preview-host deep links such as `/sprints` now recover to the preview app shell when the upstream dev server returns `404`, so direct loads and refreshes stay routable
-- Stats page now matches the high-interaction v2 dashboard card language more closely:
-  - animated metric cards
-  - a unified glass-panel system that mirrors the premium live card surfaces instead of using a separate visual treatment
-  - a relocated analysis-mode control that focuses the workspace on trend, composition, or reliability
-  - a full-width interactive trend graph with hover bucket inspection, a clickable detailed-series sidebar for configuring the chart, smooth staged line-draw animation that matches the metric-card sparkline language, and drag-to-zoom timeframe selection
+- Stats page now matches the high-interaction v2 dashboard card language more closely with a unified **Analysis Studio UX**:
+  - unified glass-panel system that mirrors the premium live card surfaces instead of using a separate visual treatment
+  - an embedded grouped metric selector instead of separate tabs, organizing Tokens, Time, and Git metrics into unified groupings
+  - relocated analysis-mode controls that focus the workspace on trend, composition, or reliability
+  - a full-width interactive trend graph (Usage Graph) with hover bucket inspection and drag-to-zoom timeframe selection
+  - a persistent right-side selected-metrics rail for configuring the chart series; same-window refreshes preserve user chart selections
   - hourly views keep one-hour hover targets while reducing visible axis labels to a three-hour rhythm for readability
   - donut-style composition charts for providers, token anatomy, and telemetry-source mix now animate as interactive slices with hover emphasis and center-detail readouts
   - tabbed task and sprint telemetry sections replacing the always-visible ledger layout, complete with search, sort-by-recency/tokens/time/input/output/name, and richer token/time breakdowns
-  - a dedicated Git tab presenting programmatic git stats (Insertions, Deletions, Files Changed) alongside the Tokens and Time tabs
+  - Git stats (Insertions, Deletions, Files Changed, Pull Requests, Merged PRs) are integrated directly alongside Tokens and Time metrics in the Analysis Studio
 - The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to polling so usage graphs and tables stay current during active sprint execution
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface, and task streams are filtered to the currently selected active sprint only (a frontend-only view change with no API contract change)
 - Agents page features an immersive, showcase-first layout that defaults to presenting the selected agent's 3D animated avatar, details, and labels, rather than a raw edit form.
@@ -278,7 +280,7 @@ Legacy runtime:
 - Creating and deleting threads now stay on the cache-first path too, so the thread rail count and conversation pane no longer flash or fall back to blocking loaders during thread mutations
 - Chat composer now sends on `Enter` and inserts a newline on `Shift+Enter`
 - Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
-- Worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or queued for a connected worker
+- Virtual-worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or handled by the virtual worker lane
 - Settings page now exposes Browser Preview as its own primary left-rail category, covering preview enablement, in-app browser visibility, launch/rebuild automation, Git sync on rebuild, maximum active preview containers, port allocation, and the project-relative preview startup script path
 
 ### Dashboard view
@@ -309,8 +311,7 @@ Legacy runtime:
 - Live Session now shows a clear paused-for-human-intervention banner, repeats the reason/instructions in the hero state, and surfaces the same guidance inside paused sprint run cards
 - worker-owned merge conflicts are now excluded from that human-intervention projection; they remain visible in the attention queue and realtime runtime feed, but they no longer tell the operator to merge or resume while the worker is handling them
 - Worker mode is now explicit in settings:
-  - `Connected MCP` keeps worker dispatches and worker-owned attention on live MCP listeners
-  - `Virtual on-demand` hands that same work to short-lived internal CLI workers that do not create MCP connection rows
+  - `Virtual on-demand` hands worker-owned attention and automation follow-up to short-lived internal CLI workers that do not create MCP connection rows
 - The Live view now uses one authoritative runtime contract:
   - one initial `GET /api/live?projectId=<selectedProjectId>` fetch hydrates the page
   - after hydration, `project.live.updated` is the only websocket event the Live page applies for selected-project runtime state
@@ -348,14 +349,13 @@ Legacy runtime:
 - The selected-project execution snapshot now ships a deeper recent runtime event window so stage timing remains accurate across larger sprints and reruns
 - In the active v2 settings UI, these controls live under `Settings -> Sprint Engine -> Worker Runtime`
 - Sprint compose/planning also follows that same worker mode:
-  - with `Connected MCP`, the composer looks for a live planning worker/listener
   - with `Virtual on-demand`, the composer shows the selected virtual worker route and planning works without any live MCP connection
 - that exclusion is now sticky while the worker-owned conflict item remains active, so transient PR metadata gaps no longer flip the same task back into a manual merge warning
 - the same suppression now applies to any active worker-owned supervision item, so agent-managed blocked dispatches and worker-owned action-required recovery no longer trigger the generic `Manual attention required` pause banner while the worker still has actionable queue work
 - merge conflicts are now first-class task indicators in the live UI, including dedicated task badges and a realtime `Conflicts` metric in the runtime stats row
 - Worker escalations now also create project chat threads with a system-authored handoff message, so operator follow-up lives in the same project conversation model as the rest of dashboard chat
 - The execution runtime panel now also shows live project connections with transport, role, listening metadata, inbox load, dispatch load, and heartbeat-derived status
-- stale and offline connection rows now disappear much faster in practice: cold start prunes disconnected connections with no active dispatches, and live heartbeat aging promotes dead workers to `stale` or `offline` quickly enough that new worker-owned merge conflicts route to the live connected worker instead of lingering on an older listener
+- stale and offline MCP connection rows now disappear much faster in practice: cold start prunes disconnected connections with no active dispatches, and live heartbeat aging promotes dead listeners to `stale` or `offline` quickly enough that the runtime view stops surfacing outdated connection state
 - The Overview page telemetry now renders a consolidated runtime timeline across all currently active projects instead of a static placeholder
 - Running dispatch cancel is now request-based instead of instant-terminal:
   - local CLI runs move to `cancel_requested` and abort through the process runner
@@ -371,6 +371,7 @@ Runtime scoping:
 - the selected project and selected sprint in the v2 top navigation now also scope live session status, reruns, live activities, and git tracking
 - the selected project also scopes Agents and Chat data
 - dashboard runtime state is projected through sqlite task-run records instead of being served only from one in-memory global payload
+- Memory embedding map uses a bounded nearest-neighbor algorithm and caps results at 1000 items to guarantee dashboard responsiveness for large projects
 
 ### Settings view
 - The active backend model is now scoped as `system -> project -> sprint`

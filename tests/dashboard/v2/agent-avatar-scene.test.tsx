@@ -1,11 +1,9 @@
 /** @vitest-environment jsdom */
 /** @jsx h */
 import { h } from "preact";
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { AgentAvatarScene } from "../../../dashboard/src/v2/components/agents/AgentAvatarScene.js";
-import { DEFAULT_AGENT_AVATAR_CONFIG } from "../../../dashboard/src/v2/lib/agent-avatar.js";
 
 expect.extend(matchers);
 
@@ -16,65 +14,105 @@ Object.defineProperty(window, "matchMedia", {
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
 });
 
-// Mock Three.js since it won't run properly in pure jsdom without canvas support
+// vi.mock is hoisted — all helper classes must be declared inline
 vi.mock("three", () => {
+  const mockVec = () => ({ x: 0, y: 0, z: 0, set: vi.fn(), copy: vi.fn() });
+  const mockEuler = () => ({ x: 0, y: 0, z: 0, set: vi.fn(), copy: vi.fn() });
+  const mockScale = () => ({ x: 1, y: 1, z: 1, set: vi.fn(), setY: vi.fn(), copy: vi.fn() });
+
+  class Base {
+    position = mockVec();
+    rotation = mockEuler();
+    scale = mockScale();
+    children: any[] = [];
+    add(c: any) { this.children.push(c); }
+    traverse(fn: any) { 
+      fn(this); 
+      this.children.forEach((c: any) => { 
+        if (c.traverse) c.traverse(fn); 
+        else fn(c); 
+      }); 
+    }
+  }
+
   return {
-    Scene: class {
-      add() {}
-    },
-    PerspectiveCamera: class {
-      position = { z: 10, y: 2 };
+    Scene: class extends Base {},
+    PerspectiveCamera: class extends Base {
+      aspect = 1;
+      lookAt() {}
       updateProjectionMatrix() {}
     },
-    AmbientLight: class {},
-    DirectionalLight: class { position = { set: () => {} } },
-    Group: class {
-      add() {}
-      position = { y: 0 };
-      rotation = { x: 0, y: 0, z: 0 };
+    AmbientLight: class extends Base {},
+    DirectionalLight: class extends Base {},
+    PointLight: class extends Base {},
+    Group: class extends Base { isGroup = true; },
+    Mesh: class extends Base { 
+      isMesh = true; 
+      geometry: any;
+      material: any;
+      constructor(geometry?: any, material?: any) {
+        super();
+        this.geometry = geometry || { type: "MockGeo", dispose: vi.fn(), scale: vi.fn() };
+        this.material = material || { opacity: 0, dispose: vi.fn() };
+      }
     },
-    MeshStandardMaterial: class {
+    Points: class extends Base { 
+      isPoints = true; 
+      geometry: any;
+      material: any;
+      constructor(geometry?: any, material?: any) {
+        super();
+        this.geometry = geometry || { type: "MockGeo", dispose: vi.fn(), scale: vi.fn() };
+        this.material = material || { opacity: 0, dispose: vi.fn() };
+      }
+    },
+    MeshStandardMaterial: class { dispose() {} color = { setHex: vi.fn() }; },
+    MeshBasicMaterial: class { opacity = 0; dispose() {} color = { setHex: vi.fn() }; },
+    PointsMaterial: class { dispose() {} },
+    SphereGeometry: class { type = "SphereGeometry"; scale() {} dispose() {} },
+    CylinderGeometry: class { type = "CylinderGeometry"; dispose() {} },
+    CapsuleGeometry: class { type = "CapsuleGeometry"; dispose() {} },
+    BoxGeometry: class { type = "BoxGeometry"; scale() {} dispose() {} },
+    TorusGeometry: class { type = "TorusGeometry"; dispose() {} },
+    CircleGeometry: class { type = "CircleGeometry"; dispose() {} },
+    BufferGeometry: class {
+      setAttribute() {}
+      getAttribute() {
+        return { count: 0, getX: () => 0, getY: () => 0, setX: vi.fn(), setY: vi.fn(), needsUpdate: false };
+      }
       dispose() {}
-      color = { setHex: () => {} };
     },
-    MeshBasicMaterial: class {
-      dispose() {}
-      color = { setHex: () => {} };
-    },
-    Mesh: class {
-      position = { set: () => {}, y: 0, x: 0, z: 0 };
-      rotation = { set: () => {}, x: 0, y: 0, z: 0, copy: () => {} };
-      scale = { set: () => {}, setY: () => {}, copy: () => {} };
-      add() {}
-    },
-    SphereGeometry: class { dispose() {} },
-    CylinderGeometry: class { dispose() {} },
-    CapsuleGeometry: class { dispose() {} },
-    BoxGeometry: class { dispose() {} },
-    Vector3: class {
-      set() {}
-      copy() {}
-    },
-    MathUtils: {
-      lerp: (start: number, end: number, amt: number) => start + (end - start) * amt,
-    },
+    BufferAttribute: class {},
+    Vector2: class { x = 0; y = 0; constructor(x?: number, y?: number) { this.x = x ?? 0; this.y = y ?? 0; } },
+    Vector3: class { x = 0; y = 0; z = 0; set() { return this; } copy() { return this; } },
+    CubeTexture: class { needsUpdate = false; },
+    CanvasTexture: class { wrapS = 0; wrapT = 0; needsUpdate = false; },
+    RepeatWrapping: 1000,
+    MathUtils: { lerp: (s: number, e: number, a: number) => s + (e - s) * a },
+    ACESFilmicToneMapping: 0,
     WebGLRenderer: class {
       setSize() {}
       setPixelRatio() {}
+      toneMapping = 0;
+      toneMappingExposure = 1;
       domElement = document.createElement("canvas");
       render() {}
       dispose() {}
     },
   };
 });
+
+// Import after mock
+import { AgentAvatarScene } from "../../../dashboard/src/v2/components/agents/AgentAvatarScene.js";
+import { DEFAULT_AGENT_AVATAR_CONFIG } from "../../../dashboard/src/v2/lib/agent-avatar.js";
 
 describe("AgentAvatarScene", () => {
   beforeEach(() => {
@@ -91,23 +129,17 @@ describe("AgentAvatarScene", () => {
   });
 
   it("should render fallback UI when fallbackMode is true", () => {
-    const { getByTestId, queryByTestId, container } = render(
+    const { getByTestId, queryByTestId } = render(
       <AgentAvatarScene config={DEFAULT_AGENT_AVATAR_CONFIG} fallbackMode={true} />
     );
     expect(getByTestId("agent-avatar-fallback")).toBeInTheDocument();
     expect(queryByTestId("agent-avatar-scene")).toBeNull();
-    expect(container.querySelector("svg")).toBeInTheDocument();
   });
 
   it("should clean up Three.js resources on unmount", () => {
     const { unmount } = render(
       <AgentAvatarScene config={DEFAULT_AGENT_AVATAR_CONFIG} />
     );
-
-    // Unmounting should trigger the useEffect cleanup function
     unmount();
-
-    // We can't easily assert on the inner workings of the unmount without exposing
-    // the mocked instances, but we can verify it doesn't crash on unmount.
   });
 });

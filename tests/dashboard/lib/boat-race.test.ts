@@ -49,7 +49,7 @@ describe("boat race dispatch index and ship type resolution", () => {
         id: "dispatch-2",
         taskId: "task-record-2",
         taskKey: "T02",
-        executorType: "mcp_worker",
+        executorType: "jules",
         executorId: "executor-2",
         status: "RUNNING",
         startedAt: "2023-01-01T00:00:00Z",
@@ -83,13 +83,13 @@ describe("boat race dispatch index and ship type resolution", () => {
     expect(getShipType({ id: "T01", record_id: "task-record-1" }, index)).toBe("container");
   });
 
-  it("resolves to 'wooden' for mcp_worker executor", () => {
+  it("falls back to 'wooden' for jules-backed tasks without a docker dispatch", () => {
     const dispatches: ExecutionTaskDispatchSummary[] = [
       {
         id: "dispatch-1",
         taskId: "task-record-1",
         taskKey: "T01",
-        executorType: "mcp_worker",
+        executorType: "jules",
         executorId: "executor-1",
         status: "RUNNING",
         startedAt: "2023-01-01T00:00:00Z",
@@ -97,7 +97,7 @@ describe("boat race dispatch index and ship type resolution", () => {
       },
     ];
     const index = buildBoatRaceDispatchIndex(dispatches);
-    expect(getShipType({ id: "T01", record_id: "task-record-1" }, index)).toBe("wooden");
+    expect(getShipType({ id: "T01", record_id: "task-record-1", provider: "jules" }, index)).toBe("wooden");
   });
 
   it("falls back to 'wooden' if provider is jules when no match is found", () => {
@@ -117,7 +117,7 @@ describe("boat race dispatch index and ship type resolution", () => {
         id: "dispatch-1",
         taskId: "some-other-task-id",
         taskKey: "T01",
-        executorType: "mcp_worker",
+        executorType: "docker_cli",
         executorId: "executor-1",
         status: "RUNNING",
         startedAt: "2023-01-01T00:00:00Z",
@@ -125,7 +125,7 @@ describe("boat race dispatch index and ship type resolution", () => {
       },
     ];
     const index = buildBoatRaceDispatchIndex(dispatches);
-    expect(getShipType({ id: "T01" }, index)).toBe("wooden");
+    expect(getShipType({ id: "T01" }, index)).toBe("container");
   });
 
   it("resolves using taskId (record_id) if taskKey is missing or not matched", () => {
@@ -134,7 +134,7 @@ describe("boat race dispatch index and ship type resolution", () => {
         id: "dispatch-1",
         taskId: "task-record-1",
         taskKey: "some-other-task-key",
-        executorType: "mcp_worker",
+        executorType: "docker_cli",
         executorId: "executor-1",
         status: "RUNNING",
         startedAt: "2023-01-01T00:00:00Z",
@@ -142,6 +142,6 @@ describe("boat race dispatch index and ship type resolution", () => {
       },
     ];
     const index = buildBoatRaceDispatchIndex(dispatches);
-    expect(getShipType({ id: "T01", record_id: "task-record-1" }, index)).toBe("wooden");
+    expect(getShipType({ id: "T01", record_id: "task-record-1" }, index)).toBe("container");
   });
 });

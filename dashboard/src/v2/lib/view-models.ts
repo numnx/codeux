@@ -6,6 +6,7 @@ export function toSprintViewModel(sprint: SprintRecord): Sprint {
   return {
     ...sprint,
     date: formatSprintDateRange(sprint.startDate, sprint.endDate),
+    latestReview: sprint.latestReview,
   };
 }
 
@@ -48,9 +49,6 @@ export function formatSprintDateRange(startDate: string | null, endDate: string 
 }
 
 function inferAssignee(task: TaskRecord): string {
-  if (task.executorType === "mcp_worker") {
-    return "Worker";
-  }
   if (task.executorType === "jules") {
     return "Jules";
   }
@@ -73,9 +71,6 @@ function inferAssignee(task: TaskRecord): string {
 }
 
 function inferTime(task: TaskRecord): string {
-  if (task.executorType === "mcp_worker" && task.status !== "completed") {
-    return "Queued";
-  }
   if (task.status === "completed") {
     return "Done";
   }

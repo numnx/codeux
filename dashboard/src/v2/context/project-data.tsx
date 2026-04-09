@@ -1,5 +1,5 @@
 import { createContext } from "preact";
-import { useCallback, useContext, useMemo, useState } from "preact/hooks";
+import { useCallback, useContext, useMemo } from "preact/hooks";
 import type { ComponentChildren, FunctionComponent } from "preact";
 import type { CreateProjectInput, Source, UpdateProjectInput } from "../types.js";
 import {
@@ -10,6 +10,7 @@ import {
   updateProject as updateProjectRequest,
 } from "../lib/project-api.js";
 import { useRealtimeResource } from "../../hooks/use-realtime-resource.js";
+import { type ProjectsResponse, isEqualProjectsResponse, stabilizeProjectsResponse } from "../lib/resource-equality.js";
 
 interface ProjectDataContextValue {
   projects: Source[];
@@ -24,12 +25,7 @@ interface ProjectDataContextValue {
   deleteProject: (projectId: string) => Promise<void>;
 }
 
-const ProjectDataContext = createContext<ProjectDataContextValue | null>(null);
-
-interface ProjectsResponse {
-  projects: Source[];
-  selectedProjectId: string | null;
-}
+export const ProjectDataContext = createContext<ProjectDataContextValue | null>(null);
 
 const EMPTY_PROJECTS: ProjectsResponse = {
   projects: [],
@@ -38,11 +34,8 @@ const EMPTY_PROJECTS: ProjectsResponse = {
 
 export const ProjectDataProvider: FunctionComponent<{ children: ComponentChildren }> = ({ children }) => {
   const fetchResource = useCallback(async (signal?: AbortSignal) => {
-    // API client doesn't explicitly accept signal for this, but could be added
-    return await fetchProjects();
+    return await fetchProjects(signal);
   }, []);
-
-  const isEqual = useCallback((_prev: ProjectsResponse, _next: ProjectsResponse) => false, []);
 
   const {
     data,
@@ -53,7 +46,8 @@ export const ProjectDataProvider: FunctionComponent<{ children: ComponentChildre
   } = useRealtimeResource<ProjectsResponse>({
     initialData: EMPTY_PROJECTS,
     fetchResource,
-    isEqual,
+    isEqual: isEqualProjectsResponse,
+    stabilizeNext: stabilizeProjectsResponse,
     realtime: {
       scopes: ["projects"],
       eventType: "projects.updated",
@@ -62,29 +56,33 @@ export const ProjectDataProvider: FunctionComponent<{ children: ComponentChildre
     isAlreadyLoaded: false,
   });
 
-  const selectProject = async (projectId: string): Promise<void> => {
+  const selectProject = useCallback(async (projectId: string): Promise<void> => {
     updateDataLocally((curr) => ({ ...curr, selectedProjectId: projectId }));
     const nextProjectId = await selectProjectRequest(projectId);
     updateDataLocally((curr) => ({ ...curr, selectedProjectId: nextProjectId }));
-  };
+  }, [updateDataLocally]);
 
-  const createProject = async (input: CreateProjectInput): Promise<Source> => {
+  const createProject = useCallback(async (input: CreateProjectInput): Promise<Source> => {
     const project = await createProjectRequest(input);
     await refetch({ silent: true });
     await selectProject(project.id);
     return project;
-  };
+  }, [refetch, selectProject]);
 
-  const updateProject = async (projectId: string, input: UpdateProjectInput): Promise<Source> => {
+  const updateProject = useCallback(async (projectId: string, input: UpdateProjectInput): Promise<Source> => {
     const project = await updateProjectRequest(projectId, input);
     await refetch({ silent: true });
     return project;
-  };
+  }, [refetch]);
 
-  const deleteProject = async (projectId: string): Promise<void> => {
+  const deleteProject = useCallback(async (projectId: string): Promise<void> => {
     await deleteProjectRequest(projectId);
     await refetch({ silent: true });
-  };
+  }, [refetch]);
+
+  const refreshProjects = useCallback(async (): Promise<void> => {
+    await refetch({ silent: true });
+  }, [refetch]);
 
   const activeSelectedProjectId = data.selectedProjectId ?? data.projects[0]?.id ?? null;
 
@@ -93,18 +91,29 @@ export const ProjectDataProvider: FunctionComponent<{ children: ComponentChildre
     [data.projects, activeSelectedProjectId],
   );
 
-  const value: ProjectDataContextValue = {
+  const value = useMemo<ProjectDataContextValue>(() => ({
     projects: data.projects,
     selectedProjectId: activeSelectedProjectId,
     selectedProject,
     loading,
     error,
-    refreshProjects: () => refetch({ silent: true }),
+    refreshProjects,
     selectProject,
     createProject,
     updateProject,
     deleteProject,
-  };
+  }), [
+    data.projects,
+    activeSelectedProjectId,
+    selectedProject,
+    loading,
+    error,
+    refreshProjects,
+    selectProject,
+    createProject,
+    updateProject,
+    deleteProject,
+  ]);
 
   return (
     <ProjectDataContext.Provider value={value}>

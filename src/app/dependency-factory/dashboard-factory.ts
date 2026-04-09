@@ -7,8 +7,13 @@ import { ExecutionControlService } from "../../services/execution-control-servic
 import { PlanningAgentService } from "../../services/planning-agent-service.js";
 import { QuicksprintService } from "../../services/quicksprint-service.js";
 import { WorkspaceManager } from "../../infrastructure/providers/cli/workspace-manager.js";
+import { formatSprintBranch } from "../../git/sprint-branch-scheme.js";
 
 import { ChatThreadRuntimeService } from "../../services/chat-thread-runtime-service.js";
+import { ManagementToolHandler } from "../../mcp/management-tool-handler.js";
+import { StructuredProviderResponseService } from "../../services/structured-provider-response-service.js";
+import { ChatManagementActionService } from "../../services/chat-management-action-service.js";
+import { ProviderExecutionService } from "../../services/provider-execution-service.js";
 
 export interface DashboardDependencies {
   chatThreadRuntimeService: ChatThreadRuntimeService;
@@ -40,7 +45,50 @@ export function createDashboardDependencies(
   } = coreDeps;
   const { sprintTaskDispatchService, sprintOrchestrator, taskService } = sprintDeps;
 
-    const chatThreadRuntimeService = new ChatThreadRuntimeService({
+  const executionControlService = new ExecutionControlService({
+    projectManagementRepository,
+    executionRepository,
+    projectAttentionService,
+    taskRerunService: {} as any, // Will link below
+    sprintOrchestrator,
+    julesApi,
+    activeDispatchRegistry,
+    logger: logger.child({ component: "execution-control-service" }),
+  });
+
+  const managementToolHandler = new ManagementToolHandler({
+    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected top-level later
+    executionRepository: coreDeps.executionRepository,
+    getDashboardSettings: () => settingsRepository.getDefaultDashboardSettings(),
+    projectManagementRepository: coreDeps.projectManagementRepository,
+    executionControlService,
+    taskRerunService: {} as any, // Will link below
+    settingsRepository: coreDeps.settingsRepository,
+    agentPresetSyncService: coreDeps.agentPresetSyncService,
+    memoryService: coreDeps.memoryService,
+    memoryPromotionService: coreDeps.memoryPromotionService,
+    embeddingModelManager: coreDeps.embeddingModelManager,
+  });
+
+  const providerExecutionService = new ProviderExecutionService({
+    providerRunner,
+    logger: logger.child({ component: "provider-execution-service" }),
+  });
+
+  const structuredProviderResponseService = new StructuredProviderResponseService({
+    providerExecutionService,
+    executionRepository,
+    logger: logger.child({ component: "structured-provider-response-service" }),
+  });
+
+  const chatManagementActionService = new ChatManagementActionService({
+    structuredProviderResponseService,
+    providerExecutionService,
+    managementToolHandler,
+    executionRepository,
+  });
+
+  const chatThreadRuntimeService = new ChatThreadRuntimeService({
     connectionChatRepository,
     projectWorkerAssignmentRepository,
     executionRepository,
@@ -50,6 +98,9 @@ export function createDashboardDependencies(
     agentPresetSyncService,
     projectManagementRepository,
     providerRunner,
+    chatManagementActionService,
+    getMcpConnectionInfo: context.getMcpConnectionInfo,
+    getMcpApprovalTracker: context.getMcpApprovalTracker,
     logger: logger.child({ component: "chat-thread-runtime-service" }),
   });
 
@@ -79,10 +130,13 @@ export function createDashboardDependencies(
       if (!sprint || !project) {
         return null;
       }
-      const runtimeStatus = projectRuntimeRepository.getProjectStatus(taskRecord.projectId);
+      const runtimeStatus = projectRuntimeRepository.getProjectStatus(taskRecord.projectId, sprint.id);
       const runtimeTask = (runtimeStatus.subtasks || []).find((task) => task.record_id === taskId || task.id === taskRecord.taskKey);
-      // Prefer sprint record data — runtime status may be stale from a different sprint
-      const featureBranch = sprint.featureBranch || runtimeStatus.feature_branch || null;
+      const effectiveSettings = settingsRepository.resolveSprintDashboardSettings(taskRecord.projectId, sprint.id).settings;
+      const derivedFeatureBranch = typeof sprint.number === "number"
+        ? formatSprintBranch(effectiveSettings.git.sprintBranchScheme, { number: sprint.number as number, slug: sprint.slug || "", name: sprint.name || "", createdAt: sprint.createdAt || new Date().toISOString(), tasksCount: sprint.tasksCount || 0 })
+        : null;
+      const featureBranch = sprint.featureBranch || derivedFeatureBranch || runtimeStatus.feature_branch || null;
       const repoPath = project.baseDir || runtimeStatus.repo_path || null;
       const sprintNumber = sprint.number ?? runtimeStatus.sprint_number ?? null;
 
@@ -188,7 +242,7 @@ export function createDashboardDependencies(
       const sessionId = latestRun?.sessionId;
       if (!sessionId) return;
       const wsManager = new WorkspaceManager();
-      const worktreePath = wsManager.buildWorktreePath(repoPath, sessionId, "HOST");
+      const worktreePath = wsManager.buildWorktreePath(repoPath, sessionId, "DOCKER");
       await wsManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
     },
     resolveTaskAttention: async ({ taskId, projectId }) => {
@@ -244,16 +298,9 @@ export function createDashboardDependencies(
     logger: logger.child({ component: "task-rerun-service" }),
   });
 
-  const executionControlService = new ExecutionControlService({
-    projectManagementRepository,
-    executionRepository,
-    projectAttentionService,
-    taskRerunService,
-    sprintOrchestrator,
-    julesApi,
-    activeDispatchRegistry,
-    logger: logger.child({ component: "execution-control-service" }),
-  });
+  // Link the taskRerunService to the executionControlService and managementToolHandler
+  (executionControlService as any).deps.taskRerunService = taskRerunService;
+  (managementToolHandler as any).deps.taskRerunService = taskRerunService;
 
   const planningAgentService = new PlanningAgentService({
     projectManagementRepository,

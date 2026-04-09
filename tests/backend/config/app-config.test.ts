@@ -56,9 +56,10 @@ describe("parseApiKeyArg", () => {
 });
 
 describe("runtime flags", () => {
-  it("parses worker-host runtime role", () => {
-    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role", "worker-host"])).toBe("worker_host");
-    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role=worker_host"])).toBe("worker_host");
+  it("always resolves to the single project_manager runtime role", () => {
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role", "worker-host"])).toBe("project_manager");
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role=worker_host"])).toBe("project_manager");
+    expect(parseRuntimeRoleArg(["node", "index.js", "--runtime-role", "project-manager"])).toBe("project_manager");
   });
 
   it("defaults runtime role to project_manager", () => {
@@ -154,10 +155,10 @@ describe("loadAppConfig", () => {
     expect(config.dashboardPort).toBe(8888);
   });
 
-  it("disables dashboard and local project-manager registration in worker-host mode", () => {
+  it("ignores legacy worker-host runtime flags and keeps project-manager defaults", () => {
     const config = loadAppConfig(["node", "index.js", "--runtime-role", "worker-host"], tempDir);
-    expect(config.runtimeRole).toBe("worker_host");
-    expect(config.dashboardEnabled).toBe(false);
+    expect(config.runtimeRole).toBe("project_manager");
+    expect(config.dashboardEnabled).toBe(true);
     expect(config.mcpHttpEnabled).toBe(false);
   });
 

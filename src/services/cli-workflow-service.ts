@@ -29,6 +29,7 @@ import { WorkspaceManager, IWorkspaceManager } from "../infrastructure/providers
 import { PrService, IPrService } from "../infrastructure/providers/cli/pr-service.js";
 import { ProviderRunner, IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
+import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 
 import type { PipelineContext } from "./cli-workflow/pipeline/pipeline-context.js";
 import { executePrepareStage } from "./cli-workflow/pipeline/prepare-stage.js";
@@ -72,11 +73,13 @@ interface StartCliTaskInput {
 
 export class CliWorkflowService {
   private readonly workspaceManager: IWorkspaceManager;
+  private readonly workspaceArtifactService: WorkspaceArtifactService;
   private readonly prService: IPrService;
   private readonly providerRunner: IProviderRunner;
 
   constructor(private readonly deps: CliWorkflowServiceDependencies) {
     this.workspaceManager = new WorkspaceManager();
+    this.workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
     this.prService = new PrService();
     this.providerRunner = new ProviderRunner(new DockerRunner());
   }
@@ -172,6 +175,7 @@ export class CliWorkflowService {
       settings,
       workflowSettings,
       worktreePath,
+      workspaceSessionId,
       abortSignal: abortController.signal,
       initialHead: "",
       workflowSucceeded: false,
@@ -180,6 +184,7 @@ export class CliWorkflowService {
       memoryTemplateOverrideEnabled: workerAgent?.memoryTemplateOverrideEnabled,
       memoryTemplateMarkdown: workerAgent?.memoryTemplateMarkdown,
       workspaceManager: this.workspaceManager,
+      workspaceArtifactService: this.workspaceArtifactService,
       prService: this.prService,
       providerRunner: this.providerRunner,
       providerSettingsOverride: args.providerSettingsOverride,
@@ -264,12 +269,14 @@ export class CliWorkflowService {
         return;
       }
 
+      const eventKey = `cli:git:pushed:${pushedBranch || args.workerBranch}`;
       this.appendExecutionEvent(args, "cli_git_pushed", {
         provider: args.provider,
         committedChanges,
         pushedBranch: pushedBranch || args.workerBranch,
         ...(stats || {}),
-      }, `cli:git:pushed:${pushedBranch || args.workerBranch}`);
+        sourceEventKey: eventKey,
+      }, eventKey);
       
       const { prUrl } = await executePrFinalizeStage(ctx);
       const finishedAt = new Date().toISOString();
@@ -416,6 +423,9 @@ export class CliWorkflowService {
     env: NodeJS.ProcessEnv = process.env,
     signal?: AbortSignal,
   ): Promise<CommandResult> {
+    if (cwd.startsWith("docker-volume://")) {
+      return await this.workspaceManager.runWorkspaceCommand(cwd, command, args, { env, signal });
+    }
     return await runCommandStrict(command, args, cwd, env, { signal });
   }
 
@@ -487,7 +497,7 @@ export class CliWorkflowService {
     return this.prService.hasUnpushedCommits(worktreePath, workerBranch, featureBranch, this.runCommand.bind(this));
   }
 
-  private async hasWorkerBranchCommitsAgainstFeature(worktreePath: string, featureBranch: string): Promise<boolean> {
-    return this.prService.hasWorkerBranchCommitsAgainstFeature(worktreePath, featureBranch, this.runCommand.bind(this));
+  private async hasWorkerBranchCommitsAgainstFeature(worktreePath: string, featureBranch: string, workerBranch: string): Promise<boolean> {
+    return this.prService.hasWorkerBranchCommitsAgainstFeature(worktreePath, workerBranch, featureBranch, this.runCommand.bind(this));
   }
 }

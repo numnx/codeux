@@ -9,12 +9,14 @@ Sprint OS now supports a dedicated Quality Assurance agent that reviews complete
 
 The QA agent is designed to:
 
-- review a completed task with full sprint context
+- review a code-complete task with full sprint context before Sprint OS merges it
 - check whether the implementation is actually complete
 - catch code-quality issues and integration mistakes
 - investigate missing features or regressions
 - decide whether a completed task without a PR should actually have one
 - continue the existing task session with concrete fix instructions when changes are required
+- block feature or main-branch merges until QA passes, or until the configured task-review retry budget is exhausted
+- create sprint follow-up tasks when sprint-completion QA finds work that should become new tracked tasks instead of only resuming an existing session
 
 ## Configuration Surface
 
@@ -74,7 +76,7 @@ Provider routing:
 
 ### Task completion QA
 
-When a task newly transitions into `COMPLETED`, `CycleRunner` can trigger QA once for that completion event.
+When a task newly transitions into a code-complete state (`CODING_COMPLETED` or a no-merge `COMPLETED` task), `CycleRunner` triggers QA before feature-branch merge automation proceeds.
 
 Behavior:
 
@@ -84,26 +86,43 @@ Behavior:
 4. resolve the QA agent preset and provider route
 5. run the QA prompt with sprint task context plus the current task context
 6. store the run in `qa_review_runs`
-7. if QA requests changes, continue the active Jules or CLI session with fix instructions
+7. if QA requests changes, continue the active Jules or CLI session with fix instructions when possible, otherwise requeue the task for another implementation pass
+8. allow feature merge only after:
+   - QA returns `pass`
+   - QA determines a no-PR task should not have a PR
+   - task QA retry budget is exhausted
 
-Normal default:
+If task QA is still pending, running, or has failed without exhausting `maxTaskReviewRuns`, Sprint OS marks the task merge state as `QA_PENDING` and keeps the sprint active instead of auto-merging.
 
-- task QA runs once after the first completion only
+Run budgeting:
 
-If `maxTaskReviewRuns > 1`:
-
-- a task can be reviewed again after a QA-requested fix loop until the cap is reached
+- the initial completed task review always counts as run `1`
+- extra QA runs only happen after QA requested fixes and the task reaches code-complete again
+- `maxTaskReviewRuns = 1` means only the initial task review runs; QA does not re-check later fixes
+- `maxTaskReviewRuns = 2` means the initial task review plus one QA re-check after fixes
+- `maxTaskReviewRuns = N` means the initial task review plus up to `N - 1` QA re-checks for later fix iterations
+- if QA still has not produced a green light after that cap, Sprint OS stops holding the merge on QA alone and treats the retry budget as exhausted
+- a passing task QA result is final for that completion state and is not retriggered just because orchestration loops again
 
 ### Sprint completion QA
 
-Before the watch loop marks a sprint run complete, Sprint OS can run a final sprint-level QA review.
+Before Sprint OS evaluates the final `feature -> default` merge, it runs sprint-completion QA when that trigger is enabled.
 
 Behavior:
 
-- QA receives full sprint context
+- QA receives full sprint context, including every task instruction prompt rather than only the task summary lines
 - QA can choose a target task that should continue
+- QA can return structured `followUpTasks` with full task instructions so Sprint OS creates new pending sprint tasks automatically
 - if QA requests follow-up work and Sprint OS can continue that task session, sprint completion is held open
-- if QA passes, the sprint completes normally
+- if QA creates follow-up tasks, sprint completion is held open until those new tasks finish and sprint QA passes on a later run
+- sprint QA runs once for the finished sprint, then only runs again after a prior `changes_requested` or failed result and meaningful sprint task state changes have occurred
+- a passing sprint QA result is final for that sprint state and is not retriggered by another orchestration cycle with no real work changes
+- sprint QA uses the same `maxTaskReviewRuns` budget semantics as task QA:
+  - run `1` is the initial finished-sprint review
+  - later runs are only used to check QA-requested fixes or follow-up work
+  - `maxTaskReviewRuns = 1` means sprint fixes are not re-checked by QA
+- if sprint QA passes, Sprint OS proceeds to main-merge evaluation and eventual completion
+- if sprint QA is still running, failed, or waiting on follow-up work, the main merge stays blocked
 
 ## Session Continuation
 
@@ -131,5 +150,8 @@ The QA provider is prompted to return JSON only with:
 - `fixInstructions`
 - `targetTaskKey`
 - `shouldHavePr`
+- `followUpTasks`
 
 That contract keeps the follow-up automation deterministic instead of scraping prose heuristically.
+
+QA agent responses are processed using the shared structured response helper (`StructuredProviderResponseService`). This ensures that if the agent returns malformed JSON or omits required fields, Sprint OS automatically triggers an in-session retry to correct the output shape before failing the review.

@@ -7,7 +7,8 @@ export type ProjectSourceType = "local" | "git";
 export type SprintStatus = "running" | "paused" | "completed" | "failed" | "cancelled" | "idle";
 export type TaskStatus = "pending" | "in_progress" | "coding_completed" | "completed";
 export type TaskPriority = "critical" | "high" | "medium" | "low";
-export type TaskExecutorType = "auto" | "docker_cli" | "jules" | "mcp_worker";
+export type TaskExecutorType = "auto" | "docker_cli" | "jules";
+export type GitProvider = "github" | "gitlab" | "local";
 
 export interface ProjectSummary {
   id: string;
@@ -17,6 +18,8 @@ export interface ProjectSummary {
   repoUrl: string | null;
   sourceType: ProjectSourceType;
   sourceRef: string;
+  gitProvider: GitProvider;
+  gitHostDomain: string | null;
   defaultBranch: string | null;
   featureBranchPrefix: string | null;
   status: ProjectStatus;
@@ -28,6 +31,15 @@ export interface ProjectSummary {
   agentBindings: ProjectWorkerAssignmentRecord[];
   createdAt: string;
   updatedAt: string;
+}
+
+
+export interface SprintReviewSummary {
+  status: string;
+  outcome: string | null;
+  summary: string | null;
+  reviewer: string | null;
+  finishedAt: string | null;
 }
 
 export interface SprintRecord {
@@ -45,6 +57,7 @@ export interface SprintRecord {
   featureBranch: string | null;
   tasksCount: number;
   completion: number;
+  latestReview?: SprintReviewSummary;
   createdAt: string;
   updatedAt: string;
 }

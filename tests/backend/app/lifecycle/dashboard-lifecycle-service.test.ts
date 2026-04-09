@@ -114,6 +114,10 @@ describe("dashboard-lifecycle-service", () => {
           id: "project-1",
           name: "Project 1",
         }),
+        getSprint: vi.fn().mockReturnValue({
+          id: "sprint-1",
+          projectId: "project-1",
+        }),
         listProjects: vi.fn().mockReturnValue({ projects: [], selectedProjectId: "project-1" }),
         notifyProjectsUpdated: vi.fn(),
       } as any,
@@ -396,11 +400,38 @@ describe("dashboard-lifecycle-service", () => {
         expect(mockDeps.projectManagementRepository.setSelectedSprintId).toHaveBeenCalledWith("project-1", "sprint-2");
       });
 
-      it("does not throw on explicit invalidation during saveProjectSettings", async () => {
+      it("broadcasts structural invalidation during saveProjectSettings", async () => {
         await bootDashboard(mockDeps);
         const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
         setupArgs.saveProjectSettings!("project-1", {});
         expect(mockDeps.settingsRepository.saveProjectSettings).toHaveBeenCalledWith("project-1", {});
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectStructureRefresh).toHaveBeenCalledWith("project-1", { includeProjects: true });
+      });
+
+      it("broadcasts structural invalidation during resetProjectSettings", async () => {
+        await bootDashboard(mockDeps);
+        const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
+        setupArgs.resetProjectSettings!("project-1");
+        expect(mockDeps.settingsRepository.resetProjectSettings).toHaveBeenCalledWith("project-1");
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectStructureRefresh).toHaveBeenCalledWith("project-1", { includeProjects: true });
+      });
+
+      it("broadcasts structural invalidation during saveSprintSettings", async () => {
+        await bootDashboard(mockDeps);
+        const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
+        setupArgs.saveSprintSettings!("project-1", "sprint-1", {});
+        expect(mockDeps.settingsRepository.saveSprintSettings).toHaveBeenCalledWith("sprint-1", expect.anything(), {});
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectExecutionRefresh).toHaveBeenCalledWith("project-1", { includeOverview: false, includeProjects: false });
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectStructureRefresh).toHaveBeenCalledWith("project-1", { includeProjects: false });
+      });
+
+      it("broadcasts structural invalidation during resetSprintSettings", async () => {
+        await bootDashboard(mockDeps);
+        const setupArgs = vi.mocked(setupDashboardServer).mock.calls[0][0];
+        setupArgs.resetSprintSettings!("sprint-1");
+        expect(mockDeps.settingsRepository.resetSprintSettings).toHaveBeenCalledWith("sprint-1");
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectExecutionRefresh).toHaveBeenCalledWith("project-1", { includeOverview: false, includeProjects: false });
+        expect(mockDeps.dashboardRealtimeService.scheduleProjectStructureRefresh).toHaveBeenCalledWith("project-1", { includeProjects: false });
       });
 
       it("does not throw on explicit invalidation during resetDatabase", async () => {

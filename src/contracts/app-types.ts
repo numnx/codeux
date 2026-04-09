@@ -47,7 +47,7 @@ export interface JulesActivity {
 }
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA";
-export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY";
+export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY" | "QA_PENDING";
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code";
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -60,9 +60,9 @@ export type InvocationRoutingId =
   | "qa_review"
   | "ci_fix"
   | "merge_conflict";
-export type CliExecutionMode = "HOST" | "DOCKER";
+export type CliExecutionMode = "DOCKER";
 export type FeaturePrAutoMergeMode = "OFF" | "CREATE_PR" | "WHEN_GREEN" | "ALWAYS";
-export type WorkerExecutionMode = "CONNECTED_MCP" | "VIRTUAL";
+export type WorkerExecutionMode = "VIRTUAL";
 export type VirtualWorkerProvider = Exclude<ProviderId, "jules">;
 
 export interface Subtask {
@@ -393,6 +393,9 @@ export interface ProjectExecutionStatsChartSeries {
   grouping: string;
   defaultEnabled: boolean;
   data: number[];
+  color?: string;
+  signalLabel?: string;
+  formatter?: 'tokens' | 'duration' | 'number';
 }
 
 export interface ProjectExecutionStatsSnapshot {
@@ -668,6 +671,12 @@ export interface AgentSettings {
   qualityAssurance: QualityAssuranceSettings;
 }
 
+export interface AppearanceSettings {
+  navigationMode: "DOCK" | "SIDEBAR";
+  theme: "LIGHT" | "DARK" | "SYSTEM";
+  reducedMotion: "AUTO" | "REDUCE" | "NONE";
+}
+
 export interface SkillToggle {
   name: string;
   enabled: boolean;
@@ -683,6 +692,7 @@ export interface McpToolToggle {
 export interface DashboardSettings {
   dashboardPort: number;
   enableDebugLogFile: boolean;
+  appearance: AppearanceSettings;
   automationLevel: AutomationLevel;
   automationInterventions: AutomationInterventionsSettings;
   aiProvider: AiProviderSettings;

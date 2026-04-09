@@ -59,6 +59,7 @@ import type {
   SprintCollectionResponse,
   SprintMarkdownImportTask,
   SprintRecord,
+  SprintReviewSummary,
   SprintStatus,
   TaskExecutorType,
   TaskPriority,
@@ -85,6 +86,7 @@ export type ChatMessageRecord = ConversationMessageRecord;
 
 export interface Sprint extends SprintRecord {
   date: string;
+  latestReview?: SprintReviewSummary;
 }
 
 export interface Task {
@@ -107,6 +109,7 @@ export interface Task {
   isIndependent: boolean;
   isMerged: boolean;
   mergeIndicator: string | null;
+  isOptimistic?: boolean;
 }
 
 export type {
@@ -171,3 +174,5 @@ export type {
   ProviderId,
   VirtualWorkerProvider,
 };
+
+export type { SprintReviewSummary };

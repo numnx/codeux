@@ -27,7 +27,7 @@ import type {
 import { AlertTriangle, Bot, BrainCircuit, Cpu, Plug, Settings, SlidersHorizontal, Target } from "lucide-preact";
 
 type SettingsScope = "system" | "project";
-type CategoryId = "general" | "models" | "sprint" | "browser" | "agents" | "memory" | "integrations" | "danger";
+type CategoryId = "general" | "appearance" | "models" | "sprint" | "browser" | "agents" | "memory" | "integrations" | "danger";
 type AgentInstructionTemplateId = keyof ProjectSettings["agents"]["instructionTemplates"];
 
 interface Category {
@@ -169,7 +169,7 @@ export const useSettingsPageState = (
 
   const [activeCategory, setActiveCategory] = useState<CategoryId>("general");
   const [activeScope, setActiveScope] = useState<SettingsScope>("system");
-  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationId>("github");
+  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationId | null>(null);
   const [selectedAgentTemplate, setSelectedAgentTemplate] = useState<AgentInstructionTemplateId>("planningMissing");
   const [activeInvocationRoute, setActiveInvocationRoute] = useState<InvocationRoutingId>("task_coding");
   const [activeProviderPanel, setActiveProviderPanel] = useState<ProviderId>("gemini");
@@ -192,16 +192,18 @@ export const useSettingsPageState = (
   const [projectAgentPresetOptions, setProjectAgentPresetOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const loadSettings = useCallback(async (): Promise<void> => {
-    if (isDirtyRef.current) {
-      return;
-    }
     setLoading(true);
     try {
       const [nextSystem, hints] = await Promise.all([
         fetchSystemSettings(),
         fetchExternalSettingsHints()
       ]);
-      setSystemSettings(cloneSystemSettings(nextSystem));
+
+      // Preserve local dirty edits during background reload
+      if (!isDirtyRef.current || !systemSettings) {
+        setSystemSettings(cloneSystemSettings(nextSystem));
+      }
+
       setSavedSystemSettings(cloneSystemSettings(nextSystem));
       setExternalHints(hints);
 
@@ -211,7 +213,12 @@ export const useSettingsPageState = (
           fetchAgentPresets(selectedProjectId).catch(() => []),
         ]);
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
-        setProjectSettings(cloneProjectSettings(nextProject));
+
+        // Preserve local dirty edits during background reload by not overwriting them
+        if (!isDirtyRef.current || !projectSettings) {
+          setProjectSettings(cloneProjectSettings(nextProject));
+        }
+
         setSavedProjectSettings(cloneProjectSettings(nextProject));
         setProjectSources(effectiveProject.sources);
         setProjectAgentPresetOptions(sortAgentPresetOptions(projectAgentPresets));

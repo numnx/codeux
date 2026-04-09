@@ -45,7 +45,7 @@ describe("ProjectAttentionService", () => {
     vi.setSystemTime(new Date("2026-03-15T12:00:00.000Z"));
   });
 
-  it("falls back from a stale preferred worker to a live supervising worker", async () => {
+  it("keeps worker-owned attention unassigned in virtual-worker mode even when a preferred worker exists", async () => {
     const {
       storage,
       projectRepository,
@@ -95,7 +95,7 @@ describe("ProjectAttentionService", () => {
       summaryMarkdown: "Needs worker merge-conflict resolution.",
     });
 
-    expect(item.assignedWorkerEndpointId).toBe(liveEndpoint.id);
+    expect(item.assignedWorkerEndpointId).toBeNull();
   });
 
   it("leaves worker-owned attention unassigned when the project uses virtual workers", async () => {

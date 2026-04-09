@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 describe("SprintTaskDispatchService", () => {
-  it("queues mcp worker tasks without starting the provider workflow locally", async () => {
+  it("starts docker-cli tasks through the shared runtime model", async () => {
     const { projectManagementRepository, executionRepository, taskService, service } = await createFixture();
     const project = projectManagementRepository.createProject({
       name: "Dispatch Project",
@@ -53,15 +53,21 @@ describe("SprintTaskDispatchService", () => {
     });
     const taskRecord = projectManagementRepository.createTask(project.id, {
       sprintId: sprint.id,
-      title: "Queue to worker",
-      promptMarkdown: "Send this task to a connected worker.",
-      executorType: "mcp_worker",
+      title: "Run in container",
+      promptMarkdown: "Run this task in the isolated container workflow.",
+      executorType: "docker_cli",
     });
     const sprintRun = executionRepository.createSprintRun({
       projectId: project.id,
       sprintId: sprint.id,
       status: "running",
       executorMode: "mixed",
+    });
+
+    taskService.startSprintTask.mockResolvedValue({
+      id: "session-1",
+      name: "Container task",
+      provider: "codex",
     });
 
     const result = await service.startTask({
@@ -83,10 +89,11 @@ describe("SprintTaskDispatchService", () => {
     });
 
     expect(result).toMatchObject({
-      id: expect.any(String),
-      runtimeLabel: "MCP WORKER",
+      id: "session-1",
+      name: "Container task",
+      provider: "codex",
     });
-    expect(taskService.startSprintTask).not.toHaveBeenCalled();
+    expect(taskService.startSprintTask).toHaveBeenCalled();
 
     const dispatches = executionRepository.listTaskDispatches({
       projectId: project.id,
@@ -94,8 +101,8 @@ describe("SprintTaskDispatchService", () => {
     });
     expect(dispatches[0]).toMatchObject({
       taskId: taskRecord.id,
-      executorType: "mcp_worker",
-      status: "queued",
+      executorType: "docker_cli",
+      status: "running",
     });
   });
 });

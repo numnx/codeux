@@ -11,22 +11,17 @@ Startup sequence:
 3. `src/server/jules-agent-server.ts` constructs repositories/services/handlers/orchestrator.
 4. `src/server/jules-agent-server.ts` registers MCP request handlers.
 5. `src/server/jules-agent-server.ts` starts dashboard server.
+   - Dashboard API routes (such as project, sprint, task, conversation, and planning endpoints) are broken out into modular route files for maintainability.
 6. `src/server/jules-agent-server.ts` connects MCP stdio transport.
-7. `src/server/jules-agent-server.ts` optionally starts the MCP HTTP worker gateway.
+7. `src/server/jules-agent-server.ts` optionally starts the MCP HTTP transport with the same project-manager tool surface.
 
 ## Runtime Modes
 
-Sprint OS now has multiple MCP runtime modes.
+Sprint OS now exposes a single MCP runtime role:
 
-`--runtime-role worker-host` changes startup behavior:
+- `project_manager`
 
-- dashboard bind is skipped
-- MCP stdio transport still starts
-- the same sqlite app state is still used
-
-This is the runtime mode used by the in-repo `sprint-os-worker` CLI.
-
-The main server also creates `worker_gateway` MCP server instances for the Streamable HTTP worker endpoint. That role is not a direct process startup mode; it is used internally so the HTTP gateway can expose a different MCP tool surface than the normal stdio server.
+The legacy `worker_host`, `worker_gateway`, and in-repo `sprint-os-worker` runtime have been removed.
 
 ## MCP Request Handlers
 
@@ -74,33 +69,17 @@ Sprint OS now uses two MCP transport classes:
 
 ### Stdio
 
-Stdio remains the default transport for:
+Stdio remains the default MCP transport.
 
-- normal local Gemini CLI and Codex connections
-- local worker-host execution runtimes
+### HTTP
 
-### Streamable HTTP worker gateway
-
-The main Sprint OS server can now expose a dedicated authenticated MCP HTTP endpoint for remote workers.
+The main Sprint OS server can also expose an authenticated MCP HTTP endpoint.
 
 That endpoint:
 
 - is configured through `MCP_HTTP_*` env vars or `--mcp-http*` flags
-- creates `worker_gateway` MCP server instances per session
-- exposes the remote worker control-plane tool surface
-- does not expose the full project-manager tool surface
-
-### Remote worker flow
-
-The current remote-capable worker model is:
-
-1. the main Sprint OS server exposes the Streamable HTTP worker gateway
-2. `sprint-os-worker` connects to that HTTP endpoint as its control plane
-3. `sprint-os-worker` also starts a local `worker_host` Sprint OS runtime on the worker machine
-4. remote control-plane tools are called against the main server
-5. local execution tools are called against the local worker-host runtime
-
-This preserves zero-setup local stdio use while allowing workers to run on other machines.
+- exposes the same project-manager tool surface as stdio
+- no longer exposes a separate worker-control-plane runtime
 
 ## Error Handling
 

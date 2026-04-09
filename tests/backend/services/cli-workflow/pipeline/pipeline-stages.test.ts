@@ -14,6 +14,7 @@ afterEach(() => {
 const createMockContext = (): PipelineContext => {
   return {
     sessionId: "test-session",
+    workspaceSessionId: "test-session",
     workerBranch: "worker-branch",
     featureBranch: "feature-branch",
     task: { id: "T1", sprint_id: "sprint-1", prompt: "test prompt", title: "test task", state: "PENDING", description: "desc" },
@@ -91,7 +92,7 @@ const createMockContext = (): PipelineContext => {
         maxQuotaRetriesWithoutTimer: 5,
       },
       workers: {
-        executionMode: "CONNECTED_MCP",
+        executionMode: "VIRTUAL",
         virtualWorkerProvider: "gemini",
         model: "default",
         maxConcurrency: 1,
@@ -150,6 +151,14 @@ const createMockContext = (): PipelineContext => {
       prepareWorktree: vi.fn(),
       removeWorktree: vi.fn(),
       buildWorkspaceGuidance: vi.fn(),
+    } as any,
+    workspaceArtifactService: {
+      exportBinaryPatch: vi.fn().mockResolvedValue(""),
+      applyPatchToBranch: vi.fn().mockResolvedValue({
+        hasChanges: false,
+        commitSha: undefined,
+        stats: undefined,
+      }),
     } as any,
     prService: {
       hasUnpushedCommits: vi.fn(),
@@ -388,15 +397,6 @@ describe("executeGitFinalizeStage", () => {
   it("returns { hasChanges: false } when there are no changes or unpushed commits", async () => {
     const ctx = createMockContext();
 
-    // Mock runCommand to simulate no changes
-    vi.mocked(ctx.runCommand).mockImplementation(async (cmd, args) => {
-      const key = `${cmd} ${args.join(" ")}`;
-      if (key === "git rev-parse --abbrev-ref HEAD") return { ok: true, stdout: "worker-branch", stderr: "" };
-      if (key === "git rev-parse HEAD") return { ok: true, stdout: "abcd123", stderr: "" }; // Matches initialHead
-      if (key === "git status --porcelain") return { ok: true, stdout: "", stderr: "" };
-      return { ok: true, stdout: "", stderr: "" };
-    });
-
     vi.mocked(ctx.prService.hasUnpushedCommits).mockResolvedValue(false);
     vi.mocked(ctx.prService.hasWorkerBranchCommitsAgainstFeature).mockResolvedValue(false);
 
@@ -404,21 +404,28 @@ describe("executeGitFinalizeStage", () => {
 
     expect(result.hasChanges).toBe(false);
     expect(ctx.workflowSucceeded).toBe(true);
+    expect(ctx.workspaceArtifactService.exportBinaryPatch).toHaveBeenCalledWith(ctx.worktreePath, ctx.initialHead);
+    expect(ctx.workspaceArtifactService.applyPatchToBranch).toHaveBeenCalledWith({
+      repoPath: ctx.repoPath,
+      baseRef: ctx.initialHead,
+      workerBranch: ctx.workerBranch,
+      patchText: "",
+      commitMessage: `feat(task ${ctx.task.id}): implement via ${ctx.provider}`,
+    });
     expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED" });
   });
 
-  it("commits and pushes when there are working tree changes", async () => {
+  it("applies exported patch results when the isolated workspace has changes", async () => {
     const ctx = createMockContext();
-
-    vi.mocked(ctx.runCommand).mockImplementation(async (cmd, args) => {
-      const key = `${cmd} ${args.join(" ")}`;
-      if (key === "git rev-parse --abbrev-ref HEAD") return { ok: true, stdout: "worker-branch", stderr: "" };
-      if (key === "git rev-parse HEAD") return { ok: true, stdout: "abcd123", stderr: "" };
-      if (key === "git status --porcelain") return { ok: true, stdout: "M file.txt", stderr: "" }; // Has changes
-      if (key === "git add -A") return { ok: true, stdout: "", stderr: "" };
-      if (key.startsWith("git commit -m")) return { ok: true, stdout: "", stderr: "" };
-      if (key === `git push -u origin ${ctx.workerBranch}`) return { ok: true, stdout: "", stderr: "" };
-      return { ok: true, stdout: "", stderr: "" };
+    vi.mocked(ctx.workspaceArtifactService.exportBinaryPatch).mockResolvedValue("diff --git a/file.txt b/file.txt");
+    vi.mocked(ctx.workspaceArtifactService.applyPatchToBranch).mockResolvedValue({
+      hasChanges: true,
+      commitSha: "deadbeef",
+      stats: {
+        filesChanged: 1,
+        insertions: 3,
+        deletions: 1,
+      },
     });
 
     vi.mocked(ctx.prService.hasUnpushedCommits).mockResolvedValue(false);
@@ -427,8 +434,15 @@ describe("executeGitFinalizeStage", () => {
     const result = await executeGitFinalizeStage(ctx);
 
     expect(result.hasChanges).toBe(true);
-    expect(ctx.runCommand).toHaveBeenCalledWith("git", ["add", "-A"], ctx.worktreePath);
-    expect(ctx.runCommand).toHaveBeenCalledWith("git", ["push", "-u", "origin", ctx.workerBranch], ctx.worktreePath);
+    expect(result.committedChanges).toBe(true);
+    expect(result.commitSha).toBe("deadbeef");
+    expect(result.stats).toEqual({
+      filesChanged: 1,
+      insertions: 3,
+      deletions: 1,
+    });
+    expect(ctx.workspaceArtifactService.applyPatchToBranch).toHaveBeenCalledTimes(1);
+    expect(ctx.runCommand).not.toHaveBeenCalled();
   });
 });
 
@@ -442,10 +456,15 @@ describe("executePrFinalizeStage", () => {
     expect(ctx.workflowSucceeded).toBe(true);
     expect(ctx.prService.resolveOrCreateFeaturePr).toHaveBeenCalledWith(
       expect.objectContaining({
+        taskId: "T1",
+        provider: "gemini",
+        title: "test title",
+        featureBranch: "feature-branch",
+        workerBranch: "worker-branch",
         taskDescription: "test prompt",
         sprintDescription: "Mock Sprint Goal",
       }),
-      ctx.worktreePath,
+      ctx.repoPath,
       undefined
     );
     expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED", prUrl: "https://github.com/pr/1" });

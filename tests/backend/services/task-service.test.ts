@@ -158,6 +158,91 @@ describe("TaskService", () => {
     expect(createSession).not.toHaveBeenCalled();
   });
 
+  it("falls back to cli provider when githubMode is LOCAL and throws if no CLI providers are enabled", () => {
+    const localModeService = new TaskService({
+      julesApi: { createSession } as any,
+      agentPresetSyncService: { getOptionalWorkerAgentForRepoPath: getWorkerAgent } as any,
+      resolveJulesSourceId,
+      getDashboardSettings: () => ({
+        aiProvider: {
+          provider: "jules",
+          strategy: "MANUAL",
+          julesApiKey: "",
+          providers: {
+            jules: { enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "" },
+            gemini: { enabled: true, model: "default", weight: 20, thinkingMode: "MEDIUM", apiKey: "" },
+            codex: { enabled: false, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
+            "claude-code": { enabled: false, model: "default", weight: 0, thinkingMode: "HIGH", apiKey: "" },
+          },
+          invocationRouting: {
+            task_coding: {
+              profile: "GLOBAL",
+              strategy: "MANUAL",
+              provider: null,
+              allowedProviders: [],
+              providers: {},
+            },
+          },
+        },
+        git: { githubMode: "LOCAL", defaultBranch: "main" },
+      }) as any,
+      isJulesApiConfigured: () => true,
+      cliWorkflowService: { startTask: startCliTask } as any,
+    });
+
+    const route = localModeService.resolveInvocationProvider("task_coding", {
+      id: "chat",
+      title: "Chat",
+      prompt: "hello",
+      depends_on: [],
+      is_independent: true,
+      status: "PENDING",
+    });
+
+    expect(route.provider).toBe("gemini");
+
+    // Test the throw when all CLI providers are disabled
+    const emptyLocalModeService = new TaskService({
+      julesApi: { createSession } as any,
+      agentPresetSyncService: { getOptionalWorkerAgentForRepoPath: getWorkerAgent } as any,
+      resolveJulesSourceId,
+      getDashboardSettings: () => ({
+        aiProvider: {
+          provider: "jules",
+          strategy: "MANUAL",
+          julesApiKey: "",
+          providers: {
+            jules: { enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "" },
+            gemini: { enabled: false, model: "default", weight: 20, thinkingMode: "MEDIUM", apiKey: "" },
+            codex: { enabled: false, model: "gpt-5.3-codex", weight: 20, thinkingMode: "HIGH", apiKey: "" },
+            "claude-code": { enabled: false, model: "default", weight: 0, thinkingMode: "HIGH", apiKey: "" },
+          },
+          invocationRouting: {
+            task_coding: {
+              profile: "GLOBAL",
+              strategy: "MANUAL",
+              provider: null,
+              allowedProviders: [],
+              providers: {},
+            },
+          },
+        },
+        git: { githubMode: "LOCAL", defaultBranch: "main" },
+      }) as any,
+      isJulesApiConfigured: () => true,
+      cliWorkflowService: { startTask: startCliTask } as any,
+    });
+
+    expect(() => emptyLocalModeService.resolveInvocationProvider("task_coding", {
+      id: "chat",
+      title: "Chat",
+      prompt: "hello",
+      depends_on: [],
+      is_independent: true,
+      status: "PENDING",
+    })).toThrow("requires a CLI provider");
+  });
+
   it("throws a clear error when a CLI-only invocation has no eligible CLI providers", () => {
     const cliOnlyService = new TaskService({
       julesApi: { createSession } as any,

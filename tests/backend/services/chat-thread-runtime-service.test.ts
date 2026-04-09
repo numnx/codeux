@@ -10,7 +10,6 @@ describe("ChatThreadRuntimeService", () => {
       connectionChatRepository: {
         postDashboardMessage: vi.fn(),
         getThread: vi.fn(),
-        listThreads: vi.fn(),
         updateThread: vi.fn(),
         listMessages: vi.fn(),
         markDashboardMessagesProcessed: vi.fn(),
@@ -38,31 +37,28 @@ describe("ChatThreadRuntimeService", () => {
       providerRunner: {
         runProviderForText: vi.fn(),
       },
+      chatManagementActionService: {
+        processManagementAction: vi.fn(),
+        executeApprovedAction: vi.fn(),
+      },
     };
     service = new ChatThreadRuntimeService(deps);
   });
 
-  it("binds to an active live worker assignment if available", async () => {
-    deps.projectWorkerAssignmentRepository.listAssignmentsForProject.mockReturnValue([
-      { assignmentRole: "primary", capabilities: { canSuperviseProjects: true }, workerStatus: "online", connectionId: "live-conn-1" },
-    ]);
-    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-1", threadId: "t1", bodyMarkdown: "hello" });
-    deps.connectionChatRepository.listThreads.mockReturnValue([{ id: "t1", connectionId: null }]);
-    deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj" });
+  it("throws an error if thread is not found when posting a message", async () => {
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-missing", threadId: "t-missing", bodyMarkdown: "hello" });
+    deps.connectionChatRepository.getThread.mockReturnValue(undefined); // Simulate missing thread
 
-    await service.postMessage("p1", { bodyMarkdown: "hello" });
-
-    expect(deps.connectionChatRepository.updateThread).toHaveBeenCalledWith("t1", { connectionId: "live-conn-1" });
-    expect(deps.providerRunner.runProviderForText).not.toHaveBeenCalled();
+    await expect(service.postMessage("p1", { bodyMarkdown: "hello" })).rejects.toThrow("Thread not found");
   });
 
-  it("runs virtual provider and replays history on provider switch", async () => {
+  it("runs virtual provider and replays history on provider switch using chatManagementActionService", async () => {
     deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-2", threadId: "t1", bodyMarkdown: "hello" });
-    deps.connectionChatRepository.listThreads.mockReturnValue([{
+    deps.connectionChatRepository.getThread.mockReturnValue({
       id: "t1",
       connectionId: null,
       runtimeState: { virtualProvider: "old-provider", sessionIds: ["old-session"] }
-    }]);
+    });
     deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
     deps.taskService.resolveInvocationProvider.mockReturnValue({
       provider: "claude-code",
@@ -73,21 +69,21 @@ describe("ChatThreadRuntimeService", () => {
       { authorType: "worker", bodyMarkdown: "reply" },
     ]);
     deps.executionRepository.createExecutionInvocation.mockReturnValue({ id: "exec1" });
-    deps.providerRunner.runProviderForText.mockResolvedValue({ text: "im a bot", nativeSessionId: "new-session" });
+    deps.chatManagementActionService.processManagementAction.mockResolvedValue({ replyMarkdown: "im a bot", action: null, approvalRequired: false });
 
     await service.postMessage("p1", { bodyMarkdown: "hello" });
 
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "claude-code",
-        continueSessionId: null,
+        sessionId: "t1", // Fallback to thread id when no active session
       })
     );
     expect(deps.connectionChatRepository.updateThread).toHaveBeenCalledWith("t1", expect.objectContaining({
       runtimeState: expect.objectContaining({
         routeKind: "virtual",
         virtualProvider: "claude-code",
-        sessionIds: ["new-session"],
+        sessionIds: ["t1"],
       })
     }));
     expect(deps.connectionChatRepository.markDashboardMessagesProcessed).toHaveBeenCalledWith("t1", {
@@ -95,41 +91,41 @@ describe("ChatThreadRuntimeService", () => {
     });
   });
 
-  it("continues with continueSessionId if same provider", async () => {
+  it("continues with continueSessionId if same provider using chatManagementActionService", async () => {
     deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-3", threadId: "t1", bodyMarkdown: "hello" });
-    deps.connectionChatRepository.listThreads.mockReturnValue([{
+    deps.connectionChatRepository.getThread.mockReturnValue({
       id: "t1",
       connectionId: null,
       runtimeState: { virtualProvider: "claude-code", sessionIds: ["existing-session"] }
-    }]);
+    });
     deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
     deps.taskService.resolveInvocationProvider.mockReturnValue({
       provider: "claude-code",
       providers: { "claude-code": { model: "claude-3", apiKey: "key" } }
     });
     deps.executionRepository.createExecutionInvocation.mockReturnValue({ id: "exec1" });
-    deps.providerRunner.runProviderForText.mockResolvedValue({ text: "next", nativeSessionId: "existing-session" });
+    deps.chatManagementActionService.processManagementAction.mockResolvedValue({ replyMarkdown: "next", action: null, approvalRequired: false });
 
     await service.postMessage("p1", { bodyMarkdown: "hello" });
 
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "claude-code",
-        continueSessionId: "existing-session",
+        sessionId: "existing-session",
       })
     );
   });
 
-  it("honors an explicitly routed virtual provider before falling back to global routing", async () => {
+  it("honors an explicitly routed virtual provider before falling back to global routing using chatManagementActionService", async () => {
     deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-4", threadId: "t1", bodyMarkdown: "hello" });
-    deps.connectionChatRepository.listThreads.mockReturnValue([{
+    deps.connectionChatRepository.getThread.mockReturnValue({
       id: "t1",
       connectionId: null,
       runtimeState: {
         routeKind: "virtual",
         virtualProvider: "codex",
       }
-    }]);
+    });
     deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
     deps.taskService.resolveInvocationProvider.mockReturnValue({
       provider: "jules",
@@ -142,17 +138,87 @@ describe("ChatThreadRuntimeService", () => {
       { authorType: "dashboard_user", bodyMarkdown: "first" },
     ]);
     deps.executionRepository.createExecutionInvocation.mockReturnValue({ id: "exec1" });
-    deps.providerRunner.runProviderForText.mockResolvedValue({ text: "codex reply", nativeSessionId: "codex-session" });
+    deps.chatManagementActionService.processManagementAction.mockResolvedValue({ replyMarkdown: "codex reply", action: null, approvalRequired: false });
 
     await service.postMessage("p1", { bodyMarkdown: "hello" });
 
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "codex",
         model: "gpt-5.3-codex",
         apiKey: "codex-key",
       })
     );
+  });
+
+  it("handles user approval for a pending management action directly", async () => {
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-appr", threadId: "t1", bodyMarkdown: "yes" });
+    deps.connectionChatRepository.getThread.mockReturnValue({
+      id: "t1",
+      connectionId: null,
+      runtimeState: {
+        virtualProvider: "codex",
+        pendingManagementAction: {
+          action: { domain: "projects", action: "delete_project", payload: {} },
+          approvalMessage: "Are you sure?",
+          proposedAt: new Date().toISOString(),
+        }
+      }
+    });
+    deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
+    deps.taskService.resolveInvocationProvider.mockReturnValue({
+      provider: "codex",
+      providers: { codex: { model: "gpt-5.3-codex", apiKey: "codex-key" } }
+    });
+    deps.executionRepository.createExecutionInvocation.mockReturnValue({ id: "exec1" });
+    deps.chatManagementActionService.executeApprovedAction.mockResolvedValue({
+      replyMarkdown: "Approved action execution completed.",
+      action: { domain: "projects", action: "delete_project", payload: {} },
+      approvalRequired: false,
+      result: { status: "success" }
+    });
+
+    await service.postMessage("p1", { bodyMarkdown: "yes" });
+
+    expect(deps.chatManagementActionService.executeApprovedAction).toHaveBeenCalledWith(
+      "p1", "codex", "gpt-5.3-codex", expect.objectContaining({ domain: "projects" })
+    );
+    expect(deps.connectionChatRepository.updateThread).toHaveBeenCalledWith("t1", expect.objectContaining({
+      runtimeState: expect.not.objectContaining({ pendingManagementAction: expect.anything() })
+    }));
+    expect(deps.chatManagementActionService.processManagementAction).not.toHaveBeenCalled();
+  });
+
+  it("handles user cancellation of a pending management action directly", async () => {
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-rej", threadId: "t1", bodyMarkdown: "no" });
+    deps.connectionChatRepository.getThread.mockReturnValue({
+      id: "t1",
+      connectionId: null,
+      runtimeState: {
+        virtualProvider: "codex",
+        pendingManagementAction: {
+          action: { domain: "projects", action: "delete_project", payload: {} },
+          approvalMessage: "Are you sure?",
+          proposedAt: new Date().toISOString(),
+        }
+      }
+    });
+    deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
+    deps.taskService.resolveInvocationProvider.mockReturnValue({
+      provider: "codex",
+      providers: { codex: { model: "gpt-5.3-codex", apiKey: "codex-key" } }
+    });
+
+    await service.postMessage("p1", { bodyMarkdown: "no" });
+
+    expect(deps.connectionChatRepository.postSystemMessage).toHaveBeenCalledWith("p1", expect.objectContaining({
+      bodyMarkdown: "_Management action canceled by user._"
+    }));
+    expect(deps.connectionChatRepository.updateThread).toHaveBeenCalledWith("t1", expect.objectContaining({
+      runtimeState: expect.not.objectContaining({ pendingManagementAction: expect.anything() })
+    }));
+    expect(deps.chatManagementActionService.executeApprovedAction).not.toHaveBeenCalled();
+    expect(deps.chatManagementActionService.processManagementAction).not.toHaveBeenCalled();
   });
 
   it("compacts a virtual thread into a stored summary and clears the active session", async () => {
@@ -212,98 +278,9 @@ describe("ChatThreadRuntimeService", () => {
     });
   });
 
-  it("compacts a connected worker thread through a hidden worker inbox request", async () => {
-    let requestId = "";
-    deps.projectWorkerAssignmentRepository.listAssignmentsForProject.mockReturnValue([
-      {
-        assignmentRole: "primary",
-        capabilities: { canSuperviseProjects: true },
-        workerStatus: "online",
-        connectionId: "conn-1",
-        workerEndpointId: "conn-1",
-      },
-    ]);
-    deps.connectionChatRepository.getThread.mockReturnValue({
-      id: "t1",
-      projectId: "p1",
-      title: "Thread",
-      connectionId: "conn-1",
-      runtimeState: {
-        routeKind: "worker",
-        workerEndpointId: "conn-1",
-        sessionIds: ["worker-session"],
-      },
-    });
-    deps.connectionChatRepository.listMessages.mockImplementation((_threadId: string, options?: { includeHidden?: boolean }) => {
-      if (options?.includeHidden) {
-        return [
-          { id: "m1", authorType: "dashboard_user", bodyMarkdown: "hello" },
-          { id: "m2", authorType: "connection", bodyMarkdown: "world" },
-          {
-            id: "m-hidden-result",
-            authorType: "connection",
-            bodyMarkdown: "## Current Objective\nKeep context",
-            metadata: {
-              internalOperation: "thread_compaction_result",
-              requestId,
-              provider: "gemini",
-              model: "gemini-2.5-pro",
-              generatedAt: "2026-03-28T05:00:00.000Z",
-            },
-          },
-        ];
-      }
-      return [
-        { id: "m1", authorType: "dashboard_user", bodyMarkdown: "hello" },
-        { id: "m2", authorType: "connection", bodyMarkdown: "world" },
-      ];
-    });
-    deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
-    deps.connectionChatRepository.postDashboardMessage.mockImplementation((_projectId: string, input: any) => {
-      requestId = input.metadata.requestId;
-      return {
-        id: "m-hidden-request",
-        threadId: input.threadId,
-        bodyMarkdown: input.bodyMarkdown,
-        metadata: input.metadata,
-      };
-    });
-    deps.connectionChatRepository.updateThread.mockImplementation((threadId: string, input: any) => ({
-      id: threadId,
-      projectId: "p1",
-      title: "Thread",
-      connectionId: input.connectionId ?? "conn-1",
-      runtimeState: input.runtimeState,
-    }));
-
-    const updated = await service.compactThreadSession("t1");
-
-    expect(deps.connectionChatRepository.postDashboardMessage).toHaveBeenCalledWith("p1", expect.objectContaining({
-      threadId: "t1",
-      connectionId: "conn-1",
-      metadata: expect.objectContaining({
-        internalVisibility: "hidden",
-        internalOperation: "thread_compaction_request",
-      }),
-    }));
-    expect(updated.runtimeState).toMatchObject({
-      routeKind: "worker",
-      workerEndpointId: "conn-1",
-      replayRequired: true,
-      sessionIds: [],
-      compactionSummary: {
-        markdown: "## Current Objective\nKeep context",
-        provider: "gemini",
-        model: "gemini-2.5-pro",
-        sourceMessageId: "m2",
-        sourceMessageCount: 2,
-      },
-    });
-  });
-
-  it("replays from the stored compaction summary on the next fresh virtual turn", async () => {
+  it("replays from the stored compaction summary on the next fresh virtual turn using chatManagementActionService", async () => {
     deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-5", threadId: "t1", bodyMarkdown: "next question" });
-    deps.connectionChatRepository.listThreads.mockReturnValue([{
+    deps.connectionChatRepository.getThread.mockReturnValue({
       id: "t1",
       projectId: "p1",
       title: "Thread",
@@ -322,7 +299,7 @@ describe("ChatThreadRuntimeService", () => {
           sourceMessageCount: 1,
         },
       },
-    }]);
+    });
     deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
     deps.taskService.resolveInvocationProvider.mockReturnValue({
       provider: "claude-code",
@@ -333,17 +310,17 @@ describe("ChatThreadRuntimeService", () => {
       { id: "msg-5", authorType: "dashboard_user", bodyMarkdown: "next question" },
     ]);
     deps.executionRepository.createExecutionInvocation.mockReturnValue({ id: "exec-summary-replay" });
-    deps.providerRunner.runProviderForText.mockResolvedValue({ text: "reply", nativeSessionId: "fresh-session" });
+    deps.chatManagementActionService.processManagementAction.mockResolvedValue({ replyMarkdown: "reply", action: null, approvalRequired: false });
 
     await service.postMessage("p1", { bodyMarkdown: "next question" });
 
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(expect.objectContaining({
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(expect.objectContaining({
       prompt: expect.stringContaining("## COMPACTED HISTORY"),
     }));
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(expect.objectContaining({
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(expect.objectContaining({
       prompt: expect.stringContaining("## Current Objective\nKeep context"),
     }));
-    expect(deps.providerRunner.runProviderForText).toHaveBeenCalledWith(expect.objectContaining({
+    expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(expect.objectContaining({
       prompt: expect.not.stringContaining("historic prompt"),
     }));
   });

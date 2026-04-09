@@ -1,88 +1,141 @@
-# GEMINI Context: Jules Subagents MCP Server
+# GEMINI Context: Jules Agent OS / MCP Server
 
-This project is a production-grade **Model Context Protocol (MCP)** server for the **Jules Agent API**. It enables LLMs to interact with Jules for codebase management, agent session creation, and intelligent sprint orchestration.
+This project is a production-grade **Model Context Protocol (MCP)** server and orchestration engine for the **Jules Agent API**. It enables autonomous sprint management, codebase intelligence, and on-demand virtual worker provisioning.
 
-## 🚀 Project Overview
+---
 
-- **Core Purpose**: Bridging LLMs (like Gemini, Claude, Codex) with the Jules Agent API via the MCP standard.
-- **Main Technologies**:
-  - **Runtime**: Node.js (ES Modules)
-  - **Language**: TypeScript
-  - **Protocols**: MCP (Model Context Protocol)
-  - **Key Libraries**: `@modelcontextprotocol/sdk`, `axios`, `dotenv`
-- **Architecture**:
-  - `src/index.ts`: The central entry point implementing the MCP server and its 12+ tools.
-  - `dashboard/`: A real-time Preact-based web dashboard for visualizing sprint progress.
-  - `.jules-subagents/`: The primary directory for agent configuration and sprint management.
-    - `agents/`: Contains Markdown guides that define the technical standards and orchestration logic for Jules agents.
-      - `worker.md`: Defines the "Technical Baseline" for all subtasks.
-      - `orchestrator.md`: Defines the logic for the `sprint_agent` tool.
-      - `sprint_agent_guide.md`: Operating instructions for the main orchestrator agent.
-      - `watch.md`: Operating instructions for the continuous orchestration loop.
-      - `watch-skill.md`: A skill-like instruction for re-entering the watch loop.
-    - `sprints/`: Contains sprint definitions (`sprint-<N>.md`) and their corresponding subtasks.
+## 🚀 1. Project Mission & Identity
+To bridge high-level LLM orchestration with low-level codebase execution. The system transforms natural language sprint goals into atomic, test-validated PRs through a network of specialized agents and isolated Docker environments.
 
-## 🛠️ Building and Running
+---
 
-### Development
-- **Install Dependencies**: `npm install`
-- **Run in Dev Mode**: `npm run dev` (uses `ts-node-esm`)
-- **Build**: `npm run build` (runs `tsc`)
+## 🛠️ 2. Core Technology Stack
 
-### Production / CLI Usage
-- **Start**: `npm start` (runs `node dist/index.js`)
-- **Direct Execution**: `node dist/index.js --api-key YOUR_KEY`
-- **Global Command**: Once linked via `npm link`, use the `jules-subagents` command.
+### Backend (Node.js/ESM)
+- **Runtime**: Node.js 22.x (Strict ESM mode).
+- **Language**: TypeScript 5.6+ (Strict compiler settings).
+- **Protocol**: Model Context Protocol (MCP) via `@modelcontextprotocol/sdk`.
+- **API**: Axios for Jules REST API integration.
+- **Logging**: Structured JSON logging with request correlation IDs.
 
-### Configuration & Safety
-The server looks for settings and guides in a hierarchical order (CWD > Project Root > Home Dir):
-1.  **API Key**: `--api-key` flag, `JULES_API_KEY` env, or `.env` file.
-2.  **Settings**: `settings.json` in `.jules-subagents/` folders.
-3.  **Emergency Stop**: Automatically halts task creation after 5 (default) consecutive failures, configurable via `maxFailures` or `JULES_API_MAX_FAILS`.
+### Frontend (Preact/Vite)
+- **Framework**: Preact (Lean React-alternative).
+- **Styling**: Tailwind CSS v4 (Zero-runtime, high-performance).
+- **State**: Signals-based reactivity (via Preact Signals).
+- **Animation**: GSAP (GreenSock) for high-fidelity interactive feedback.
+- **Icons**: Lucide Icons.
 
-## 🏗️ Agent Orchestration Architecture
+### Infrastructure & Isolation
+- **Containerization**: Docker (used for provisioning isolated "Virtual Workers").
+- **Git**: Local worktree management for parallel task execution.
+- **Process Management**: Custom CLI process runners with strict output sanitization.
 
-The system uses a **tri-agent skill architecture** to ensure absolute precision in sprint execution. Instructions are delivered via specific Markdown guides injected into agent contexts.
+---
 
-### 1. The Orchestrator (`.jules-subagents/agents/orchestrator.md`)
-- **Role**: High-level manager connecting via MCP.
-- **Tools**: `sprint_agent(action: "status" | "orchestrate" | "plan")`, `create_session`, `wait_for_session_completion`.
-- **Operating Protocol**: Follows a strict tool-to-phase mapping and error recovery algorithm.
+## 🏗️ 3. Architectural Deep Dive
 
-### 2. The Planning Specialist (`.jules-subagents/agents/sprint_agent_guide.md`)
-- **Role**: Decomposes `.jules-subagents/sprints/sprint-<N>.md` into a DAG of subtasks.
-- **Output**: Atomic markdown files in `.jules-subagents/sprints/sprint<N>-subtasks/`.
-- **Constraint**: Each task must be "Jules-Ready" (atomic, testable, and independent).
+### A. The MCP Layer (`src/mcp/`)
+Exposes 12+ tools including `sprint_agent`, `task_agent`, and `list_all_sources`. It acts as the primary interface for external LLMs to interact with the internal domain logic.
 
-### 3. The Jules Technical Skill (`.jules-subagents/agents/worker.md`)
-- **Role**: The engineering baseline injected into EVERY Jules session.
-- **Focus**: Award-winning design, strict TypeScript, and mandatory quality gates (Playwright).
-- **Workflow**: Research -> Strategy -> Execution -> Validation.
+### B. Sprint Orchestration (`src/domain/sprint/`)
+- **Cycle Runner**: Manages task dependency resolution (DAG) and scheduling.
+- **Watch Loop**: Continuous background process that monitors PR status, CI results, and task completion.
+- **PR Gating**: Automated merge policies that ensure PRs only merge if all CI checks pass.
 
-## 🛠️ Tool-to-Phase Mapping Reference
+### C. Virtual Workers (`src/services/virtual-worker-service.ts`)
+On-demand agent provisioning.
+- Uses **Docker** to spin up isolated environments for code modification.
+- Handles automated **CI Autofixing** and **Merge Conflict Resolution**.
+- Integrates multiple LLM providers (Gemini, Claude, Codex) as execution backends.
 
-| Phase | Primary MCP Tool | Secondary Tools |
-|---|---|---|
-| **Discovery** | `list_all_sources` | `get_source` |
-| **Planning** | `sprint_agent(action: "plan")` | `read_file`, `write_file` |
-| **Execution** | `sprint_agent(action: "orchestrate")` | `create_session` |
-| **One-off Implementation** | `task_agent` | `wait_for_session_completion` |
-| **Monitoring** | `sprint_agent(action: "status")` | `get_session`, `wait_for_session_completion` |
-| **Verification** | `list_all_activities` | `get_activity` |
+### D. Repository Pattern (`src/repositories/`)
+Strict separation between data storage and business logic.
+- Subtasks and Sprints are stored as **Markdown files with YAML frontmatter**.
+- Settings and Session Tracking use file-based JSON repositories.
 
-## 📁 Key Files & Directories
+---
 
-- `src/index.ts`: The MCP server implementation.
-- `dashboard/`: The Preact-based live monitoring dashboard.
-- `.jules-subagents/`: Agent guidance and sprint data.
-- `package.json`: Project metadata and dependency management.
-- `tsconfig.json`: TypeScript configuration (ESNext, Node16 resolution).
-- `.env.example`: Template for required environment variables.
+## 📏 4. Detailed Coding Standards
 
-## Technical Standards for Preact App
+### ESM & Import Rules (CRITICAL)
+- **Mandatory Extensions**: All imports MUST include the `.js` extension, even if the source file is `.ts`.
+  - ✅ `import { Task } from "./task-types.js";`
+  - ❌ `import { Task } from "./task-types";`
+- **Native ESM**: No `require()` or CommonJS modules in the `src/` directory.
 
-- Do not install external libraries beyond dependencies that already exist in the project.
-- Build modular, high-quality in-house modules for core features (small, testable, reusable).
-- Keep app bundle size as low as possible (code splitting, dead-code avoidance, lean assets).
-- Treat award-winning design as the quality target for UX, visuals, and interactions.
-- Use Tailwind as the default styling approach (no additional UI styling frameworks).
+### TypeScript Strictness
+- **No `any`**: The use of `any` is strictly prohibited unless documented as an unavoidable external boundary. Use `unknown` or specific interfaces.
+- **Explicit Returns**: All exported functions and public class methods MUST have explicit return types.
+- **Constructor DI**: Use constructor-based dependency injection for testability.
+
+### Naming Conventions
+- **Classes/Types**: `PascalCase`.
+- **Variables/Functions**: `camelCase`.
+- **Constants**: `SCREAMING_SNAKE_CASE` (only for true global constants).
+- **Files**: `kebab-case` for all source files.
+
+### Frontend (Preact/Tailwind)
+- **Component Design**: Atomic, reusable components in `dashboard/src/v2/components/`.
+- **Signals**: Prefer `@preact/signals` for global state (Dashboard settings, live logs).
+- **No Heavy Libraries**: Avoid large UI frameworks. Use Tailwind v4 for all styling.
+
+---
+
+## 🎨 5. Frontend Design: "Warm Void" Philosophy
+
+All UI work must meet the "Award-Winning" quality gate defined in `STYLEGUIDE.md`:
+- **Color Palette**: 
+  - Background: `#0E0C0A` (Void-900).
+  - Accent: `#00E0A0` (Signal Jade) for all interactive signals.
+  - Secondary: `#FFB800` (Ember) for metrics.
+- **Spacing**: Generous whitespace. Space is considered content.
+- **Motion**: Every animation must serve meaning (e.g., transition between task states).
+
+---
+
+## 🧪 6. Quality Assurance & Validation
+
+### Testing Strategy
+- **Framework**: Vitest.
+- **Thresholds**: 
+  - **80% Line Coverage** for core logic.
+  - **69% Function Coverage**.
+- **Mocking**: Use `vi.mock()` for external boundaries (Jules API, Docker, File System).
+
+### Validation Workflow (`npm run ci`)
+Before any task is considered complete, the following MUST pass:
+1. `npm run lint`: ESLint + Prettier.
+2. `npm run typecheck`: Strict `tsc` validation.
+3. `npm run test`: Unit and integration suite.
+4. `npm run build`: Production build (TSC + Vite).
+
+---
+
+## 🛡️ 7. Mandatory Repository Hygiene (ABSOLUTE)
+
+To maintain a production-grade workspace, these rules are **NON-NEGOTIABLE**:
+
+### A. Temporary File Management
+- **Identify**: Temporary files that you have created.
+- **Action**: You MUST delete all such files before concluding a task.
+### B. Commit Lock
+- **RULE**: **COMMITS ARE NOT ALLOWED** as long as temporary files are present in the workspace.
+- **Validation**: Check if there are any temporary files in the workspace before committing.
+
+### C. Credential Security
+- Never hardcode `JULES_API_KEY`.
+- Never commit `.env` files.
+- Use `.env.example` as the single source of truth for required environment variables.
+
+---
+
+## 🏗️ 8. Agent Orchestration strategy
+
+The project uses a **Tri-Agent Skill Architecture** for sprint execution:
+1. **The Orchestrator** (`orchestrator.md`): The high-level manager. Uses MCP tools to plan and track.
+2. **The Planning Specialist** (`sprint_agent_guide.md`): Decomposes goals into "Jules-Ready" (atomic, testable) subtasks.
+3. **The Jules Technical Worker** (`worker.md`): The implementation expert. Focuses on research-led, surgical code changes.
+
+---
+*Last Updated: Saturday, April 4, 2026*
+*Status: Production Baseline V2.1*

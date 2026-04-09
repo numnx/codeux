@@ -22,19 +22,10 @@ import type {
   ProjectStatsQuery,
   ProjectStatsWindow,
 } from "../../types.js";
+import { fetchJson } from "../../lib/api/fetch-json.js";
 
-const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(path, init);
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = typeof errorBody?.error === "string" ? errorBody.error : `Request failed: ${path}`;
-    throw new Error(errorMessage);
-  }
-  return await response.json() as T;
-};
-
-export const fetchProjects = async (): Promise<ProjectCollectionResponse> => {
-  return fetchJson<ProjectCollectionResponse>("/api/projects");
+export const fetchProjects = async (signal?: AbortSignal): Promise<ProjectCollectionResponse> => {
+  return fetchJson<ProjectCollectionResponse>("/api/projects", { signal });
 };
 
 export const createProject = async (input: CreateProjectInput): Promise<ProjectSummary> => {
@@ -225,3 +216,10 @@ export const deleteTask = async (taskId: string): Promise<void> => {
     method: "DELETE",
   });
 };
+
+export async function updateSprintShowcase(sprintId: string, pinned: boolean): Promise<any> {
+  return fetchJson(`/api/sprints/${encodeURIComponent(sprintId)}/showcase`, {
+    method: "PUT",
+    body: JSON.stringify({ pinned }),
+  });
+}

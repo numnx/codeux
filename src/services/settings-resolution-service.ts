@@ -4,6 +4,7 @@ import type {
   McpToolToggle,
   SkillToggle,
 } from "../contracts/app-types.js";
+import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type {
   EffectiveSettingsResponse,
   ProjectSettings,
@@ -296,6 +297,7 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
   const git = sanitizeGit(DEFAULT_DASHBOARD_SETTINGS, externalHints);
 
   return {
+    appearance: { ...DEFAULT_DASHBOARD_SETTINGS.appearance },
     automationLevel: DEFAULT_DASHBOARD_SETTINGS.automationLevel,
     automationInterventions: {
       ...DEFAULT_DASHBOARD_SETTINGS.automationInterventions,
@@ -387,8 +389,14 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
   };
   const git = sanitizeGit(gitInput, externalHints);
   const aiProvider = sanitizeAiProvider(aiInput, externalHints);
+  const appearanceInput = toRecord(input.appearance);
 
   return {
+    appearance: {
+      navigationMode: appearanceInput.navigationMode === "SIDEBAR" ? "SIDEBAR" : "DOCK",
+      theme: appearanceInput.theme === "LIGHT" || appearanceInput.theme === "DARK" ? appearanceInput.theme : "SYSTEM",
+      reducedMotion: appearanceInput.reducedMotion === "REDUCE" || appearanceInput.reducedMotion === "NONE" ? appearanceInput.reducedMotion : "AUTO",
+    },
     automationLevel: input.automationLevel === "FULL" || input.automationLevel === "SEMI_AUTO" || input.automationLevel === "ALWAYS_ASK"
       ? input.automationLevel
       : DEFAULT_DASHBOARD_SETTINGS.automationLevel,
@@ -544,6 +552,16 @@ export function resolveSprintProjectSettings(
   return sanitizeProjectSettings(deepMerge(projectSettings, sprintOverride || {}));
 }
 
+export function resolveEffectiveDashboardSettings(
+  settingsRepository: SettingsRepository,
+  projectId: string,
+  sprintId?: string | null,
+): EffectiveSettingsResponse {
+  return sprintId
+    ? settingsRepository.resolveSprintDashboardSettings(projectId, sprintId)
+    : settingsRepository.resolveProjectDashboardSettings(projectId);
+}
+
 export function resolveDashboardSettings(args: {
   systemSettings: SystemSettings;
   projectOverride?: ProjectSettingsOverride | null;
@@ -555,6 +573,7 @@ export function resolveDashboardSettings(args: {
   const dashboardSettings: DashboardSettings = {
     dashboardPort: args.systemSettings.runtime.dashboardPort,
     enableDebugLogFile: args.systemSettings.runtime.enableDebugLogFile,
+    appearance: { ...sprintSettings.appearance },
     automationLevel: sprintSettings.automationLevel,
     automationInterventions: { ...sprintSettings.automationInterventions },
     aiProvider: applyIntegrations(sprintSettings, args.systemSettings.integrations),

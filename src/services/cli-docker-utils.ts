@@ -6,6 +6,7 @@ export interface ContainerMount {
   source: string;
   destination: string;
   readonly: boolean;
+  type?: "bind" | "volume";
 }
 
 export const resolveConfiguredPath = (repoPath: string, rawValue: string): string => {
@@ -36,7 +37,7 @@ export const getDockerUserSpec = (): string | undefined => {
 
 export const toDockerMountArg = (mount: ContainerMount): string => {
   const parts = [
-    "type=bind",
+    `type=${mount.type ?? "bind"}`,
     `source=${mount.source}`,
     `target=${mount.destination}`,
   ];

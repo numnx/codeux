@@ -10,7 +10,7 @@ export interface AppConfig {
   baseUrl: string;
   dashboardPort: number;
   apiKeyArg: string | null;
-  runtimeRole: "project_manager" | "worker_host";
+  runtimeRole: "project_manager";
   dashboardEnabled: boolean;
   mcpHttpEnabled: boolean;
   mcpHttpHost: string;
@@ -89,10 +89,8 @@ const isLoopbackHost = (host: string): boolean => {
 };
 
 export const parseRuntimeRoleArg = (argv: string[]): AppConfig["runtimeRole"] => {
-  const runtimeRole = parseStringFlag(argv, "--runtime-role")?.trim().toLowerCase();
-  return runtimeRole === "worker-host" || runtimeRole === "worker_host"
-    ? "worker_host"
-    : "project_manager";
+  void argv;
+  return "project_manager";
 };
 
 export const hasHeadlessArg = (argv: string[]): boolean => {
@@ -216,14 +214,12 @@ export const loadAppConfig = (argv: string[], projectRoot: string): AppConfig =>
   const baseUrl = process.env.JULES_API_BASE_URL || "https://jules.googleapis.com/v1alpha";
   const dashboardPort = dashboardPortLoader(projectRoot);
   const runtimeRole = parseRuntimeRoleArg(argv);
-  const dashboardEnabled = runtimeRole === "worker_host" ? false : !hasHeadlessArg(argv);
+  const dashboardEnabled = !hasHeadlessArg(argv);
   const mcpHttpHost = (parseStringFlag(argv, "--mcp-http-host")?.trim()
     || process.env.MCP_HTTP_HOST?.trim()
     || "127.0.0.1");
-  const mcpHttpPort = runtimeRole === "worker_host"
-    ? null
-    : mcpHttpPortLoader(argv, projectRoot, dashboardPort);
-  const mcpHttpEnabled = runtimeRole !== "worker_host" && mcpHttpPort !== null && mcpHttpPort > 0;
+  const mcpHttpPort = mcpHttpPortLoader(argv, projectRoot, dashboardPort);
+  const mcpHttpEnabled = mcpHttpPort !== null && mcpHttpPort > 0;
   const mcpHttpPath = normalizePathValue(
     parseStringFlag(argv, "--mcp-http-path")?.trim() || process.env.MCP_HTTP_PATH?.trim(),
     "/mcp",

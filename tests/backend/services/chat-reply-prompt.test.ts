@@ -92,6 +92,32 @@ describe("chat-reply-prompt", () => {
       });
       expect(prompt).not.toContain("## WORKER INSTRUCTIONS");
       expect(prompt).toContain("### User\nHello");
+      expect(prompt).toContain("You must return STRICT JSON format containing exactly two keys: `replyMarkdown` and `action`");
+    });
+
+    it("includes pending management action context if it exists in runtime state", () => {
+      const threadWithPending = {
+        id: "t1",
+        title: "Test",
+        runtimeState: {
+          pendingManagementAction: {
+            action: { domain: "projects", action: "delete_project", payload: {} },
+            approvalMessage: "Are you sure you want to delete this project?",
+            proposedAt: new Date().toISOString(),
+          }
+        }
+      } as any;
+      const prompt = buildChatReplayPrompt({
+        projectId: "p1",
+        repoPath: "/repo",
+        projectName: "Proj",
+        thread: threadWithPending,
+        messages: [{ authorType: "dashboard_user", bodyMarkdown: "yes" } as any],
+        workerInstructions: "",
+      });
+      expect(prompt).toContain("## PENDING ACTION CONTEXT");
+      expect(prompt).toContain("delete_project");
+      expect(prompt).toContain("Are you sure you want to delete this project?");
     });
 
     it("builds correct prompt with compaction summary", () => {
@@ -108,11 +134,63 @@ describe("chat-reply-prompt", () => {
       expect(prompt).toContain("compacted");
       expect(prompt).toContain("_No new messages since the compaction summary was generated._");
     });
+
+    it("uses JSON output instructions when mcpAvailable is false", () => {
+      const prompt = buildChatReplayPrompt({
+        projectId: "p1",
+        repoPath: "/repo",
+        projectName: "Proj",
+        thread,
+        messages: [{ authorType: "dashboard_user", bodyMarkdown: "Hello" } as any],
+        workerInstructions: "",
+        mcpAvailable: false,
+      });
+      expect(prompt).toContain("You must return STRICT JSON format");
+      expect(prompt).not.toContain("manage_sprint_os");
+    });
+
+    it("uses MCP-native output instructions when mcpAvailable is true", () => {
+      const prompt = buildChatReplayPrompt({
+        projectId: "p1",
+        repoPath: "/repo",
+        projectName: "Proj",
+        thread,
+        messages: [{ authorType: "dashboard_user", bodyMarkdown: "Hello" } as any],
+        workerInstructions: "",
+        mcpAvailable: true,
+      });
+      expect(prompt).toContain("manage_sprint_os");
+      expect(prompt).toContain("Do NOT wrap your response in JSON");
+      expect(prompt).not.toContain("You must return STRICT JSON format");
+    });
+
+    it("defaults to JSON output instructions when mcpAvailable is omitted", () => {
+      const prompt = buildChatReplayPrompt({
+        projectId: "p1",
+        repoPath: "/repo",
+        projectName: "Proj",
+        thread,
+        messages: [{ authorType: "dashboard_user", bodyMarkdown: "Hello" } as any],
+        workerInstructions: "",
+      });
+      expect(prompt).toContain("You must return STRICT JSON format");
+      expect(prompt).not.toContain("manage_sprint_os");
+    });
   });
 
   describe("buildChatContinuationPrompt", () => {
     it("builds prompt correctly", () => {
       expect(buildChatContinuationPrompt({ bodyMarkdown: "hello" } as any)).toBe("### User\nhello");
+    });
+
+    it("includes pending management action context if provided", () => {
+      const prompt = buildChatContinuationPrompt(
+        { bodyMarkdown: "hello" } as any,
+        { action: { domain: "test", action: "test" }, approvalMessage: "approve?", proposedAt: "2023" } as any
+      );
+      expect(prompt).toContain("## PENDING ACTION CONTEXT");
+      expect(prompt).toContain("approve?");
+      expect(prompt).toContain("### User\nhello");
     });
   });
 

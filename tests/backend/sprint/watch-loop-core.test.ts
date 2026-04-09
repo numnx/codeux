@@ -1293,6 +1293,68 @@ describe("WatchLoopRunner", () => {
     expect(result.report).toContain("Sprint QA requested follow-up work");
     expect(deps.completedSprints.size).toBe(0);
   });
+
+  it("runs sprint QA before main merge evaluation and blocks merge while QA is pending", async () => {
+    const deps = buildDeps();
+    deps.qualityAssuranceService = {
+      reviewSprintCompletion: vi.fn().mockResolvedValue({
+        reviewed: false,
+        blockedCompletion: true,
+        mergeBlocked: true,
+        reportText: "\nSprint QA is still running.\n",
+      }),
+    } as any;
+
+    const renderMainMergeFeedback = vi.fn().mockResolvedValue({
+      text: "MERGE_FEEDBACK",
+      state: "ready_for_merge",
+      prNumber: 42,
+      prUrl: "https://example.com/pr/42",
+      hasMergeConflict: false,
+      mergeStateStatus: null,
+      hasFailedChecks: false,
+      hasPendingChecks: false,
+      hasReviewBlockers: false,
+      failedChecks: [],
+    });
+
+    const runner = new WatchLoopRunner(
+      deps as any,
+      buildCycleRunner() as any,
+      renderMainMergeFeedback,
+    );
+
+    const result = await (runner as any).finalizeSprintRun({
+      scopedExecutionContext: {
+        project: { id: "project-1", name: "Project 1" },
+        sprint: { id: "sprint-1", name: "Sprint 1", goal: "Ship safely" },
+        sprintNumber: 1,
+        repoPath: "/tmp",
+        featureBranch: "feat",
+        defaultBranch: "main",
+      },
+      sprintRunId: "run-1",
+      repoPath: "/tmp",
+      defaultFeatureBranch: "feat",
+      defaultBranch: "main",
+      featureBranchPrefix: "feature/",
+      githubMode: "REMOTE",
+      ciIntelligence: { mainBranchAutoMergeMode: "WHEN_GREEN", resolveMainMergeConflicts: false } as any,
+      subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: true, id: "T1" })],
+      runningTasks: [],
+      readyTasks: [],
+      manualMergeTasks: [],
+      needsManualMerge: false,
+      allTerminal: true,
+      noMoreActionPossible: false,
+      activeMainMergeAttentionItems: [],
+    });
+
+    expect(deps.qualityAssuranceService.reviewSprintCompletion).toHaveBeenCalled();
+    expect(renderMainMergeFeedback).not.toHaveBeenCalled();
+    expect(result.status).toBe("wait");
+    expect(result.report).toContain("Sprint QA is still running");
+  });
 });
 
 describe("evaluateSprintRunState", () => {

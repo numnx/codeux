@@ -22,6 +22,10 @@ import { SettingsRepository } from "./settings-repository.js";
 import { ProjectWorkerAssignmentRepository } from "./project-worker-assignment-repository.js";
 import type { ProjectSettingsOverride } from "../contracts/settings-scope-types.js";
 import type { ProjectWorkerAssignmentRecord } from "../contracts/worker-types.js";
+import { resolveRepositoryHost } from "../infrastructure/git/repository-host-resolver.js";
+import { projectSummaryQuery } from "./project-management/project-summary-query.js";
+import { sprintSummaryQuery } from "./project-management/sprint-summary-query.js";
+import { validateTaskDependencies } from "./project-management/task-dependency-graph.js";
 
 const SELECTED_PROJECT_KEY = "selected_project_id";
 
@@ -62,6 +66,7 @@ interface SprintRow {
   tasks_count: number | string | null;
   completed_tasks: number | string | null;
   latest_run_status: string | null;
+  latest_sprint_review_json?: string | null;
 }
 
 interface TaskRow {
@@ -104,25 +109,8 @@ export class ProjectManagementRepository {
 
   listProjects(): ProjectCollectionResponse {
     const rows = this.db.prepare(`
-      SELECT
-        p.id,
-        p.slug,
-        p.name,
-        p.base_dir,
-        p.repo_url,
-        p.default_branch,
-        p.feature_branch_prefix,
-        p.status,
-        p.created_at,
-        p.updated_at,
-        ps.source_type,
-        ps.source_ref,
-        (SELECT COUNT(*) FROM sprints s WHERE s.project_id = p.id) AS sprints_count,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status = 'completed') AS completed_tasks,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status != 'completed') AS open_tasks,
-        (SELECT MAX(CASE WHEN sr.status IN ('running', 'queued') THEN 1 ELSE 0 END) FROM sprint_runs sr WHERE sr.project_id = p.id) AS has_active_runs
-      FROM projects p
-      LEFT JOIN project_sources ps ON ps.project_id = p.id
+      ${projectSummaryQuery.select}
+      ${projectSummaryQuery.from}
       ORDER BY p.updated_at DESC, p.name ASC
     `).all() as unknown as ProjectRow[];
 
@@ -134,25 +122,8 @@ export class ProjectManagementRepository {
 
   getProject(projectId: string): ProjectSummary | null {
     const row = this.db.prepare(`
-      SELECT
-        p.id,
-        p.slug,
-        p.name,
-        p.base_dir,
-        p.repo_url,
-        p.default_branch,
-        p.feature_branch_prefix,
-        p.status,
-        p.created_at,
-        p.updated_at,
-        ps.source_type,
-        ps.source_ref,
-        (SELECT COUNT(*) FROM sprints s WHERE s.project_id = p.id) AS sprints_count,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status = 'completed') AS completed_tasks,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status != 'completed') AS open_tasks,
-        (SELECT MAX(CASE WHEN sr.status IN ('running', 'queued') THEN 1 ELSE 0 END) FROM sprint_runs sr WHERE sr.project_id = p.id) AS has_active_runs
-      FROM projects p
-      LEFT JOIN project_sources ps ON ps.project_id = p.id
+      ${projectSummaryQuery.select}
+      ${projectSummaryQuery.from}
       WHERE p.id = ?
     `).get(projectId) as ProjectRow | undefined;
 
@@ -165,25 +136,8 @@ export class ProjectManagementRepository {
     // Also match paths stored with a trailing slash
     const withTrailingSlash = normalizedRepoPath + "/";
     const row = this.db.prepare(`
-      SELECT
-        p.id,
-        p.slug,
-        p.name,
-        p.base_dir,
-        p.repo_url,
-        p.default_branch,
-        p.feature_branch_prefix,
-        p.status,
-        p.created_at,
-        p.updated_at,
-        ps.source_type,
-        ps.source_ref,
-        (SELECT COUNT(*) FROM sprints s WHERE s.project_id = p.id) AS sprints_count,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status = 'completed') AS completed_tasks,
-        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.status != 'completed') AS open_tasks,
-        (SELECT MAX(CASE WHEN sr.status IN ('running', 'queued') THEN 1 ELSE 0 END) FROM sprint_runs sr WHERE sr.project_id = p.id) AS has_active_runs
-      FROM projects p
-      LEFT JOIN project_sources ps ON ps.project_id = p.id
+      ${projectSummaryQuery.select}
+      ${projectSummaryQuery.from}
       WHERE p.base_dir IN (?, ?)
          OR ps.source_ref IN (?, ?)
       ORDER BY p.updated_at DESC
@@ -294,34 +248,10 @@ export class ProjectManagementRepository {
   listSprints(projectId: string): SprintCollectionResponse {
     const selectedSprintId = this.getSelectedSprintId(projectId);
     const rows = this.db.prepare(`
-      SELECT
-        s.id,
-        s.project_id,
-        s.number,
-        s.slug,
-        s.name,
-        s.original_prompt,
-        s.goal,
-        s.status,
-        s.showcase_pinned,
-        s.start_date,
-        s.end_date,
-        s.feature_branch,
-        s.created_at,
-        s.updated_at,
-        COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
-        (
-          SELECT sr.status
-          FROM sprint_runs sr
-          WHERE sr.sprint_id = s.id
-          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC, sr.rowid DESC
-          LIMIT 1
-        ) AS latest_run_status
-      FROM sprints s
-      LEFT JOIN tasks t ON t.sprint_id = s.id
+      ${sprintSummaryQuery.select}
+      ${sprintSummaryQuery.from}
       WHERE s.project_id = ?
-      GROUP BY s.id
+      ${sprintSummaryQuery.groupBy}
       ORDER BY COALESCE(s.number, 0) DESC, s.created_at DESC
     `).all(projectId) as unknown as SprintRow[];
 
@@ -461,6 +391,12 @@ export class ProjectManagementRepository {
       VALUES (?, ?)
     `);
 
+    const normalizedDependsOnTaskIds = this.normalizeDependencyIds(input.dependsOnTaskIds);
+    if (normalizedDependsOnTaskIds.length > 0) {
+      const sprintTasks = this.listTasks(projectId, input.sprintId);
+      validateTaskDependencies(id, input.sprintId, normalizedDependsOnTaskIds, sprintTasks);
+    }
+
     this.runInTransaction(() => {
       insertTask.run(
         id,
@@ -483,7 +419,7 @@ export class ProjectManagementRepository {
         now
       );
 
-      for (const dependencyId of this.normalizeDependencyIds(input.dependsOnTaskIds)) {
+      for (const dependencyId of normalizedDependsOnTaskIds) {
         insertDependency.run(id, dependencyId);
       }
     });
@@ -496,6 +432,45 @@ export class ProjectManagementRepository {
 
   updateTask(taskId: string, input: UpdateTaskInput): TaskRecord {
     const current = this.requireTask(taskId);
+    const nextTitle = input.title?.trim() || current.title;
+    const nextPromptMarkdown = input.promptMarkdown === undefined ? current.promptMarkdown : input.promptMarkdown;
+    const nextDescription = input.description === undefined ? current.description : input.description;
+    const nextStatus = input.status || current.status;
+    const nextPriority = input.priority || current.priority;
+    const nextExecutorType = input.executorType || current.executorType;
+    const nextSortOrder = input.sortOrder === undefined ? current.sortOrder : input.sortOrder;
+    const nextIsIndependent = input.isIndependent === undefined ? current.isIndependent : input.isIndependent;
+    const nextIsMerged = input.isMerged === undefined ? current.isMerged : input.isMerged;
+    const nextMergeIndicator = input.mergeIndicator === undefined ? current.mergeIndicator : input.mergeIndicator;
+    const nextSourceType = input.sourceType === undefined ? current.sourceType : input.sourceType;
+    const nextSourcePath = input.sourcePath === undefined ? current.sourcePath : input.sourcePath;
+    const nextDependsOnTaskIds = input.dependsOnTaskIds
+      ? this.normalizeDependencyIds(input.dependsOnTaskIds)
+      : current.dependsOnTaskIds;
+    const dependenciesChanged = input.dependsOnTaskIds !== undefined
+      && !sameStringArray(nextDependsOnTaskIds, current.dependsOnTaskIds);
+
+    if (dependenciesChanged) {
+      const sprintTasks = this.listTasks(current.projectId, current.sprintId);
+      validateTaskDependencies(taskId, current.sprintId, nextDependsOnTaskIds, sprintTasks);
+    }
+
+    const taskChanged = nextTitle !== current.title
+      || nextPromptMarkdown !== current.promptMarkdown
+      || nextDescription !== current.description
+      || nextStatus !== current.status
+      || nextPriority !== current.priority
+      || nextExecutorType !== current.executorType
+      || nextSortOrder !== current.sortOrder
+      || nextIsIndependent !== current.isIndependent
+      || nextIsMerged !== current.isMerged
+      || nextMergeIndicator !== current.mergeIndicator
+      || nextSourceType !== current.sourceType
+      || nextSourcePath !== current.sourcePath;
+    if (!taskChanged && !dependenciesChanged) {
+      return current;
+    }
+
     const now = new Date().toISOString();
     const updateTask = this.db.prepare(`
       UPDATE tasks
@@ -511,25 +486,25 @@ export class ProjectManagementRepository {
 
     this.runInTransaction(() => {
       updateTask.run(
-        input.title?.trim() || current.title,
-        input.promptMarkdown === undefined ? current.promptMarkdown : input.promptMarkdown,
-        input.description === undefined ? current.description : input.description,
-        input.status || current.status,
-        input.priority || current.priority,
-        input.executorType || current.executorType,
-        input.sortOrder === undefined ? current.sortOrder : input.sortOrder,
-        input.isIndependent === undefined ? Number(current.isIndependent) : Number(input.isIndependent),
-        input.isMerged === undefined ? Number(current.isMerged) : Number(input.isMerged),
-        input.mergeIndicator === undefined ? current.mergeIndicator : input.mergeIndicator,
-        input.sourceType === undefined ? current.sourceType : input.sourceType,
-        input.sourcePath === undefined ? current.sourcePath : input.sourcePath,
+        nextTitle,
+        nextPromptMarkdown,
+        nextDescription,
+        nextStatus,
+        nextPriority,
+        nextExecutorType,
+        nextSortOrder,
+        Number(nextIsIndependent),
+        Number(nextIsMerged),
+        nextMergeIndicator,
+        nextSourceType,
+        nextSourcePath,
         now,
         taskId
       );
 
       if (input.dependsOnTaskIds) {
         deleteDependencies.run(taskId);
-        for (const dependencyId of this.normalizeDependencyIds(input.dependsOnTaskIds)) {
+        for (const dependencyId of nextDependsOnTaskIds) {
           insertDependency.run(taskId, dependencyId);
         }
       }
@@ -650,33 +625,10 @@ export class ProjectManagementRepository {
   findSprintByProjectAndNumber(projectId: string, sprintNumber: number): SprintRecord | null {
     this.requireProject(projectId);
     const row = this.db.prepare(`
-      SELECT
-        s.id,
-        s.project_id,
-        s.number,
-        s.slug,
-        s.name,
-        s.original_prompt,
-        s.goal,
-        s.status,
-        s.start_date,
-        s.end_date,
-        s.feature_branch,
-        s.created_at,
-        s.updated_at,
-        COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
-        (
-          SELECT sr.status
-          FROM sprint_runs sr
-          WHERE sr.sprint_id = s.id
-          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC, sr.rowid DESC
-          LIMIT 1
-        ) AS latest_run_status
-      FROM sprints s
-      LEFT JOIN tasks t ON t.sprint_id = s.id
+      ${sprintSummaryQuery.select}
+      ${sprintSummaryQuery.from}
       WHERE s.project_id = ? AND s.number = ?
-      GROUP BY s.id
+      ${sprintSummaryQuery.groupBy}
       LIMIT 1
     `).get(projectId, sprintNumber) as SprintRow | undefined;
 
@@ -691,6 +643,19 @@ export class ProjectManagementRepository {
     }
   }
 
+  getTasksByIds(taskIds: string[]): TaskRecord[] {
+    if (taskIds.length === 0) {
+      return [];
+    }
+
+    const rows = this.storage.executeChunkedInQuery<TaskRow>({
+      sqlPrefix: "SELECT * FROM tasks WHERE id",
+      items: taskIds,
+    });
+
+    return this.inflateTasks(rows);
+  }
+
   private requireProject(projectId: string): ProjectSummary {
     const project = this.getProject(projectId);
     if (!project) {
@@ -701,34 +666,10 @@ export class ProjectManagementRepository {
 
   private requireSprint(sprintId: string): SprintRecord {
     const row = this.db.prepare(`
-      SELECT
-        s.id,
-        s.project_id,
-        s.number,
-        s.slug,
-        s.name,
-        s.original_prompt,
-        s.goal,
-        s.status,
-        s.showcase_pinned,
-        s.start_date,
-        s.end_date,
-        s.feature_branch,
-        s.created_at,
-        s.updated_at,
-        COUNT(t.id) AS tasks_count,
-        COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) AS completed_tasks,
-        (
-          SELECT sr.status
-          FROM sprint_runs sr
-          WHERE sr.sprint_id = s.id
-          ORDER BY COALESCE(sr.started_at, sr.created_at) DESC, sr.created_at DESC, sr.rowid DESC
-          LIMIT 1
-        ) AS latest_run_status
-      FROM sprints s
-      LEFT JOIN tasks t ON t.sprint_id = s.id
+      ${sprintSummaryQuery.select}
+      ${sprintSummaryQuery.from}
       WHERE s.id = ?
-      GROUP BY s.id
+      ${sprintSummaryQuery.groupBy}
     `).get(sprintId) as SprintRow | undefined;
 
     if (!row) {
@@ -815,14 +756,20 @@ export class ProjectManagementRepository {
     settingsOverrides: ProjectSettingsOverride,
     agentBindings: ProjectWorkerAssignmentRecord[]
   ): ProjectSummary {
+    const sourceType = row.source_type || "local";
+    const sourceRef = row.source_ref || row.base_dir;
+    const { provider, hostDomain } = resolveRepositoryHost(row.repo_url || (sourceType === "git" ? sourceRef : null));
+
     return {
       id: row.id,
       slug: row.slug,
       name: row.name,
       baseDir: row.base_dir,
       repoUrl: row.repo_url,
-      sourceType: row.source_type || "local",
-      sourceRef: row.source_ref || row.base_dir,
+      sourceType,
+      sourceRef,
+      gitProvider: provider,
+      gitHostDomain: hostDomain,
       defaultBranch: row.default_branch,
       featureBranchPrefix: row.feature_branch_prefix,
       status: row.status,
@@ -841,6 +788,15 @@ export class ProjectManagementRepository {
     const tasksCount = toNumber(row.tasks_count);
     const completedTasks = toNumber(row.completed_tasks);
 
+    let latestReview: import("../contracts/project-management-types.js").SprintReviewSummary | undefined;
+    if (row.latest_sprint_review_json) {
+      try {
+        latestReview = JSON.parse(row.latest_sprint_review_json) as import("../contracts/project-management-types.js").SprintReviewSummary;
+      } catch {
+        // Ignore JSON parse errors
+      }
+    }
+
     return {
       id: row.id,
       projectId: row.project_id,
@@ -856,6 +812,7 @@ export class ProjectManagementRepository {
       featureBranch: row.feature_branch,
       tasksCount,
       completion: tasksCount > 0 ? Math.round((completedTasks / tasksCount) * 100) : 0,
+      latestReview,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -1032,6 +989,18 @@ function toNumber(value: number | string | null | undefined): number {
 
 function toBoolean(value: number | string | null | undefined): boolean {
   return toNumber(value) > 0;
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function deriveRepoName(sourceRef: string): string {

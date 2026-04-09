@@ -13,3 +13,5 @@ coverage/
 .sprint-os/runtime/
 .sprint-os/worktrees/
 .sprint-os/worktrees/*
+*.cjs
+*.log

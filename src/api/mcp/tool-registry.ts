@@ -1,19 +1,9 @@
 import type { ToolName as ContractToolName } from "../../contracts/mcp-tool-definitions.js";
 import type { McpConnectionCapabilities, McpConnectionRole } from "../../contracts/connection-chat-types.js";
-import type { TaskRunState } from "../../contracts/execution-types.js";
-import type { WorkerAttentionOutcome } from "../../contracts/project-attention-types.js";
+import type { ManageSprintOsArgs } from "../../contracts/internal-management-types.js";
 
 export interface GetSessionArgs {
   session_id: string;
-}
-
-export interface ExecuteWorkerDispatchArgs {
-  dispatch_id: string;
-}
-
-export interface CancelLocalDispatchArgs {
-  dispatch_id: string;
-  reason?: string;
 }
 
 export interface GenerateDashboardReplyArgs {
@@ -65,63 +55,14 @@ export interface PostListenReplyArgs {
   metadata?: Record<string, unknown> | null;
 }
 
-export interface PullTaskDispatchArgs {
-  connection_key: string;
-  project_id?: string;
-  sprint_id?: string;
-}
-
-export interface UpdateTaskDispatchArgs {
-  connection_key: string;
-  dispatch_id: string;
-  lease_token: string;
-  state: Extract<TaskRunState, "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED">;
-  provider?: string;
-  session_id?: string;
-  session_name?: string;
-  worker_branch?: string;
-  pr_url?: string;
-  summary_markdown?: string;
-  error_message?: string;
-}
-
-export interface ClaimAttentionItemArgs {
-  connection_key: string;
-  attention_item_id: string;
-  claim_reason?: string;
-}
-
-export interface ResolveAttentionItemArgs {
-  connection_key: string;
-  attention_item_id: string;
-  resolution_status?: "resolved" | "dismissed";
-  resolution_reason?: string;
-  resolution_summary_markdown?: string;
-}
-
-export interface ReportAttentionOutcomeArgs {
-  connection_key: string;
-  attention_item_id: string;
-  outcome: WorkerAttentionOutcome;
-  summary_markdown: string;
-  resolution_reason?: string;
-  thread_title?: string;
-}
-
 export interface McpToolArgsByName {
   get_session: GetSessionArgs;
-  execute_worker_dispatch: ExecuteWorkerDispatchArgs;
-  cancel_local_dispatch: CancelLocalDispatchArgs;
   generate_dashboard_reply: GenerateDashboardReplyArgs;
   listen: ListenArgs;
   start_listen: StartListenArgs;
   pull_inbox: PullInboxArgs;
   post_listen_reply: PostListenReplyArgs;
-  pull_task_dispatch: PullTaskDispatchArgs;
-  update_task_dispatch: UpdateTaskDispatchArgs;
-  claim_attention_item: ClaimAttentionItemArgs;
-  resolve_attention_item: ResolveAttentionItemArgs;
-  report_attention_outcome: ReportAttentionOutcomeArgs;
+  manage_sprint_os: ManageSprintOsArgs;
 }
 
 export type McpToolName = keyof McpToolArgsByName;

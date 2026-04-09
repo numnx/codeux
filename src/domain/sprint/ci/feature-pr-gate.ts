@@ -14,6 +14,7 @@ import {
   detectPullRequestCiSupport,
   type PullRequestCiSupportResult,
 } from "./feature-pr/workflow-ci-detection.js";
+import type { Logger } from "../../../shared/logging/logger.js";
 import type {
   AutomationLevel,
   CiIntelligenceSettings,
@@ -24,6 +25,7 @@ import type {
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 import type { WorkerCiFixPayload } from "./feature-pr/ci-autofix-policy.js";
 import { isCompletedTaskAwaitingMerge, isCompletedTaskSettled, taskHasMergeEvidence, isTaskCodeComplete } from "../task-merge-state.js";
+import type { TaskQaMergeGateStatus } from "../../../services/quality-assurance-service.js";
 
 export interface CiGateContext {
   automationLevel: AutomationLevel;
@@ -43,6 +45,8 @@ export interface CiGateContext {
   sprintRunId?: string;
   openCiFixAttention?: (task: Subtask, payload: WorkerCiFixPayload) => void;
   hasActiveWorkerCiFixAttempt?: (task: Subtask, prNumber: number) => boolean;
+  evaluateTaskQaGate?: (task: Subtask) => TaskQaMergeGateStatus;
+  logger?: Logger;
 }
 
 export interface CiGateResult {
@@ -109,7 +113,7 @@ export class FeaturePrGateService {
     const processResults = await Promise.all(
       completedAwaitingMerge.map((task) =>
         this.processTask(task, context).catch((err) => {
-          console.error(`Error processing task ${task.id}:`, err);
+          context.logger?.error(`Error processing task ${task.id}:`, { error: err });
           return { reportText: "", events: [], attentionItem: undefined };
         })
       )
@@ -179,6 +183,7 @@ export class FeaturePrGateService {
       const waitForFeatureCi = context.ciIntelligence.waitForCiBeforeFeatureMerge;
       const resolveAllCommentsBeforeFeatureMerge = context.ciIntelligence.resolveAllCommentsBeforeFeatureMerge;
       const sourceBranch = workerBranch || pr.headRefName || "the task worker branch";
+      const qaGate = context.evaluateTaskQaGate?.(task);
 
       if (pr.mergeStateStatus === "DIRTY") {
         task.status = "CODING_COMPLETED";
@@ -218,6 +223,22 @@ export class FeaturePrGateService {
           prUrl: pr.url,
         } });
         reportText += `- ✅ **PR Created (no merge):** Task \`${task.id}\` — PR #${pr.number} created. Task marked complete without automerge.\n`;
+        return { reportText, events, attentionItem };
+      }
+
+      if (qaGate && !qaGate.mergeAllowed) {
+        task.status = "CODING_COMPLETED";
+        task.merge_indicator = "QA_PENDING";
+        events.push({ state: "qa_blocked", payload: {
+          reason: qaGate.reason,
+          summary: qaGate.summary,
+          qaRunId: qaGate.latestRun?.id || null,
+          runsUsed: qaGate.runsUsed,
+          maxRuns: qaGate.maxRuns,
+          prNumber: pr.number,
+          prUrl: pr.url,
+        } });
+        reportText += buildQaBlockedText(task.id, qaGate);
         return { reportText, events, attentionItem };
       }
 
@@ -397,4 +418,15 @@ function describeCiSupportSkipReason(reason: PullRequestCiSupportResult["reason"
     default:
       return "no applicable PR-triggered CI workflow was detected.";
   }
+}
+
+function buildQaBlockedText(taskId: string, qaGate: TaskQaMergeGateStatus): string {
+  const statusText = qaGate.reason === "pending_review" || qaGate.reason === "review_running"
+    ? "QA review is still in progress."
+    : qaGate.reason === "review_failed"
+      ? "QA review failed and must retry before merge."
+      : "QA requested follow-up work before merge.";
+  const summary = qaGate.summary?.trim();
+  const budget = qaGate.maxRuns > 0 ? ` (${qaGate.runsUsed}/${qaGate.maxRuns} reviews used)` : "";
+  return `- ⏳ **QA Gate:** Task \`${taskId}\` cannot merge yet.${budget} ${statusText}${summary ? ` ${summary}` : ""}\n`;
 }

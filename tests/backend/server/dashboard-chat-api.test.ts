@@ -83,6 +83,10 @@ describe("Dashboard Chat API", () => {
       providerRunner: {
         runProviderForText: vi.fn().mockResolvedValue({ text: "## Current Objective\nCompact thread" }),
       } as any,
+      chatManagementActionService: {
+        processManagementAction: vi.fn(),
+        executeApprovedAction: vi.fn(),
+      } as any,
     });
 
     const project = projectManagementRepository.createProject({
@@ -166,6 +170,8 @@ describe("Dashboard Chat API", () => {
       retryTaskDispatch: async () => ({}),
       updateThreadRoute: (threadId, input) => chatThreadRuntimeService.updateThreadRoute(threadId, input),
       compactThreadSession: (threadId) => chatThreadRuntimeService.compactThreadSession(threadId),
+      improveSprintPrompt: async () => ({ ok: true }),
+      planSprint: async () => ({ ok: true }),
     });
     serversToClose.push(handle.server);
     const baseUrl = `http://127.0.0.1:${handle.port}`;
@@ -224,6 +230,7 @@ describe("Dashboard Chat API", () => {
       agentPresetSyncService: {} as any,
       projectManagementRepository,
       providerRunner: {} as any,
+      chatManagementActionService: {} as any,
     });
 
     const project = projectManagementRepository.createProject({
@@ -303,6 +310,8 @@ describe("Dashboard Chat API", () => {
       retryTaskDispatch: async () => ({}),
       updateThreadRoute: (threadId, input) => chatThreadRuntimeService.updateThreadRoute(threadId, input),
       compactThreadSession: (threadId) => chatThreadRuntimeService.compactThreadSession(threadId),
+      improveSprintPrompt: async () => ({ ok: true }),
+      planSprint: async () => ({ ok: true }),
     });
     serversToClose.push(handle.server);
     const baseUrl = `http://127.0.0.1:${handle.port}`;
@@ -331,7 +340,7 @@ describe("Dashboard Chat API", () => {
     });
     expect(invalidWorkerResponse.status).toBe(400);
     const result2 = await invalidWorkerResponse.json() as any;
-    expect(result2.error).toContain("Worker not found or not active");
+    expect(result2.error).toContain("Connected MCP worker routes are no longer supported");
 
   });
 
@@ -403,6 +412,8 @@ describe("Dashboard Chat API", () => {
       retryTaskDispatch: async () => ({}),
       updateThreadRoute: () => { throw new Error("Should not be called"); },
       compactThreadSession: () => ({} as any),
+      improveSprintPrompt: async () => ({ ok: true }),
+      planSprint: async () => ({ ok: true }),
     });
     serversToClose.push(handle.server);
     const baseUrl = `http://127.0.0.1:${handle.port}`;

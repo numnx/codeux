@@ -10,6 +10,7 @@ import { VirtualWorkerService } from "../../services/virtual-worker-service.js";
 import { SprintOrchestrator } from "../../sprint/sprint-orchestrator.js";
 import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
 import { QualityAssuranceService } from "../../services/quality-assurance-service.js";
+import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";
 import type { DashboardSettings, DashboardSettingsScope } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 
@@ -49,9 +50,7 @@ export function createSprintDependencies(
 
     let effective: { settings: DashboardSettings; sources: Record<string, string> };
     if (projectId) {
-      effective = sprintId
-        ? coreDeps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId)
-        : coreDeps.settingsRepository.resolveProjectDashboardSettings(projectId);
+      effective = resolveEffectiveDashboardSettings(coreDeps.settingsRepository, projectId, sprintId);
     } else {
       effective = {
         settings: context.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS,
@@ -148,9 +147,7 @@ export function createSprintDependencies(
       projectAttentionService,
       resolveDashboardSettings,
       (projectId, sprintId) => (
-        sprintId
-          ? coreDeps.settingsRepository.resolveSprintDashboardSettings(projectId, sprintId).settings.workers.executionMode
-          : coreDeps.settingsRepository.resolveProjectDashboardSettings(projectId).settings.workers.executionMode
+        resolveEffectiveDashboardSettings(coreDeps.settingsRepository, projectId, sprintId).settings.workers.executionMode
       ),
       logger.child({ component: "virtual-worker-task-dispatch-service" }),
       coreDeps.memoryService,
@@ -176,7 +173,6 @@ export function createSprintDependencies(
     executionRepository,
     projectManagementRepository,
     taskService,
-    (projectId) => virtualWorkerService.scheduleProject(projectId, "worker_dispatch_queued"),
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
 

@@ -60,6 +60,7 @@ export function toMergeIndicator(value: string | null | undefined): SubtaskMerge
     case "MERGED":
     case "MERGE_BLOCKED":
     case "MERGE_CONFLICT":
+    case "QA_PENDING":
       return value;
     default:
       return undefined;
