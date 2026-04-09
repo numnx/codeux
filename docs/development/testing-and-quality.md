@@ -39,20 +39,22 @@ npm run ci
 ```
 
 GitHub Actions optimization notes:
-- the hosted CI workflow is broader than the local `npm run ci` script: it also runs coverage, build, and audit gates
+- the hosted CI workflow now uses a single `verify` job on the self-hosted runner so checkout, dependency installation, and cache restoration only happen once per run
+- the hosted CI workflow runs the same ordered validation path as the local `npm run ci` script, then finishes with `npm run audit`
 - the hosted CI workflow cancels superseded runs for the same branch or PR
-- lint/typecheck, backend coverage, dashboard tests, build, and audit run in parallel jobs
 - CI avoids a second plain `vitest` pass because backend coverage already executes the backend suite while enforcing thresholds
-- dashboard tests run in their own non-coverage job because coverage thresholds target `src/**/*.ts`, not the dashboard bundle under `dashboard/`
-- dependency installation uses the cached npm package store with `npm ci --prefer-offline --no-audit`; the security scan still runs in its own audit job
-- Vite and Vitest now write transform and test caches into repo-local `.cache/` directories so GitHub Actions can restore them across workflow runs
+- dashboard tests still run as a separate Vitest invocation because coverage thresholds target `src/**/*.ts`, not the dashboard bundle under `dashboard/`
+- dependency installation uses the cached npm package store with `npm ci --prefer-offline --no-audit --ignore-scripts`
+- Vite, Vitest, and TypeScript incremental metadata now write into repo-local `.cache/` directories so GitHub Actions can restore them across workflow runs and the `build` step can reuse prior typecheck work
 
 - Build backend and dashboard
 ```bash
 npm run build
 ```
   - The build script intentionally runs toolchain commands directly (`tsc`, dashboard typecheck, `vite build`) instead of nested `npm run` calls to avoid npm env-config warning noise in child npm processes.
+  - TypeScript validation now uses incremental `.tsbuildinfo` files in `.cache/tsc/`, which lets `npm run build` reuse work from an earlier `npm run lint` or `npm run typecheck` in the same job.
   - The repo-root `vite.config.ts` sets `root: "dashboard"`, so `vite build` and `vite` must keep using that config to resolve `dashboard/index.html`.
+  - The dashboard build now uses Vite 8's native `build.rolldownOptions` path instead of the Rollup compatibility key.
 
 - Run dashboard typecheck only
 ```bash
