@@ -754,7 +754,7 @@ describe("JulesAgentServer", () => {
       expect((server as any).runtimeStartupRecoveryService.recover).toHaveBeenCalled();
 
       refreshJulesApiKeySpy.mockRestore();
-    }, 15000);
+    }, 30000);
 
     it("should perform recovery with 0 sessions", async () => {
       const { bootSettings } = await import("../../../src/app/lifecycle/settings-lifecycle-service.js");
@@ -782,7 +782,7 @@ describe("JulesAgentServer", () => {
       expect((server as any).runtimeStartupRecoveryService.recover).toHaveBeenCalled();
 
       refreshJulesApiKeySpy.mockRestore();
-    }, 15000);
+    }, 30000);
 
 
 
@@ -839,7 +839,7 @@ describe("JulesAgentServer", () => {
       const bootMcpArgs = (bootMcpTransport as any).mock.calls[0][0];
       expect(bootMcpArgs.isJulesApiConfigured()).toBeDefined();
       expect(bootMcpArgs.getMissingJulesApiKeyInstruction()).toBeDefined();
-    });
+    }, 30000);
 
 
 

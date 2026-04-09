@@ -353,6 +353,7 @@ Repository demo script:
   - GitHub sync still copies directory contents into a fixed destination (`~/.config/gh`); Gemini now avoids recursive state copy so concurrent Docker sessions do not race on shared `.gemini/tmp` output files.
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
   - Provider-generated MCP/config files are no longer bind-mounted directly into `/workspace/.sprint-os-home/...`; runtime stages them under `/opt/provider-config/*` and copies them into the writable home during bootstrap so provider CLIs can still update adjacent state like Gemini project registry files.
+  - Gemini bootstrap now pre-seeds `~/.gemini/projects.json` plus the `tmp/`, `history/`, and `memory/` directories so the CLI does not hit its first-write race on a brand-new isolated home.
 
 Worker runtime notes:
 - virtual workers are now the only supported worker mode

@@ -46,6 +46,7 @@ export class DockerBootstrapBuilder {
       "mkdir -p \"$HOME/.config\" \"$HOME/.codex\" \"$HOME/.claude\" \"$HOME/.gemini\"",
       "sync_dir_contents() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; mkdir -p \"$destination\"; if ! cp -r \"$source/.\" \"$destination/\"; then echo \"provider-runner: warning: failed to copy $label credentials\" >&2; fi; }",
       "copy_if_present() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; if [ -e \"$source\" ]; then mkdir -p \"$(dirname \"$destination\")\"; if ! cp -f \"$source\" \"$destination\"; then echo \"provider-runner: warning: failed to copy $label\" >&2; fi; fi; }",
+      "ensure_json_file() { local destination=\"$1\"; local content=\"$2\"; mkdir -p \"$(dirname \"$destination\")\"; if [ ! -f \"$destination\" ]; then printf '%s\\n' \"$content\" > \"$destination\"; fi; }",
     ].join("\n");
   }
 
@@ -91,6 +92,8 @@ export class DockerBootstrapBuilder {
     return [
       `copy_if_present "${CLAUDE_CODE_MCP_CONFIG_MOUNT}" "$HOME/.mcp.json" "claude mcp config"`,
       "if [ \"$1\" = \"gemini\" ]; then",
+      "  mkdir -p \"$HOME/.gemini/tmp\" \"$HOME/.gemini/history\" \"$HOME/.gemini/memory\"",
+      "  ensure_json_file \"$HOME/.gemini/projects.json\" '{\"projects\":{}}'",
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/settings.json" "$HOME/.gemini/settings.json" "gemini settings.json"`,
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/oauth_creds.json" "$HOME/.gemini/oauth_creds.json" "gemini oauth_creds.json"`,
       `  copy_if_present "${GEMINI_CREDENTIALS_MOUNT}/google_accounts.json" "$HOME/.gemini/google_accounts.json" "gemini google_accounts.json"`,

@@ -62,6 +62,7 @@ describe("DockerBootstrapBuilder", () => {
     });
 
     expect(script).toContain("if [ \"$1\" = \"gemini\" ]; then");
+    expect(script).toContain("ensure_json_file \"$HOME/.gemini/projects.json\" '{\"projects\":{}}'");
     expect(script).toContain("oauth_creds.json");
     expect(script).not.toContain(`sync_dir_contents "${GEMINI_CREDENTIALS_MOUNT}" "$HOME/.gemini"`);
   });
