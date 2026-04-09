@@ -230,6 +230,98 @@ export interface DashboardServerHandle {
   server: Server;
 }
 
+export const configureDashboardApp = (options: DashboardServerOptions): Logger => {
+  const {
+    app,
+    dashboardDir,
+    liveActivityCacheMs,
+    logger,
+    isReady,
+  } = options;
+
+  const dashboardLogger = logger ?? createLogger({ bindings: { component: "dashboard-server" } });
+
+  app.use(correlationIdMiddleware());
+  app.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.on("finish", () => {
+      dashboardLogger.info("Dashboard request completed", {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        durationMs: Date.now() - startedAt,
+      });
+    });
+    next();
+  });
+
+  app.use(createPreviewHostMiddleware(options));
+  app.use(express.json({ limit: "1mb" }));
+
+  app.get("/health", (req, res) => {
+    const healthy = options.isHealthy ? options.isHealthy() : { status: "UP" as const };
+    if (healthy.status === "UP") {
+      res.json(healthy);
+    } else {
+      res.status(503).json(healthy);
+    }
+  });
+
+  app.get("/ready", (req, res) => {
+    const ready = isReady ? isReady() : { status: "READY" as const };
+    if (ready.status === "READY" || ready.status === "UP") {
+      res.json(ready);
+    } else {
+      res.status(503).json(ready);
+    }
+  });
+
+  const deps: DashboardDependencies = options;
+  registerProjectRoutes(app, deps);
+  registerSprintRoutes(app, deps);
+  registerTaskRoutes(app, deps);
+  registerConversationRoutes(app, deps);
+  registerPlanningRoutes(app, deps);
+  registerPreviewRoutes(app, deps);
+  registerRuntimeRoutes(app, deps);
+  registerExecutionControlRoutes(app, deps);
+  registerSettingsRoutes(app, deps, liveActivityCacheMs);
+  registerConnectionRoutes(app, deps);
+  registerAgentPresetRoutes(app, deps);
+  registerExecutionInvocationRoutes(app, deps);
+  registerQuicksprintRoutes(app, deps);
+
+  app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+  const builtDashboardDir = path.join(path.resolve(dashboardDir), "dist");
+  const staticDir = fs.existsSync(builtDashboardDir) ? builtDashboardDir : path.resolve(dashboardDir);
+
+  app.use(express.static(staticDir));
+  app.use((req, res, next) => {
+    const isGet = req.method === "GET";
+    const isApi = req.path.startsWith("/api/") || req.path.startsWith("/health") || req.path.startsWith("/ready");
+    const isExtensionless = path.extname(req.path) === "";
+    const isPreviewHost = parsePreviewSessionIdFromHost(req.headers.host) !== null;
+
+    if (isGet && !isApi && isExtensionless && !isPreviewHost) {
+      const indexPath = path.join(path.resolve(staticDir), "index.html");
+      res.sendFile(indexPath, (err: any) => {
+        if (err) {
+          if ((err as any).code === "ENOENT" || (err as any).status === 404) {
+            next();
+          } else {
+            next(err);
+          }
+        }
+      });
+      return;
+    }
+    next();
+  });
+
+  return dashboardLogger;
+};
+
 const listenDashboardServer = async (
   app: Express,
   host: string,
@@ -295,142 +387,10 @@ const bindDashboardServer = async (
 export const setupDashboardServer = async (options: DashboardServerOptions): Promise<DashboardServerHandle> => {
   const {
     app,
-    dashboardDir,
     port,
-    liveActivityCacheMs,
-    getStatus,
-    getLiveActivities,
-    getGitStatus,
-    getExternalSettingsHints,
-    getSystemSettings,
-    saveSystemSettings,
-    resetDatabase,
-    getProjectSettings,
-    saveProjectSettings,
-    resetProjectSettings,
-    getProjectEffectiveSettings,
-    getSprintSettings,
-    saveSprintSettings,
-    resetSprintSettings,
-    getSprintEffectiveSettings,
-    rerunTask,
-    orchestrateSprint,
-    improveSprintPrompt,
-    planSprint,
-    pauseSprintRun,
-    cancelSprintRun,
-    forceCancelSprintRun,
-    cancelTaskDispatch,
-    forceCancelTaskDispatch,
-    retryTaskDispatch,
-    logger,
-    isReady,
-    listDockerContainers,
-    listSprintPreviewSessions,
     getSprintPreviewSession,
-    startSprintPreviewSession,
-    rebuildSprintPreviewSession,
-    stopSprintPreviewSession,
-    removeSprintPreviewSession,
-    getSprintPreviewScript,
-    saveSprintPreviewScript,
-    getSprintPreviewLogs,
-    proxySprintPreviewRequest,
   } = options;
-
-  const dashboardLogger = logger ?? createLogger({ bindings: { component: "dashboard-server" } });
-
-  app.use(correlationIdMiddleware());
-  app.use((req, res, next) => {
-    const startedAt = Date.now();
-    res.on("finish", () => {
-      dashboardLogger.info("Dashboard request completed", {
-        method: req.method,
-        path: req.originalUrl,
-        statusCode: res.statusCode,
-        durationMs: Date.now() - startedAt,
-      });
-    });
-    next();
-  });
-
-  app.use(createPreviewHostMiddleware(options));
-
-  app.use(express.json({ limit: "1mb" }));
-
-  app.get("/health", (req, res) => {
-    const healthy = options.isHealthy ? options.isHealthy() : { status: "UP" as const };
-    if (healthy.status === "UP") {
-      res.json(healthy);
-    } else {
-      res.status(503).json(healthy);
-    }
-  });
-
-  app.get("/ready", (req, res) => {
-    const ready = isReady ? isReady() : { status: "READY" as const };
-    if (ready.status === "READY" || ready.status === "UP") {
-      res.json(ready);
-    } else {
-      res.status(503).json(ready);
-    }
-  });
-
-
-
-
-
-
-
-  const deps: DashboardDependencies = options;
-  registerProjectRoutes(app, deps);
-  registerSprintRoutes(app, deps);
-  registerTaskRoutes(app, deps);
-  registerConversationRoutes(app, deps);
-  registerPlanningRoutes(app, deps);
-  registerPreviewRoutes(app, deps);
-  registerRuntimeRoutes(app, deps);
-  registerExecutionControlRoutes(app, deps);
-  registerSettingsRoutes(app, deps, liveActivityCacheMs);
-  registerConnectionRoutes(app, deps);
-  registerAgentPresetRoutes(app, deps);
-  registerExecutionInvocationRoutes(app, deps);
-  registerQuicksprintRoutes(app, deps);
-
-
-  app.get("/favicon.ico", (req, res) => res.status(204).end());
-
-  const builtDashboardDir = path.join(path.resolve(dashboardDir), "dist");
-  const staticDir = fs.existsSync(builtDashboardDir) ? builtDashboardDir : path.resolve(dashboardDir);
-  
-  // 1. Serve static files (JS, CSS, etc.) first
-  app.use(express.static(staticDir));
-
-  // 2. SPA Fallback: For any GET request that isn't for an API and doesn't have an extension,
-  // serve the index.html to allow client-side routing (TanStack Router) to take over.
-  app.use((req, res, next) => {
-    const isGet = req.method === "GET";
-    const isApi = req.path.startsWith("/api/") || req.path.startsWith("/health") || req.path.startsWith("/ready");
-    const isExtensionless = path.extname(req.path) === "";
-    const isPreviewHost = parsePreviewSessionIdFromHost(req.headers.host) !== null;
-
-    if (isGet && !isApi && isExtensionless && !isPreviewHost) {
-      const indexPath = path.join(path.resolve(staticDir), "index.html");
-      res.sendFile(indexPath, (err: any) => {
-        if (err) {
-          // If the file is simply not found, pass to the next middleware (usually resulting in a 404).
-          if ((err as any).code === "ENOENT" || (err as any).status === 404) {
-            next();
-          } else {
-            next(err);
-          }
-        }
-      });
-      return;
-    }
-    next();
-  });
-
+  const dashboardLogger = configureDashboardApp(options);
   const handle = await bindDashboardServer(app, port, dashboardLogger);
 
   handle.server.on("upgrade", (req, socket, head) => {

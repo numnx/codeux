@@ -1,11 +1,96 @@
-/** @vitest-environment jsdom */
+/** @vitest-environment happy-dom */
 /** @jsx h */
 import { h } from "preact";
+import { useState } from "preact/hooks";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { StatsPage } from "../../../dashboard/src/v2/pages/stats/StatsPage.js";
 import { useStatsPageData } from "../../../dashboard/src/v2/pages/stats/use-stats-page-data.js";
+
+vi.mock("gsap", () => ({
+  default: {
+    fromTo: vi.fn(),
+  },
+}));
+
+vi.mock("../../../dashboard/src/v2/pages/stats/components/StatsPageHero.js", () => ({
+  StatsPageHero: ({
+    selectedProject,
+    stats,
+    applyPresetWindow,
+  }: {
+    selectedProject: { name: string } | null;
+    stats: { activeSprint?: { sprintNumber?: number } } | null;
+    applyPresetWindow: (window: string) => void;
+  }) => (
+    <section>
+      <h1>Statistics.</h1>
+      <div>{selectedProject?.name}</div>
+      <div>{stats?.activeSprint?.sprintNumber ? `Live sprint ${stats.activeSprint.sprintNumber}` : "No live sprint"}</div>
+      <button type="button" onClick={() => applyPresetWindow("all")}>All time</button>
+    </section>
+  ),
+}));
+
+vi.mock("../../../dashboard/src/v2/pages/stats/components/StatsShared.js", () => ({
+  SignalMetricCard: ({ label }: { label: string }) => <div>{label}</div>,
+}));
+
+vi.mock("../../../dashboard/src/v2/pages/stats/components/AnalysisStudioSection.js", () => ({
+  AnalysisStudioSection: ({
+    stats,
+    visualMode,
+    setVisualMode,
+  }: {
+    stats: { tasks: Array<{ label: string }>; sprints: Array<{ label: string }> };
+    visualMode: "trend" | "composition" | "reliability" | "ledgers";
+    setVisualMode: (mode: "trend" | "composition" | "reliability" | "ledgers") => void;
+  }) => {
+    const [taskSearch, setTaskSearch] = useState("");
+    const filteredTasks = stats.tasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase()));
+
+    return (
+      <section>
+        <button type="button" onClick={() => setVisualMode("trend")}>Trend</button>
+        <button type="button" onClick={() => setVisualMode("composition")}>Composition</button>
+        <button type="button" onClick={() => setVisualMode("reliability")}>Reliability</button>
+        <button type="button" onClick={() => setVisualMode("ledgers")}>Ledgers</button>
+
+        {visualMode === "trend" ? <div>Trend analysis</div> : null}
+        {visualMode === "composition" ? (
+          <div>
+            <div>Composition analysis</div>
+            <div>Provider Share</div>
+            <div>Token Anatomy</div>
+          </div>
+        ) : null}
+        {visualMode === "reliability" ? (
+          <div>
+            <div>Reliability analysis</div>
+            <div>Telemetry Source Mix</div>
+            <div>Confidence Board</div>
+          </div>
+        ) : null}
+        {visualMode === "ledgers" ? (
+          <div>
+            <div>Task Telemetry</div>
+            <div>Sprint Telemetry</div>
+            <input
+              placeholder="Search"
+              value={taskSearch}
+              onInput={(event) => setTaskSearch((event.currentTarget as HTMLInputElement).value)}
+            />
+            {filteredTasks.length > 0
+              ? filteredTasks.map((task) => <div key={task.label}>{task.label}</div>)
+              : <div>No task telemetry landed in this window yet.</div>}
+            {stats.sprints.map((sprint) => <div key={sprint.label}>{sprint.label}</div>)}
+          </div>
+        ) : null}
+      </section>
+    );
+  },
+}));
 
 // Mock the context
 vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
@@ -84,9 +169,6 @@ expect.extend(matchers);
 
 beforeEach(() => {
   cleanup();
-  if (typeof window !== "undefined") {
-    window.SVGElement.prototype.getTotalLength = () => 100;
-  }
   vi.mocked(useStatsPageData).mockReturnValue(baseMockValue as any);
 });
 

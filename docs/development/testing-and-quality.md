@@ -49,6 +49,10 @@ GitHub Actions optimization notes:
 - the shared Vitest setup defaults `LOG_LEVEL` to `error` during tests and installs lightweight canvas stubs so dashboard-heavy suites avoid noisy server logs and repeated DOM warnings
 - prefer `happy-dom` for simple dashboard component and hook tests; reserve `jsdom` for cases that need stricter browser behavior
 - backend server tests that need a real listener should bind with `port: 0` and reuse `handle.port` instead of reserving a throwaway port first
+- if a backend route suite does not need host routing or upgrade handling, configure the Express app in-process and drive it with `supertest` instead of booting a real TCP listener
+- watch-loop and polling-heavy tests should inject a no-op sleep helper instead of paying the full runtime interval during CI
+- split heavy dashboard page tests from their child-component tests so simple component coverage can run under `happy-dom` without importing the full page shell
+- for dashboard page-shell tests, mock chart-heavy or animation-heavy visual subtrees when the assertion only cares about page wiring, headings, scope switching, or save flows
 
 - Build backend and dashboard
 ```bash
@@ -73,13 +77,16 @@ pnpm run typecheck:dashboard
 - Task service prompt construction
 - Instruction template rendering and fallback behavior
 - Route-level server tests should prefer in-process `supertest` requests over binding ephemeral TCP listeners unless host routing or socket behavior is the thing under test
+- Polling/orchestration tests should stub the wait primitive so assertions cover state transitions without spending real wall-clock time
 - When socket behavior is under test, let `setupDashboardServer()` bind directly to `port: 0` so the OS assigns the ephemeral port in one step
+- Reuse a shared heavy server fixture inside helper-level unit tests when the assertions only touch private methods or repositories; keep full startup/shutdown isolation for lifecycle tests that call `run()`
 
 ### Dashboard
 - Settings default cloning
 - Activity helpers
 - Status helpers
 - UI tests that only need DOM events and markup assertions should use `@vitest-environment happy-dom` to reduce environment startup cost
+- Page-shell tests should focus on page-level state and mock expensive visual children instead of importing full chart/editor stacks
 
 ## Quality Expectations
 
