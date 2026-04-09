@@ -1,5 +1,8 @@
 import type { JulesActivity, JulesSession, Subtask } from "../contracts/app-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
 
@@ -32,6 +35,9 @@ export interface SessionSyncDependencies {
   isActionRequiredState: (state?: string) => boolean;
   projectManagementRepository?: ProjectManagementRepository;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   sprintRunId?: string;
   logger: Logger;
 }

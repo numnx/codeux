@@ -1,25 +1,15 @@
-1. **Create `src/repositories/execution/task-dispatch-claim-query.ts`**:
-   - Write a new query helper `queryNextTaskDispatchIdToClaim` to find the highest-priority eligible dispatch ID.
-   - The query will sort by `priority DESC, queued_at ASC, created_at ASC` and use `LIMIT 1`.
-   - The query needs to filter by `project_id`, `executor_type = ?`, `status = 'queued'`, and optionally `sprint_id` and `sprint_run_id`.
-   - Then implement a function `claimNextTaskDispatch` in this helper file to wrap the process in a transaction.
-   - It will find the dispatch ID, and then attempt to update it to `status = 'claimed'` WHERE `id = ? AND status = 'queued'`.
-
-2. **Update `src/repositories/execution-repository.ts`**:
-   - In `claimNextTaskDispatch()`, use the transaction-based helper from the new file rather than `listTaskDispatches` which loads everything into memory.
-   - Remove the `listTaskDispatches().filter(...)` call in `claimNextTaskDispatch()`.
-   - Read the updated record to return using `this.requireTaskDispatch(updatedId)`. Let the transaction ensure atomic claiming.
-
-3. **Update `tests/backend/repositories/execution-repository.test.ts`**:
-   - Add new tests in a dedicated `describe("claimNextTaskDispatch")` block.
-   - Test priority ordering (ensure a higher priority task is claimed before a lower one).
-   - Test sprint/run filtering.
-   - Test that double claims are prevented (e.g. queue one task, attempt to claim twice, verify the second claim returns null).
-   - Test claiming when queue is empty returns null.
-
-4. **Verify Constraints**:
-   - Ensure `npm run typecheck` passes.
-   - Ensure `npx vitest run tests/backend/repositories/execution-repository.test.ts` passes.
-   - Verify `listTaskDispatches()` is no longer used in `claimNextTaskDispatch`.
-
-5. **Pre-commit**: Use `pre_commit_instructions` tool to execute pre commit verifications.
+1. Extracted Repositories Creation:
+   a. Read src/repositories/execution-repository.ts and create src/repositories/execution/sprint-run-repository.ts containing createSprintRun, listSprintRuns, listSprintRunsByStatus, getSprintRun, findActiveSprintRun, updateSprintRun, appendSprintRunEvent, listSprintRunEvents, hasActiveTaskDispatches, finalizeSprintRunCancellationIfIdle. Verify with npm run typecheck.
+   b. Create src/repositories/execution/task-run-repository.ts containing createTaskDispatch, listTaskDispatches, listTaskDispatchesByStatus, listStaleCancelRequestedDispatches, updateTaskDispatch, getTaskDispatch, claimNextTaskDispatch, createTaskRun, updateTaskRun, getTaskRun, getTaskRunByDispatchId, getLatestTaskRun, listLatestTaskRuns, getLatestTaskRunBySessionId, appendTaskRunEvent, listTaskRunEvents, countRunningTasksPerProvider, listWorkerProjectAffinity. Verify with npm run typecheck.
+   c. Create src/repositories/execution/invocation-repository.ts containing createExecutionInvocation, updateExecutionInvocation, getExecutionInvocation, listExecutionInvocations, listExecutionInvocationMessages, appendExecutionInvocationMessage, createProviderInvocationUsage, updateProviderInvocationUsage, getProviderInvocationUsage, getLatestProviderInvocationUsageBySession. Verify with npm run typecheck.
+2. Update ExecutionRepository in src/repositories/execution-repository.ts:
+   - Remove methods moved in step 1. Retain lease and snapshot methods. Verify with npm run typecheck.
+3. Update dependencies in src/app/dependency-factory/core-factory.ts to export new repositories.
+4. Update usages in services/controllers/orchestrators exactly based on dependencies.txt by injecting specific repositories where ExecutionRepository was used. Use replace_with_git_merge_diff for each file.
+5. Run mandatory quality gates via run_in_bash_session:
+   - npm run lint
+   - npm run typecheck
+   - npm run test
+   - npm run test:coverage
+   - npm run build
+6. Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.

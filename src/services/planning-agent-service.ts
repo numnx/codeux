@@ -12,6 +12,9 @@ import type {
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { ExecutionControlService } from "./execution-control-service.js";
@@ -32,6 +35,9 @@ interface PlanningAgentServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
   connectionChatRepository: ConnectionChatRepository;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   settingsRepository: SettingsRepository;
   agentPresetSyncService: AgentPresetSyncService;
   executionControlService: ExecutionControlService;
@@ -115,7 +121,7 @@ export class PlanningAgentService {
       input.overrides?.planningAgentPresetId,
     );
     const runtime = this.resolvePlanningRuntime(projectId, input.overrides);
-    const invocation = this.deps.executionRepository?.createExecutionInvocation({
+    const invocation = this.deps.invocationRepository?.createExecutionInvocation({
       projectId,
       sprintId: null,
       type: "planning",
@@ -145,7 +151,7 @@ export class PlanningAgentService {
     }
 
     if (invocation) {
-      this.deps.executionRepository?.appendExecutionInvocationMessage(invocation.id, {
+      this.deps.invocationRepository?.appendExecutionInvocationMessage(invocation.id, {
         role: "user",
         contentMarkdown: prompt,
       });
@@ -175,7 +181,7 @@ export class PlanningAgentService {
       payload = virtualResult.parsed;
 
       if (invocation) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
+        this.deps.invocationRepository?.updateExecutionInvocation(invocation.id, {
           status: "completed",
           finishedAt: new Date().toISOString(),
         });
@@ -192,7 +198,7 @@ export class PlanningAgentService {
       }
     } catch (error) {
       if (invocation) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
+        this.deps.invocationRepository?.updateExecutionInvocation(invocation.id, {
           status: "failed",
           errorMessage: error instanceof Error ? error.message : String(error),
           finishedAt: new Date().toISOString(),
@@ -232,7 +238,7 @@ export class PlanningAgentService {
       throw new Error(`Sprint ${sprint.name} already has ${existingTasks.length} task(s). Clear or edit them before running Planning agent.`);
     }
 
-    const invocation = this.deps.executionRepository?.createExecutionInvocation({
+    const invocation = this.deps.invocationRepository?.createExecutionInvocation({
       projectId,
       sprintId,
       type: "planning",
@@ -264,7 +270,7 @@ export class PlanningAgentService {
     }
 
     if (invocation) {
-      this.deps.executionRepository?.appendExecutionInvocationMessage(invocation.id, {
+      this.deps.invocationRepository?.appendExecutionInvocationMessage(invocation.id, {
         role: "user",
         contentMarkdown: prompt,
       });
@@ -295,7 +301,7 @@ export class PlanningAgentService {
       payload = virtualResult.parsed;
 
       if (invocation) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
+        this.deps.invocationRepository?.updateExecutionInvocation(invocation.id, {
           status: "completed",
           finishedAt: new Date().toISOString(),
         });
@@ -312,7 +318,7 @@ export class PlanningAgentService {
       }
     } catch (error) {
       if (invocation) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
+        this.deps.invocationRepository?.updateExecutionInvocation(invocation.id, {
           status: "failed",
           errorMessage: error instanceof Error ? error.message : String(error),
           finishedAt: new Date().toISOString(),
@@ -497,7 +503,7 @@ export class PlanningAgentService {
       };
     } catch (error) {
       if (args.invocationId) {
-        this.deps.executionRepository?.updateExecutionInvocation(args.invocationId, {
+        this.deps.invocationRepository?.updateExecutionInvocation(args.invocationId, {
           status: "failed",
           finishedAt: new Date().toISOString(),
         });

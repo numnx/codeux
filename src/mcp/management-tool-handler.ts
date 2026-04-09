@@ -1,6 +1,9 @@
 import type { ManageSprintOsArgs, ManagementResponseEnvelope } from "../contracts/internal-management-types.js";
 import type { SprintPreviewService } from "../services/sprint-preview-service.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { DashboardSettings } from "../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionControlService } from "../services/execution-control-service.js";
@@ -23,6 +26,9 @@ import { MemoryActions } from "./management/memory-actions.js";
 export interface ManagementToolHandlerDeps {
   sprintPreviewService: SprintPreviewService;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   getDashboardSettings: () => DashboardSettings;
   projectManagementRepository: ProjectManagementRepository;
   executionControlService: ExecutionControlService;
@@ -42,35 +48,12 @@ export class ManagementToolHandler {
 
   constructor(private readonly deps: ManagementToolHandlerDeps) {
     this.taskActions = new TaskActions(
-      deps.projectManagementRepository,
-      deps.executionControlService,
-      deps.executionRepository,
-      deps.taskRerunService
-    );
-    this.settingsActions = new SettingsActions(deps.settingsRepository);
-    this.agentActions = new AgentActions(deps.agentPresetSyncService);
-    this.memoryActions = new MemoryActions(deps.memoryService, deps.memoryPromotionService, deps.embeddingModelManager);
-  }
-
-  async handleManageSprintOs(args: ManageSprintOsArgs): Promise<{ content: Array<{ type: string; text: string }> }> {
-    try {
-      let envelope: ManagementResponseEnvelope;
-
-      if (args.domain === "projects") {
-        envelope = await handleProjectAction(
-          args.action,
-          args.payload,
-          this.deps.projectManagementRepository,
-          args.domain,
-          args.approval
-        );
-      } else if (args.domain === "sprints") {
-        envelope = await handleSprintAction(
-          args.action,
-          args.payload,
-          this.deps.projectManagementRepository,
-          this.deps.executionControlService,
-          this.deps.executionRepository,
+        this.deps.projectManagementRepository,
+        this.deps.executionControlService,
+        this.deps.executionRepository,
+        this.deps.sprintRunRepository,
+        this.deps.taskRunRepository,
+        this.deps.invocationRepository,
           args.domain,
           args.approval
         );

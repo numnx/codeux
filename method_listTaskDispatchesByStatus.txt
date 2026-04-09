@@ -1,0 +1,8 @@
+  listTaskDispatchesByStatus(
+    statuses: TaskDispatchStatus[],
+    options?: { projectId?: string; sprintId?: string; sprintRunId?: string; taskId?: string; executorType?: TaskDispatchRecord["executorType"] },
+  ): TaskDispatchRecord[] {
+    const normalizedStatuses = Array.from(new Set(statuses.map((status) => String(status || "").trim()).filter(Boolean)));
+    if (normalizedStatuses.length === 0) {
+      return [];
+    }

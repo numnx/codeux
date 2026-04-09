@@ -1,0 +1,21 @@
+  private mapTaskRunRow(row: TaskRunRow): TaskRunRecord {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      sprintId: row.sprint_id,
+      taskId: row.task_id,
+      sprintRunId: row.sprint_run_id,
+      dispatchId: row.dispatch_id,
+      connectionId: row.connection_id,
+      provider: row.provider,
+      mode: row.mode,
+      sessionId: row.session_id,
+      sessionName: row.session_name,
+      state: row.state as TaskRunRecord["state"],
+      workerBranch: row.worker_branch,
+      prUrl: row.pr_url,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      durationMs: row.duration_ms === null ? null : toNumber(row.duration_ms),
+    };
+  }

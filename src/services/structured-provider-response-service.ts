@@ -1,6 +1,9 @@
 import type { DashboardSettings } from "../contracts/app-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProviderExecutionService, ExecutionProviderRunArgs } from "./provider-execution-service.js";
 
 export interface StructuredExecutionArgs<T> extends Omit<ExecutionProviderRunArgs, "expectTextOutput"> {
@@ -20,6 +23,9 @@ export interface StructuredProviderResult<T> {
 export interface StructuredProviderResponseServiceDeps {
   providerExecutionService: ProviderExecutionService;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   logger?: Logger;
 }
 
@@ -37,7 +43,7 @@ export class StructuredProviderResponseService {
 
     while (attempt <= maxRetries) {
       if (attempt > 0 && args.invocationId) {
-        this.deps.executionRepository?.appendExecutionInvocationMessage(args.invocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(args.invocationId, {
           role: "system",
           contentMarkdown: `Retrying JSON parse in same ${args.providerLabel} session (session: ${args.sessionId}).`,
           metadata: {

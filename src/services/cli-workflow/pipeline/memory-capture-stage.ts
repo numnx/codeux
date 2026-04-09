@@ -17,7 +17,7 @@ export async function executeMemoryCaptureStage(
   let sprintId: string | undefined;
 
   if (ctx.taskRunId && ctx.deps.executionRepository) {
-    const taskRun = ctx.deps.executionRepository.getTaskRun(ctx.taskRunId);
+    const taskRun = ctx.deps.taskRunRepository?.getTaskRun(ctx.taskRunId);
     if (taskRun) {
       projectId = taskRun.projectId;
       sprintId = taskRun.sprintId ?? undefined;

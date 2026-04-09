@@ -10,6 +10,9 @@ import type {
   SprintPreviewSettings,
 } from "../contracts/app-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import { SprintPreviewRepository } from "../repositories/sprint-preview-repository.js";
@@ -56,6 +59,9 @@ interface SprintPreviewServiceDeps {
   sprintPreviewRepository: SprintPreviewRepository;
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   settingsRepository: SettingsRepository;
   logger?: Logger;
 }

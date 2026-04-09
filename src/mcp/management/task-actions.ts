@@ -2,6 +2,9 @@ import type { ManageSprintOsArgs, ManagementResponseEnvelope } from "../../contr
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ExecutionControlService } from "../../services/execution-control-service.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../../repositories/execution/invocation-repository.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
 import { randomUUID } from "crypto";
 
@@ -10,6 +13,9 @@ export class TaskActions {
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly executionControlService: ExecutionControlService,
     private readonly executionRepository: ExecutionRepository,
+    private readonly sprintRunRepository: SprintRunRepository,
+    private readonly taskRunRepository: TaskRunRepository,
+    private readonly invocationRepository: InvocationRepository,
     private readonly taskRerunService: TaskRerunService,
   ) {}
 
@@ -159,7 +165,7 @@ export class TaskActions {
         throw new Error(`Task not found: ${taskId}`);
     }
 
-    const dispatches = this.executionRepository.listTaskDispatches({ projectId: task.projectId });
+    const dispatches = this.taskRunRepository.listTaskDispatches({ projectId: task.projectId });
     const latestDispatch = dispatches.filter(d => d.taskId === taskId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
     if (!latestDispatch) {
@@ -181,7 +187,7 @@ export class TaskActions {
         throw new Error(`Task not found: ${taskId}`);
     }
 
-    const dispatches = this.executionRepository.listTaskDispatches({ projectId: task.projectId });
+    const dispatches = this.taskRunRepository.listTaskDispatches({ projectId: task.projectId });
     const latestDispatch = dispatches.filter(d => d.taskId === taskId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
     if (!latestDispatch) {
@@ -203,7 +209,7 @@ export class TaskActions {
         throw new Error(`Task not found: ${taskId}`);
     }
 
-    const dispatches = this.executionRepository.listTaskDispatches({ projectId: task.projectId });
+    const dispatches = this.taskRunRepository.listTaskDispatches({ projectId: task.projectId });
     const latestDispatch = dispatches.filter(d => d.taskId === taskId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
     if (!latestDispatch) {
@@ -225,14 +231,14 @@ export class TaskActions {
         throw new Error(`Task not found: ${taskId}`);
     }
 
-    const dispatches = this.executionRepository.listTaskDispatches({ projectId: task.projectId });
+    const dispatches = this.taskRunRepository.listTaskDispatches({ projectId: task.projectId });
     const latestDispatch = dispatches.filter(d => d.taskId === taskId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
     if (!latestDispatch) {
         return { result: { task, dispatch: null, taskRun: null } };
     }
 
-    const taskRun = this.executionRepository.getTaskRunByDispatchId(latestDispatch.id);
+    const taskRun = this.taskRunRepository.getTaskRunByDispatchId(latestDispatch.id);
     return { result: { task, dispatch: latestDispatch, taskRun } };
   }
 }

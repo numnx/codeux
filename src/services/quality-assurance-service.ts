@@ -13,6 +13,9 @@ import type { TaskRunRecord } from "../contracts/execution-types.js";
 import type { TaskPriority } from "../contracts/project-management-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import { QaReviewRepository, type QaReviewRunRecord, type QaReviewTriggerType } from "../repositories/qa-review-repository.js";
 import type { TaskService } from "./task-service.js";
@@ -88,6 +91,9 @@ export interface TaskQaMergeGateStatus {
 interface QualityAssuranceServiceDependencies {
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   sessionTracking: SessionTrackingRepository;
   qaReviewRepository: QaReviewRepository;
   taskService: TaskService;
@@ -832,19 +838,19 @@ export class QualityAssuranceService {
       return null;
     }
     if (task.session_id) {
-      const bySession = this.deps.executionRepository.getLatestTaskRunBySessionId(task.session_id);
+      const bySession = this.deps.taskRunRepository.getLatestTaskRunBySessionId(task.session_id);
       if (bySession) {
         return bySession;
       }
     }
-    return this.deps.executionRepository.getLatestTaskRun(taskId, sprintRunId);
+    return this.deps.taskRunRepository.getLatestTaskRun(taskId, sprintRunId);
   }
 
   private appendTaskEvent(taskRun: TaskRunRecord | null, eventType: string, payload: Record<string, unknown>): void {
     if (!taskRun) {
       return;
     }
-    this.deps.executionRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload);
+    this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload);
   }
 
   private async requestFixesForTask(args: {
@@ -927,7 +933,7 @@ export class QualityAssuranceService {
     ].filter(Boolean).join("\n\n");
     const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(args.followUpPrompt, worktreePath);
     const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, settings.aiProvider.providers[args.provider].thinkingMode);
-    const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
+    const previousInvocation = this.deps.invocationRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
     const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
     this.deps.sessionTracking.updateSession(args.sessionId, { state: "RUNNING" });
     this.deps.sessionTracking.appendActivity(args.sessionId, {

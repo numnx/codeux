@@ -22,6 +22,9 @@ import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 
 export interface GenerateDashboardReplyInput {
   projectId: string;
@@ -43,6 +46,9 @@ interface WorkerInboxReplyServiceDependencies {
   taskService: TaskService;
   agentPresetSyncService: AgentPresetSyncService;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   getDashboardSettings: () => DashboardSettings;
   getGithubToken: () => string | undefined;
   providerRunner: IProviderRunner;
@@ -79,7 +85,7 @@ export class WorkerInboxReplyService {
     }
     const prompt = buildProviderPrompt(rawPrompt, route.providers[route.provider].thinkingMode);
 
-    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocation = this.deps.invocationRepository.createExecutionInvocation({
       projectId: input.projectId,
       type: input.mode === "compact_thread" ? "chat_compaction" : "worker_reply",
       provider: route.provider,
@@ -94,7 +100,7 @@ export class WorkerInboxReplyService {
       taskRunId: null,
     });
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
       role: "user",
       contentMarkdown: rawPrompt,
     });
@@ -111,7 +117,7 @@ export class WorkerInboxReplyService {
       });
       output = result.text;
     } catch (err) {
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
         status: "failed",
         finishedAt: new Date().toISOString(),
       });
@@ -120,11 +126,11 @@ export class WorkerInboxReplyService {
 
     const bodyMarkdown = normalizeProviderReply(output);
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
       role: "assistant",
       contentMarkdown: bodyMarkdown,
     });
-    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+    this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
       status: "completed",
       finishedAt: new Date().toISOString(),
     });
@@ -204,7 +210,7 @@ export class WorkerInboxReplyService {
     const providerInvocationId = randomUUID();
     const sessionId = "worker-reply-" + providerInvocationId;
 
-    const usageRecord = this.deps.executionRepository.createProviderInvocationUsage({
+    const usageRecord = this.deps.invocationRepository.createProviderInvocationUsage({
       projectId: args.projectId,
       taskId: invocationTaskId,
       sessionId,
@@ -216,7 +222,7 @@ export class WorkerInboxReplyService {
       promptChars: fullContextPrompt.length,
     });
 
-    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocation = this.deps.invocationRepository.createExecutionInvocation({
       projectId: args.projectId,
       type: "worker_reply",
       provider: route.provider,
@@ -231,7 +237,7 @@ export class WorkerInboxReplyService {
       taskRunId: null,
     });
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
       role: "user",
       contentMarkdown: fullContextPrompt,
     });
@@ -250,11 +256,11 @@ export class WorkerInboxReplyService {
       output = providerResult.text;
     } catch (err) {
       const finishedAt = new Date().toISOString();
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
         status: "failed",
         finishedAt,
       });
-      this.deps.executionRepository.updateProviderInvocationUsage(usageRecord.id, {
+      this.deps.invocationRepository.updateProviderInvocationUsage(usageRecord.id, {
         status: "failed",
         finishedAt,
         durationMs: new Date(finishedAt).getTime() - new Date(startedAt).getTime(),
@@ -265,15 +271,15 @@ export class WorkerInboxReplyService {
     const reply = normalizeProviderReply(output);
 
     const finishedAt = new Date().toISOString();
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
       role: "assistant",
       contentMarkdown: reply,
     });
-    this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+    this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
       status: "completed",
       finishedAt,
     });
-    this.deps.executionRepository.updateProviderInvocationUsage(usageRecord.id, {
+    this.deps.invocationRepository.updateProviderInvocationUsage(usageRecord.id, {
       status: "completed",
       finishedAt,
       durationMs: new Date(finishedAt).getTime() - new Date(startedAt).getTime(),

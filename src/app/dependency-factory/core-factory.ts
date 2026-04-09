@@ -10,6 +10,9 @@ import { ProjectManagementRepository } from "../../repositories/project-manageme
 import { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../../repositories/execution-repository.js";
+import { SprintRunRepository } from "../../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../../repositories/execution/invocation-repository.js";
 import { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import { DashboardRealtimeEventRepository } from "../../repositories/dashboard-realtime-event-repository.js";
 import { WorkerEndpointRepository } from "../../repositories/worker-endpoint-repository.js";
@@ -68,6 +71,9 @@ export interface CoreDependencies {
   agentPresetRepository: AgentPresetRepository;
   agentPresetSyncService: AgentPresetSyncService;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   dashboardRealtimeEventRepository: DashboardRealtimeEventRepository;
   dashboardRealtimeService: DashboardRealtimeService;
   sprintMarkdownService: SprintMarkdownService;
@@ -163,6 +169,9 @@ export function createCoreDependencies(
     logger: logger.child({ component: "agent-preset-sync-service" }),
   });
   const executionRepository = new ExecutionRepository(appDbStorage, dashboardRealtimeService);
+  const sprintRunRepository = new SprintRunRepository(executionRepository, appDbStorage, dashboardRealtimeService);
+  const taskRunRepository = new TaskRunRepository(executionRepository, appDbStorage, dashboardRealtimeService);
+  const invocationRepository = new InvocationRepository(executionRepository, appDbStorage, dashboardRealtimeService);
   const sprintMarkdownService = new SprintMarkdownService(projectManagementRepository);
   const activeDispatchRegistry = new ActiveDispatchRegistry();
   const dockerRuntimePruneService = new DockerRuntimePruneService(
@@ -172,6 +181,9 @@ export function createCoreDependencies(
   const runtimeCleanupService = new RuntimeCleanupService(
     connectionChatRepository,
     executionRepository,
+    sprintRunRepository,
+    taskRunRepository,
+    invocationRepository,
     projectManagementRepository,
     projectAttentionService,
     dockerRuntimePruneService,

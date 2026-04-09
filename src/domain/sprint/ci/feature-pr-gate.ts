@@ -23,6 +23,9 @@ import type {
   AutoMergeFeaturePrResult,
 } from "../../../contracts/app-types.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
+import { SprintRunRepository } from "../../../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../../../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../../../repositories/execution/invocation-repository.js";
 import type { WorkerCiFixPayload } from "./feature-pr/ci-autofix-policy.js";
 import { isCompletedTaskAwaitingMerge, isCompletedTaskSettled, taskHasMergeEvidence, isTaskCodeComplete } from "../task-merge-state.js";
 import type { TaskQaMergeGateStatus } from "../../../services/quality-assurance-service.js";
@@ -42,6 +45,9 @@ export interface CiGateContext {
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
   persistMergedTask: (task: Subtask) => Promise<void>;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   sprintRunId?: string;
   openCiFixAttention?: (task: Subtask, payload: WorkerCiFixPayload) => void;
   hasActiveWorkerCiFixAttempt?: (task: Subtask, prNumber: number) => boolean;
@@ -371,7 +377,7 @@ export class FeaturePrGateService {
       return;
     }
 
-    const taskRun = context.executionRepository.getLatestTaskRun(task.record_id, context.sprintRunId);
+    const taskRun = context.taskRunRepository?.getLatestTaskRun(task.record_id, context.sprintRunId);
     if (!taskRun) {
       return;
     }
@@ -387,7 +393,7 @@ export class FeaturePrGateService {
       String(payload.mergeIndicator || task.merge_indicator || ""),
     ].join(":");
 
-    context.executionRepository.appendTaskRunEvent(taskRun.id, "ci_gate_status", "system", {
+    context.taskRunRepository?.appendTaskRunEvent(taskRun.id, "ci_gate_status", "system", {
       state,
       taskId: task.id,
       ...payload,

@@ -1,0 +1,24 @@
+  appendTaskRunEvent(
+    taskRunId: string,
+    eventType: string,
+    originator: string,
+    payload: Record<string, unknown>,
+    options?: { createdAt?: string; sourceEventKey?: string | null },
+  ): boolean {
+    const taskRun = requireTaskRun((id) => this.getTaskRun(id), taskRunId);
+    const result = this.db.prepare(`
+      INSERT OR IGNORE INTO task_run_events (id, task_run_id, event_type, originator, payload_json, source_event_key, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(),
+      taskRunId,
+      eventType,
+      originator,
+      JSON.stringify(payload),
+      options?.sourceEventKey ?? null,
+      options?.createdAt || new Date().toISOString()
+    );
+    const inserted = Number((result as { changes?: number }).changes || 0) > 0;
+    if (inserted) {
+      this.notifyRealtime(taskRun.projectId, false);
+    }

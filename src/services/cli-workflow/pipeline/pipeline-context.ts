@@ -4,6 +4,9 @@ import type { IPrService } from "../../../infrastructure/providers/cli/pr-servic
 import type { IProviderRunner } from "../../../infrastructure/providers/cli/provider-runner.js";
 import type { WorkspaceArtifactService } from "../../../infrastructure/providers/cli/workspace-artifact-service.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../../../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../../../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../../../repositories/execution/invocation-repository.js";
 import type { SessionTrackingRepository } from "../../../repositories/session-tracking-repository.js";
 import type { ProjectManagementRepository } from "../../../repositories/project-management-repository.js";
 import type { MemoryService } from "../../memory-service.js";
@@ -13,6 +16,9 @@ import type { CommandResult } from "../../cli-process-runner.js";
 export interface PipelineContextDeps {
   sessionTracking: SessionTrackingRepository;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   projectManagementRepository?: ProjectManagementRepository;
   memoryService?: MemoryService;
   getDashboardSettings: () => DashboardSettings;

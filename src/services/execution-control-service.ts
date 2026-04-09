@@ -2,6 +2,9 @@ import type { Subtask } from "../contracts/app-types.js";
 import type { TaskDispatchRecord, SprintRunRecord, TaskRunRecord } from "../contracts/execution-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import type { TaskRerunService } from "./task-rerun-service.js";
 import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
@@ -12,6 +15,9 @@ import type { Logger } from "../shared/logging/logger.js";
 interface ExecutionControlServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   projectAttentionService: ProjectAttentionService;
   taskRerunService: TaskRerunService;
   sprintOrchestrator: SprintOrchestrator;
@@ -72,11 +78,11 @@ export class ExecutionControlService {
       throw new Error(`Sprint run ${sprintRunId} is already terminal.`);
     }
     const now = new Date().toISOString();
-    const updated = this.deps.executionRepository.updateSprintRun(sprintRunId, {
+    const updated = this.deps.sprintRunRepository.updateSprintRun(sprintRunId, {
       status: "paused",
       lastHeartbeatAt: now,
     });
-    this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_pause_requested", "user", {
+    this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "sprint_pause_requested", "user", {
       requestedBy: "dashboard",
     }, {
       sourceEventKey: `dashboard-pause:${sprintRunId}`,
@@ -94,17 +100,17 @@ export class ExecutionControlService {
     }
 
     const now = new Date().toISOString();
-    const updated = this.deps.executionRepository.updateSprintRun(sprintRunId, {
+    const updated = this.deps.sprintRunRepository.updateSprintRun(sprintRunId, {
       status: "cancel_requested",
       lastHeartbeatAt: now,
     });
-    this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_cancel_requested", "user", {
+    this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "sprint_cancel_requested", "user", {
       requestedBy: "dashboard",
     }, {
       sourceEventKey: `dashboard-cancel:${sprintRunId}`,
     });
 
-    for (const dispatch of this.deps.executionRepository.listTaskDispatches({
+    for (const dispatch of this.deps.taskRunRepository.listTaskDispatches({
       projectId: sprintRun.projectId,
       sprintRunId,
     })) {
@@ -117,7 +123,7 @@ export class ExecutionControlService {
       }
     }
 
-    return this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(sprintRunId) || updated;
+    return this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(sprintRunId) || updated;
   }
 
   async forceCancelSprintRun(sprintRunId: string): Promise<SprintRunRecord> {
@@ -127,7 +133,7 @@ export class ExecutionControlService {
     }
 
     const now = new Date().toISOString();
-    for (const dispatch of this.deps.executionRepository.listTaskDispatches({
+    for (const dispatch of this.deps.taskRunRepository.listTaskDispatches({
       projectId: sprintRun.projectId,
       sprintRunId,
     })) {
@@ -138,12 +144,12 @@ export class ExecutionControlService {
     }
 
     this.deps.executionRepository.releaseLease("sprint", sprintRun.sprintId);
-    const updated = this.deps.executionRepository.updateSprintRun(sprintRunId, {
+    const updated = this.deps.sprintRunRepository.updateSprintRun(sprintRunId, {
       status: "cancelled",
       finishedAt: now,
       lastHeartbeatAt: now,
     });
-    this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_cancelled", "user", {
+    this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "sprint_cancelled", "user", {
       requestedBy: "dashboard",
       reason: "force_cancelled",
     }, {
@@ -188,14 +194,14 @@ export class ExecutionControlService {
             taskRun.sessionId,
             "Task paused. Please halt your implementation.",
           );
-          this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "jules_pause_requested", "user", {
+          this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "jules_pause_requested", "user", {
             dispatchId: dispatch.id,
             sessionId: taskRun.sessionId,
           }, {
             sourceEventKey: `dashboard-jules-pause-request:${dispatch.id}`,
           });
         } catch (error) {
-          this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "jules_pause_request_failed", "system", {
+          this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "jules_pause_request_failed", "system", {
             dispatchId: dispatch.id,
             sessionId: taskRun.sessionId,
             errorMessage: error instanceof Error ? error.message : String(error),
@@ -216,17 +222,17 @@ export class ExecutionControlService {
 
     this.deps.executionRepository.releaseLease("task_dispatch", dispatch.id);
 
-    const updated = this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+    const updated = this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
       status: "paused",
       lastHeartbeatAt: now,
     });
 
     if (taskRun) {
-      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+      this.deps.taskRunRepository.updateTaskRun(taskRun.id, {
         state: "PAUSED",
         durationMs: this.calculateDurationMs(taskRun, now),
       });
-      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_paused", "user", {
+      this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_paused", "user", {
         dispatchId: dispatch.id,
         requestedBy: "dashboard",
       }, {
@@ -262,7 +268,7 @@ export class ExecutionControlService {
       throw new Error(`Task not found for dispatch: ${dispatchId}`);
     }
 
-    this.deps.executionRepository.appendTaskRunEvent(
+    this.deps.taskRunRepository.appendTaskRunEvent(
       this.requireTaskRunForDispatch(dispatchId)?.id || this.ensureSyntheticTaskRun(dispatch),
       "dispatch_retry_requested",
       "user",
@@ -281,7 +287,7 @@ export class ExecutionControlService {
   }
 
   private cancelDispatchInternal(dispatch: TaskDispatchRecord, now: string, message: string): TaskDispatchRecord {
-    const updated = this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+    const updated = this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
       status: "cancelled",
       finishedAt: now,
       lastHeartbeatAt: now,
@@ -289,12 +295,12 @@ export class ExecutionControlService {
     });
     const taskRun = this.requireTaskRunForDispatch(dispatch.id);
     if (taskRun) {
-      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+      this.deps.taskRunRepository.updateTaskRun(taskRun.id, {
         state: "BLOCKED",
         finishedAt: now,
         durationMs: this.calculateDurationMs(taskRun, now),
       });
-      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
+      this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
         dispatchId: dispatch.id,
         requestedBy: "dashboard",
         reason: message,
@@ -318,14 +324,14 @@ export class ExecutionControlService {
             taskRun.sessionId,
             "Task cancelled, please close this task now. Do not continue implementation.",
           );
-          this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "jules_stop_requested", "user", {
+          this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "jules_stop_requested", "user", {
             dispatchId: dispatch.id,
             sessionId: taskRun.sessionId,
           }, {
             sourceEventKey: `dashboard-jules-stop-request:${dispatch.id}`,
           });
         } catch (error) {
-          this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "jules_stop_request_failed", "system", {
+          this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "jules_stop_request_failed", "system", {
             dispatchId: dispatch.id,
             sessionId: taskRun.sessionId,
             errorMessage: error instanceof Error ? error.message : String(error),
@@ -347,13 +353,13 @@ export class ExecutionControlService {
       );
     }
 
-    const updated = this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+    const updated = this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
       status: "cancel_requested",
       lastHeartbeatAt: now,
       errorMessage: message,
     });
     if (taskRun) {
-      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancel_requested", "user", {
+      this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancel_requested", "user", {
         dispatchId: dispatch.id,
         requestedBy: "dashboard",
         reason: message,
@@ -364,10 +370,10 @@ export class ExecutionControlService {
 
     if (dispatch.executorType === "docker_cli") {
       await this.deps.activeDispatchRegistry.requestStop(dispatch.id, message);
-      return this.deps.executionRepository.getTaskDispatch(dispatch.id) || updated;
+      return this.deps.taskRunRepository.getTaskDispatch(dispatch.id) || updated;
     }
 
-    return this.deps.executionRepository.getTaskDispatch(dispatch.id) || updated;
+    return this.deps.taskRunRepository.getTaskDispatch(dispatch.id) || updated;
   }
 
   private async forceCancelDispatchInternal(
@@ -395,7 +401,7 @@ export class ExecutionControlService {
     }
 
     this.deps.executionRepository.releaseLease("task_dispatch", dispatch.id);
-    const updated = this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+    const updated = this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
       connectionId: null,
       status: "cancelled",
       finishedAt: now,
@@ -404,13 +410,13 @@ export class ExecutionControlService {
     });
 
     if (taskRun) {
-      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+      this.deps.taskRunRepository.updateTaskRun(taskRun.id, {
         connectionId: null,
         state: "BLOCKED",
         finishedAt: now,
         durationMs: this.calculateDurationMs(taskRun, now),
       });
-      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
+      this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
         dispatchId: dispatch.id,
         requestedBy: "dashboard",
         reason: message,
@@ -425,14 +431,14 @@ export class ExecutionControlService {
     });
 
     if (dispatch.sprintRunId) {
-      this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
+      this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
     }
 
     return updated;
   }
 
   private ensureSyntheticTaskRun(dispatch: TaskDispatchRecord): string {
-    const taskRun = this.deps.executionRepository.createTaskRun({
+    const taskRun = this.deps.taskRunRepository.createTaskRun({
       projectId: dispatch.projectId,
       sprintId: dispatch.sprintId,
       taskId: dispatch.taskId,
@@ -446,7 +452,7 @@ export class ExecutionControlService {
   }
 
   private requireSprintRun(sprintRunId: string): SprintRunRecord {
-    const sprintRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+    const sprintRun = this.deps.sprintRunRepository.getSprintRun(sprintRunId);
     if (!sprintRun) {
       throw new Error(`Sprint run not found: ${sprintRunId}`);
     }
@@ -454,7 +460,7 @@ export class ExecutionControlService {
   }
 
   private requireTaskDispatch(dispatchId: string): TaskDispatchRecord {
-    const dispatch = this.deps.executionRepository.getTaskDispatch(dispatchId);
+    const dispatch = this.deps.taskRunRepository.getTaskDispatch(dispatchId);
     if (!dispatch) {
       throw new Error(`Task dispatch not found: ${dispatchId}`);
     }
@@ -462,7 +468,7 @@ export class ExecutionControlService {
   }
 
   private requireTaskRunForDispatch(dispatchId: string): TaskRunRecord | null {
-    return this.deps.executionRepository.getTaskRunByDispatchId(dispatchId);
+    return this.deps.taskRunRepository.getTaskRunByDispatchId(dispatchId);
   }
 
   private calculateDurationMs(taskRun: TaskRunRecord, finishedAt: string): number | null {
@@ -473,13 +479,13 @@ export class ExecutionControlService {
   }
 
   private resolveBlockingSprintRun(projectId: string, sprintId: string): SprintRunRecord | null {
-    const activeRun = this.deps.executionRepository.findActiveSprintRun(projectId, sprintId);
+    const activeRun = this.deps.sprintRunRepository.findActiveSprintRun(projectId, sprintId);
     if (!activeRun) {
       return null;
     }
 
     if (activeRun.status === "cancel_requested") {
-      const finalized = this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(activeRun.id);
+      const finalized = this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(activeRun.id);
       if (finalized?.status === "cancelled") {
         return null;
       }

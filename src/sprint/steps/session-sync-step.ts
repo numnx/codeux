@@ -179,7 +179,7 @@ const syncExecutionRunState = async (
     return;
   }
 
-  const taskRun = deps.executionRepository.getLatestTaskRun(task.record_id, deps.sprintRunId);
+  const taskRun = deps.taskRunRepository?.getLatestTaskRun(task.record_id, deps.sprintRunId);
   if (!taskRun) {
     return;
   }
@@ -192,7 +192,7 @@ const syncExecutionRunState = async (
   const nextRunState = mapSessionStateToTaskRunState(session.state, deps.isActionRequiredState);
   const now = new Date().toISOString();
   const currentDispatch = taskRun.dispatchId
-    ? deps.executionRepository.getTaskDispatch(taskRun.dispatchId)
+    ? deps.taskRunRepository?.getTaskDispatch(taskRun.dispatchId)
     : null;
   const nextFinishedAt = nextRunState === "RUNNING"
     ? null
@@ -201,7 +201,7 @@ const syncExecutionRunState = async (
     ? null
     : Math.max(0, new Date(nextFinishedAt || now).getTime() - new Date(taskRun.startedAt).getTime());
 
-  deps.executionRepository.updateTaskRun(taskRun.id, {
+  deps.taskRunRepository?.updateTaskRun(taskRun.id, {
     sessionId,
     sessionName,
     provider,
@@ -214,7 +214,7 @@ const syncExecutionRunState = async (
   });
 
   if (taskRun.dispatchId) {
-    deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
+    deps.taskRunRepository?.updateTaskDispatch(taskRun.dispatchId, {
       status: mergeDispatchStatus(currentDispatch?.status || null, nextRunState),
       startedAt: taskRun.startedAt || now,
       finishedAt: nextRunState === "RUNNING" ? null : (currentDispatch?.finishedAt || nextFinishedAt),
@@ -226,7 +226,7 @@ const syncExecutionRunState = async (
           : null,
     });
     if (nextRunState !== "RUNNING" && taskRun.sprintRunId) {
-      deps.executionRepository.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
+      deps.sprintRunRepository?.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
     }
   }
 
@@ -251,7 +251,7 @@ const syncExecutionRunState = async (
     workerBranch || "",
     prUrl || "",
   ].join(":");
-  deps.executionRepository.appendTaskRunEvent(taskRun.id, "session_state_synced", "provider", {
+  deps.taskRunRepository?.appendTaskRunEvent(taskRun.id, "session_state_synced", "provider", {
     sessionState: session.state || null,
     taskRunState: nextRunState,
     provider,
@@ -268,7 +268,7 @@ const syncExecutionRunState = async (
       continue;
     }
 
-    deps.executionRepository.appendTaskRunEvent(taskRun.id, "provider_activity", activity.originator || "provider", {
+    deps.taskRunRepository?.appendTaskRunEvent(taskRun.id, "provider_activity", activity.originator || "provider", {
       ...buildProviderActivityEventPayload(activity, sessionId, sessionName, provider),
     }, {
       createdAt: typeof activity.createTime === "string" && activity.createTime.trim().length > 0 ? activity.createTime : undefined,
@@ -282,14 +282,14 @@ const syncExecutionRunState = async (
     try {
       const gitMetrics = extractGitMetrics(session);
       if (gitMetrics && (gitMetrics.filesChanged !== undefined || gitMetrics.insertions !== undefined || gitMetrics.deletions !== undefined)) {
-        deps.executionRepository.appendTaskRunEvent(taskRun.id, "git_metrics", "provider", {
+        deps.taskRunRepository?.appendTaskRunEvent(taskRun.id, "git_metrics", "provider", {
           ...gitMetrics
         }, {
           sourceEventKey: `git-metrics:${sessionId || sessionName || taskRun.id}`
         });
       }
 
-      const existingUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
+      const existingUsage = deps.invocationRepository?.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
 
       if (!existingUsage) {
         const fullSession = await deps.getSession(sessionId || sessionName || "");
@@ -310,9 +310,9 @@ const syncExecutionRunState = async (
         const inputTokens = Math.ceil((promptChars + userChars) / 4);
         const outputTokens = Math.ceil(agentChars / 4);
 
-        deps.executionRepository.createProviderInvocationUsage({
+        deps.invocationRepository?.createProviderInvocationUsage({
           projectId: task.project_id!,
-          sprintId: deps.executionRepository.getTaskRun(taskRun.id)?.sprintId || null,
+          sprintId: deps.taskRunRepository?.getTaskRun(taskRun.id)?.sprintId || null,
           taskId: task.record_id,
           sprintRunId: deps.sprintRunId || null,
           dispatchId: taskRun.dispatchId || null,
@@ -325,9 +325,9 @@ const syncExecutionRunState = async (
         });
 
         // We need to update it immediately to add the transcript info, since createProviderInvocationUsage doesn't accept all token counts in CreateProviderInvocationUsageInput
-        const latestUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
+        const latestUsage = deps.invocationRepository?.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
         if (latestUsage) {
-          deps.executionRepository.updateProviderInvocationUsage(latestUsage.id, {
+          deps.invocationRepository?.updateProviderInvocationUsage(latestUsage.id, {
             transcriptChars: agentChars + userChars,
             inputTokens: inputTokens,
             outputTokens: outputTokens,
@@ -343,7 +343,7 @@ const syncExecutionRunState = async (
              let content = act.agentMessaged?.agentMessage || act.userMessaged?.userMessage || act.description || "";
              if (!content && act.progressUpdated) content = `[${act.progressUpdated.title}] ${act.progressUpdated.description || ""}`;
 
-             deps.executionRepository.appendExecutionInvocationMessage(latestUsage.id, {
+             deps.invocationRepository?.appendExecutionInvocationMessage(latestUsage.id, {
                role: role,
                contentMarkdown: content,
                createdAt: act.createTime || now,
@@ -351,7 +351,7 @@ const syncExecutionRunState = async (
           }
         }
       } else if (existingUsage.status !== (nextRunState === "COMPLETED" ? "completed" : "failed")) {
-          deps.executionRepository.updateProviderInvocationUsage(existingUsage.id, {
+          deps.invocationRepository?.updateProviderInvocationUsage(existingUsage.id, {
             status: nextRunState === "COMPLETED" ? "completed" : "failed",
             finishedAt: nextFinishedAt || now,
             durationMs: nextDurationMs,
@@ -482,7 +482,7 @@ export const runSessionSyncStep = async (
     }
 
     const taskDispatches = task.record_id && task.project_id && deps.executionRepository
-      ? deps.executionRepository.listTaskDispatches({
+      ? deps.taskRunRepository?.listTaskDispatches({
           projectId: task.project_id,
           taskId: task.record_id,
         })

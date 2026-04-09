@@ -2,6 +2,9 @@ import type { ManageSprintOsArgs, ManagementResponseEnvelope } from "../contract
 import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
 import type { DashboardSettings, ProviderId } from "../contracts/app-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ManagementToolHandler } from "../mcp/management-tool-handler.js";
 import type { StructuredProviderResponseService } from "./structured-provider-response-service.js";
 import type { ProviderExecutionService } from "./provider-execution-service.js";
@@ -11,6 +14,9 @@ export interface ChatManagementActionServiceDeps {
   providerExecutionService: ProviderExecutionService;
   managementToolHandler: ManagementToolHandler;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
 }
 
 export interface ManagementActionProposedResult {
@@ -43,7 +49,7 @@ export class ChatManagementActionService {
 
   async executeApprovedAction(projectId: string, provider: string, model: string, action: ManageSprintOsArgs): Promise<ManagementActionProposedResult> {
     const startedAt = new Date().toISOString();
-    const execInvocationId = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocationId = this.deps.invocationRepository.createExecutionInvocation({
       projectId,
       sprintId: null,
       taskId: null,
@@ -58,7 +64,7 @@ export class ChatManagementActionService {
     }).id;
 
     try {
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Executing user-approved management action: ${JSON.stringify(action, null, 2)}`,
       });
@@ -68,12 +74,12 @@ export class ChatManagementActionService {
       const envelopeText = envelopeJson.content[0].text;
       const envelope = JSON.parse(envelopeText) as ManagementResponseEnvelope;
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Action result: ${JSON.stringify(envelope, null, 2)}`,
       });
 
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: "completed",
         finishedAt: new Date().toISOString(),
       });
@@ -85,7 +91,7 @@ export class ChatManagementActionService {
         result: envelope.result,
       };
     } catch (err: unknown) {
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: "failed",
         finishedAt: new Date().toISOString(),
       });
@@ -102,7 +108,7 @@ export class ChatManagementActionService {
 
   private async processWithNativeMcp(args: ProcessManagementActionArgs): Promise<ManagementActionProposedResult> {
     const startedAt = new Date().toISOString();
-    const execInvocationId = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocationId = this.deps.invocationRepository.createExecutionInvocation({
       projectId: args.projectId,
       sprintId: null,
       taskId: null,
@@ -116,7 +122,7 @@ export class ChatManagementActionService {
       startedAt,
     }).id;
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
       role: "user",
       contentMarkdown: args.prompt,
     });
@@ -140,12 +146,12 @@ export class ChatManagementActionService {
 
       const replyText = (result.text?.trim() || result.stdout || "").trim();
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "assistant",
         contentMarkdown: replyText || "_No response from provider._",
       });
 
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: result.ok ? "completed" : "failed",
         finishedAt: new Date().toISOString(),
       });
@@ -161,11 +167,11 @@ export class ChatManagementActionService {
       };
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Error: ${errMessage}`,
       });
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: "failed",
         finishedAt: new Date().toISOString(),
       });
@@ -178,7 +184,7 @@ export class ChatManagementActionService {
     const startedAt = new Date().toISOString();
 
     // Create execution invocation specifically to track the management action exchange
-    const execInvocationId = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocationId = this.deps.invocationRepository.createExecutionInvocation({
       projectId: args.projectId,
       sprintId: null,
       taskId: null,
@@ -192,7 +198,7 @@ export class ChatManagementActionService {
       startedAt,
     }).id;
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
       role: "user",
       contentMarkdown: args.prompt,
     });
@@ -231,14 +237,14 @@ export class ChatManagementActionService {
 
       const parsed = response.parsed;
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "assistant",
         contentMarkdown: response.bodyMarkdown || parsed.replyMarkdown,
       });
 
       if (!parsed.action || !parsed.action.domain || !parsed.action.action) {
         // No action proposed, just a reply
-        this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+        this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
           status: "completed",
           finishedAt: new Date().toISOString(),
         });
@@ -249,7 +255,7 @@ export class ChatManagementActionService {
         };
       }
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Action proposed: ${JSON.stringify(parsed.action, null, 2)}`,
       });
@@ -259,12 +265,12 @@ export class ChatManagementActionService {
       const envelopeText = envelopeJson.content[0].text;
       const envelope = JSON.parse(envelopeText) as ManagementResponseEnvelope;
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Action result: ${JSON.stringify(envelope, null, 2)}`,
       });
 
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: "completed",
         finishedAt: new Date().toISOString(),
       });
@@ -279,11 +285,11 @@ export class ChatManagementActionService {
 
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocationId, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocationId, {
         role: "system",
         contentMarkdown: `Error: ${errMessage}`,
       });
-      this.deps.executionRepository.updateExecutionInvocation(execInvocationId, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocationId, {
         status: "failed",
         finishedAt: new Date().toISOString(),
       });

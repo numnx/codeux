@@ -1,5 +1,8 @@
 import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import type { TaskRunState } from "../contracts/execution-types.js";
@@ -25,6 +28,9 @@ export class RuntimeCleanupService {
   constructor(
     private readonly connectionChatRepository: ConnectionChatRepository,
     private readonly executionRepository: ExecutionRepository,
+    private readonly sprintRunRepository: SprintRunRepository,
+    private readonly taskRunRepository: TaskRunRepository,
+    private readonly invocationRepository: InvocationRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly projectAttentionService: ProjectAttentionService,
     private readonly dockerRuntimePruneService?: DockerRuntimePruneService,
@@ -40,7 +46,7 @@ export class RuntimeCleanupService {
     const failedSprintRunIds = this.failStaleSprintRuns(now);
 
     for (const lease of this.executionRepository.listExpiredLeases("task_dispatch", now)) {
-      const dispatch = this.executionRepository.getTaskDispatch(lease.scopeId);
+      const dispatch = this.taskRunRepository.getTaskDispatch(lease.scopeId);
       this.executionRepository.releaseLease("task_dispatch", lease.scopeId, lease.leaseToken);
 
       if (!dispatch || !["claimed", "running", "cancel_requested"].includes(dispatch.status)) {
@@ -48,7 +54,7 @@ export class RuntimeCleanupService {
       }
 
       const nowIso = now.toISOString();
-      this.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.taskRunRepository.updateTaskDispatch(dispatch.id, {
         connectionId: null,
         status: "blocked",
         finishedAt: nowIso,
@@ -56,9 +62,9 @@ export class RuntimeCleanupService {
         errorMessage: dispatch.errorMessage || "Worker lease expired before the dispatch completed.",
       });
 
-      const taskRun = this.executionRepository.getTaskRunByDispatchId(dispatch.id);
+      const taskRun = this.taskRunRepository.getTaskRunByDispatchId(dispatch.id);
       if (taskRun) {
-        this.executionRepository.updateTaskRun(taskRun.id, {
+        this.taskRunRepository.updateTaskRun(taskRun.id, {
           connectionId: null,
           state: "BLOCKED",
           finishedAt: nowIso,
@@ -66,7 +72,7 @@ export class RuntimeCleanupService {
             ? Math.max(0, new Date(nowIso).getTime() - new Date(taskRun.startedAt).getTime())
             : taskRun.durationMs,
         });
-        this.executionRepository.appendTaskRunEvent(taskRun.id, "worker_lease_expired", "system", {
+        this.taskRunRepository.appendTaskRunEvent(taskRun.id, "worker_lease_expired", "system", {
           dispatchId: dispatch.id,
           leaseOwnerKey: lease.ownerKey,
           expiredAt: lease.expiresAt,
@@ -97,15 +103,15 @@ export class RuntimeCleanupService {
       });
       blockedDispatchIds.push(dispatch.id);
       if (dispatch.sprintRunId) {
-        this.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
+        this.sprintRunRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
       }
     }
 
     const staleCancelCutoffIso = new Date(now.getTime() - STALE_CANCEL_REQUEST_MS).toISOString();
-    for (const dispatch of this.executionRepository.listStaleCancelRequestedDispatches(staleCancelCutoffIso)) {
+    for (const dispatch of this.taskRunRepository.listStaleCancelRequestedDispatches(staleCancelCutoffIso)) {
       const nowIso = now.toISOString();
       this.executionRepository.releaseLease("task_dispatch", dispatch.id);
-      this.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.taskRunRepository.updateTaskDispatch(dispatch.id, {
         connectionId: null,
         status: "cancelled",
         finishedAt: nowIso,
@@ -113,9 +119,9 @@ export class RuntimeCleanupService {
         errorMessage: dispatch.errorMessage || "Dispatch force-cancelled after stale cancellation timeout.",
       });
 
-      const taskRun = this.executionRepository.getTaskRunByDispatchId(dispatch.id);
+      const taskRun = this.taskRunRepository.getTaskRunByDispatchId(dispatch.id);
       if (taskRun) {
-        this.executionRepository.updateTaskRun(taskRun.id, {
+        this.taskRunRepository.updateTaskRun(taskRun.id, {
           connectionId: null,
           state: "BLOCKED",
           finishedAt: nowIso,
@@ -123,7 +129,7 @@ export class RuntimeCleanupService {
             ? Math.max(0, new Date(nowIso).getTime() - new Date(taskRun.startedAt).getTime())
             : taskRun.durationMs,
         });
-        this.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "system", {
+        this.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "system", {
           dispatchId: dispatch.id,
           reason: dispatch.errorMessage || "Dispatch force-cancelled after stale cancellation timeout.",
           force: true,
@@ -153,7 +159,7 @@ export class RuntimeCleanupService {
       });
       forceCancelledDispatchIds.push(dispatch.id);
       if (dispatch.sprintRunId) {
-        this.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
+        this.sprintRunRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
       }
     }
 
@@ -192,19 +198,19 @@ export class RuntimeCleanupService {
   private reconcileTerminalDispatches(now: Date): string[] {
     const reconciledDispatchIds: string[] = [];
 
-    for (const dispatch of this.executionRepository.listTaskDispatchesByStatus([
+    for (const dispatch of this.taskRunRepository.listTaskDispatchesByStatus([
       "queued",
       "claimed",
       "running",
       "cancel_requested",
     ])) {
-      const taskRun = this.executionRepository.getTaskRunByDispatchId(dispatch.id);
+      const taskRun = this.taskRunRepository.getTaskRunByDispatchId(dispatch.id);
       if (!taskRun || !isTerminalTaskRunState(taskRun.state)) {
         continue;
       }
 
       const terminalAt = taskRun.finishedAt || now.toISOString();
-      this.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.taskRunRepository.updateTaskDispatch(dispatch.id, {
         status: this.mapTaskRunStateToDispatchStatus(taskRun.state),
         finishedAt: terminalAt,
         lastHeartbeatAt: terminalAt,
@@ -215,7 +221,7 @@ export class RuntimeCleanupService {
             : null,
       });
       if (dispatch.sprintRunId) {
-        this.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
+        this.sprintRunRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
       }
       reconciledDispatchIds.push(dispatch.id);
     }
@@ -228,12 +234,12 @@ export class RuntimeCleanupService {
     const staleCutoffMs = now.getTime() - STALE_SPRINT_RUN_MS;
     const nowIso = now.toISOString();
 
-    for (const sprintRun of this.executionRepository.listSprintRunsByStatus(["running"])) {
+    for (const sprintRun of this.sprintRunRepository.listSprintRunsByStatus(["running"])) {
       const sprintLease = this.executionRepository.getLease("sprint", sprintRun.sprintId);
       if (sprintLease && sprintLease.expiresAt > nowIso) {
         continue;
       }
-      if (this.executionRepository.hasActiveTaskDispatches(sprintRun.id)) {
+      if (this.sprintRunRepository.hasActiveTaskDispatches(sprintRun.id)) {
         continue;
       }
 
@@ -245,12 +251,12 @@ export class RuntimeCleanupService {
       if (sprintLease) {
         this.executionRepository.releaseLease("sprint", sprintRun.sprintId, sprintLease.leaseToken);
       }
-      this.executionRepository.updateSprintRun(sprintRun.id, {
+      this.sprintRunRepository.updateSprintRun(sprintRun.id, {
         status: "failed",
         finishedAt: nowIso,
         lastHeartbeatAt: nowIso,
       });
-      this.executionRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
+      this.sprintRunRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
         reason: "orchestration_heartbeat_stalled",
         previousLastHeartbeatAt: sprintRun.lastHeartbeatAt,
         failedAt: nowIso,

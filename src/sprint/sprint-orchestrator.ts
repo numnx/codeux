@@ -22,6 +22,9 @@ import type {
 } from "../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { SprintExecutionStateService } from "../services/sprint-execution-state-service.js";
 import type { StartSprintDispatchResult } from "../services/sprint-task-dispatch-service.js";
 import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
@@ -53,7 +56,11 @@ export interface SprintOrchestratorDependencies {
   getSession?: (sessionId: string) => Promise<JulesSession>;
   listSessions: () => Promise<{ sessions?: JulesSession[] }>;
   projectManagementRepository: ProjectManagementRepository;
-  executionRepository: ExecutionRepository;
+  executionRepository: ExecutionRepository
+  sprintRunRepository: SprintRunRepository,
+  taskRunRepository: TaskRunRepository,
+  invocationRepository: InvocationRepository;
+
   projectAttentionService: ProjectAttentionService;
   sprintExecutionStateService: SprintExecutionStateService;
   startTask: (
@@ -304,7 +311,7 @@ export class SprintOrchestrator {
     if (args.action !== "orchestrate") {
       return;
     }
-    const sprintRun = this.deps.executionRepository.createSprintRun({
+    const sprintRun = this.deps.sprintRunRepository.createSprintRun({
       projectId: args.projectId,
       sprintId: args.sprintId,
       triggerType: "mcp",
@@ -313,13 +320,13 @@ export class SprintOrchestrator {
       status: "paused",
     });
     const now = new Date().toISOString();
-    this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+    this.deps.sprintRunRepository.updateSprintRun(sprintRun.id, {
       status: "paused",
       startedAt: now,
       finishedAt: now,
       lastHeartbeatAt: now,
     });
-    this.deps.executionRepository.appendSprintRunEvent(sprintRun.id, args.eventType, "system", args.payload, {
+    this.deps.sprintRunRepository.appendSprintRunEvent(sprintRun.id, args.eventType, "system", args.payload, {
       sourceEventKey: `${args.eventType}:${args.sprintId}:${JSON.stringify(args.payload)}`,
     });
   }
@@ -329,7 +336,7 @@ export class SprintOrchestrator {
   }
 
   async recoverSprintRun(sprintRunId: string): Promise<any> {
-    const existingRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+    const existingRun = this.deps.sprintRunRepository.getSprintRun(sprintRunId);
     if (!existingRun) {
       throw new Error(`Sprint run not found: ${sprintRunId}`);
     }
@@ -371,13 +378,13 @@ export class SprintOrchestrator {
       leaseToken,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     });
-    this.deps.executionRepository.updateSprintRun(existingRun.id, {
+    this.deps.sprintRunRepository.updateSprintRun(existingRun.id, {
       status: "running",
       startedAt: existingRun.startedAt || now,
       finishedAt: null,
       lastHeartbeatAt: now,
     });
-    this.deps.executionRepository.appendSprintRunEvent(existingRun.id, "sprint_recovery_started", "system", {
+    this.deps.sprintRunRepository.appendSprintRunEvent(existingRun.id, "sprint_recovery_started", "system", {
       previousStatus: existingRun.status,
       recoveredAt: now,
     }, {
@@ -412,12 +419,12 @@ export class SprintOrchestrator {
     } catch (error) {
       const failedAt = new Date().toISOString();
       const message = error instanceof Error ? error.message : String(error);
-      this.deps.executionRepository.updateSprintRun(existingRun.id, {
+      this.deps.sprintRunRepository.updateSprintRun(existingRun.id, {
         status: "failed",
         finishedAt: failedAt,
         lastHeartbeatAt: failedAt,
       });
-      this.deps.executionRepository.appendSprintRunEvent(existingRun.id, "sprint_failed", "system", {
+      this.deps.sprintRunRepository.appendSprintRunEvent(existingRun.id, "sprint_failed", "system", {
         reason: "orchestrator_recovery_exception",
         errorMessage: message,
       }, {
@@ -586,13 +593,13 @@ export class SprintOrchestrator {
         });
       case "orchestrate":
       default: {
-        const blockingRun = this.deps.executionRepository.findActiveSprintRun(
+        const blockingRun = this.deps.sprintRunRepository.findActiveSprintRun(
           executionContext.project.id,
           executionContext.sprint.id,
         );
         if (blockingRun) {
           const finalizedCancelledRun = blockingRun.status === "cancel_requested"
-            ? this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(blockingRun.id)
+            ? this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(blockingRun.id)
             : null;
           const effectiveBlockingRun = finalizedCancelledRun?.status === "cancelled"
             ? null
@@ -628,7 +635,7 @@ export class SprintOrchestrator {
             expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           });
         } catch {
-          const activeRun = this.deps.executionRepository.findActiveSprintRun(
+          const activeRun = this.deps.sprintRunRepository.findActiveSprintRun(
             executionContext.project.id,
             executionContext.sprint.id,
           );
@@ -643,7 +650,7 @@ export class SprintOrchestrator {
           };
         }
 
-        const sprintRun = this.deps.executionRepository.createSprintRun({
+        const sprintRun = this.deps.sprintRunRepository.createSprintRun({
           projectId: executionContext.project.id,
           sprintId: executionContext.sprint.id,
           triggerType: "mcp",
@@ -651,7 +658,7 @@ export class SprintOrchestrator {
           executorMode: "mixed",
           status: "running",
         });
-        this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+        this.deps.sprintRunRepository.updateSprintRun(sprintRun.id, {
           status: "running",
           startedAt: new Date().toISOString(),
           lastHeartbeatAt: new Date().toISOString(),
@@ -685,12 +692,12 @@ export class SprintOrchestrator {
           } catch (error) {
             const failedAt = new Date().toISOString();
             const message = error instanceof Error ? error.message : String(error);
-            this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+            this.deps.sprintRunRepository.updateSprintRun(sprintRun.id, {
               status: "failed",
               finishedAt: failedAt,
               lastHeartbeatAt: failedAt,
             });
-            this.deps.executionRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
+            this.deps.sprintRunRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
               reason: "orchestrator_exception",
               errorMessage: message,
             }, {

@@ -3,6 +3,9 @@ import type { DashboardSettings, ProviderId, VirtualWorkerProvider } from "../co
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { StructuredProviderResponseService, type StructuredProviderResult } from "./structured-provider-response-service.js";
 
 export interface StructuredRequestArgs<T> {
@@ -38,6 +41,9 @@ export interface StructuredAgentRequestResult<T> extends StructuredProviderResul
 
 export interface StructuredAgentRequestServiceDeps {
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   structuredProviderResponseService: StructuredProviderResponseService;
   logger?: Logger;
 }
@@ -50,7 +56,7 @@ export class StructuredAgentRequestService {
 
     let invocationId = args.invocationId;
     if (!invocationId) {
-      const invocation = this.deps.executionRepository?.createExecutionInvocation({
+      const invocation = this.deps.invocationRepository?.createExecutionInvocation({
         projectId: args.projectId,
         sprintId: args.sprintId || null,
         taskId: args.taskId || null,
@@ -64,7 +70,7 @@ export class StructuredAgentRequestService {
       invocationId = invocation?.id;
 
       if (invocationId && args.systemRoutingMessage) {
-        this.deps.executionRepository?.appendExecutionInvocationMessage(invocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(invocationId, {
           role: "system",
           contentMarkdown: args.systemRoutingMessage,
           metadata: {
@@ -75,13 +81,13 @@ export class StructuredAgentRequestService {
         });
       }
     } else {
-      this.deps.executionRepository?.updateExecutionInvocation(invocationId, {
+      this.deps.invocationRepository?.updateExecutionInvocation(invocationId, {
         provider: args.provider,
         model: args.model,
       });
 
       if (args.systemRoutingMessage) {
-        this.deps.executionRepository?.appendExecutionInvocationMessage(invocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(invocationId, {
           role: "system",
           contentMarkdown: args.systemRoutingMessage,
           metadata: {

@@ -2,6 +2,9 @@ import type { DashboardSettings } from "../contracts/app-types.js";
 import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { IProviderRunner, ProviderRunResult } from "../infrastructure/providers/cli/provider-runner.js";
 import type { Logger } from "../shared/logging/logger.js";
@@ -11,6 +14,9 @@ import { resolveProviderRetryDecision, sleepWithSignal } from "../shared/provide
 
 export interface ProviderExecutionServiceDeps {
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   sessionTracking?: SessionTrackingRepository;
   providerRunner: IProviderRunner;
   logger?: Logger;
@@ -64,7 +70,7 @@ export class ProviderExecutionService {
       const startedAt = new Date().toISOString();
 
       if (!execInvocationId) {
-        execInvocationId = this.deps.executionRepository?.createExecutionInvocation({
+        execInvocationId = this.deps.invocationRepository?.createExecutionInvocation({
           projectId: args.projectId,
           sprintId: args.sprintId,
           taskId: args.taskId,
@@ -80,20 +86,20 @@ export class ProviderExecutionService {
       }
 
       if (execInvocationId && retrySystemMessage) {
-        this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
           role: "system",
           contentMarkdown: retrySystemMessage,
         });
       }
 
       if (execInvocationId) {
-        this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
           role: "user",
           contentMarkdown: p,
         });
       }
 
-      const invocation = this.deps.executionRepository?.createProviderInvocationUsage({
+      const invocation = this.deps.invocationRepository?.createProviderInvocationUsage({
         projectId: args.projectId,
         sprintId: args.sprintId,
         taskId: args.taskId,
@@ -110,7 +116,7 @@ export class ProviderExecutionService {
       });
 
       if (invocation && execInvocationId) {
-        this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
+        this.deps.invocationRepository?.updateExecutionInvocation(execInvocationId, {
           providerInvocationId: invocation.id,
         });
       }
@@ -148,7 +154,7 @@ export class ProviderExecutionService {
 
       if (invocation && this.deps.executionRepository) {
         const finishedAt = new Date().toISOString();
-        this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
+        this.deps.invocationRepository?.updateProviderInvocationUsage(invocation.id, {
           status: result.ok ? "completed" : "failed",
           model: args.model,
           nativeSessionId: result.nativeSessionId,
@@ -165,7 +171,7 @@ export class ProviderExecutionService {
         });
 
         if (args.taskRunId) {
-            this.deps.executionRepository.appendTaskRunEvent(args.taskRunId, "cli_provider_usage_reported", "system", {
+            this.deps.taskRunRepository?.appendTaskRunEvent(args.taskRunId, "cli_provider_usage_reported", "system", {
             provider: args.provider,
             model: args.model,
             purpose: args.purpose,
@@ -183,19 +189,19 @@ export class ProviderExecutionService {
       }
 
       if (execInvocationId) {
-        this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
+        this.deps.invocationRepository?.updateExecutionInvocation(execInvocationId, {
           status: result.ok ? "completed" : "failed",
           provider: args.provider,
           model: args.model,
           finishedAt: new Date().toISOString(),
         });
         if (!result.ok) {
-          this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+          this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
             role: "tool",
             contentMarkdown: result.stderr || result.stdout || "Provider failed without output.",
           });
         } else {
-          this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+          this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
             role: "assistant",
             contentMarkdown: args.expectTextOutput ? (result as any).text : result.usageTelemetry.transcriptText,
           });
@@ -238,12 +244,12 @@ export class ProviderExecutionService {
 
       const classification = classifyProviderError(args.provider, providerResult);
       if (execInvocationId) {
-        this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
+        this.deps.invocationRepository?.updateExecutionInvocation(execInvocationId, {
           lastErrorCategory: classification.category,
           lastErrorMessage: classification.userMessage,
           lastRetryAfterIso: classification.resetAtIso,
         });
-        this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+        this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
           role: "system",
           contentMarkdown: `Provider error (${classification.category}): ${classification.userMessage}`,
           metadata: {
@@ -277,7 +283,7 @@ export class ProviderExecutionService {
           }
 
           if (execInvocationId) {
-            this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+            this.deps.invocationRepository?.appendExecutionInvocationMessage(execInvocationId, {
               role: "system",
               contentMarkdown: retryMessage,
               metadata: {

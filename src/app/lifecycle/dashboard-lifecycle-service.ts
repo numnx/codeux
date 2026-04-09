@@ -31,6 +31,9 @@ import type { ProjectAttentionRepository } from "../../repositories/project-atte
 import type { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import type { AgentPresetSyncService } from "../../services/agent-preset-sync-service.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../../repositories/execution/invocation-repository.js";
 import type { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import type { ActivityCacheService } from "../../server/activity-cache-service.js";
 import type { TaskRerunService } from "../../services/task-rerun-service.js";
@@ -59,6 +62,9 @@ export interface BootDashboardDeps {
   projectManagementRepository: ProjectManagementRepository;
   projectRuntimeRepository: ProjectRuntimeRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   connectionChatRepository: ConnectionChatRepository;
   projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository;
   projectWorkerAssignmentService: ProjectWorkerAssignmentService;
@@ -456,8 +462,8 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     listConversationMessages: (threadId) => deps.connectionChatRepository.listMessages(threadId),
     postConversationMessage: (projectId, input) => deps.chatThreadRuntimeService.postMessage(projectId, input),
 
-    listProjectInvocations: (projectId) => deps.executionRepository.listExecutionInvocations({ projectId }),
-    listInvocationMessages: (invocationId) => deps.executionRepository.listExecutionInvocationMessages(invocationId),
+    listProjectInvocations: (projectId) => deps.invocationRepository.listExecutionInvocations({ projectId }),
+    listInvocationMessages: (invocationId) => deps.invocationRepository.listExecutionInvocationMessages(invocationId),
 
     rerunTask: async (taskId: string, options?: { provider?: string; clearWorktree?: boolean; resetDependents?: boolean }) => {
       const task = await deps.taskRerunService.rerunTask(taskId, {

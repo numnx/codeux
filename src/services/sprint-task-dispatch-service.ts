@@ -1,6 +1,9 @@
 import type { JulesSession, Subtask } from "../contracts/app-types.js";
 import type { TaskDispatchExecutorType, TaskRunRecord } from "../contracts/execution-types.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { TaskService } from "./task-service.js";
 import type { Logger } from "../shared/logging/logger.js";
@@ -26,6 +29,9 @@ export interface StartSprintDispatchResult {
 export class SprintTaskDispatchService {
   constructor(
     private readonly executionRepository: ExecutionRepository,
+    private readonly sprintRunRepository: SprintRunRepository,
+    private readonly taskRunRepository: TaskRunRepository,
+    private readonly invocationRepository: InvocationRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly taskService: TaskService,
     private readonly logger?: Logger,
@@ -46,7 +52,7 @@ export class SprintTaskDispatchService {
     const provider = this.taskService.resolveTaskProvider(args.task, settingsScope, preferredExecutor);
     const executorType: TaskDispatchExecutorType = provider === "jules" ? "jules" : "docker_cli";
     const queuedAt = new Date().toISOString();
-    const dispatch = this.executionRepository.createTaskDispatch({
+    const dispatch = this.taskRunRepository.createTaskDispatch({
       projectId: args.projectId,
       sprintId: args.sprintId,
       taskId: taskRecordId,
@@ -55,7 +61,7 @@ export class SprintTaskDispatchService {
       queuedAt,
     });
 
-    const taskRun = this.executionRepository.createTaskRun({
+    const taskRun = this.taskRunRepository.createTaskRun({
       projectId: args.projectId,
       sprintId: args.sprintId,
       taskId: taskRecordId,
@@ -67,7 +73,7 @@ export class SprintTaskDispatchService {
       startedAt: queuedAt,
     });
 
-    this.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_started", "system", {
+    this.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_started", "system", {
       dispatchId: dispatch.id,
       executorType,
       provider,
@@ -76,7 +82,7 @@ export class SprintTaskDispatchService {
       status: "in_progress",
     });
 
-    this.executionRepository.updateTaskDispatch(dispatch.id, {
+    this.taskRunRepository.updateTaskDispatch(dispatch.id, {
       status: "running",
       claimedAt: queuedAt,
       startedAt: queuedAt,
@@ -98,18 +104,18 @@ export class SprintTaskDispatchService {
       const sessionId = session.id || null;
       const nextProvider = session.provider || provider;
 
-      this.executionRepository.updateTaskRun(taskRun.id, {
+      this.taskRunRepository.updateTaskRun(taskRun.id, {
         provider: nextProvider,
         sessionId,
         sessionName,
         workerBranch: this.resolveWorkerBranch(session),
         prUrl: this.resolvePrUrl(session),
       });
-      this.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.taskRunRepository.updateTaskDispatch(dispatch.id, {
         status: "running",
         lastHeartbeatAt: new Date().toISOString(),
       });
-      this.executionRepository.appendTaskRunEvent(taskRun.id, "session_created", "system", {
+      this.taskRunRepository.appendTaskRunEvent(taskRun.id, "session_created", "system", {
         sessionId,
         sessionName,
         provider: nextProvider,
@@ -123,18 +129,18 @@ export class SprintTaskDispatchService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const finishedAt = new Date().toISOString();
-      this.executionRepository.updateTaskRun(taskRun.id, {
+      this.taskRunRepository.updateTaskRun(taskRun.id, {
         state: "FAILED",
         finishedAt,
         durationMs: this.calculateDurationMs(taskRun, finishedAt),
       });
-      this.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.taskRunRepository.updateTaskDispatch(dispatch.id, {
         status: "failed",
         finishedAt,
         errorMessage: message,
         lastHeartbeatAt: finishedAt,
       });
-      this.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_failed", "system", {
+      this.taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_failed", "system", {
         dispatchId: dispatch.id,
         error: message,
       });

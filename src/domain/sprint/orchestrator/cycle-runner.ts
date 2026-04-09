@@ -96,11 +96,11 @@ export class CycleRunner {
       if (!args.sprintRunId || typeof task.record_id !== "string" || task.record_id.trim().length === 0) {
         return;
       }
-      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, args.sprintRunId);
+      const taskRun = this.deps.taskRunRepository.getLatestTaskRun(task.record_id, args.sprintRunId);
       if (!taskRun) {
         return;
       }
-      this.deps.executionRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
+      this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
         sourceEventKey,
       });
     };
@@ -408,12 +408,12 @@ export class CycleRunner {
         continue;
       }
 
-      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId);
+      const taskRun = this.deps.taskRunRepository.getLatestTaskRun(task.record_id, sprintRunId);
       if (!taskRun) {
         continue;
       }
 
-      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+      this.deps.taskRunRepository.updateTaskRun(taskRun.id, {
         state: "RUNNING",
         finishedAt: null,
         durationMs: null,
@@ -423,12 +423,12 @@ export class CycleRunner {
         continue;
       }
 
-      const dispatch = this.deps.executionRepository.getTaskDispatch(taskRun.dispatchId);
+      const dispatch = this.deps.taskRunRepository.getTaskDispatch(taskRun.dispatchId);
       if (!dispatch) {
         continue;
       }
 
-      this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
         status: "running",
         startedAt: dispatch.startedAt || taskRun.startedAt || now,
         finishedAt: null,

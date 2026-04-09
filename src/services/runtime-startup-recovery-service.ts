@@ -1,5 +1,8 @@
 import type { TaskRunRecord } from "../contracts/execution-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
@@ -19,6 +22,9 @@ export interface RuntimeStartupRecoveryResult {
 interface RuntimeStartupRecoveryServiceDeps {
   sessionTracking: SessionTrackingRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   projectManagementRepository: ProjectManagementRepository;
   sprintOrchestrator: SprintOrchestrator;
   logger?: Logger;
@@ -58,13 +64,13 @@ export class RuntimeStartupRecoveryService {
   private reconcileInterruptedLocalDispatches(recoveredCliSessionIds: ReadonlySet<string>): string[] {
     const interruptedAt = new Date().toISOString();
     const reconciledDispatchIds: string[] = [];
-    const activeLocalDispatches = this.deps.executionRepository.listTaskDispatchesByStatus(
+    const activeLocalDispatches = this.deps.taskRunRepository.listTaskDispatchesByStatus(
       [...ACTIVE_DISPATCH_STATUSES],
       { executorType: "docker_cli" },
     );
 
     for (const dispatch of activeLocalDispatches) {
-      const taskRun = this.deps.executionRepository.getTaskRunByDispatchId(dispatch.id);
+      const taskRun = this.deps.taskRunRepository.getTaskRunByDispatchId(dispatch.id);
       if (taskRun && isTerminalTaskRunState(taskRun)) {
         continue;
       }
@@ -75,7 +81,7 @@ export class RuntimeStartupRecoveryService {
         : "Local CLI execution was interrupted before Sprint OS could persist a resumable session. The task was moved back to a retryable state.";
 
       this.deps.executionRepository.releaseLease("task_dispatch", dispatch.id);
-      this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+      this.deps.taskRunRepository.updateTaskDispatch(dispatch.id, {
         connectionId: null,
         status: "failed",
         finishedAt: interruptedAt,
@@ -84,13 +90,13 @@ export class RuntimeStartupRecoveryService {
       });
 
       if (taskRun) {
-        this.deps.executionRepository.updateTaskRun(taskRun.id, {
+        this.deps.taskRunRepository.updateTaskRun(taskRun.id, {
           connectionId: null,
           state: "FAILED",
           finishedAt: interruptedAt,
           durationMs: calculateDurationMs(taskRun, interruptedAt),
         });
-        this.deps.executionRepository.appendTaskRunEvent(taskRun.id, "cli_workflow_failed", "system", {
+        this.deps.taskRunRepository.appendTaskRunEvent(taskRun.id, "cli_workflow_failed", "system", {
           dispatchId: dispatch.id,
           reason: "runtime_restart_interrupted",
           recoveredSessionId: sessionRecovered ? taskRun.sessionId : null,
@@ -105,7 +111,7 @@ export class RuntimeStartupRecoveryService {
       });
 
       if (dispatch.sprintRunId) {
-        this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
+        this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(dispatch.sprintRunId);
       }
       reconciledDispatchIds.push(dispatch.id);
     }
@@ -116,19 +122,19 @@ export class RuntimeStartupRecoveryService {
   private resumeRecoverableSprintRuns(): { resumedSprintRunIds: string[]; supersededSprintRunIds: string[] } {
     const resumedSprintRunIds: string[] = [];
     const supersededSprintRunIds: string[] = [];
-    const activeRuns = this.deps.executionRepository.listSprintRunsByStatus([...ACTIVE_SPRINT_RUN_STATUSES]);
+    const activeRuns = this.deps.sprintRunRepository.listSprintRunsByStatus([...ACTIVE_SPRINT_RUN_STATUSES]);
     activeRuns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const recoveredSprintIds = new Set<string>();
     const recoveredAt = new Date().toISOString();
 
     for (const sprintRun of activeRuns) {
       if (recoveredSprintIds.has(sprintRun.sprintId)) {
-        this.deps.executionRepository.updateSprintRun(sprintRun.id, {
+        this.deps.sprintRunRepository.updateSprintRun(sprintRun.id, {
           status: "failed",
           finishedAt: recoveredAt,
           lastHeartbeatAt: recoveredAt,
         });
-        this.deps.executionRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
+        this.deps.sprintRunRepository.appendSprintRunEvent(sprintRun.id, "sprint_failed", "system", {
           reason: "superseded_by_newer_active_run_on_startup",
         }, {
           sourceEventKey: `startup-recovery:superseded:${sprintRun.id}`,

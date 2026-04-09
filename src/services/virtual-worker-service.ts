@@ -5,6 +5,9 @@ import type { ProjectAttentionItemRecord } from "../contracts/project-attention-
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { WorkerEndpointRepository } from "../repositories/worker-endpoint-repository.js";
 import type { ProjectWorkerAssignmentRepository } from "../repositories/project-worker-assignment-repository.js";
@@ -69,6 +72,9 @@ export interface VirtualWorkerServiceDependencies {
   settingsRepository: SettingsRepository;
   sessionTracking: SessionTrackingRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   projectManagementRepository: ProjectManagementRepository;
   workerEndpointRepository: WorkerEndpointRepository;
   projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository;
@@ -267,7 +273,7 @@ export class VirtualWorkerService {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);
     const provider = settings.workers.virtualWorkerProvider;
     const providerSettings = settings.aiProvider.providers[provider];
-    const taskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
+    const taskRun = this.deps.taskRunRepository.getTaskRunByDispatchId(claim.dispatch.id);
     if (!taskRun) {
       throw new Error(`Task run not found for dispatch ${claim.dispatch.id}`);
     }
@@ -318,7 +324,7 @@ export class VirtualWorkerService {
       this.deps.workerEndpointRepository.touchWorkerEndpointHeartbeat(workerEndpointId, "connected");
 
       const currentSession = this.deps.sessionTracking.getSession(session.id) || session;
-      const persistedTaskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
+      const persistedTaskRun = this.deps.taskRunRepository.getTaskRunByDispatchId(claim.dispatch.id);
       const terminalState = persistedTaskRun?.state === "COMPLETED"
         ? "COMPLETED"
         : persistedTaskRun?.state === "FAILED"

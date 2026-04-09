@@ -9,7 +9,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
   }).providers[ctx.provider];
 
   const taskRun = ctx.taskRunId && ctx.deps.executionRepository
-    ? ctx.deps.executionRepository.getTaskRun(ctx.taskRunId)
+    ? ctx.deps.taskRunRepository?.getTaskRun(ctx.taskRunId)
     : null;
 
   const providerExecutionService = new ProviderExecutionService({

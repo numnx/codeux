@@ -104,7 +104,7 @@ export class WatchLoopRunner {
       featureBranch: defaultFeatureBranch,
     });
     this.deps.logger.info(`Live dashboard available at http://localhost:${dashboardPort}`);
-    this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "watch_loop_started", "system", {
+    this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "watch_loop_started", "system", {
       sprintNumber: scopedExecutionContext.sprintNumber,
       featureBranch: defaultFeatureBranch,
       defaultBranch,
@@ -230,7 +230,7 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.RUNNING: {
-          const latestRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+          const latestRun = this.deps.sprintRunRepository.getSprintRun(sprintRunId);
           if (latestRun?.status === "paused" || latestRun?.status === "cancelled" || latestRun?.status === "cancel_requested") {
             continue;
           }
@@ -278,12 +278,12 @@ export class WatchLoopRunner {
     leaseToken?: string;
   }): void {
     const now = new Date().toISOString();
-    this.deps.executionRepository.updateSprintRun(args.sprintRunId, {
+    this.deps.sprintRunRepository.updateSprintRun(args.sprintRunId, {
       status: "running",
       lastHeartbeatAt: now,
     });
     if (args.leaseToken) {
-      this.deps.executionRepository.renewLease({
+      this.deps.this.deps.executionRepository.renewLease({
         scopeType: "sprint",
         scopeId: args.sprintId,
         leaseToken: args.leaseToken,
@@ -293,12 +293,12 @@ export class WatchLoopRunner {
   }
 
   private evaluateControlIntervention(sprintRunId: string): { status: "continue" } | { status: "exit", report: string } {
-    const controlledRun = this.deps.executionRepository.getSprintRun(sprintRunId);
+    const controlledRun = this.deps.sprintRunRepository.getSprintRun(sprintRunId);
     if (controlledRun?.status === "paused") {
       return { status: "exit", report: "\n⏸️ **Sprint Paused:** Dashboard control paused this sprint run.\n" };
     }
     if (controlledRun?.status === "cancel_requested") {
-      const finalized = this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(sprintRunId);
+      const finalized = this.deps.sprintRunRepository.finalizeSprintRunCancellationIfIdle(sprintRunId);
       return {
         status: "exit",
         report: finalized
@@ -397,7 +397,7 @@ export class WatchLoopRunner {
     );
 
     if (needsManualMerge) {
-      this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_merge_required", "system", {
+      this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "sprint_merge_required", "system", {
         awaitingMergeCount: manualMergeTasks.length,
         taskIds: manualMergeTasks.map((task) => task.record_id || task.id),
       }, {
@@ -405,7 +405,7 @@ export class WatchLoopRunner {
       });
       report += await this.deps.renderInstruction("watchMergeRequired", {}, repoPath);
     } else if (subtasks.length > 0 && !allTerminal && noMoreActionPossible) {
-      this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "sprint_no_more_actions", "system", {
+      this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "sprint_no_more_actions", "system", {
         taskCount: subtasks.length,
         runningCount: runningTasks.length,
         readyCount: readyTasks.length,
@@ -451,7 +451,7 @@ export class WatchLoopRunner {
           subtasks,
         });
         if (mergeFeedback.text) {
-          this.deps.executionRepository.appendSprintRunEvent(sprintRunId, "main_merge_gate_status", "system", {
+          this.deps.sprintRunRepository.appendSprintRunEvent(sprintRunId, "main_merge_gate_status", "system", {
             state: mergeFeedback.state,
             prNumber: mergeFeedback.prNumber,
             prUrl: mergeFeedback.prUrl,
@@ -523,7 +523,7 @@ export class WatchLoopRunner {
           report += completionGuidance;
           report += mergeFeedback.text;
           pauseSprintRunForMainMergeBlocker({
-            executionRepository: this.deps.executionRepository,
+            sprintRunRepository: this.deps.sprintRunRepository,
             sprintRunId,
             sprintNumber: scopedExecutionContext.sprintNumber,
             mergeFeedback,
@@ -540,7 +540,7 @@ export class WatchLoopRunner {
         }
         this.deps.completedSprints.add(`${scopedExecutionContext.project.id}:${scopedExecutionContext.sprint.id}`);
         transitionSprintRun(
-          this.deps.executionRepository,
+          this.deps.sprintRunRepository,
           sprintRunId,
           "completed",
           "sprint_completed",
@@ -565,7 +565,7 @@ export class WatchLoopRunner {
       const failedTaskCount = statusCounts["FAILED"] || 0;
       if (failedTaskCount > 0) {
         transitionSprintRun(
-          this.deps.executionRepository,
+          this.deps.sprintRunRepository,
           sprintRunId,
           "failed",
           "sprint_failed",
@@ -575,7 +575,7 @@ export class WatchLoopRunner {
         report += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
       } else if (manualMergeTasks.length > 0) {
         transitionSprintRun(
-          this.deps.executionRepository,
+          this.deps.sprintRunRepository,
           sprintRunId,
           "paused",
           "sprint_paused",
@@ -588,7 +588,7 @@ export class WatchLoopRunner {
         report += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
       } else if (subtasks.length === 0) {
         transitionSprintRun(
-          this.deps.executionRepository,
+          this.deps.sprintRunRepository,
           sprintRunId,
           "cancelled",
           "sprint_cancelled",
@@ -598,7 +598,7 @@ export class WatchLoopRunner {
         report += await this.renderInstruction("cleanupEmpty", {}, repoPath);
       } else {
         transitionSprintRun(
-          this.deps.executionRepository,
+          this.deps.sprintRunRepository,
           sprintRunId,
           "paused",
           "sprint_paused",
@@ -712,14 +712,14 @@ export function isMainMergeAttentionItem(item: {
 }
 
 function pauseSprintRunForMainMergeBlocker(args: {
-  executionRepository: Pick<SprintOrchestratorDependencies["executionRepository"], "updateSprintRun" | "appendSprintRunEvent">;
+  sprintRunRepository: Pick<SprintOrchestratorDependencies["sprintRunRepository"], "updateSprintRun" | "appendSprintRunEvent">;
   sprintRunId: string;
   sprintNumber: number;
   mergeFeedback: MergeFeedbackResult;
   attentionItems: Array<{ id: string; attentionType: string }>;
 }): void {
   transitionSprintRun(
-    args.executionRepository,
+    args.sprintRunRepository,
     args.sprintRunId,
     "paused",
     "sprint_paused",

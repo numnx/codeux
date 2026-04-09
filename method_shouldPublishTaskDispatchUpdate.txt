@@ -1,0 +1,8 @@
+  private shouldPublishTaskDispatchUpdate(input: UpdateTaskDispatchInput): boolean {
+    return input.connectionId !== undefined
+      || input.status !== undefined
+      || input.claimedAt !== undefined
+      || input.startedAt !== undefined
+      || input.finishedAt !== undefined
+      || input.errorMessage !== undefined;
+  }

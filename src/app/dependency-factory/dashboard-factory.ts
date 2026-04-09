@@ -59,6 +59,9 @@ export function createDashboardDependencies(
   const managementToolHandler = new ManagementToolHandler({
     sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected top-level later
     executionRepository: coreDeps.executionRepository,
+      sprintRunRepository: coreDeps.sprintRunRepository,
+      taskRunRepository: coreDeps.taskRunRepository,
+      invocationRepository: coreDeps.invocationRepository,
     getDashboardSettings: () => settingsRepository.getDefaultDashboardSettings(),
     projectManagementRepository: coreDeps.projectManagementRepository,
     executionControlService,
@@ -179,12 +182,12 @@ export function createDashboardDependencies(
       activityCacheService.invalidateLiveActivitiesCache();
     },
     resolveSprintRunId: async ({ projectId, sprintId }) => {
-      const existing = executionRepository.findActiveSprintRun(projectId, sprintId);
+      const existing = sprintRunRepository.findActiveSprintRun(projectId, sprintId);
       if (existing) {
         return existing.id;
       }
 
-      const created = executionRepository.createSprintRun({
+      const created = sprintRunRepository.createSprintRun({
         projectId,
         sprintId,
         triggerType: "dashboard",
@@ -192,7 +195,7 @@ export function createDashboardDependencies(
         executorMode: "mixed",
         status: "running",
       });
-      executionRepository.updateSprintRun(created.id, {
+      sprintRunRepository.updateSprintRun(created.id, {
         status: "running",
         startedAt: new Date().toISOString(),
         lastHeartbeatAt: new Date().toISOString(),
@@ -219,9 +222,9 @@ export function createDashboardDependencies(
       });
     },
     createResetTaskRun: async ({ taskId, projectId, sprintId, sprintRunId, reason }) => {
-      const latestRun = executionRepository.getLatestTaskRun(taskId, sprintRunId)
-        || executionRepository.getLatestTaskRun(taskId);
-      const resetRun = executionRepository.createTaskRun({
+      const latestRun = taskRunRepository.getLatestTaskRun(taskId, sprintRunId)
+        || taskRunRepository.getLatestTaskRun(taskId);
+      const resetRun = taskRunRepository.createTaskRun({
         projectId,
         sprintId,
         taskId,
@@ -230,7 +233,7 @@ export function createDashboardDependencies(
         mode: latestRun?.mode ?? null,
         state: "PENDING",
       });
-      executionRepository.appendTaskRunEvent(resetRun.id, "task_reset", "user", {
+      taskRunRepository.appendTaskRunEvent(resetRun.id, "task_reset", "user", {
         taskId,
         reason,
       }, {
@@ -238,7 +241,7 @@ export function createDashboardDependencies(
       });
     },
     clearTaskWorktree: async ({ taskId, repoPath }) => {
-      const latestRun = executionRepository.getLatestTaskRun(taskId);
+      const latestRun = taskRunRepository.getLatestTaskRun(taskId);
       const sessionId = latestRun?.sessionId;
       if (!sessionId) return;
       const wsManager = new WorkspaceManager();
@@ -262,7 +265,7 @@ export function createDashboardDependencies(
       projectManagementRepository.updateTask(taskId, { executorType });
     },
     cancelActiveDispatch: async (taskId, projectId) => {
-      const dispatches = executionRepository.listTaskDispatches({ projectId, taskId });
+      const dispatches = taskRunRepository.listTaskDispatches({ projectId, taskId });
       const active = dispatches.filter((d) =>
         d.status === "queued" || d.status === "claimed" || d.status === "running" || d.status === "cancel_requested"
       );
@@ -271,22 +274,22 @@ export function createDashboardDependencies(
           await activeDispatchRegistry.requestStop(dispatch.id, "Task rerun requested from dashboard.").catch(() => undefined);
         }
         const now = new Date().toISOString();
-        executionRepository.updateTaskDispatch(dispatch.id, {
+        taskRunRepository.updateTaskDispatch(dispatch.id, {
           status: "cancelled",
           finishedAt: now,
           lastHeartbeatAt: now,
           errorMessage: "Cancelled: task rerun requested.",
         });
-        const taskRun = executionRepository.getTaskRunByDispatchId(dispatch.id);
+        const taskRun = taskRunRepository.getTaskRunByDispatchId(dispatch.id);
         if (taskRun) {
-          executionRepository.updateTaskRun(taskRun.id, {
+          taskRunRepository.updateTaskRun(taskRun.id, {
             state: "BLOCKED",
             finishedAt: now,
             durationMs: taskRun.startedAt
               ? Math.max(0, new Date(now).getTime() - new Date(taskRun.startedAt).getTime())
               : null,
           });
-          executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
+          taskRunRepository.appendTaskRunEvent(taskRun.id, "dispatch_cancelled", "user", {
             dispatchId: dispatch.id,
             reason: "task_rerun_requested",
           }, {

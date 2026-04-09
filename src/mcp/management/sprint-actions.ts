@@ -1,6 +1,9 @@
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ExecutionControlService } from "../../services/execution-control-service.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
+import { SprintRunRepository } from "../../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../../repositories/execution/invocation-repository.js";
 import type { ManagementResponseEnvelope, ManagementApproval } from "../../contracts/internal-management-types.js";
 import type { CreateSprintInput, UpdateSprintInput } from "../../contracts/project-management-types.js";
 
@@ -10,6 +13,9 @@ export async function handleSprintAction(
   projectRepo: ProjectManagementRepository,
   executionControlService: ExecutionControlService,
   executionRepo: ExecutionRepository,
+  sprintRunRepo: SprintRunRepository,
+  taskRunRepo: TaskRunRepository,
+  invocationRepo: InvocationRepository,
   domain: string,
   approval?: ManagementApproval
 ): Promise<ManagementResponseEnvelope> {
@@ -106,11 +112,11 @@ export async function handleSprintAction(
       const sprint = projectRepo.getSprint(sprintId);
 
       if (sprintRunId) {
-        const run = executionRepo.getSprintRun(sprintRunId);
+        const run = sprintRunRepo.getSprintRun(sprintRunId);
         return { result: { sprint, runs: run ? [run] : [] } };
       }
 
-      const runs = executionRepo.listSprintRuns(projectId, sprintId);
+      const runs = sprintRunRepo.listSprintRuns(projectId, sprintId);
       return { result: { sprint, runs } };
     }
     default:

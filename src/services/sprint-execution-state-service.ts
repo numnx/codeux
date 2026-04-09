@@ -6,6 +6,9 @@ import type { ProjectSummary, SprintRecord, TaskRecord } from "../contracts/proj
 import type { TaskRunRecord } from "../contracts/execution-types.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { resolveSubtaskStatus, toMergeIndicator } from "./subtask-state-mapper.js";
 
 export interface SprintExecutionContext {
@@ -22,6 +25,9 @@ export class SprintExecutionStateService {
   constructor(
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly executionRepository: ExecutionRepository,
+    private readonly sprintRunRepository: SprintRunRepository,
+    private readonly taskRunRepository: TaskRunRepository,
+    private readonly invocationRepository: InvocationRepository,
   ) {}
 
   resolveContext(args: SprintAgentArgs, settings: DashboardSettings): SprintExecutionContext {
@@ -52,7 +58,7 @@ export class SprintExecutionStateService {
 
   async loadSubtasks(projectId: string, sprintId: string, sprintRunId?: string): Promise<Subtask[]> {
     const tasks = this.projectManagementRepository.listTasks(projectId, sprintId);
-    const latestRuns = this.executionRepository.listLatestTaskRuns(tasks.map((task) => task.id), sprintRunId);
+    const latestRuns = this.taskRunRepository.listLatestTaskRuns(tasks.map((task) => task.id), sprintRunId);
     const taskKeyById = new Map(tasks.map((task) => [task.id, task.taskKey]));
 
     return tasks.map((task) => {

@@ -5,6 +5,9 @@ import type { WorkerTaskDispatchClaim, TaskRunState } from "../contracts/executi
 import type { McpConnectionRecord } from "../contracts/connection-chat-types.js";
 import type { WorkerExecutionMode } from "../contracts/app-types.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { WorkerEndpointRepository } from "../repositories/worker-endpoint-repository.js";
@@ -41,6 +44,9 @@ export interface UpdateWorkerTaskDispatchResult {
 export class WorkerTaskDispatchService {
   constructor(
     private readonly executionRepository: ExecutionRepository,
+    private readonly sprintRunRepository: SprintRunRepository,
+    private readonly taskRunRepository: TaskRunRepository,
+    private readonly invocationRepository: InvocationRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly connectionChatRepository: ConnectionChatRepository,
     private readonly workerEndpointRepository: WorkerEndpointRepository,
@@ -121,7 +127,7 @@ export class WorkerTaskDispatchService {
             ? "in_progress"
             : "pending";
 
-    const nextDispatch = this.executionRepository.updateTaskDispatch(dispatch.id, {
+    const nextDispatch = this.taskRunRepository.updateTaskDispatch(dispatch.id, {
       connectionId: args.connectionId ?? dispatch.connectionId ?? null,
       status: this.mapTaskRunStateToDispatchStatus(args.state, cancelRequested, pauseRequested),
       startedAt: dispatch.startedAt || now,
@@ -130,7 +136,7 @@ export class WorkerTaskDispatchService {
       errorMessage: args.errorMessage === undefined ? dispatch.errorMessage : args.errorMessage,
     });
 
-    this.executionRepository.updateTaskRun(taskRun.id, {
+    this.taskRunRepository.updateTaskRun(taskRun.id, {
       connectionId: args.connectionId ?? taskRun.connectionId ?? null,
       provider: args.provider === undefined ? taskRun.provider : args.provider,
       mode: taskRun.mode ?? "docker_cli",
@@ -150,7 +156,7 @@ export class WorkerTaskDispatchService {
       status: taskUpdateStatus,
     });
 
-    this.executionRepository.appendTaskRunEvent(taskRun.id, this.mapTaskRunStateToEventType(args.state, cancelRequested, pauseRequested), args.connectionId ? "connection" : "system", {
+    this.taskRunRepository.appendTaskRunEvent(taskRun.id, this.mapTaskRunStateToEventType(args.state, cancelRequested, pauseRequested), args.connectionId ? "connection" : "system", {
       dispatchId: dispatch.id,
       connectionId: args.connectionId ?? null,
       connectionKey: args.connectionKey ?? null,
@@ -232,7 +238,7 @@ export class WorkerTaskDispatchService {
       });
     }
     if (nextDispatch.sprintRunId) {
-      this.executionRepository.finalizeSprintRunCancellationIfIdle(nextDispatch.sprintRunId);
+      this.sprintRunRepository.finalizeSprintRunCancellationIfIdle(nextDispatch.sprintRunId);
     }
     if (args.connectionId) {
       this.connectionChatRepository.touchConnectionHeartbeat(args.connectionId, "listening");
@@ -295,7 +301,7 @@ export class WorkerTaskDispatchService {
       throw new Error(`Connection ${connection.connectionKey} is not bound to any active project.`);
     }
 
-    const affinityProjectIds = this.executionRepository.listWorkerProjectAffinity(connection.id);
+    const affinityProjectIds = this.taskRunRepository.listWorkerProjectAffinity(connection.id);
     if (affinityProjectIds.length === 0) {
       return projectIds;
     }
@@ -344,7 +350,7 @@ export class WorkerTaskDispatchService {
   }
 
   private requireDispatch(dispatchId: string) {
-    const dispatch = this.executionRepository.getTaskDispatch(dispatchId);
+    const dispatch = this.taskRunRepository.getTaskDispatch(dispatchId);
     if (!dispatch) {
       throw new Error(`Task dispatch not found: ${dispatchId}`);
     }
@@ -352,7 +358,7 @@ export class WorkerTaskDispatchService {
   }
 
   private requireTaskRun(dispatchId: string) {
-    const taskRun = this.executionRepository.getTaskRunByDispatchId(dispatchId);
+    const taskRun = this.taskRunRepository.getTaskRunByDispatchId(dispatchId);
     if (!taskRun) {
       throw new Error(`Task run not found for dispatch ${dispatchId}`);
     }
@@ -426,7 +432,7 @@ export class WorkerTaskDispatchService {
   }
 
   private captureDispatchSummaryMemory(
-    dispatch: ReturnType<ExecutionRepository["getTaskDispatch"]> & { projectId: string; taskId: string; sprintId?: string | null },
+    dispatch: ReturnType<TaskRunRepository["getTaskDispatch"]> & { projectId: string; taskId: string; sprintId?: string | null },
     summaryMarkdown: string,
   ): void {
     if (!this.memoryService) return;

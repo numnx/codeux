@@ -12,6 +12,9 @@ import type {
 } from "../contracts/app-types.js";
 import type { UpdateTaskDispatchInput, UpdateTaskRunInput } from "../contracts/execution-types.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import { runCommandStrict, type CommandResult } from "./cli-process-runner.js";
@@ -46,6 +49,9 @@ import { ProviderQuotaError } from "../shared/providers/provider-error-classifie
 interface CliWorkflowServiceDependencies {
   sessionTracking: SessionTrackingRepository;
   executionRepository?: ExecutionRepository;
+  sprintRunRepository?: SprintRunRepository;
+  taskRunRepository?: TaskRunRepository;
+  invocationRepository?: InvocationRepository;
   projectManagementRepository?: ProjectManagementRepository;
   activeDispatchRegistry?: ActiveDispatchRegistry;
   memoryService?: MemoryService;
@@ -404,7 +410,7 @@ export class CliWorkflowService {
         unregisterDispatch?.();
         const taskRun = this.resolveTaskRun(args);
         if (taskRun?.sprintRunId) {
-          this.deps.executionRepository?.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
+          this.deps.sprintRunRepository?.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
         }
       }
     }
@@ -440,7 +446,7 @@ export class CliWorkflowService {
       return;
     }
 
-    this.deps.executionRepository?.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
+    this.deps.taskRunRepository?.appendTaskRunEvent(taskRun.id, eventType, "system", payload, {
       sourceEventKey,
     });
   }
@@ -470,13 +476,13 @@ export class CliWorkflowService {
       prUrl: input.prUrl === undefined ? taskRun.prUrl : input.prUrl,
       workerBranch: input.workerBranch === undefined ? taskRun.workerBranch || args.workerBranch : input.workerBranch,
     };
-    this.deps.executionRepository.updateTaskRun(taskRun.id, taskRunUpdate);
+    this.deps.taskRunRepository?.updateTaskRun(taskRun.id, taskRunUpdate);
     this.deps.projectManagementRepository?.updateTask(taskRun.taskId, {
       status: input.state === "COMPLETED" ? "coding_completed" : input.state === "FAILED" ? "pending" : "in_progress",
     });
 
     if (taskRun.dispatchId) {
-      this.deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
+      this.deps.taskRunRepository?.updateTaskDispatch(taskRun.dispatchId, {
         status: input.dispatchStatus,
         finishedAt: input.finishedAt,
         lastHeartbeatAt: input.finishedAt,
@@ -487,9 +493,9 @@ export class CliWorkflowService {
 
   private resolveTaskRun(args: { taskRunId?: string; sessionId: string }) {
     if (args.taskRunId) {
-      return this.deps.executionRepository?.getTaskRun(args.taskRunId) || null;
+      return this.deps.taskRunRepository?.getTaskRun(args.taskRunId) || null;
     }
-    return this.deps.executionRepository?.getLatestTaskRunBySessionId(args.sessionId) || null;
+    return this.deps.taskRunRepository?.getLatestTaskRunBySessionId(args.sessionId) || null;
   }
 
   // Restored for tests

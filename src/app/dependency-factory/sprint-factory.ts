@@ -104,6 +104,9 @@ export function createSprintDependencies(
   );
 
   const workerInboxReplyService = new WorkerInboxReplyService({
+      sprintRunRepository: coreDeps.sprintRunRepository,
+      taskRunRepository: coreDeps.taskRunRepository,
+      invocationRepository: coreDeps.invocationRepository,
     projectManagementRepository,
     connectionChatRepository: coreDeps.connectionChatRepository,
     taskService,
@@ -116,6 +119,9 @@ export function createSprintDependencies(
   });
 
   const qualityAssuranceService = new QualityAssuranceService({
+      sprintRunRepository: coreDeps.sprintRunRepository,
+      taskRunRepository: coreDeps.taskRunRepository,
+      invocationRepository: coreDeps.invocationRepository,
     projectManagementRepository,
     executionRepository,
     sessionTracking,
@@ -130,12 +136,18 @@ export function createSprintDependencies(
   });
 
   const virtualWorkerService = new VirtualWorkerService({
+      sprintRunRepository: coreDeps.sprintRunRepository,
+      taskRunRepository: coreDeps.taskRunRepository,
+      invocationRepository: coreDeps.invocationRepository,
     settingsRepository: coreDeps.settingsRepository,
     sessionTracking,
     executionRepository,
     projectManagementRepository,
     workerEndpointRepository: coreDeps.workerEndpointRepository,
     projectWorkerAssignmentRepository: coreDeps.projectWorkerAssignmentRepository,
+      sprintRunRepository: appDeps.sprintRunRepository,
+      taskRunRepository: appDeps.taskRunRepository,
+      invocationRepository: appDeps.invocationRepository,
     projectWorkerAssignmentService: coreDeps.projectWorkerAssignmentService,
     projectAttentionService,
     workerTaskDispatchService: new WorkerTaskDispatchService(
@@ -181,6 +193,9 @@ export function createSprintDependencies(
   });
 
   const sprintOrchestrator = new SprintOrchestrator({
+      sprintRunRepository: coreDeps.sprintRunRepository,
+      taskRunRepository: coreDeps.taskRunRepository,
+      invocationRepository: coreDeps.invocationRepository,
     settings: context.runtimeContext.settings,
     dashboardPort: options.appConfig.dashboardPort,
     getDashboardPort: () => context.getDashboardPort(),

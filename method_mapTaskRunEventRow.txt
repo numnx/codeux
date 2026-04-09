@@ -1,0 +1,11 @@
+  private mapTaskRunEventRow(row: TaskRunEventRow): TaskRunEventRecord {
+    return {
+      id: row.id,
+      taskRunId: row.task_run_id,
+      eventType: row.event_type,
+      originator: row.originator,
+      payload: parsePayloadJson(row.payload_json),
+      sourceEventKey: row.source_event_key,
+      createdAt: row.created_at,
+    };
+  }

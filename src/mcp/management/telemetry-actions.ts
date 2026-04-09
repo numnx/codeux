@@ -1,9 +1,15 @@
 import type { ManageSprintOsArgs, ManagementResponseEnvelope } from "../../contracts/internal-management-types.js";
 import type { ExecutionRepository } from "../../repositories/execution-repository.js";
+import { SprintRunRepository } from "../../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../../repositories/execution/invocation-repository.js";
 
 export const handleTelemetryActions = async (
   args: ManageSprintOsArgs,
-  executionRepository: ExecutionRepository
+  executionRepository: ExecutionRepository,
+  sprintRunRepository: SprintRunRepository,
+  taskRunRepository: TaskRunRepository,
+  invocationRepository: InvocationRepository
 ): Promise<ManagementResponseEnvelope> => {
   const { action, payload } = args;
 
@@ -45,7 +51,7 @@ export const handleTelemetryActions = async (
         if (!projectId || !sprintId) {
           throw new Error("Missing required 'projectId' or 'sprintId' for list_sprint_runs");
         }
-        const runs = await executionRepository.listSprintRuns(projectId, sprintId);
+        const runs = await sprintRunRepository.listSprintRuns(projectId, sprintId);
         // keep response compact
         const compactRuns = runs.map((run) => ({
           id: run.id,
@@ -70,7 +76,7 @@ export const handleTelemetryActions = async (
         if (!projectId || !sprintId || !taskId) {
           throw new Error("Missing required 'projectId', 'sprintId', or 'taskId' for list_task_dispatches");
         }
-        const dispatches = await executionRepository.listTaskDispatches({ projectId, sprintId, taskId });
+        const dispatches = await taskRunRepository.listTaskDispatches({ projectId, sprintId, taskId });
         const compactDispatches = dispatches.map((d) => ({
           id: d.id,
           taskId: d.taskId,
@@ -98,7 +104,7 @@ export const handleTelemetryActions = async (
           throw new Error("Missing required 'projectId' for list_execution_invocations");
         }
 
-        const invocations = await executionRepository.listExecutionInvocations({ projectId, taskRunId: taskId });
+        const invocations = await invocationRepository.listExecutionInvocations({ projectId, taskRunId: taskId });
         const compactInvocations = invocations.map((i) => ({
           id: i.id,
           type: i.type,
@@ -122,7 +128,7 @@ export const handleTelemetryActions = async (
         if (!invocationId) {
           throw new Error("Missing required 'invocationId' for list_execution_invocation_messages");
         }
-        const messages = await executionRepository.listExecutionInvocationMessages(invocationId);
+        const messages = await invocationRepository.listExecutionInvocationMessages(invocationId);
         const compactMessages = messages.map((m) => ({
           id: m.id,
           invocationId: m.invocationId,

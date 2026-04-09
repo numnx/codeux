@@ -27,6 +27,9 @@ import { ProjectManagementRepository } from "../repositories/project-management-
 import { ProjectRuntimeRepository } from "../repositories/project-runtime-repository.js";
 import { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import type { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import type { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
@@ -131,6 +134,9 @@ export class JulesAgentServer {
   private sprintPreviewService: SprintPreviewService;
   private agentPresetSyncService: AgentPresetSyncService;
   private executionRepository: ExecutionRepository;
+  private sprintRunRepository: SprintRunRepository;
+  private taskRunRepository: TaskRunRepository;
+  private invocationRepository: InvocationRepository;
   private sprintMarkdownService: SprintMarkdownService;
   private virtualWorkerService: VirtualWorkerService;
   private externalSettingsHints: ExternalSettingsHints;
@@ -186,11 +192,17 @@ export class JulesAgentServer {
     this.agentPresetRepository = deps.agentPresetRepository;
     this.agentPresetSyncService = deps.agentPresetSyncService;
     this.executionRepository = deps.executionRepository;
+    this.sprintRunRepository = deps.sprintRunRepository;
+    this.taskRunRepository = deps.taskRunRepository;
+    this.invocationRepository = deps.invocationRepository;
     this.sprintPreviewRepository = new SprintPreviewRepository(this.appDbStorage);
     this.sprintPreviewService = new SprintPreviewService({
       sprintPreviewRepository: this.sprintPreviewRepository,
       projectManagementRepository: this.projectManagementRepository,
       executionRepository: this.executionRepository,
+      sprintRunRepository: this.sprintRunRepository,
+      taskRunRepository: this.taskRunRepository,
+      invocationRepository: this.invocationRepository,
       settingsRepository: this.settingsRepository,
       logger: this.logger.child({ component: "sprint-preview-service" }),
     });
@@ -935,7 +947,7 @@ export class JulesAgentServer {
       // Trigger rehydration of the dashboard after it's fully booted and configured
       if (recoveredSprintRunIds.length > 0) {
         for (const runId of recoveredSprintRunIds) {
-           const sprintRun = this.executionRepository.getSprintRun(runId);
+           const sprintRun = this.sprintRunRepository.getSprintRun(runId);
            if (sprintRun) {
                this.dashboardRealtimeService.scheduleProjectLiveRefresh(sprintRun.projectId);
            }

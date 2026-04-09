@@ -2,6 +2,9 @@ import type { DashboardSettings, ProviderId, Subtask } from "../contracts/app-ty
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ProjectWorkerAssignmentRepository } from "../repositories/project-worker-assignment-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import { SprintRunRepository } from "../repositories/execution/sprint-run-repository.js";
+import { TaskRunRepository } from "../repositories/execution/task-run-repository.js";
+import { InvocationRepository } from "../repositories/execution/invocation-repository.js";
 import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
@@ -23,6 +26,9 @@ interface ChatThreadRuntimeServiceDependencies {
   connectionChatRepository: ConnectionChatRepository;
   projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository;
   executionRepository: ExecutionRepository;
+  sprintRunRepository: SprintRunRepository;
+  taskRunRepository: TaskRunRepository;
+  invocationRepository: InvocationRepository;
   taskService: TaskService;
   getDashboardSettings: () => DashboardSettings;
   getGithubToken: () => string | undefined;
@@ -392,7 +398,7 @@ export class ChatThreadRuntimeService {
     const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(projectId)).instructionMarkdown.trim();
     const promptContent = buildChatCompactionPrompt({ projectId, repoPath, projectName, thread, messages, workerInstructions });
     const finalPrompt = buildProviderPrompt(promptContent, thinkingMode as any);
-    const execInvocation = this.deps.executionRepository.createExecutionInvocation({
+    const execInvocation = this.deps.invocationRepository.createExecutionInvocation({
       projectId,
       type: "chat_compaction",
       provider,
@@ -407,7 +413,7 @@ export class ChatThreadRuntimeService {
       taskRunId: null,
     });
 
-    this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+    this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
       role: "user",
       contentMarkdown: finalPrompt,
     });
@@ -425,7 +431,7 @@ export class ChatThreadRuntimeService {
         githubToken,
         continueSessionId: null,
         onActivity: (desc, originator) => {
-          this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+          this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
             role: originator === "user" ? "user" : "assistant",
             contentMarkdown: `[Status] ${desc}`,
           });
@@ -437,11 +443,11 @@ export class ChatThreadRuntimeService {
         throw new Error(`Provider ${provider} returned an empty compaction summary.`);
       }
 
-      this.deps.executionRepository.appendExecutionInvocationMessage(execInvocation.id, {
+      this.deps.invocationRepository.appendExecutionInvocationMessage(execInvocation.id, {
         role: "assistant",
         contentMarkdown: markdown,
       });
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
         status: "completed",
         finishedAt: new Date().toISOString(),
       });
@@ -455,7 +461,7 @@ export class ChatThreadRuntimeService {
         sourceMessageCount: messages.length,
       };
     } catch (err: any) {
-      this.deps.executionRepository.updateExecutionInvocation(execInvocation.id, {
+      this.deps.invocationRepository.updateExecutionInvocation(execInvocation.id, {
         status: "failed",
         finishedAt: new Date().toISOString(),
       });

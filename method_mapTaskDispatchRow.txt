@@ -1,0 +1,21 @@
+  private mapTaskDispatchRow(row: TaskDispatchRow): TaskDispatchRecord {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      sprintId: row.sprint_id,
+      taskId: row.task_id,
+      sprintRunId: row.sprint_run_id,
+      connectionId: row.connection_id,
+      executorType: row.executor_type as TaskDispatchRecord["executorType"],
+      status: row.status as TaskDispatchRecord["status"],
+      priority: toNumber(row.priority),
+      queuedAt: row.queued_at,
+      claimedAt: row.claimed_at,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      lastHeartbeatAt: row.last_heartbeat_at,
+      errorMessage: row.error_message,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
