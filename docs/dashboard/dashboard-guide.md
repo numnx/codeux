@@ -283,6 +283,7 @@ Legacy runtime:
 - Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
 - Virtual-worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or handled by the virtual worker lane
 - Settings page now exposes Browser Preview as its own primary left-rail category, covering preview enablement, in-app browser visibility, launch/rebuild automation, Git sync on rebuild, maximum active preview containers, port allocation, and the project-relative preview startup script path
+- The Integrations settings panel now returns the selected detail view to normal document flow after the slide animation completes, so tall forms like GitHub configuration can extend to full height instead of being clipped to the shorter integrations list.
 
 ### Dashboard view
 - Task statistics

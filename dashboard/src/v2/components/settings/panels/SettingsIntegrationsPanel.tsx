@@ -43,10 +43,12 @@ import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
     if (isInitialMount.current) {
       isInitialMount.current = false;
       if (selectedIntegration === null) {
-        gsap.set(detailRef.current, { display: "none" });
+        gsap.set(listRef.current, { display: "block", position: "relative", x: "0%", opacity: 1 });
+        gsap.set(detailRef.current, { display: "none", position: "absolute", top: 0, left: 0, x: "100%", opacity: 0 });
       } else {
-        gsap.set(detailRef.current, { display: "block" });
-        gsap.set(listRef.current, { x: "-100%", opacity: 0 });
+        gsap.set(listRef.current, { display: "none", position: "relative", x: "-100%", opacity: 0 });
+        gsap.set(detailRef.current, { display: "block", position: "relative", top: "auto", left: "auto", x: "0%", opacity: 1 });
+        gsap.set(containerRef.current, { height: "auto" });
       }
       return;
     }
@@ -56,7 +58,8 @@ import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
 
     if (isEnteringDetail) {
       setActiveIntegrationDetail(selectedIntegration);
-      gsap.set(detailRef.current, { display: "block", x: "100%", opacity: 0 });
+      gsap.set(listRef.current, { display: "block", position: "relative", x: "0%", opacity: 1 });
+      gsap.set(detailRef.current, { display: "block", position: "absolute", top: 0, left: 0, x: "100%", opacity: 0 });
       gsap.set(containerRef.current, { height: detailRef.current.offsetHeight });
 
       tl.to(listRef.current, {
@@ -70,11 +73,19 @@ import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
         duration: 0.4,
         ease: "power3.inOut",
         onComplete: () => {
+          if (listRef.current) {
+            gsap.set(listRef.current, { display: "none" });
+          }
+          if (detailRef.current) {
+            gsap.set(detailRef.current, { position: "relative", top: "auto", left: "auto", x: "0%", opacity: 1 });
+          }
           if (containerRef.current) gsap.set(containerRef.current, { height: "auto" });
         }
       }, 0);
     } else {
-      gsap.set(containerRef.current, { height: listRef.current.offsetHeight });
+      gsap.set(listRef.current, { display: "block", position: "absolute", top: 0, left: 0, x: "-100%", opacity: 0 });
+      gsap.set(detailRef.current, { display: "block", position: "absolute", top: 0, left: 0, x: "0%", opacity: 1 });
+      gsap.set(containerRef.current, { height: containerRef.current.offsetHeight });
 
       tl.to(detailRef.current, {
         x: "100%",
@@ -91,6 +102,9 @@ import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
         duration: 0.4,
         ease: "power3.inOut",
         onComplete: () => {
+          if (listRef.current) {
+            gsap.set(listRef.current, { position: "relative", top: "auto", left: "auto", x: "0%", opacity: 1 });
+          }
           if (containerRef.current) gsap.set(containerRef.current, { height: "auto" });
         }
       }, 0);
