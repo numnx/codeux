@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import gsap from "gsap";
 import { Search, X, Layers, Activity, Cpu, Box, ArrowRight } from "lucide-preact";
 import { SearchResultRow } from "./SearchResultRow";
+import { useNavigate } from "@tanstack/react-router";
 
 
 export type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string };
@@ -26,6 +27,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
     const overlayRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const triggerRef = useRef<HTMLElement | null>(null);
     const [focusedIndex, setFocusedIndex] = useState(-1);
 
     const CATEGORIES: Array<{ id: string; title: string; icon: any; items: ReadonlyArray<SearchItem> }> = [
@@ -35,12 +37,28 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
         { id: 'containers', title: 'Preview Containers', icon: Box, items: results.containers }
     ];
 
-    const allItems = CATEGORIES.flatMap(c => c.items);
+    const allItems = CATEGORIES.flatMap(c => c.items.map(item => ({ ...item, categoryType: c.id })));
+
+    const navigate = useNavigate({ from: "/" });
+
+    const handleSelect = (item: SearchItem, categoryType: string) => {
+        if (categoryType === 'sprints') {
+            navigate({ to: "/tasks", search: { sprint: item.id } });
+        } else if (categoryType === 'tasks') {
+            navigate({ to: "/tasks", search: { sprint: item.sprint || '' } });
+        } else if (categoryType === 'agents') {
+            navigate({ to: "/agents" });
+        } else if (categoryType === 'containers') {
+            navigate({ to: "/browser" });
+        }
+        onClose();
+    };
 
     useLayoutEffect(() => {
         if (!overlayRef.current || !containerRef.current) return;
 
         if (isOpen) {
+            triggerRef.current = document.activeElement as HTMLElement;
             gsap.set(overlayRef.current, { display: 'flex' });
 
             const tl = gsap.timeline();
@@ -63,6 +81,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
         } else {
             const tl = gsap.timeline({
                 onComplete: () => {
+                    triggerRef.current?.focus();
                     if (overlayRef.current) {
                         gsap.set(overlayRef.current, { display: 'none' });
                     }
@@ -91,8 +110,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                 setFocusedIndex(prev => (prev > 0 ? prev - 1 : allItems.length - 1));
             } else if (e.key === 'Enter' && focusedIndex >= 0) {
                 e.preventDefault();
-                // Handle selection (mock for now)
-                onClose();
+                handleSelect(allItems[focusedIndex], allItems[focusedIndex].categoryType);
             }
         };
 
@@ -175,6 +193,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                                                         isFocused={isFocused}
                                                         onFocus={() => setFocusedIndex(currentIndex)}
                                                         activeItemRef={isFocused ? activeItemRef : null}
+                                                        onSelect={() => handleSelect(item, category.id)}
                                                     />
                                                 );
                                             })

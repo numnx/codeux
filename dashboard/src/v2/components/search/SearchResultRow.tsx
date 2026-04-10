@@ -8,6 +8,7 @@ interface SearchResultRowProps {
     isFocused: boolean;
     onFocus: () => void;
     activeItemRef: preact.Ref<HTMLButtonElement> | null;
+    onSelect: () => void;
 }
 
 export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
@@ -16,6 +17,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
     isFocused,
     onFocus,
     activeItemRef,
+    onSelect,
 }) => {
     // Determine icon and specific formatting based on category
     let Icon = Target;
@@ -74,6 +76,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
             aria-label={`${categoryType} result: ${title}`}
             role="option"
             aria-selected={isFocused}
+            onClick={onSelect}
             className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all duration-200 overflow-hidden outline-none ${
                 isFocused
                     ? 'bg-signal-500/8 dark:bg-signal-500/10 border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-2xl'

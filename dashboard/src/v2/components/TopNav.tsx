@@ -58,7 +58,11 @@ export function useDropdownKeyboard(
                 containerRef.current.querySelectorAll<HTMLElement>(
                     'button:not([disabled]), a[href], input:not([disabled])'
                 )
-            ).filter(el => el !== toggleRef.current);
+            ).filter(el =>
+                el !== toggleRef.current &&
+                el.getAttribute('aria-disabled') !== 'true' &&
+                !el.classList.contains('cursor-not-allowed')
+            );
 
             if (focusableElements.length === 0) return;
 
@@ -81,10 +85,14 @@ export function useDropdownKeyboard(
             setTimeout(() => {
                 if (!containerRef.current) return;
                 const focusableElements = Array.from(
-                    containerRef.current.querySelectorAll<HTMLElement>(
-                        'button:not([disabled]), a[href], input:not([disabled])'
-                    )
-                ).filter(el => el !== toggleRef.current);
+                containerRef.current.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), a[href], input:not([disabled])'
+                )
+            ).filter(el =>
+                el !== toggleRef.current &&
+                el.getAttribute('aria-disabled') !== 'true' &&
+                !el.classList.contains('cursor-not-allowed')
+            );
 
                 if (focusableElements.length > 0) {
                     focusableElements[0]?.focus();

@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { Heart, Play, Trash2 } from "lucide-preact";
+import { Heart, Play, Trash2, Loader2 } from "lucide-preact";
 
 export interface SprintLedgerBulkActionsProps {
   selectedCount: number;
@@ -37,7 +37,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Heart className="h-3 w-3" fill="currentColor" />
+            {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className="h-3 w-3" fill="currentColor" />}
             Pin
           </button>
           <button
@@ -46,7 +46,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Heart className="h-3 w-3" />
+            {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className="h-3 w-3" />}
             Unpin
           </button>
           <button
@@ -55,7 +55,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 transition-colors hover:bg-signal-500/20 dark:text-signal-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Play className="h-3 w-3" fill="currentColor" />
+            {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" fill="currentColor" />}
             Start
           </button>
           <button
@@ -64,7 +64,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-full border border-status-red/20 bg-status-red/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-status-red transition-colors hover:bg-status-red/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Trash2 className="h-3 w-3" />
+            {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
             Delete
           </button>
           <button

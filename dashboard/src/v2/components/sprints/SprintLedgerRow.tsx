@@ -1,4 +1,5 @@
 import type { FunctionComponent } from "preact";
+import { Loader2 } from "lucide-preact";
 import { memo } from "preact/compat";
 import {
   AlertTriangle,
@@ -105,7 +106,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
               : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
           } disabled:cursor-not-allowed disabled:opacity-50`}
         >
-          <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
+          {pendingActionIds.has(pinActionId) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />}
         </button>
       </td>
       <td className="px-4 py-3 min-w-[8rem] align-middle">
@@ -181,7 +182,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
                 : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            {activeRun ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
+            {pendingActionIds.has(pendingActionId) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : activeRun ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
             {activeRun ? "Stop" : "Start"}
           </button>
           <a
@@ -197,7 +198,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             disabled={isRowPending}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <MoreVertical className="h-3.5 w-3.5" />
+            {isRowPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreVertical className="h-3.5 w-3.5" />}
           </button>
         </div>
       </td>
