@@ -541,6 +541,8 @@ export interface ProviderSettings {
   weight: number;
   thinkingMode: ThinkingMode;
   apiKey: string;
+  mountAuth: boolean;
+  authPath: string;
   maxConcurrentTasks: number;
 }
 

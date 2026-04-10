@@ -145,14 +145,18 @@ export class TaskService {
     };
     const route = this.resolveInvocationProvider("task_coding", pseudoTask);
     const provider = route.provider;
+    const selectedProviderConfigId = route.providerConfigId || route.provider;
+    const selectedProviderSettings = route.providers[selectedProviderConfigId];
 
     if (provider !== "jules") {
       return await this.deps.cliWorkflowService.startTask({
         provider,
         providerSettingsOverride: {
-          model: route.providers[provider].model,
-          thinkingMode: route.providers[provider].thinkingMode,
-          apiKey: route.providers[provider].apiKey,
+          model: selectedProviderSettings.model,
+          thinkingMode: selectedProviderSettings.thinkingMode,
+          apiKey: selectedProviderSettings.apiKey,
+          providerMountAuth: selectedProviderSettings.mountAuth,
+          providerAuthPath: selectedProviderSettings.authPath,
         },
         task: {
           ...pseudoTask,
@@ -204,14 +208,18 @@ export class TaskService {
     // Respect task.provider if already set (e.g. from a rerun with provider override)
     const route = this.resolveInvocationProvider("task_coding", task, { scope: settingsScope });
     const provider = task.provider || route.provider;
+    const selectedProviderConfigId = route.providerConfigId || route.provider;
+    const selectedProviderSettings = route.providers[selectedProviderConfigId];
 
     if (provider !== "jules") {
       const session = await this.deps.cliWorkflowService.startTask({
         provider,
         providerSettingsOverride: {
-          model: route.providers[provider].model,
-          thinkingMode: route.providers[provider].thinkingMode,
-          apiKey: route.providers[provider].apiKey,
+          model: selectedProviderSettings.model,
+          thinkingMode: selectedProviderSettings.thinkingMode,
+          apiKey: selectedProviderSettings.apiKey,
+          providerMountAuth: selectedProviderSettings.mountAuth,
+          providerAuthPath: selectedProviderSettings.authPath,
         },
         task,
         repoPath,

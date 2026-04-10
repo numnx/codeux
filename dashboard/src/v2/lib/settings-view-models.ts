@@ -267,6 +267,14 @@ export const createSystemProviderDraft = (
   provider: providerId,
   name,
   apiKey: "",
+  mountAuth: false,
+  authPath: providerId === "gemini"
+    ? "~/.gemini"
+    : providerId === "codex"
+      ? "~/.codex"
+      : providerId === "claude-code"
+        ? "~/.claude"
+        : "",
 });
 
 export const sortProviderConfigEntries = <T extends { provider: ProviderId; name: string }>(
@@ -403,6 +411,14 @@ const getSystemIntegrationProviders = (
       provider: providerId,
       name: getProviderTypeLabel(providerId),
       apiKey,
+      mountAuth: false,
+      authPath: providerId === "gemini"
+        ? "~/.gemini"
+        : providerId === "codex"
+          ? "~/.codex"
+          : providerId === "claude-code"
+            ? "~/.claude"
+            : "",
     };
   }
   return fallback;
@@ -463,47 +479,46 @@ export const isProviderAvailable = (
   providerId: ProviderId,
   systemSettings: SystemSettings | null,
   hints: ExternalSettingsHints | null,
-  mountAuthEnabled = false,
 ): boolean => (
   hasAnyProviderApiKey(providerId, systemSettings, hints)
-  || (providerId !== "jules" && mountAuthEnabled)
+  || (providerId !== "jules" && getSystemProvidersByType(systemSettings, providerId).some(([, provider]) => provider.mountAuth))
 );
 
 export const isProviderInstanceAvailable = (
   providerConfigId: ProviderConfigId,
   systemSettings: SystemSettings | null,
-  mountAuthEnabled: boolean,
 ): boolean => {
-  const providerType = getSystemIntegrationProviders(systemSettings)[providerConfigId]?.provider;
+  const providerConfig = getSystemIntegrationProviders(systemSettings)[providerConfigId];
+  const providerType = providerConfig?.provider;
   if (!providerType) {
     return false;
   }
   return hasProviderInstanceApiKey(providerConfigId, systemSettings)
-    || (providerType !== "jules" && mountAuthEnabled);
+    || (providerType !== "jules" && providerConfig.mountAuth);
 };
 
 export const getProviderInstanceAuthLabel = (
   providerConfigId: ProviderConfigId,
   systemSettings: SystemSettings | null,
   dockerExecutionEnabled: boolean,
-  mountAuthEnabled: boolean,
 ): string | null => {
-  const providerType = getSystemIntegrationProviders(systemSettings)[providerConfigId]?.provider;
+  const providerConfig = getSystemIntegrationProviders(systemSettings)[providerConfigId];
+  const providerType = providerConfig?.provider;
   if (!providerType) {
     return null;
   }
   const hasApiKey = hasProviderInstanceApiKey(providerConfigId, systemSettings);
-  const hasMountedAuth = providerType !== "jules" && mountAuthEnabled && dockerExecutionEnabled;
+  const hasMountedAuth = providerType !== "jules" && providerConfig.mountAuth;
 
   if (providerType === "jules") {
     return hasApiKey ? "API key" : null;
   }
 
   if (hasMountedAuth && hasApiKey) {
-    return "Auth mount + API key";
+    return dockerExecutionEnabled ? "Auth mount + API key" : "Mount config + API key";
   }
   if (hasMountedAuth) {
-    return "Auth mount enabled";
+    return dockerExecutionEnabled ? "Auth mount enabled" : "Mount config enabled";
   }
   return hasApiKey ? "API key" : null;
 };
@@ -513,19 +528,15 @@ export const getProviderAuthLabel = (
   systemSettings: SystemSettings | null,
   hints: ExternalSettingsHints | null,
   dockerExecutionEnabled: boolean,
-  mountAuthEnabled: boolean,
 ): string | null => {
   const systemProviders = getSystemProvidersByType(systemSettings, providerId);
   if (systemProviders.length > 0) {
     const labels = systemProviders
-      .map(([providerConfigId]) => getProviderInstanceAuthLabel(providerConfigId, systemSettings, dockerExecutionEnabled, mountAuthEnabled))
+      .map(([providerConfigId]) => getProviderInstanceAuthLabel(providerConfigId, systemSettings, dockerExecutionEnabled))
       .filter((label): label is string => Boolean(label));
     if (labels.length > 0) {
       return labels.length === 1 ? labels[0] : `${labels.length} credentials`;
     }
-  }
-  if (providerId !== "jules" && mountAuthEnabled && dockerExecutionEnabled) {
-    return "Auth mount enabled";
   }
   return hasAnyProviderApiKey(providerId, systemSettings, hints) ? "API key" : null;
 };
@@ -541,14 +552,7 @@ export const getEligibleProviders = (
       if (!providerType) {
         return false;
       }
-      const mountAuthEnabled = providerType === "gemini"
-        ? editableSettings.cliWorkflow.containerMountGeminiAuth
-        : providerType === "codex"
-          ? editableSettings.cliWorkflow.containerMountCodexAuth
-          : providerType === "claude-code"
-            ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth
-            : false;
-      return provider.enabled && (isProviderInstanceAvailable(providerConfigId, systemSettings, mountAuthEnabled)
+      return provider.enabled && (isProviderInstanceAvailable(providerConfigId, systemSettings)
         || Boolean(getHintApiKey(providerType, hints)));
     })
     .map(([providerConfigId]) => providerConfigId)
@@ -560,7 +564,7 @@ export const countConnectedProviders = (
   hints: ExternalSettingsHints | null,
 ): number => {
   const stored = getSystemProvidersByType(systemSettings, providerId)
-    .filter(([, provider]) => provider.apiKey.trim().length > 0)
+    .filter(([, provider]) => provider.apiKey.trim().length > 0 || (provider.provider !== "jules" && provider.mountAuth))
     .length;
   return Math.max(stored, hints && getHintApiKey(providerId, hints).trim() ? 1 : 0);
 };

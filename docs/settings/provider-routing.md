@@ -17,7 +17,7 @@ Sprint OS now separates:
 - invocation-specific routing rules
 - named provider instances per CLI type
 
-*(Note: In routing contexts, `available` means detected credentials/auth presence or an enabled auth mount, whereas `enabled` means user-approved routing participation.)*
+*(Note: In routing contexts, `available` means detected credentials/auth presence or local auth enabled on that exact provider instance, whereas `enabled` means user-approved routing participation.)*
 
 ## Configuration Model
 
@@ -45,6 +45,7 @@ Each `aiProvider.invocationRouting.<routeId>` entry contains:
 Provider instances are first-class routing targets:
 - the default built-in instances use ids `jules`, `gemini`, `codex`, and `claude-code`
 - additional instances can be added under the same provider type, such as multiple Codex credentials with different names and weights
+- each CLI instance also carries its own optional Docker auth-copy source (`mountAuth` + `authPath`), so routing one Codex instance vs another can change both credentials and local auth mount source
 - `MANUAL` selects one exact instance
 - `WEIGHTED` distributes across enabled instances, even when several share the same provider type
 - `ORCHESTRATOR` picks a provider type first, then selects a matching enabled instance within that type
@@ -69,7 +70,8 @@ Provider instances are first-class routing targets:
 6. Filter by `allowedProviders`, then by any runtime provider pool restriction.
 7. Run the selected strategy.
 8. If Jules is selected but unavailable, Sprint OS reroutes within the remaining eligible providers.
-9. Legacy provider-id keyed payloads are normalized into the instance model so older settings rows and tests continue to resolve through the new routing engine.
+9. When a CLI instance is selected for Docker execution, Sprint OS forwards that instance's `mountAuth` and `authPath` into the runtime so the chosen route controls which local credential directory is copied.
+10. Legacy provider-id keyed payloads are normalized into the instance model so older settings rows and tests continue to resolve through the new routing engine.
 
 ## Current Defaults
 
@@ -108,6 +110,8 @@ The v2 settings page exposes:
 - invocation route profile and strategy
 - per-route provider-instance subset selection
 - per-route model and thinking-mode overrides
+- per-instance API-key and local-auth configuration in Integrations
+- restored Git Flow controls plus GitHub auth-copy controls in the live panel set
 - quick category search with `/` focus
 - a compact provider deck that edits one named provider instance in a focused detail panel
 - a split-pane invocation route workspace with route summaries, provider-pool counts, and override counts

@@ -284,6 +284,8 @@ export class VirtualWorkerService {
         ),
         thinkingMode: providerSettings.thinkingMode,
         apiKey: providerSettings.apiKey,
+        providerMountAuth: providerSettings.mountAuth,
+        providerAuthPath: providerSettings.authPath,
       },
       task: {
         record_id: claim.task.id,
@@ -500,7 +502,8 @@ export class VirtualWorkerService {
       providerPool: ["gemini", "codex", "claude-code"],
     });
     const provider = route.provider as Exclude<ProviderId, "jules">;
-    const providerSettings = route.providers[route.providerConfigId];
+    const providerConfigId = route.providerConfigId || route.provider;
+    const providerSettings = route.providers[providerConfigId];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -548,13 +551,15 @@ export class VirtualWorkerService {
           workflowSettings,
           repoPath,
           worktreePath: finalWorktreePath,
-        sessionId,
-        attentionItem: item,
-        purpose: "merge_conflict",
-        model: providerSettings.model,
-        apiKey: providerSettings.apiKey,
-        githubToken: settings.git.githubToken,
-      });
+          sessionId,
+          attentionItem: item,
+          purpose: "merge_conflict",
+          model: providerSettings.model,
+          apiKey: providerSettings.apiKey,
+          providerMountAuth: providerSettings.mountAuth,
+          providerAuthPath: providerSettings.authPath,
+          githubToken: settings.git.githubToken,
+        });
       }
       await this.ensureMergeConflictResolved(finalWorktreePath);
       await this.finalizeMergeCommit(finalWorktreePath, sourceBranch, targetBranch);
@@ -641,7 +646,8 @@ export class VirtualWorkerService {
       providerPool: ["gemini", "codex", "claude-code"],
     });
     const provider = route.provider as Exclude<ProviderId, "jules">;
-    const providerSettings = route.providers[route.providerConfigId];
+    const providerConfigId = route.providerConfigId || route.provider;
+    const providerSettings = route.providers[providerConfigId];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -704,6 +710,8 @@ export class VirtualWorkerService {
         purpose: "ci_fix",
         model: providerSettings.model,
         apiKey: providerSettings.apiKey,
+        providerMountAuth: providerSettings.mountAuth,
+        providerAuthPath: providerSettings.authPath,
         githubToken: settings.git.githubToken,
       });
 
@@ -847,6 +855,8 @@ export class VirtualWorkerService {
     purpose: "ci_fix" | "merge_conflict";
     model: string;
     apiKey: string;
+    providerMountAuth?: boolean;
+    providerAuthPath?: string;
     githubToken: string;
   }): Promise<void> {
     const result = await this.providerExecutionService.executeProvider({
@@ -863,6 +873,8 @@ export class VirtualWorkerService {
       cwd: args.worktreePath,
       model: args.model,
       apiKey: args.apiKey,
+      providerMountAuth: args.providerMountAuth,
+      providerAuthPath: args.providerAuthPath,
       sessionId: args.sessionId,
       workflowSettings: args.workflowSettings,
       repoPath: args.repoPath,

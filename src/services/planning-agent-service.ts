@@ -463,6 +463,8 @@ export class PlanningAgentService {
         provider,
         model: providerSettings.model,
         apiKey: providerSettings.apiKey,
+        providerMountAuth: providerSettings.mountAuth,
+        providerAuthPath: providerSettings.authPath,
         providerPrompt: args.rawPrompt,
         repoPath: args.repoPath,
         settings: {

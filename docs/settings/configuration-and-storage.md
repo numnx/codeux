@@ -102,11 +102,13 @@ Runtime resolution:
 
 System-level integrations are injected into effective dashboard settings at resolution time:
 - provider credentials are system-scoped under `integrations.providers`
-  - each entry is a named provider instance with `{ provider, name, apiKey }`
+  - each entry is a named provider instance with `{ provider, name, apiKey, mountAuth, authPath }`
   - default instance ids intentionally match the base provider ids (`jules`, `gemini`, `codex`, `claude-code`) for compatibility with older settings payloads
   - additional instances can coexist under the same CLI type
+  - for CLI providers, `mountAuth` and `authPath` are instance-specific Docker auth-copy settings, so multiple Codex/Gemini/Claude entries can each point at different local credential directories
 - `git.githubToken` is system-scoped
 - runtime fields like `dashboardPort` and `enableDebugLogFile` are system-scoped
+- project and sprint scopes still own `cliWorkflow.containerMountGithubAuth`, `cliWorkflow.containerGithubAuthPath`, and `cliWorkflow.containerMountGitConfig`
 
 Backend contract:
 - `src/contracts/app-types.ts`
@@ -151,6 +153,9 @@ Dashboard behavior:
   - one provider is edited at a time in the provider deck detail panel
   - invocation routing is edited in a split-pane route workspace with resolved default, provider-pool, and override summaries
 - common 2-3 option settings such as routing strategy, worker execution mode, execution runtime, and merge mode use pill controls for faster scanning than dropdown-heavy forms
+- the Integrations panel restores the Git host workspace:
+  - system scope edits the GitHub token and per-instance CLI auth sources
+  - project and sprint scopes edit GitHub auth-copy mounts and gitconfig sharing for Docker runs
 
 `aiProvider` contains:
 - `provider` (`ProviderConfigId|null`)
@@ -162,8 +167,8 @@ Dashboard behavior:
   - Dashboard settings editors therefore hide `model` and `thinkingMode` for Jules and show an informational note instead.
   - Gemini alias entries `pro`, `flash`, and `flash-lite` are labeled as recent aliases in selects so it is clear they track the latest model target.
   - Sprint OS performs startup availability checks for Gemini, Codex, and Claude Code, looking for API-key hints and stable local auth artifacts to prepare future onboarding decisions.
-  - Enabling a provider auth mount in Integrations also marks matching CLI provider instances active in the dashboard so mount-based Docker setups show the expected connected state even without an API key.
-  - Note: `available` means an API key is present from saved settings/import hints or an auth-copy mount is enabled. Local host auth files alone do not mark a CLI provider or provider instance active unless the matching Docker auth-copy mount is enabled. `enabled` means user-approved routing participation. CLI providers are opt-in on fresh installs and disabled by default.
+  - Enabling local auth on a named provider instance in Integrations also marks that instance active in the dashboard so mount-based Docker setups show the expected connected state even without an API key.
+  - Note: `available` means an API key is present from saved settings/import hints or that specific provider instance has `mountAuth = true`. Local host auth files alone do not mark a CLI provider or provider instance active unless the matching named instance has local auth enabled. `enabled` means user-approved routing participation. CLI providers are opt-in on fresh installs and disabled by default.
   - `invocationRouting` map
   - route ids:
     - `task_coding`

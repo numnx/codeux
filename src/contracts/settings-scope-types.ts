@@ -81,6 +81,8 @@ export interface SystemProviderCredentialSettings {
   provider: ProviderId;
   name: string;
   apiKey: string;
+  mountAuth: boolean;
+  authPath: string;
 }
 
 export interface SystemIntegrationSettings {

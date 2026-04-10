@@ -13,6 +13,7 @@ import type {
   SystemProviderCredentialSettings,
 } from "../../contracts/settings-scope-types.js";
 import {
+  DEFAULT_PROVIDER_AUTH_PATHS,
   DEFAULT_PROVIDER_CONFIG_IDS,
   DEFAULT_PROVIDER_CONFIG_NAMES,
   DEFAULT_PROVIDER_SETTINGS,
@@ -48,21 +49,29 @@ export const buildDefaultIntegrationProviders = (
     provider: "jules",
     name: DEFAULT_PROVIDER_CONFIG_NAMES.jules,
     apiKey: getHintApiKeyForProvider("jules", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.jules,
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.gemini]: {
     provider: "gemini",
     name: DEFAULT_PROVIDER_CONFIG_NAMES.gemini,
     apiKey: getHintApiKeyForProvider("gemini", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.gemini,
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.codex]: {
     provider: "codex",
     name: DEFAULT_PROVIDER_CONFIG_NAMES.codex,
     apiKey: getHintApiKeyForProvider("codex", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.codex,
   },
   [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: {
     provider: "claude-code",
     name: DEFAULT_PROVIDER_CONFIG_NAMES["claude-code"],
     apiKey: getHintApiKeyForProvider("claude-code", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS["claude-code"],
   },
 });
 
@@ -81,6 +90,16 @@ const normalizeProviderName = (providerId: ProviderId, value: unknown): string =
     return value.trim();
   }
   return DEFAULT_PROVIDER_CONFIG_NAMES[providerId];
+};
+
+const normalizeProviderAuthPath = (providerId: ProviderId, value: unknown): string => {
+  if (providerId === "jules") {
+    return "";
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return DEFAULT_PROVIDER_AUTH_PATHS[providerId];
 };
 
 export const normalizeSystemIntegrationProviders = (
@@ -104,6 +123,8 @@ export const normalizeSystemIntegrationProviders = (
       provider: providerId,
       name: normalizeProviderName(providerId, rawValue.name),
       apiKey: typeof rawValue.apiKey === "string" ? rawValue.apiKey : "",
+      mountAuth: providerId === "jules" ? false : typeof rawValue.mountAuth === "boolean" ? rawValue.mountAuth : false,
+      authPath: normalizeProviderAuthPath(providerId, rawValue.authPath),
     };
   }
 
@@ -124,6 +145,8 @@ export const normalizeSystemIntegrationProviders = (
       provider: providerId,
       name: result[defaultId]?.name || DEFAULT_PROVIDER_CONFIG_NAMES[providerId],
       apiKey: legacyApiKey,
+      mountAuth: result[defaultId]?.mountAuth ?? false,
+      authPath: result[defaultId]?.authPath || DEFAULT_PROVIDER_AUTH_PATHS[providerId],
     };
   }
 
@@ -208,6 +231,10 @@ export const buildDashboardProviderSettings = (
           apiKey: integrationProviders[providerConfigId]?.apiKey
             || Object.entries(integrationProviders).find(([, integrationProvider]) => integrationProvider.provider === providerId)?.[1]?.apiKey
             || "",
+          mountAuth: integrationProviders[providerConfigId]?.mountAuth
+            || false,
+          authPath: integrationProviders[providerConfigId]?.authPath
+            || DEFAULT_PROVIDER_AUTH_PATHS[providerId],
         },
       ];
     }),

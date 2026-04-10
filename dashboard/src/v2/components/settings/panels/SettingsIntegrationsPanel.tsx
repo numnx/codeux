@@ -176,16 +176,6 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
 
   const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
 
-  const getMountAuthEnabled = (providerId: ProviderId): boolean => (
-    providerId === "gemini"
-      ? editableSettings.cliWorkflow.containerMountGeminiAuth
-      : providerId === "codex"
-        ? editableSettings.cliWorkflow.containerMountCodexAuth
-        : providerId === "claude-code"
-          ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth
-          : false
-  );
-
   const updateIntegrationProviders = (
     transform: (providers: SystemSettings["integrations"]["providers"]) => SystemSettings["integrations"]["providers"],
   ): void => {
@@ -248,49 +238,6 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
     });
   };
 
-  const renderProviderMountSettings = (providerId: ProviderId) => {
-    const mountField = providerId === "gemini"
-      ? "containerMountGeminiAuth"
-      : providerId === "codex"
-        ? "containerMountCodexAuth"
-        : "containerMountClaudeCodeAuth";
-    const pathField = providerId === "gemini"
-      ? "containerGeminiAuthPath"
-      : providerId === "codex"
-        ? "containerCodexAuthPath"
-        : "containerClaudeCodeAuthPath";
-    const enabled = getMountAuthEnabled(providerId);
-    const pathValue = editableSettings.cliWorkflow[pathField];
-
-    return (
-      <>
-        <Row label={`Mount ${getProviderTypeLabel(providerId)} auth`} description={`Copy ${getProviderTypeLabel(providerId)} host auth into Docker for this scope.`} badge={getFieldBadge(`cliWorkflow.${mountField}`)}>
-          <Toggle value={enabled} onChange={() => updateEditableSettings((current) => ({
-            ...current,
-            cliWorkflow: {
-              ...current.cliWorkflow,
-              [mountField]: !current.cliWorkflow[mountField],
-            },
-          }))} />
-        </Row>
-        <Row label={`${getProviderTypeLabel(providerId)} auth path`} description="Host path copied into the Docker runtime for this provider type." badge={getFieldBadge(`cliWorkflow.${pathField}`)} last>
-          <TextInput
-            value={pathValue}
-            onChange={(value) => updateEditableSettings((current) => ({
-              ...current,
-              cliWorkflow: {
-                ...current.cliWorkflow,
-                [pathField]: value,
-              },
-            }))}
-            disabled={!enabled}
-            mono
-          />
-        </Row>
-      </>
-    );
-  };
-
   const renderIntegrationDetail = () => {
     const integrationId = activeIntegrationDetail || selectedIntegration;
     if (!integrationId) return null;
@@ -306,20 +253,67 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
       return (
         <>
           {backButton}
-          <SectionCard title="GitHub Configuration" watermark="GIT">
-            <Row label="GitHub token" description="System token used for repository, PR, and CI integration." last>
-              <TextInput
-                value={systemSettings.integrations.githubToken}
-                onChange={(value) => updateSystem((current) => ({
+          <SectionCard title="Git Host Configuration" watermark="GIT">
+            {activeScope === "system" ? (
+              <Row label="GitHub token" description="System token used for repository, PR, and CI integration.">
+                <TextInput
+                  value={systemSettings.integrations.githubToken}
+                  onChange={(value) => updateSystem((current) => ({
+                    ...current,
+                    integrations: {
+                      ...current.integrations,
+                      githubToken: value,
+                    },
+                  }))}
+                  mono
+                />
+              </Row>
+            ) : (
+              <NoticePanel title="System-owned token">
+                GitHub tokens are stored at system scope. This scope still controls whether Docker copies host git credentials.
+              </NoticePanel>
+            )}
+            <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker for this scope." badge={getFieldBadge("cliWorkflow.containerMountGithubAuth")}>
+              <Toggle
+                value={editableSettings.cliWorkflow.containerMountGithubAuth}
+                onChange={() => updateEditableSettings((current) => ({
                   ...current,
-                  integrations: {
-                    ...current.integrations,
-                    githubToken: value,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountGithubAuth: !current.cliWorkflow.containerMountGithubAuth,
                   },
                 }))}
+              />
+            </Row>
+            <Row label="GitHub auth path" description="Host path copied into the Docker runtime for GitHub CLI auth." badge={getFieldBadge("cliWorkflow.containerGithubAuthPath")}>
+              <TextInput
+                value={editableSettings.cliWorkflow.containerGithubAuthPath}
+                onChange={(value) => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerGithubAuthPath: value,
+                  },
+                }))}
+                disabled={!editableSettings.cliWorkflow.containerMountGithubAuth}
                 mono
               />
             </Row>
+            <Row label="Mount git config" description="Share host `.gitconfig` with Docker for repository identity and git defaults." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last>
+              <Toggle
+                value={editableSettings.cliWorkflow.containerMountGitConfig}
+                onChange={() => updateEditableSettings((current) => ({
+                  ...current,
+                  cliWorkflow: {
+                    ...current.cliWorkflow,
+                    containerMountGitConfig: !current.cliWorkflow.containerMountGitConfig,
+                  },
+                }))}
+              />
+            </Row>
+            <NoticePanel title="GitLab status">
+              GitLab CLI support is already present in the backend via `glab`, host detection, and GitLab CI queries. Dashboard token storage is still GitHub-only right now, so GitLab tokens currently come from `GITLAB_TOKEN` or `GLAB_TOKEN`.
+            </NoticePanel>
           </SectionCard>
         </>
       );
@@ -328,19 +322,17 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
     const providerId = integrationId as ProviderId;
     const providerEntries = sortProviderConfigEntries(getSystemProvidersByType(systemSettings, providerId));
 
-    if (activeScope === "project") {
+    if (activeScope !== "system") {
       return (
         <>
           {backButton}
           <SectionCard title={`${getProviderTypeLabel(providerId)} Integration`} watermark={providerId === "jules" ? "JLS" : providerId === "gemini" ? "GMN" : providerId === "codex" ? "CDX" : "CLD"}>
             <NoticePanel title="System-owned credentials">
-              Provider credentials are managed at system scope. Project scope controls whether Docker should copy host auth for this CLI type.
+              Provider credentials and auth-copy mounts are managed per instance at system scope. This keeps multiple named providers independent across every route.
             </NoticePanel>
-            {providerId === "jules" ? (
-              <NoticePanel title="Jules API">
-                Jules does not use a provider-auth mount. Configure named Jules credentials from system scope.
-              </NoticePanel>
-            ) : renderProviderMountSettings(providerId)}
+            <NoticePanel title="Scope behavior">
+              Project and sprint scopes still control GitHub auth-copy mounts and git config. Provider-specific key or local-auth choices now live on each named provider instance.
+            </NoticePanel>
           </SectionCard>
         </>
       );
@@ -389,18 +381,38 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                 <Row label="Display name" description="Used throughout AI Models and runtime route summaries.">
                   <TextInput value={provider.name} onChange={(value) => updateProviderInstance(providerConfigId, { name: value })} />
                 </Row>
-                <Row label="API key" description="Stored for this named provider instance." last={providerId === "jules" || index === providerEntries.length - 1}>
+                <Row label="API key" description="Stored for this named provider instance.">
                   <TextInput value={provider.apiKey} onChange={(value) => updateProviderInstance(providerConfigId, { apiKey: value })} mono />
                 </Row>
+                {provider.provider !== "jules" ? (
+                  <>
+                    <Row label="Mount local auth" description={`Use a copied host auth directory for ${getProviderTypeLabel(provider.provider)} instead of, or alongside, an API key.`}>
+                      <Toggle
+                        value={provider.mountAuth}
+                        onChange={() => updateProviderInstance(providerConfigId, { mountAuth: !provider.mountAuth })}
+                      />
+                    </Row>
+                    <Row label="Auth path" description="Host path copied into the Docker runtime for this exact provider instance." last={index === providerEntries.length - 1}>
+                      <TextInput
+                        value={provider.authPath}
+                        onChange={(value) => updateProviderInstance(providerConfigId, { authPath: value })}
+                        disabled={!provider.mountAuth}
+                        mono
+                      />
+                    </Row>
+                  </>
+                ) : (
+                  <Row label="Jules auth mode" description="Jules uses API keys only and does not support a local auth mount." last={index === providerEntries.length - 1}>
+                    <div className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">API key only</div>
+                  </Row>
+                )}
               </div>
             ))
           )}
 
-          {providerId !== "jules" ? (
-            <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
-              Docker auth-copy mounts remain provider-type level, not instance level. They make a CLI type available even without an API key, but routing still selects among named instances on the AI Models page.
-            </div>
-          ) : null}
+          <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+            Routing uses named provider instances exactly as configured on the AI Models page. If Docker mode is active, a provider instance marked with local auth will copy only that instance’s configured auth path into the runtime.
+          </div>
         </SectionCard>
       </>
     );
@@ -442,8 +454,8 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
 
                   const providerId = integration.id as ProviderId;
                   const connectedCount = countConnectedProviders(providerId, systemSettings, externalHints);
-                  const active = isProviderAvailable(providerId, systemSettings, externalHints, getMountAuthEnabled(providerId));
-                  const authLabel = getProviderAuthLabel(providerId, systemSettings, externalHints, dockerExecutionEnabled, getMountAuthEnabled(providerId));
+                  const active = isProviderAvailable(providerId, systemSettings, externalHints);
+                  const authLabel = getProviderAuthLabel(providerId, systemSettings, externalHints, dockerExecutionEnabled);
 
                   return (
                     <div key={integration.id} className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-black/[0.06] bg-white/82 px-4 py-4 dark:border-white/[0.06] dark:bg-white/[0.04]">

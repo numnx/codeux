@@ -61,6 +61,12 @@ export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   codex: "Codex Primary",
   "claude-code": "Claude Primary",
 };
+export const DEFAULT_PROVIDER_AUTH_PATHS: Record<ProviderId, string> = {
+  jules: "",
+  gemini: "~/.gemini",
+  codex: "~/.codex",
+  "claude-code": "~/.claude",
+};
 
 // AI Models catalog — available model identifiers per virtual worker provider
 export const GEMINI_MODELS: string[] = [
@@ -131,6 +137,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     weight: 60,
     thinkingMode: "MEDIUM",
     apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.jules,
     maxConcurrentTasks: 15,
   },
   gemini: {
@@ -141,6 +149,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     weight: 20,
     thinkingMode: "MEDIUM",
     apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.gemini,
     maxConcurrentTasks: 0,
   },
   codex: {
@@ -151,6 +161,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     weight: 20,
     thinkingMode: "HIGH",
     apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.codex,
     maxConcurrentTasks: 0,
   },
   "claude-code": {
@@ -161,6 +173,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     weight: 0,
     thinkingMode: "HIGH",
     apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS["claude-code"],
     maxConcurrentTasks: 0,
   },
 };

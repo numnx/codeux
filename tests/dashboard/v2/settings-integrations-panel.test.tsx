@@ -60,10 +60,12 @@ describe("SettingsIntegrationsPanel", () => {
       },
       systemSettings: {
         integrations: {
-          julesApiKey: "",
-          geminiApiKey: "",
-          codexApiKey: "",
-          claudeCodeApiKey: "",
+          providers: {
+            jules: { provider: "jules", name: "Jules Primary", apiKey: "", mountAuth: false, authPath: "" },
+            gemini: { provider: "gemini", name: "Gemini Primary", apiKey: "", mountAuth: false, authPath: "~/.gemini" },
+            codex: { provider: "codex", name: "Codex Primary", apiKey: "", mountAuth: false, authPath: "~/.codex" },
+            "claude-code": { provider: "claude-code", name: "Claude Primary", apiKey: "", mountAuth: false, authPath: "~/.claude" },
+          },
           githubToken: "",
         },
       },
@@ -91,7 +93,7 @@ describe("SettingsIntegrationsPanel", () => {
     const { container } = render(<SettingsIntegrationsPanel state={state} />);
 
     await waitFor(() => {
-      expect(container.textContent).toContain("GitHub Configuration");
+      expect(container.textContent).toContain("Git Host Configuration");
     });
 
     const panelRoot = container.querySelector(".flex.flex-col.gap-5") as HTMLElement;

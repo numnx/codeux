@@ -7,12 +7,10 @@ import type {
   InvocationRoutingId,
   ProjectSettings,
   ProviderConfigId,
-  ProviderId,
   ThinkingMode,
 } from "../../../../types.js";
 import {
   getEligibleProviders,
-  getProviderAuthLabel,
   getProviderInstanceAuthLabel,
   getProviderInstanceLabel,
   getProviderModelOptions,
@@ -50,16 +48,6 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
   if (!editableSettings || !systemSettings) {
     return null;
   }
-
-  const getMountAuthEnabled = (providerId: ProviderId): boolean => (
-    providerId === "gemini"
-      ? editableSettings.cliWorkflow.containerMountGeminiAuth
-      : providerId === "codex"
-        ? editableSettings.cliWorkflow.containerMountCodexAuth
-        : providerId === "claude-code"
-          ? editableSettings.cliWorkflow.containerMountClaudeCodeAuth
-          : false
-  );
 
   const providerEntries = sortProviderConfigEntries(Object.entries(editableSettings.aiProvider.providers));
   const eligibleProviderConfigIds = getEligibleProviders(systemSettings, editableSettings, externalHints);
@@ -310,9 +298,8 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                     providerConfigId,
                     systemSettings,
                     editableSettings.cliWorkflow.executionMode === "DOCKER",
-                    getMountAuthEnabled(provider.provider),
                   );
-                  const available = isProviderInstanceAvailable(providerConfigId, systemSettings, getMountAuthEnabled(provider.provider));
+                  const available = isProviderInstanceAvailable(providerConfigId, systemSettings);
                   const isGlobalDefault = editableSettings.aiProvider.provider === providerConfigId;
                   const isWorkerDefault = editableSettings.workers.virtualWorkerProvider === providerConfigId;
                   return (

@@ -84,6 +84,12 @@ const validateProviderSettings = (
   if (typeof value.apiKey !== "string") {
     issues.push({ path: `${path}.apiKey`, message: "Expected a string" });
   }
+  if (typeof value.mountAuth !== "boolean") {
+    issues.push({ path: `${path}.mountAuth`, message: "Expected a boolean" });
+  }
+  if (typeof value.authPath !== "string") {
+    issues.push({ path: `${path}.authPath`, message: "Expected a string" });
+  }
   if (typeof value.maxConcurrentTasks !== "number") {
     issues.push({ path: `${path}.maxConcurrentTasks`, message: "Expected a number" });
   }
