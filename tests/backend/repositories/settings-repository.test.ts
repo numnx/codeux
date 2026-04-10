@@ -15,9 +15,11 @@ const createRepo = async (): Promise<{ repo: SettingsRepository; dbPath: string;
 };
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
-  const repo = new SettingsRepository();
+  const cacheResetDir = await fs.mkdtemp(path.join(os.tmpdir(), "jules-settings-reset-"));
+  tempDirs.push(cacheResetDir);
+  const repo = new SettingsRepository(path.join(cacheResetDir, "settings.db"));
   repo.resetAllData();
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
 describe("SettingsRepository", () => {

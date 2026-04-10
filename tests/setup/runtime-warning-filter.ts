@@ -1,5 +1,16 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
 const originalEmitWarning = process.emitWarning.bind(process);
 const originalLogLevel = process.env.LOG_LEVEL;
+const isolatedHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), "sprint-os-vitest-home-"));
+
+process.env.HOME = isolatedHomeDir;
+process.env.USERPROFILE = isolatedHomeDir;
+process.env.XDG_CONFIG_HOME = path.join(isolatedHomeDir, ".config");
+process.env.XDG_STATE_HOME = path.join(isolatedHomeDir, ".local", "state");
+process.env.XDG_CACHE_HOME = path.join(isolatedHomeDir, ".cache");
 
 process.emitWarning = ((warning: string | Error, ...args: unknown[]) => {
   const message = typeof warning === "string" ? warning : warning?.message ?? "";
