@@ -3,6 +3,7 @@ import type { SettingsPageState } from "../../../hooks/use-settings-page-state.j
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
 import type { ProjectSettings } from "../../../../types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
+import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
 
 export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
@@ -64,7 +65,18 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             mono
           />
         </Row>
-        <Row label="Sprint branch scheme" description="Template used when naming sprint branches." badge={getFieldBadge("git.sprintBranchScheme")}>
+        <Row
+          label="Branch name scheme"
+          description="Template used when naming sprint branches."
+          badge={getFieldBadge("git.sprintBranchScheme")}
+          info={<InfoIconPopover items={[
+            { key: "{sprint}", desc: "Sprint identifier slug" },
+            { key: "{sprintNumber}", desc: "Sprint sequence number" },
+            { key: "{sprintName}", desc: "Sprint name" },
+            { key: "{date}", desc: "Current date" },
+            { key: "{taskCount}", desc: "Number of tasks in the sprint" },
+          ]} />}
+        >
           <TextInput
             value={editableSettings.git.sprintBranchScheme}
             onChange={(value) => updateEditableSettings((current) => ({
