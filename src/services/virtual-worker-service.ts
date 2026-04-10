@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DashboardSettings, JulesSession, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
+import type { DashboardSettings, JulesSession, ProviderId, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
 import type { WorkerTaskDispatchClaim } from "../contracts/execution-types.js";
 import type { ProjectAttentionItemRecord } from "../contracts/project-attention-types.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
@@ -201,9 +201,10 @@ export class VirtualWorkerService {
 
   private async runProjectCycle(projectId: string, reason: string): Promise<void> {
     const cycleSettings = this.resolveCycleSettings(projectId);
+    const cycleProviderType = cycleSettings.aiProvider.providers[cycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
     const endpoint = this.deps.workerEndpointRepository.createVirtualEndpoint({
       endpointKey: `virtual:${projectId}:${Date.now().toString(36)}:${sanitizeToken(randomUUID().slice(0, 8))}`,
-      displayName: `Virtual ${this.getProviderLabel(cycleSettings.workers.virtualWorkerProvider)} Worker`,
+      displayName: `Virtual ${this.getProviderLabel(cycleProviderType)} Worker`,
       status: "connected",
       transport: "internal",
       capabilities: {
@@ -265,8 +266,9 @@ export class VirtualWorkerService {
 
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);
-    const provider = settings.workers.virtualWorkerProvider;
-    const providerSettings = settings.aiProvider.providers[provider];
+    const providerConfigId = settings.workers.virtualWorkerProvider;
+    const providerSettings = settings.aiProvider.providers[providerConfigId];
+    const provider = providerSettings.provider as Exclude<ProviderId, "jules">;
     const taskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
     if (!taskRun) {
       throw new Error(`Task run not found for dispatch ${claim.dispatch.id}`);
@@ -497,8 +499,8 @@ export class VirtualWorkerService {
       },
       providerPool: ["gemini", "codex", "claude-code"],
     });
-    const provider = route.provider as DashboardSettings["workers"]["virtualWorkerProvider"];
-    const providerSettings = route.providers[provider];
+    const provider = route.provider as Exclude<ProviderId, "jules">;
+    const providerSettings = route.providers[route.providerConfigId];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -638,8 +640,8 @@ export class VirtualWorkerService {
       },
       providerPool: ["gemini", "codex", "claude-code"],
     });
-    const provider = route.provider as DashboardSettings["workers"]["virtualWorkerProvider"];
-    const providerSettings = route.providers[provider];
+    const provider = route.provider as Exclude<ProviderId, "jules">;
+    const providerSettings = route.providers[route.providerConfigId];
     const workflowSettings = {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
@@ -835,7 +837,7 @@ export class VirtualWorkerService {
   }
 
   private async runProviderWithRetry(args: {
-    provider: DashboardSettings["workers"]["virtualWorkerProvider"];
+    provider: Exclude<ProviderId, "jules">;
     providerPrompt: string;
     workflowSettings: DashboardSettings["cliWorkflow"];
     repoPath: string;
@@ -1034,7 +1036,7 @@ export class VirtualWorkerService {
     }
   }
 
-  private getProviderLabel(provider: DashboardSettings["workers"]["virtualWorkerProvider"]): string {
+  private getProviderLabel(provider: ProviderId): string {
     switch (provider) {
       case "claude-code":
         return "Claude Code";

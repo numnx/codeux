@@ -15,6 +15,7 @@ Sprint OS now separates:
 - global provider defaults
 - worker runtime defaults
 - invocation-specific routing rules
+- named provider instances per CLI type
 
 *(Note: In routing contexts, `available` means detected credentials/auth presence or an enabled auth mount, whereas `enabled` means user-approved routing participation.)*
 
@@ -35,11 +36,18 @@ Each `aiProvider.invocationRouting.<routeId>` entry contains:
 - `strategy`
   - `MANUAL`, `WEIGHTED`, or `ORCHESTRATOR`
 - `provider`
-  - explicit manual provider, or `null` to inherit the profile default
+  - explicit manual provider instance id, or `null` to inherit the profile default
 - `allowedProviders`
-  - optional provider subset for that invocation; empty means "all enabled providers"
+  - optional provider-instance subset for that invocation; empty means "all enabled providers"
 - `providers`
-  - sparse per-provider overrides for `enabled`, `model`, `weight`, and `thinkingMode`
+  - sparse per-provider-instance overrides for `enabled`, `model`, `weight`, and `thinkingMode`
+
+Provider instances are first-class routing targets:
+- the default built-in instances use ids `jules`, `gemini`, `codex`, and `claude-code`
+- additional instances can be added under the same provider type, such as multiple Codex credentials with different names and weights
+- `MANUAL` selects one exact instance
+- `WEIGHTED` distributes across enabled instances, even when several share the same provider type
+- `ORCHESTRATOR` picks a provider type first, then selects a matching enabled instance within that type
 
 ## Supported Invocation Routes
 
@@ -54,13 +62,14 @@ Each `aiProvider.invocationRouting.<routeId>` entry contains:
 ## Resolution Rules
 
 1. Start from the selected route.
-2. Build the baseline provider config from the route profile.
+2. Build the baseline provider-instance catalog from the route profile.
 3. Apply worker-profile defaults when `profile = WORKER`. (WORKER-profile routes no longer silently re-enable disabled CLI providers, and incompatible worker model overrides are ignored instead of being forwarded to a different provider.)
 4. If a `GLOBAL` route is still using its untouched default routing block, inherit the top-level `aiProvider.strategy`.
 5. Apply invocation-specific per-provider overrides.
 6. Filter by `allowedProviders`, then by any runtime provider pool restriction.
 7. Run the selected strategy.
 8. If Jules is selected but unavailable, Sprint OS reroutes within the remaining eligible providers.
+9. Legacy provider-id keyed payloads are normalized into the instance model so older settings rows and tests continue to resolve through the new routing engine.
 
 ## Current Defaults
 
@@ -95,12 +104,12 @@ That means:
 ## Dashboard Surface
 
 The v2 settings page exposes:
-- global provider defaults
+- global provider-instance defaults
 - invocation route profile and strategy
-- per-route provider subset selection
+- per-route provider-instance subset selection
 - per-route model and thinking-mode overrides
 - quick category search with `/` focus
-- a compact provider deck that edits one provider in a focused detail panel
+- a compact provider deck that edits one named provider instance in a focused detail panel
 - a split-pane invocation route workspace with route summaries, provider-pool counts, and override counts
 - pill-style controls for common mode switches such as profile, strategy, execution mode, and merge policy
 

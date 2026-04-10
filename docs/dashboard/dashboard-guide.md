@@ -383,7 +383,11 @@ Runtime scoping:
 - The `/config` page keeps the existing v2 settings shell and categories, but now binds them to real scoped settings instead of draft-only values
 - System scope only edits system-owned controls, while project scope only edits project-owned overrides for the selected project
 - The integrations view now owns provider API keys plus GitHub token and GitHub workflow settings, rather than splitting those across separate categories
-- The integrations view uses a registry-style list with per-integration `Configure` actions so additional integrations can be added without turning the page into one long form
+- The integrations view uses a registry-style list with per-integration `Add` and `Manage` actions so additional integrations can be added without turning the page into one long form
+- Provider integrations are now instance-based:
+  - each CLI type can have multiple named credentials
+  - the list shows connected counts per CLI type rather than a single connected/disconnected badge
+  - GitHub remains system-scoped and is edited as one configuration panel
 - Individual MCP tool toggles and skill toggles are intentionally not exposed in the current user-facing settings surface
 - CLI workflow settings now expose provider throttle controls in addition to workspace cleanup:
   - `Retry after quota reset`
@@ -453,21 +457,22 @@ Project management requests are centralized in:
 *(Note: `available` means detected credentials/auth presence, whereas `enabled` means user-approved routing participation.)*
 
 AI Provider settings now support:
-- Providers: `jules`, `gemini`, `codex`
+- Named provider instances grouped under `jules`, `gemini`, `codex`, and `claude-code`
 - Routing strategy:
-  - `MANUAL` (single default provider)
-  - `WEIGHTED` (weight-based distribution)
+  - `MANUAL` (single default provider instance)
+  - `WEIGHTED` (weight-based distribution across enabled instances)
   - `ORCHESTRATOR` (rule-based routing with weighted fallback)
-- Provider toggles (`enabled`)
+- Provider-instance toggles (`enabled`)
 - Model selection
   - Gemini: curated model list in UI
   - Codex/Jules: text model field
 - Thinking mode (`SMALL`, `MEDIUM`, `HIGH`)
-- Optional per-provider API key fields
+- Invocation routing at the provider-instance level, including instance pools and sparse per-instance overrides
 
 Behavior:
 - Empty provider key fields are valid.
 - Runtime falls back to system auth/environment where supported.
+- Multiple instances of the same CLI type are routed independently, so operators can weight several Codex or Gemini credentials differently inside one route pool.
 
 ## CI Intelligence Settings
 

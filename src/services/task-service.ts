@@ -69,12 +69,17 @@ export class TaskService {
       task,
       providerPool,
     });
+    const getEnabledProviderTypes = (resolvedRoute: ResolvedProviderRoute): ProviderId[] => (
+      resolvedRoute.enabledProviders
+        .map((providerConfigId) => resolvedRoute.providers[providerConfigId]?.provider)
+        .filter((providerId): providerId is ProviderId => Boolean(providerId))
+    );
 
     const pooledProviders = options?.providerPool;
     let resolved = buildRoute(pooledProviders);
 
     if (resolved.provider === "jules" && !this.deps.isJulesApiConfigured()) {
-      const fallbackPool = resolved.enabledProviders.filter((provider) => provider !== "jules");
+      const fallbackPool = getEnabledProviderTypes(resolved).filter((providerId) => providerId !== "jules");
       if (fallbackPool.length > 0) {
         resolved = buildRoute(fallbackPool);
       }
@@ -83,7 +88,7 @@ export class TaskService {
     const requiresCli = options?.cliOnly || settings.git.githubMode === "LOCAL";
 
     if (requiresCli && resolved.provider === "jules") {
-      const fallbackPool = resolved.enabledProviders.filter((provider) => provider !== "jules");
+      const fallbackPool = getEnabledProviderTypes(resolved).filter((providerId) => providerId !== "jules");
       if (fallbackPool.length > 0) {
         resolved = buildRoute(fallbackPool);
       }

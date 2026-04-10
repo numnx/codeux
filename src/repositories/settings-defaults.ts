@@ -5,6 +5,7 @@ import type {
   InvocationRoutingId,
   InvocationRoutingProfile,
   InvocationRoutingSettings,
+  ProviderConfigId,
   ProviderId,
   ProviderSettings,
   ProviderStrategy,
@@ -48,6 +49,18 @@ export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["DOCKER"];
 export const FEATURE_PR_AUTOMERGE_MODES: FeaturePrAutoMergeMode[] = ["OFF", "CREATE_PR", "WHEN_GREEN", "ALWAYS"];
 export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["VIRTUAL"];
 export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code"];
+export const DEFAULT_PROVIDER_CONFIG_IDS: Record<ProviderId, ProviderConfigId> = {
+  jules: "jules",
+  gemini: "gemini",
+  codex: "codex",
+  "claude-code": "claude-code",
+};
+export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
+  jules: "Jules Primary",
+  gemini: "Gemini Primary",
+  codex: "Codex Primary",
+  "claude-code": "Claude Primary",
+};
 
 // AI Models catalog — available model identifiers per virtual worker provider
 export const GEMINI_MODELS: string[] = [
@@ -111,6 +124,8 @@ export const MAX_JULES_CI_AUTOFIX_RETRIES = 20;
 
 export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
   jules: {
+    provider: "jules",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.jules,
     enabled: true,
     model: "default",
     weight: 60,
@@ -119,6 +134,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     maxConcurrentTasks: 15,
   },
   gemini: {
+    provider: "gemini",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.gemini,
     enabled: true,
     model: "default",
     weight: 20,
@@ -127,6 +144,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     maxConcurrentTasks: 0,
   },
   codex: {
+    provider: "codex",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.codex,
     enabled: true,
     model: "gpt-5.3-codex",
     weight: 20,
@@ -135,6 +154,8 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     maxConcurrentTasks: 0,
   },
   "claude-code": {
+    provider: "claude-code",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES["claude-code"],
     enabled: false,
     model: "default",
     weight: 0,
@@ -143,6 +164,22 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     maxConcurrentTasks: 0,
   },
 };
+
+export const createDefaultProviderSettings = (
+  providerId: ProviderId,
+  name = DEFAULT_PROVIDER_CONFIG_NAMES[providerId],
+): ProviderSettings => ({
+  ...DEFAULT_PROVIDER_SETTINGS[providerId],
+  provider: providerId,
+  name,
+});
+
+export const buildDefaultProviderSettingsMap = (): Record<ProviderConfigId, ProviderSettings> => ({
+  [DEFAULT_PROVIDER_CONFIG_IDS.jules]: createDefaultProviderSettings("jules"),
+  [DEFAULT_PROVIDER_CONFIG_IDS.gemini]: createDefaultProviderSettings("gemini"),
+  [DEFAULT_PROVIDER_CONFIG_IDS.codex]: createDefaultProviderSettings("codex"),
+  [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: createDefaultProviderSettings("claude-code"),
+});
 
 export const DEFAULT_INVOCATION_ROUTING: Record<InvocationRoutingId, InvocationRoutingSettings> = {
   task_coding: {
@@ -214,14 +251,9 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     clarificationCooldownSeconds: 300,
   },
   aiProvider: {
-    provider: "jules",
+    provider: DEFAULT_PROVIDER_CONFIG_IDS.jules,
     strategy: "MANUAL",
-    providers: {
-      jules: { ...DEFAULT_PROVIDER_SETTINGS.jules },
-      gemini: { ...DEFAULT_PROVIDER_SETTINGS.gemini },
-      codex: { ...DEFAULT_PROVIDER_SETTINGS.codex },
-      "claude-code": { ...DEFAULT_PROVIDER_SETTINGS["claude-code"] },
-    },
+    providers: buildDefaultProviderSettingsMap(),
     invocationRouting: {
       task_coding: { ...DEFAULT_INVOCATION_ROUTING.task_coding, allowedProviders: [], providers: {} },
       planning: { ...DEFAULT_INVOCATION_ROUTING.planning, allowedProviders: [], providers: {} },
@@ -231,7 +263,6 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
       ci_fix: { ...DEFAULT_INVOCATION_ROUTING.ci_fix, allowedProviders: [], providers: {} },
       merge_conflict: { ...DEFAULT_INVOCATION_ROUTING.merge_conflict, allowedProviders: [], providers: {} },
     },
-    julesApiKey: "",
   },
   git: {
     githubMode: "REMOTE",
@@ -309,7 +340,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   },
   workers: {
     executionMode: "VIRTUAL",
-    virtualWorkerProvider: "codex",
+    virtualWorkerProvider: DEFAULT_PROVIDER_CONFIG_IDS.codex,
     model: "gpt-5.3-codex",
     maxConcurrency: 1,
     timeoutSeconds: 300,
