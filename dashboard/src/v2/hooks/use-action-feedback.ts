@@ -48,10 +48,14 @@ export function useActionFeedback(autoDismissMs: number = 5000) {
     setWithTimeout("warning", message);
   }, [setWithTimeout]);
 
-  const setError = useCallback((message: string) => {
-    clearTimer();
-    setFeedback({ status: "error", message });
-  }, [clearTimer]);
+  const setError = useCallback((message: string, options?: { transient?: boolean }) => {
+    if (options?.transient) {
+      setWithTimeout("error", message);
+    } else {
+      clearTimer();
+      setFeedback({ status: "error", message });
+    }
+  }, [clearTimer, setWithTimeout]);
 
   return {
     feedback,
