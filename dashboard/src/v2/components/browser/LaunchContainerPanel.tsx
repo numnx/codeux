@@ -28,6 +28,7 @@ export const LaunchContainerPanel: FunctionComponent<LaunchContainerPanelProps> 
         <select
           value={launchSprintId}
           onChange={(event) => onLaunchSprintChange((event.currentTarget as HTMLSelectElement).value)}
+          disabled={!launchEnabled || launchBusy || sprints.length === 0}
           aria-disabled={!launchEnabled || launchBusy || sprints.length === 0}
           className={`w-full rounded-[1rem] border border-black/[0.08] bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-signal-500/40 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200 ${
             (!launchEnabled || launchBusy || sprints.length === 0) ? "cursor-not-allowed opacity-60 pointer-events-none" : ""
@@ -43,6 +44,7 @@ export const LaunchContainerPanel: FunctionComponent<LaunchContainerPanelProps> 
 
         <button
           type="button"
+          disabled={!launchEnabled || launchBusy || sprints.length === 0 || !launchSprintId}
           onClick={() => {
             if (launchEnabled && !launchBusy && sprints.length > 0 && launchSprintId) {
               onLaunchContainer();

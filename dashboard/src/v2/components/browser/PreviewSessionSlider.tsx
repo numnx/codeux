@@ -150,6 +150,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                       onRemoveSession(session.id);
                     }
                   }}
+                  disabled={removing}
                   className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 ${
                     removing
                     ? "border-status-red/15 bg-status-red/5 text-status-red/50 cursor-not-allowed"
