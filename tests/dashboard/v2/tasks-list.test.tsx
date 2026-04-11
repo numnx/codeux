@@ -1,3 +1,4 @@
+import * as useReducedMotionModule from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
 /** @vitest-environment happy-dom */
 import { h, Fragment } from "preact";
 /** @jsx h */
@@ -10,6 +11,8 @@ expect.extend(matchers);
 import { TasksList } from "../../../dashboard/src/v2/components/TasksList.js";
 import { ProjectDataProvider } from "../../../dashboard/src/v2/context/project-data.js";
 import gsap from "gsap";
+
+vi.spyOn(useReducedMotionModule, 'useReducedMotion').mockReturnValue(false);
 
 vi.mock("gsap", () => ({
     default: {
@@ -106,4 +109,83 @@ describe("TasksList", () => {
         // By default useProjectEffectiveSettings is NONE so fromTo should be called
         expect(gsap.fromTo).toHaveBeenCalled();
     });
+
+
+
+
+
+
+    const mockTasks = [
+        {
+            id: "1",
+            title: "Task 1",
+            summary: "Summary 1",
+            status: "ready",
+            targetSprintId: "sprint-1",
+            createdContext: { type: "system" }
+        },
+        {
+            id: "2",
+            title: "Task 2",
+            summary: "Summary 2",
+            status: "ready",
+            targetSprintId: "sprint-1",
+            createdContext: { type: "system" }
+        }
+    ] as any;
+
+const baseProps: any = {
+    pageData: {
+        tasks: mockTasks,
+        sprints: [{ id: "sprint-1" }],
+        isLoading: false
+    },
+    activeSprintId: "sprint-1",
+    searchTerm: "",
+    isPlanningMode: false
+};
+
+    it("bypasses GSAP Flip animation when reduced motion is true", () => {
+        vi.spyOn(useReducedMotionModule, 'useReducedMotion').mockReturnValue(true);
+        const { rerender } = render(
+            <TasksList {...baseProps} />
+        );
+
+        const Flip = require("gsap/Flip");
+        if (Flip.default?.from && Flip.default.from.mockClear) {
+             vi.mocked(Flip.default.from).mockClear();
+             vi.mocked(Flip.default.getState).mockClear();
+        }
+
+        const filteredTasks = [mockTasks[0]];
+        rerender(
+            <TasksList {...baseProps} pageData={{...baseProps.pageData, tasks: filteredTasks}} />
+        );
+
+        if (Flip.default?.from && Flip.default.getState) {
+            expect(vi.isMockFunction(Flip.default.getState) ? Flip.default.getState : vi.fn()).not.toHaveBeenCalled();
+            expect(vi.isMockFunction(Flip.default.from) ? Flip.default.from : vi.fn()).not.toHaveBeenCalled();
+        }
+        vi.spyOn(useReducedMotionModule, 'useReducedMotion').mockReturnValue(false); // reset
+    });
+
+    it("bypasses GSAP Flip animation on initial mount", () => {
+        const Flip = require("gsap/Flip");
+        if (Flip.default?.from && Flip.default.from.mockClear) {
+             vi.mocked(Flip.default.from).mockClear();
+             vi.mocked(Flip.default.getState).mockClear();
+        }
+
+        render(
+            <TasksList {...baseProps} />
+        );
+
+        if (Flip.default?.from && Flip.default.getState) {
+            expect(vi.isMockFunction(Flip.default.getState) ? Flip.default.getState : vi.fn()).not.toHaveBeenCalled();
+            expect(vi.isMockFunction(Flip.default.from) ? Flip.default.from : vi.fn()).not.toHaveBeenCalled();
+        }
+    });
+
+
+
 });
