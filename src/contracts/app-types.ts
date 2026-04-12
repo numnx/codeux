@@ -423,6 +423,20 @@ export interface ProjectExecutionStatsSnapshot {
     count: number;
   }>;
   chartSeries: ProjectExecutionStatsChartSeries[];
+  reliability: {
+    providers: ProviderReliabilityMetrics[];
+  };
+}
+
+export interface ProviderReliabilityMetrics {
+  providerId: string;
+  distinctTaskCount: number;
+  invocationCount: number;
+  failedInvocationCount: number;
+  failureRate: number;
+  averageActiveTimePerTask: number;
+  averageTotalTokensPerTask: number;
+  averageInvocationsPerTask: number;
 }
 
 export interface OverviewTelemetryProjectSummary {

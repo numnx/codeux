@@ -171,4 +171,96 @@ describe("queryProjectStatsSnapshot", () => {
     expect(snapshot.chartSeries.find(s => s.id === 'git_prs')).toMatchObject({ grouping: 'git', formatter: 'number', defaultEnabled: false });
     expect(snapshot.chartSeries.find(s => s.id === 'git_merges')).toMatchObject({ grouping: 'git', formatter: 'number', defaultEnabled: false });
   });
+
+  it("computes provider reliability metrics correctly", () => {
+    const invocations = [
+      { provider: "openai", status: "success", duration_ms: 100, total_tokens: 1000, task_id: "t1" },
+      { provider: "openai", status: "failed", duration_ms: 200, total_tokens: 500, task_id: "t1" },
+      { provider: "openai", status: "success", duration_ms: 150, total_tokens: 1500, task_id: "t2" },
+      { provider: "anthropic", status: "failed", duration_ms: 300, total_tokens: 2000, task_id: "t3" },
+    ];
+
+    const dbMock = {
+      prepare: vi.fn().mockImplementation((query) => {
+        if (query.includes('FROM provider_invocations')) {
+          return { all: vi.fn().mockReturnValue(invocations) };
+        }
+        return {
+          get: vi.fn().mockReturnValue({ id: "proj-1", name: "Project 1" }),
+          all: vi.fn().mockReturnValue([]),
+        };
+      })
+    };
+
+    const depsMock: ProjectStatsQueryDependencies = {
+      requireProject: vi.fn(),
+      getWallTimeTotalsByTaskIdsForRange: vi.fn().mockReturnValue(new Map()),
+      getWallTimeTotalsBySprintRunIdsForRange: vi.fn().mockReturnValue(new Map()),
+      getTaskMetadata: vi.fn().mockReturnValue(new Map()),
+      getSprintMetadata: vi.fn().mockReturnValue(new Map()),
+      mapProviderInvocationUsageRow: vi.fn().mockImplementation((row: any) => ({
+        provider: row.provider,
+        status: row.status,
+        durationMs: row.duration_ms,
+        totalTokens: row.total_tokens,
+        taskId: row.task_id,
+        startedAt: new Date().toISOString()
+      })),
+      mergeUsageTotals: vi.fn(),
+      mergeUsageMap: vi.fn(),
+      updateLastActivity: vi.fn(),
+    };
+
+    const snapshot = queryProjectStatsSnapshot(dbMock as any, "proj-1", "7d", depsMock);
+
+    expect(snapshot.reliability.providers).toHaveLength(2);
+
+    const anthropic = snapshot.reliability.providers.find(p => p.providerId === "anthropic")!;
+    expect(anthropic.distinctTaskCount).toBe(1);
+    expect(anthropic.invocationCount).toBe(1);
+    expect(anthropic.failedInvocationCount).toBe(1);
+    expect(anthropic.failureRate).toBe(1);
+    expect(anthropic.averageActiveTimePerTask).toBe(300);
+    expect(anthropic.averageTotalTokensPerTask).toBe(2000);
+    expect(anthropic.averageInvocationsPerTask).toBe(1);
+
+    const openai = snapshot.reliability.providers.find(p => p.providerId === "openai")!;
+    expect(openai.distinctTaskCount).toBe(2);
+    expect(openai.invocationCount).toBe(3);
+    expect(openai.failedInvocationCount).toBe(1);
+    expect(openai.failureRate).toBe(1/3);
+    expect(openai.averageActiveTimePerTask).toBe(450 / 2);
+    expect(openai.averageTotalTokensPerTask).toBe(3000 / 2);
+    expect(openai.averageInvocationsPerTask).toBe(3 / 2);
+  });
+
+  it("handles zero data gracefully for provider reliability metrics", () => {
+    const dbMock = {
+      prepare: vi.fn().mockImplementation((query) => {
+        if (query.includes('FROM provider_invocations')) {
+          return { all: vi.fn().mockReturnValue([]) };
+        }
+        return {
+          get: vi.fn().mockReturnValue({ id: "proj-1", name: "Project 1" }),
+          all: vi.fn().mockReturnValue([]),
+        };
+      })
+    };
+
+    const depsMock: ProjectStatsQueryDependencies = {
+      requireProject: vi.fn(),
+      getWallTimeTotalsByTaskIdsForRange: vi.fn().mockReturnValue(new Map()),
+      getWallTimeTotalsBySprintRunIdsForRange: vi.fn().mockReturnValue(new Map()),
+      getTaskMetadata: vi.fn().mockReturnValue(new Map()),
+      getSprintMetadata: vi.fn().mockReturnValue(new Map()),
+      mapProviderInvocationUsageRow: vi.fn(),
+      mergeUsageTotals: vi.fn(),
+      mergeUsageMap: vi.fn(),
+      updateLastActivity: vi.fn(),
+    };
+
+    const snapshot = queryProjectStatsSnapshot(dbMock as any, "proj-1", "7d", depsMock);
+    expect(snapshot.reliability.providers).toHaveLength(0);
+  });
+
 });
