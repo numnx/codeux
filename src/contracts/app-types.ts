@@ -408,6 +408,11 @@ export interface ProjectExecutionStatsSnapshot {
   generatedAt: string;
   usage: ExecutionUsageTotals;
   git: ExecutionGitStatsSummary;
+  reliability: {
+    failureRatesByProvider: Record<string, number>;
+    avgTimePerTaskMs: number;
+    avgTokensPerTask: number;
+  };
   activeSprint: {
     sprintId: string;
     sprintName: string;

@@ -386,6 +386,15 @@ export const InteractiveUsageChart: FunctionComponent<{
               series={chartData}
               enabledSeries={enabledSeries}
               activeIndex={activeIndex}
+              onToggleSeries={(id) => {
+                setEnabledSeries(curr => {
+                  const next = { ...curr, [id]: !curr[id] };
+                  if (!Object.values(next).some(Boolean)) {
+                    return curr; // prevent all being disabled
+                  }
+                  return next;
+                });
+              }}
             />
             <div className={`${SUBPANEL_CLASS} p-5`}>
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Focused Bucket</div>

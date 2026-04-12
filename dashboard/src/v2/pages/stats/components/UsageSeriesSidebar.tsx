@@ -5,11 +5,30 @@ export const UsageSeriesSidebar: FunctionComponent<{
   series: NormalizedChartSeries[];
   enabledSeries: Record<string, boolean>;
   activeIndex: number;
-}> = ({ series, enabledSeries, activeIndex }) => {
+  onToggleSeries?: (id: string) => void;
+}> = ({ series, enabledSeries, activeIndex, onToggleSeries }) => {
   const visibleSeries = series.filter(s => enabledSeries[s.id]);
 
   return (
     <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2 mb-2 max-h-32 overflow-y-auto dashboard-scrollbar pr-2 pb-2">
+        {series.map(s => {
+          const isEnabled = enabledSeries[s.id];
+          return (
+            <button
+              key={s.id}
+              onClick={() => onToggleSeries && onToggleSeries(s.id)}
+              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border rounded-xl ${
+                isEnabled
+                  ? 'border-signal-500 bg-signal-500/10 text-signal-700 dark:text-signal-400'
+                  : 'border-black/[0.06] text-slate-400 hover:border-black/[0.12] dark:border-white/[0.06] dark:text-slate-500 dark:hover:border-white/[0.12]'
+              }`}
+            >
+              {s.label}
+            </button>
+          )
+        })}
+      </div>
       {visibleSeries.map((s) => {
         const currentValue = s.values[activeIndex] || 0;
 

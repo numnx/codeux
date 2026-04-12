@@ -9,42 +9,44 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
 
   return (
     <div className={`${PANEL_CLASS} flex flex-col`}>
-      <div className="flex items-center gap-4 border-b border-black/[0.08] px-6 py-4 dark:border-white/[0.08]">
-        <button
-          type="button"
-          onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
-            activeTab === "tasks"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          }`}
-        >
-          Task Telemetry
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("sprints")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
-            activeTab === "sprints"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          }`}
-        >
-          Sprint Telemetry
-        </button>
-        {stats.git ? (
+      <div className="px-6 py-4 border-b border-black/[0.08] dark:border-white/[0.08]">
+        <div className="inline-flex rounded-full bg-slate-100 p-1 dark:bg-void-900 border border-black/[0.06] dark:border-white/[0.06]">
           <button
             type="button"
-            onClick={() => setActiveTab("git")}
-            className={`px-4 py-2 text-sm font-bold transition-colors ${
-              activeTab === "git"
-                ? "text-slate-900 dark:text-white"
-                : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            onClick={() => setActiveTab("tasks")}
+            className={`rounded-full px-5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-all ${
+              activeTab === "tasks"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-void-800 dark:text-white"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
-            Git Telemetry
+            Tasks
           </button>
-        ) : null}
+          <button
+            type="button"
+            onClick={() => setActiveTab("sprints")}
+            className={`rounded-full px-5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-all ${
+              activeTab === "sprints"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-void-800 dark:text-white"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            }`}
+          >
+            Sprints
+          </button>
+          {stats.git ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("git")}
+              className={`rounded-full px-5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-all ${
+                activeTab === "git"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-void-800 dark:text-white"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              Git
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex-1 p-6">

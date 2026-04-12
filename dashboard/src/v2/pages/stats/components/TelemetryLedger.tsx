@@ -128,10 +128,10 @@ export const TelemetryLedger: FunctionComponent<{
                         {index + 1}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                          <div className="min-w-0">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0 xl:w-1/3">
                             <div className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
-                            <div className="mt-1 flex flex-wrap gap-2">
+                            <div className="mt-2 flex flex-wrap gap-2">
                               {item.secondaryLabel ? (
                                 <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
                                   {item.secondaryLabel}
@@ -144,26 +144,22 @@ export const TelemetryLedger: FunctionComponent<{
                               ) : null}
                             </div>
                           </div>
-                          <div className="text-left xl:text-right">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Last activity</div>
-                            <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{formatDateTime(item.lastActivityAt)}</div>
+
+                          <div className="flex-1 flex gap-4 overflow-x-auto pb-2 xl:pb-0 xl:overflow-visible">
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[110px]`}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total Tokens</div>
+                              <div className="mt-2 text-base font-black tracking-tight text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
+                            </div>
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[110px]`}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active Time</div>
+                              <div className="mt-2 text-base font-black tracking-tight text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
+                            </div>
+                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[110px]`}>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Last Active</div>
+                              <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{formatDateTime(item.lastActivityAt)}</div>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="mt-4 flex flex-wrap gap-3">
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
-                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
-                            </div>
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
-                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
-                            </div>
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
-                              <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{item.usage.invocationCount.toLocaleString()}</div>
-                            </div>
-                          </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
                           <TokenChip icon={ArrowDownRight} label="In" value={item.usage.inputTokens} tone="border-signal-500/16 bg-signal-500/8 text-signal-600 dark:text-signal-400" />

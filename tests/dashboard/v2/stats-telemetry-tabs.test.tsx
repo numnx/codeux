@@ -62,7 +62,7 @@ describe("TelemetryLedgerTabs", () => {
     expect(screen.getByText("Task 1")).toBeInTheDocument();
 
     // Click on Sprint Telemetry tab
-    fireEvent.click(screen.getByText("Sprint Telemetry"));
+    fireEvent.click(screen.getByText("Sprints"));
 
     // Assert "Task Telemetry" ledger is hidden and "Sprint Telemetry" ledger is visible
     expect(screen.queryByText("Task Ledger")).not.toBeInTheDocument();

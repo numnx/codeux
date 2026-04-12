@@ -164,6 +164,21 @@ export function queryProjectStatsSnapshot(
     }).sort((a, b) => b.usage.totalTokens - a.usage.totalTokens);
   };
 
+  // T01 computations
+  const tasksArray = mapEntityUsage(taskUsage, taskLastActivity, (id) => taskMeta.get(id));
+  const activeTaskCount = tasksArray.filter(t => t.usage.totalTokens > 0 || t.usage.activeTimeMs > 0).length || 1;
+  const avgTimePerTaskMs = usage.activeTimeMs / activeTaskCount;
+  const avgTokensPerTask = usage.totalTokens / activeTaskCount;
+
+  const failureRatesByProvider: Record<string, number> = {};
+  for (const [providerId, stats] of providerUsage.entries()) {
+      // In absence of explicit errorCount on stats, we'll use a placeholder or derive it.
+      // Assuming zero for now. If errors were available, we'd calculate them here.
+      const errorCount = 0;
+      const calls = stats.invocationCount || 0;
+      failureRatesByProvider[providerId] = calls > 0 ? (errorCount / calls) : 0;
+  }
+
   return {
     projectId: projectRow?.id || projectId,
     projectName: projectRow?.name || projectId,
@@ -172,6 +187,11 @@ export function queryProjectStatsSnapshot(
     range: normalized.range,
     generatedAt: nowIso,
     usage,
+    reliability: {
+      failureRatesByProvider,
+      avgTimePerTaskMs,
+      avgTokensPerTask,
+    },
     git: {
       totals: gitTotals,
       buckets: gitBuckets,

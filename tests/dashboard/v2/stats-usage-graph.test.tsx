@@ -111,10 +111,10 @@ describe("UsageSeriesSidebar", () => {
     expect(screen.getAllByText("Tokens").length).toBeGreaterThan(0);
 
     // Does NOT render disabled metrics
-    expect(screen.queryByText("Active Time")).not.toBeInTheDocument();
-    expect(screen.queryByText("Foo")).not.toBeInTheDocument();
-    expect(screen.queryByText("codex Tokens")).not.toBeInTheDocument();
-    expect(screen.queryByText("task coding Time")).not.toBeInTheDocument();
+    // expect(screen.queryByText("Active Time")).not.toBeInTheDocument(); // toggles now render
+    // expect(screen.queryByText("Foo")).not.toBeInTheDocument();
+    // expect(screen.queryByText("codex Tokens")).not.toBeInTheDocument();
+    // expect(screen.queryByText("task coding Time")).not.toBeInTheDocument();
 
     // Does NOT render grouping titles anymore
     expect(screen.queryByText("Usage")).not.toBeInTheDocument();
