@@ -168,6 +168,9 @@ describe("InteractiveUsageChart", () => {
     expect(screen.getAllByText("codex Tokens").length).toBeGreaterThan(0);
     expect(screen.getAllByText("purposes_time").length).toBeGreaterThan(0);
     expect(screen.getAllByText("task coding Time").length).toBeGreaterThan(0);
+
+    // Ensure the new scrollable container is rendered
+    expect(document.querySelector('.usage-filter-scrollbar')).toBeInTheDocument();
   });
 
   it("preserves state when rendering with the same stats context", () => {
