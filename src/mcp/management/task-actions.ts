@@ -22,7 +22,7 @@ const createTaskSchema = z.object({
   title: z.string().optional().default("New Task"),
   promptMarkdown: z.string().optional().default(""),
   description: z.string().optional().default(""),
-  priority: z.enum(["critical", "high", "medium", "low"]).optional().default("medium"),
+  priority: z.enum(["critical", "high", "medium", "low", "P2", "P3", "P1", "P0"]).optional().default("medium"),
   dependsOnTaskIds: z.array(z.string()).optional().default([]),
 });
 
@@ -31,7 +31,7 @@ const updateTaskSchema = z.object({
   title: z.string().optional(),
   promptMarkdown: z.string().optional(),
   description: z.string().optional(),
-  priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+  priority: z.enum(["critical", "high", "medium", "low", "P2", "P3", "P1", "P0"]).optional(),
   dependsOnTaskIds: z.array(z.string()).optional(),
 });
 

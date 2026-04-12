@@ -81,7 +81,7 @@ export class AgentActions {
     // Actually, `AgentPresetSyncService` has methods like `resolveTargetedQualityAssuranceAgent` but that's specific.
     // Let's use `listAgentPresets` to find it, which is fully decorated.
     const agents = await this.agentPresetSyncService.listAgentPresets(parsed.projectId);
-    const agent = agents.find((a: any) => a.id === parsed.presetId);
+    const agent = agents.find((a) => a.id === parsed.presetId);
 
     if (!agent) {
       throw new Error(`Agent not found: ${parsed.presetId}`);
