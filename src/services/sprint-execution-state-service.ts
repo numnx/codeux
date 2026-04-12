@@ -1,22 +1,13 @@
 import * as path from "path";
 import { formatSprintBranch } from "../git/sprint-branch-scheme.js";
-import type { DashboardSettings, Subtask, SubtaskMergeIndicator } from "../contracts/app-types.js";
-import type { SprintAgentArgs } from "../sprint/sprint-types.js";
+import type { DashboardSettings, Subtask, SubtaskMergeIndicator, SprintExecutionContext } from "../contracts/app-types.js";
+import type { SprintAgentArgs } from "../domain/sprint/sprint-types.js";
 import type { ProjectSummary, SprintRecord, TaskRecord } from "../contracts/project-management-types.js";
 import type { TaskRunRecord } from "../contracts/execution-types.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { ExecutionRepository } from "../repositories/execution-repository.js";
 import { resolveSubtaskStatus, toMergeIndicator } from "./subtask-state-mapper.js";
 
-export interface SprintExecutionContext {
-  project: ProjectSummary;
-  sprint: SprintRecord;
-  sprintNumber: number;
-  repoPath: string;
-  featureBranch: string;
-  defaultBranch: string;
-  sourceId?: string;
-}
 
 export class SprintExecutionStateService {
   constructor(

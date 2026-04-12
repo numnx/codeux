@@ -1,3 +1,4 @@
+import type { ProjectSummary, SprintRecord } from "./project-management-types.js";
 import type { InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
 import type { ProviderInvocationPurpose, TokenUsageSource } from "./execution-types.js";
 import type { MemorySettings } from "./memory-types.js";
@@ -915,4 +916,14 @@ export interface SprintPreviewScript {
   detectedInstallCommand: string | null;
   detectedBuildCommand: string | null;
   detectedRunCommand: string | null;
+}
+
+export interface SprintExecutionContext {
+  project: ProjectSummary;
+  sprint: SprintRecord;
+  sprintNumber: number;
+  repoPath: string;
+  featureBranch: string;
+  defaultBranch: string;
+  sourceId?: string;
 }

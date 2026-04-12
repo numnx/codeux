@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFailedJobLabels, isCiFailure, isCiPending, selectFailedCiRuns, summarizeFailedRuns } from "../../../src/sprint/ci-status-utils.js";
+import { getFailedJobLabels, isCiFailure, isCiPending, selectFailedCiRuns, summarizeFailedRuns } from "../../../src/domain/sprint/ci-status-utils.js";
 import type { GitTrackingStatus } from "../../../src/contracts/app-types.js";
 
 describe("ci-status-utils", () => {

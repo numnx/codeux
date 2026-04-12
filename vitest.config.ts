@@ -33,7 +33,7 @@ export default defineConfig({
         "src/server/websocket-server.ts",
         "src/worker/index.ts",
         "src/server/index.ts",
-        "src/sprint/index.ts",
+        "src/domain/sprint/index.ts",
         "src/index.ts",
         "src/app-db-schema.ts",
         "src/repositories/db/sqlite-database-adapter.ts"

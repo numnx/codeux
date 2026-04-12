@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { SprintOrchestrator } from "../../../src/sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../../../src/domain/sprint/sprint-orchestrator.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import { buildDeps } from "./sprint-orchestrator.setup.js";
 import { SprintActionRunner } from "../../../src/domain/sprint/orchestrator/sprint-action-runner.js";

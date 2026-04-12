@@ -1,8 +1,8 @@
 import * as fs from "fs/promises";
 import { commandRunner } from "../../../../src/shared/subprocess/command-runner.js";
-import { prepareBranchForOrchestration, runBranchPreflightStep } from "../../../../src/sprint/steps/branch-preflight-step.js";
+import { prepareBranchForOrchestration, runBranchPreflightStep } from "../../../../src/domain/sprint/orchestrator/steps/branch-preflight-step.js";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { SprintOrchestrator } from "../../../../src/sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../../../../src/domain/sprint/sprint-orchestrator.js";
 import { buildMockSettings } from "../../../builders/settings-builder.js";
 
 const buildDeps = () => {

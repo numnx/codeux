@@ -1,5 +1,5 @@
 import type { GitCiRunStatus } from "../../../../contracts/app-types.js";
-import { summarizeFailedRuns } from "../../../../sprint/ci-status-utils.js";
+import { summarizeFailedRuns } from "../../ci-status-utils.js";
 
 export function buildNoPrFoundText(taskId: string, featureBranch: string): string {
   let reportText = `⏳ **CI/Review Merge Gate:** Task \`${taskId}\` stays in progress because no open feature PR could be matched.\n`;

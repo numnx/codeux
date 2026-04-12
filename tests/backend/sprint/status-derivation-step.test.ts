@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Subtask } from "../../../src/contracts/app-types.js";
-import { runStatusDerivationStep } from "../../../src/sprint/steps/status-derivation-step.js";
+import { runStatusDerivationStep } from "../../../src/domain/sprint/orchestrator/steps/status-derivation-step.js";
 
 describe("runStatusDerivationStep", () => {
   const isActionRequiredState = () => false;

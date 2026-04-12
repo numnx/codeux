@@ -1,6 +1,6 @@
-import type { CiIntelligenceSettings, Subtask } from "../../contracts/app-types.js";
-import type { InstructionTemplateId } from "../../instructions/instruction-template-catalog.js";
-import { isCompletedTaskAwaitingMerge } from "../../domain/sprint/task-merge-state.js";
+import type { CiIntelligenceSettings, Subtask } from "../../../../contracts/app-types.js";
+import type { InstructionTemplateId } from "../../../../instructions/instruction-template-catalog.js";
+import { isCompletedTaskAwaitingMerge } from "../../task-merge-state.js";
 
 interface ProtocolStepOptions {
   featureBranch: string;

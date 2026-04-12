@@ -7,7 +7,7 @@ import { SprintExecutionStateService } from "../../services/sprint-execution-sta
 import { SprintTaskDispatchService } from "../../services/sprint-task-dispatch-service.js";
 import { WorkerTaskDispatchService } from "../../services/worker-task-dispatch-service.js";
 import { VirtualWorkerService } from "../../services/virtual-worker-service.js";
-import { SprintOrchestrator } from "../../sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../../domain/sprint/sprint-orchestrator.js";
 import { WorkerInboxReplyService } from "../../services/worker-inbox-reply-service.js";
 import { QualityAssuranceService } from "../../services/quality-assurance-service.js";
 import { resolveEffectiveDashboardSettings } from "../../services/settings-resolution-service.js";

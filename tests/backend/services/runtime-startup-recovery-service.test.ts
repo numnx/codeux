@@ -8,7 +8,7 @@ import { ExecutionRepository } from "../../../src/repositories/execution-reposit
 import { SessionTrackingRepository } from "../../../src/repositories/session-tracking-repository.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import { RuntimeStartupRecoveryService } from "../../../src/services/runtime-startup-recovery-service.js";
-import type { SprintOrchestrator } from "../../../src/sprint/sprint-orchestrator.js";
+import type { SprintOrchestrator } from "../../../src/domain/sprint/sprint-orchestrator.js";
 import type { Logger } from "../../../src/shared/logging/logger.js";
 
 const tempDirs: string[] = [];

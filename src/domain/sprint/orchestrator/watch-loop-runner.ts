@@ -1,5 +1,5 @@
-import { runCompletionStep } from "../../../sprint/steps/completion-step.js";
-import type { SprintAgentArgs } from "../../../sprint/sprint-types.js";
+import { runCompletionStep } from "./steps/completion-step.js";
+import type { SprintAgentArgs } from "../sprint-types.js";
 import { determineNextState, WatchLoopState } from "./watch-loop-state-machine.js";
 import type { Subtask,
   AutomationInterventionsSettings,
@@ -7,9 +7,9 @@ import type { Subtask,
   CiIntelligenceSettings,
   SprintLoopStepSettings,
  } from "../../../contracts/app-types.js";
-import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
+import type { SprintOrchestratorDependencies } from "../sprint-orchestrator.js";
 import type { CycleRunner } from "./cycle-runner.js";
-import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
+import type { SprintExecutionContext } from "../../../contracts/app-types.js";
 import type { MergeFeedbackResult } from "../ci/main-merge-gate.js";
 import type { ProjectAttentionItemRecord } from "../../../contracts/project-attention-types.js";
 import { isCompletedTaskSettled } from "../task-merge-state.js";

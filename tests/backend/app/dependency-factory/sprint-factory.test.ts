@@ -7,7 +7,7 @@ import { SprintExecutionStateService } from "../../../../src/services/sprint-exe
 import { SprintTaskDispatchService } from "../../../../src/services/sprint-task-dispatch-service.js";
 import { TaskService } from "../../../../src/services/task-service.js";
 import { VirtualWorkerService } from "../../../../src/services/virtual-worker-service.js";
-import { SprintOrchestrator } from "../../../../src/sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../../../../src/domain/sprint/sprint-orchestrator.js";
 
 vi.mock("../../../../src/services/cli-workflow-service.js", () => {
   const CliWorkflowService = vi.fn();
@@ -38,7 +38,7 @@ vi.mock("../../../../src/services/virtual-worker-service.js", () => {
   return { VirtualWorkerService };
 });
 
-vi.mock("../../../../src/sprint/sprint-orchestrator.js", () => {
+vi.mock("../../../../src/domain/sprint/sprint-orchestrator.js", () => {
   const SprintOrchestrator = vi.fn();
   return { SprintOrchestrator };
 });

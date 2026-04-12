@@ -2,7 +2,7 @@ import type {
   AutomationInterventionsSettings,
   CiIntelligenceSettings,
   SprintLoopStepSettings,
-} from "../contracts/app-types.js";
+} from "../../contracts/app-types.js";
 
 export const DEFAULT_SPRINT_LOOP_STEP_SETTINGS: SprintLoopStepSettings = {
   branchPreflight: true,

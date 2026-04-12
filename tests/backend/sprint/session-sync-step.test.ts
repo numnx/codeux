@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import { runSessionSyncStep } from "../../../src/sprint/steps/session-sync-step.js";
+import { runSessionSyncStep } from "../../../src/domain/sprint/orchestrator/steps/session-sync-step.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";

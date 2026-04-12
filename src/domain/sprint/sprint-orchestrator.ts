@@ -1,12 +1,12 @@
 import { randomUUID } from "crypto";
-import type { InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
+import type { InstructionTemplateId } from "../../instructions/instruction-template-catalog.js";
 import {
   DEFAULT_AUTOMATION_INTERVENTIONS_SETTINGS,
   DEFAULT_CI_INTELLIGENCE_SETTINGS,
   DEFAULT_SPRINT_LOOP_STEP_SETTINGS,
 } from "./sprint-orchestrator-defaults.js";
-import { prepareBranchForOrchestration, runBranchPreflightStep } from "./steps/branch-preflight-step.js";
-import { fetchOriginIfAvailable } from "../services/git-branch-sync-service.js";
+import { prepareBranchForOrchestration, runBranchPreflightStep } from "./orchestrator/steps/branch-preflight-step.js";
+import { fetchOriginIfAvailable } from "../../services/git-branch-sync-service.js";
 import type { SprintAgentArgs } from "./sprint-types.js";
 import type {
   AutomationInterventionsSettings,
@@ -19,22 +19,22 @@ import type {
   SprintLoopStepSettings,
   Subtask,
   AutoMergeFeaturePrResult,
-} from "../contracts/app-types.js";
-import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
-import type { ExecutionRepository } from "../repositories/execution-repository.js";
-import type { SprintExecutionStateService } from "../services/sprint-execution-state-service.js";
-import type { StartSprintDispatchResult } from "../services/sprint-task-dispatch-service.js";
-import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
-import { CycleRunner } from "../domain/sprint/orchestrator/cycle-runner.js";
-import { WatchLoopRunner } from "../domain/sprint/orchestrator/watch-loop-runner.js";
-import { SprintActionRunner } from "../domain/sprint/orchestrator/sprint-action-runner.js";
-import type { Logger } from "../shared/logging/logger.js";
-import { MainMergeGateService, type MergeFeedbackResult } from "../domain/sprint/ci/main-merge-gate.js";
-import type { ResolvePullRequestResult } from "../services/git-status-service.js";
-import type { MemoryService } from "../services/memory-service.js";
-import type { MemoryPromotionService } from "../services/memory-promotion-service.js";
-import type { QualityAssuranceService } from "../services/quality-assurance-service.js";
-import type { TaskService } from "../services/task-service.js";
+} from "../../contracts/app-types.js";
+import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
+import type { ExecutionRepository } from "../../repositories/execution-repository.js";
+import type { SprintExecutionStateService } from "../../services/sprint-execution-state-service.js";
+import type { StartSprintDispatchResult } from "../../services/sprint-task-dispatch-service.js";
+import type { ProjectAttentionService } from "../../domain/workers/project-attention-service.js";
+import { CycleRunner } from "./orchestrator/cycle-runner.js";
+import { WatchLoopRunner } from "./orchestrator/watch-loop-runner.js";
+import { SprintActionRunner } from "./orchestrator/sprint-action-runner.js";
+import type { Logger } from "../../shared/logging/logger.js";
+import { MainMergeGateService, type MergeFeedbackResult } from "./ci/main-merge-gate.js";
+import type { ResolvePullRequestResult } from "../../services/git-status-service.js";
+import type { MemoryService } from "../../services/memory-service.js";
+import type { MemoryPromotionService } from "../../services/memory-promotion-service.js";
+import type { QualityAssuranceService } from "../../services/quality-assurance-service.js";
+import type { TaskService } from "../../services/task-service.js";
 
 const SPRINT_ORCHESTRATOR_OWNER_KEY = "sprint_orchestrator";
 

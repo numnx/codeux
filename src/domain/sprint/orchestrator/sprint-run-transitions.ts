@@ -1,4 +1,4 @@
-import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
+import type { SprintOrchestratorDependencies } from "../sprint-orchestrator.js";
 
 export function transitionSprintRun(
   executionRepository: Pick<SprintOrchestratorDependencies["executionRepository"], "updateSprintRun" | "appendSprintRunEvent">,

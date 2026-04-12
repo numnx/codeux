@@ -1,10 +1,10 @@
-import { applyActionRequiredAutomation } from "../../../sprint/action-required-automation.js";
-import { runSessionSyncStep } from "../../../sprint/steps/session-sync-step.js";
-import { runStatusDerivationStep } from "../../../sprint/steps/status-derivation-step.js";
-import { runStartReadyTasksStep } from "../../../sprint/steps/start-ready-tasks-step.js";
-import { runStatusTableStep } from "../../../sprint/steps/status-table-step.js";
-import { runProtocolStep } from "../../../sprint/steps/protocol-step.js";
-import type { SprintCycleResult } from "../../../sprint/sprint-types.js";
+import { applyActionRequiredAutomation } from "../action-required-automation.js";
+import { runSessionSyncStep } from "./steps/session-sync-step.js";
+import { runStatusDerivationStep } from "./steps/status-derivation-step.js";
+import { runStartReadyTasksStep } from "./steps/start-ready-tasks-step.js";
+import { runStatusTableStep } from "./steps/status-table-step.js";
+import { runProtocolStep } from "./steps/protocol-step.js";
+import type { SprintCycleResult } from "../sprint-types.js";
 import type {
   AutomationInterventionsSettings,
   AutomationLevel,
@@ -18,8 +18,8 @@ import type {
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
 import type { ProjectAttentionOwnerType } from "../../../contracts/project-attention-types.js";
 import type { ProjectAttentionItemRecord } from "../../../contracts/project-attention-types.js";
-import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
-import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
+import type { SprintOrchestratorDependencies } from "../sprint-orchestrator.js";
+import type { SprintExecutionContext } from "../../../contracts/app-types.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MemoryCategory } from "../../../contracts/memory-types.js";

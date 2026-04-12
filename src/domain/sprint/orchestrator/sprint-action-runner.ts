@@ -1,9 +1,9 @@
-import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
+import type { SprintOrchestratorDependencies } from "../sprint-orchestrator.js";
 import type { CycleRunner } from "./cycle-runner.js";
 import type { WatchLoopRunner } from "./watch-loop-runner.js";
 import type { AutomationInterventionsSettings, AutomationLevel, CiIntelligenceSettings, SprintLoopStepSettings, Subtask } from "../../../contracts/app-types.js";
-import type { SprintAgentArgs } from "../../../sprint/sprint-types.js";
-import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
+import type { SprintAgentArgs } from "../sprint-types.js";
+import type { SprintExecutionContext } from "../../../contracts/app-types.js";
 
 export class SprintActionRunner {
   constructor(

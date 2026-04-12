@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SprintOrchestrator } from "../../../src/sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../../../src/domain/sprint/sprint-orchestrator.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import type { CiIntelligenceSettings } from "../../../src/contracts/app-types.js";
 

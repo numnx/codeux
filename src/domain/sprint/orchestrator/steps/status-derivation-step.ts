@@ -1,6 +1,6 @@
-import type { Subtask } from "../../contracts/app-types.js";
-import { isCompletedTaskSettled } from "../../domain/sprint/task-merge-state.js";
-import { applyPendingTaskRuntimeReset } from "../../domain/sprint/task-reset-state.js";
+import type { Subtask } from "../../../../contracts/app-types.js";
+import { isCompletedTaskSettled } from "../../task-merge-state.js";
+import { applyPendingTaskRuntimeReset } from "../../task-reset-state.js";
 
 interface DeriveStatusOptions {
   retryFailed: boolean;

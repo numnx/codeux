@@ -1,5 +1,5 @@
-import { getFailedJobLabels, getFailedLogSnippets, summarizeFailedRuns } from "../../../../sprint/ci-status-utils.js";
-import { isJulesManagedTask, resolveTaskSessionId } from "../../../../sprint/action-required-automation.js";
+import { getFailedJobLabels, getFailedLogSnippets, summarizeFailedRuns } from "../../ci-status-utils.js";
+import { isJulesManagedTask, resolveTaskSessionId } from "../../action-required-automation.js";
 import type { AutomationLevel, GitCiRunStatus, Subtask } from "../../../../contracts/app-types.js";
 
 export function getCiAutofixRetryKey(task: Subtask, prNumber: number): string {

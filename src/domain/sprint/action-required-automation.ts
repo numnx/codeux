@@ -2,7 +2,7 @@ import type {
   AutomationInterventionsSettings,
   AutomationLevel,
   Subtask,
-} from "../contracts/app-types.js";
+} from "../../contracts/app-types.js";
 
 export const isJulesManagedTask = (task: Subtask): boolean => {
   if (task.provider && task.provider !== "jules") {

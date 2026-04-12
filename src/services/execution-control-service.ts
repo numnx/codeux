@@ -4,7 +4,7 @@ import type { ProjectManagementRepository } from "../repositories/project-manage
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import type { TaskRerunService } from "./task-rerun-service.js";
-import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
+import type { SprintOrchestrator } from "../domain/sprint/sprint-orchestrator.js";
 import type { JulesApiClient } from "../integrations/jules-api-client.js";
 import type { ActiveDispatchRegistry } from "./active-dispatch-registry.js";
 import type { Logger } from "../shared/logging/logger.js";
