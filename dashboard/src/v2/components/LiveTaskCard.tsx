@@ -24,6 +24,7 @@ import {
 } from "../lib/live-duration-display.js";
 import { RerunTaskModal } from "./ui/RerunTaskModal.js";
 import { Button } from "./ui/Button.js";
+import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -158,6 +159,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     const feedRef = useRef<HTMLDivElement>(null);
     const chevronRef = useRef<SVGSVGElement>(null);
     const flareRef = useRef<HTMLDivElement>(null);
+    const prefersReducedMotion = useReducedMotion();
     const isMounted = useRef(false);
 
     const isPreviewVisible = !expanded && !showFeed;
@@ -203,9 +205,9 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
 
     const previousTaskPhase = useRef(taskPhase);
 
+    // Flare effect
     useEffect(() => {
         if (isMounted.current && previousTaskPhase.current !== "COMPLETED" && taskPhase === "COMPLETED" && flareRef.current) {
-            const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
             if (!prefersReducedMotion) {
                 gsap.fromTo(flareRef.current,
                     { scale: 0.9, opacity: 0 },
@@ -226,6 +228,10 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                 );
             }
         }
+    }, [taskPhase, prefersReducedMotion]);
+
+    // Track previous phase
+    useEffect(() => {
         previousTaskPhase.current = taskPhase;
     }, [taskPhase]);
 

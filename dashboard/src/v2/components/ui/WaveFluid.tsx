@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 /**
  * Fluid wave at bottom of card.
@@ -10,11 +11,11 @@ import gsap from "gsap";
  */
 export const WaveFluid: FunctionComponent<{ accentHex: string; isActive?: boolean }> = ({ accentHex, isActive }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const prefersReducedMotion = useReducedMotion();
 
     useLayoutEffect(() => {
         if (!containerRef.current) return;
 
-        const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
         if (prefersReducedMotion) return;
 
         let ctx = gsap.context(() => {
