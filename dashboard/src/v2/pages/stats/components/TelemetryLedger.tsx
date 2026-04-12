@@ -128,38 +128,36 @@ export const TelemetryLedger: FunctionComponent<{
                         {index + 1}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                          <div className="min-w-0">
-                            <div className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {item.secondaryLabel ? (
-                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
-                                  {item.secondaryLabel}
-                                </span>
-                              ) : null}
-                              {item.status ? (
-                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
-                                  {item.status}
-                                </span>
-                              ) : null}
-                            </div>
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                          <div className="flex min-w-0 flex-wrap items-center gap-3">
+                            <div className="truncate text-lg font-black tracking-tight text-slate-900 dark:text-white max-w-full">{item.label}</div>
+                            {item.secondaryLabel ? (
+                              <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                                {item.secondaryLabel}
+                              </span>
+                            ) : null}
+                            {item.status ? (
+                              <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                                {item.status}
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="text-left xl:text-right">
+                          <div className="shrink-0 text-left xl:text-right">
                             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Last activity</div>
                             <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{formatDateTime(item.lastActivityAt)}</div>
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-3">
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
+                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                            <div className={`${SUBPANEL_CLASS}`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
                             </div>
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
+                            <div className={`${SUBPANEL_CLASS}`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{formatDuration(item.usage.activeTimeMs)}</div>
                             </div>
-                            <div className={`${SUBPANEL_CLASS} flex-1 min-w-[120px]`}>
+                            <div className={`${SUBPANEL_CLASS}`}>
                               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Calls</div>
                               <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{item.usage.invocationCount.toLocaleString()}</div>
                             </div>
