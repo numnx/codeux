@@ -9,14 +9,14 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
 
   return (
     <div className={`${PANEL_CLASS} flex flex-col`}>
-      <div className="flex items-center gap-4 border-b border-black/[0.08] px-6 py-4 dark:border-white/[0.08]">
+      <div className="mx-6 mt-6 flex w-fit items-center gap-2 rounded-2xl bg-black/[0.03] p-1.5 dark:bg-white/[0.03]">
         <button
           type="button"
           onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
+          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
             activeTab === "tasks"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              ? "bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-void-800 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           Task Telemetry
@@ -24,10 +24,10 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
         <button
           type="button"
           onClick={() => setActiveTab("sprints")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
+          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
             activeTab === "sprints"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              ? "bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-void-800 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           Sprint Telemetry
@@ -36,10 +36,10 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
           <button
             type="button"
             onClick={() => setActiveTab("git")}
-            className={`px-4 py-2 text-sm font-bold transition-colors ${
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
               activeTab === "git"
-                ? "text-slate-900 dark:text-white"
-                : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                ? "bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-void-800 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
             Git Telemetry
@@ -47,7 +47,7 @@ export const TelemetryLedgerTabs: FunctionComponent<any> = ({ stats }) => {
         ) : null}
       </div>
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 px-6 pb-6 pt-5">
         {activeTab === "git" && stats.git ? (
           <GitTelemetryTab gitStats={stats.git} />
         ) : activeTab === "sprints" ? (

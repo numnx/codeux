@@ -128,16 +128,14 @@ export const GitTelemetryLedger: FunctionComponent<{
                         {index + 1}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                          <div className="min-w-0">
-                            <div className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {item.secondaryLabel ? (
-                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
-                                  {item.secondaryLabel}
-                                </span>
-                              ) : null}
-                            </div>
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                          <div className="flex min-w-0 flex-wrap items-center gap-3">
+                            <div className="truncate text-lg font-black tracking-tight text-slate-900 dark:text-white max-w-full">{item.label}</div>
+                            {item.secondaryLabel ? (
+                              <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
+                                {item.secondaryLabel}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 
@@ -224,14 +222,14 @@ export const GitTelemetryTab: FunctionComponent<{ gitStats: ExecutionGitStatsSum
         />
       </section>
 
-      <div className="flex items-center gap-4">
+      <div className="flex w-fit items-center gap-2 rounded-2xl bg-black/[0.03] p-1.5 dark:bg-white/[0.03]">
         <button
           type="button"
           onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
+          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
             activeTab === "tasks"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              ? "bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-void-800 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           Task Leaderboard
@@ -239,10 +237,10 @@ export const GitTelemetryTab: FunctionComponent<{ gitStats: ExecutionGitStatsSum
         <button
           type="button"
           onClick={() => setActiveTab("sprints")}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
+          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
             activeTab === "sprints"
-              ? "text-slate-900 dark:text-white"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              ? "bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-void-800 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           Sprint Leaderboard
