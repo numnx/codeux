@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CycleRunner } from "../../../../../src/domain/sprint/orchestrator/cycle-runner.js";
-import type { SprintOrchestratorDependencies } from "../../../../../src/sprint/sprint-orchestrator.js";
+import type { SprintOrchestratorDependencies } from "../../../../../src/domain/sprint/sprint-orchestrator.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../../../src/repositories/settings-defaults.js";
 
 function buildDeps(): SprintOrchestratorDependencies {

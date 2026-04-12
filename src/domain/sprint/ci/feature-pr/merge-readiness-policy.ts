@@ -1,4 +1,4 @@
-import { isCiFailure, isCiPending } from "../../../../sprint/ci-status-utils.js";
+import { isCiFailure, isCiPending } from "../../ci-status-utils.js";
 import type { GitCiRunStatus } from "../../../../contracts/app-types.js";
 
 export interface MergeReadinessResult {

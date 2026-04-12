@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveMainBranchPrBody } from "../../../src/sprint/sprint-orchestrator.js";
+import { resolveMainBranchPrBody } from "../../../src/domain/sprint/sprint-orchestrator.js";
 
 describe("resolveMainBranchPrBody", () => {
   const defaultArgs = {

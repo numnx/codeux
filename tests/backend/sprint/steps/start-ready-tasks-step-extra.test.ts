@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Subtask } from "../../../../src/contracts/app-types.js";
-import { runStartReadyTasksStep } from "../../../../src/sprint/steps/start-ready-tasks-step.js";
+import { runStartReadyTasksStep } from "../../../../src/domain/sprint/orchestrator/steps/start-ready-tasks-step.js";
 
 describe("runStartReadyTasksStep limits", () => {
   it("skips tasks when provider concurrent limit is reached", async () => {

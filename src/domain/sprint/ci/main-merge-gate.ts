@@ -1,7 +1,7 @@
 import {
   isCiFailure,
   isCiPending,
-} from "../../../sprint/ci-status-utils.js";
+} from "../ci-status-utils.js";
 import type {
   AutoMergeFeaturePrResult,
   CiIntelligenceSettings,

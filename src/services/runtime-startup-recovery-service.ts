@@ -3,7 +3,7 @@ import type { ProviderInvocationUsageRecord, TaskRunRecord } from "../contracts/
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
-import type { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
+import type { SprintOrchestrator } from "../domain/sprint/sprint-orchestrator.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 const ACTIVE_SPRINT_RUN_STATUSES = ["queued", "running"] as const;

@@ -1,14 +1,14 @@
-import type { JulesActivity, JulesSession, Subtask } from "../../contracts/app-types.js";
-import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../contracts/execution-types.js";
-import type { SessionSyncDependencies } from "../sprint-types.js";
-import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
-import type { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
-import { applyPendingTaskRuntimeReset } from "../../domain/sprint/task-reset-state.js";
+import type { JulesActivity, JulesSession, Subtask } from "../../../../contracts/app-types.js";
+import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../../../contracts/execution-types.js";
+import type { SessionSyncDependencies } from "../../sprint-types.js";
+import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../../../services/task-run-key.js";
+import type { ProviderInvocationUsageRecord } from "../../../../contracts/execution-types.js";
+import { applyPendingTaskRuntimeReset } from "../../task-reset-state.js";
 import {
   extractProviderErrorCategory,
   isQuotaCooldownActive,
   isRetryAfterActive,
-} from "../../shared/providers/provider-error-classifier.js";
+} from "../../../../shared/providers/provider-error-classifier.js";
 
 
 

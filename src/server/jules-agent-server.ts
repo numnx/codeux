@@ -19,7 +19,7 @@ import type {
   PersistTaskMergedFlagArgs,
   ReadinessProbeStatus,
 } from "../contracts/app-types.js";
-import { SprintOrchestrator } from "../sprint/sprint-orchestrator.js";
+import { SprintOrchestrator } from "../domain/sprint/sprint-orchestrator.js";
 import { SubtaskFileRepository } from "../infrastructure/repositories/subtask-file-repository.js";
 import { TaskService } from "../services/task-service.js";
 import { SettingsRepository } from "../repositories/settings-repository.js";

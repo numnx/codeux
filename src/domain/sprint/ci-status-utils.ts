@@ -1,4 +1,4 @@
-import type { GitCiRunStatus, GitTrackingStatus } from "../contracts/app-types.js";
+import type { GitCiRunStatus, GitTrackingStatus } from "../../contracts/app-types.js";
 
 export const isCiFailure = (status: string, conclusion: string | null): boolean => {
   const normalizedStatus = status.toLowerCase();

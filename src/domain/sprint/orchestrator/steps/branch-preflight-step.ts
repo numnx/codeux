@@ -1,4 +1,4 @@
-import { commandRunner } from "../../shared/subprocess/command-runner.js";
+import { commandRunner } from "../../../../shared/subprocess/command-runner.js";
 import * as fs from "fs/promises";
 
 export interface BranchAvailability {

@@ -1,5 +1,5 @@
-import type { Subtask } from "../../contracts/app-types.js";
-import type { Logger } from "../../shared/logging/logger.js";
+import type { Subtask } from "../../../../contracts/app-types.js";
+import type { Logger } from "../../../../shared/logging/logger.js";
 
 interface StartReadyTasksOptions {
   action: "status" | "orchestrate" | "plan";

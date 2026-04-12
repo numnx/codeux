@@ -1,5 +1,5 @@
 import type { GitTrackingStatus, Subtask, CiIntelligenceSettings, AutomationLevel, GitPullRequestStatus, GitStatusCheck } from "../../../../contracts/app-types.js";
-import { isCiFailure, selectFailedCiRuns, getFailedJobLabels } from "../../../../sprint/ci-status-utils.js";
+import { isCiFailure, selectFailedCiRuns, getFailedJobLabels } from "../../ci-status-utils.js";
 import { handleCiAutofixEscalation } from "./ci-autofix-policy.js";
 import type { WorkerCiFixPayload } from "./ci-autofix-policy.js";
 import { buildInProgressText, buildFailedChecksText, buildReviewBlockersText } from "./ci-notification-builder.js";

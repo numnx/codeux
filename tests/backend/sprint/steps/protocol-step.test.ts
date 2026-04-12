@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runProtocolStep } from "../../../../src/sprint/steps/protocol-step.js";
+import { runProtocolStep } from "../../../../src/domain/sprint/orchestrator/steps/protocol-step.js";
 import { Subtask, CiIntelligenceSettings } from "../../../../src/contracts/app-types.js";
 
 describe("protocol-step", () => {

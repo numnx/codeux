@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyActionRequiredAutomation, isJulesManagedTask, resolveTaskSessionId } from "../../../src/sprint/action-required-automation.js";
+import { applyActionRequiredAutomation, isJulesManagedTask, resolveTaskSessionId } from "../../../src/domain/sprint/action-required-automation.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
 
 const createTask = (overrides: Partial<Subtask> = {}): Subtask => ({
