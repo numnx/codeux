@@ -187,12 +187,11 @@ export const InteractiveUsageChart: FunctionComponent<{
                 </button>
               ) : null}
             </div>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap gap-x-6 gap-y-4 px-4 py-3">
+            <div className="flex flex-wrap max-h-36 overflow-y-auto dropdown-scrollbar pr-2 gap-x-6 gap-y-4 pb-4 mb-2">
                 {Object.entries(seriesGroups).map(([grouping, groupSeries]) => (
-                  <div key={grouping} className="flex flex-col gap-2">
+                  <div key={grouping} className="flex flex-col gap-2 shrink-0">
                     <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 pl-1">{grouping}</div>
-                    <div className="pointer-events-auto flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {groupSeries.map((s, idx) => {
                         const active = enabledSeries[s.id] || false;
                         const disabled = activeSeriesCount === 1 && active;
@@ -223,6 +222,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                   </div>
                 ))}
               </div>
+            <div className="relative">
               {activeBucket ? (
                 <div
                   className="pointer-events-none absolute top-3 z-10 w-56 -translate-x-1/2 rounded-[1.25rem] border border-black/[0.06] bg-white/88 px-4 py-3 shadow-[0_18px_38px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-900/88 dark:shadow-[0_20px_40px_rgba(0,0,0,0.32)]"
