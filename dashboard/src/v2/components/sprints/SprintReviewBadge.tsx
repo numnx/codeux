@@ -52,9 +52,11 @@ export const SprintReviewBadge: FunctionComponent<SprintReviewBadgeProps> = ({
       </div>
 
       <div
-        className={`absolute bottom-full mb-3 hidden z-30 flex-row rounded-[1.5rem] border border-black/[0.08] bg-white/92 backdrop-blur-2xl p-4 shadow-[0_20px_48px_rgba(15,23,42,0.16),0_0_0_1px_rgba(0,0,0,0.04)] opacity-0 translate-y-1 transition-all duration-300 ease-out group-hover/review:flex group-hover/review:opacity-100 group-hover/review:translate-y-0 dark:border-white/[0.08] dark:bg-void-800/92 before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-gradient-to-r before:from-signal-500 before:via-signal-400 before:to-signal-500 before:rounded-t-[1.5rem] ${tooltipAlignment}`}
+        className={`absolute bottom-full mb-3 hidden z-30 grid gap-4 rounded-[1.5rem] border border-black/[0.08] bg-white/92 backdrop-blur-2xl p-4 shadow-[0_20px_48px_rgba(15,23,42,0.16),0_0_0_1px_rgba(0,0,0,0.04)] opacity-0 translate-y-1 transition-all duration-300 ease-out group-hover/review:grid group-hover/review:opacity-100 group-hover/review:translate-y-0 dark:border-white/[0.08] dark:bg-void-800/92 before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-gradient-to-r before:from-signal-500 before:via-signal-400 before:to-signal-500 before:rounded-t-[1.5rem] ${
+          summary.findings && summary.findings.length > 0 ? "grid-cols-[20rem_18rem]" : "grid-cols-1 w-80"
+        } ${tooltipAlignment}`}
       >
-        <div className="w-80 flex flex-col gap-3 shrink-0">
+        <div className="flex flex-col gap-3 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-signal-600 dark:text-signal-300">
               <CheckCircle2 className="h-4 w-4" strokeWidth={2.5} />
@@ -77,23 +79,6 @@ export const SprintReviewBadge: FunctionComponent<SprintReviewBadgeProps> = ({
             </div>
           )}
 
-          {summary.findings && summary.findings.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setFindingsOpen((prev) => !prev)}
-              className="mt-1 flex w-full items-center justify-between rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-left transition-colors hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
-                <ListChecks className="h-3.5 w-3.5 text-signal-500" />
-                View {summary.findings.length} Findings
-              </div>
-              <ChevronRight
-                className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${findingsOpen ? "rotate-180" : ""}`}
-                strokeWidth={2.5}
-              />
-            </button>
-          )}
-
           {summary.reviewer && (
             <div className="mt-1 flex items-center justify-between border-t border-black/[0.08] pt-3 text-[11px] font-medium text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
               <span>Reviewed by {summary.reviewer}</span>
@@ -104,28 +89,37 @@ export const SprintReviewBadge: FunctionComponent<SprintReviewBadgeProps> = ({
           )}
         </div>
 
-        <div
-          className={`overflow-hidden transition-[width,opacity,margin,padding] duration-300 ease-out ${
-            findingsOpen
-              ? "w-[22rem] opacity-100 ml-4 pl-4 border-l border-black/[0.08] dark:border-white/[0.08]"
-              : "w-0 opacity-0 ml-0 pl-0 border-transparent"
-          }`}
-        >
-          <div className="flex flex-col gap-2 h-full max-h-[20rem] overflow-y-auto dropdown-scrollbar w-[20rem]">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 mb-1">
-              <ListChecks className="h-3 w-3" />
-              Detailed Findings
+        {summary.findings && summary.findings.length > 0 && (
+          <div className="flex flex-col gap-2 border-l border-black/[0.08] pl-4 dark:border-white/[0.08]">
+            <button
+              type="button"
+              onClick={() => setFindingsOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-left transition-colors hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+            >
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
+                <ListChecks className="h-3.5 w-3.5 text-signal-500" />
+                View {summary.findings.length} Findings
+              </div>
+              <ChevronRight
+                className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${findingsOpen ? "rotate-90" : ""}`}
+                strokeWidth={2.5}
+              />
+            </button>
+
+            <div className={`collapsible-section ${findingsOpen ? "open" : ""}`}>
+              <div className="collapsible-content">
+                <ul className="flex max-h-[16rem] flex-col gap-1 overflow-y-auto pr-2 dropdown-scrollbar">
+                  {summary.findings.map((finding, idx) => (
+                    <li key={idx} className="flex items-start gap-1.5 rounded-lg p-1.5 even:bg-slate-50/50 dark:even:bg-void-700/30">
+                      <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal-500" strokeWidth={3} />
+                      <span className="text-xs leading-snug text-slate-600 break-words dark:text-slate-400">{finding}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <ul className="flex flex-col gap-1 pr-2">
-              {summary.findings?.map((finding, idx) => (
-                <li key={idx} className="flex items-start gap-1.5 p-1.5 rounded-lg even:bg-slate-50/50 dark:even:bg-void-700/30">
-                  <ChevronRight className="h-3.5 w-3.5 mt-0.5 shrink-0 text-signal-500" strokeWidth={3} />
-                  <span className="text-xs text-slate-600 dark:text-slate-400 leading-snug break-words">{finding}</span>
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

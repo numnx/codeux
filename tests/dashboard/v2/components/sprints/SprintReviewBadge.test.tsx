@@ -55,20 +55,21 @@ describe("SprintReviewBadge", () => {
     const toggleButton = screen.getByText("View 2 Findings");
     expect(toggleButton).toBeDefined();
 
-    // Verify findings are present in the DOM (right column content)
-    expect(screen.getByText("Detailed Findings")).toBeDefined();
+    // Verify findings are present in the DOM (right column content inside collapsible section)
     expect(screen.getByText("Fix spacing")).toBeDefined();
     expect(screen.getByText("Rename variable")).toBeDefined();
+
+    // Verify initial closed state (no "open" class on the collapsible section)
+    // The closest wrapper to the list with class collapsible-section
+    const listWrapper = screen.getByText("Fix spacing").closest(".collapsible-section");
+    expect(listWrapper?.className).not.toContain("open");
 
     // Test interaction: click toggle
     fireEvent.click(toggleButton);
 
-    // State should update, triggering a re-render.
-    // The visual state change (width transition) is handled by CSS, which JSDOM doesn't compute layout for,
-    // but the state update (e.g., rotation class on chevron) confirms interaction.
-    // We can just assure the click doesn't throw and the UI remains intact.
+    // Verify state updates by checking if "open" class is added to the collapsible section
     await waitFor(() => {
-        expect(screen.getByText("Detailed Findings")).toBeDefined();
+        expect(listWrapper?.className).toContain("open");
     });
   });
 });
