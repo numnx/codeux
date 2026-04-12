@@ -58,6 +58,14 @@ export function queryProjectStatsSnapshot(
   const providerLastActivity = new Map<string, string>();
   const purposeLastActivity = new Map<string, string>();
 
+  const providerReliability = new Map<string, {
+    invocationCount: number;
+    failedInvocationCount: number;
+    totalDurationMs: number;
+    totalTokens: number;
+    distinctTasks: Set<string>;
+  }>();
+
   const mappedInvocations = invocations.map(row => deps.mapProviderInvocationUsageRow(row));
   const firstBucketStartMs = buckets.length > 0 ? buckets[0].bucketStartMs : 0;
 
@@ -83,6 +91,27 @@ export function queryProjectStatsSnapshot(
     deps.updateLastActivity(providerLastActivity, invocation.provider, activityAt);
     deps.updateLastActivity(purposeLastActivity, invocation.purpose, activityAt);
     tokenSourceCounts.set(invocation.usageSource, (tokenSourceCounts.get(invocation.usageSource) || 0) + 1);
+
+    let reliability = providerReliability.get(invocation.provider);
+    if (!reliability) {
+      reliability = {
+        invocationCount: 0,
+        failedInvocationCount: 0,
+        totalDurationMs: 0,
+        totalTokens: 0,
+        distinctTasks: new Set<string>()
+      };
+      providerReliability.set(invocation.provider, reliability);
+    }
+    reliability.invocationCount++;
+    if (invocation.status === "failed") {
+      reliability.failedInvocationCount++;
+    }
+    reliability.totalDurationMs += invocation.durationMs || 0;
+    reliability.totalTokens += invocation.totalTokens;
+    if (invocation.taskId) {
+      reliability.distinctTasks.add(invocation.taskId);
+    }
 
     if (buckets.length > 0) {
       const bucketIndex = Math.floor((new Date(invocation.startedAt).getTime() - firstBucketStartMs) / normalized.bucketSizeMs);
@@ -198,5 +227,20 @@ export function queryProjectStatsSnapshot(
     purposes: mapEntityUsage(purposeUsage, purposeLastActivity),
     tokenSources: Array.from(tokenSourceCounts.entries()).map(([source, count]) => ({ source: source as any, count })).sort((a, b) => b.count - a.count),
     chartSeries,
+    reliability: {
+      providers: Array.from(providerReliability.entries()).map(([providerId, data]) => {
+        const distinctTaskCount = data.distinctTasks.size;
+        return {
+          providerId,
+          distinctTaskCount,
+          invocationCount: data.invocationCount,
+          failedInvocationCount: data.failedInvocationCount,
+          failureRate: data.invocationCount > 0 ? data.failedInvocationCount / data.invocationCount : 0,
+          averageActiveTimePerTask: distinctTaskCount > 0 ? data.totalDurationMs / distinctTaskCount : 0,
+          averageTotalTokensPerTask: distinctTaskCount > 0 ? data.totalTokens / distinctTaskCount : 0,
+          averageInvocationsPerTask: distinctTaskCount > 0 ? data.invocationCount / distinctTaskCount : 0,
+        };
+      }).sort((a, b) => a.providerId.localeCompare(b.providerId))
+    }
   };
 }
