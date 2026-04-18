@@ -12,7 +12,7 @@ import { AppDbStorage } from "../app-db-storage.js";
 import {
   ExecutionUsageTotals,
 } from "../../contracts/app-types.js";
-import { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
+import { ProviderInvocationUsageRecord, ProviderInvocationPurpose, TokenUsageSource } from "../../contracts/execution-types.js";
 import { toNumber } from "./execution-utils.js";
 import { ProviderInvocationUsageRow } from "./execution-repository-types.js";
 import { StatsEntityMetadata, ProjectStatsQueryDependencies } from "./execution-stats-types.js";
@@ -155,9 +155,9 @@ export function queryProjectStatsSnapshot(
         id,
         label: meta?.label || id,
         secondaryLabel: meta?.secondaryLabel || null,
-        status: (meta?.status || null) as any,
-        purpose: (meta?.purpose || null) as any,
-        provider: (meta?.provider || null) as any,
+        status: (meta?.status || null),
+        purpose: (meta?.purpose || null) as ProviderInvocationPurpose | null,
+        provider: (meta?.provider || null),
         usage,
         lastActivityAt: activityMap.get(id) || null,
       };
@@ -196,7 +196,7 @@ export function queryProjectStatsSnapshot(
     tasks: mapEntityUsage(taskUsage, taskLastActivity, (id) => taskMeta.get(id)),
     providers: mapEntityUsage(providerUsage, providerLastActivity),
     purposes: mapEntityUsage(purposeUsage, purposeLastActivity),
-    tokenSources: Array.from(tokenSourceCounts.entries()).map(([source, count]) => ({ source: source as any, count })).sort((a, b) => b.count - a.count),
+    tokenSources: Array.from(tokenSourceCounts.entries()).map(([source, count]) => ({ source: source as TokenUsageSource, count })).sort((a, b) => b.count - a.count),
     chartSeries,
   };
 }

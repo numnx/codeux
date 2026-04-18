@@ -14,7 +14,7 @@ export function claimNextTaskDispatchTransaction(
 ): string | null {
   return db.transaction(() => {
     const clauses = ["project_id = ?", "executor_type = ?", "status = 'queued'"];
-    const values: any[] = [args.projectId, args.executorType];
+    const values: (string | number | null)[] = [args.projectId, args.executorType];
 
     if (args.sprintId) {
       clauses.push("sprint_id = ?");

@@ -23,7 +23,7 @@ export function queryExecutionInvocations(
   }
 ): ExecutionInvocationRecord[] {
   const conditions = ["project_id = ?"];
-  const values: any[] = [params.projectId];
+  const values: (string | number | null)[] = [params.projectId];
 
   if (params.sprintRunId) {
     conditions.push("sprint_run_id = ?");

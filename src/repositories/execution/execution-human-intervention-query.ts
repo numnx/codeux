@@ -193,7 +193,10 @@ function buildHumanInterventionSummaryFromEvents(
     if (!payload?.error) {
       continue;
     }
-    const reason = typeof payload.error === "string" ? payload.error : (payload.error as any).message || "An unknown execution error occurred";
+    const error = payload?.error;
+    const reason = typeof error === "string"
+      ? error
+      : (error && typeof error === "object" && "message" in error ? String(error.message) : "An unknown execution error occurred");
     const shortReason = reason.length > 500 ? reason.substring(0, 500) + "..." : reason;
 
     if (errorEvent.event_type === "dispatch_error") {

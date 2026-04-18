@@ -1,13 +1,26 @@
+import {
+  ProviderInvocationPurpose,
+  ProviderInvocationStatus,
+  TokenUsageSource,
+  SprintRunStatus,
+  SprintRunTriggerType,
+  SprintRunExecutorMode,
+  TaskDispatchExecutorType,
+  TaskDispatchStatus,
+  ExecutionInvocationStatus,
+} from "../../contracts/execution-types.js";
+import { ProviderErrorCategory } from "../../shared/providers/provider-error-classifier.js";
+
 export interface ExecutionSprintRunSummaryRow {
   id: string;
   project_id: string;
   sprint_id: string;
   sprint_name: string;
   sprint_number: number | string | null;
-  status: string;
-  trigger_type: string;
+  status: SprintRunStatus;
+  trigger_type: SprintRunTriggerType;
   triggered_by: string | null;
-  executor_mode: string;
+  executor_mode: SprintRunExecutorMode;
   started_at: string | null;
   finished_at: string | null;
   last_heartbeat_at: string | null;
@@ -26,8 +39,8 @@ export interface ExecutionTaskDispatchSummaryRow {
   task_id: string;
   task_key: string;
   task_title: string;
-  status: string;
-  executor_type: string;
+  status: TaskDispatchStatus;
+  executor_type: TaskDispatchExecutorType;
   priority: number | string;
   connection_id: string | null;
   connection_display_name: string | null;
@@ -56,7 +69,7 @@ export interface OverviewTelemetryProjectSummaryRow {
   sprint_name: string;
   sprint_number: number | string | null;
   sprint_run_id: string;
-  sprint_run_status: string;
+  sprint_run_status: SprintRunStatus;
   active_dispatch_count: number | string;
   running_dispatch_count: number | string;
   updated_at: string | null;
@@ -72,7 +85,7 @@ export interface ExecutionRuntimeEventSummaryRow {
   sprint_id: string;
   sprint_name: string;
   sprint_number: number | string | null;
-  sprint_run_status: string | null;
+  sprint_run_status: SprintRunStatus | null;
   task_id: string | null;
   task_key: string | null;
   task_title: string | null;
@@ -103,8 +116,8 @@ export interface ProviderInvocationUsageRow {
   attention_item_id: string | null;
   session_id: string;
   provider: string;
-  purpose: string;
-  status: string;
+  purpose: ProviderInvocationPurpose;
+  status: ProviderInvocationStatus;
   model: string | null;
   execution_mode: string | null;
   native_session_id: string | null;
@@ -118,7 +131,7 @@ export interface ProviderInvocationUsageRow {
   output_tokens: number | string;
   reasoning_output_tokens: number | string;
   total_tokens: number | string;
-  usage_source: string;
+  usage_source: TokenUsageSource;
   cost_cents: number | string | null;
   connection_id: string | null;
   raw_usage_json?: string | null;
@@ -151,14 +164,14 @@ export interface ExecutionInvocationRow {
   attention_item_id: string | null;
   provider_invocation_id: string | null;
   type: string;
-  status: string;
+  status: ExecutionInvocationStatus;
   provider: string | null;
   model: string | null;
   system_prompt: string | null;
   started_at: string;
   finished_at: string | null;
   error_message: string | null;
-  last_error_category: string | null;
+  last_error_category: ProviderErrorCategory | null;
   last_error_message: string | null;
   last_retry_after_iso: string | null;
   message_count: number | string;
@@ -170,9 +183,26 @@ export interface ExecutionInvocationRow {
 export interface ExecutionInvocationMessageRow {
   id: string;
   invocation_id: string;
-  role: string;
+  role: "system" | "user" | "assistant" | "tool";
   content_markdown: string;
   tool_calls_json: string | null;
   metadata_json: string | null;
   created_at: string;
 }
+
+export interface UsageAggregationRow {
+  task_id?: string | null;
+  sprint_run_id?: string | null;
+  invocation_count: number | string;
+  duration_ms: number | string | null;
+  input_tokens: number | string;
+  cached_input_tokens: number | string;
+  output_tokens: number | string;
+  reasoning_output_tokens: number | string;
+  total_tokens: number | string;
+  reported_invocation_count: number | string;
+  estimated_invocation_count: number | string;
+  unsupported_invocation_count: number | string;
+  unavailable_invocation_count: number | string;
+}
+
