@@ -4,6 +4,7 @@ import { useCallback, useRef } from "preact/hooks";
 import { Check, X } from "lucide-preact";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useMagnetic } from "../../hooks/use-magnetic.js";
+import { useWeightedPress } from "../../hooks/use-weighted-press.js";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   pending?: boolean;
@@ -40,6 +41,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   useMagnetic(buttonRef, contentRef, { enabled: variant === "primary" || variant === "signal" });
+  useWeightedPress(buttonRef);
 
   const handleClick = useCallback(
     (e: any) => {
@@ -60,7 +62,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     [onClick, setPending, setSuccess, setError]
   );
 
-  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 active:scale-95 disabled:active:scale-100 touch-target";
+  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 disabled:active:scale-100 touch-target";
   const variantClasses = VARIANTS[variant];
   const sizeClasses = SIZES[size];
 

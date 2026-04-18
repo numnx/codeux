@@ -25,6 +25,9 @@ import {
 import { setProjectPreferredWorker } from "../lib/project-api.js";
 import { saveProjectSettings } from "../lib/settings-api.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
+import { useMagnetic } from "../hooks/use-magnetic.js";
+import { useWeightedPress } from "../hooks/use-weighted-press.js";
+import { IconButton } from "./IconButton.js";
 
 export function useDropdownKeyboard(
     isOpen: boolean,
@@ -188,6 +191,30 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
     const sprintDropdownRef = useRef<HTMLDivElement>(null);
     const [sprintDropdownWidth, setSprintDropdownWidth] = useState<number>(0);
 
+    const projectSelectorTargetRef = useRef<HTMLDivElement>(null);
+    const addProjectTriggerRef = useRef<HTMLButtonElement>(null);
+    const addProjectTargetRef = useRef<HTMLDivElement>(null);
+    const notificationTriggerRef = useRef<HTMLButtonElement>(null);
+    const notificationTargetRef = useRef<HTMLDivElement>(null);
+    const avatarTriggerRef = useRef<HTMLButtonElement>(null);
+    const avatarTargetRef = useRef<HTMLDivElement>(null);
+
+    const projectKb = useDropdownKeyboard(dropdownOpen, setDropdownOpen, dropdownRef, setProjectFilter);
+    const sprintKb = useDropdownKeyboard(sprintDropdownOpen, setSprintDropdownOpen, sprintDropdownRef, setSprintFilter);
+    const workerKb = useDropdownKeyboard(workerDropdownOpen, setWorkerDropdownOpen, workerDropdownRef, setWorkerFilter);
+
+    useMagnetic(projectKb.toggleRef, projectSelectorTargetRef);
+    useWeightedPress(projectKb.toggleRef);
+
+    useMagnetic(addProjectTriggerRef, addProjectTargetRef, { maxDisplacement: 4 });
+    useWeightedPress(addProjectTriggerRef);
+
+    useMagnetic(notificationTriggerRef, notificationTargetRef, { maxDisplacement: 4 });
+    useWeightedPress(notificationTriggerRef);
+
+    useMagnetic(avatarTriggerRef, avatarTargetRef, { maxDisplacement: 4 });
+    useWeightedPress(avatarTriggerRef);
+
     const {
         projects,
         selectedProject,
@@ -275,10 +302,6 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
     } : null;
 
     const { options: workerOptions, selectedOption: selectedWorker } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
-
-    const projectKb = useDropdownKeyboard(dropdownOpen, setDropdownOpen, dropdownRef, setProjectFilter);
-    const sprintKb = useDropdownKeyboard(sprintDropdownOpen, setSprintDropdownOpen, sprintDropdownRef, setSprintFilter);
-    const workerKb = useDropdownKeyboard(workerDropdownOpen, setWorkerDropdownOpen, workerDropdownRef, setWorkerFilter);
 
     const filteredProjects = useMemo(() => projects.filter(p => p.name.toLowerCase().includes(projectFilter.toLowerCase())), [projects, projectFilter]);
     const filteredSprints = useMemo(() => sprints.filter(s => s.name.toLowerCase().includes(sprintFilter.toLowerCase())), [sprints, sprintFilter]);
@@ -421,11 +444,13 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         aria-expanded={dropdownOpen}
                         className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                     >
-                        <StatusDot status={selectedProject?.status || "idle"} />
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
-                            {projectSwitchBusy ? "Switching..." : (selectedProject?.name || (loading ? "Loading..." : "Select Project"))}
-                        </span>
-                        <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                        <div ref={projectSelectorTargetRef} className="flex items-center gap-2.5 pointer-events-none">
+                            <StatusDot status={selectedProject?.status || "idle"} />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
+                                {projectSwitchBusy ? "Switching..." : (selectedProject?.name || (loading ? "Loading..." : "Select Project"))}
+                            </span>
+                            <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
                     </button>
 
                     {/* Project Dropdown */}
@@ -477,12 +502,16 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             )}
                             <div className="p-2 border-t border-black/[0.04] dark:border-white/[0.04] mt-1 flex flex-col gap-1">
                                 <button
-                                    onClick={() => { setDropdownOpen(false); setShowAddProject(true); }}
-                                    className="focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-ember-600 dark:text-ember-400 hover:bg-ember-500/[0.06] rounded-xl transition-colors"
+                                   ref={addProjectTriggerRef}
+                                   onClick={() => { setDropdownOpen(false); setShowAddProject(true); }}
+                                   className="focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-ember-600 dark:text-ember-400 hover:bg-ember-500/[0.06] rounded-xl transition-colors"
                                 >
-                                    <FolderOpen aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={2} />
-                                    Add Project
+                                   <div ref={addProjectTargetRef} className="flex items-center gap-2 pointer-events-none">
+                                       <FolderOpen aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={2} />
+                                       Add Project
+                                   </div>
                                 </button>
+
                                 <Link
                                     to="/projects"
                                     onClick={() => setDropdownOpen(false)}
@@ -703,6 +732,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                 >
                     <Tooltip content="Notifications">
                         <button
+                            ref={notificationTriggerRef}
                             type="button"
                             onClick={toggleNotificationMenu}
                             onFocus={handleNotificationFocus}
@@ -712,39 +742,45 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             aria-label="Notifications"
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                         >
-                            <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
-                            <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
+                            <div ref={notificationTargetRef} className="flex items-center justify-center pointer-events-none">
+                                <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
+                                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
+                            </div>
                         </button>
                     </Tooltip>
                     {isNotificationMenuVisible && <NotificationPanel />}
                 </div>
 
                 {/* Theme Toggle */}
-                <Tooltip content={isDark ? "Switch to light mode" : "Switch to dark mode"}>
-                    <button
-                        onClick={toggleTheme}
-                        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-                        className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30"
-                    >
-                        {isDark
-                            ? <Sun aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-white transition-colors" strokeWidth={1.5} />
-                            : <Moon aria-hidden="true" className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" strokeWidth={1.5} />
-                        }
-                    </button>
-                </Tooltip>
+                <IconButton
+                    onClick={toggleTheme}
+                    title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                    className="w-11 h-11 bg-transparent hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"
+                >
+                    {isDark
+                        ? <Sun aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-white transition-colors" strokeWidth={1.5} />
+                        : <Moon aria-hidden="true" className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" strokeWidth={1.5} />
+                    }
+                </IconButton>
 
                 <div className="w-px h-5 bg-black/10 dark:bg-white/10" />
 
                 {/* Avatar */}
                 <Tooltip content="User Profile">
-                    <button aria-label="User Profile" className="flex items-center gap-2.5 cursor-pointer group focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-full">
-                        <div className="w-8 h-8 rounded-full bg-signal-500/20 dark:bg-signal-500/15 p-[1.5px] shadow-[0_0_12px_rgba(0,224,160,0.15)] group-hover:shadow-[0_0_16px_rgba(0,224,160,0.25)] transition-shadow">
-                            <div className="w-full h-full rounded-full bg-white dark:bg-void-800 flex items-center justify-center overflow-hidden">
-                                <img
-                                    src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=transparent"
-                                    alt="Avatar"
-                                    className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500"
-                                />
+                    <button 
+                        ref={avatarTriggerRef}
+                        aria-label="User Profile" 
+                        className="flex items-center gap-2.5 cursor-pointer group focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-full"
+                    >
+                        <div ref={avatarTargetRef} className="pointer-events-none">
+                            <div className="w-8 h-8 rounded-full bg-signal-500/20 dark:bg-signal-500/15 p-[1.5px] shadow-[0_0_12px_rgba(0,224,160,0.15)] group-hover:shadow-[0_0_16px_rgba(0,224,160,0.25)] transition-shadow">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-void-800 flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=transparent"
+                                        alt="Avatar"
+                                        className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </button>
