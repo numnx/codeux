@@ -1,42 +1,7 @@
 import type { DatabaseAdapter } from "../db/database-adapter.js";
 import type { AppDbStorage } from "../app-db-storage.js";
 import type { ExecutionTaskDispatchSummaryRow } from "./execution-repository-types.js";
-
-function executionTaskDispatchStatusRank(status: string): number {
-  switch (status) {
-    case "running":
-      return 0;
-    case "cancel_requested":
-      return 1;
-    case "claimed":
-      return 2;
-    case "queued":
-      return 3;
-    case "blocked":
-      return 4;
-    case "failed":
-      return 5;
-    case "completed":
-      return 6;
-    default:
-      return 7;
-  }
-}
-
-function compareExecutionTaskDispatchSummaryRows(
-  left: ExecutionTaskDispatchSummaryRow,
-  right: ExecutionTaskDispatchSummaryRow,
-): number {
-  const leftRecency = left.last_heartbeat_at || left.started_at || left.claimed_at || left.queued_at;
-  const rightRecency = right.last_heartbeat_at || right.started_at || right.claimed_at || right.queued_at;
-
-  const toNumber = (val: string | number) => Number(val);
-
-  return executionTaskDispatchStatusRank(left.status) - executionTaskDispatchStatusRank(right.status)
-    || toNumber(right.priority) - toNumber(left.priority)
-    || rightRecency.localeCompare(leftRecency)
-    || right.id.localeCompare(left.id);
-}
+import { compareExecutionTaskDispatchSummaryRows } from "../../domain/execution/execution-logic.js";
 
 export function queryExecutionTaskDispatches(
   db: DatabaseAdapter,

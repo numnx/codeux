@@ -60,6 +60,29 @@ export function mergeUsageTotals(target: ExecutionUsageTotals, invocation: Provi
   }
 }
 
+export function mergeUsageMap(
+  map: Map<string, ExecutionUsageTotals>,
+  key: string | null | undefined,
+  invocation: ProviderInvocationUsageRecord,
+): void {
+  if (!key) {
+    return;
+  }
+  const existing = map.get(key) || createEmptyUsageTotals();
+  mergeUsageTotals(existing, invocation);
+  map.set(key, existing);
+}
+
+export function updateLastActivity(map: Map<string, string>, key: string | null | undefined, value: string | null | undefined): void {
+  if (!key || !value) {
+    return;
+  }
+  const current = map.get(key);
+  if (!current || new Date(value).getTime() > new Date(current).getTime()) {
+    map.set(key, value);
+  }
+}
+
 export function withWallTime(usage: ExecutionUsageTotals | undefined, wallTimeMs: number): ExecutionUsageTotals {
   if (!usage) {
     return {

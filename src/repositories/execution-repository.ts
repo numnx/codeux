@@ -20,6 +20,12 @@ import {
 } from "./execution/execution-read-model-mappers.js";
 
 
+import {
+  executionTaskDispatchStatusRank,
+  compareExecutionTaskDispatchSummaryRows,
+  getTaskDispatchRecency
+} from "../domain/execution/execution-logic.js";
+
 import type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
@@ -76,6 +82,19 @@ import { normalizeProjectStatsQuery } from "./execution/project-stats-query.js";
 import { queryProjectStatsSnapshot } from "./execution/project-stats-snapshot-query.js";
 import { OverviewTelemetryQuery } from "./execution/overview-telemetry-query.js";
 import { createUsageBuckets, createEmptyUsageTotals } from "./execution/stats-buckets.js";
+import {
+  toNumber,
+  parsePayloadJson,
+  asNonEmptyString,
+  stripMarkdown
+} from "./execution/execution-utils.js";
+import {
+  mergeUsageTotals,
+  mergeUsageMap,
+  updateLastActivity,
+  withWallTime,
+  groupUsageBy
+} from "./execution/execution-usage-query.js";
 import { claimNextTaskDispatchTransaction } from "./execution/task-dispatch-claim-query.js";
 import {
   requireProject,
@@ -198,37 +217,6 @@ interface WorkerProjectAffinityRow {
   project_id: string;
   active_count: number | string;
   last_seen_at: string | null;
-}
-
-function toNumber(value: number | string): number {
-  return typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
-}
-
-function parsePayloadJson(value: string | null): Record<string, unknown> | null {
-  if (!value || !value.trim()) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function stripMarkdown(value: string): string {
-  return value
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_>#~-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function cloneUsageTotals(input?: ExecutionUsageTotals | null): ExecutionUsageTotals {
@@ -1020,11 +1008,12 @@ export class ExecutionRepository {
       getTaskMetadata: (id) => this.getTaskMetadata(id),
       getSprintMetadata: (id) => this.getSprintMetadata(id),
       mapProviderInvocationUsageRow: (row: any) => mapProviderInvocationUsageRow(row as any),
-      mergeUsageTotals: (target, source) => this.mergeUsageTotals(target, source),
-      mergeUsageMap: (map, key, source) => this.mergeUsageMap(map, key, source),
-      updateLastActivity: (map, key, date) => this.updateLastActivity(map, key, date),
+      mergeUsageTotals,
+      mergeUsageMap,
+      updateLastActivity,
     });
   }
+
 
   getOverviewTelemetrySnapshot(): OverviewTelemetrySnapshot {
     return new OverviewTelemetryQuery(this.db, this.storage).getOverviewTelemetrySnapshot();
@@ -1380,49 +1369,6 @@ export class ExecutionRepository {
   }
 
 
-  private withWallTime(usage: ExecutionUsageTotals | undefined, wallTimeMs: number): ExecutionUsageTotals {
-    const next = cloneUsageTotals(usage);
-    next.wallTimeMs = wallTimeMs;
-    return next;
-  }
-
-  private mergeUsageMap(
-    map: Map<string, ExecutionUsageTotals>,
-    key: string | null | undefined,
-    invocation: ProviderInvocationUsageRecord,
-  ): void {
-    if (!key) {
-      return;
-    }
-    const existing = map.get(key) || createEmptyUsageTotals();
-    this.mergeUsageTotals(existing, invocation);
-    map.set(key, existing);
-  }
-
-  private mergeUsageTotals(target: ExecutionUsageTotals, invocation: ProviderInvocationUsageRecord): void {
-    target.invocationCount += 1;
-    target.activeTimeMs += invocation.durationMs || 0;
-    target.inputTokens += invocation.inputTokens;
-    target.cachedInputTokens += invocation.cachedInputTokens;
-    target.outputTokens += invocation.outputTokens;
-    target.reasoningOutputTokens += invocation.reasoningOutputTokens;
-    target.totalTokens += invocation.totalTokens;
-    switch (invocation.usageSource) {
-      case "reported":
-        target.reportedInvocationCount += 1;
-        break;
-      case "estimated":
-        target.estimatedInvocationCount += 1;
-        break;
-      case "unsupported":
-        target.unsupportedInvocationCount += 1;
-        break;
-      default:
-        target.unavailableInvocationCount += 1;
-        break;
-    }
-  }
-
   private getUsageTotalsByTaskIds(projectId: string, taskIds: string[]): Map<string, ExecutionUsageTotals> {
     if (taskIds.length === 0) {
       return new Map();
@@ -1432,7 +1378,7 @@ export class ExecutionRepository {
       items: taskIds,
       bindParamsBefore: [projectId],
     });
-    return this.groupUsageBy(rows.map((row) => mapProviderInvocationUsageRow(row)), (row) => row.taskId);
+    return groupUsageBy(rows.map((row) => mapProviderInvocationUsageRow(row)), (row) => row.taskId);
   }
 
   private getUsageTotalsBySprintRunIds(projectId: string, sprintRunIds: string[]): Map<string, ExecutionUsageTotals> {
@@ -1444,24 +1390,7 @@ export class ExecutionRepository {
       items: sprintRunIds,
       bindParamsBefore: [projectId],
     });
-    return this.groupUsageBy(rows.map((row) => mapProviderInvocationUsageRow(row)), (row) => row.sprintRunId);
-  }
-
-  private groupUsageBy(
-    rows: ProviderInvocationUsageRecord[],
-    keySelector: (row: ProviderInvocationUsageRecord) => string | null,
-  ): Map<string, ExecutionUsageTotals> {
-    const map = new Map<string, ExecutionUsageTotals>();
-    for (const row of rows) {
-      const key = keySelector(row);
-      if (!key) {
-        continue;
-      }
-      const current = map.get(key) || createEmptyUsageTotals();
-      this.mergeUsageTotals(current, row);
-      map.set(key, current);
-    }
-    return map;
+    return groupUsageBy(rows.map((row) => mapProviderInvocationUsageRow(row)), (row) => row.sprintRunId);
   }
 
   private getWallTimeTotalsByTaskIds(projectId: string, taskIds: string[], nowIso: string): Map<string, number> {
@@ -1841,40 +1770,6 @@ export class ExecutionRepository {
         AND status IN ('open', 'claimed')
       ORDER BY updated_at DESC, opened_at DESC, id DESC
     `).all(projectId) as unknown as ProjectAttentionSummaryRow[];
-  }
-
-  private compareExecutionTaskDispatchSummaryRows(
-    left: ExecutionTaskDispatchSummaryRow,
-    right: ExecutionTaskDispatchSummaryRow,
-  ): number {
-    const leftRecency = left.last_heartbeat_at || left.started_at || left.claimed_at || left.queued_at;
-    const rightRecency = right.last_heartbeat_at || right.started_at || right.claimed_at || right.queued_at;
-
-    return this.executionTaskDispatchStatusRank(left.status) - this.executionTaskDispatchStatusRank(right.status)
-      || toNumber(right.priority) - toNumber(left.priority)
-      || rightRecency.localeCompare(leftRecency)
-      || right.id.localeCompare(left.id);
-  }
-
-  private executionTaskDispatchStatusRank(status: string): number {
-    switch (status) {
-      case "running":
-        return 0;
-      case "cancel_requested":
-        return 1;
-      case "claimed":
-        return 2;
-      case "queued":
-        return 3;
-      case "blocked":
-        return 4;
-      case "failed":
-        return 5;
-      case "completed":
-        return 6;
-      default:
-        return 7;
-    }
   }
 
   private compareExecutionRuntimeEventSummaryRows(
