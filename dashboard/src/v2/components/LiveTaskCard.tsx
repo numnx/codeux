@@ -25,9 +25,10 @@ import {
 import { RerunTaskModal } from "./ui/RerunTaskModal.js";
 import { Button } from "./ui/Button.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
+import { useActionFeedback } from "../hooks/use-action-feedback.js";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-
+// ... (formatDuration and extractRetryAfterIso and QuotaCountdown and TaskDuration stay same)
 export function formatDuration(totalSeconds: number): string {
     if (totalSeconds <= 0) return "0s";
     const h = Math.floor(totalSeconds / 3600);
@@ -159,7 +160,14 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     const feedRef = useRef<HTMLDivElement>(null);
     const chevronRef = useRef<SVGSVGElement>(null);
     const flareRef = useRef<HTMLDivElement>(null);
+
+    const statusIconBlobRef = useRef<HTMLDivElement>(null);
+    const statusIconRef = useRef<HTMLSpanElement>(null);
+    const statusBadgeRef = useRef<HTMLSpanElement>(null);
+    const rerunButtonRef = useRef<HTMLButtonElement>(null);
+
     const prefersReducedMotion = useReducedMotion();
+    const { triggerFeedback } = useActionFeedback();
     const isMounted = useRef(false);
 
     const isPreviewVisible = !expanded && !showFeed;
@@ -204,10 +212,66 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     }, []);
 
     const previousTaskPhase = useRef(taskPhase);
+    const prevIsRerunning = useRef(isRerunning);
 
-    // Flare effect
+    // Cross-fade accent color
+    useLayoutEffect(() => {
+        if (!cardRef.current || prefersReducedMotion) return;
+        
+        const ctx = gsap.context(() => {
+            if (statusIconBlobRef.current) {
+                gsap.to(statusIconBlobRef.current, {
+                    backgroundColor: `${cfg.hex}14`,
+                    duration: 1,
+                    ease: "power2.out",
+                    overwrite: "auto"
+                });
+            }
+            if (statusIconRef.current) {
+                gsap.to(statusIconRef.current, {
+                    color: cfg.hex,
+                    duration: 1,
+                    ease: "power2.out",
+                    overwrite: "auto"
+                });
+            }
+            if (flareRef.current) {
+                gsap.to(flareRef.current, {
+                    backgroundColor: cfg.hex,
+                    duration: 1,
+                    ease: "power2.out",
+                    overwrite: "auto"
+                });
+            }
+        });
+        return () => ctx.revert();
+    }, [cfg.hex, prefersReducedMotion]);
+
+    // Coordinated Feedback animations
     useEffect(() => {
-        if (isMounted.current && previousTaskPhase.current !== "COMPLETED" && taskPhase === "COMPLETED" && flareRef.current) {
+        if (!isMounted.current) return;
+
+        // Rerun completion feedback
+        if (prevIsRerunning.current && !isRerunning) {
+            if (dispatchInfo?.errorMessage) {
+                triggerFeedback(rerunButtonRef.current, "error");
+            } else {
+                triggerFeedback(rerunButtonRef.current, "success");
+            }
+        }
+        prevIsRerunning.current = isRerunning;
+
+        // Status change feedback
+        if (previousTaskPhase.current !== taskPhase) {
+            if (taskPhase === "COMPLETED") {
+                triggerFeedback(statusBadgeRef.current, "success");
+            } else if (taskPhase === "FAILED") {
+                triggerFeedback(statusBadgeRef.current, "error");
+            }
+        }
+
+        // Flare effect on completion
+        if (previousTaskPhase.current !== "COMPLETED" && taskPhase === "COMPLETED" && flareRef.current) {
             if (!prefersReducedMotion) {
                 gsap.fromTo(flareRef.current,
                     { scale: 0.9, opacity: 0 },
@@ -228,12 +292,9 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                 );
             }
         }
-    }, [taskPhase, prefersReducedMotion]);
 
-    // Track previous phase
-    useEffect(() => {
         previousTaskPhase.current = taskPhase;
-    }, [taskPhase]);
+    }, [taskPhase, isRerunning, dispatchInfo, triggerFeedback, prefersReducedMotion]);
 
     useLayoutEffect(() => {
         if (!isMounted.current) {
@@ -310,10 +371,11 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                     <div className="flex items-start gap-3.5 min-w-0 flex-1">
                         {/* Status icon blob */}
                         <div
+                            ref={statusIconBlobRef}
                             className="w-10 h-10 rounded-[0.875rem] flex items-center justify-center shrink-0 mt-0.5"
                             style={{ backgroundColor: `${cfg.hex}14` }}
                         >
-                            <span style={{ color: cfg.hex }}><StatusIcon className="w-5 h-5" strokeWidth={1.5} /></span>
+                            <span ref={statusIconRef} style={{ color: cfg.hex }}><StatusIcon className="w-5 h-5" strokeWidth={1.5} /></span>
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -322,7 +384,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                                     #{task.id}
                                 </span>
                                 {/* Status badge */}
-                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.14em] ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+                                <span ref={statusBadgeRef} className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.14em] ${cfg.bg} ${cfg.text} border ${cfg.border} transform-gpu`}>
                                     <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${cfg.dot}`} />
                                     {cfg.label}
                                 </span>
@@ -440,6 +502,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                             Prompt
                         </button>
                         <Button
+                            ref={rerunButtonRef}
                             type="button"
                             onClick={handleRerunClick}
                             pending={isRerunning}

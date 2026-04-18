@@ -25,7 +25,34 @@ const SIZES = {
   lg: "px-6 py-3 text-sm rounded-2xl",
 };
 
-export const Button: FunctionComponent<ButtonProps> = memo(({
+import type { FunctionComponent, ComponentProps } from "preact";
+import { memo, forwardRef } from "preact/compat";
+import { useCallback, useRef, useEffect } from "preact/hooks";
+import { Check, X } from "lucide-preact";
+import { useActionFeedback } from "../../hooks/use-action-feedback.js";
+import { useMagnetic } from "../../hooks/use-magnetic.js";
+
+export interface ButtonProps extends ComponentProps<"button"> {
+  pending?: boolean;
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "signal";
+  size?: "sm" | "md" | "lg";
+}
+
+const VARIANTS = {
+  primary: "bg-slate-900 text-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] hover:bg-slate-700 dark:bg-white dark:text-void-900 dark:hover:bg-slate-100",
+  secondary: "border border-black/[0.06] bg-white/72 text-slate-600 hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white",
+  danger: "border border-status-red/30 bg-status-red/[0.06] text-status-red hover:bg-status-red/[0.12]",
+  ghost: "bg-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.03]",
+  signal: "bg-signal-500 hover:bg-signal-400 text-void-900 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.4)] disabled:shadow-none",
+};
+
+const SIZES = {
+  sm: "px-3 py-1.5 text-xs rounded-xl",
+  md: "px-4 py-2 text-xs rounded-xl",
+  lg: "px-6 py-3 text-sm rounded-2xl",
+};
+
+export const Button = memo(forwardRef<HTMLButtonElement, ButtonProps>(({
   children,
   className = "",
   variant = "secondary",
@@ -34,12 +61,22 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   disabled,
   onClick,
   ...props
-}) => {
-  const { feedback, setPending, setSuccess, setError } = useActionFeedback(1500);
+}, ref) => {
+  const { feedback, setPending, setSuccess, setError, triggerFeedback } = useActionFeedback(2000);
 
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const internalRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = (ref as any) || internalRef;
   const contentRef = useRef<HTMLDivElement>(null);
+  
   useMagnetic(buttonRef, contentRef, { enabled: variant === "primary" || variant === "signal" });
+
+  useEffect(() => {
+    if (feedback.status === "success") {
+      triggerFeedback(buttonRef.current, "success");
+    } else if (feedback.status === "error") {
+      triggerFeedback(buttonRef.current, "error");
+    }
+  }, [feedback.status, triggerFeedback, buttonRef]);
 
   const handleClick = useCallback(
     (e: any) => {
@@ -60,7 +97,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     [onClick, setPending, setSuccess, setError]
   );
 
-  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 active:scale-95 disabled:active:scale-100 touch-target";
+  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 active:scale-95 disabled:active:scale-100 touch-target transform-gpu";
   const variantClasses = VARIANTS[variant];
   const sizeClasses = SIZES[size];
 
@@ -91,16 +128,16 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       )}
 
       {isSuccess && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center animate-in fade-in zoom-in duration-300">
           <Check className="w-5 h-5" />
         </div>
       )}
 
       {isError && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center animate-in fade-in zoom-in duration-300">
           <X className="w-5 h-5" />
         </div>
       )}
     </button>
   );
-});
+}));
