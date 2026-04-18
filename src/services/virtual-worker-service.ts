@@ -27,9 +27,11 @@ import { resolveEffectiveDashboardSettings } from "./settings-resolution-service
 import type { WorkerInboxReplyService } from "./worker-inbox-reply-service.js";
 import type { InstructionService } from "../instructions/instruction-template-service.js";
 import type { SprintExecutionStateService } from "./sprint-execution-state-service.js";
+import type { DashboardRealtimeService } from "./dashboard-realtime-service.js";
 
-const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
+const VIRTUAL_WORKER_RECONCILE_MS = 60_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
+const VIRTUAL_WORKER_SCHEDULE_DEBOUNCE_MS = 100;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -79,6 +81,7 @@ export interface VirtualWorkerServiceDependencies {
   sprintExecutionStateService: SprintExecutionStateService;
   workerInboxReplyService: WorkerInboxReplyService;
   instructionService: InstructionService;
+  dashboardRealtimeService: DashboardRealtimeService;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
   logger?: Logger;
@@ -93,8 +96,10 @@ export class VirtualWorkerService {
   private readonly activeCycles = new Map<string, Promise<void>>();
 
   private readonly scheduledProjects = new Set<string>();
+  private readonly scheduleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
+  private unsubscribeRealtime: (() => void) | null = null;
 
   private readonly ciAutofixRetryCounts = new Map<string, number>();
   private readonly clarificationRetryCounts = new Map<string, number>();
@@ -123,6 +128,15 @@ export class VirtualWorkerService {
 
     this.cleanupOrphanedVirtualWorkers();
     void this.reconcile();
+
+    this.unsubscribeRealtime = this.deps.dashboardRealtimeService.subscribe((event) => {
+      if (event.eventType === "project.structure.updated" || event.eventType === "project.execution.updated") {
+        if (event.projectId) {
+          this.scheduleProject(event.projectId, `realtime:${event.eventType}`);
+        }
+      }
+    });
+
     this.reconcileTimer = setInterval(() => {
       void this.reconcile().catch((error) => {
         this.deps.logger?.error("Virtual worker reconcile failed", { error });
@@ -136,22 +150,37 @@ export class VirtualWorkerService {
       clearInterval(this.reconcileTimer);
       this.reconcileTimer = null;
     }
+    if (this.unsubscribeRealtime) {
+      this.unsubscribeRealtime();
+      this.unsubscribeRealtime = null;
+    }
+    for (const timer of this.scheduleTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.scheduleTimers.clear();
   }
 
   scheduleProject(projectId: string, reason: string): void {
     if (this.activeCycles.has(projectId) || this.scheduledProjects.has(projectId)) {
       return;
     }
-    if (!this.projectNeedsVirtualWorker(projectId)) {
-      return;
+
+    if (this.scheduleTimers.has(projectId)) {
+      clearTimeout(this.scheduleTimers.get(projectId));
     }
 
-    this.scheduledProjects.add(projectId);
-    queueMicrotask(() => {
-      this.scheduledProjects.delete(projectId);
-      if (this.activeCycles.has(projectId) || !this.projectNeedsVirtualWorker(projectId)) {
+    const timer = setTimeout(() => {
+      this.scheduleTimers.delete(projectId);
+
+      if (this.activeCycles.has(projectId)) {
         return;
       }
+
+      if (!this.projectNeedsVirtualWorker(projectId)) {
+        return;
+      }
+
+      this.scheduledProjects.add(projectId);
 
       const cycle = this.runProjectCycle(projectId, reason)
         .catch((error) => {
@@ -159,13 +188,17 @@ export class VirtualWorkerService {
         })
         .finally(() => {
           this.activeCycles.delete(projectId);
+          this.scheduledProjects.delete(projectId);
+
           if (this.projectNeedsVirtualWorker(projectId)) {
             this.scheduleProject(projectId, "remaining_worker_work");
           }
         });
 
       this.activeCycles.set(projectId, cycle);
-    });
+    }, VIRTUAL_WORKER_SCHEDULE_DEBOUNCE_MS);
+
+    this.scheduleTimers.set(projectId, timer);
   }
 
   async reconcile(): Promise<void> {

@@ -164,6 +164,7 @@ export function createSprintDependencies(
     sprintExecutionStateService,
     workerInboxReplyService,
     instructionService,
+    dashboardRealtimeService: coreDeps.dashboardRealtimeService,
     approveSessionPlan: (sessionId) => julesApi.approveSessionPlan(sessionId),
     sendSessionMessage: (sessionId, prompt) => julesApi.sendSessionMessage(sessionId, prompt),
     logger: logger.child({ component: "virtual-worker-service" }),
@@ -175,10 +176,6 @@ export function createSprintDependencies(
     taskService,
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
-
-  projectAttentionService.setWorkerAttentionOpenedCallback((projectId) => {
-    virtualWorkerService.scheduleProject(projectId, "worker_attention_opened");
-  });
 
   const sprintOrchestrator = new SprintOrchestrator({
     settings: context.runtimeContext.settings,
