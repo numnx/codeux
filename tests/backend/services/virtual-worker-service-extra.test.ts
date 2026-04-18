@@ -11,6 +11,8 @@ import { ProjectAttentionRepository } from "../../../src/repositories/project-at
 import { ProjectAttentionService } from "../../../src/domain/workers/project-attention-service.js";
 import { ProjectWorkerAssignmentService } from "../../../src/domain/workers/project-worker-assignment-service.js";
 import { ProjectAttentionService as ProjectAttentionServiceDomain } from "../../../src/domain/workers/project-attention-service.js";
+import { DashboardRealtimeEventRepository } from "../../../src/repositories/dashboard-realtime-event-repository.js";
+import { DashboardRealtimeService } from "../../../src/services/dashboard-realtime-service.js";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -20,11 +22,16 @@ async function createFixture() {
   const appStorage = new AppDbStorage(path.join(dir, "app.db"));
   const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
   const sessionTracking = new SessionTrackingRepository(path.join(dir, "session-tracking.db"));
-  const projectManagementRepository = new ProjectManagementRepository(appStorage);
-  const executionRepository = new ExecutionRepository(appStorage);
+  const dashboardRealtimeEventRepository = new DashboardRealtimeEventRepository(appStorage);
+  const dashboardRealtimeService = new DashboardRealtimeService(
+    dashboardRealtimeEventRepository,
+    { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } as any,
+  );
+  const projectManagementRepository = new ProjectManagementRepository(appStorage, dashboardRealtimeService);
+  const executionRepository = new ExecutionRepository(appStorage, dashboardRealtimeService);
   const workerEndpointRepository = new WorkerEndpointRepository(appStorage);
   const projectWorkerAssignmentRepository = new ProjectWorkerAssignmentRepository(appStorage);
-  const projectAttentionRepository = new ProjectAttentionRepository(appStorage);
+  const projectAttentionRepository = new ProjectAttentionRepository(appStorage, dashboardRealtimeService);
   const projectAttentionService = new ProjectAttentionServiceDomain(projectAttentionRepository, projectWorkerAssignmentRepository, () => ({ workers: { executionMode: "VIRTUAL" } } as any));
 
   const deps = {
@@ -41,6 +48,7 @@ async function createFixture() {
     sprintExecutionStateService: {} as any,
     workerInboxReplyService: {} as any,
     instructionService: {} as any,
+    dashboardRealtimeService,
     approveSessionPlan: vi.fn(),
     sendSessionMessage: vi.fn(),
   };

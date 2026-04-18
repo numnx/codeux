@@ -17,6 +17,9 @@ import { WorkerTaskDispatchService } from "../../../src/services/worker-task-dis
 import { VirtualWorkerService } from "../../../src/services/virtual-worker-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
+import { DashboardRealtimeEventRepository } from "../../../src/repositories/dashboard-realtime-event-repository.js";
+import { DashboardRealtimeService } from "../../../src/services/dashboard-realtime-service.js";
+
 const tempDirs: string[] = [];
 
 async function createFixture() {
@@ -25,11 +28,16 @@ async function createFixture() {
   const appStorage = new AppDbStorage(path.join(dir, "app.db"));
   const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
   const sessionTracking = new SessionTrackingRepository(path.join(dir, "session-tracking.db"));
-  const projectManagementRepository = new ProjectManagementRepository(appStorage);
-  const executionRepository = new ExecutionRepository(appStorage);
+  const dashboardRealtimeEventRepository = new DashboardRealtimeEventRepository(appStorage);
+  const dashboardRealtimeService = new DashboardRealtimeService(
+    dashboardRealtimeEventRepository,
+    { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } as any,
+  );
+  const projectManagementRepository = new ProjectManagementRepository(appStorage, dashboardRealtimeService);
+  const executionRepository = new ExecutionRepository(appStorage, dashboardRealtimeService);
   const workerEndpointRepository = new WorkerEndpointRepository(appStorage);
   const projectWorkerAssignmentRepository = new ProjectWorkerAssignmentRepository(appStorage);
-  const projectAttentionRepository = new ProjectAttentionRepository(appStorage);
+  const projectAttentionRepository = new ProjectAttentionRepository(appStorage, dashboardRealtimeService);
   const projectWorkerAssignmentService = new ProjectWorkerAssignmentService(
     projectWorkerAssignmentRepository,
     workerEndpointRepository,
@@ -46,7 +54,7 @@ async function createFixture() {
   const workerTaskDispatchService = new WorkerTaskDispatchService(
     executionRepository,
     projectManagementRepository,
-    new ConnectionChatRepository(appStorage, undefined, workerEndpointRepository),
+    new ConnectionChatRepository(appStorage, dashboardRealtimeService, workerEndpointRepository),
     workerEndpointRepository,
     projectWorkerAssignmentService,
     projectAttentionService,
@@ -68,6 +76,7 @@ async function createFixture() {
     projectWorkerAssignmentRepository,
     projectAttentionService,
     workerTaskDispatchService,
+    dashboardRealtimeService,
   };
 }
 
@@ -91,6 +100,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const virtualProject = projectManagementRepository.createProject({
@@ -153,6 +163,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
@@ -175,6 +186,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const project = projectManagementRepository.createProject({
@@ -232,14 +244,15 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
     });
 
     virtualWorkerService.scheduleProject(project.id, "test_attention_escalation");
+    await vi.advanceTimersByTimeAsync(100);
     await vi.runAllTicks();
-    await vi.advanceTimersByTimeAsync(0);
 
     const resolvedOriginal = projectAttentionService.getItem(originalItem.id);
     expect(resolvedOriginal?.status).toBe("resolved");
@@ -266,6 +279,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const project = projectManagementRepository.createProject({
@@ -309,6 +323,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
@@ -348,6 +363,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const project = projectManagementRepository.createProject({
@@ -371,6 +387,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
@@ -395,6 +412,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const project = projectManagementRepository.createProject({
@@ -453,6 +471,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
@@ -471,6 +490,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const virtualWorkerService = new VirtualWorkerService({
@@ -486,6 +506,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: { startTask: vi.fn() } as any,
     });
 
@@ -507,6 +528,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const virtualWorkerService = new VirtualWorkerService({
@@ -522,6 +544,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: { startTask: vi.fn() } as any,
     });
 
@@ -540,6 +563,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const virtualWorkerService = new VirtualWorkerService({
@@ -555,6 +579,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: { startTask: vi.fn() } as any,
     });
 
@@ -573,6 +598,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const project = projectManagementRepository.createProject({
@@ -614,6 +640,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: { startTask: vi.fn() } as any,
     });
 
@@ -640,6 +667,7 @@ describe("VirtualWorkerService", () => {
       projectWorkerAssignmentRepository,
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
     } = await createFixture();
 
     const virtualWorkerService = new VirtualWorkerService({
@@ -655,6 +683,7 @@ describe("VirtualWorkerService", () => {
       ),
       projectAttentionService,
       workerTaskDispatchService,
+      dashboardRealtimeService,
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,

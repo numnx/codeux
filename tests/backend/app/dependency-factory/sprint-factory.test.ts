@@ -240,7 +240,6 @@ describe("Sprint Factory", () => {
 
     sprintArgs.renderInstruction("template1", { var: 1 }, "repo1");
     expect(mockCoreDeps.instructionService.render).toHaveBeenCalledWith("template1", { var: 1 }, "repo1");
-    expect(mockCoreDeps.projectAttentionService.setWorkerAttentionOpenedCallback).toHaveBeenCalledTimes(1);
   });
 
   it("handles missing dashboardSettings", () => {
