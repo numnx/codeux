@@ -8,6 +8,7 @@ import {
 } from "./execution-repository-types.js";
 import { mapOverviewTelemetryProjectSummaryRow, mapExecutionRuntimeEventSummaryRow } from "./execution-read-model-mappers.js";
 import { buildHumanInterventionSummaryBySprintRun, listActiveAttentionRowsForSprintRuns } from "./execution-human-intervention-query.js";
+import { ACTIVE_SPRINT_RUN_STATUSES } from "../../domain/execution/execution-logic.js";
 
 export class OverviewTelemetryQuery {
   constructor(

@@ -90,6 +90,20 @@ import {
   requireLease
 } from "./execution/execution-validators.js";
 
+import {
+  toNumber,
+  parsePayloadJson,
+  asNonEmptyString,
+  stripMarkdown
+} from "./execution/execution-utils.js";
+
+import {
+  compareExecutionTaskDispatchRows,
+  getExecutionTaskDispatchStatusRank,
+  ACTIVE_SPRINT_RUN_STATUSES,
+  ACTIVE_TASK_DISPATCH_STATUSES
+} from "../domain/execution/execution-logic.js";
+
 import type {
   ExecutionSprintRunSummaryRow,
   ExecutionTaskDispatchSummaryRow,
@@ -198,37 +212,6 @@ interface WorkerProjectAffinityRow {
   project_id: string;
   active_count: number | string;
   last_seen_at: string | null;
-}
-
-function toNumber(value: number | string): number {
-  return typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
-}
-
-function parsePayloadJson(value: string | null): Record<string, unknown> | null {
-  if (!value || !value.trim()) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function stripMarkdown(value: string): string {
-  return value
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_>#~-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function cloneUsageTotals(input?: ExecutionUsageTotals | null): ExecutionUsageTotals {
@@ -582,10 +565,10 @@ export class ExecutionRepository {
     const row = this.db.prepare(`
       SELECT *
       FROM sprint_runs
-      WHERE project_id = ? AND sprint_id = ? AND status IN ('queued', 'running', 'paused', 'cancel_requested')
+      WHERE project_id = ? AND sprint_id = ? AND status IN (${ACTIVE_SPRINT_RUN_STATUSES.map(() => "?").join(", ")})
       ORDER BY created_at DESC, rowid DESC
       LIMIT 1
-    `).get(projectId, sprintId) as SprintRunRow | undefined;
+    `).get(projectId, sprintId, ...ACTIVE_SPRINT_RUN_STATUSES) as SprintRunRow | undefined;
     return row ? this.mapSprintRunRow(row) : null;
   }
 
@@ -730,8 +713,8 @@ export class ExecutionRepository {
       SELECT *
       FROM task_dispatches
       WHERE status = 'cancel_requested'
-        AND COALESCE(last_heartbeat_at, updated_at, started_at, queued_at) <= ?
-      ORDER BY COALESCE(last_heartbeat_at, updated_at, started_at, queued_at) ASC
+        AND COALESCE(last_heartbeat_at, started_at, claimed_at, queued_at) <= ?
+      ORDER BY COALESCE(last_heartbeat_at, started_at, claimed_at, queued_at) ASC
     `).all(cutoffIso) as unknown as TaskDispatchRow[];
 
     return rows.map((row) => this.mapTaskDispatchRow(row));
@@ -1353,8 +1336,8 @@ export class ExecutionRepository {
       SELECT COUNT(*) AS total
       FROM task_dispatches
       WHERE sprint_run_id = ?
-        AND status IN ('queued', 'claimed', 'running', 'cancel_requested')
-    `).get(sprintRunId) as { total: number | string } | undefined;
+        AND status IN (${ACTIVE_TASK_DISPATCH_STATUSES.map(() => "?").join(", ")})
+    `).get(sprintRunId, ...ACTIVE_TASK_DISPATCH_STATUSES) as { total: number | string } | undefined;
     return toNumber(row?.total || 0) > 0;
   }
 
@@ -1847,34 +1830,7 @@ export class ExecutionRepository {
     left: ExecutionTaskDispatchSummaryRow,
     right: ExecutionTaskDispatchSummaryRow,
   ): number {
-    const leftRecency = left.last_heartbeat_at || left.started_at || left.claimed_at || left.queued_at;
-    const rightRecency = right.last_heartbeat_at || right.started_at || right.claimed_at || right.queued_at;
-
-    return this.executionTaskDispatchStatusRank(left.status) - this.executionTaskDispatchStatusRank(right.status)
-      || toNumber(right.priority) - toNumber(left.priority)
-      || rightRecency.localeCompare(leftRecency)
-      || right.id.localeCompare(left.id);
-  }
-
-  private executionTaskDispatchStatusRank(status: string): number {
-    switch (status) {
-      case "running":
-        return 0;
-      case "cancel_requested":
-        return 1;
-      case "claimed":
-        return 2;
-      case "queued":
-        return 3;
-      case "blocked":
-        return 4;
-      case "failed":
-        return 5;
-      case "completed":
-        return 6;
-      default:
-        return 7;
-    }
+    return compareExecutionTaskDispatchRows(left, right);
   }
 
   private compareExecutionRuntimeEventSummaryRows(

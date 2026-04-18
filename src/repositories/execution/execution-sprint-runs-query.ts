@@ -1,5 +1,6 @@
 import type { DatabaseAdapter } from "../db/database-adapter.js";
 import type { ExecutionSprintRunSummaryRow } from "./execution-repository-types.js";
+import { ACTIVE_SPRINT_RUN_STATUSES } from "../../domain/execution/execution-logic.js";
 
 export function queryExecutionSprintRuns(
   db: DatabaseAdapter,
@@ -35,7 +36,7 @@ export function queryExecutionSprintRuns(
   `).all(projectId) as unknown as ExecutionSprintRunSummaryRow[];
 
   const expandedSprintRunIds = sprintRuns
-    .filter((row) => ["running", "queued", "paused", "cancel_requested"].includes(row.status))
+    .filter((row) => ACTIVE_SPRINT_RUN_STATUSES.includes(row.status))
     .map((row) => row.id);
 
   if (expandedSprintRunIds.length === 0 && sprintRuns[0]?.id) {

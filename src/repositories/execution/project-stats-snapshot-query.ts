@@ -16,6 +16,7 @@ import { ProviderInvocationUsageRecord } from "../../contracts/execution-types.j
 import { toNumber } from "./execution-utils.js";
 import { ProviderInvocationUsageRow } from "./execution-repository-types.js";
 import { StatsEntityMetadata, ProjectStatsQueryDependencies } from "./execution-stats-types.js";
+import { ACTIVE_SPRINT_RUN_STATUSES } from "../../domain/execution/execution-logic.js";
 
 export function queryProjectStatsSnapshot(
   db: Database,
@@ -113,10 +114,10 @@ export function queryProjectStatsSnapshot(
     FROM sprint_runs sr
     INNER JOIN sprints s ON s.id = sr.sprint_id
     WHERE sr.project_id = ?
-      AND sr.status IN ('queued', 'running', 'paused', 'cancel_requested')
+      AND sr.status IN (${ACTIVE_SPRINT_RUN_STATUSES.map(() => "?").join(", ")})
     ORDER BY COALESCE(sr.last_heartbeat_at, sr.updated_at, sr.created_at) DESC
     LIMIT 1
-  `).get(projectId) as { sprint_id: string; sprint_name: string; sprint_number: number | string | null } | undefined;
+  `).get(projectId, ...ACTIVE_SPRINT_RUN_STATUSES) as { sprint_id: string; sprint_name: string; sprint_number: number | string | null } | undefined;
 
   const chartSeries: ProjectExecutionStatsChartSeries[] = [
     { id: "core_total_tokens", label: "Total Tokens", grouping: "totals", defaultEnabled: true, data: buckets.map((b) => b.usage.totalTokens), color: '#00E0A0', signalLabel: 'Throughput', formatter: 'tokens' },
