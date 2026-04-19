@@ -766,12 +766,13 @@ export class QualityAssuranceService {
         });
       } finally {
         if (settings.memory?.enabled && settings.memory.autoCaptureSprint && this.deps.memoryService && result) {
-          if (shouldCleanupSnapshot) {
+          const memoryCaptureWorkspace = shouldCleanupSnapshot ? snapshotWorkspace : args.repoPath;
+          if (memoryCaptureWorkspace) {
             await this.deps.memoryService.captureMemoriesFromWorktree(
               args.scope.projectId!,
               args.scope.sprintId || undefined,
               args.agentPresetId || null,
-              snapshotWorkspace,
+              memoryCaptureWorkspace,
               result.invocationId,
             );
           }
