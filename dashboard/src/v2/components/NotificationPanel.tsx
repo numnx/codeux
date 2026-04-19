@@ -65,49 +65,49 @@ export const NotificationPanel: FunctionComponent = () => {
             ref={panelRef}
             role="menu"
             aria-label="Notifications Panel"
-            className="absolute right-0 top-full mt-2 w-80 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50 flex flex-col"
+            className="absolute right-0 top-full mt-2 w-80 bg-white/95 dark:bg-void-900/95 backdrop-blur-3xl border border-black/[0.04] dark:border-white/[0.06] rounded-2xl shadow-[0_32px_64px_rgba(0,0,0,0.16)] dark:shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden z-50 flex flex-col"
         >
             {/* Top decorative jade gradient border */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-signal-500/40 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-signal-500/50 to-transparent" />
 
-            <div className="px-4 py-3 flex justify-between items-center border-b border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02]">
-                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            <div className="px-4 py-2.5 flex justify-between items-center border-b border-black/[0.04] dark:border-white/[0.04] bg-black/[0.01] dark:bg-white/[0.01]">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-void-500 dark:text-void-400">
                     Notifications
                 </span>
                 <button
                     type="button"
-                    className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-md px-1 transition-colors"
+                    className="text-[9px] font-black uppercase tracking-[0.2em] text-void-500 hover:text-signal-500 dark:text-void-400 dark:hover:text-signal-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-500/50 rounded-md px-1 transition-all active:scale-95"
                 >
                     Mark all read
                 </button>
             </div>
 
-            <div className="max-h-80 overflow-y-auto pb-1 flex flex-col">
+            <div className="max-h-80 overflow-y-auto flex flex-col">
                 {notifications.map((notification) => (
                     <div
                         key={notification.id}
                         role="menuitem"
-                        className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-signal-500/5 group border-b border-black/[0.04] dark:border-white/[0.04] last:border-0 cursor-pointer"
+                        className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-start gap-3.5 px-4 py-3 text-left transition-all hover:bg-signal-500/[0.03] group border-b border-black/[0.03] dark:border-white/[0.03] last:border-0 cursor-pointer active:scale-[0.99] origin-center"
                     >
                         {/* Unread indicator accent bar */}
                         {notification.unread && (
-                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-signal-500" />
+                            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-signal-500 shadow-[0_0_8px_rgba(0,224,160,0.4)]" />
                         )}
 
                         <div className="shrink-0 mt-0.5">
-                            <notification.icon className={`w-4 h-4 ${notification.iconColor}`} strokeWidth={2} />
+                            <notification.icon className={`w-3.5 h-3.5 ${notification.iconColor}`} strokeWidth={2.5} />
                         </div>
 
                         <div className="flex flex-col gap-0.5 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                                <span className="text-[11px] font-bold text-slate-800 dark:text-white group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
                                     {notification.title}
                                 </span>
-                                <span className="text-[10px] text-slate-400 shrink-0">
+                                <span className="text-[9px] font-bold text-void-500/60 dark:text-void-400/60 shrink-0 uppercase tracking-wider">
                                     {notification.time}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed">
+                            <span className="text-[10px] font-medium text-void-500 dark:text-void-400 line-clamp-2 leading-relaxed opacity-80">
                                 {notification.subtitle}
                             </span>
                         </div>
@@ -115,10 +115,10 @@ export const NotificationPanel: FunctionComponent = () => {
                 ))}
             </div>
 
-            <div className="px-4 py-3 border-t border-black/[0.06] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] text-center">
+            <div className="px-4 py-2.5 border-t border-black/[0.04] dark:border-white/[0.04] bg-black/[0.01] dark:bg-white/[0.01] text-center">
                 <button
                     type="button"
-                    className="text-[10px] font-semibold text-signal-600 dark:text-signal-400 hover:text-signal-700 dark:hover:text-signal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-md px-2 py-1 transition-colors"
+                    className="text-[10px] font-black uppercase tracking-[0.15em] text-signal-600 dark:text-signal-400 hover:text-signal-700 dark:hover:text-signal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-md px-2 py-1 transition-all active:scale-95"
                 >
                     View all notifications
                 </button>
