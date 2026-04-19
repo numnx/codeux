@@ -197,6 +197,7 @@ The dashboard rerun endpoint now uses the same DB-native dispatch path:
 2. persist `is_merged = false` on the DB task record
 3. reuse an active sprint run or create a dashboard-triggered sprint run
 4. create a fresh dispatch and task run through `SprintTaskDispatchService`
+5. if rerun had to create a fresh sprint run, resume the watch loop on that run after the new dispatch is launched so CI/merge supervision continues automatically
 
 Reruns no longer bypass the execution model.
 
