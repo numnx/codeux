@@ -703,6 +703,29 @@ export class QualityAssuranceService {
       const prompt = this.buildReviewPrompt(args);
       const providerPrompt = buildProviderPrompt(prompt, providerSettings.thinkingMode);
       const settings = this.deps.getDashboardSettings(args.scope);
+      const workflowSettings = {
+        ...DEFAULT_CLI_WORKFLOW_SETTINGS,
+        ...settings.cliWorkflow,
+      };
+      let snapshotWorkspace = args.repoPath;
+      let shouldCleanupSnapshot = false;
+      if (workflowSettings.executionMode === "DOCKER") {
+        try {
+          snapshotWorkspace = await this.workspaceManager.createSnapshotWorkspace(
+            args.repoPath,
+            `qa-review-${provider}-${Date.now().toString(36)}`,
+          );
+          shouldCleanupSnapshot = true;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.deps.logger?.warn("Failed to create QA snapshot workspace, falling back to repository path", {
+            projectId: args.scope.projectId,
+            sprintId: args.scope.sprintId,
+            repoPath: args.repoPath,
+            error: message,
+          });
+        }
+      }
 
       let result;
       try {
@@ -721,12 +744,11 @@ export class QualityAssuranceService {
           providerAuthPath: providerSettings.authPath,
           providerPrompt,
           repoPath: args.repoPath,
+          cwd: snapshotWorkspace,
+          workspaceSessionId: `${args.scope.projectId || "project"}-qa-snapshot`,
           settings: {
             ...settings,
-            cliWorkflow: {
-              ...DEFAULT_CLI_WORKFLOW_SETTINGS,
-              ...settings.cliWorkflow,
-            },
+            cliWorkflow: workflowSettings,
           },
           parseFn: (text) => normalizeQaReviewResult(text),
           buildRetryPrompt: (error) => [
@@ -744,15 +766,18 @@ export class QualityAssuranceService {
         });
       } finally {
         if (settings.memory?.enabled && settings.memory.autoCaptureSprint && this.deps.memoryService && result) {
-          const worktreePath = await this.workspaceManager.resolveResumeWorktreePath(
-            args.repoPath,
-            result.sessionId,
-            settings.cliWorkflow.executionMode,
-          ).catch(() => undefined);
-
-          if (worktreePath) {
-            await this.deps.memoryService.captureMemoriesFromWorktree(args.scope.projectId!, args.scope.sprintId || undefined, args.agentPresetId || null, worktreePath, result.invocationId);
+          if (shouldCleanupSnapshot) {
+            await this.deps.memoryService.captureMemoriesFromWorktree(
+              args.scope.projectId!,
+              args.scope.sprintId || undefined,
+              args.agentPresetId || null,
+              snapshotWorkspace,
+              result.invocationId,
+            );
           }
+        }
+        if (shouldCleanupSnapshot) {
+          await this.workspaceManager.removeWorktree(args.repoPath, snapshotWorkspace).catch(() => undefined);
         }
       }
 

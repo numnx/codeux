@@ -101,11 +101,24 @@ For merge conflicts, Sprint OS:
 - exports a Git patch artifact from the isolated workspace
 - applies that patch back onto the host branch and pushes it
 
+Merge-conflict handling intentionally stays isolated from the original task workspace. It always runs in a dedicated ephemeral Docker workspace so conflict resolution cannot pollute the task's normal follow-up workspace.
+
+For CI autofix, Sprint OS now prefers reusing the existing task workspace when one is still available for the same worker branch. That allows follow-up CI fixes to continue in the same workspace context instead of creating an unnecessary new Docker volume for every CI rerun.
+
+For QA review execution, Sprint OS now runs the review itself against a fresh snapshot workspace rather than the mutable task workspace. This keeps review inspection isolated while still allowing QA-requested coding follow-ups to continue in the original task workspace when appropriate.
+
 Unsupported worker-owned attention types are escalated back to human attention with a summary.
 
 ## Recovery
 
 Startup cleanup prunes orphaned `virtual_cli` endpoints from previous runs.
+
+Startup cleanup also aggressively removes stale Sprint OS Docker assets:
+
+- stale workspace volumes for finished, failed, unrecoverable, or outdated sessions
+- cached setup-script Docker images from previous runs
+
+Interrupted Docker-backed sessions that were running before restart are treated as failed during recovery unless a live backing container is still present. This keeps restart recovery deterministic and prevents dead sessions from holding disk space or waiting forever for callbacks that will never arrive.
 
 If a virtual cycle dies mid-attention:
 

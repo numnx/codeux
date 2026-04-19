@@ -669,7 +669,13 @@ export class VirtualWorkerService {
     }
 
     const sessionId = `virtual-cifix-${provider}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
-    let worktreePath = this.workspaceManager.buildWorktreePath(repoPath, sessionId, workflowSettings.executionMode);
+    const resumeTarget = this.deps.sessionTracking.findLatestCliSessionForBranch({
+      repoPath,
+      workerBranch: branchName,
+      providers: [provider],
+    });
+    const workspaceOwnerSessionId = resumeTarget?.sessionId || sessionId;
+    let worktreePath = this.workspaceManager.buildWorkspaceRef(repoPath, workspaceOwnerSessionId, workflowSettings.executionMode);
     const title = item.title;
     let succeeded = false;
     let initialHead = "";
@@ -692,7 +698,13 @@ export class VirtualWorkerService {
 
     let cleanedUp = false;
     try {
-      const prepared = await this.workspaceManager.prepareWorktree(repoPath, worktreePath, branchName, branchName);
+      const prepared = await this.workspaceManager.prepareWorktree(
+        repoPath,
+        worktreePath,
+        branchName,
+        branchName,
+        resumeTarget?.sessionId,
+      );
       const finalWorktreePath = prepared.worktreePath;
       worktreePath = finalWorktreePath;
       initialHead = (await this.runWorkspaceCommand(finalWorktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();

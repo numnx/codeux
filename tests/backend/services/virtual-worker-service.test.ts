@@ -805,6 +805,59 @@ describe("VirtualWorkerService", () => {
     expect(updatedItem?.status).toBe("resolved"); // or open if it failed and escalated
   });
 
+  it("reuses an existing task workspace for CI autofix when the branch already has a CLI session", async () => {
+    const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository, sessionTracking } = await setupServiceWithProject();
+
+    sessionTracking.createSession({
+      id: "cli-codex-existing",
+      provider: "codex",
+      state: "COMPLETED",
+      repoPath: "/test",
+      workerBranch: "fix/branch",
+      featureBranch: "main",
+    });
+
+    const endpoint = workerEndpointRepository.createVirtualEndpoint({
+      endpointKey: "virtual:reuse",
+      displayName: "Virtual Worker",
+      status: "connected",
+      transport: "internal",
+      capabilities: {},
+    });
+
+    const item = projectAttentionService.openItem({
+      projectId: project.id,
+      sprintId: null,
+      taskId: null,
+      sprintRunId: null,
+      dispatchId: null,
+      attentionType: "ci_fix_required",
+      severity: "high",
+      ownerType: "worker",
+      title: "CI Fix",
+      summaryMarkdown: "Fix it",
+      payload: { repoPath: "/test", branchName: "fix/branch" },
+    });
+
+    const buildWorkspaceRef = vi.spyOn((virtualWorkerService as any).workspaceManager, "buildWorkspaceRef")
+      .mockReturnValue("/tmp/reused-worktree");
+    const prepareWorktree = vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree")
+      .mockResolvedValue({ worktreePath: "/tmp/reused-worktree", resumed: true });
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("guidance");
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "removeWorktree").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any), "runProviderWithRetry").mockResolvedValue(undefined);
+
+    const execRepo = (virtualWorkerService as any).deps.executionRepository;
+    vi.spyOn(execRepo, "createExecutionInvocation").mockReturnValue({ id: "exec-inv-reuse" });
+    vi.spyOn(execRepo, "appendExecutionInvocationMessage").mockReturnValue({});
+    vi.spyOn(execRepo, "updateExecutionInvocation").mockReturnValue({});
+
+    await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
+
+    expect(buildWorkspaceRef).toHaveBeenCalledWith("/test", "cli-codex-existing", expect.anything());
+    expect(prepareWorktree).toHaveBeenCalledWith("/test", "/tmp/reused-worktree", "fix/branch", "fix/branch", "cli-codex-existing");
+  });
+
   it("resolveMergeConflictAttention covers execution path", async () => {
     const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository } = await setupServiceWithProject();
 
