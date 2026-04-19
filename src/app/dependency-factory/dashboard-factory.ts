@@ -49,7 +49,6 @@ export function createDashboardDependencies(
     projectManagementRepository,
     executionRepository,
     projectAttentionService,
-    taskRerunService: {} as any, // Will link below
     sprintOrchestrator,
     julesApi,
     activeDispatchRegistry,
@@ -57,12 +56,11 @@ export function createDashboardDependencies(
   });
 
   const managementToolHandler = new ManagementToolHandler({
-    sprintPreviewService: (sprintDeps as any).sprintPreviewService || (null as any), // Re-injected top-level later
+    sprintPreviewService: sprintDeps.sprintPreviewService,
     executionRepository: coreDeps.executionRepository,
     getDashboardSettings: () => settingsRepository.getDefaultDashboardSettings(),
     projectManagementRepository: coreDeps.projectManagementRepository,
     executionControlService,
-    taskRerunService: {} as any, // Will link below
     settingsRepository: coreDeps.settingsRepository,
     agentPresetSyncService: coreDeps.agentPresetSyncService,
     memoryService: coreDeps.memoryService,
