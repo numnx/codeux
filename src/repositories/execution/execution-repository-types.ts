@@ -176,3 +176,89 @@ export interface ExecutionInvocationMessageRow {
   metadata_json: string | null;
   created_at: string;
 }
+
+export interface SprintRunRow {
+  id: string;
+  project_id: string;
+  sprint_id: string;
+  status: string;
+  trigger_type: string;
+  triggered_by: string | null;
+  executor_mode: string;
+  started_at: string | null;
+  finished_at: string | null;
+  last_heartbeat_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskDispatchRow {
+  id: string;
+  project_id: string;
+  sprint_id: string;
+  task_id: string;
+  sprint_run_id: string;
+  connection_id: string | null;
+  executor_type: string;
+  status: string;
+  priority: number | string;
+  queued_at: string;
+  claimed_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  last_heartbeat_at: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExecutionLeaseRow {
+  id: string;
+  scope_type: string;
+  scope_id: string;
+  owner_key: string;
+  lease_token: string;
+  acquired_at: string;
+  expires_at: string;
+  last_heartbeat_at: string | null;
+}
+
+export interface TaskRunRow {
+  id: string;
+  project_id: string;
+  sprint_id: string;
+  task_id: string;
+  sprint_run_id: string | null;
+  dispatch_id: string | null;
+  connection_id: string | null;
+  provider: string | null;
+  mode: string | null;
+  session_id: string | null;
+  session_name: string | null;
+  state: string;
+  worker_branch: string | null;
+  pr_url: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | string | null;
+}
+
+export interface TaskRunEventRow {
+  id: string;
+  task_run_id: string;
+  event_type: string;
+  originator: string | null;
+  payload_json: string | null;
+  source_event_key: string | null;
+  created_at: string;
+}
+
+export interface SprintRunEventRow {
+  id: string;
+  sprint_run_id: string;
+  event_type: string;
+  originator: string | null;
+  payload_json: string | null;
+  source_event_key: string | null;
+  created_at: string;
+}

@@ -6,7 +6,15 @@ import {
   ExecutionUsageTotals,
   OverviewTelemetryProjectSummary,
 } from "../../contracts/app-types.js";
-import { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
+import {
+  SprintRunRecord,
+  TaskDispatchRecord,
+  ExecutionLeaseRecord,
+  TaskRunRecord,
+  TaskRunEventRecord,
+  SprintRunEventRecord,
+  ProviderInvocationUsageRecord
+} from "../../contracts/execution-types.js";
 import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
 import { toNumber, parsePayloadJson } from "./execution-utils.js";
 import {
@@ -17,7 +25,111 @@ import {
   ExecutionInvocationRow,
   ExecutionInvocationMessageRow,
   OverviewTelemetryProjectSummaryRow,
+  SprintRunRow,
+  TaskDispatchRow,
+  ExecutionLeaseRow,
+  TaskRunRow,
+  TaskRunEventRow,
+  SprintRunEventRow,
 } from "./execution-repository-types.js";
+
+export function mapSprintRunRow(row: SprintRunRow): SprintRunRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sprintId: row.sprint_id,
+    status: row.status as SprintRunRecord["status"],
+    triggerType: row.trigger_type as SprintRunRecord["triggerType"],
+    triggeredBy: row.triggered_by,
+    executorMode: row.executor_mode as SprintRunRecord["executorMode"],
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    lastHeartbeatAt: row.last_heartbeat_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapTaskDispatchRow(row: TaskDispatchRow): TaskDispatchRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sprintId: row.sprint_id,
+    taskId: row.task_id,
+    sprintRunId: row.sprint_run_id,
+    connectionId: row.connection_id,
+    executorType: row.executor_type as TaskDispatchRecord["executorType"],
+    status: row.status as TaskDispatchRecord["status"],
+    priority: toNumber(row.priority),
+    queuedAt: row.queued_at,
+    claimedAt: row.claimed_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    lastHeartbeatAt: row.last_heartbeat_at,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapExecutionLeaseRow(row: ExecutionLeaseRow): ExecutionLeaseRecord {
+  return {
+    id: row.id,
+    scopeType: row.scope_type as ExecutionLeaseRecord["scopeType"],
+    scopeId: row.scope_id,
+    ownerKey: row.owner_key,
+    leaseToken: row.lease_token,
+    acquiredAt: row.acquired_at,
+    expiresAt: row.expires_at,
+    lastHeartbeatAt: row.last_heartbeat_at,
+  };
+}
+
+export function mapTaskRunRow(row: TaskRunRow): TaskRunRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sprintId: row.sprint_id,
+    taskId: row.task_id,
+    sprintRunId: row.sprint_run_id,
+    dispatchId: row.dispatch_id,
+    connectionId: row.connection_id,
+    provider: row.provider,
+    mode: row.mode,
+    sessionId: row.session_id,
+    sessionName: row.session_name,
+    state: row.state as TaskRunRecord["state"],
+    workerBranch: row.worker_branch,
+    prUrl: row.pr_url,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    durationMs: row.duration_ms === null ? null : toNumber(row.duration_ms),
+  };
+}
+
+export function mapTaskRunEventRow(row: TaskRunEventRow): TaskRunEventRecord {
+  return {
+    id: row.id,
+    taskRunId: row.task_run_id,
+    eventType: row.event_type,
+    originator: row.originator,
+    payload: parsePayloadJson(row.payload_json),
+    sourceEventKey: row.source_event_key,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapSprintRunEventRow(row: SprintRunEventRow): SprintRunEventRecord {
+  return {
+    id: row.id,
+    sprintRunId: row.sprint_run_id,
+    eventType: row.event_type,
+    originator: row.originator,
+    payload: parsePayloadJson(row.payload_json),
+    sourceEventKey: row.source_event_key,
+    createdAt: row.created_at,
+  };
+}
 
 export function mapOverviewTelemetryProjectSummaryRow(
   row: OverviewTelemetryProjectSummaryRow,
