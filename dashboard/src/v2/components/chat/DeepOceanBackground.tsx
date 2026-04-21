@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import * as THREE from "../../../lib/three-lite.js";
+import { useTheme } from "../../hooks/use-theme.js";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * DeepOceanBackground
@@ -164,14 +165,16 @@ const particleFrag = /* glsl */ `
   }
 `;
 
-/* ── Helpers ──────────────────────────────────────────────────────────────── */
-function isDarkMode(): boolean {
-  return document.documentElement.classList.contains("dark");
-}
-
 /* ── Component ────────────────────────────────────────────────────────────── */
 export const DeepOceanBackground = () => {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDarkRef = useRef(isDark);
+
+  useEffect(() => {
+    isDarkRef.current = isDark;
+  }, [isDark]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -186,7 +189,7 @@ export const DeepOceanBackground = () => {
     } catch { return; }
 
     /* ── state ── */
-    let currentDark = isDarkMode() ? 1.0 : 0.0;
+    let currentDark = isDarkRef.current ? 1.0 : 0.0;
     let targetDark = currentDark;
 
     /* ── renderer ── */
@@ -196,7 +199,7 @@ export const DeepOceanBackground = () => {
       powerPreference: "low-power",
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5) * RENDER_SCALE);
-    renderer.setClearColor(isDarkMode() ? 0x060a0d : 0xdbe8f8, 1);
+    renderer.setClearColor(isDarkRef.current ? 0x060a0d : 0xdbe8f8, 1);
     renderer.setSize(el.clientWidth, el.clientHeight);
     el.appendChild(renderer.domElement);
     Object.assign(renderer.domElement.style, {
@@ -256,12 +259,6 @@ export const DeepOceanBackground = () => {
     });
     particleScene.add(new THREE.Points(pGeo, pMat));
 
-    /* ── dark/light observer ── */
-    const mo = new MutationObserver(() => {
-      targetDark = isDarkMode() ? 1.0 : 0.0;
-    });
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-
     /* ── animation loop ── */
     let animId = 0;
     /* offset by 200s so the caustic noise is already in a dispersed state
@@ -271,6 +268,8 @@ export const DeepOceanBackground = () => {
     const animate = () => {
       animId = requestAnimationFrame(animate);
       const elapsed = (performance.now() - startTime) * 0.001;
+
+      targetDark = isDarkRef.current ? 1.0 : 0.0;
 
       /* smoothly lerp dark mode uniform */
       currentDark += (targetDark - currentDark) * 0.03;
@@ -307,7 +306,6 @@ export const DeepOceanBackground = () => {
     /* ── cleanup ── */
     return () => {
       cancelAnimationFrame(animId);
-      mo.disconnect();
       ro.disconnect();
       renderer.dispose();
       causticMat.dispose();

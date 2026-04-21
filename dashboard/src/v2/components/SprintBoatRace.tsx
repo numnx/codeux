@@ -6,6 +6,7 @@ import { Anchor } from "lucide-preact";
 import type { Subtask, ExecutionTaskDispatchSummary } from "../../types.js";
 import { getTaskProgressPhase } from "../../lib/task-progress.js";
 import { getBoatRaceHeightPx, getBoatRaceTaskKey, buildBoatRaceDispatchIndex, getShipType } from "../lib/boat-race.js";
+import { useTheme } from "../hooks/use-theme.js";
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
@@ -25,20 +26,6 @@ const hashStr = (s: string): number => {
 
 const stableRand = (id: string, salt = 0): number =>
     (hashStr(`${id}:${salt}`) % 10000) / 10000;
-
-/* ─── Dark mode detection ────────────────────────────────────────────────── */
-
-const useIsDark = (): boolean => {
-    const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
-    useEffect(() => {
-        const observer = new MutationObserver(() => {
-            setIsDark(document.documentElement.classList.contains("dark"));
-        });
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-        return () => observer.disconnect();
-    }, []);
-    return isDark;
-};
 
 /* ─── Checkpoint system for continuous movement ──────────────────────────── */
 
@@ -710,7 +697,9 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
     }>>(new Map());
     const tickerRef = useRef<(() => void) | null>(null);
     const bobTweensRef = useRef<gsap.core.Tween[]>([]);
-    const isDark = useIsDark();
+    
+    const { resolvedTheme, toggleTheme } = useTheme();
+    const isDark = resolvedTheme === "DARK";
 
     /* ── Tracking previous statuses for shake/tilt effect ────────── */
     const prevStatusesRef = useRef<Map<string, string>>(new Map());

@@ -1,12 +1,14 @@
 import type { FunctionComponent } from "preact";
+import { useTheme } from "../../hooks/use-theme.js";
 
 interface ShipProps {
   accentColor: string;
   isMoving: boolean;
-  isDark: boolean;
 }
 
-export const ContainerShipDef: FunctionComponent<ShipProps> = ({ accentColor, isMoving, isDark }) => {
+export const ContainerShipDef: FunctionComponent<ShipProps> = ({ accentColor, isMoving }) => {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
   const hullFill = isDark ? "#0f1d33" : "#c8d6e5";
   const hullStroke = isDark ? "#1a3050" : "#8395a7";
   const deckFill = isDark ? "#162840" : "#a4b0be";
@@ -50,7 +52,9 @@ export const ContainerShip: FunctionComponent<ShipProps> = (props) => {
   );
 };
 
-export const WoodenShipDef: FunctionComponent<ShipProps> = ({ accentColor, isMoving, isDark }) => {
+export const WoodenShipDef: FunctionComponent<ShipProps> = ({ accentColor, isMoving }) => {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
   const hullFill = isDark ? "#5C3D0E" : "#8B6914";
   const hullStroke = isDark ? "#7A5518" : "#A67B20";
   const deckFill = isDark ? "#7A5518" : "#A67B20";

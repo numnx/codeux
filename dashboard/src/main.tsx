@@ -12,6 +12,8 @@ import { KineticDock } from "./v2/components/KineticDock.js";
 import { Sidebar } from "./v2/components/Sidebar.js";
 import { TopNav } from "./v2/components/TopNav.js";
 import { ProjectDataProvider, useProjectData } from "./v2/context/project-data.js";
+import { ThemeProvider } from "./v2/context/ThemeContext.js";
+import { useTheme } from "./v2/hooks/use-theme.js";
 import { useProjectEffectiveSettings } from "./v2/hooks/use-project-effective-settings.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
@@ -26,6 +28,8 @@ const DeepOceanBackground = lazy(() => import("./v2/components/chat/DeepOceanBac
 const AppLayout = () => {
   const { selectedProject } = useProjectData();
   const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -35,57 +39,6 @@ const AppLayout = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const appearanceTheme = effectiveSettings?.settings.appearance?.theme || "SYSTEM";
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window === "undefined") return true;
-    if (appearanceTheme === "SYSTEM") {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches;
-    }
-    return appearanceTheme === "DARK";
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (appearanceTheme === "SYSTEM") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const listener = (e: MediaQueryListEvent) => setIsDark(e.matches);
-      setIsDark(mediaQuery.matches);
-      if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener("change", listener);
-      } else {
-        mediaQuery.addListener(listener);
-      }
-      return () => {
-        if (mediaQuery.removeEventListener) {
-          mediaQuery.removeEventListener("change", listener);
-        } else {
-          mediaQuery.removeListener(listener);
-        }
-      };
-    } else {
-      setIsDark(appearanceTheme === "DARK");
-    }
-  }, [appearanceTheme]);
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    const bg = isDark ? "#0d0f12" : "#dbe8f8";
-    if (isDark) root.classList.add("dark");
-    else root.classList.remove("dark");
-    root.style.background = bg;
-    document.body.style.background = bg;
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    // If the theme is currently controlled by the user, we can temporarily override it
-    // Wait, the requirement says "integrate the Light/Dark theme preference into the app."
-    // It's probably best if toggleTheme still toggles it but maybe doesn't persist if they want to override?
-    // The requirements say: "Implement a root-level effect that applies the 'dark' class to the html element based on the appearance.theme setting."
-    // And "Preserve the 'Warm Void' aesthetic across both Light and Dark modes."
-    // Let's just update local state if they click toggle
-    setIsDark((prev) => !prev);
-  };
 
   const navMode = effectiveSettings?.settings.appearance?.navigationMode || "DOCK";
   const showSidebar = isMobile || navMode === "SIDEBAR";
@@ -103,7 +56,7 @@ const AppLayout = () => {
         </Suspense>
 
         <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
-          <TopNav isDark={isDark} toggleTheme={toggleTheme} onMenuToggle={() => setIsMobileSidebarOpen(prev => !prev)} isMobile={isMobile} />
+          <TopNav onMenuToggle={() => setIsMobileSidebarOpen(prev => !prev)} isMobile={isMobile} />
 
           <main id="main-content" tabIndex={-1} aria-label="Main content" className={`flex-1 overflow-y-auto dashboard-scrollbar relative ${showSidebar ? '' : 'pb-32'}`}>
             <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
@@ -135,7 +88,9 @@ const rootRoute = createRootRoute({
   component: () => {
     return (
       <ProjectDataProvider>
-        <AppLayout />
+        <ThemeProvider>
+          <AppLayout />
+        </ThemeProvider>
       </ProjectDataProvider>
     );
   },

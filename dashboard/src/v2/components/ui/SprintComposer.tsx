@@ -25,6 +25,7 @@ import { getPlanningFeedback, type PlanningActionType, PLANNING_ACTION_LABELS } 
 import { PlanningProgressOverlay } from "./PlanningProgressOverlay.js";
 import type { ImprovePromptInput, VirtualWorkerProvider } from "../../types.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
+import { useTheme } from "../../hooks/use-theme.js";
 
 interface SprintComposerProps {
   nextId: string;
@@ -255,7 +256,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const showModelOverride = currentRoute?.type === 'virtual';
   const modelOptions = currentRoute?.provider ? getProviderModelOptions(currentRoute.provider) : [];
 
-  const isDark = document.documentElement.classList.contains("dark");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
 
   return (
     <section

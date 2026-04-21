@@ -4,6 +4,7 @@ import { useRef, useLayoutEffect } from "preact/hooks";
 import gsap from "gsap";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { ContainerShip, WoodenShip } from "./PlanningShip.js";
+import { useTheme } from "../../hooks/use-theme.js";
 import { type PlanningActionType, PLANNING_ACTION_LABELS } from "../../lib/sprint-planning-feedback.js";
 
 interface PlanningProgressOverlayProps {
@@ -11,7 +12,6 @@ interface PlanningProgressOverlayProps {
   feedback: { shipType: "container" | "wooden"; shipProgress: number; text: string } | null;
   planningEta: number;
   elapsedMs: number;
-  isDark: boolean;
   actionType: PlanningActionType | "quicksprint";
   themeAccent?: "signal" | "ember";
   onCancel?: () => void;
@@ -25,7 +25,6 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
   feedback,
   planningEta,
   elapsedMs,
-  isDark,
   actionType,
   themeAccent = "signal",
   onCancel,
@@ -128,9 +127,9 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         >
           <svg width="120" height="60" viewBox="-60 -30 120 60">
             {feedback.shipType === "container" ? (
-              <ContainerShip accentColor={theme.shipContainer} isMoving={true} isDark={isDark} />
+              <ContainerShip accentColor={theme.shipContainer} isMoving={true} />
             ) : (
-              <WoodenShip accentColor={theme.shipWooden} isMoving={true} isDark={isDark} />
+              <WoodenShip accentColor={theme.shipWooden} isMoving={true} />
             )}
           </svg>
         </div>

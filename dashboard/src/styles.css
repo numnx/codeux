@@ -18,6 +18,11 @@
     --status-amber: #995A00; /* WCAG AA on White (4.5:1) */
     --signal-600: #007A5E;   /* Darker jade for text in light mode */
     --ember-600: #995A00;    /* Darker amber for text in light mode */
+    transition: background-color 700ms ease, color 700ms ease, border-color 700ms ease;
+  }
+
+  body {
+    transition: background-color 700ms ease;
   }
 
   .dark {

@@ -1,6 +1,7 @@
 import { type FunctionComponent } from "preact";
 import { User, Terminal, Bot } from "lucide-preact";
 import { ContainerShipDef } from "../ui/PlanningShip.js";
+import { useTheme } from "../../hooks/use-theme.js";
 
 export type AvatarRole = "user" | "jules" | "system" | "agent" | "container";
 
@@ -8,10 +9,9 @@ export interface ChatAvatarProps {
   role: AvatarRole;
   provider?: string;
   agentName?: string;
-  isDark?: boolean;
 }
 
-export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({ role, provider, agentName, isDark = true }) => {
+export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({ role, provider, agentName }) => {
   const getLabel = () => {
     if (role === 'jules') return 'Jules';
     if (role === 'container') return 'Container Worker';
@@ -40,8 +40,7 @@ export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({ role, provider,
         // The container ship is naturally quite wide, so we scale it to fit nicely within a square box
         return (
           <svg viewBox="-60 -40 120 80" aria-hidden="true" class="w-full h-full">
-            {/* @ts-ignore */}
-            <ContainerShipDef accentColor="#00E0A0" isMoving={true} isDark={isDark} />
+            <ContainerShipDef accentColor="#00E0A0" isMoving={true} />
           </svg>
         );
       case 'system':

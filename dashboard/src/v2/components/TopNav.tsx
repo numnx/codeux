@@ -25,6 +25,7 @@ import {
 import { setProjectPreferredWorker } from "../lib/project-api.js";
 import { saveProjectSettings } from "../lib/settings-api.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
+import { useTheme } from "../hooks/use-theme.js";
 
 export function useDropdownKeyboard(
     isOpen: boolean,
@@ -104,13 +105,13 @@ export function useDropdownKeyboard(
 const LIVE_WORKER_STATUSES = new Set(["connected", "listening", "idle"]);
 
 interface TopNavProps {
-    isDark: boolean;
-    toggleTheme: () => void;
     onMenuToggle?: () => void;
     isMobile?: boolean;
 }
 
-export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, onMenuToggle, isMobile }) => {
+export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile }) => {
+    const { resolvedTheme, toggleTheme } = useTheme();
+    const isDark = resolvedTheme === "DARK";
     const navRef = useRef<HTMLElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const workerDropdownRef = useRef<HTMLDivElement>(null);

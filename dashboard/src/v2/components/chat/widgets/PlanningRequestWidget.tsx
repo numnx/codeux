@@ -2,18 +2,20 @@ import { type FunctionComponent } from "preact";
 import { ChatWidgetFrame, type ExecutionStatus } from "./ChatWidgetFrame.js";
 import { ContainerShip } from "../../ui/PlanningShip.js";
 import { ChatRuntimeBadge } from "../ChatRuntimeBadge.js";
+import { useTheme } from "../../../hooks/use-theme.js";
 
 export interface PlanningRequestWidgetProps {
   status: ExecutionStatus;
   planName: string;
-  isDark?: boolean;
 }
 
 export const PlanningRequestWidget: FunctionComponent<PlanningRequestWidgetProps> = ({
   status,
   planName,
-  isDark = true
 }) => {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "DARK";
+
   return (
     <ChatWidgetFrame
       status={status}
@@ -29,8 +31,7 @@ export const PlanningRequestWidget: FunctionComponent<PlanningRequestWidgetProps
           <div class="relative w-full max-w-[200px] h-20 mb-4 overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
              <div class="ocean-wave w-full h-full flex items-center justify-center">
                <svg viewBox="-60 -40 120 80" class="w-full h-full transform translate-y-2 ship-bob" aria-hidden="true">
-                 {/* @ts-ignore */}
-                 <ContainerShip accentColor="#00E0A0" isMoving={status === 'running'} isDark={isDark} />
+                 <ContainerShip accentColor="#00E0A0" isMoving={status === 'running'} />
                </svg>
              </div>
           </div>

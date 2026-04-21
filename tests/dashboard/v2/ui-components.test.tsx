@@ -40,7 +40,6 @@ describe("UI Components Coverage", () => {
         feedback={null} 
         planningEta={10000} 
         elapsedMs={0} 
-        isDark={false} 
         actionType="plan_only" 
         onDismiss={() => {}} 
       />
@@ -53,7 +52,6 @@ describe("UI Components Coverage", () => {
         feedback={feedback} 
         planningEta={60000} 
         elapsedMs={1000} 
-        isDark={false} 
         actionType="plan_only" 
         onDismiss={() => {}} 
       />
@@ -67,7 +65,6 @@ describe("UI Components Coverage", () => {
         feedback={{ ...feedback, shipType: "wooden" }} 
         planningEta={60000} 
         elapsedMs={1000} 
-        isDark={true} 
         actionType="improve" 
         themeAccent="ember"
         onCancel={() => {}}
@@ -82,7 +79,6 @@ describe("UI Components Coverage", () => {
         feedback={feedback} 
         planningEta={60000} 
         elapsedMs={1000} 
-        isDark={false} 
         actionType="quicksprint" 
         onDismiss={() => {}} 
       />
@@ -95,7 +91,6 @@ describe("UI Components Coverage", () => {
         feedback={feedback}
         planningEta={60000}
         elapsedMs={1000}
-        isDark={false}
         actionType="plan_only"
         onDismiss={() => {}}
         secondaryActionLabel="New Sprint"
