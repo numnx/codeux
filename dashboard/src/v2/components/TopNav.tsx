@@ -400,7 +400,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         value={searchQuery}
                         onInput={(e) => setSearchQuery(e.currentTarget.value)}
                         onFocus={() => setIsSearchOpen(true)}
-                        className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
+                        className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all duration-500"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
                         <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 border border-black/10 dark:border-white/10 rounded-md">
@@ -419,10 +419,10 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         onClick={() => setDropdownOpen(!dropdownOpen)}
                         aria-haspopup="listbox"
                         aria-expanded={dropdownOpen}
-                        className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group focus-visible:ring-2 focus-visible:ring-signal-500/30"
+                        className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.04] hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all duration-500 group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                     >
                         <StatusDot status={selectedProject?.status || "idle"} />
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-sans">
                             {projectSwitchBusy ? "Switching..." : (selectedProject?.name || (loading ? "Loading..." : "Select Project"))}
                         </span>
                         <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
@@ -430,7 +430,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
 
                     {/* Project Dropdown */}
                     {dropdownOpen && (
-                        <div role="listbox" aria-label="Project list" className="absolute right-0 top-full mt-2 w-56 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                        <div role="listbox" aria-label="Project list" className="absolute right-0 top-full mt-2 w-56 bg-[#F9F8F4]/70 dark:bg-void-900/70 backdrop-blur-3xl border border-black/[0.05] dark:border-white/[0.04] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
                             <div className="px-3 pt-3 pb-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Projects</span>
                             </div>
@@ -461,7 +461,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                                     className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedProject?.id === source.id ? 'bg-signal-500/8' : ''}`}
                                 >
                                     <StatusDot status={source.status} />
-                                    <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedProject?.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <span className={`text-sm font-medium font-sans truncate transition-colors ${selectedProject?.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {source.name}
                                     </span>
                                     {selectedProject?.id === source.id && (
@@ -506,7 +506,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             aria-haspopup="listbox"
                             aria-expanded={sprintDropdownOpen}
                             disabled={sprints.length === 0}
-                            className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent rounded-xl transition-all group ${
+                            className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.04] rounded-xl transition-all duration-500 group ${
                                 sprints.length > 0
                                     ? 'hover:border-black/[0.08] dark:hover:border-white/[0.08] cursor-pointer'
                                     : 'opacity-50 cursor-not-allowed'
@@ -515,7 +515,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             {selectedSprint && (
                                 <StatusDot status={selectedSprint.status as any} />
                             )}
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono truncate max-w-[180px]">
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-sans truncate max-w-[180px]">
                                 {sprintSwitchBusy ? "Switching..." : (sprintsLoading ? "Loading..." : formatSprintDisplay(selectedSprint))}
                             </span>
                             {sprints.length > 0 && (
@@ -525,7 +525,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
 
                         {/* Sprint Dropdown */}
                         {sprintDropdownOpen && sprints.length > 0 && (
-                            <div role="listbox" aria-label="Sprint list" className="absolute right-0 top-full mt-2 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50" style={{ minWidth: Math.max(sprintDropdownWidth, 224) + 'px' }}>
+                            <div role="listbox" aria-label="Sprint list" className="absolute right-0 top-full mt-2 bg-[#F9F8F4]/70 dark:bg-void-900/70 backdrop-blur-3xl border border-black/[0.05] dark:border-white/[0.04] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50" style={{ minWidth: Math.max(sprintDropdownWidth, 224) + 'px' }}>
                                 <div className="px-3 pt-3 pb-1.5">
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Sprint Scope</span>
                                 </div>
@@ -553,7 +553,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                                     }}
                                     className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedSprintId === null ? 'bg-signal-500/8' : ''}`}
                                 >
-                                    <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSprintId === null ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <span className={`text-sm font-medium font-sans truncate transition-colors ${selectedSprintId === null ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         All Sprints
                                     </span>
                                     {selectedSprintId === null && (
@@ -577,7 +577,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                                         className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-2.5 px-3 py-3 min-h-[44px] text-left hover:bg-signal-500/5 transition-colors group ${selectedSprintId === sprint.id ? 'bg-signal-500/8' : ''}`}
                                     >
                                         <StatusDot status={sprint.status as any} />
-                                        <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSprintId === sprint.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        <span className={`text-sm font-medium font-sans truncate transition-colors ${selectedSprintId === sprint.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                             {formatSprintDisplay(sprint)}
                                         </span>
                                         {selectedSprintId === sprint.id && (
@@ -600,12 +600,12 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             onClick={() => setWorkerDropdownOpen(!workerDropdownOpen)}
                             aria-haspopup="listbox"
                             aria-expanded={workerDropdownOpen}
-                            className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all group focus-visible:ring-2 focus-visible:ring-signal-500/30"
+                            className="flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.04] hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl transition-all duration-500 group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                         >
                             <div className="flex items-center justify-center w-4 h-4 rounded-md bg-signal-500/10 text-signal-500">
                                 <Cpu aria-hidden="true" className="w-3 h-3" strokeWidth={2.5} />
                             </div>
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-sans">
                                 {workerSwitchBusy ? "Switching..." : (selectedWorker?.label || (executionLoading ? "Loading..." : "Select Worker"))}
                             </span>
                             <ChevronDown aria-hidden="true" className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${workerDropdownOpen ? 'rotate-180' : ''}`} />
@@ -613,7 +613,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
 
                         {/* Worker Dropdown */}
                         {workerDropdownOpen && (
-                            <div role="listbox" aria-label="Worker list" className="absolute right-0 top-full mt-2 w-64 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                            <div role="listbox" aria-label="Worker list" className="absolute right-0 top-full mt-2 w-64 bg-[#F9F8F4]/70 dark:bg-void-900/70 backdrop-blur-3xl border border-black/[0.05] dark:border-white/[0.04] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
                                 <div className="px-3 pt-3 pb-1.5">
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Available Workers</span>
                                 </div>
