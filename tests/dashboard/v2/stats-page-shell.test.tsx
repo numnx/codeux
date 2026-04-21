@@ -8,11 +8,30 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { StatsPage } from "../../../dashboard/src/v2/pages/stats/StatsPage.js";
 import { useStatsPageData } from "../../../dashboard/src/v2/pages/stats/use-stats-page-data.js";
 
-vi.mock("gsap", () => ({
-  default: {
-    fromTo: vi.fn(),
-  },
-}));
+vi.mock("gsap", () => {
+    const mockTimeline = {
+        to: vi.fn().mockReturnThis(),
+        fromTo: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        pause: vi.fn().mockReturnThis(),
+        play: vi.fn().mockReturnThis(),
+        reverse: vi.fn().mockReturnThis(),
+    };
+    return {
+        default: {
+            registerPlugin: vi.fn(),
+            set: vi.fn(),
+            fromTo: vi.fn(),
+            to: vi.fn(),
+            context: vi.fn((cb) => {
+                if (cb) cb();
+                return { revert: vi.fn() };
+            }),
+            timeline: vi.fn(() => mockTimeline),
+            killTweensOf: vi.fn(),
+        }
+    };
+});
 
 vi.mock("../../../dashboard/src/v2/pages/stats/components/StatsPageHero.js", () => ({
   StatsPageHero: ({

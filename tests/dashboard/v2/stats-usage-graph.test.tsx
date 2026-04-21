@@ -20,21 +20,31 @@ import {
 // Basic stubs
 window.SVGElement.prototype.getTotalLength = () => 100;
 
-vi.mock("gsap", () => ({
-  default: {
-    timeline: () => ({
-      to: vi.fn().mockReturnThis(),
-      fromTo: vi.fn().mockReturnThis(),
-      kill: vi.fn(),
-      set: vi.fn()
-    }),
-    set: vi.fn(),
-    context: (fn: () => void) => {
-      fn();
-      return { revert: vi.fn() };
-    },
-  }
-}));
+vi.mock("gsap", () => {
+    const mockTimeline = {
+        to: vi.fn().mockReturnThis(),
+        fromTo: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        pause: vi.fn().mockReturnThis(),
+        play: vi.fn().mockReturnThis(),
+        reverse: vi.fn().mockReturnThis(),
+        kill: vi.fn().mockReturnThis(),
+    };
+    return {
+        default: {
+            registerPlugin: vi.fn(),
+            set: vi.fn(),
+            fromTo: vi.fn(),
+            to: vi.fn(),
+            context: vi.fn((cb) => {
+                if (cb) cb();
+                return { revert: vi.fn() };
+            }),
+            timeline: vi.fn(() => mockTimeline),
+            killTweensOf: vi.fn(),
+        }
+    };
+});
 
 describe("Chart View Models", () => {
   it("getVisibleBuckets slices correctly", () => {
