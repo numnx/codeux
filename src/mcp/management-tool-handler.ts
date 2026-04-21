@@ -55,7 +55,7 @@ export class ManagementToolHandler {
   setTaskRerunService(taskRerunService: TaskRerunService): void {
     this.deps.taskRerunService = taskRerunService;
     // Update taskActions since it holds a reference to the service via deps.taskRerunService
-    (this.taskActions as any).taskRerunService = taskRerunService;
+    this.taskActions.setTaskRerunService(taskRerunService);
   }
 
   setSprintPreviewService(sprintPreviewService: SprintPreviewService): void {

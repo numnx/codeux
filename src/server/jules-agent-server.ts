@@ -1,6 +1,4 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import axios from "axios";
-import type { AxiosError } from "axios";
 import express from "express";
 import type { AppConfig } from "../config/app-config.js";
 import { JulesApiClient } from "../integrations/jules-api-client.js";
@@ -105,8 +103,6 @@ export class JulesAgentServer {
   private static readonly DASHBOARD_ACTIVITY_PAGE_SIZE = 20;
   private static readonly LIVE_ACTIVITY_CACHE_MS = 10_000;
   private static readonly GIT_STATUS_CACHE_MS = 10_000;
-  private static readonly RUNTIME_CLEANUP_INTERVAL_MS = 15_000;
-  private static readonly LIVE_SNAPSHOT_REFRESH_INTERVAL_MS = 30_000;
   private static activeSigintHandler: (() => void) | null = null;
   private readonly projectRoot: string;
   private readonly appConfig: AppConfig;
@@ -460,19 +456,6 @@ export class JulesAgentServer {
   private async persistTaskMergedFlag(args: PersistTaskMergedFlagArgs): Promise<void> {
     const subtasksDir = getSprintSubtasksDir(args.repoPath, args.sprintNumber);
     await this.subtaskRepository.setMerged(subtasksDir, args.taskId, args.merged);
-  }
-
-  private formatError(error: unknown): { content: Array<{ type: string; text: string }>; isError: true } {
-    const maybeError = error as { message?: string };
-    let message = maybeError?.message || "An unknown error occurred";
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<{ error?: { message?: string } }>;
-      message = axiosError.response?.data?.error?.message || axiosError.message;
-    }
-    return {
-      content: [{ type: "text", text: `Error: ${message}` }],
-      isError: true,
-    };
   }
 
   private normalizeName(type: string, id: string): string {

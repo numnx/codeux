@@ -297,8 +297,8 @@ export function createDashboardDependencies(
   });
 
   // Link the taskRerunService to the executionControlService and managementToolHandler
-  (executionControlService as any).deps.taskRerunService = taskRerunService;
-  (managementToolHandler as any).deps.taskRerunService = taskRerunService;
+  executionControlService.setTaskRerunService(taskRerunService);
+  managementToolHandler.setTaskRerunService(taskRerunService);
 
   const planningAgentService = new PlanningAgentService({
     projectManagementRepository,
