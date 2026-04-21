@@ -1,9 +1,11 @@
 import type { FunctionComponent, ComponentProps } from "preact";
 import { memo } from "preact/compat";
-import { useCallback, useRef } from "preact/hooks";
+import { useCallback, useRef, useEffect } from "preact/hooks";
 import { Check, X } from "lucide-preact";
+import gsap from "gsap";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useMagnetic } from "../../hooks/use-magnetic.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   pending?: boolean;
@@ -35,11 +37,114 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   onClick,
   ...props
 }) => {
-  const { feedback, setPending, setSuccess, setError } = useActionFeedback(1500);
+  const { feedback, setPending, setSuccess, setError } = useActionFeedback(2000);
+  const reducedMotion = useReducedMotion();
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const shimmerRef = useRef<HTMLDivElement>(null);
+  
   useMagnetic(buttonRef, contentRef, { enabled: variant === "primary" || variant === "signal" });
+
+  const isPending = pending || feedback.status === "pending";
+  const isSuccess = feedback.status === "success";
+  const isError = feedback.status === "error";
+
+  // Press animation
+  const handleMouseDown = useCallback(() => {
+    if (disabled || isPending || reducedMotion) return;
+    gsap.to(buttonRef.current, {
+      scale: 0.94,
+      duration: 0.2,
+      ease: "power2.out"
+    });
+  }, [disabled, isPending, reducedMotion]);
+
+  const handleMouseUp = useCallback(() => {
+    if (reducedMotion) return;
+    gsap.to(buttonRef.current, {
+      scale: 1,
+      duration: 0.4,
+      ease: "back.out(1.7)"
+    });
+  }, [reducedMotion]);
+
+  const successIconRef = useRef<SVGSVGElement>(null);
+  const errorIconRef = useRef<SVGSVGElement>(null);
+
+  // Success/Error/Pending animations
+  useEffect(() => {
+    if (reducedMotion || !buttonRef.current) return;
+
+    if (isSuccess || isError) {
+      const tl = gsap.timeline();
+      
+      // Button pop
+      tl.to(buttonRef.current, {
+        scale: 1.02,
+        duration: 0.15,
+        ease: "power2.out"
+      })
+      .to(buttonRef.current, {
+        scale: 1,
+        duration: 0.4,
+        ease: "back.out(2)"
+      });
+
+      if (isSuccess) {
+        // Glow effect
+        gsap.fromTo(buttonRef.current, 
+          { boxShadow: "0 0 0px 0px rgba(34, 197, 94, 0)" },
+          { 
+            boxShadow: "0 0 20px 4px rgba(34, 197, 94, 0.4)", 
+            duration: 0.4, 
+            yoyo: true, 
+            repeat: 1,
+            ease: "power2.inOut"
+          }
+        );
+
+        if (successIconRef.current) {
+          gsap.fromTo(successIconRef.current, 
+            { scale: 0, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.7)", delay: 0.1 }
+          );
+        }
+      } else {
+        // Error shake
+        const tl = gsap.timeline();
+        tl.to(buttonRef.current, { x: -4, duration: 0.08 })
+          .to(buttonRef.current, { x: 4, duration: 0.08 })
+          .to(buttonRef.current, { x: -4, duration: 0.08 })
+          .to(buttonRef.current, { x: 4, duration: 0.08 })
+          .to(buttonRef.current, { x: 0, duration: 0.08, ease: "power2.inOut" });
+
+        if (errorIconRef.current) {
+          gsap.fromTo(errorIconRef.current, 
+            { scale: 0, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.7)", delay: 0.1 }
+          );
+        }
+      }
+    }
+  }, [isSuccess, isError, reducedMotion]);
+
+  // Coordinated Shimmer
+  useEffect(() => {
+    if (!isPending || !shimmerRef.current || reducedMotion) return;
+
+    const anim = gsap.fromTo(shimmerRef.current,
+      { x: "-100%" },
+      { 
+        x: "100%", 
+        duration: 1.5, 
+        repeat: -1, 
+        ease: "power1.inOut" 
+      }
+    );
+
+    return () => anim.kill();
+  }, [isPending, reducedMotion]);
 
   const handleClick = useCallback(
     (e: any) => {
@@ -49,9 +154,9 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       if (result && typeof result === "object" && "then" in result && typeof result.then === "function") {
         setPending("");
         result
-          .then(() => setSuccess(""))
+          .then(() => setSuccess("Success")) // Passing message to trigger success state
           .catch((err: unknown) => {
-            setError("");
+            setError("Error");
             throw err;
           });
       }
@@ -60,13 +165,9 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     [onClick, setPending, setSuccess, setError]
   );
 
-  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 active:scale-95 disabled:active:scale-100 touch-target";
+  const baseClasses = "group/btn inline-flex items-center justify-center gap-2 font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-px disabled:hover:translate-y-0 touch-target";
   const variantClasses = VARIANTS[variant];
   const sizeClasses = SIZES[size];
-
-  const isPending = pending || feedback.status === "pending";
-  const isSuccess = feedback.status === "success";
-  const isError = feedback.status === "error";
 
   let overrideClasses = "";
   if (isSuccess) overrideClasses = "!bg-status-green !text-white !border-transparent";
@@ -79,6 +180,9 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       {...props}
       ref={buttonRef}
       onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
       disabled={disabled || isPending}
       className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
     >
@@ -87,18 +191,21 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       </div>
 
       {isPending && (
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
+        <div 
+          ref={shimmerRef}
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full" 
+        />
       )}
 
       {isSuccess && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <Check className="w-5 h-5" />
+          <Check ref={successIconRef} className="w-5 h-5" />
         </div>
       )}
 
       {isError && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <X className="w-5 h-5" />
+          <X ref={errorIconRef} className="w-5 h-5" />
         </div>
       )}
     </button>

@@ -29,11 +29,36 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
     if (status === "idle" || !message || !containerRef.current) return;
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(
+      const tl = gsap.timeline();
+      
+      // Entrance
+      tl.fromTo(
         containerRef.current,
-        { y: reducedMotion ? 0 : -10, opacity: 0, scale: reducedMotion ? 1 : 0.98 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }
+        { y: reducedMotion ? 0 : -12, opacity: 0, scale: reducedMotion ? 1 : 0.96 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.4)" }
       );
+
+      // Status-specific feedback
+      if (!reducedMotion) {
+        if (status === "error") {
+          tl.to(containerRef.current, { x: -4, duration: 0.08 })
+            .to(containerRef.current, { x: 4, duration: 0.08 })
+            .to(containerRef.current, { x: -4, duration: 0.08 })
+            .to(containerRef.current, { x: 4, duration: 0.08 })
+            .to(containerRef.current, { x: 0, duration: 0.08, ease: "power2.inOut" });
+        } else if (status === "success") {
+          gsap.fromTo(containerRef.current,
+            { boxShadow: "0 0 0px 0px rgba(34, 197, 94, 0)" },
+            { 
+              boxShadow: "0 0 16px 2px rgba(34, 197, 94, 0.2)", 
+              duration: 0.8, 
+              yoyo: true, 
+              repeat: 1,
+              ease: "power2.inOut" 
+            }
+          );
+        }
+      }
     });
 
     return () => ctx.revert();
@@ -46,7 +71,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
       gsap.fromTo(
         progressRef.current,
         { width: "100%" },
-        { width: "0%", duration: autoDismissMs / 1000, ease: "linear" }
+        { width: "0%", duration: autoDismissMs / 1000, ease: "none" }
       );
     });
 
