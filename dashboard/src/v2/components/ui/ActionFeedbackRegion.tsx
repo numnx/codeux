@@ -41,11 +41,11 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
       // Status-specific feedback
       if (!reducedMotion) {
         if (status === "error") {
-          tl.to(containerRef.current, {
-            x: [-4, 4, -4, 4, 0],
-            duration: 0.4,
-            ease: "power2.inOut"
-          });
+          tl.to(containerRef.current, { x: -4, duration: 0.08 })
+            .to(containerRef.current, { x: 4, duration: 0.08 })
+            .to(containerRef.current, { x: -4, duration: 0.08 })
+            .to(containerRef.current, { x: 4, duration: 0.08 })
+            .to(containerRef.current, { x: 0, duration: 0.08, ease: "power2.inOut" });
         } else if (status === "success") {
           gsap.fromTo(containerRef.current,
             { boxShadow: "0 0 0px 0px rgba(34, 197, 94, 0)" },

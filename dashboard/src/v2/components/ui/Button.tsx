@@ -112,11 +112,12 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
         }
       } else {
         // Error shake
-        gsap.to(buttonRef.current, {
-          x: [-4, 4, -4, 4, 0],
-          duration: 0.4,
-          ease: "power2.inOut"
-        });
+        const tl = gsap.timeline();
+        tl.to(buttonRef.current, { x: -4, duration: 0.08 })
+          .to(buttonRef.current, { x: 4, duration: 0.08 })
+          .to(buttonRef.current, { x: -4, duration: 0.08 })
+          .to(buttonRef.current, { x: 4, duration: 0.08 })
+          .to(buttonRef.current, { x: 0, duration: 0.08, ease: "power2.inOut" });
 
         if (errorIconRef.current) {
           gsap.fromTo(errorIconRef.current, 
