@@ -845,4 +845,8 @@ export class JulesAgentServer {
     this.runtimeLoopOrchestrator.start();
     this.virtualWorkerService.start();
   }
+
+  public formatError(error: unknown): { content: Array<{ type: string; text: string }>; isError: true } {
+    return this.mcpServerConfigurer.formatError(error);
+  }
 }

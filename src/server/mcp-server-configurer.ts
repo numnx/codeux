@@ -97,7 +97,7 @@ export class McpServerConfigurer {
     return undefined;
   }
 
-  private formatError(error: unknown): { content: Array<{ type: string; text: string }>; isError: true } {
+  public formatError(error: unknown): { content: Array<{ type: string; text: string }>; isError: true } {
     const maybeError = error as { message?: string };
     let message = maybeError?.message || "An unknown error occurred";
     if (axios.isAxiosError(error)) {
