@@ -15,6 +15,11 @@ export default {
           700: "#231F1B",
           600: "#2D2822",
           500: "#3D3730",
+          400: "#5C544A",
+          300: "#8C8376",
+          200: "#BDB6AD",
+          100: "#E6E2DE",
+          50: "#F7F5F3",
         },
         // Signal — single precision accent, luminous jade (replaces dual aura)
         signal: {
