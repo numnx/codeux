@@ -78,6 +78,17 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
 
     return (
         <div className="w-full relative z-10 px-2">
+            {/* SVG Filter for organic blobs */}
+            <svg className="absolute w-0 h-0 overflow-hidden" aria-hidden="true">
+                <defs>
+                    <filter id="organic-filter">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur" />
+                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+                        <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+                    </filter>
+                </defs>
+            </svg>
+
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-6 sm:gap-8">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">

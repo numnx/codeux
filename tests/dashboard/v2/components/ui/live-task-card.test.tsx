@@ -18,18 +18,30 @@ vi.mock("../../../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
 }));
 
 // Mock GSAP context to ensure animations fire safely
-vi.mock("gsap", () => ({
-  default: {
-    context: vi.fn((cb) => {
-      cb();
-      return { revert: vi.fn() };
-    }),
-    to: vi.fn(),
-    fromTo: vi.fn(),
-    set: vi.fn(),
-    killTweensOf: vi.fn(),
-  },
-}));
+vi.mock("gsap", () => {
+    const mockTimeline = {
+        to: vi.fn().mockReturnThis(),
+        fromTo: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        pause: vi.fn().mockReturnThis(),
+        play: vi.fn().mockReturnThis(),
+        reverse: vi.fn().mockReturnThis(),
+    };
+    return {
+        default: {
+            registerPlugin: vi.fn(),
+            set: vi.fn(),
+            fromTo: vi.fn(),
+            to: vi.fn(),
+            context: vi.fn((cb) => {
+                if (cb) cb();
+                return { revert: vi.fn() };
+            }),
+            timeline: vi.fn(() => mockTimeline),
+            killTweensOf: vi.fn(),
+        }
+    };
+});
 
 describe("LiveTaskCard", () => {
   beforeEach(() => {

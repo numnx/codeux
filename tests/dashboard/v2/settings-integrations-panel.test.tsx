@@ -14,21 +14,35 @@ vi.mock("gsap", () => {
     }
   };
 
+  const mockTimeline = {
+    to: vi.fn((target: unknown, props: Record<string, unknown>) => {
+      applyStyles(target, props);
+      if (typeof props.onComplete === "function") {
+        props.onComplete();
+      }
+      return mockTimeline;
+    }),
+    fromTo: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    pause: vi.fn().mockReturnThis(),
+    play: vi.fn().mockReturnThis(),
+    reverse: vi.fn().mockReturnThis(),
+  };
+
   return {
     default: {
-      set: vi.fn((target: unknown, props: Record<string, unknown>) => applyStyles(target, props)),
-      timeline: vi.fn(() => {
-        const timeline = {
-          to: (target: unknown, props: Record<string, unknown>) => {
-            applyStyles(target, props);
-            if (typeof props.onComplete === "function") {
-              props.onComplete();
-            }
-            return timeline;
-          },
-        };
-        return timeline;
+      registerPlugin: vi.fn(),
+      set: vi.fn((target: unknown, props: Record<string, unknown>) => {
+        applyStyles(target, props);
       }),
+      fromTo: vi.fn(),
+      to: vi.fn(),
+      context: vi.fn((cb) => {
+        if (cb) cb();
+        return { revert: vi.fn() };
+      }),
+      timeline: vi.fn(() => mockTimeline),
+      killTweensOf: vi.fn(),
     },
   };
 });

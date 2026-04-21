@@ -9,16 +9,30 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);
 
 // Mock GSAP to avoid tricky animation timings in tests
-vi.mock("gsap", () => ({
-  default: {
-    fromTo: vi.fn(),
-    set: vi.fn(),
-    context: (fn: () => void) => {
-      fn();
-      return { revert: vi.fn() };
-    },
-  },
-}));
+vi.mock("gsap", () => {
+    const mockTimeline = {
+        to: vi.fn().mockReturnThis(),
+        fromTo: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        pause: vi.fn().mockReturnThis(),
+        play: vi.fn().mockReturnThis(),
+        reverse: vi.fn().mockReturnThis(),
+    };
+    return {
+        default: {
+            registerPlugin: vi.fn(),
+            set: vi.fn(),
+            fromTo: vi.fn(),
+            to: vi.fn(),
+            context: vi.fn((cb) => {
+                if (cb) cb();
+                return { revert: vi.fn() };
+            }),
+            timeline: vi.fn(() => mockTimeline),
+            killTweensOf: vi.fn(),
+        }
+    };
+});
 
 import * as agentPresetApi from "../../../dashboard/src/v2/lib/agent-preset-api.js";
 import * as settingsApi from "../../../dashboard/src/v2/lib/settings-api.js";
