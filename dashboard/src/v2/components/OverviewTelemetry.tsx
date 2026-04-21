@@ -58,8 +58,8 @@ export const OverviewTelemetry: FunctionComponent = () => {
       <div className="relative flex-1 overflow-hidden rounded-[2rem] border border-black/[0.06] dark:border-white/[0.06] bg-white/65 dark:bg-void-800/60 backdrop-blur-2xl p-7">
         {isLoading ? (
           <div className="flex flex-col gap-6">
-            <SkeletonPanel />
-            <SkeletonPanel />
+            <SkeletonPanel index={0} />
+            <SkeletonPanel index={1} />
           </div>
         ) : !hasRuntimeSignal ? (
           <div className="h-full flex items-center justify-center relative overflow-hidden">

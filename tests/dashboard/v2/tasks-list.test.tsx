@@ -87,7 +87,7 @@ describe("TasksList", () => {
         });
 
         expect(screen.queryByText("Test Task")).not.toBeInTheDocument();
-        expect(screen.getByText("No Results Found")).toBeInTheDocument();
+        expect(screen.getByText("No matches found")).toBeInTheDocument();
 
         const allTasksBtn = screen.getByRole("tab", { name: "All Tasks" });
         await act(async () => {
@@ -111,7 +111,7 @@ describe("TasksList", () => {
         );
 
         expect(screen.queryByText("Test Task")).not.toBeInTheDocument();
-        expect(screen.getByText("No Results Found")).toBeInTheDocument();
+        expect(screen.getByText("No matches found")).toBeInTheDocument();
     });
 
     it("handles reduced motion correctly", () => {
