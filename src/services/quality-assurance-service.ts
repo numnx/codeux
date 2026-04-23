@@ -1204,8 +1204,19 @@ export class QualityAssuranceService {
       commitMessage: `fix(task ${args.task.id}): address qa review via ${args.provider}`,
     });
 
-    const hasUnpushed = applyResult.hasChanges || await this.prService.hasUnpushedCommits(args.repoPath, workerBranch, args.featureBranch);
-    const hasAhead = applyResult.hasChanges || await this.prService.hasWorkerBranchCommitsAgainstFeature(args.repoPath, workerBranch, args.featureBranch);
+    let hasUnpushed = applyResult.hasChanges;
+    let hasAhead = applyResult.hasChanges;
+    if (!applyResult.hasChanges) {
+      hasUnpushed = await this.prService.hasUnpushedCommits(args.repoPath, workerBranch, args.featureBranch);
+      hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(args.repoPath, workerBranch, args.featureBranch);
+      if (hasUnpushed) {
+        await runCommandStrict(
+          "git",
+          ["push", "-u", "origin", `refs/heads/${workerBranch}:refs/heads/${workerBranch}`],
+          args.repoPath,
+        );
+      }
+    }
 
     let prUrl = args.task.pr_url || args.taskRun?.prUrl || null;
     if (hasUnpushed || hasAhead) {
