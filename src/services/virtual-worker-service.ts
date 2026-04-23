@@ -16,6 +16,7 @@ import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-mana
 import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 import { ProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
+import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
 import { runCommandStrict } from "./cli-process-runner.js";
 import { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
@@ -95,6 +96,7 @@ export class VirtualWorkerService {
   private readonly workspaceManager = new WorkspaceManager();
   private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
   private readonly dockerService = new DockerService();
+  private readonly prService = new PrService();
 
   private readonly providerRunner = new ProviderRunner(new DockerRunner());
 
@@ -616,11 +618,29 @@ export class VirtualWorkerService {
         patchText,
         commitMessage: `fix(merge): resolve ${targetBranch} into ${sourceBranch}`,
       });
-      const headSha = applyResult.commitSha || initialHead;
+      let hasUnpushed = applyResult.hasChanges;
+      let hasAhead = applyResult.hasChanges;
+      if (!applyResult.hasChanges) {
+        hasUnpushed = await this.prService.hasUnpushedCommits(repoPath, sourceBranch, targetBranch);
+        hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(repoPath, sourceBranch, targetBranch);
+        if (hasUnpushed) {
+          await runCommandStrict(
+            "git",
+            ["push", "-u", "origin", `refs/heads/${sourceBranch}:refs/heads/${sourceBranch}`],
+            repoPath,
+          );
+        }
+      }
+      const headSha = applyResult.commitSha
+        || ((hasUnpushed || hasAhead)
+          ? (await runCommandStrict("git", ["rev-parse", `refs/heads/${sourceBranch}`], repoPath)).stdout.trim()
+          : initialHead);
       this.deps.sessionTracking.updateSession(sessionId, { state: "COMPLETED" });
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
-        description: `Pushed resolved merge conflict to ${sourceBranch} at ${headSha}.`,
+        description: hasUnpushed || applyResult.hasChanges
+          ? `Pushed resolved merge conflict to ${sourceBranch} at ${headSha}.`
+          : `Resolved merge-conflict run completed on ${sourceBranch} at ${headSha}.`,
       });
       this.deps.projectAttentionService.resolveItem(item.id, {
         status: "resolved",
@@ -703,6 +723,9 @@ export class VirtualWorkerService {
       payload.workerBranch ?? payload.branchName,
       "branchName",
     );
+    const compareBaseBranch = typeof payload.featureBranch === "string" && payload.featureBranch.trim().length > 0
+      ? payload.featureBranch.trim()
+      : (settings.git.defaultBranch || "main");
 
     const retryKey = item.taskId || item.id;
     const retryCount = this.ciAutofixRetryCounts.get(retryKey) || 0;
@@ -812,11 +835,29 @@ export class VirtualWorkerService {
         patchText,
         commitMessage: `fix(ci): resolve failing checks on ${branchName}`,
       });
-      const headSha = applyResult.commitSha || initialHead;
+      let hasUnpushed = applyResult.hasChanges;
+      let hasAhead = applyResult.hasChanges;
+      if (!applyResult.hasChanges) {
+        hasUnpushed = await this.prService.hasUnpushedCommits(repoPath, branchName, compareBaseBranch);
+        hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(repoPath, branchName, compareBaseBranch);
+        if (hasUnpushed) {
+          await runCommandStrict(
+            "git",
+            ["push", "-u", "origin", `refs/heads/${branchName}:refs/heads/${branchName}`],
+            repoPath,
+          );
+        }
+      }
+      const headSha = applyResult.commitSha
+        || ((hasUnpushed || hasAhead)
+          ? (await runCommandStrict("git", ["rev-parse", `refs/heads/${branchName}`], repoPath)).stdout.trim()
+          : initialHead);
       this.deps.sessionTracking.updateSession(sessionId, { state: "COMPLETED" });
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
-        description: `Pushed CI fix to ${branchName} at ${headSha}.`,
+        description: hasUnpushed || applyResult.hasChanges
+          ? `Pushed CI fix to ${branchName} at ${headSha}.`
+          : `CI fix run completed on ${branchName} at ${headSha}.`,
       });
 
       this.ciAutofixRetryCounts.set(retryKey, retryCount + 1);

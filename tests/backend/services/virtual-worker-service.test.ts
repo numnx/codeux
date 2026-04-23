@@ -16,6 +16,7 @@ import { ProjectAttentionService } from "../../../src/domain/workers/project-att
 import { WorkerTaskDispatchService } from "../../../src/services/worker-task-dispatch-service.js";
 import { VirtualWorkerService } from "../../../src/services/virtual-worker-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
+import * as cliProcessRunner from "../../../src/services/cli-process-runner.js";
 
 const tempDirs: string[] = [];
 
@@ -793,24 +794,31 @@ describe("VirtualWorkerService", () => {
     vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockResolvedValue({ worktreePath: "/tmp/wt" });
     vi.spyOn((virtualWorkerService as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("guidance");
     vi.spyOn((virtualWorkerService as any).workspaceManager, "removeWorktree").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "exportBinaryPatch").mockResolvedValue("");
+    vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "applyPatchToBranch").mockResolvedValue({ hasChanges: false });
     vi.spyOn((virtualWorkerService as any), "runProviderWithRetry").mockResolvedValue(undefined);
+    (virtualWorkerService as any).prService = {
+      hasUnpushedCommits: vi.fn().mockResolvedValue(true),
+      hasWorkerBranchCommitsAgainstFeature: vi.fn().mockResolvedValue(true),
+    };
+    const runCommandSpy = vi.spyOn(cliProcessRunner, "runCommandStrict")
+      .mockResolvedValueOnce({ ok: true, stdout: "", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ ok: true, stdout: "cafebabe\n", stderr: "", code: 0 });
 
     const execRepo = (virtualWorkerService as any).deps.executionRepository;
     vi.spyOn(execRepo, "createExecutionInvocation").mockReturnValue({ id: "exec-inv-1" });
     vi.spyOn(execRepo, "appendExecutionInvocationMessage").mockReturnValue({});
     vi.spyOn(execRepo, "updateExecutionInvocation").mockReturnValue({});
 
-    // runCommandStrict is imported in cli-process-runner. We'll mock the whole module or just bypass it.
-    // Instead of bypassing runCommandStrict, we can mock runMergeIntoSource and ensureMergeConflictResolved and runCommandStrict if we mock it at the top,
-    // but since we didn't, let's just mock resolveCiFixAttention directly if needed? No, we want to cover resolveCiFixAttention.
-    // Actually we can mock child_process.spawn or commandRunner.run.
-    // But virtualWorkerService uses `runCommandStrict` internally. If it fails, the catch block runs.
-    
-    // Let's just run it and let it fail to cover the catch block!
     await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
     
     const updatedItem = projectAttentionService.getItem(item.id);
-    expect(updatedItem?.status).toBe("resolved"); // or open if it failed and escalated
+    expect(updatedItem?.status).toBe("resolved");
+    expect(runCommandSpy.mock.calls.some((call) => (
+      call[0] === "git"
+      && JSON.stringify(call[1]) === JSON.stringify(["push", "-u", "origin", "refs/heads/fix/branch:refs/heads/fix/branch"])
+      && call[2] === "/test"
+    ))).toBe(true);
   });
 
   it("reuses an existing task workspace for CI autofix when the branch already has a CLI session", async () => {
