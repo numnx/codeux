@@ -58,6 +58,7 @@ Production refinement shipped on March 15, 2026:
 - project execution snapshots are now throttled per project instead of being rebuilt on every task-run event burst
 - runtime-status, structure, projects, and overview snapshots each have their own cadence limits
 - project execution refresh no longer implies a `projects.updated` snapshot by default, which removes a major source of redundant dashboard work during active sprints
+- snapshot-based events (`project.live.updated`, `project.execution.updated`, and `overview.telemetry.updated`) are now fingerprinted; publications and sequence increments are skipped if the semantic payload (ignoring timestamps like `updatedAt`) is unchanged
 
 ### Dashboard websocket endpoint
 
