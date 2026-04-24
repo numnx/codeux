@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { FolderOpen, Plus, ExternalLink, Settings, Trash2 } from "lucide-preact";
 import type { Source, SourceStatus } from "./types.js";
 import { AddProjectModal } from "./components/ui/AddProjectModal.js";
-import { StatusDot } from "./components/ui/StatusDot.js";
+import { StatusBadge } from "./components/ui/StatusBadge.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { useProjectData } from "./context/project-data.js";
@@ -13,20 +13,6 @@ import { SkeletonPanel } from "./components/ui/ListSkeletons.js";
 const EMBER_HEX = '#FFB800';
 
 type Filter = 'All' | 'Running' | 'Idle' | 'Failed';
-
-const statusLabel: Record<SourceStatus, string> = {
-    running:      'Running',
-    failed:       'Failed',
-    intervention: 'Needs Review',
-    idle:         'Idle',
-};
-
-const statusColor: Record<SourceStatus, string> = {
-    running:      'text-status-green',
-    failed:       'text-status-red',
-    intervention: 'text-status-amber',
-    idle:         'text-slate-400 dark:text-slate-500',
-};
 
 const timeAgo = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -46,8 +32,6 @@ const ProjectCard: FunctionComponent<{
     onDelete: () => void;
 }> = ({ source, isSelected, onSelect, onDelete }) => {
     const cardRef  = useRef<HTMLDivElement>(null);
-    const label    = statusLabel[source.status];
-    const color    = statusColor[source.status];
     const watermark = source.name.slice(0, 3).toUpperCase();
     const total     = source.completedTasks + source.openTasks;
     const completion = total > 0 ? Math.round((source.completedTasks / total) * 100) : 0;
@@ -122,9 +106,8 @@ const ProjectCard: FunctionComponent<{
                     </div>
                 </div>
 
-                <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] shrink-0 ml-3 ${color}`}>
-                    <StatusDot status={source.status} />
-                    {label}
+                <div className="shrink-0 ml-3">
+                    <StatusBadge status={source.status} className="!px-2.5 !py-1 !text-[9px]" />
                 </div>
             </div>
 
@@ -142,7 +125,7 @@ const ProjectCard: FunctionComponent<{
                                    border border-black/[0.04] dark:border-white/[0.04]
                                    group-hover:border-ember-500/[0.08] transition-colors duration-300"
                     >
-                        <span className="text-[1.6rem] font-black text-slate-900 dark:text-white font-mono leading-none">
+                        <span className="text-[1.5rem] font-black text-slate-900 dark:text-white font-mono leading-none">
                             {value}
                         </span>
                         <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-400 mt-1.5">
@@ -172,7 +155,7 @@ const ProjectCard: FunctionComponent<{
 
             {/* ── Footer ────────────────────────────────────────────── */}
             <div className="flex items-center justify-between relative z-10 mt-auto">
-                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">
+                <span className="text-[10px] font-mono font-bold text-slate-300 dark:text-slate-700 uppercase tracking-[0.05em]">
                     {timeAgo(source.updatedAt)}
                 </span>
 
@@ -458,7 +441,7 @@ export const ProjectsPage: FunctionComponent = () => {
                                        text-void-900 font-bold text-sm rounded-2xl
                                        transition-colors duration-300
                                        shadow-[0_4px_20px_rgba(255,184,0,0.25)]
-                                       hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)]
+                                       hover:shadow-[0_8px_32_rgba(255,184,0,0.4)]
                                        hover:-translate-y-px transition-[background-color,box-shadow,transform]"
                         >
                             <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
