@@ -4,8 +4,8 @@ import { h } from "preact";
 import { render } from "@testing-library/preact";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { SprintStatsDeck } from "../../../../dashboard/src/v2/components/SprintStatsDeck";
-import type { DashboardStats } from "../../../../dashboard/src/v2/types";
+import { SprintStatsDeck } from "../../../../dashboard/src/v2/components/SprintStatsDeck.js";
+import type { DashboardStats } from "../../../../dashboard/src/v2/types.js";
 
 expect.extend(matchers);
 

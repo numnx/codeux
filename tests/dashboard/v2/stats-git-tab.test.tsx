@@ -5,7 +5,7 @@ import { h, Fragment } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { expect, describe, it, beforeEach } from "vitest";
-import { GitTelemetryTab } from "../../../dashboard/src/v2/pages/stats/components/GitTelemetryTab.jsx";
+import { GitTelemetryTab } from "../../../dashboard/src/v2/pages/stats/components/GitTelemetryTab.js";
 
 expect.extend(matchers);
 

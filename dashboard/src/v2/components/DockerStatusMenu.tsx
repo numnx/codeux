@@ -9,7 +9,7 @@
 import { FunctionComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Box, Play, Square, Terminal } from "lucide-preact";
-import { useFocusTrap } from "../hooks/use-focus-trap";
+import { useFocusTrap } from "../hooks/use-focus-trap.js";
 
 export interface DockerContainer {
   id: string;

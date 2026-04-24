@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/preact";
-import { StatusDot } from "../../../../../dashboard/src/v2/components/ui/StatusDot";
+import { StatusDot } from "../../../../../dashboard/src/v2/components/ui/StatusDot.js";
 
 describe("StatusDot", () => {
   it("renders running state", () => {

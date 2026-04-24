@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/preact";
-import { WaveFluid } from "../../../../../dashboard/src/v2/components/ui/WaveFluid";
+import { WaveFluid } from "../../../../../dashboard/src/v2/components/ui/WaveFluid.js";
 import gsap from "gsap";
 
 vi.mock("../../../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({

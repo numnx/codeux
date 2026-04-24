@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/preact";
-import { LiveTaskCard } from "../../../../../dashboard/src/v2/components/LiveTaskCard";
+import { LiveTaskCard } from "../../../../../dashboard/src/v2/components/LiveTaskCard.js";
 import type { Subtask } from "../../../../../dashboard/src/types.js";
 
 // Mock resize observer and match media

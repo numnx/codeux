@@ -8,7 +8,7 @@ import { render, cleanup } from '@testing-library/preact';
 import { afterEach } from "vitest";
 afterEach(cleanup);
 import { describe, it, expect } from 'vitest';
-import { ChatAvatar } from '../../../dashboard/src/v2/components/chat/ChatAvatar';
+import { ChatAvatar } from '../../../dashboard/src/v2/components/chat/ChatAvatar.js';
 
 import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);

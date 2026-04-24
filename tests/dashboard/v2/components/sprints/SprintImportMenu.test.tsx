@@ -4,7 +4,7 @@ import { h } from "preact";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, screen, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { SprintImportMenu } from "../../../../../dashboard/src/v2/components/sprints/SprintImportMenu";
+import { SprintImportMenu } from "../../../../../dashboard/src/v2/components/sprints/SprintImportMenu.js";
 
 expect.extend(matchers);
 

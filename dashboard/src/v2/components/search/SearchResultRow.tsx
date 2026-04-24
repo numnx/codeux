@@ -1,6 +1,6 @@
 import { FunctionComponent } from "preact";
 import { Target, ListChecks, Cpu, Compass, ArrowRight } from "lucide-preact";
-import type { SearchItem } from "./SearchOverlay";
+import type { SearchItem } from "./SearchOverlay.js";
 
 interface SearchResultRowProps {
     item: SearchItem;

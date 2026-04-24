@@ -6,7 +6,7 @@ afterEach(() => { cleanup(); });
 import { h } from "preact";
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
-import { SprintReviewBadge } from "../../../../../dashboard/src/v2/components/sprints/SprintReviewBadge";
+import { SprintReviewBadge } from "../../../../../dashboard/src/v2/components/sprints/SprintReviewBadge.js";
 
 describe("SprintReviewBadge", () => {
   it("renders running state loading UI", () => {

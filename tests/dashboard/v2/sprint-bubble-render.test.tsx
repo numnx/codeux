@@ -3,7 +3,7 @@
 import { h } from "preact";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/preact";
-import { SprintBubble } from "../../../dashboard/src/v2/components/ui/SprintBubble";
+import { SprintBubble } from "../../../dashboard/src/v2/components/ui/SprintBubble.js";
 
 afterEach(() => { cleanup(); });
 

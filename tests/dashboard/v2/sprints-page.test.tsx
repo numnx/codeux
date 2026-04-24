@@ -4,10 +4,10 @@ import { h } from "preact";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, screen, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { SprintsPage } from "../../../dashboard/src/v2/pages/sprints/SprintsPage";
+import { SprintsPage } from "../../../dashboard/src/v2/pages/sprints/SprintsPage.js";
 
 // @ts-expect-error Types are not required for test
-import { useSprintsPageData } from "../../../dashboard/src/v2/pages/sprints/use-sprints-page-data";
+import { useSprintsPageData } from "../../../dashboard/src/v2/pages/sprints/use-sprints-page-data.js";
 
 expect.extend(matchers);
 

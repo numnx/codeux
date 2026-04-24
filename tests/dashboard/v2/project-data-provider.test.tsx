@@ -3,11 +3,11 @@
 import { h } from "preact";
 import { render, screen, act } from "@testing-library/preact";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ProjectDataProvider, useProjectData } from "../../../dashboard/src/v2/context/project-data";
-import * as projectApi from "../../../dashboard/src/v2/lib/project-api";
+import { ProjectDataProvider, useProjectData } from "../../../dashboard/src/v2/context/project-data.js";
+import * as projectApi from "../../../dashboard/src/v2/lib/project-api.js";
 import { useEffect } from "preact/hooks";
-import type { Source } from "../../../dashboard/src/v2/types";
-import type { ProjectCollectionResponse } from "../../../src/contracts/project-management-types";
+import type { Source } from "../../../dashboard/src/v2/types.js";
+import type { ProjectCollectionResponse } from "../../../src/contracts/project-management-types.js";
 
 // Mock the API client
 vi.mock("../../../dashboard/src/v2/lib/project-api", () => ({

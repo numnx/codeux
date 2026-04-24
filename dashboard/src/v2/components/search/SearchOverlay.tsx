@@ -2,7 +2,7 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import gsap from "gsap";
 import { Search, X, Layers, Activity, Cpu, Box, ArrowRight } from "lucide-preact";
-import { SearchResultRow } from "./SearchResultRow";
+import { SearchResultRow } from "./SearchResultRow.js";
 
 
 export type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string };
