@@ -366,6 +366,7 @@ Repository demo script:
   - container `HOME` lives inside the isolated workspace at `/workspace/.sprint-os-home`
   - write-back happens via Git patch artifacts applied on the host, not direct file sync from the container
   - patch export preserves raw `git diff --binary` output byte-for-byte so whitespace-only EOF hunks and `\ No newline at end of file` markers still apply cleanly on the host branch
+  - patch export always excludes `/workspace/.sprint-os-home` so provider home/cache state cannot be committed, even when the target repository does not ignore `.cache/` or `.sprint-os-home/`
   - the remaining persistent Docker-side cache is the optional setup-image cache, not per-session provider home directories under `~/.sprint-os/runtime/docker`
 - If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
   - CLI model settings continue to flow into Docker-backed providers:
