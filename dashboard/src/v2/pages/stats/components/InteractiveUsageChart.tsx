@@ -1,9 +1,9 @@
 import type { FunctionComponent } from 'preact';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'preact/hooks';
 import gsap from 'gsap';
-import { Activity } from 'lucide-preact';
 import type {
   ProjectExecutionStatsSnapshot,
+  ProjectStatsWindow,
 } from '../../../types.js';
 import {
   formatTokens,
@@ -22,16 +22,36 @@ import type { UsageChartState } from '../use-usage-chart-state.js';
 import {
   getVisibleBuckets,
   normalizeChartSeries,
-  groupChartSeries,
   calculateChartMetrics,
   getTooltipState,
 } from '../chart-view-models.js';
+import { UsageGraphHeader } from './UsageGraphHeader.js';
+import { UsageFilterMenu } from './UsageFilterMenu.js';
+import { useUsageFilters } from '../hooks/useUsageFilters.js';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
   chartState: UsageChartState;
-}> = ({ stats, chartState }) => {
+  activeWindow: ProjectStatsWindow | string;
+  customFrom: string;
+  customTo: string;
+  onSelectPreset: (value: Exclude<ProjectStatsWindow, "custom">) => void;
+  onCustomFromChange: (value: string) => void;
+  onCustomToChange: (value: string) => void;
+  onApplyCustom: () => void;
+}> = ({
+  stats,
+  chartState,
+  activeWindow,
+  customFrom,
+  customTo,
+  onSelectPreset,
+  onCustomFromChange,
+  onCustomToChange,
+  onApplyCustom,
+}) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { isFiltersOpen, toggleFilters, closeFilters } = useUsageFilters();
 
   const {
     zoomRange,
@@ -59,12 +79,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     return normalizeChartSeries(stats.chartSeries, visibleBuckets, viewStart, width, height, padding);
   }, [stats.chartSeries, visibleBuckets, viewStart, width, height, padding]);
 
-  const seriesGroups = useMemo(() => {
-    return groupChartSeries(stats.chartSeries);
-  }, [stats.chartSeries]);
-
   const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
-  const activeSeriesCount = visibleSeries.length;
 
   const { activeIndex, activeBucket, tooltipLeft, xPositions } = getTooltipState(
     visibleBuckets, chartData, hoveredIndex, padding, width
@@ -130,47 +145,57 @@ export const InteractiveUsageChart: FunctionComponent<{
     <div ref={panelRef} className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.14]" />
       <div className="relative flex flex-col gap-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-300">
-              <Activity className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} />
-              Usage Graph
-            </div>
-            <div className="mt-4 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-              {zoomRange ? "Zoomed telemetry window" : stats.range.label}
-            </div>
-            <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-              Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use the legend to focus the graph.
-            </div>
+        <UsageGraphHeader
+          title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
+          description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use filters to focus the graph."
+          onOpenFilters={toggleFilters}
+          isFilterActive={isFiltersOpen}
+        />
+
+        <div className="relative z-50">
+          <UsageFilterMenu
+            isOpen={isFiltersOpen}
+            onClose={closeFilters}
+            activeWindow={activeWindow}
+            customFrom={customFrom}
+            customTo={customTo}
+            onSelectPreset={onSelectPreset}
+            onCustomFromChange={onCustomFromChange}
+            onCustomToChange={onCustomToChange}
+            onApplyCustom={onApplyCustom}
+            stats={stats}
+            enabledSeries={enabledSeries}
+            setEnabledSeries={setEnabledSeries}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div data-chart-card className={SUBPANEL_CLASS}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Tokens</div>
+            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(peakTokens)}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in view</div>
           </div>
-          <div className="grid grid-cols-2 gap-3 xl:w-[27rem]">
-            <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Tokens</div>
-              <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(peakTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Highest bucket in view</div>
-            </div>
-            <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Time</div>
-              <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatDuration(peakTime)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active model runtime</div>
-            </div>
-            <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Average Tokens</div>
-              <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(averageTokens)}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stats.range.resolutionLabel}</div>
-            </div>
-            <div data-chart-card className={SUBPANEL_CLASS}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Invocations</div>
-              <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{peakInvocations.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">CLI calls in one bucket</div>
-            </div>
+          <div data-chart-card className={SUBPANEL_CLASS}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Time</div>
+            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatDuration(peakTime)}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active model runtime</div>
+          </div>
+          <div data-chart-card className={SUBPANEL_CLASS}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Average Tokens</div>
+            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{formatTokens(averageTokens)}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stats.range.resolutionLabel}</div>
+          </div>
+          <div data-chart-card className={SUBPANEL_CLASS}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Peak Invocations</div>
+            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{peakInvocations.toLocaleString()}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">CLI calls in one bucket</div>
           </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_16rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className={`${SUBPANEL_CLASS} p-4 md:p-5`}>
             <div className="mb-5 flex flex-wrap items-center gap-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Interactive Legend</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Interactive Plot</div>
               <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300 ${CHIP_CLASS}`}>
                 Hover buckets for exact values
               </div>
@@ -188,41 +213,6 @@ export const InteractiveUsageChart: FunctionComponent<{
               ) : null}
             </div>
             <div className="relative">
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap gap-x-6 gap-y-4 px-4 py-3">
-                {Object.entries(seriesGroups).map(([grouping, groupSeries]) => (
-                  <div key={grouping} className="flex flex-col gap-2">
-                    <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 pl-1">{grouping}</div>
-                    <div className="pointer-events-auto flex flex-wrap gap-2">
-                      {groupSeries.map((s, idx) => {
-                        const active = enabledSeries[s.id] || false;
-                        const disabled = activeSeriesCount === 1 && active;
-                        const fallbackColors = ['#F43F5E', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6'];
-                        const accentHex = s.color || fallbackColors[idx % fallbackColors.length];
-
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              if (activeSeriesCount === 1 && enabledSeries[s.id]) return;
-                              setEnabledSeries((curr: Record<string, boolean>) => ({ ...curr, [s.id]: !curr[s.id] }));
-                            }}
-                            disabled={disabled}
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-all border ${
-                              active
-                                ? 'bg-white/68 dark:bg-void-900/35 border-signal-500/18 text-slate-800 dark:text-slate-200'
-                                : 'border-black/[0.05] bg-white/60 dark:border-white/[0.05] dark:bg-void-900/30 text-slate-500 dark:text-slate-400 opacity-72 hover:opacity-100'
-                            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
-                          >
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentHex }} />
-                            {s.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
               {activeBucket ? (
                 <div
                   className="pointer-events-none absolute top-3 z-10 w-56 -translate-x-1/2 rounded-[1.25rem] border border-black/[0.06] bg-white/88 px-4 py-3 shadow-[0_18px_38px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-900/88 dark:shadow-[0_20px_40px_rgba(0,0,0,0.32)]"

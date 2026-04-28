@@ -658,7 +658,25 @@ export const TrendStudio: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
   planningUsage: ExecutionStatsEntitySummary | null;
   chartState: UsageChartState;
-}> = ({ stats, planningUsage, chartState }) => (
+  activeWindow: ProjectStatsWindow | string;
+  customFrom: string;
+  customTo: string;
+  onSelectPreset: (value: Exclude<ProjectStatsWindow, "custom">) => void;
+  onCustomFromChange: (value: string) => void;
+  onCustomToChange: (value: string) => void;
+  onApplyCustom: () => void;
+}> = ({
+  stats,
+  planningUsage,
+  chartState,
+  activeWindow,
+  customFrom,
+  customTo,
+  onSelectPreset,
+  onCustomFromChange,
+  onCustomToChange,
+  onApplyCustom,
+}) => (
   <section className="space-y-6">
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
       <StatsCard
@@ -730,7 +748,17 @@ export const TrendStudio: FunctionComponent<{
           title="Trend analysis"
           description="A single interactive telemetry surface for flow, peaks, and pacing across the selected window."
         />
-        <InteractiveUsageChart stats={stats} chartState={chartState} />
+        <InteractiveUsageChart
+          stats={stats}
+          chartState={chartState}
+          activeWindow={activeWindow}
+          customFrom={customFrom}
+          customTo={customTo}
+          onSelectPreset={onSelectPreset}
+          onCustomFromChange={onCustomFromChange}
+          onCustomToChange={onCustomToChange}
+          onApplyCustom={onApplyCustom}
+        />
       </div>
     </div>
   </section>
