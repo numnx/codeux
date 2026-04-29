@@ -416,7 +416,6 @@ export const SignalMetricCard: FunctionComponent<{
   <StatsCard
     title={label}
     value={value}
-    description={detail}
     trend={
       <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
         {signalLabel}
@@ -426,6 +425,11 @@ export const SignalMetricCard: FunctionComponent<{
     accent={accentHex === "#00E0A0" ? "signal" : accentHex === "#FFB800" ? "amber" : "cyan"}
   >
     <Sparkline points={sparkline} color={accentHex} />
+    <div className="flex flex-col gap-1 mt-4 border-t border-black/[0.06] dark:border-white/[0.06] pt-4">
+      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        {detail}
+      </div>
+    </div>
   </StatsCard>
 );
 
@@ -680,7 +684,7 @@ export const TrendStudio: FunctionComponent<{
 }) => (
   <section className="space-y-6">
     {stats.purposes.length > 0 ? (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
         {stats.purposes.slice(0, 4).map((purpose) => (
           <SignalMetricCard
             key={purpose.id}
