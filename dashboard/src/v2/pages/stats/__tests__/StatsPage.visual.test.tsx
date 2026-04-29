@@ -18,13 +18,17 @@ vi.mock('../use-stats-page-data.js', () => ({
 describe('StatsPage visual tests', () => {
   beforeEach(() => {
     vi.spyOn(useProjectDataModule, 'useProjectData').mockReturnValue({
-      selectedProject: { id: 'proj-1', name: 'Project 1' },
+      selectedProjectId: 'proj-1',
+      createProject: vi.fn(),
+      updateProject: vi.fn(),
+      deleteProject: vi.fn(),
+      selectedProject: { id: 'proj-1', name: 'Project 1' } as any,
       projects: [],
       loading: false,
       error: null,
       refreshProjects: vi.fn(),
       selectProject: vi.fn(),
-      clearSelectedProject: vi.fn()
+
     });
 
     vi.spyOn(useStatsPageDataModule, 'useStatsPageData').mockReturnValue({
