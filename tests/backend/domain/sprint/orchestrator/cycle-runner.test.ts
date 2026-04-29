@@ -1532,3 +1532,92 @@ describe("CycleRunner attention sync", () => {
     }));
   });
 });
+
+  describe("CycleStateCoordinator regression tests", () => {
+    it("persists task state changes when CI gate updates status or merge_indicator", async () => {
+      const deps = buildDeps();
+      const runner = new CycleRunner(deps);
+
+      const states = new Map();
+      states.set("T1", { id: "T1", status: "RUNNING", isMerged: false, mergeIndicator: null });
+
+      const subtasks = [
+        {
+          id: "T1",
+          record_id: "task-1",
+          status: "COMPLETED",
+          is_merged: true,
+          merge_indicator: "CI",
+        }
+      ] as any;
+
+      (runner as any).stateCoordinator.persistCiGateTaskStateChanges(states, subtasks);
+
+      expect(deps.projectManagementRepository.updateTask).toHaveBeenCalledWith("task-1", {
+        status: "completed",
+        isMerged: true,
+        mergeIndicator: "CI",
+      });
+    });
+
+    it("syncs auto-intervention execution state for action-required blocked tasks", async () => {
+      const deps = buildDeps();
+      deps.isActionRequiredState = vi.fn().mockReturnValue(true);
+      const runner = new CycleRunner(deps);
+
+      const previousTasks = new Map();
+      previousTasks.set("T1", { status: "BLOCKED", sessionState: "need_human" });
+
+      const subtasks = [
+        {
+          id: "T1",
+          record_id: "task-1",
+          status: "RUNNING",
+          session_state: "need_human",
+        }
+      ] as any;
+
+      (runner as any).stateCoordinator.syncAutoInterventionExecutionState(subtasks, previousTasks, "run-1");
+
+      expect(deps.executionRepository.updateTaskRun).toHaveBeenCalledWith("task-run-1", {
+        state: "RUNNING",
+        finishedAt: null,
+        durationMs: null,
+      });
+      expect(deps.executionRepository.updateTaskDispatch).toHaveBeenCalledWith("dispatch-1", {
+        status: "running",
+        startedAt: expect.any(String),
+        finishedAt: null,
+        lastHeartbeatAt: expect.any(String),
+        errorMessage: null,
+      });
+    });
+
+    it("clears attention items when tasks are no longer in action-required or ci_fix_required state", async () => {
+      const deps = buildDeps();
+      const runner = new CycleRunner(deps);
+
+      const subtasks = [
+        {
+          id: "T1",
+          record_id: "task-1",
+          status: "COMPLETED",
+          merge_indicator: null,
+        }
+      ] as any;
+
+      const protocolResult = {
+        awaitingMerge: [],
+        actionRequiredTasks: [],
+      };
+
+      (runner as any).stateCoordinator.syncProtocolAttentionItems(subtasks, protocolResult, {
+        executionContext: { project: { id: "p1" }, sprint: { id: "s1" } },
+        sprintRunId: "run-1",
+      } as any, null, new Set());
+
+      expect(deps.projectAttentionService.resolveItemsForTask).toHaveBeenCalledWith("p1", "task-1", ["merge_required", "merge_conflict"], "merge_attention_cleared");
+      expect(deps.projectAttentionService.resolveItemsForTask).toHaveBeenCalledWith("p1", "task-1", ["action_required"], "action_required_cleared");
+      expect(deps.projectAttentionService.resolveItemsForTask).toHaveBeenCalledWith("p1", "task-1", ["ci_fix_required"], "ci_fix_attention_cleared");
+    });
+  });
