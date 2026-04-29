@@ -8,6 +8,7 @@ import {
   createSeries,
 } from "./stats-utils.js";
 import { useStatsPageData } from "./use-stats-page-data.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { StatsPageHero } from "./components/StatsPageHero.js";
 import { AnalysisStudioSection } from "./components/AnalysisStudioSection.js";
 import { SignalMetricCard } from "./components/StatsShared.js";
@@ -15,7 +16,9 @@ import styles from "./StatsPage.module.css";
 
 export const StatsPage: FunctionComponent = () => {
   const rootRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
   const { selectedProject } = useProjectData();
+  const reducedMotion = useReducedMotion();
   const {
     stats,
     loading,
@@ -42,15 +45,18 @@ export const StatsPage: FunctionComponent = () => {
   } = useStatsPageData(selectedProject?.id || null);
 
   useLayoutEffect(() => {
-    if (!rootRef.current) {
+    if (!rootRef.current || reducedMotion || !stats || hasAnimated.current) {
       return;
     }
+
+    hasAnimated.current = true;
+    gsap.killTweensOf(rootRef.current.children);
     gsap.fromTo(
       rootRef.current.children,
       { opacity: 0, y: 28 },
       { opacity: 1, y: 0, duration: 0.8, stagger: 0.08, ease: "power4.out" },
     );
-  }, []);
+  }, [stats, reducedMotion]);
 
   return (
     <div ref={rootRef} className={`mx-auto flex max-w-[2400px] flex-col gap-16 px-8 py-20 md:px-20 ${styles.pageRoot}`}>

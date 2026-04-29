@@ -7,11 +7,18 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { StatsPage } from "../../../dashboard/src/v2/pages/stats/StatsPage.js";
 import { useStatsPageData } from "../../../dashboard/src/v2/pages/stats/use-stats-page-data.js";
+import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
+import gsap from "gsap";
 
 vi.mock("gsap", () => ({
   default: {
     fromTo: vi.fn(),
+    killTweensOf: vi.fn(),
   },
+}));
+
+vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: vi.fn(),
 }));
 
 vi.mock("../../../dashboard/src/v2/pages/stats/components/StatsPageHero.js", () => ({
@@ -172,10 +179,52 @@ expect.extend(matchers);
 
 beforeEach(() => {
   cleanup();
+  vi.clearAllMocks();
   vi.mocked(useStatsPageData).mockReturnValue(baseMockValue as any);
+  vi.mocked(useReducedMotion).mockReturnValue(false);
 });
 
 describe("StatsPage Shell", () => {
+  it("does not animate if stats are loading", () => {
+    vi.mocked(useStatsPageData).mockReturnValue({
+      ...baseMockValue,
+      stats: null,
+      loading: true,
+    } as any);
+    render(<StatsPage />);
+    expect(gsap.fromTo).not.toHaveBeenCalled();
+    expect(screen.getByText(/Loading the telemetry field/i)).toBeInTheDocument();
+  });
+
+  it("does not animate if there is an error and stats are null", () => {
+    vi.mocked(useStatsPageData).mockReturnValue({
+      ...baseMockValue,
+      stats: null,
+      error: "Something went wrong",
+    } as any);
+    render(<StatsPage />);
+    expect(gsap.fromTo).not.toHaveBeenCalled();
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+  });
+
+  it("does not animate if reduced motion is enabled", () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    render(<StatsPage />);
+    expect(gsap.fromTo).not.toHaveBeenCalled();
+    expect(screen.getByText("Statistics.")).toBeInTheDocument();
+  });
+
+  it("animates once when stats load and reduced motion is false", () => {
+    const { rerender } = render(<StatsPage />);
+    expect(gsap.killTweensOf).toHaveBeenCalledTimes(1);
+    expect(gsap.fromTo).toHaveBeenCalledTimes(1);
+
+    // Rerender with the same data to ensure it doesn't trigger again
+    rerender(<StatsPage />);
+    expect(gsap.killTweensOf).toHaveBeenCalledTimes(1);
+    expect(gsap.fromTo).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the hero content and range controls", () => {
     render(<StatsPage />);
     expect(screen.getByText("Statistics.")).toBeInTheDocument();
