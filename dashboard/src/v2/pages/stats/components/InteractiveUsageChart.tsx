@@ -73,7 +73,7 @@ export const InteractiveUsageChart: FunctionComponent<{
   const buckets = stats.buckets;
 
   const width = 1200;
-  const height = 340;
+  const height = 540;
   const padding = 34;
   const viewStart = zoomRange?.start ?? 0;
   const viewEnd = zoomRange?.end ?? Math.max(0, buckets.length - 1);
@@ -202,8 +202,8 @@ export const InteractiveUsageChart: FunctionComponent<{
           </div>
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
+        <div className="grid gap-8 items-start xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className={`${SUBPANEL_CLASS} flex flex-col border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
             <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--stats-label-color)]">Interactive Plot</div>
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS}`}>
@@ -234,7 +234,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                 </button>
               ) : null}
             </div>
-            <div className="relative">
+            <div className="relative flex-1 min-h-[36rem] w-full">
               
               <UsageGraphTooltip 
                 visible={!!activeBucket}
@@ -252,7 +252,7 @@ export const InteractiveUsageChart: FunctionComponent<{
               {buckets.length === 0 ? (
                 <UsageGraphEmpty />
               ) : (
-                <svg viewBox={`0 0 ${width} ${height + 40}`} className="h-[26rem] w-full overflow-visible">
+                <svg viewBox={`0 0 ${width} ${height + 40}`} className="absolute inset-0 h-full w-full overflow-visible">
                   <defs>
                     {chartData.map((series) => (
                       <linearGradient key={`fill-${series.id}`} id={`stats-area-${series.id}`} x1="0" x2="0" y1="0" y2="1">
