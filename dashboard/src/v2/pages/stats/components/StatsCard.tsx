@@ -63,30 +63,34 @@ export const StatsCard: FunctionComponent<StatsCardProps> = ({
       <WaveFluid accentHex={accentHex} isActive={isActive} />
       <BorderTrace accentHex={accentHex} />
 
-      {/* Header: Title and Icon */}
+      {/* Header: Title and Trend */}
       <div className={styles.header}>
-        <div className={styles.title}>{title}</div>
-        {Icon && (
-          <div className={styles.iconContainer}>
-            <Icon className="w-4 h-4" strokeWidth={2.2} />
-          </div>
-        )}
+        <div className={styles.titleGroup}>
+          <div className={styles.title}>{title}</div>
+          {Icon && (
+            <div className={styles.iconContainer}>
+              <Icon className="w-4 h-4" strokeWidth={2.2} />
+            </div>
+          )}
+        </div>
+        {trend && <div className={styles.trendContainer}>{trend}</div>}
       </div>
 
       {/* Body: Primary Value */}
       <div className={styles.valueContainer}>
-        <div className={styles.value}>{value}</div>
+        <div className={styles.valueRow}>
+          <div className={styles.value}>{value}</div>
+          {typeof description !== "string" && description && (
+            <div className={styles.secondaryValue}>{description}</div>
+          )}
+        </div>
         
-        {/* Footer: Trend and Description */}
-        {(trend || description) && (
-          <div className={styles.footer}>
-            {trend && <div className={styles.trendContainer}>{trend}</div>}
-            {description && <div className={styles.description}>{description}</div>}
-          </div>
+        {typeof description === "string" && (
+          <div className={styles.description}>{description}</div>
         )}
       </div>
 
-      {/* Extra Children (e.g. Action Buttons or Chips) */}
+      {/* Extra Children (e.g. Action Buttons, extra footer elements, or Sparkline) */}
       {children}
     </div>
   );

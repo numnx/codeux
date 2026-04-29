@@ -15,6 +15,8 @@ import {
   Sparkles,
   TimerReset,
   Workflow,
+  Bot,
+  Terminal,
 } from "lucide-preact";
 import { Sparkline } from "../../../components/ui/Sparkline.js";
 import { StatsCard, type StatsCardAccent } from "./StatsCard.js";
@@ -75,6 +77,7 @@ export const SUBPANEL_CLASS = "rounded-[1.45rem] border border-black/[0.05] bg-w
 export const CHIP_CLASS = "rounded-full border border-black/[0.06] bg-white/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/55 dark:shadow-[0_1px_3px_rgba(0,0,0,0.18)]";
 export const INPUT_CLASS = "h-11 rounded-2xl border border-black/[0.06] bg-white/72 px-4 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-200";
 export const LEDGER_ROW_CLASS = "group rounded-[1.5rem] border border-black/[0.05] bg-white/68 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.045)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-signal-500/18 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)] dark:border-white/[0.05] dark:bg-void-900/35 dark:shadow-[0_12px_28px_rgba(0,0,0,0.2)] dark:hover:bg-void-900/45";
+export const LEDGER_ROW_MODERN_CLASS = "group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-6 shadow-[0_8px_32px_rgba(15,23,42,0.05)] backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:border-signal-500/30 hover:shadow-[0_18px_48px_rgba(0,224,160,0.12)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_12px_32px_rgba(0,0,0,0.25)] dark:hover:border-signal-500/40 dark:hover:bg-void-800/80";
 
 export const DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -416,7 +419,6 @@ export const SignalMetricCard: FunctionComponent<{
   <StatsCard
     title={label}
     value={value}
-    description={detail}
     trend={
       <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
         {signalLabel}
@@ -426,6 +428,11 @@ export const SignalMetricCard: FunctionComponent<{
     accent={accentHex === "#00E0A0" ? "signal" : accentHex === "#FFB800" ? "amber" : "cyan"}
   >
     <Sparkline points={sparkline} color={accentHex} />
+    <div className="flex flex-col gap-1 mt-4 border-t border-black/[0.06] dark:border-white/[0.06] pt-4">
+      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        {detail}
+      </div>
+    </div>
   </StatsCard>
 );
 
@@ -435,11 +442,65 @@ export const TokenChip: FunctionComponent<{
   value: number | string;
   tone: string;
 }> = ({ icon: Icon, label, value, tone }) => (
-  <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${tone}`}>
-    <Icon className="h-3.5 w-3.5" strokeWidth={2.1} />
-    {label} {typeof value === "number" ? formatTokens(value) : value}
+  <div className={`group relative inline-flex items-center gap-2 overflow-hidden rounded-[14px] border px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_8px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.2)] ${tone}`}>
+    <div className="relative flex items-center gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
+      <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+    </div>
+    <div className="relative text-[11px] font-black tracking-wide text-slate-900 drop-shadow-sm transition-all group-hover:drop-shadow-md dark:text-white">
+      {typeof value === "number" ? formatTokens(value) : value}
+    </div>
   </div>
 );
+
+export function getProviderIcon(provider: string | null | undefined): { icon: ComponentType<any>; bg: string; text: string } {
+  const p = (provider || "").toLowerCase();
+  if (p.includes("gemini")) return { icon: Sparkles, bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400" };
+  if (p.includes("claude")) return { icon: Brain, bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" };
+  if (p.includes("codex")) return { icon: Terminal, bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400" };
+  if (p.includes("jules")) return { icon: Layers3, bg: "bg-signal-500/10", text: "text-signal-600 dark:text-signal-400" };
+  return { icon: Bot, bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400" };
+}
+
+export const TokenFlowBar: FunctionComponent<{
+  input: number;
+  cached: number;
+  output: number;
+  reasoning: number;
+  total: number;
+}> = ({ input, cached, output, reasoning, total }) => {
+  if (total <= 0) return <div className="h-2 w-full rounded-full bg-black/[0.05] dark:bg-white/[0.05]" />;
+  const inPct = (input / total) * 100;
+  const cachedPct = (cached / total) * 100;
+  const outPct = (output / total) * 100;
+  const reasonPct = (reasoning / total) * 100;
+
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.05]">
+      {inPct > 0 && <div className="h-full bg-signal-500 transition-all duration-500" style={{ width: `${inPct}%` }} title={`Input: ${inPct.toFixed(1)}%`} />}
+      {cachedPct > 0 && <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: `${cachedPct}%` }} title={`Cached: ${cachedPct.toFixed(1)}%`} />}
+      {outPct > 0 && <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${outPct}%` }} title={`Output: ${outPct.toFixed(1)}%`} />}
+      {reasonPct > 0 && <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${reasonPct}%` }} title={`Reasoning: ${reasonPct.toFixed(1)}%`} />}
+    </div>
+  );
+};
+
+export const ChurnFlowBar: FunctionComponent<{
+  insertions: number;
+  deletions: number;
+}> = ({ insertions, deletions }) => {
+  const total = insertions + deletions;
+  if (total <= 0) return <div className="h-2 w-full rounded-full bg-black/[0.05] dark:bg-white/[0.05]" />;
+  const inPct = (insertions / total) * 100;
+  const delPct = (deletions / total) * 100;
+
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.05]">
+      {inPct > 0 && <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${inPct}%` }} title={`Insertions: ${inPct.toFixed(1)}%`} />}
+      {delPct > 0 && <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${delPct}%` }} title={`Deletions: ${delPct.toFixed(1)}%`} />}
+    </div>
+  );
+};
 
 export const SeriesLegendButton: FunctionComponent<{
   series: ChartSeriesDefinition;
@@ -679,75 +740,34 @@ export const TrendStudio: FunctionComponent<{
   onApplyCustom,
 }) => (
   <section className="space-y-6">
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <StatsCard
-        title="Sprint Focus"
-        value={stats.activeSprint ? stats.activeSprint.sprintName : "Historical view"}
-        icon={Layers3}
-        accent="amber"
-      >
-        <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400 flex-1">
-          {stats.activeSprint
-              ? `Sprint ${stats.activeSprint.sprintNumber ?? "?"} is the live telemetry anchor for this project.`
-              : "No live sprint is active, so the dashboard is reading the selected historical window only."}
-        </div>
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className={SUBPANEL_CLASS}>
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Planning</div>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{planningUsage ? formatTokens(planningUsage.usage.totalTokens) : "0"}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{planningUsage ? formatDuration(planningUsage.usage.activeTimeMs) : "No data yet"}</div>
-          </div>
-          <div className={SUBPANEL_CLASS}>
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Providers</div>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{stats.providers.length}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Active inside</div>
-          </div>
-        </div>
-      </StatsCard>
-
-      <StatsCard
-        title="Window Discipline"
-        value="Time framing"
-        icon={Clock3}
-        accent="cyan"
-      >
-        <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400 flex-1">
-          Granular control over how telemetry is chunked and visualized across the selected operational window.
-        </div>
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className={SUBPANEL_CLASS}>
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Buckets</div>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{stats.buckets.length}</div>
-          </div>
-          <div className={SUBPANEL_CLASS}>
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Window</div>
-            <div className="mt-2 text-[13px] font-black leading-tight text-slate-900 dark:text-white">{stats.range.label}</div>
-          </div>
-        </div>
-      </StatsCard>
-    </div>
-
-    <div className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
-      <div className="flex flex-col gap-6">
-        <StudioHeader
-          icon={Activity}
-          eyebrow="Analysis Studio"
-          title="Trend analysis"
-          description="A single interactive telemetry surface for flow, peaks, and pacing across the selected window."
-        />
-        <InteractiveUsageChart
-          stats={stats}
-          chartState={chartState}
-          activeWindow={activeWindow}
-          customFrom={customFrom}
-          customTo={customTo}
-          onSelectPreset={onSelectPreset}
-          onCustomFromChange={onCustomFromChange}
-          onCustomToChange={onCustomToChange}
-          onApplyCustom={onApplyCustom}
-        />
+    {stats.purposes.length > 0 ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
+        {stats.purposes.slice(0, 4).map((purpose) => (
+          <SignalMetricCard
+            key={purpose.id}
+            label={purpose.label.replace(/_/g, " ")}
+            value={formatTokens(purpose.usage.totalTokens)}
+            detail={`${formatDuration(purpose.usage.activeTimeMs)} active time`}
+            accentHex="#10B981"
+            hoverTint="group-hover:bg-emerald-500/[0.03]"
+            sparkline={createSeries(stats.buckets, (bucket) => bucket.usage.totalTokens)}
+            signalLabel="Purpose"
+          />
+        ))}
       </div>
-    </div>
+    ) : null}
+
+    <InteractiveUsageChart
+      stats={stats}
+      chartState={chartState}
+      activeWindow={activeWindow}
+      customFrom={customFrom}
+      customTo={customTo}
+      onSelectPreset={onSelectPreset}
+      onCustomFromChange={onCustomFromChange}
+      onCustomToChange={onCustomToChange}
+      onApplyCustom={onApplyCustom}
+    />
   </section>
 );
 
@@ -757,33 +777,23 @@ export const CompositionStudio: FunctionComponent<{
   tokenSegments: SegmentDefinition[];
 }> = ({ stats, providerSegments, tokenSegments }) => (
   <section className="space-y-6">
-    <div className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
-      <div className="flex flex-col gap-6">
-        <StudioHeader
-          icon={PieChart}
-          eyebrow="Analysis Studio"
-          title="Composition analysis"
-          description="Read provider distribution, token anatomy, and execution purpose concentration inside one focused composition workspace."
-        />
-        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.05fr_0.95fr]">
-          <DonutCard
-            title="Provider Share"
-            eyebrow="Composition"
-            description="Provider token split grouped into visible lanes for faster reading at high volume."
-            centerValue={String(stats.providers.length)}
-            centerLabel="providers"
-            segments={providerSegments}
-          />
-          <DonutCard
-            title="Token Anatomy"
-            eyebrow="Flow Mix"
-            description="Input, cached, output, and reasoning balance across the selected telemetry window."
-            centerValue={formatTokens(stats.usage.totalTokens)}
-            centerLabel="token mix"
-            segments={tokenSegments}
-          />
-        </div>
-      </div>
+    <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.05fr_0.95fr]">
+      <DonutCard
+        title="Provider Share"
+        eyebrow="Composition"
+        description="Provider token split grouped into visible lanes for faster reading at high volume."
+        centerValue={String(stats.providers.length)}
+        centerLabel="providers"
+        segments={providerSegments}
+      />
+      <DonutCard
+        title="Token Anatomy"
+        eyebrow="Flow Mix"
+        description="Input, cached, output, and reasoning balance across the selected telemetry window."
+        centerValue={formatTokens(stats.usage.totalTokens)}
+        centerLabel="token mix"
+        segments={tokenSegments}
+      />
     </div>
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <PurposeRibbon purposes={stats.purposes} />
@@ -833,33 +843,23 @@ export const ReliabilityStudio: FunctionComponent<{
   sourceSegments: SegmentDefinition[];
 }> = ({ stats, providerSegments, sourceSegments }) => (
   <section className="space-y-6">
-    <div className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7`}>
-      <div className="flex flex-col gap-6">
-        <StudioHeader
-          icon={ShieldCheck}
-          eyebrow="Analysis Studio"
-          title="Reliability analysis"
-          description="Read confidence, fallback pressure, and provider contribution inside one audit-focused telemetry workspace."
-        />
-        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.05fr_0.95fr]">
-          <DonutCard
-            title="Telemetry Source Mix"
-            eyebrow="Reliability"
-            description="Provider-reported versus estimated, unavailable, and unsupported usage across the selected window."
-            centerValue={String(stats.tokenSources.reduce((sum, entry) => sum + entry.count, 0))}
-            centerLabel="invocations"
-            segments={sourceSegments}
-          />
-          <DonutCard
-            title="Provider Share"
-            eyebrow="Signal Integrity"
-            description="Provider leaders over the selected period, grouped for a cleaner read under high volume."
-            centerValue={formatTokens(stats.usage.totalTokens)}
-            centerLabel="token volume"
-            segments={providerSegments}
-          />
-        </div>
-      </div>
+    <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.05fr_0.95fr]">
+      <DonutCard
+        title="Telemetry Source Mix"
+        eyebrow="Reliability"
+        description="Provider-reported versus estimated, unavailable, and unsupported usage across the selected window."
+        centerValue={String(stats.tokenSources.reduce((sum, entry) => sum + entry.count, 0))}
+        centerLabel="invocations"
+        segments={sourceSegments}
+      />
+      <DonutCard
+        title="Provider Share"
+        eyebrow="Signal Integrity"
+        description="Provider leaders over the selected period, grouped for a cleaner read under high volume."
+        centerValue={formatTokens(stats.usage.totalTokens)}
+        centerLabel="token volume"
+        segments={providerSegments}
+      />
     </div>
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
       <div className={`${PANEL_CLASS} p-6`}>

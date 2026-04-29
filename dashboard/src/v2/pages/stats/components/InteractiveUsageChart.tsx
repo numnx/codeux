@@ -1,5 +1,5 @@
 import type { FunctionComponent } from 'preact';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import gsap from 'gsap';
 import type {
   ProjectExecutionStatsSnapshot,
@@ -30,9 +30,8 @@ import { UsageGraphHeader } from './UsageGraphHeader.js';
 import { UsageFilterMenu } from './UsageFilterMenu.js';
 import { useUsageFilters } from '../hooks/useUsageFilters.js';
 import { UsageGraphTooltip } from './UsageGraphTooltip.js';
-import { UsageGraphLegend } from './UsageGraphLegend.js';
 import { UsageGraphEmpty } from './UsageGraphStates.js';
-import { Activity } from 'lucide-preact';
+import { Activity, Filter } from 'lucide-preact';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
@@ -56,6 +55,7 @@ export const InteractiveUsageChart: FunctionComponent<{
   onApplyCustom,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
   const { isFiltersOpen, toggleFilters, closeFilters } = useUsageFilters();
 
   const {
@@ -73,8 +73,24 @@ export const InteractiveUsageChart: FunctionComponent<{
 
   const buckets = stats.buckets;
 
-  const width = 1200;
-  const height = 340;
+  const [dimensions, setDimensions] = useState({ width: 1200, height: 540 });
+
+  useLayoutEffect(() => {
+    if (!svgContainerRef.current || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry && entry.contentRect.width > 0) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: Math.max(540, entry.contentRect.height) // maintain a minimum height
+        });
+      }
+    });
+    observer.observe(svgContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const { width, height } = dimensions;
   const padding = 34;
   const viewStart = zoomRange?.start ?? 0;
   const viewEnd = zoomRange?.end ?? Math.max(0, buckets.length - 1);
@@ -140,7 +156,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     paths.forEach((path) => {
       const length = path.getTotalLength();
       gsap.set(path, { strokeDasharray: `${length} ${length}`, strokeDashoffset: length });
-      timeline.to(path, { strokeDashoffset: 0, duration: 1.05, ease: "power3.out" }, 0);
+      timeline.to(path, { strokeDashoffset: 0, duration: 1.05, ease: "power3.out", clearProps: "strokeDashoffset,strokeDasharray" }, 0);
     });
     timeline.to(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3"), duration: 0.7, stagger: 0.08, ease: "power2.out" }, 0.18);
     timeline.to(pointsNodes, { opacity: 1, scale: 1, duration: 0.38, stagger: 0.012, ease: "back.out(1.8)" }, 0.3);
@@ -161,8 +177,6 @@ export const InteractiveUsageChart: FunctionComponent<{
         <UsageGraphHeader
           title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
           description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use filters to focus the graph."
-          onOpenFilters={toggleFilters}
-          isFilterActive={isFiltersOpen}
         />
 
         <div className="relative z-50">
@@ -205,8 +219,8 @@ export const InteractiveUsageChart: FunctionComponent<{
           </div>
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
+        <div className="grid gap-8 items-start xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className={`${SUBPANEL_CLASS} flex flex-col border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
             <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--stats-label-color)]">Interactive Plot</div>
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS}`}>
@@ -215,6 +229,18 @@ export const InteractiveUsageChart: FunctionComponent<{
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS}`}>
                 {zoomLabel}
               </div>
+              <button
+                type="button"
+                onClick={toggleFilters}
+                className={`group flex items-center gap-2 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border shadow-sm active:scale-95 ${CHIP_CLASS} ${
+                  isFiltersOpen 
+                    ? 'border-signal-500/30 bg-signal-500/[0.08] text-signal-500 shadow-signal-500/5' 
+                    : 'border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 text-[var(--stats-detail-color)] hover:text-[var(--stats-value-color)] hover:border-[var(--stats-value-color)]/20'
+                }`}
+              >
+                <Filter className={`h-3 w-3 transition-colors ${isFiltersOpen ? 'text-signal-500' : 'text-[var(--stats-detail-color)] group-hover:text-signal-500'}`} strokeWidth={2.2} />
+                Filters
+              </button>
               {zoomRange ? (
                 <button
                   type="button"
@@ -225,13 +251,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                 </button>
               ) : null}
             </div>
-            <div className="relative">
-              <UsageGraphLegend 
-                seriesGroups={seriesGroups} 
-                enabledSeries={enabledSeries} 
-                activeSeriesCount={activeSeriesCount}
-                onToggleSeries={onToggleSeries}
-              />
+            <div ref={svgContainerRef} className="relative flex-1 min-h-[36rem] w-full">
               
               <UsageGraphTooltip 
                 visible={!!activeBucket}
@@ -249,7 +269,7 @@ export const InteractiveUsageChart: FunctionComponent<{
               {buckets.length === 0 ? (
                 <UsageGraphEmpty />
               ) : (
-                <svg viewBox={`0 0 ${width} ${height + 40}`} className="h-[26rem] w-full overflow-visible">
+                <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 h-full w-full overflow-visible">
                   <defs>
                     {chartData.map((series) => (
                       <linearGradient key={`fill-${series.id}`} id={`stats-area-${series.id}`} x1="0" x2="0" y1="0" y2="1">
@@ -329,7 +349,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                         stroke="white"
                         strokeWidth={hoveredIndex === index ? 2 : 0}
                         fillOpacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.4}
-                        className="transition-all duration-200"
+                        style={{ transition: 'r 0.2s, fill-opacity 0.2s, stroke-width 0.2s' }}
                       />
                     ))
                   ))}
@@ -377,7 +397,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                       <text
                         key={bucket.bucketStart}
                         x={xPositions[index] ?? padding}
-                        y={height + 24}
+                        y={height - 8}
                         textAnchor="middle"
                         className="fill-[var(--stats-label-color)] text-[9px] font-bold uppercase tracking-[0.25em]"
                       >
