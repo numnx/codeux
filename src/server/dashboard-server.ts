@@ -75,27 +75,16 @@ import type {
   UpdateSprintInput,
   UpdateTaskInput,
 } from "../contracts/project-management-types.js";
-import { correlationIdMiddleware } from "../shared/logging/correlation-id.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 
-import { registerProjectRoutes } from "./project-routes.js";
-import { registerSprintRoutes } from "./sprint-routes.js";
-import { registerTaskRoutes } from "./task-routes.js";
-import { registerConversationRoutes } from "./conversation-routes.js";
-import { registerPlanningRoutes } from "./planning-routes.js";
-import { registerPreviewRoutes } from "./preview-routes.js";
-import { registerRuntimeRoutes } from "./runtime-routes.js";
-import { registerExecutionControlRoutes } from "./execution-control-routes.js";
-import { registerSettingsRoutes } from "./settings-routes.js";
-import { registerConnectionRoutes } from "./connection-routes.js";
-import { registerAgentPresetRoutes } from "./agent-preset-routes.js";
-import { registerExecutionInvocationRoutes } from "./execution-invocation-routes.js";
-import { registerQuicksprintRoutes } from "./quicksprint-routes.js";
+import { registerDashboardRoutes } from "./dashboard-route-registration.js";
+import { applyDashboardPreRouteMiddleware, applyDashboardPostRouteMiddleware } from "./dashboard-middleware.js";
+
+
 
 import { bootDashboardRealtimeWebSocketServer } from "./dashboard-realtime-websocket-server.js";
 import type { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
 import { asyncRoute, parseTrimmedString, requireTrimmedString, syncRoute, toErrorResponse } from "./route-utils.js";
-import { createPreviewHostMiddleware } from "./preview-host-middleware.js";
 import { parsePreviewSessionIdFromHost, pipePreviewUpgradeRequest } from "./preview-host-utils.js";
 
 export type DashboardDependencies = Omit<
@@ -241,22 +230,7 @@ export const configureDashboardApp = (options: DashboardServerOptions): Logger =
 
   const dashboardLogger = logger ?? createLogger({ bindings: { component: "dashboard-server" } });
 
-  app.use(correlationIdMiddleware());
-  app.use((req, res, next) => {
-    const startedAt = Date.now();
-    res.on("finish", () => {
-      dashboardLogger.info("Dashboard request completed", {
-        method: req.method,
-        path: req.originalUrl,
-        statusCode: res.statusCode,
-        durationMs: Date.now() - startedAt,
-      });
-    });
-    next();
-  });
-
-  app.use(createPreviewHostMiddleware(options));
-  app.use(express.json({ limit: "1mb" }));
+  applyDashboardPreRouteMiddleware(app, options, dashboardLogger);
 
   app.get("/health", (req, res) => {
     const healthy = options.isHealthy ? options.isHealthy() : { status: "UP" as const };
@@ -277,47 +251,9 @@ export const configureDashboardApp = (options: DashboardServerOptions): Logger =
   });
 
   const deps: DashboardDependencies = options;
-  registerProjectRoutes(app, deps);
-  registerSprintRoutes(app, deps);
-  registerTaskRoutes(app, deps);
-  registerConversationRoutes(app, deps);
-  registerPlanningRoutes(app, deps);
-  registerPreviewRoutes(app, deps);
-  registerRuntimeRoutes(app, deps);
-  registerExecutionControlRoutes(app, deps);
-  registerSettingsRoutes(app, deps, liveActivityCacheMs);
-  registerConnectionRoutes(app, deps);
-  registerAgentPresetRoutes(app, deps);
-  registerExecutionInvocationRoutes(app, deps);
-  registerQuicksprintRoutes(app, deps);
+  registerDashboardRoutes(app, deps, liveActivityCacheMs);
 
-  app.get("/favicon.ico", (req, res) => res.status(204).end());
-
-  const builtDashboardDir = path.join(path.resolve(dashboardDir), "dist");
-  const staticDir = fs.existsSync(builtDashboardDir) ? builtDashboardDir : path.resolve(dashboardDir);
-
-  app.use(express.static(staticDir));
-  app.use((req, res, next) => {
-    const isGet = req.method === "GET";
-    const isApi = req.path.startsWith("/api/") || req.path.startsWith("/health") || req.path.startsWith("/ready");
-    const isExtensionless = path.extname(req.path) === "";
-    const isPreviewHost = parsePreviewSessionIdFromHost(req.headers.host) !== null;
-
-    if (isGet && !isApi && isExtensionless && !isPreviewHost) {
-      const indexPath = path.join(path.resolve(staticDir), "index.html");
-      res.sendFile(indexPath, (err: any) => {
-        if (err) {
-          if ((err as any).code === "ENOENT" || (err as any).status === 404) {
-            next();
-          } else {
-            next(err);
-          }
-        }
-      });
-      return;
-    }
-    next();
-  });
+  applyDashboardPostRouteMiddleware(app, dashboardDir);
 
   return dashboardLogger;
 };
