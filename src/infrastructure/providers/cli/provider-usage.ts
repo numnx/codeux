@@ -104,13 +104,15 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
     const inputTokens = toNumber(directTokens.input);
     const cachedInputTokens = toNumber(directTokens.cached);
     const outputTokens = toNumber(directTokens.candidates);
-    const totalTokens = inputTokens + outputTokens;
+    const reasoningOutputTokens = toNumber(directTokens.thoughts);
+    const totalTokens = inputTokens + outputTokens + reasoningOutputTokens;
     if (totalTokens > 0) {
       return {
         ...emptyTelemetry(),
         inputTokens,
         cachedInputTokens,
         outputTokens,
+        reasoningOutputTokens,
         totalTokens,
         usageSource: "reported",
         rawUsageJson: stats,
@@ -123,6 +125,7 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
     let inputTokens = 0;
     let cachedInputTokens = 0;
     let outputTokens = 0;
+    let reasoningOutputTokens = 0;
     for (const entry of models) {
       const tokens = entry && typeof entry === "object" ? (entry as Record<string, unknown>).tokens : null;
       if (!tokens || typeof tokens !== "object") {
@@ -131,14 +134,16 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
       inputTokens += toNumber((tokens as Record<string, unknown>).input);
       cachedInputTokens += toNumber((tokens as Record<string, unknown>).cached);
       outputTokens += toNumber((tokens as Record<string, unknown>).candidates);
+      reasoningOutputTokens += toNumber((tokens as Record<string, unknown>).thoughts);
     }
-    const totalTokens = inputTokens + outputTokens;
+    const totalTokens = inputTokens + outputTokens + reasoningOutputTokens;
     if (totalTokens > 0) {
       return {
         ...emptyTelemetry(),
         inputTokens,
         cachedInputTokens,
         outputTokens,
+        reasoningOutputTokens,
         totalTokens,
         usageSource: "reported",
         rawUsageJson: stats,
