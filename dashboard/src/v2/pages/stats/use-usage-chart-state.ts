@@ -41,7 +41,11 @@ export function useUsageChartState(
 
   useEffect(() => {
     if (Object.keys(enabledSeries).length > 0) {
-      localStorage.setItem('jules_stats_enabled_series', JSON.stringify(enabledSeries));
+      try {
+        localStorage.setItem('jules_stats_enabled_series', JSON.stringify(enabledSeries));
+      } catch (e) {
+        // ignore
+      }
     }
   }, [enabledSeries]);
 

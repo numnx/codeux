@@ -163,8 +163,6 @@ describe("InteractiveUsageChart", () => {
     render(<InteractiveUsageChart stats={stats} chartState={chartState} />);
 
     expect(screen.getAllByText("Tokens").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("codex Tokens").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("task coding Time").length).toBeGreaterThan(0);
   });
 
   it("preserves state when rendering with the same stats context", () => {

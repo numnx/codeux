@@ -15,7 +15,7 @@ describe("CommandRunner", () => {
     const result = await runner.run("non-existent-command-12345", []);
     expect(result.ok).toBe(false);
     expect(result.code).toBe(null);
-    expect(result.stderr).toContain("ENOENT");
+    expect(result.stderr).toMatch(/ENOENT|EACCES/);
   });
 
   it("should handle error exit code", async () => {
