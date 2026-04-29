@@ -31,6 +31,8 @@ export interface ProcessManagementActionArgs {
   provider: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
   model: string;
   apiKey: string;
+  providerMountAuth?: boolean;
+  providerAuthPath?: string;
   sessionId: string;
   settings: DashboardSettings;
   prompt: string;
@@ -130,6 +132,8 @@ export class ChatManagementActionService {
         prompt: args.prompt,
         model: args.model,
         apiKey: args.apiKey,
+        providerMountAuth: args.providerMountAuth,
+        providerAuthPath: args.providerAuthPath,
         sessionId: args.sessionId,
         workflowSettings: args.settings.cliWorkflow,
         repoPath: args.repoPath,
@@ -206,6 +210,8 @@ export class ChatManagementActionService {
         prompt: args.prompt,
         model: args.model,
         apiKey: args.apiKey,
+        providerMountAuth: args.providerMountAuth,
+        providerAuthPath: args.providerAuthPath,
         sessionId: args.sessionId,
         workflowSettings: args.settings.cliWorkflow,
         repoPath: args.repoPath,

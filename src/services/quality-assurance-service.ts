@@ -1148,7 +1148,8 @@ export class QualityAssuranceService {
         : "",
     ].filter(Boolean).join("\n\n");
     const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(args.followUpPrompt, worktreePath);
-    const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, settings.aiProvider.providers[args.provider].thinkingMode);
+    const followUpProviderSettings = settings.aiProvider.providers[args.provider];
+    const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, followUpProviderSettings.thinkingMode);
     const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
     const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
     this.deps.sessionTracking.updateSession(args.sessionId, { state: "RUNNING" });
@@ -1169,8 +1170,10 @@ export class QualityAssuranceService {
       provider: args.provider,
       prompt: providerPrompt,
       cwd: worktreePath,
-      model: settings.aiProvider.providers[args.provider].model,
-      apiKey: settings.aiProvider.providers[args.provider].apiKey,
+      model: followUpProviderSettings.model,
+      apiKey: followUpProviderSettings.apiKey,
+      providerMountAuth: followUpProviderSettings.mountAuth,
+      providerAuthPath: followUpProviderSettings.authPath,
       sessionId: args.sessionId,
       workflowSettings,
       repoPath: args.repoPath,

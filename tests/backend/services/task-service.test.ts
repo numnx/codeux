@@ -125,6 +125,61 @@ describe("TaskService", () => {
     expect(syncRemoteBranchIfAvailable).toHaveBeenCalledWith("/tmp/repo", "feature/sprint1");
   });
 
+  it("uses matching provider settings when a persisted task provider overrides the resolved route", async () => {
+    const overrideStartCliTask = vi.fn().mockResolvedValue({
+      id: "cli-gemini",
+      name: "sessions/cli-gemini",
+      provider: "gemini",
+      state: "RUNNING",
+      prompt: "",
+    });
+    const overrideService = new TaskService({
+      julesApi: { createSession } as any,
+      agentPresetSyncService: { getOptionalWorkerAgentForRepoPath: getWorkerAgent } as any,
+      resolveJulesSourceId,
+      getDashboardSettings: () => ({
+        aiProvider: {
+          provider: "jules",
+          strategy: "MANUAL",
+          julesApiKey: "",
+          providers: {
+            jules: { provider: "jules", enabled: true, model: "default", weight: 60, thinkingMode: "MEDIUM", apiKey: "", mountAuth: false, authPath: "" },
+            gemini: { provider: "gemini", enabled: true, model: "gemini-2.5-pro", weight: 20, thinkingMode: "HIGH", apiKey: "", mountAuth: true, authPath: "~/.gemini" },
+          },
+        },
+        git: { githubMode: "REMOTE", defaultBranch: "main" },
+      }) as any,
+      isJulesApiConfigured: () => true,
+      cliWorkflowService: { startTask: overrideStartCliTask } as any,
+    });
+
+    await overrideService.startSprintTask(
+      {
+        id: "01-task",
+        title: "Do Thing",
+        prompt: "Implement",
+        depends_on: [],
+        is_independent: true,
+        provider: "gemini",
+      },
+      "999",
+      "feature/sprint1",
+      "/tmp/repo",
+      1,
+    );
+
+    expect(createSession).not.toHaveBeenCalled();
+    expect(overrideStartCliTask).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "gemini",
+      providerSettingsOverride: expect.objectContaining({
+        model: "gemini-2.5-pro",
+        thinkingMode: "HIGH",
+        providerMountAuth: true,
+        providerAuthPath: "~/.gemini",
+      }),
+    }));
+  });
+
   it("falls back to cli provider when jules is unavailable", async () => {
     const fallbackService = new TaskService({
       julesApi: { createSession } as any,

@@ -35,6 +35,31 @@ export interface TaskAgentSessionArgs {
 export class TaskService {
   constructor(private readonly deps: TaskServiceDependencies) {}
 
+  private resolveProviderConfigIdForProvider(
+    route: ResolvedProviderRoute,
+    provider: ProviderId,
+  ): string {
+    if (route.providers[route.providerConfigId]?.provider === provider) {
+      return route.providerConfigId;
+    }
+
+    const enabledMatch = route.enabledProviders.find((providerConfigId) => (
+      route.providers[providerConfigId]?.provider === provider
+    ));
+    if (enabledMatch) {
+      return enabledMatch;
+    }
+
+    const configuredMatch = Object.entries(route.providers).find(([, providerSettings]) => (
+      providerSettings.provider === provider
+    ))?.[0];
+    if (configuredMatch) {
+      return configuredMatch;
+    }
+
+    throw new Error(`Task requested provider ${provider}, but no matching provider settings were available.`);
+  }
+
   private async syncRemoteBranchesIfNeeded(
     repoPath: string,
     branch: string | undefined,
@@ -208,7 +233,9 @@ export class TaskService {
     // Respect task.provider if already set (e.g. from a rerun with provider override)
     const route = this.resolveInvocationProvider("task_coding", task, { scope: settingsScope });
     const provider = task.provider || route.provider;
-    const selectedProviderConfigId = route.providerConfigId || route.provider;
+    const selectedProviderConfigId = task.provider
+      ? this.resolveProviderConfigIdForProvider(route, task.provider)
+      : route.providerConfigId;
     const selectedProviderSettings = route.providers[selectedProviderConfigId];
 
     if (provider !== "jules") {

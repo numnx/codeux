@@ -65,6 +65,7 @@ Gemini CLI runs with structured JSON output enabled.
 
 Sprint OS reads provider-reported token counts directly from the JSON response stats block and treats them as `reported`.
 Gemini must keep `--output-format json` enabled even when native MCP settings are injected; current Gemini CLI versions still load MCP settings in JSON mode and include the authoritative `stats` block. The collector records model-level `input`, `cached`, `candidates`, and `thoughts` counts, mapping `thoughts` into `reasoningOutputTokens`.
+Docker-backed Gemini invocations also carry the selected provider instance's `mountAuth` and `authPath` through task, QA, dashboard-chat, and compaction paths before the runner builds credential mounts. That keeps JSON-mode telemetry compatible with copied local Gemini OAuth credentials and prevents fallback to an unrelated Google Cloud project.
 If a historical or failed run lacks the structured stats envelope, Sprint OS can still estimate from prompt and transcript text so Docker-backed runs do not remain `unavailable`.
 
 ### Codex

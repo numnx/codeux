@@ -71,6 +71,7 @@ Provider instances are first-class routing targets:
 7. Run the selected strategy.
 8. If Jules is selected but unavailable, Sprint OS reroutes within the remaining eligible providers.
 9. When a CLI instance is selected for Docker execution, Sprint OS forwards that instance's `mountAuth` and `authPath` into the runtime so the chosen route controls which local credential directory is copied.
+10. If a persisted task already has a concrete provider assignment, such as `gemini` on retry, Sprint OS resolves the matching provider instance settings for that provider instead of reusing settings from a newly resolved fallback route. This keeps model and auth-copy settings aligned with the actual CLI being launched.
 10. Legacy provider-id keyed payloads are normalized into the instance model so older settings rows and tests continue to resolve through the new routing engine.
 
 ## Current Defaults
