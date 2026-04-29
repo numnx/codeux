@@ -40,6 +40,8 @@ export interface ThreadRouteResolution {
   providerId?: Extract<ProviderId, "gemini" | "codex" | "claude-code">;
   model?: string;
   apiKey?: string;
+  providerMountAuth?: boolean;
+  providerAuthPath?: string;
   thinkingMode?: string;
 }
 
@@ -75,6 +77,8 @@ export class ChatThreadRuntimeService {
         providerId,
         model: runtimeState.modelLabel || providerSettings.model,
         apiKey: providerSettings.apiKey,
+        providerMountAuth: providerSettings.mountAuth,
+        providerAuthPath: providerSettings.authPath,
         thinkingMode: providerSettings.thinkingMode,
       };
     }
@@ -93,6 +97,8 @@ export class ChatThreadRuntimeService {
       providerId,
       model: providerSettings.model,
       apiKey: providerSettings.apiKey,
+      providerMountAuth: providerSettings.mountAuth,
+      providerAuthPath: providerSettings.authPath,
       thinkingMode: providerSettings.thinkingMode,
     };
   }
@@ -296,6 +302,8 @@ export class ChatThreadRuntimeService {
         provider,
         model,
         apiKey,
+        providerMountAuth: route.providerMountAuth,
+        providerAuthPath: route.providerAuthPath,
         sessionId: continueSessionId || thread.id,
         settings: dashboardSettings,
         prompt: finalPrompt,
@@ -419,6 +427,8 @@ export class ChatThreadRuntimeService {
         cwd: repoPath,
         model,
         apiKey,
+        providerMountAuth: route.providerMountAuth,
+        providerAuthPath: route.providerAuthPath,
         sessionId: `${thread.id}:compaction`,
         workflowSettings,
         repoPath,

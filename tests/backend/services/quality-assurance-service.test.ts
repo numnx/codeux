@@ -1049,6 +1049,127 @@ describe("QualityAssuranceService", () => {
     expect(syncRemoteBranchIfAvailable).toHaveBeenCalledWith("/repo", "feature/task-1");
   });
 
+  it("passes provider auth mount settings into QA follow-up provider runs", async () => {
+    const runProvider = vi.fn().mockResolvedValue({
+      ok: true,
+      stdout: "",
+      stderr: "",
+      text: "done",
+      nativeSessionId: "native-followup",
+      usageTelemetry: {
+        transcriptText: "",
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedInputTokens: 0,
+        reasoningOutputTokens: 0,
+        totalTokens: 0,
+        usageSource: "reported",
+        rawUsageJson: null,
+      },
+    });
+    const executionRepository = {
+      getLatestProviderInvocationUsageBySession: vi.fn().mockReturnValue(null),
+      createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-followup" }),
+      appendExecutionInvocationMessage: vi.fn(),
+      updateExecutionInvocation: vi.fn(),
+      createProviderInvocationUsage: vi.fn().mockReturnValue({ id: "usage-followup" }),
+      updateProviderInvocationUsage: vi.fn(),
+    };
+    const sessionTracking = {
+      updateSession: vi.fn(),
+      appendActivity: vi.fn(),
+    };
+    const projectManagementRepository = {
+      updateTask: vi.fn(),
+      getSprint: vi.fn().mockReturnValue(null),
+    };
+
+    const service = new QualityAssuranceService({
+      projectManagementRepository: projectManagementRepository as any,
+      executionRepository: executionRepository as any,
+      sessionTracking: sessionTracking as any,
+      qaReviewRepository: {} as any,
+      taskService: {} as any,
+      agentPresetSyncService: {
+        getOptionalWorkerAgentForRepoPath: vi.fn().mockResolvedValue(undefined),
+      } as any,
+      providerRunner: {
+        runProvider,
+        runProviderForText: vi.fn(),
+      } as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        aiProvider: {
+          ...DEFAULT_DASHBOARD_SETTINGS.aiProvider,
+          providers: {
+            ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers,
+            gemini: {
+              ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.gemini,
+              model: "gemini-2.5-pro",
+              apiKey: "",
+              mountAuth: true,
+              authPath: "~/.gemini",
+            },
+          },
+        },
+        cliWorkflow: {
+          ...DEFAULT_DASHBOARD_SETTINGS.cliWorkflow,
+          executionMode: "DOCKER",
+        },
+        memory: {
+          ...DEFAULT_DASHBOARD_SETTINGS.memory,
+          enabled: false,
+        },
+        git: {
+          ...DEFAULT_DASHBOARD_SETTINGS.git,
+          autoCreatePr: false,
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    vi.spyOn((service as any).workspaceManager, "resolveResumeWorktreePath").mockResolvedValue("/worktree");
+    vi.spyOn((service as any).workspaceManager, "buildWorktreePath").mockReturnValue("/worktree");
+    vi.spyOn((service as any).workspaceManager, "prepareWorktree").mockResolvedValue(undefined);
+    vi.spyOn((service as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("");
+    vi.spyOn(service as any, "workspacePathExists").mockResolvedValue(true);
+    vi.spyOn(service as any, "runWorkspaceCommand").mockResolvedValue({ stdout: "abc123\n", stderr: "" });
+    vi.spyOn((service as any).workspaceArtifactService, "exportBinaryPatch").mockResolvedValue("");
+    vi.spyOn((service as any).workspaceArtifactService, "applyPatchToBranch").mockResolvedValue({ hasChanges: false });
+    vi.spyOn((service as any).prService, "hasUnpushedCommits").mockResolvedValue(false);
+    vi.spyOn((service as any).prService, "hasWorkerBranchCommitsAgainstFeature").mockResolvedValue(false);
+
+    await (service as any).continueCliTaskSession({
+      provider: "gemini",
+      sessionId: "session-1",
+      task: {
+        id: "T1",
+        record_id: "task-record-1",
+        title: "Fix thing",
+        prompt: "Implement the fix",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+        worker_branch: "feature/task-1",
+      },
+      taskRun: null,
+      repoPath: "/repo",
+      featureBranch: "feature/sprint-1",
+      scope: {
+        projectId: "project-1",
+        sprintId: "sprint-1",
+      },
+      followUpPrompt: "Address QA findings",
+    });
+
+    expect(runProvider).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "gemini",
+      providerMountAuth: true,
+      providerAuthPath: "~/.gemini",
+    }));
+  });
+
   it("keeps the sprint heartbeat and lease alive during long sprint QA reviews", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-10T12:00:00.000Z"));
