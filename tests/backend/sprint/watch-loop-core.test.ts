@@ -1581,6 +1581,66 @@ describe("Watch Loop Policies", () => {
 });
 
 describe("evaluateSprintRunState", () => {
+  it("evaluates mixed terminal and non-terminal task states correctly", () => {
+    const result = evaluateSprintRunState({
+      subtasks: [
+        buildMockSubtask({ status: "COMPLETED", is_merged: true }),
+        buildMockSubtask({ status: "PENDING", is_merged: false }),
+        buildMockSubtask({ status: "FAILED", is_merged: false }),
+      ],
+      manualMergeTasks: [],
+      workerEscalatedMergeConflictTasks: [],
+      activeProjectAttentionItems: [],
+      sprintRunId: "run-1",
+    });
+    expect(result.allTerminal).toBe(false);
+    expect(result.allFinished).toBe(false);
+    expect(result.noMoreActionPossible).toBe(false);
+  });
+
+  it("identifies QA pending tasks and prevents noMoreActionPossible", () => {
+    // A QA_PENDING task is not "settled" if it has merge evidence but is not merged.
+    const result = evaluateSprintRunState({
+      subtasks: [buildMockSubtask({ status: "CODING_COMPLETED", merge_indicator: "QA_PENDING", worker_branch: "test-branch", pr_url: "https://pr", is_merged: false })],
+      manualMergeTasks: [],
+      workerEscalatedMergeConflictTasks: [],
+      activeProjectAttentionItems: [],
+      sprintRunId: "run-1",
+    });
+    expect(result.qaPendingTasks.length).toBe(1);
+    expect(result.noMoreActionPossible).toBe(false);
+    expect(result.allFinished).toBe(false);
+  });
+
+  it("identifies QUOTA tasks and prevents noMoreActionPossible", () => {
+    const result = evaluateSprintRunState({
+      subtasks: [buildMockSubtask({ status: "QUOTA" })],
+      manualMergeTasks: [],
+      workerEscalatedMergeConflictTasks: [],
+      activeProjectAttentionItems: [],
+      sprintRunId: "run-1",
+    });
+    expect(result.quotaTasks.length).toBe(1);
+    expect(result.noMoreActionPossible).toBe(false);
+    expect(result.allFinished).toBe(false);
+  });
+
+  it("prioritizes waiting on worker attention over manual merge for allFinished", () => {
+    const result = evaluateSprintRunState({
+      subtasks: [
+        buildMockSubtask({ status: "COMPLETED", is_merged: false }),
+        buildMockSubtask({ status: "BLOCKED", is_merged: false })
+      ],
+      manualMergeTasks: [buildMockSubtask({ status: "COMPLETED", is_merged: false })],
+      workerEscalatedMergeConflictTasks: [buildMockSubtask({ status: "BLOCKED", is_merged: false })],
+      activeProjectAttentionItems: [{ ownerType: "worker", attentionType: "merge_conflict", sprintRunId: "run-1" } as any],
+      sprintRunId: "run-1",
+    });
+    expect(result.needsManualMerge).toBe(true);
+    expect(result.waitingOnWorkerAttention).toBe(true);
+    expect(result.allFinished).toBe(false); // worker attention prevents finished
+  });
+
   it("identifies when all tasks are terminal", () => {
     const result = evaluateSprintRunState({
       subtasks: [buildMockSubtask({ status: "COMPLETED", is_merged: true })],
