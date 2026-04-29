@@ -35,6 +35,8 @@ Page resource hooks keep their public refresh callbacks stable across unchanged 
 
 Initial page load resources deduplicate in-flight requests across hook instances. Sprint, execution, effective settings, and task reads share the same project-scoped request when global chrome and the active page mount at the same time. The top navigation defers search-only task data and preview-session reads until search is opened, so hidden search providers do not add startup requests or preview polling.
 
+Realtime websocket subscription updates are batched during route mount so many page and chrome hooks still produce one shared `/api/realtime` socket and a small number of subscription frames. Memory, settings, and live dashboard pages also avoid hydration-phase duplicate reads: Memory waits for the selected sprint before loading sprint-scoped memories, settings reads share cached system/import/effective settings payloads, and the Live page waits for project selection before requesting `/api/live?projectId=...`.
+
 ## Page-Scoped Module Boundaries
 
 The v2 frontend is strictly organized into page-scoped module boundaries:

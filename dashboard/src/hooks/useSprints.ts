@@ -15,8 +15,17 @@ interface UseSprintsResult {
   refetch: () => Promise<void>;
 }
 
-const sprintCache = new Map<string, SprintCollectionResponse>();
-const sprintInflightRequests = new Map<string, Promise<SprintCollectionResponse>>();
+interface SprintResourceState {
+  cache: Map<string, SprintCollectionResponse>;
+  inflightRequests: Map<string, Promise<SprintCollectionResponse>>;
+}
+
+const sprintResourceState = ((globalThis as typeof globalThis & {
+  __SPRINT_OS_SPRINT_RESOURCE_STATE__?: SprintResourceState;
+}).__SPRINT_OS_SPRINT_RESOURCE_STATE__ ||= {
+  cache: new Map<string, SprintCollectionResponse>(),
+  inflightRequests: new Map<string, Promise<SprintCollectionResponse>>(),
+});
 
 const areNullableSprintCollectionsEqual = (
   prev: SprintCollectionResponse | null,
@@ -39,7 +48,7 @@ const stabilizeSprintCollection = (
 );
 
 export function useSprints(projectId: string | null): UseSprintsResult {
-  const cachedCollection = projectId ? sprintCache.get(projectId) || null : null;
+  const cachedCollection = projectId ? sprintResourceState.cache.get(projectId) || null : null;
   const projectCacheEntryRef = useRef<{ projectId: string | null; hadInitialCache: boolean }>({
     projectId: null,
     hadInitialCache: false,
@@ -56,20 +65,20 @@ export function useSprints(projectId: string | null): UseSprintsResult {
     if (!projectId) {
       return null;
     }
-    let request = sprintInflightRequests.get(projectId);
+    let request = sprintResourceState.inflightRequests.get(projectId);
     if (!request) {
       request = fetchSprints(projectId, signal).finally(() => {
-        sprintInflightRequests.delete(projectId);
+        sprintResourceState.inflightRequests.delete(projectId);
       });
-      sprintInflightRequests.set(projectId, request);
+      sprintResourceState.inflightRequests.set(projectId, request);
     }
     const resolvedCollection = await request;
-    const cached = sprintCache.get(projectId) || null;
+    const cached = sprintResourceState.cache.get(projectId) || null;
     const nextCollection = areNullableSprintCollectionsEqual(cached, resolvedCollection)
       ? cached
       : resolvedCollection;
     if (nextCollection) {
-      sprintCache.set(projectId, nextCollection);
+      sprintResourceState.cache.set(projectId, nextCollection);
     }
     return nextCollection;
   }, [projectId]);
@@ -95,7 +104,7 @@ export function useSprints(projectId: string | null): UseSprintsResult {
       updateDataLocally((current) => {
         if (!current) return current;
         const nextCollection = { ...current, selectedSprintId: nextSelectedSprintId };
-        sprintCache.set(projectId, nextCollection);
+        sprintResourceState.cache.set(projectId, nextCollection);
         return nextCollection;
       });
     } catch (err) {
