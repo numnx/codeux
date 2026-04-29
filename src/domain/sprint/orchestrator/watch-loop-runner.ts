@@ -16,8 +16,10 @@ import { isCompletedTaskSettled } from "../task-merge-state.js";
 import { transitionSprintRun } from "./sprint-run-transitions.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { decideMainMergeWaitOrPause, decideTerminalCompletion } from "./watch-loop-policies.js";
+import { decideFinalizationTransition } from "./watch-loop-finalization-policy.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts } from "./conflict-summary-utils.js";
 import { WorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
+import { renewSprintRunHeartbeat } from "./sprint-run-heartbeat.js";
 
 export interface WatchLoopRunnerArgs {
   args: SprintAgentArgs;
@@ -216,7 +218,7 @@ export class WatchLoopRunner {
             return fullReport;
           }
           if (finalizationResult.status === "wait") {
-            this.renewSprintRunHeartbeat({
+            renewSprintRunHeartbeat(this.deps.executionRepository, {
               sprintRunId,
               sprintId: scopedExecutionContext.sprint.id,
               leaseToken,
@@ -231,7 +233,7 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.CHECKPOINT: {
-          this.renewSprintRunHeartbeat({
+          renewSprintRunHeartbeat(this.deps.executionRepository, {
             sprintRunId,
             sprintId: scopedExecutionContext.sprint.id,
             leaseToken,
@@ -242,15 +244,14 @@ export class WatchLoopRunner {
         }
 
         case WatchLoopState.RUNNING: {
-          const latestRun = this.deps.executionRepository.getSprintRun(sprintRunId);
-          if (latestRun?.status === "paused" || latestRun?.status === "cancelled" || latestRun?.status === "cancel_requested") {
-            continue;
-          }
-          this.renewSprintRunHeartbeat({
+          const renewed = renewSprintRunHeartbeat(this.deps.executionRepository, {
             sprintRunId,
             sprintId: scopedExecutionContext.sprint.id,
             leaseToken,
           });
+          if (!renewed) {
+            continue;
+          }
           await this.sleep(watchLoopIntervalMs);
           break;
         }
@@ -282,26 +283,6 @@ export class WatchLoopRunner {
     repoPath?: string
   ): Promise<string> {
     return await this.deps.renderInstruction(templateId, variables, repoPath);
-  }
-
-  private renewSprintRunHeartbeat(args: {
-    sprintRunId: string;
-    sprintId: string;
-    leaseToken?: string;
-  }): void {
-    const now = new Date().toISOString();
-    this.deps.executionRepository.updateSprintRun(args.sprintRunId, {
-      status: "running",
-      lastHeartbeatAt: now,
-    });
-    if (args.leaseToken) {
-      this.deps.executionRepository.renewLease({
-        scopeType: "sprint",
-        scopeId: args.sprintId,
-        leaseToken: args.leaseToken,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      });
-    }
   }
 
   private evaluateControlIntervention(sprintRunId: string): { status: "continue" } | { status: "exit", report: string } {
@@ -594,77 +575,93 @@ export class WatchLoopRunner {
         manualMergeTasks,
       });
 
-      if (decision.terminalState === "failed") {
-        transitionSprintRun(
-          this.deps.executionRepository,
-          sprintRunId,
-          "failed",
-          "sprint_failed",
-          { failedTaskCount: decision.failedTaskCount! },
-          `sprint-failed:${sprintRunId}`
-        );
-        await this.cleanupTerminalSprintCliWorkspaces({
-          projectId: scopedExecutionContext.project.id,
-          sprintId: scopedExecutionContext.sprint.id,
-          sprintRunId,
-          repoPath,
-        });
-        report += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
-      } else if (decision.terminalState === "paused" && decision.pauseReason === "awaiting_merge") {
-        transitionSprintRun(
-          this.deps.executionRepository,
-          sprintRunId,
-          "paused",
-          "sprint_paused",
-          {
-            reason: "awaiting_merge",
-            ...decision.pausePayload,
-          },
-          `sprint-paused:${sprintRunId}:awaiting-merge`
-        );
-        report += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
-      } else if (decision.terminalState === "cancelled" && decision.pauseReason === "empty") {
-        transitionSprintRun(
-          this.deps.executionRepository,
-          sprintRunId,
-          "cancelled",
-          "sprint_cancelled",
-          { reason: "empty" },
-          `sprint-cancelled:${sprintRunId}:empty`
-        );
-        await this.cleanupTerminalSprintCliWorkspaces({
-          projectId: scopedExecutionContext.project.id,
-          sprintId: scopedExecutionContext.sprint.id,
-          sprintRunId,
-          repoPath,
-        });
-        report += await this.renderInstruction("cleanupEmpty", {}, repoPath);
-      } else if (decision.terminalState === "paused" && decision.pauseReason === "manual_attention") {
-        transitionSprintRun(
-          this.deps.executionRepository,
-          sprintRunId,
-          "paused",
-          "sprint_paused",
-          { reason: "manual_attention" },
-          `sprint-paused:${sprintRunId}:manual-attention`
-        );
-        this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
-          projectId: scopedExecutionContext.project.id,
-          sprintId: scopedExecutionContext.sprint.id,
-          sprintRunId,
-          attentionType: "manual_attention",
-          severity: "medium",
-          ownerType: "worker",
-          title: `Sprint ${scopedExecutionContext.sprint.name} needs manual attention`,
-          summaryMarkdown: "Sprint execution paused because no further automatic action was available.",
-          payload: {
+      const finalizationTransition = decideFinalizationTransition(decision);
+
+      switch (finalizationTransition.type) {
+        case "failed": {
+          transitionSprintRun(
+            this.deps.executionRepository,
+            sprintRunId,
+            "failed",
+            "sprint_failed",
+            { failedTaskCount: finalizationTransition.failedTaskCount },
+            `sprint-failed:${sprintRunId}`
+          );
+          await this.cleanupTerminalSprintCliWorkspaces({
+            projectId: scopedExecutionContext.project.id,
+            sprintId: scopedExecutionContext.sprint.id,
+            sprintRunId,
             repoPath,
-            featureBranch: defaultFeatureBranch,
-            defaultBranch,
-            sprintNumber: scopedExecutionContext.sprintNumber,
-            ...decision.pausePayload,
-          },
-        }));
+          });
+          report += await this.deps.renderInstruction("cleanupFailed", { planning_target: scopedExecutionContext.sprint.name }, repoPath);
+          break;
+        }
+        case "paused_awaiting_merge": {
+          transitionSprintRun(
+            this.deps.executionRepository,
+            sprintRunId,
+            "paused",
+            "sprint_paused",
+            {
+              reason: "awaiting_merge",
+              awaitingMergeCount: finalizationTransition.awaitingMergeCount,
+            },
+            `sprint-paused:${sprintRunId}:awaiting-merge`
+          );
+          report += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
+          break;
+        }
+        case "cancelled_empty": {
+          transitionSprintRun(
+            this.deps.executionRepository,
+            sprintRunId,
+            "cancelled",
+            "sprint_cancelled",
+            { reason: "empty" },
+            `sprint-cancelled:${sprintRunId}:empty`
+          );
+          await this.cleanupTerminalSprintCliWorkspaces({
+            projectId: scopedExecutionContext.project.id,
+            sprintId: scopedExecutionContext.sprint.id,
+            sprintRunId,
+            repoPath,
+          });
+          report += await this.renderInstruction("cleanupEmpty", {}, repoPath);
+          break;
+        }
+        case "paused_manual_attention": {
+          transitionSprintRun(
+            this.deps.executionRepository,
+            sprintRunId,
+            "paused",
+            "sprint_paused",
+            { reason: "manual_attention" },
+            `sprint-paused:${sprintRunId}:manual-attention`
+          );
+          this.deps.projectAttentionService.openItem(buildTaskAttentionPayload({
+            projectId: scopedExecutionContext.project.id,
+            sprintId: scopedExecutionContext.sprint.id,
+            sprintRunId,
+            attentionType: "manual_attention",
+            severity: "medium",
+            ownerType: "worker",
+            title: `Sprint ${scopedExecutionContext.sprint.name} needs manual attention`,
+            summaryMarkdown: "Sprint execution paused because no further automatic action was available.",
+            payload: {
+              repoPath,
+              featureBranch: defaultFeatureBranch,
+              defaultBranch,
+              sprintNumber: scopedExecutionContext.sprintNumber,
+              runningTaskIds: finalizationTransition.runningTaskIds,
+              readyTaskIds: finalizationTransition.readyTaskIds,
+              blockedTaskIds: finalizationTransition.blockedTaskIds,
+            },
+          }));
+          break;
+        }
+        case "completed":
+        case "unhandled":
+          break;
       }
     }
 
