@@ -68,6 +68,26 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("keeps JSON output enabled for Gemini when MCP config is injected", async () => {
+    await runner.runProvider({
+      provider: "gemini",
+      prompt: "hello",
+      cwd: "/repo",
+      model: "gemini-3-flash-preview",
+      apiKey: "key",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      mcpConnection: { url: "http://127.0.0.1:4444/mcp", authToken: "token" },
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "gemini",
+      args: ["--yolo", "--output-format", "json", "--p", "hello"],
+    }));
+  });
+
   it("captures Codex text output from the isolated workspace", async () => {
     const result = await runner.runProviderForText({
       provider: "codex",

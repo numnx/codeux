@@ -295,10 +295,9 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     if (provider === "gemini" && mcpNative) {
-      // MCP-native mode: drop --output-format json so Gemini loads MCP tools and returns plain text
       const args = continueSession
-        ? ["--resume", "--yolo", "--p", prompt]
-        : ["--yolo", "--p", prompt];
+        ? ["--resume", "--yolo", "--output-format", "json", "--p", prompt]
+        : ["--yolo", "--output-format", "json", "--p", prompt];
       return { command: "gemini", args };
     }
 

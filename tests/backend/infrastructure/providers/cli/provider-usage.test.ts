@@ -31,6 +31,7 @@ describe("collectProviderUsageTelemetry", () => {
             input: 120,
             cached: 18,
             candidates: 42,
+            thoughts: 7,
           },
         },
       }),
@@ -41,10 +42,54 @@ describe("collectProviderUsageTelemetry", () => {
       inputTokens: 120,
       cachedInputTokens: 18,
       outputTokens: 42,
-      totalTokens: 162,
+      reasoningOutputTokens: 7,
+      totalTokens: 169,
       usageSource: "reported",
       transcriptText: "Applied the edit.",
       nativeSessionId: "gemini-session-1",
+    });
+  });
+
+  it("parses provider-reported Gemini usage across model stats", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "gemini",
+      model: "default",
+      prompt: "Summarize the diff.",
+      cwd: "/workspace/repo",
+      stdout: JSON.stringify({
+        response: "ok",
+        stats: {
+          models: {
+            router: {
+              tokens: {
+                input: 57,
+                cached: 2859,
+                candidates: 33,
+                thoughts: 123,
+              },
+            },
+            main: {
+              tokens: {
+                input: 12265,
+                cached: 0,
+                candidates: 1,
+                thoughts: 79,
+              },
+            },
+          },
+        },
+      }),
+      stderr: "",
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 12322,
+      cachedInputTokens: 2859,
+      outputTokens: 34,
+      reasoningOutputTokens: 202,
+      totalTokens: 12558,
+      usageSource: "reported",
+      transcriptText: "ok",
     });
   });
 

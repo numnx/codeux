@@ -64,7 +64,8 @@ Rollups are exposed in:
 Gemini CLI runs with structured JSON output enabled.
 
 Sprint OS reads provider-reported token counts directly from the JSON response stats block and treats them as `reported`.
-When Gemini runs in native MCP mode, the CLI returns plain text instead of the structured stats envelope. Those invocations are still tracked by estimating input and output tokens from the prompt and transcript text, so Docker-backed MCP runs do not remain `unavailable`.
+Gemini must keep `--output-format json` enabled even when native MCP settings are injected; current Gemini CLI versions still load MCP settings in JSON mode and include the authoritative `stats` block. The collector records model-level `input`, `cached`, `candidates`, and `thoughts` counts, mapping `thoughts` into `reasoningOutputTokens`.
+If a historical or failed run lacks the structured stats envelope, Sprint OS can still estimate from prompt and transcript text so Docker-backed runs do not remain `unavailable`.
 
 ### Codex
 
