@@ -15,6 +15,8 @@ import {
   Sparkles,
   TimerReset,
   Workflow,
+  Bot,
+  Terminal,
 } from "lucide-preact";
 import { Sparkline } from "../../../components/ui/Sparkline.js";
 import { StatsCard, type StatsCardAccent } from "./StatsCard.js";
@@ -75,6 +77,7 @@ export const SUBPANEL_CLASS = "rounded-[1.45rem] border border-black/[0.05] bg-w
 export const CHIP_CLASS = "rounded-full border border-black/[0.06] bg-white/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/55 dark:shadow-[0_1px_3px_rgba(0,0,0,0.18)]";
 export const INPUT_CLASS = "h-11 rounded-2xl border border-black/[0.06] bg-white/72 px-4 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.06] dark:bg-void-900/55 dark:text-slate-200";
 export const LEDGER_ROW_CLASS = "group rounded-[1.5rem] border border-black/[0.05] bg-white/68 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.045)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-signal-500/18 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)] dark:border-white/[0.05] dark:bg-void-900/35 dark:shadow-[0_12px_28px_rgba(0,0,0,0.2)] dark:hover:bg-void-900/45";
+export const LEDGER_ROW_MODERN_CLASS = "group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-6 shadow-[0_8px_32px_rgba(15,23,42,0.05)] backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:border-signal-500/30 hover:shadow-[0_18px_48px_rgba(0,224,160,0.12)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_12px_32px_rgba(0,0,0,0.25)] dark:hover:border-signal-500/40 dark:hover:bg-void-800/80";
 
 export const DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -439,11 +442,65 @@ export const TokenChip: FunctionComponent<{
   value: number | string;
   tone: string;
 }> = ({ icon: Icon, label, value, tone }) => (
-  <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${tone}`}>
-    <Icon className="h-3.5 w-3.5" strokeWidth={2.1} />
-    {label} {typeof value === "number" ? formatTokens(value) : value}
+  <div className={`group relative inline-flex items-center gap-2 overflow-hidden rounded-[14px] border px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_8px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.2)] ${tone}`}>
+    <div className="relative flex items-center gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
+      <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+    </div>
+    <div className="relative text-[11px] font-black tracking-wide text-slate-900 drop-shadow-sm transition-all group-hover:drop-shadow-md dark:text-white">
+      {typeof value === "number" ? formatTokens(value) : value}
+    </div>
   </div>
 );
+
+export function getProviderIcon(provider: string | null | undefined): { icon: ComponentType<any>; bg: string; text: string } {
+  const p = (provider || "").toLowerCase();
+  if (p.includes("gemini")) return { icon: Sparkles, bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400" };
+  if (p.includes("claude")) return { icon: Brain, bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" };
+  if (p.includes("codex")) return { icon: Terminal, bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400" };
+  if (p.includes("jules")) return { icon: Layers3, bg: "bg-signal-500/10", text: "text-signal-600 dark:text-signal-400" };
+  return { icon: Bot, bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400" };
+}
+
+export const TokenFlowBar: FunctionComponent<{
+  input: number;
+  cached: number;
+  output: number;
+  reasoning: number;
+  total: number;
+}> = ({ input, cached, output, reasoning, total }) => {
+  if (total <= 0) return <div className="h-2 w-full rounded-full bg-black/[0.05] dark:bg-white/[0.05]" />;
+  const inPct = (input / total) * 100;
+  const cachedPct = (cached / total) * 100;
+  const outPct = (output / total) * 100;
+  const reasonPct = (reasoning / total) * 100;
+
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.05]">
+      {inPct > 0 && <div className="h-full bg-signal-500 transition-all duration-500" style={{ width: `${inPct}%` }} title={`Input: ${inPct.toFixed(1)}%`} />}
+      {cachedPct > 0 && <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: `${cachedPct}%` }} title={`Cached: ${cachedPct.toFixed(1)}%`} />}
+      {outPct > 0 && <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${outPct}%` }} title={`Output: ${outPct.toFixed(1)}%`} />}
+      {reasonPct > 0 && <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${reasonPct}%` }} title={`Reasoning: ${reasonPct.toFixed(1)}%`} />}
+    </div>
+  );
+};
+
+export const ChurnFlowBar: FunctionComponent<{
+  insertions: number;
+  deletions: number;
+}> = ({ insertions, deletions }) => {
+  const total = insertions + deletions;
+  if (total <= 0) return <div className="h-2 w-full rounded-full bg-black/[0.05] dark:bg-white/[0.05]" />;
+  const inPct = (insertions / total) * 100;
+  const delPct = (deletions / total) * 100;
+
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.05]">
+      {inPct > 0 && <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${inPct}%` }} title={`Insertions: ${inPct.toFixed(1)}%`} />}
+      {delPct > 0 && <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${delPct}%` }} title={`Deletions: ${delPct.toFixed(1)}%`} />}
+    </div>
+  );
+};
 
 export const SeriesLegendButton: FunctionComponent<{
   series: ChartSeriesDefinition;
