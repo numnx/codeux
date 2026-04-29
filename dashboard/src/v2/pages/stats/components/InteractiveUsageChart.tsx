@@ -30,9 +30,8 @@ import { UsageGraphHeader } from './UsageGraphHeader.js';
 import { UsageFilterMenu } from './UsageFilterMenu.js';
 import { useUsageFilters } from '../hooks/useUsageFilters.js';
 import { UsageGraphTooltip } from './UsageGraphTooltip.js';
-import { UsageGraphLegend } from './UsageGraphLegend.js';
 import { UsageGraphEmpty } from './UsageGraphStates.js';
-import { Activity } from 'lucide-preact';
+import { Activity, Filter } from 'lucide-preact';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
@@ -161,8 +160,6 @@ export const InteractiveUsageChart: FunctionComponent<{
         <UsageGraphHeader
           title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
           description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use filters to focus the graph."
-          onOpenFilters={toggleFilters}
-          isFilterActive={isFiltersOpen}
         />
 
         <div className="relative z-50">
@@ -215,6 +212,18 @@ export const InteractiveUsageChart: FunctionComponent<{
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS}`}>
                 {zoomLabel}
               </div>
+              <button
+                type="button"
+                onClick={toggleFilters}
+                className={`group flex items-center gap-2 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border shadow-sm active:scale-95 ${CHIP_CLASS} ${
+                  isFiltersOpen 
+                    ? 'border-signal-500/30 bg-signal-500/[0.08] text-signal-500 shadow-signal-500/5' 
+                    : 'border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 text-[var(--stats-detail-color)] hover:text-[var(--stats-value-color)] hover:border-[var(--stats-value-color)]/20'
+                }`}
+              >
+                <Filter className={`h-3 w-3 transition-colors ${isFiltersOpen ? 'text-signal-500' : 'text-[var(--stats-detail-color)] group-hover:text-signal-500'}`} strokeWidth={2.2} />
+                Filters
+              </button>
               {zoomRange ? (
                 <button
                   type="button"
@@ -226,12 +235,6 @@ export const InteractiveUsageChart: FunctionComponent<{
               ) : null}
             </div>
             <div className="relative">
-              <UsageGraphLegend 
-                seriesGroups={seriesGroups} 
-                enabledSeries={enabledSeries} 
-                activeSeriesCount={activeSeriesCount}
-                onToggleSeries={onToggleSeries}
-              />
               
               <UsageGraphTooltip 
                 visible={!!activeBucket}
