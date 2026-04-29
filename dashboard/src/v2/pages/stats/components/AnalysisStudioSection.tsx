@@ -19,6 +19,13 @@ export const AnalysisStudioSection: FunctionComponent<any> = ({
   visualMode,
   setVisualMode,
   chartState,
+  activeWindow,
+  customFrom,
+  customTo,
+  applyPresetWindow,
+  setCustomFrom,
+  setCustomTo,
+  applyCustomRange,
 }) => {
   return (
     <>
@@ -29,7 +36,18 @@ export const AnalysisStudioSection: FunctionComponent<any> = ({
       ) : null}
 
       {visualMode === "trend" ? (
-        <TrendStudio stats={stats} planningUsage={planningUsage} chartState={chartState} />
+        <TrendStudio
+          stats={stats}
+          planningUsage={planningUsage}
+          chartState={chartState}
+          activeWindow={activeWindow}
+          customFrom={customFrom}
+          customTo={customTo}
+          onSelectPreset={applyPresetWindow}
+          onCustomFromChange={setCustomFrom}
+          onCustomToChange={setCustomTo}
+          onApplyCustom={applyCustomRange}
+        />
       ) : null}
 
       {visualMode === "composition" ? (

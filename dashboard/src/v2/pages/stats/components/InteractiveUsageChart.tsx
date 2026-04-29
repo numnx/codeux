@@ -1,9 +1,9 @@
 import type { FunctionComponent } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'preact/hooks';
 import gsap from 'gsap';
-import { Activity } from 'lucide-preact';
 import type {
   ProjectExecutionStatsSnapshot,
+  ProjectStatsWindow,
 } from '../../../types.js';
 import {
   formatTokens,
@@ -22,19 +22,41 @@ import type { UsageChartState } from '../use-usage-chart-state.js';
 import {
   getVisibleBuckets,
   normalizeChartSeries,
-  groupChartSeries,
   calculateChartMetrics,
   getTooltipState,
+  groupChartSeries,
 } from '../chart-view-models.js';
+import { UsageGraphHeader } from './UsageGraphHeader.js';
+import { UsageFilterMenu } from './UsageFilterMenu.js';
+import { useUsageFilters } from '../hooks/useUsageFilters.js';
 import { UsageGraphTooltip } from './UsageGraphTooltip.js';
 import { UsageGraphLegend } from './UsageGraphLegend.js';
 import { UsageGraphEmpty } from './UsageGraphStates.js';
+import { Activity } from 'lucide-preact';
 
 export const InteractiveUsageChart: FunctionComponent<{
   stats: ProjectExecutionStatsSnapshot;
   chartState: UsageChartState;
-}> = ({ stats, chartState }) => {
+  activeWindow: ProjectStatsWindow | string;
+  customFrom: string;
+  customTo: string;
+  onSelectPreset: (value: Exclude<ProjectStatsWindow, "custom">) => void;
+  onCustomFromChange: (value: string) => void;
+  onCustomToChange: (value: string) => void;
+  onApplyCustom: () => void;
+}> = ({
+  stats,
+  chartState,
+  activeWindow,
+  customFrom,
+  customTo,
+  onSelectPreset,
+  onCustomFromChange,
+  onCustomToChange,
+  onApplyCustom,
+}) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { isFiltersOpen, toggleFilters, closeFilters } = useUsageFilters();
 
   const {
     zoomRange,
@@ -62,12 +84,10 @@ export const InteractiveUsageChart: FunctionComponent<{
     return normalizeChartSeries(stats.chartSeries, visibleBuckets, viewStart, width, height, padding);
   }, [stats.chartSeries, visibleBuckets, viewStart, width, height, padding]);
 
-  const seriesGroups = useMemo(() => {
-    return groupChartSeries(stats.chartSeries);
-  }, [stats.chartSeries]);
+  const seriesGroups = useMemo(() => groupChartSeries(stats.chartSeries), [stats.chartSeries]);
+  const activeSeriesCount = Object.values(enabledSeries).filter(Boolean).length;
 
   const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
-  const activeSeriesCount = visibleSeries.length;
 
   const { activeIndex, activeBucket, tooltipLeft, xPositions } = getTooltipState(
     visibleBuckets, chartData, hoveredIndex, padding, width
@@ -138,47 +158,57 @@ export const InteractiveUsageChart: FunctionComponent<{
     <div ref={panelRef} className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7 border border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] shadow-[var(--stats-card-shadow)]`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.14]" />
       <div className="relative flex flex-col gap-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-detail-color)] shadow-sm">
-              <Activity className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} />
-              Usage Graph
-            </div>
-            <div className="mt-5 text-4xl font-black tracking-tight text-[var(--stats-value-color)]">
-              {zoomRange ? "Zoomed telemetry window" : stats.range.label}
-            </div>
-            <div className="mt-3 text-sm leading-relaxed text-[var(--stats-detail-color)] max-w-2xl">
-              Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use the legend to focus the graph.
-            </div>
+        <UsageGraphHeader
+          title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
+          description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot to zoom a timeframe, keep hourly hover precision, and use filters to focus the graph."
+          onOpenFilters={toggleFilters}
+          isFilterActive={isFiltersOpen}
+        />
+
+        <div className="relative z-50">
+          <UsageFilterMenu
+            isOpen={isFiltersOpen}
+            onClose={closeFilters}
+            activeWindow={activeWindow}
+            customFrom={customFrom}
+            customTo={customTo}
+            onSelectPreset={onSelectPreset}
+            onCustomFromChange={onCustomFromChange}
+            onCustomToChange={onCustomToChange}
+            onApplyCustom={onApplyCustom}
+            stats={stats}
+            enabledSeries={enabledSeries}
+            setEnabledSeries={setEnabledSeries}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Tokens</div>
+            <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatTokens(peakTokens)}</div>
+            <div className="mt-1 text-xs text-[var(--stats-detail-color)]">Highest bucket in view</div>
           </div>
-          <div className="grid grid-cols-2 gap-4 xl:w-[28rem]">
-            <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Tokens</div>
-              <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatTokens(peakTokens)}</div>
-              <div className="mt-1 text-xs text-[var(--stats-detail-color)]">Highest bucket in view</div>
-            </div>
-            <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Time</div>
-              <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatDuration(peakTime)}</div>
-              <div className="mt-1 text-xs text-[var(--stats-detail-color)]">Active model runtime</div>
-            </div>
-            <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Average Tokens</div>
-              <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatTokens(averageTokens)}</div>
-              <div className="mt-1 text-xs text-[var(--stats-detail-color)]">{stats.range.resolutionLabel}</div>
-            </div>
-            <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Invocations</div>
-              <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{peakInvocations.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-[var(--stats-detail-color)]">CLI calls in one bucket</div>
-            </div>
+          <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Time</div>
+            <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatDuration(peakTime)}</div>
+            <div className="mt-1 text-xs text-[var(--stats-detail-color)]">Active model runtime</div>
+          </div>
+          <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Average Tokens</div>
+            <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{formatTokens(averageTokens)}</div>
+            <div className="mt-1 text-xs text-[var(--stats-detail-color)]">{stats.range.resolutionLabel}</div>
+          </div>
+          <div data-chart-card className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/40 p-5`}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--stats-label-color)]">Peak Invocations</div>
+            <div className="mt-2 text-2xl font-black text-[var(--stats-value-color)]">{peakInvocations.toLocaleString()}</div>
+            <div className="mt-1 text-xs text-[var(--stats-detail-color)]">CLI calls in one bucket</div>
           </div>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
             <div className="mb-6 flex flex-wrap items-center gap-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--stats-label-color)]">Interactive Legend</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--stats-label-color)]">Interactive Plot</div>
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS}`}>
                 Hover buckets for exact values
               </div>
