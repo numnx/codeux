@@ -44,20 +44,20 @@ export const DockerStatusMenu: FunctionComponent = () => {
             }
         };
 
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && interactionState !== 'closed') {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
                 setInteractionState('closed');
                 containerRef.current?.querySelector("button")?.focus();
             }
         };
 
         if (interactionState !== 'closed') {
-            document.addEventListener("keydown", handleKeyDown);
             document.addEventListener("mousedown", handleClickOutside);
+            document.addEventListener("keydown", handleEscape);
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
-            document.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("keydown", handleEscape);
         };
     }, [interactionState, trapRef]);
 
@@ -166,6 +166,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
             {(interactionState !== 'closed') && (
                 <div
                     ref={trapRef}
+                    id="docker-status-menu"
                     role="dialog"
                     id={menuId}
                     aria-modal="true"

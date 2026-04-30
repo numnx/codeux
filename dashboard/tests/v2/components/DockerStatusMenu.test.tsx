@@ -1,8 +1,7 @@
 /** @vitest-environment jsdom */
 /** @jsx h */
 import { h } from "preact";
-import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/preact";
-import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor, fireEvent, cleanup, act } from "@testing-library/preact";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DockerStatusMenu } from "../../../src/v2/components/DockerStatusMenu.js";
 import * as matchers from '@testing-library/jest-dom/matchers';
@@ -32,34 +31,36 @@ const mockContainers = [
 describe("DockerStatusMenu", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
     cleanup();
   });
 
+  const getDialog = () => screen.queryByRole("dialog", { name: "Active Docker Containers" });
+
   it("renders the trigger button", () => {
-    render(<DockerStatusMenu />);
+    const { unmount } = render(<DockerStatusMenu />);
     expect(screen.getByRole("button", { name: "Docker Status" })).toBeInTheDocument();
+    unmount();
   });
 
-  it("opens popover on click, displays containers, and traps focus", async () => {
+  it("opens popover on click and traps focus", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => mockContainers
     } as Response);
 
-    render(<DockerStatusMenu />);
-
-    expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
-
+    const { unmount } = render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
-    fireEvent.click(button);
 
-    await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
-    });
+    expect(getDialog()).not.toBeInTheDocument();
+
+    fireEvent.click(button);
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
       expect(screen.getByText("test-container-1")).toBeInTheDocument();
@@ -69,6 +70,8 @@ describe("DockerStatusMenu", () => {
     expect(screen.getByText("node:18")).toBeInTheDocument();
     expect(screen.getByText("2 hours")).toBeInTheDocument();
     expect(screen.getByText("npm run start")).toBeInTheDocument();
+
+    unmount();
   });
 
   it("closes popover on escape and restores focus", async () => {
@@ -77,27 +80,65 @@ describe("DockerStatusMenu", () => {
       json: async () => mockContainers
     } as Response);
 
-    render(<DockerStatusMenu />);
+    const { unmount } = render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
     button.focus();
 
-    fireEvent.click(button);
+    // Open via Enter
+    fireEvent.keyDown(button, { key: "Enter" });
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
+        expect(getDialog()).not.toBeNull();
     });
 
+    // Press Escape
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await vi.runAllTimersAsync();
+
+    await waitFor(() => {
+      expect(getDialog()).toBeNull();
+    });
+
+    expect(button).toHaveFocus();
+
+    unmount();
+  });
+
+  it("fetches and displays containers on hover", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockContainers
+    } as Response);
+
+    const { unmount } = render(<DockerStatusMenu />);
+
+    // Trigger hover
+    const button = screen.getByRole("button", { name: "Docker Status" });
+    const wrapper = button.parentElement as HTMLElement;
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    // Wait for state transition
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    // Dialog should appear
+    await waitFor(() => expect(getDialog()).toBeInTheDocument());
+
+    // Wait for fetch and render
     await waitFor(() => {
         expect(screen.getByText("test-container-1")).toBeInTheDocument();
     });
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    // Check specific container details
+    expect(screen.getByText("node:18")).toBeInTheDocument();
+    expect(screen.getByText("2 hours")).toBeInTheDocument();
+    expect(screen.getByText("npm run start")).toBeInTheDocument();
 
-    await waitFor(() => {
-        expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
-    });
-
-    expect(button).toHaveFocus();
+    unmount();
   });
 
   it("closes the popover on mouse leave after a delay", async () => {
@@ -106,29 +147,40 @@ describe("DockerStatusMenu", () => {
       json: async () => mockContainers
     } as Response);
 
-    vi.useFakeTimers();
+    const { unmount } = render(<DockerStatusMenu />);
 
-    const { container } = render(<DockerStatusMenu />);
-
-    const wrapper = container.firstChild?.firstChild as HTMLElement;
-    fireEvent.mouseEnter(wrapper);
-
-    // wait for interaction state 'hover' to take effect which opens it
-    vi.runAllTimers();
-    await Promise.resolve();
-
-    await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
+    // Find the wrapper element that handles mouse enter/leave
+    const button = screen.getByRole("button", { name: "Docker Status" });
+    const wrapper = button.parentElement as HTMLElement;
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
     });
 
-    fireEvent.mouseLeave(wrapper);
-    vi.runAllTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
+    // Dialog should appear
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
-    }, { timeout: 3000 });
+        expect(getDialog()).not.toBeNull();
+    });
 
-    vi.useRealTimers();
+    // Trigger leave
+    act(() => {
+      fireEvent.mouseLeave(wrapper);
+    });
+
+    // Fast-forward time
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Dialog should be gone
+    await waitFor(() => {
+      expect(getDialog()).toBeNull();
+    });
+
+    unmount();
   });
 
   it("shows zero state when no containers exist", async () => {
@@ -137,14 +189,23 @@ describe("DockerStatusMenu", () => {
       json: async () => []
     } as Response);
 
-    render(<DockerStatusMenu />);
+    const { unmount } = render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
-    fireEvent.click(button);
+    const wrapper = button.parentElement as HTMLElement;
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     await waitFor(() => {
       expect(screen.getByText("No Containers")).toBeInTheDocument();
       expect(screen.getByText("Docker is not running any containers.")).toBeInTheDocument();
     });
+
+    unmount();
   });
 
   it("handles fetch errors gracefully", async () => {
@@ -152,14 +213,22 @@ describe("DockerStatusMenu", () => {
 
     vi.mocked(fetch).mockRejectedValueOnce(new Error("Network Error"));
 
-    render(<DockerStatusMenu />);
+    const { unmount } = render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
-    fireEvent.click(button);
+    const wrapper = button.parentElement as HTMLElement;
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     await waitFor(() => {
       expect(screen.getByText("No Containers")).toBeInTheDocument();
     });
 
     consoleSpy.mockRestore();
+    unmount();
   });
 });
