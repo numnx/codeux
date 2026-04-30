@@ -18,7 +18,6 @@ import { useActionFeedback } from "./use-action-feedback.js";
 import { useConfirmDialog } from "./use-confirm-dialog.js";
 import { getProjectWorkerOptions } from "../lib/project-worker-options.js";
 import type { RefObject } from "preact";
-import { InteractionMessages, getErrorMessage } from "../lib/copy/interaction-messages.js";
 
 export const upsertMessage = (messages: ChatMessageRecord[], nextMessage: ChatMessageRecord): ChatMessageRecord[] => {
   if (messages.some((message) => message.id === nextMessage.id)) {
@@ -303,9 +302,9 @@ export const useChatThreadData = (options: {
       setThreadsSnapshot(nextThreads);
       await refreshMessages(updated.id);
       setError(null);
-      setSuccess(InteractionMessages.routeUpdated);
+      setSuccess("Route updated.");
     } catch (updateError) {
-      setError(InteractionMessages.routeUpdateError(getErrorMessage(updateError)));
+      setError(updateError instanceof Error ? updateError.message : String(updateError));
     } finally {
       setAssigningRoute(false);
     }
@@ -336,9 +335,9 @@ export const useChatThreadData = (options: {
       setThreadsSnapshot(nextThreads);
       await refreshMessages(updated.id);
       setError(null);
-      setSuccess(InteractionMessages.threadCompacted);
+      setSuccess("Thread compacted.");
     } catch (err) {
-      setError(InteractionMessages.threadCompactError(getErrorMessage(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setCompacting(false);
     }
@@ -423,10 +422,10 @@ export const useChatThreadData = (options: {
     try {
       await deleteConversationThread(threadId);
       setError(null);
-      setSuccess(InteractionMessages.threadDeleted);
+      setSuccess("Thread deleted.");
     } catch (deleteError) {
       // Assuming parent handles broad refresh, but since we optimistically updated, if error, we might be out of sync.
-      setError(InteractionMessages.threadDeleteError(getErrorMessage(deleteError)));
+      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
     } finally {
       setDeletingThreadId((current) => current === threadId ? null : current);
     }

@@ -1,5 +1,4 @@
 import { useState, useCallback } from "preact/hooks";
-import { InteractionMessages, getErrorMessage } from "../lib/copy/interaction-messages.js";
 import {
     cancelSprintRun,
     cancelTaskDispatch,
@@ -32,14 +31,15 @@ export function useLiveSessionActions(
 
     const handleRerun = useCallback(async (taskId: string, options?: RerunTaskOptions) => {
         setRerunningIds(prev => new Set(prev).add(taskId));
-        feedbackHandlers.setPending(InteractionMessages.rerunPending);
+        feedbackHandlers.setPending("Requesting task rerun...");
         try {
             await rerunTask(taskId, options);
             await refreshRuntimeStatus();
             await refreshGitStatus();
-            feedbackHandlers.setSuccess(InteractionMessages.rerunSuccess);
+            feedbackHandlers.setSuccess("Task rerun dispatched successfully.");
         } catch (err) {
-            feedbackHandlers.setError(InteractionMessages.rerunError(getErrorMessage(err)), {
+            const message = err instanceof Error ? err.message : "Failed to rerun task.";
+            feedbackHandlers.setError(message, {
                 retryAction: () => handleRerun(taskId, options),
                 retryLabel: "Retry Rerun",
                 autoDismiss: false
@@ -51,15 +51,16 @@ export function useLiveSessionActions(
 
     const runControlAction = useCallback(async (actionId: string, operation: () => Promise<void>) => {
         setPendingActionIds(prev => new Set(prev).add(actionId));
-        feedbackHandlers.setPending(InteractionMessages.actionPending);
+        feedbackHandlers.setPending("Executing action...");
         try {
             await operation();
             await new Promise((resolve) => setTimeout(resolve, 150));
             await refreshRuntimeStatus();
             await refreshGitStatus();
-            feedbackHandlers.setSuccess(InteractionMessages.actionSuccess);
+            feedbackHandlers.setSuccess("Action executed successfully.");
         } catch (err) {
-            feedbackHandlers.setError(InteractionMessages.actionError(getErrorMessage(err)), {
+            const message = err instanceof Error ? err.message : "Failed to execute runtime control.";
+            feedbackHandlers.setError(message, {
                 retryAction: () => runControlAction(actionId, operation),
                 retryLabel: "Retry",
                 autoDismiss: false

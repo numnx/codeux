@@ -22,10 +22,9 @@ interface SearchOverlayProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     results: SearchResults;
-    isPending?: boolean;
 }
 
-export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange, results, isPending }) => {
+export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange, results }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +37,6 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
         { id: 'containers', title: 'Preview Containers', icon: Box, items: results.containers }
     ];
 
-    const hasResults = CATEGORIES.some(c => c.items.length > 0);
     const allItems = CATEGORIES.flatMap(c => c.items);
     const reducedMotion = useReducedMotion();
 
@@ -136,35 +134,18 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
             >
                 {/* Search Header */}
                 <div className="flex items-center px-4 py-4 border-b border-black/5 dark:border-white/5">
-                    <div className="relative flex items-center justify-center w-10 h-10">
-                        {isPending ? (
-                            <div className="w-5 h-5 border-2 border-signal-500/30 border-t-signal-500 rounded-full animate-spin" />
-                        ) : (
-                            <Search className="w-5 h-5 text-slate-400" />
-                        )}
-                    </div>
+                    <Search className="w-5 h-5 text-slate-400 mr-3" />
                     <input
                         ref={inputRef}
                         type="text"
                         placeholder="Search sprints, tasks, agents..."
                         value={searchQuery}
                         onInput={(e) => onSearchChange(e.currentTarget.value)}
-                        className="flex-1 bg-transparent border-none outline-none text-lg text-slate-900 dark:text-white placeholder-slate-400 px-2"
+                        className="flex-1 bg-transparent border-none outline-none text-lg text-slate-900 dark:text-white placeholder-slate-400"
                     />
-                    {searchQuery.length > 0 && (
-                        <button
-                            onClick={() => onSearchChange("")}
-                            className="p-2 mr-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                            aria-label="Clear search"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
-                    <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-2" />
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        aria-label="Close search"
+                        className="p-2 ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -173,47 +154,20 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                 {/* Results Area */}
                 <div className="flex-1 max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
                     {searchQuery.length === 0 ? (
-                        <div className="py-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-16 h-16 rounded-3xl bg-black/[0.03] dark:bg-white/[0.03] flex items-center justify-center mb-4">
-                                <Search className="w-8 h-8 text-slate-300 dark:text-slate-700" strokeWidth={1.5} />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Global Workspace Search</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-                                Start typing to search across sprints, tasks, agents, and preview containers.
-                            </p>
-                        </div>
-                    ) : !hasResults && !isPending ? (
-                        <div className="py-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-16 h-16 rounded-3xl bg-ember-500/[0.05] flex items-center justify-center mb-4">
-                                <Box className="w-8 h-8 text-ember-500/40" strokeWidth={1.5} />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No matches found</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-                                We couldn't find anything matching "<span className="text-slate-900 dark:text-white font-medium">{searchQuery}</span>".
-                            </p>
-                            <button
-                                onClick={() => onSearchChange("")}
-                                className="mt-6 text-xs font-bold uppercase tracking-wider text-signal-500 hover:text-signal-400 transition-colors"
-                            >
-                                Clear Query
-                            </button>
+                        <div className="py-12 text-center text-slate-500 dark:text-slate-400">
+                            Start typing to search across your workspace...
                         </div>
                     ) : (
-                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-2 transition-opacity duration-200 ${isPending && !hasResults ? 'opacity-40' : 'opacity-100'}`}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2">
                             {CATEGORIES.map((category) => (
                                 <div key={category.id} className="flex flex-col">
                                     <div className="flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                         <category.icon className="w-4 h-4" />
                                         {category.title}
-                                        {category.items.length > 0 && (
-                                            <span className="ml-auto tabular-nums opacity-60">{category.items.length}</span>
-                                        )}
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         {category.items.length === 0 ? (
-                                            <div className="px-3 py-4 text-xs font-medium text-slate-400/60 border border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-xl flex items-center justify-center">
-                                                No {category.title.toLowerCase()} found
-                                            </div>
+                                            <div className="px-3 py-2 text-sm text-slate-400">No results found.</div>
                                         ) : (
                                             category.items.map((item) => {
                                                 const isFocused = focusedIndex === globalItemIndex;

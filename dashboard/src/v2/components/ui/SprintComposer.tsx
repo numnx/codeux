@@ -27,7 +27,6 @@ import { ActionFeedbackRegion } from "./ActionFeedbackRegion.js";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import type { ImprovePromptInput, VirtualWorkerProvider } from "../../types.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
-import { InteractionMessages, getErrorMessage } from "../../lib/copy/interaction-messages.js";
 
 interface SprintComposerProps {
   nextId: string;
@@ -176,7 +175,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (!isUnmountedRef.current) {
-        setError(InteractionMessages.sprintImproveError(getErrorMessage(error)), { retryAction: handleImprovePrompt, retryLabel: "Retry Improve", autoDismiss: false });
+        setError(error instanceof Error ? error.message : String(error), { retryAction: handleImprovePrompt, retryLabel: "Retry Improve", autoDismiss: false });
       }
     } finally {
       abortRef.current = null;
@@ -223,7 +222,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (!isUnmountedRef.current) {
-        setError(InteractionMessages.sprintSubmitError(getErrorMessage(error)), { retryAction: () => fieldsRef.current?.requestSubmit(), retryLabel: "Retry Request", autoDismiss: false });
+        setError(error instanceof Error ? error.message : String(error), { retryAction: () => fieldsRef.current?.requestSubmit(), retryLabel: "Retry Request", autoDismiss: false });
       }
     } finally {
       abortRef.current = null;
