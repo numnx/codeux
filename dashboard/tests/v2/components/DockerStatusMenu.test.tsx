@@ -1,8 +1,8 @@
 /** @jsx h */
 // @vitest-environment jsdom
 import { h } from "preact";
-import { render, screen, waitFor, fireEvent } from "@testing-library/preact";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor, fireEvent, cleanup, act } from "@testing-library/preact";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DockerStatusMenu } from "../../../src/v2/components/DockerStatusMenu.js";
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
@@ -35,6 +35,12 @@ describe("DockerStatusMenu", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    cleanup();
   });
 
   it("opens popover on click and traps focus", async () => {
@@ -78,11 +84,6 @@ describe("DockerStatusMenu", () => {
     expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.useRealTimers();
-  });
-
   it("renders the trigger button", () => {
     render(<DockerStatusMenu />);
     expect(screen.getByRole("button", { name: "Docker Status" })).toBeInTheDocument();
@@ -100,8 +101,15 @@ describe("DockerStatusMenu", () => {
     expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
 
     // Trigger hover
-    const button = screen.getByRole("button", { name: "Docker Status" });
-    fireEvent.mouseEnter(button);
+    const wrapper = screen.getByRole("button", { name: "Docker Status" }).parentElement!;
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    // Wait for state transition
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     // Dialog should appear
     expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
@@ -128,19 +136,29 @@ describe("DockerStatusMenu", () => {
 
     // Find the wrapper element that handles mouse enter/leave
     const wrapper = container.firstChild as HTMLElement;
-    fireEvent.mouseEnter(wrapper);
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     // Dialog should appear
     expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
 
     // Trigger leave
-    fireEvent.mouseLeave(wrapper);
+    act(() => {
+      fireEvent.mouseLeave(wrapper);
+    });
 
     // Dialog should still be there immediately (due to 150ms timeout)
     expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
 
     // Fast-forward time
-    vi.advanceTimersByTime(200);
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
 
     // Dialog should be gone
     await waitFor(() => {
@@ -156,7 +174,13 @@ describe("DockerStatusMenu", () => {
 
     const { container } = render(<DockerStatusMenu />);
     const wrapper = container.firstChild as HTMLElement;
-    fireEvent.mouseEnter(wrapper);
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     await waitFor(() => {
       expect(screen.getByText("No Containers")).toBeInTheDocument();
@@ -172,7 +196,13 @@ describe("DockerStatusMenu", () => {
 
     const { container } = render(<DockerStatusMenu />);
     const wrapper = container.firstChild as HTMLElement;
-    fireEvent.mouseEnter(wrapper);
+    act(() => {
+      fireEvent.mouseEnter(wrapper);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
 
     await waitFor(() => {
       expect(screen.getByText("No Containers")).toBeInTheDocument();
