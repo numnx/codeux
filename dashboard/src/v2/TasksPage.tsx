@@ -18,6 +18,8 @@ import {
   Plus,
   X,
   ArrowUpRight,
+  Loader2,
+  RotateCcw,
 } from "lucide-preact";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
@@ -27,13 +29,16 @@ import type { Sprint, Task, TaskPriority, TaskStatus } from "./types.js";
 import { useProjectData } from "./context/project-data.js";
 import { useSprints } from "../hooks/useSprints.js";
 import { useProjectTasks } from "./hooks/use-project-tasks.js";
-import { createTask, deleteTask, updateTask } from "./lib/project-api.js";
+import { useTaskMutations, type TaskMutationDraft } from "./hooks/use-task-mutations.js";
+import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
 import { deriveTaskBoardState } from "./lib/task-board-state.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "./lib/list-window.js";
 import { ListWindowSelector } from "./components/ui/ListWindowSelector.js";
 import { SkeletonCard } from "./components/ui/ListSkeletons.js";
 import { FilterStrip } from "./components/ui/FilterStrip.js";
 import { formatSprintDisplay } from "./lib/format-sprint.js";
+import { RerunTaskModal } from "./components/ui/RerunTaskModal.js";
+import { toSubtask } from "./lib/view-models.js";
 
 const PRIORITY_CFG: Record<TaskPriority, { label: string; color: string; dot: string; bg: string }> = {
   critical: { label: "Critical", color: "text-status-red", dot: "bg-status-red shadow-[0_0_8px_rgba(227,0,15,0.6)]", bg: "bg-status-red/[0.08] border-status-red/20" },
@@ -72,9 +77,11 @@ const timeAgo = (iso: string) => {
 const TaskCard: FunctionComponent<{
   task: Task;
   dependents: DependentTaskMetadata[];
+  isPending: boolean;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
-}> = memo(({ task, dependents, onEdit, onDelete }) => {
+  onRerun: (task: Task) => void;
+}> = memo(({ task, dependents, isPending, onEdit, onDelete, onRerun }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const pri = PRIORITY_CFG[task.priority];
 
@@ -114,12 +121,18 @@ const TaskCard: FunctionComponent<{
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       tabIndex={0}
-      className={`group relative flex flex-col bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"}`}
+      className={`group relative flex flex-col bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${(task.isOptimistic || isPending) ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"}`}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
       <WaveFluid accentHex={STATUS_CFG[task.status].hex} />
       <BorderTrace accentHex={STATUS_CFG[task.status].hex} />
+
+      {isPending && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/40 dark:bg-void-900/40 z-30 backdrop-blur-[1px]">
+          <Loader2 className="w-8 h-8 text-signal-500 animate-spin" />
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-3 relative z-10">
         <span className="font-mono text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-[0.1em]">
@@ -199,6 +212,14 @@ const TaskCard: FunctionComponent<{
         <button
           type="button"
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
+          title="Rerun task"
+          onClick={() => onRerun(task)}
+        >
+          <RotateCcw className="w-3 h-3" />
+        </button>
+        <button
+          type="button"
+          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
           title="Edit task"
           onClick={() => onEdit(task)}
         >
@@ -220,9 +241,11 @@ const TaskCard: FunctionComponent<{
          prev.task.status === next.task.status &&
          prev.task.priority === next.task.priority &&
          prev.task.title === next.task.title &&
+         prev.isPending === next.isPending &&
          prev.dependents === next.dependents &&
          prev.onEdit === next.onEdit &&
-         prev.onDelete === next.onDelete;
+         prev.onDelete === next.onDelete &&
+         prev.onRerun === next.onRerun;
 });
 
 const ColumnHeader: FunctionComponent<{ status: TaskStatus; count: number }> = memo(({ status, count }) => {
@@ -415,15 +438,25 @@ export const TasksPage: FunctionComponent = () => {
   const [listWindow, setListWindow] = useState<ListWindowOption>(DEFAULT_LIST_WINDOW);
   const [showComposer, setShowComposer] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [rerunningTask, setRerunningTask] = useState<Task | null>(null);
   const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]);
   const composerRef = useRef<HTMLDivElement>(null);
 
-  const { tasks, loading, error, refresh: refreshTasks } = useProjectTasks(
+  const { tasks, loading, error: tasksError, refresh: refreshTasks } = useProjectTasks(
     selectedProject?.id || null,
     projects,
     sprints,
     taskScopeSprintId
   );
+
+  const onMutationSuccess = useCallback(async () => {
+    await Promise.all([refreshTasks(), refreshSprints()]);
+  }, [refreshTasks, refreshSprints]);
+
+  const { create, update, remove, rerun, pendingActionIds } = useTaskMutations({
+    projectId: selectedProject?.id || null,
+    onSuccess: onMutationSuccess,
+  });
 
   const [showSkeletons, setShowSkeletons] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
@@ -507,16 +540,7 @@ export const TasksPage: FunctionComponent = () => {
     void selectSprint(sprintId);
   }, [locationSearch, selectSprint]);
 
-  const handleTaskSubmit = useCallback(async (draft: {
-    sprintId: string;
-    title: string;
-    description: string;
-    promptMarkdown: string;
-    status: TaskStatus;
-    priority: TaskPriority;
-    executorType: Task["executorType"];
-    dependsOnTaskIds: string[];
-  }) => {
+  const handleTaskSubmit = useCallback(async (draft: TaskMutationDraft) => {
     if (!selectedProject) return;
 
     const isEditing = !!editingTask;
@@ -550,11 +574,10 @@ export const TasksPage: FunctionComponent = () => {
 
     try {
       if (isEditing) {
-        await updateTask(editingTask.recordId, draft);
+        await update.execute(editingTask.recordId, draft);
       } else {
-        await createTask(selectedProject.id, draft);
+        await create.execute(draft);
       }
-      await Promise.all([refreshTasks(), refreshSprints()]);
       setEditingTask(null);
       setShowComposer(false);
     } finally {
@@ -562,19 +585,28 @@ export const TasksPage: FunctionComponent = () => {
         setOptimisticTasks((prev) => prev.filter((t) => t.recordId !== optId));
       }
     }
-  }, [selectedProject, editingTask, refreshTasks, refreshSprints, sprints]);
+  }, [selectedProject, editingTask, create, update, sprints]);
 
   const handleDeleteTask = useCallback(async (task: Task) => {
-    await deleteTask(task.recordId);
-    await Promise.all([refreshTasks(), refreshSprints()]);
+    await remove.execute(task.recordId);
     setEditingTask((prev) => prev?.recordId === task.recordId ? null : prev);
-  }, [refreshTasks, refreshSprints]);
+  }, [remove]);
 
   const handleEditClick = useCallback((nextTask: Task) => {
     setEditingTask(nextTask);
     setShowComposer(true);
     setTimeout(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, []);
+
+  const handleRerunClick = useCallback((task: Task) => {
+    setRerunningTask(task);
+  }, []);
+
+  const handleRerunConfirm = useCallback(async (options: Parameters<typeof rerun.execute>[1]) => {
+    if (!rerunningTask) return;
+    await rerun.execute(rerunningTask.recordId, options);
+    setRerunningTask(null);
+  }, [rerunningTask, rerun]);
 
   return (
     <div className="max-w-[2400px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10">
@@ -650,6 +682,31 @@ export const TasksPage: FunctionComponent = () => {
         </div>
       </div>
 
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[300] w-full max-w-xl px-6 pointer-events-none">
+        <div className="pointer-events-auto flex flex-col gap-2">
+          <ActionFeedbackRegion
+            status={create.feedback.status}
+            message={create.feedback.message}
+            onDismiss={create.reset}
+          />
+          <ActionFeedbackRegion
+            status={update.feedback.status}
+            message={update.feedback.message}
+            onDismiss={update.reset}
+          />
+          <ActionFeedbackRegion
+            status={remove.feedback.status}
+            message={remove.feedback.message}
+            onDismiss={remove.reset}
+          />
+          <ActionFeedbackRegion
+            status={rerun.feedback.status}
+            message={rerun.feedback.message}
+            onDismiss={rerun.reset}
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
         <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} />
 
@@ -693,10 +750,19 @@ export const TasksPage: FunctionComponent = () => {
         </div>
       )}
 
-      {error && (
+      {tasksError && (
         <div role="alert" className="px-6 py-4 rounded-2xl border border-status-red/20 bg-status-red/[0.06] text-status-red text-sm">
-          {error}
+          {tasksError}
         </div>
+      )}
+
+      {rerunningTask && (
+        <RerunTaskModal
+          task={toSubtask(rerunningTask)}
+          allTasks={tasks.map(toSubtask)}
+          onClose={() => setRerunningTask(null)}
+          onConfirm={handleRerunConfirm}
+        />
       )}
 
       {(showComposer || editingTask) && (
@@ -743,8 +809,10 @@ export const TasksPage: FunctionComponent = () => {
                     <TaskCard
                       task={task}
                       dependents={dependenciesMap[task.recordId] ?? EMPTY_DEPENDENTS}
+                      isPending={pendingActionIds.has(task.recordId)}
                       onEdit={handleEditClick}
                       onDelete={handleDeleteTask}
+                      onRerun={handleRerunClick}
                     />
                   </div>
                 ))
