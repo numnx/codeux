@@ -99,7 +99,7 @@ export function useSprintsPageData() {
   const [quicksprintLoading, setQuicksprintLoading] = useState(false);
   const [planningEta, setPlanningEta] = useState(180000);
 
-  const { feedback, setError, clearFeedback } = useActionFeedback();
+  const { feedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
 
   const { selectedProject } = useProjectData();
   const { data: sprints, refetch: refresh, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
@@ -305,9 +305,12 @@ export function useSprintsPageData() {
     options: {
       optimisticStatus?: SprintStatus;
       waitForActiveRun?: boolean;
+      pendingMessage?: string;
+      successMessage?: string;
     } = {},
   ) => {
     setPendingActionIds((current) => new Set(current).add(actionId));
+    setPending(options.pendingMessage || "Processing...");
     if (options.optimisticStatus) {
       setOptimisticStatuses((current) => ({ ...current, [sprintId]: options.optimisticStatus! }));
     }
@@ -331,6 +334,7 @@ export function useSprintsPageData() {
         delete next[sprintId];
         return next;
       });
+      setSuccess(options.successMessage || "Action completed successfully.");
     } catch (error) {
       setOptimisticStatuses((current) => {
         const next = { ...current };
@@ -338,7 +342,9 @@ export function useSprintsPageData() {
         return next;
       });
       await Promise.all([refresh(), refreshExecution()]);
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void runSprintAction(actionId, sprintId, operation, options),
+      });
       throw error;
     } finally {
       setPendingActionIds((current) => {
@@ -347,7 +353,7 @@ export function useSprintsPageData() {
         return next;
       });
     }
-  }, [refresh, refreshExecution, selectedProject]);
+  }, [refresh, refreshExecution, selectedProject, setPending, setSuccess, setError]);
 
   const handleMarkCompleted = useCallback(async (sprintId: string) => {
     const actionId = `sprint-mark-completed:${sprintId}`;
@@ -355,11 +361,15 @@ export function useSprintsPageData() {
       return;
     }
     setPendingActionIds((current) => new Set(current).add(actionId));
+    setPending("Marking sprint as completed...");
     try {
       await updateSprint(sprintId, { status: "completed" });
       await refresh();
+      setSuccess("Sprint marked as completed.");
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleMarkCompleted(sprintId),
+      });
     } finally {
       setPendingActionIds((current) => {
         const next = new Set(current);
@@ -367,7 +377,7 @@ export function useSprintsPageData() {
         return next;
       });
     }
-  }, [pendingActionIds, refresh, setError]);
+  }, [pendingActionIds, refresh, setPending, setSuccess, setError]);
 
   const handleBulkToggleShowcase = useCallback(async (sprintIds: string[], state: boolean) => {
     const availableIds = sprintIds.filter((id) => !pendingActionIds.has(`sprint-showcase:${id}`));
@@ -379,13 +389,18 @@ export function useSprintsPageData() {
       return next;
     });
 
+    setPending(state ? "Pinning sprints to showcase..." : "Removing sprints from showcase...");
+
     try {
       await Promise.all(
         availableIds.map((id) => updateSprintShowcase(id, state))
       );
       await refresh();
+      setSuccess(state ? "Sprints pinned to showcase." : "Sprints removed from showcase.");
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleBulkToggleShowcase(sprintIds, state),
+      });
     } finally {
       setPendingActionIds((current) => {
         const next = new Set(current);
@@ -393,7 +408,7 @@ export function useSprintsPageData() {
         return next;
       });
     }
-  }, [pendingActionIds, refresh, setError]);
+  }, [pendingActionIds, refresh, setPending, setSuccess, setError]);
 
   const handleSprintToggle = useCallback((sprintId: string) => {
     if (!selectedProject) {
@@ -404,7 +419,11 @@ export function useSprintsPageData() {
       const stopActionId = `sprint-stop:${activeRun.id}`;
       void runSprintAction(stopActionId, sprintId, async () => {
         await cancelSprintRun(activeRun.id);
-      }, { optimisticStatus: "cancelled" });
+      }, { 
+        optimisticStatus: "cancelled",
+        pendingMessage: "Stopping sprint...",
+        successMessage: "Sprint stop requested.",
+      });
       return;
     }
 
@@ -422,7 +441,11 @@ export function useSprintsPageData() {
     });
     void runSprintAction(startActionId, sprintId, async () => {
       await orchestrateSprint(selectedProject.id, sprintId);
-    }, { waitForActiveRun: true });
+    }, { 
+      waitForActiveRun: true,
+      pendingMessage: "Launching sprint...",
+      successMessage: "Sprint launched successfully.",
+    });
   }, [activeRunsBySprintId, pendingActionIds, runSprintAction, selectedProject]);
 
   const handleSubmitSprint = useCallback(async (payload: {
@@ -441,82 +464,107 @@ export function useSprintsPageData() {
 
     const overrides = toPlanningOverrides(payload.routeOverride, payload.modelOverride, payload.planningAgentPresetId);
 
-    if (editingSprint) {
-      await updateSprint(editingSprint.id, {
+    const isPlanning = payload.submitMode === "plan_only" || payload.submitMode === "plan_and_start" || payload.submitMode === "replan";
+    setPending(isPlanning ? "Planning sprint with AI specialist..." : "Saving sprint...");
+
+    try {
+      if (editingSprint) {
+        await updateSprint(editingSprint.id, {
+          name: payload.name,
+          goal: payload.goal,
+          originalPrompt: payload.originalPrompt,
+        });
+
+        if (payload.submitMode === "plan_only" || payload.submitMode === "replan") {
+          await planSprint(selectedProject.id, editingSprint.id, {
+            autoStart: false,
+            replan: payload.submitMode === "replan",
+            planningAgentPresetId: payload.planningAgentPresetId || undefined,
+            overrides,
+          }, payload.signal);
+        } else if (payload.submitMode === "plan_and_start") {
+          await planSprint(selectedProject.id, editingSprint.id, {
+            autoStart: true,
+            replan: false,
+            planningAgentPresetId: payload.planningAgentPresetId || undefined,
+            overrides,
+          }, payload.signal);
+        }
+
+        await refresh();
+        setSuccess(isPlanning ? "Sprint planned and updated." : "Sprint updated.");
+        setEditingSprint(null);
+        return;
+      }
+
+      const created = await createSprint(selectedProject.id, {
         name: payload.name,
         goal: payload.goal,
         originalPrompt: payload.originalPrompt,
+        number: nextSprintNumber,
+        status: "idle",
+        showcasePinned: true,
+        startDate: null,
+        endDate: null,
       });
 
-      if (payload.submitMode === "plan_only" || payload.submitMode === "replan") {
-        await planSprint(selectedProject.id, editingSprint.id, {
+      if (payload.submitMode === "plan_only") {
+        await planSprint(selectedProject.id, created.id, {
           autoStart: false,
-          replan: payload.submitMode === "replan",
           planningAgentPresetId: payload.planningAgentPresetId || undefined,
           overrides,
         }, payload.signal);
       } else if (payload.submitMode === "plan_and_start") {
-        await planSprint(selectedProject.id, editingSprint.id, {
+        await planSprint(selectedProject.id, created.id, {
           autoStart: true,
-          replan: false,
           planningAgentPresetId: payload.planningAgentPresetId || undefined,
           overrides,
         }, payload.signal);
       }
 
-      await refresh();
-      setEditingSprint(null);
-      return;
+      await Promise.all([refresh(), refreshExecution()]);
+      setSuccess(isPlanning ? "Sprint created and planned." : "Sprint created.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleSubmitSprint(payload),
+      });
+      throw error;
     }
-
-    const created = await createSprint(selectedProject.id, {
-      name: payload.name,
-      goal: payload.goal,
-      originalPrompt: payload.originalPrompt,
-      number: nextSprintNumber,
-      status: "idle",
-      showcasePinned: true,
-      startDate: null,
-      endDate: null,
-    });
-
-    if (payload.submitMode === "plan_only") {
-      await planSprint(selectedProject.id, created.id, {
-        autoStart: false,
-        planningAgentPresetId: payload.planningAgentPresetId || undefined,
-        overrides,
-      }, payload.signal);
-    } else if (payload.submitMode === "plan_and_start") {
-      await planSprint(selectedProject.id, created.id, {
-        autoStart: true,
-        planningAgentPresetId: payload.planningAgentPresetId || undefined,
-        overrides,
-      }, payload.signal);
-    }
-
-    await Promise.all([refresh(), refreshExecution()]);
-  }, [editingSprint, nextSprintNumber, refresh, refreshExecution, selectedProject]);
+  }, [editingSprint, nextSprintNumber, refresh, refreshExecution, selectedProject, setPending, setSuccess, setError]);
 
   const handleImprovePrompt = useCallback(async (draft: ImprovePromptInput, signal?: AbortSignal): Promise<string> => {
     if (!selectedProject) {
       throw new Error("Select a project before using Plan ahead with AI.");
     }
-    const response = await improveSprintPrompt(selectedProject.id, draft, signal);
-    return response.goal;
-  }, [selectedProject]);
+    setPending("Improving prompt with AI...");
+    try {
+      const response = await improveSprintPrompt(selectedProject.id, draft, signal);
+      setSuccess("Prompt improved.");
+      return response.goal;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleImprovePrompt(draft, signal),
+      });
+      throw error;
+    }
+  }, [selectedProject, setPending, setSuccess, setError]);
 
   const handleOpenAppendTasks = useCallback(async (sprint: Sprint) => {
     if (!selectedProject) return;
+    setPending("Fetching existing tasks...");
     try {
       const taskRecords = await fetchTasks(selectedProject.id, sprint.id);
       const sprintsById = new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
       const tasks = taskRecords.map((t) => toTaskViewModel(t, new Map(), sprintsById));
       setAddTaskSprintTasks(tasks);
       setAddTaskForSprint(sprint);
+      clearFeedback();
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleOpenAppendTasks(sprint),
+      });
     }
-  }, [selectedProject, sprints, setError]);
+  }, [selectedProject, sprints, setError, setPending, clearFeedback]);
 
   const handleAppendTask = useCallback(async (draft: {
     sprintId: string;
@@ -529,20 +577,36 @@ export function useSprintsPageData() {
     dependsOnTaskIds: string[];
   }) => {
     if (!selectedProject) return;
-    await createTask(selectedProject.id, draft as CreateTaskInput);
-    await refresh();
-    // Refresh the task list for the modal so new task appears in dependencies
-    if (addTaskForSprint) {
-      const taskRecords = await fetchTasks(selectedProject.id, addTaskForSprint.id);
-      const sprintsById = new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
-      setAddTaskSprintTasks(taskRecords.map((t) => toTaskViewModel(t, new Map(), sprintsById)));
+    setPending("Adding task to sprint...");
+    try {
+      await createTask(selectedProject.id, draft as CreateTaskInput);
+      await refresh();
+      // Refresh the task list for the modal so new task appears in dependencies
+      if (addTaskForSprint) {
+        const taskRecords = await fetchTasks(selectedProject.id, addTaskForSprint.id);
+        const sprintsById = new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
+        setAddTaskSprintTasks(taskRecords.map((t) => toTaskViewModel(t, new Map(), sprintsById)));
+      }
+      setSuccess("Task added successfully.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleAppendTask(draft),
+      });
     }
-  }, [addTaskForSprint, refresh, selectedProject, sprints]);
+  }, [addTaskForSprint, refresh, selectedProject, sprints, setPending, setSuccess, setError]);
 
   const handleDeleteSprint = useCallback(async (sprintId: string) => {
-    await deleteSprint(sprintId);
-    await Promise.all([refresh(), refreshExecution()]);
-  }, [refresh, refreshExecution]);
+    setPending("Deleting sprint...");
+    try {
+      await deleteSprint(sprintId);
+      await Promise.all([refresh(), refreshExecution()]);
+      setSuccess("Sprint deleted.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleDeleteSprint(sprintId),
+      });
+    }
+  }, [refresh, refreshExecution, setPending, setSuccess, setError]);
 
   const handleToggleShowcase = useCallback(async (sprint: Sprint) => {
     const actionId = `sprint-showcase:${sprint.id}`;
@@ -550,13 +614,18 @@ export function useSprintsPageData() {
       return;
     }
     setPendingActionIds((current) => new Set(current).add(actionId));
+    const isPinning = !sprint.showcasePinned;
+    setPending(isPinning ? "Pinning sprint to showcase..." : "Removing sprint from showcase...");
     try {
       await updateSprint(sprint.id, {
-        showcasePinned: !sprint.showcasePinned,
+        showcasePinned: isPinning,
       });
       await refresh();
+      setSuccess(isPinning ? "Sprint pinned to showcase." : "Sprint removed from showcase.");
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleToggleShowcase(sprint),
+      });
     } finally {
       setPendingActionIds((current) => {
         const next = new Set(current);
@@ -564,34 +633,51 @@ export function useSprintsPageData() {
         return next;
       });
     }
-  }, [pendingActionIds, refresh]);
+  }, [pendingActionIds, refresh, setPending, setSuccess, setError]);
 
   const handleOpenExport = useCallback(async (sprintId: string, sprintName: string) => {
     if (!selectedProject) {
       return;
     }
-    const bundle = await exportSprintMarkdown(selectedProject.id, sprintId);
-    setExportState({
-      sprintLabel: sprintName,
-      sprintMarkdown: bundle.sprint.markdown,
-      tasksMarkdown: buildTaskBundle(bundle.tasks),
-    });
-  }, [selectedProject]);
+    setPending("Preparing export bundle...");
+    try {
+      const bundle = await exportSprintMarkdown(selectedProject.id, sprintId);
+      setExportState({
+        sprintLabel: sprintName,
+        sprintMarkdown: bundle.sprint.markdown,
+        tasksMarkdown: buildTaskBundle(bundle.tasks),
+      });
+      clearFeedback();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleOpenExport(sprintId, sprintName),
+      });
+    }
+  }, [selectedProject, setPending, clearFeedback, setError]);
 
   const handleImportSprint = useCallback(async (payload: { sprintMarkdown: string; tasksMarkdown: string }) => {
     if (!selectedProject) {
       return;
     }
-    await importSprintMarkdown(selectedProject.id, {
-      sprintMarkdown: payload.sprintMarkdown,
-      tasks: parseTaskBundle(payload.tasksMarkdown),
-    });
-    await refresh();
-  }, [refresh, selectedProject]);
+    setPending("Importing sprint from markdown...");
+    try {
+      await importSprintMarkdown(selectedProject.id, {
+        sprintMarkdown: payload.sprintMarkdown,
+        tasks: parseTaskBundle(payload.tasksMarkdown),
+      });
+      await refresh();
+      setSuccess("Sprint imported successfully.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleImportSprint(payload),
+      });
+    }
+  }, [refresh, selectedProject, setPending, setSuccess, setError]);
 
 
   const handleQuicksprintExecute = useCallback(async (templateId: string, taskCount: number, submitMode: string, additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null) => {
     if (!selectedProject) return;
+    setPending("Executing quicksprint with AI specialist...");
     try {
       await executeQuicksprint(selectedProject.id, {
         templateId,
@@ -602,11 +688,14 @@ export function useSprintsPageData() {
       });
       setShowQuicksprint(false);
       await refresh();
+      setSuccess("Quicksprint launched.");
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(error instanceof Error ? error.message : String(error), {
+        retryAction: () => void handleQuicksprintExecute(templateId, taskCount, submitMode, additionalPrompt, routeOverride, modelOverride),
+      });
       throw error;
     }
-  }, [selectedProject, refresh, setError]);
+  }, [selectedProject, refresh, setPending, setSuccess, setError]);
 
   const reloadQuicksprintTemplates = useCallback(async () => {
     if (!selectedProject) return;

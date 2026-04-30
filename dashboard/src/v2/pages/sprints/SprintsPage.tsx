@@ -238,6 +238,9 @@ export const SprintsPage: FunctionComponent = () => {
               status={feedback.status}
               message={feedback.message}
               onDismiss={clearFeedback}
+              autoDismiss={feedback.autoDismiss}
+              retryAction={feedback.retryAction}
+              retryLabel={feedback.retryLabel}
               className="mt-2"
             />
             {selectedProject && (
