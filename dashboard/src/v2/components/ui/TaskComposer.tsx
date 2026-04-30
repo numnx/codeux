@@ -9,7 +9,6 @@ import { ActionFeedbackRegion } from "./ActionFeedbackRegion.js";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
-import { InteractionMessages, getErrorMessage } from "../../lib/copy/interaction-messages.js";
 
 interface TaskComposerProps {
   sprints: Sprint[];
@@ -82,16 +81,16 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
     state.setIsSubmitting(true);
     state.setSubmitError(null);
     clearFeedback();
-    setPending(InteractionMessages.taskSubmitPending);
+    setPending("Submitting task...");
 
     try {
       await onSubmit(state.getPayload());
       state.setIsSubmitting(false);
-      setSuccess(InteractionMessages.taskSubmitted);
+      setSuccess("Task submitted successfully.");
       onClose();
     } catch (err) {
       state.setIsSubmitting(false);
-      const msg = InteractionMessages.taskSubmitError(getErrorMessage(err));
+      const msg = err instanceof Error ? err.message : String(err);
       state.setSubmitError(msg);
       setError(msg, { retryAction: () => fieldsRef.current?.requestSubmit(), retryLabel: "Retry Request", autoDismiss: false });
     }

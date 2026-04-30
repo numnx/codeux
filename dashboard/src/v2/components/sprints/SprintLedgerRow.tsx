@@ -16,7 +16,6 @@ import { SprintReviewBadge } from "./SprintReviewBadge.js";
 import type { Sprint, SprintStatus } from "../../types.js";
 import type { ExecutionHumanInterventionSummary } from "../../../../../src/contracts/app-types.js";
 import { formatSprintKey, STATUS_LABELS } from "../../lib/sprint-ledger-state.js";
-import { InteractionMessages } from "../../lib/copy/interaction-messages.js";
 
 // Polished badge tones: increased contrast for backgrounds and borders where appropriate
 const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
@@ -79,21 +78,21 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
 
   // Polished stripe depth
   const rowBg = isSelected
-    ? "bg-signal-500/[0.05] dark:bg-signal-500/[0.1]"
+    ? "bg-black/[0.04] dark:bg-white/[0.04]"
     : isEven
       ? "bg-white/80 dark:bg-slate-900/40"
       : "bg-slate-50/80 dark:bg-slate-800/40";
 
   return (
     <tr
-      className={`group relative border-b border-black/[0.06] transition-colors duration-150 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] active:bg-black/[0.04] dark:active:bg-white/[0.04] focus-within:bg-white/[0.03] focus-within:z-10 dark:border-white/[0.06] ${rowBg} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""}`}
+      className={`group border-b border-black/[0.06] transition-colors hover:bg-gradient-to-r hover:from-transparent hover:to-transparent focus-within:bg-white/[0.03] dark:border-white/[0.06] ${rowBg} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""}`}
     >
       <td className="px-4 py-3 pl-6 align-middle">
         <button
           type="button"
           onClick={() => onToggleRow(sprint.id)}
           disabled={isRowPending}
-          className="inline-flex items-center justify-center text-slate-400 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 transition-all duration-150 active:scale-95 hover:text-signal-500 rounded disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center text-slate-400 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 transition-colors hover:text-signal-500 rounded disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSelected
             ? <CheckSquare className="h-4 w-4 text-signal-500" strokeWidth={2.2} />
@@ -105,7 +104,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
           type="button"
           onClick={() => onToggleShowcase(sprint)}
           disabled={isPinPending}
-          className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
             sprint.showcasePinned
               ? "border-status-red/20 bg-status-red/10 text-status-red"
               : "border-black/[0.06] bg-black/[0.03] text-slate-400 hover:text-status-red dark:border-white/[0.06] dark:bg-white/[0.03]"
@@ -200,7 +199,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             type="button"
             onClick={() => onSprintToggle(sprint.id)}
             disabled={isTogglePending}
-            className={`inline-flex h-10 min-w-[5.5rem] items-center justify-center gap-2 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
+            className={`inline-flex h-10 min-w-[5.5rem] items-center justify-center gap-2 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${
               activeRun
                 ? "border-status-red/20 bg-status-red/[0.1] text-status-red hover:bg-status-red/[0.14]"
                 : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
@@ -213,11 +212,11 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             ) : (
               <Play className="h-3.5 w-3.5" fill="currentColor" />
             )}
-            {isTogglePending ? (activeRun ? InteractionMessages.actionPending.replace('Executing action...', 'Stopping') : InteractionMessages.actionPending.replace('Executing action...', 'Starting')) : activeRun ? "Stop" : "Start"}
+            {isTogglePending ? (activeRun ? "Stopping" : "Starting") : activeRun ? "Stop" : "Start"}
           </button>
           <a
             href={`/tasks?sprint=${encodeURIComponent(sprint.id)}`}
-            className="inline-flex h-10 min-w-[4.8rem] items-center justify-center gap-2 rounded-full border border-black/[0.06] bg-white/80 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all duration-150 active:scale-95 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+            className="inline-flex h-10 min-w-[4.8rem] items-center justify-center gap-2 rounded-full border border-black/[0.06] bg-white/80 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
           >
             Open
             <Maximize2 className="h-3.5 w-3.5" />
@@ -226,7 +225,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             type="button"
             onClick={(event) => onOpenRowMenu(event, sprint.id)}
             disabled={isRowPending}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-slate-600 transition-all duration-150 active:scale-95 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isRowPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />

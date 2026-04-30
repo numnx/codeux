@@ -6,7 +6,7 @@
     "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
-    "types": ["vite/client", "@testing-library/jest-dom"],
+    "types": ["vite/client"],
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
