@@ -1,8 +1,8 @@
 /** @jsx h */
 // @vitest-environment jsdom
 import { h } from "preact";
-import { render, screen, waitFor, fireEvent } from "@testing-library/preact";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/preact";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DockerStatusMenu } from "../../../src/v2/components/DockerStatusMenu.js";
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
@@ -79,6 +79,7 @@ describe("DockerStatusMenu", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -100,8 +101,8 @@ describe("DockerStatusMenu", () => {
     expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
 
     // Trigger hover
-    const button = screen.getByRole("button", { name: "Docker Status" });
-    fireEvent.mouseEnter(button);
+    const wrapper = screen.getByRole("button", { name: "Docker Status" }).parentElement as HTMLElement;
+    fireEvent.mouseEnter(wrapper);
 
     // Dialog should appear
     expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
