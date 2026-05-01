@@ -204,7 +204,7 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
       }}
       title={`${node.task.id} · ${node.task.title}`}
     >
-      <div className={`relative h-full rounded-[1.4rem] border ${tone.card} p-5 backdrop-blur-2xl transition-transform duration-500`}>
+      <div className={`relative h-full rounded-[1.4rem] border ${tone.card} p-5 backdrop-blur-2xl dag-node-transition`}>
         <div
           className="absolute left-[-7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-white/70 dark:border-white/15"
           style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
@@ -534,6 +534,43 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                   </g>
                 ))}
 
+                {model.adjacencies.map((adjacency) => {
+                  const source = positionedNodeById.get(adjacency.from);
+                  const target = positionedNodeById.get(adjacency.to);
+                  if (!source || !target) {
+                    return null;
+                  }
+
+                  const sourceX = source.x + NODE_W / 2;
+                  const sourceY = source.y + NODE_H;
+                  const targetX = target.x + NODE_W / 2;
+                  const targetY = target.y;
+
+                  const isSettled = source.phase === "COMPLETED" && target.phase === "COMPLETED";
+                  const isActive = (source.phase === "RUNNING" || source.phase === "CODING_COMPLETED") &&
+                                   (target.phase === "RUNNING" || target.phase === "CODING_COMPLETED");
+
+                  const strokeColor = isActive ? "rgba(0,224,160,0.4)" : isSettled ? "rgba(0,171,132,0.3)" : "rgba(100,116,139,0.2)";
+                  const strokeWidth = isActive ? 2 : isSettled ? 1.5 : 1;
+                  const strokeDasharray = isActive ? undefined : isSettled ? "6 6" : "4 8";
+
+                  return (
+                    <g key={adjacency.id}>
+                      <line
+                        className="dag-edge-transition"
+                        x1={sourceX}
+                        y1={sourceY}
+                        x2={targetX}
+                        y2={targetY}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={strokeDasharray}
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                })}
+
                 {model.edges.map((edge) => {
                   const source = positionedNodeById.get(edge.from);
                   const target = positionedNodeById.get(edge.to);
@@ -559,6 +596,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                   return (
                     <g key={edge.id}>
                       <path
+                        className="dag-edge-transition"
                         d={path}
                         stroke="rgba(15,23,42,0.07)"
                         strokeWidth={tone.width + 6}
@@ -567,6 +605,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                       />
                       {edge.state === "active" && (
                         <path
+                          className="dag-edge-transition"
                           d={path}
                           stroke="url(#dag-edge-active-soft)"
                           strokeWidth={tone.width + 10}
@@ -577,6 +616,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                       )}
                       <path
                         id={`dag-path-${edge.id}`}
+                        className="dag-edge-transition"
                         d={path}
                         stroke={stroke}
                         strokeWidth={tone.width}
