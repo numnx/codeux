@@ -90,7 +90,7 @@ export class QaReviewRunner {
         sessionIdPrefix: "qa-review",
         systemRoutingMessage: args.agentInstructions.trim(),
         onActivity: args.onActivity,
-        maxRetries: 3,
+        maxRetries: (args.settings as any)?.cliWorkflow?.maxParsingRetries ?? 3,
       });
 
       return { status: "success", review: result.parsed };

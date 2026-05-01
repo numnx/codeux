@@ -1,6 +1,15 @@
 import { PlanningPayloadValidator } from "./planning-payload-validator.js";
 import type { PlannedSprintPayload } from "../contracts/project-management-types.js";
-import { findAllJsonCandidates } from "../domain/llm/json-extraction.js";
+import { findAllJsonCandidates, extractJsonFromText } from "../domain/llm/json-extraction.js";
+
+export class PlanningParseError extends Error {
+  constructor(message: string, public readonly attempts: number, public readonly rawContent: string) {
+    super(message);
+    this.name = "PlanningParseError";
+    this.reason = message;
+  }
+  public readonly reason: string;
+}
 
 export function extractJsonLikeBlock(bodyMarkdown: string): string {
   const trimmed = bodyMarkdown.trim();
@@ -99,9 +108,9 @@ export function extractJsonLikeBlock(bodyMarkdown: string): string {
         parsed &&
         typeof parsed === "object" &&
         !Array.isArray(parsed) &&
-        typeof parsed.response === "string"
+        typeof (parsed as any).response === "string"
       ) {
-        const inner = parsed.response.trim();
+        const inner = (parsed as any).response.trim();
         if (inner.startsWith("{") || inner.startsWith("[")) {
           try {
             JSON.parse(inner);
@@ -126,6 +135,14 @@ export function extractJsonLikeBlock(bodyMarkdown: string): string {
     }
   }
 
+  // If no candidates matched domain logic, fall back to extractJsonFromText.
+  if (bestScore === -1) {
+    const fallbackResult = extractJsonFromText(trimmed);
+    if (fallbackResult.success) {
+      return JSON.stringify(fallbackResult.data);
+    }
+  }
+
   return bestCandidate;
 }
 
@@ -136,9 +153,13 @@ export function parsePlannedSprintReply(bodyMarkdown: string): PlannedSprintPayl
   try {
     payload = JSON.parse(rawJson);
   } catch (error) {
-    throw new Error("Planning agent reply was not valid JSON.");
+    throw new PlanningParseError("Planning agent reply was not valid JSON.", 0, bodyMarkdown);
   }
 
   const validator = new PlanningPayloadValidator();
-  return validator.validate(payload);
+  try {
+    return validator.validate(payload);
+  } catch (error) {
+    throw new PlanningParseError(error instanceof Error ? error.message : String(error), 0, bodyMarkdown);
+  }
 }

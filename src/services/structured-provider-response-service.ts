@@ -2,6 +2,7 @@ import type { DashboardSettings } from "../contracts/app-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { ProviderExecutionService, ExecutionProviderRunArgs } from "./provider-execution-service.js";
+import { computeNextParseAttempt } from "../domain/llm/parse-retry-policy.js";
 
 export interface StructuredExecutionArgs<T> extends Omit<ExecutionProviderRunArgs, "expectTextOutput"> {
   settings: DashboardSettings;
@@ -101,7 +102,8 @@ export class StructuredProviderResponseService {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (attempt >= maxRetries) {
+        const nextAttemptPolicy = computeNextParseAttempt(attempt, maxRetries);
+        if (!nextAttemptPolicy.shouldRetry) {
           break;
         }
 
