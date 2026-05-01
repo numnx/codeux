@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 /// <reference types="@testing-library/jest-dom" />
 import { h } from "preact";
 import { render, screen, cleanup } from "@testing-library/preact";
