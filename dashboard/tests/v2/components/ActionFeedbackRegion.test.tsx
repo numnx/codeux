@@ -2,12 +2,18 @@
 // @vitest-environment jsdom
 import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionFeedbackRegion } from "../../../src/v2/components/ui/ActionFeedbackRegion.js";
 import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);
 
+import { cleanup } from "@testing-library/preact";
+
 describe("ActionFeedbackRegion", () => {
+  beforeEach(() => {
+    cleanup();
+  });
+
   it("renders nothing when status is idle", () => {
     const { container } = render(<ActionFeedbackRegion status="idle" message="Hidden" />);
     expect(container.firstChild).toBeNull();
