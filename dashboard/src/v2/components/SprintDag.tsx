@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { memo } from "preact/compat";
-import { Activity, CheckCircle2, Clock3, GitBranch, Sparkles, Timer, Workflow } from "lucide-preact";
+import { Activity, AlertTriangle, CheckCircle2, Clock3, Code2, GitBranch, Hourglass, Sparkles, Timer, Workflow, XCircle } from "lucide-preact";
 import type { ExecutionTaskDispatchSummary, Subtask } from "../../types.js";
 import { buildSprintDagModel, getSprintDagFocusNodeIds, type SprintDagEdgeModel, type SprintDagNodeModel } from "../lib/sprint-dag.js";
 import { WaveFluid } from "./ui/WaveFluid.js";
@@ -13,10 +13,10 @@ interface SprintDagProps {
   hasSprintContext: boolean;
 }
 
-const NODE_W = 224;
-const NODE_H = 128;
-const COL_GAP = 284;
-const ROW_GAP = 164;
+const NODE_W = 240;
+const NODE_H = 144;
+const COL_GAP = 300;
+const ROW_GAP = 180;
 const PAD_X = 110;
 const PAD_Y = 110;
 
@@ -28,6 +28,7 @@ type Tone = {
   card: string;
   label: string;
   dim: string;
+  icon: FunctionComponent<any>;
 };
 
 function stableRand(seed: string): number {
@@ -49,6 +50,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-signal-500/20 bg-white/80 dark:bg-void-800/78",
         label: "Running",
         dim: "",
+        icon: Activity,
       };
     case "CODING_COMPLETED":
       return {
@@ -59,6 +61,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-cyan-500/18 bg-white/78 dark:bg-void-800/76",
         label: "Coding Completed",
         dim: "",
+        icon: Code2,
       };
     case "COMPLETED":
       return {
@@ -69,6 +72,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-status-green/18 bg-white/78 dark:bg-void-800/76",
         label: "Completed",
         dim: "",
+        icon: CheckCircle2,
       };
     case "FAILED":
       return {
@@ -79,6 +83,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-status-red/16 bg-white/72 dark:bg-void-800/72",
         label: "Failed",
         dim: "opacity-85",
+        icon: XCircle,
       };
     case "BLOCKED":
     case "QUOTA":
@@ -90,6 +95,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-status-amber/16 bg-white/72 dark:bg-void-800/72",
         label: node.phase === "QUOTA" ? "Quota" : "Blocked",
         dim: "opacity-90",
+        icon: AlertTriangle,
       };
     case "PENDING":
     default:
@@ -101,6 +107,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
         card: "border-black/[0.06] bg-white/70 dark:border-white/[0.06] dark:bg-void-800/68",
         label: node.isReady ? "Ready" : "Pending",
         dim: "opacity-92",
+        icon: Hourglass,
       };
   }
 }
@@ -197,7 +204,7 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
       }}
       title={`${node.task.id} · ${node.task.title}`}
     >
-      <div className={`relative h-full rounded-[1.4rem] border ${tone.card} px-4 py-3 backdrop-blur-2xl transition-transform duration-500`}>
+      <div className={`relative h-full rounded-[1.4rem] border ${tone.card} p-5 backdrop-blur-2xl transition-transform duration-500`}>
         <div
           className="absolute left-[-7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-white/70 dark:border-white/15"
           style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
@@ -256,11 +263,13 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${tone.badge}`}>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${tone.badge}`}>
+            <tone.icon className="h-3 w-3" strokeWidth={2.5} />
             {phaseLabel}
           </span>
           {mergeLabel && (
-            <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+              <GitBranch className="h-3 w-3" strokeWidth={2.5} />
               {mergeLabel}
             </span>
           )}
