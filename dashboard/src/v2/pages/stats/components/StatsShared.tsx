@@ -75,22 +75,7 @@ export const TrendStudio: FunctionComponent<{
   onApplyCustom,
 }) => (
   <section className="space-y-6">
-    {stats.purposes.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
-        {stats.purposes.slice(0, 4).map((purpose) => (
-          <SignalMetricCard
-            key={purpose.id}
-            label={purpose.label.replace(/_/g, " ")}
-            value={formatTokens(purpose.usage.totalTokens)}
-            detail={`${formatDuration(purpose.usage.activeTimeMs)} active time`}
-            accentHex="#10B981"
-            hoverTint="group-hover:bg-emerald-500/[0.03]"
-            sparkline={createSeries(stats.buckets, (bucket) => bucket.usage.totalTokens)}
-            signalLabel="Purpose"
-          />
-        ))}
-      </div>
-    ) : null}
+
 
     <InteractiveUsageChart
       stats={stats}
