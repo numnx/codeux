@@ -54,10 +54,10 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
     ...settings.automationInterventions,
   },
   aiProvider: {
-    provider: settings.aiProvider.provider,
-    strategy: settings.aiProvider.strategy,
+    provider: settings.aiProvider?.provider,
+    strategy: settings.aiProvider?.strategy,
     providers: Object.fromEntries(
-      Object.entries(settings.aiProvider.providers).map(([providerConfigId, provider]) => [
+      Object.entries(settings.aiProvider?.providers || {}).map(([providerConfigId, provider]) => [
         providerConfigId,
         {
           provider: provider.provider,
@@ -70,7 +70,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
         },
       ]),
     ),
-    invocationRouting: cloneInvocationRouting(settings.aiProvider.invocationRouting),
+    invocationRouting: cloneInvocationRouting(settings.aiProvider?.invocationRouting || {}),
   },
   git: {
     githubMode: settings.git.githubMode,
@@ -116,10 +116,10 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
     ...settings.automationInterventions,
   },
   aiProvider: {
-    provider: settings.aiProvider.provider,
-    strategy: settings.aiProvider.strategy,
-    providers: cloneProjectProviders(settings.aiProvider.providers),
-    invocationRouting: cloneInvocationRouting(settings.aiProvider.invocationRouting),
+    provider: settings.aiProvider?.provider,
+    strategy: settings.aiProvider?.strategy,
+    providers: cloneProjectProviders(settings.aiProvider?.providers || {}),
+    invocationRouting: cloneInvocationRouting(settings.aiProvider?.invocationRouting || {}),
   },
   git: {
     ...settings.git,
@@ -538,7 +538,7 @@ export const getProjectProvidersByType = (
   settings: ProjectSettings,
   providerId: ProviderId,
 ): Array<[ProviderConfigId, ProjectProviderSettings]> => (
-  Object.entries(settings.aiProvider.providers)
+  Object.entries(settings.aiProvider?.providers || {})
     .filter(([providerConfigId, provider]) => (provider.provider || inferProviderTypeFromConfigId(providerConfigId)) === providerId)
 );
 
