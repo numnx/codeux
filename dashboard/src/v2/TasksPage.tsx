@@ -34,196 +34,14 @@ import { ListWindowSelector } from "./components/ui/ListWindowSelector.js";
 import { SkeletonCard } from "./components/ui/ListSkeletons.js";
 import { FilterStrip } from "./components/ui/FilterStrip.js";
 import { formatSprintDisplay } from "./lib/format-sprint.js";
-
-const PRIORITY_CFG: Record<TaskPriority, { label: string; color: string; dot: string; bg: string }> = {
-  critical: { label: "Critical", color: "text-status-red", dot: "bg-status-red shadow-[0_0_8px_rgba(227,0,15,0.6)]", bg: "bg-status-red/[0.08] border-status-red/20" },
-  high: { label: "High", color: "text-ember-500", dot: "bg-ember-500 shadow-[0_0_8px_rgba(255,184,0,0.5)]", bg: "bg-ember-500/[0.08] border-ember-500/20" },
-  medium: { label: "Medium", color: "text-signal-500", dot: "bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.4)]", bg: "bg-signal-500/[0.06] border-signal-500/15" },
-  low: { label: "Low", color: "text-slate-400", dot: "bg-slate-400", bg: "bg-slate-400/[0.06] border-slate-400/15" },
-};
-
-const STATUS_CFG: Record<TaskStatus, { label: string; color: string; hex: string; icon: typeof Circle }> = {
-  pending: { label: "Queued", color: "text-slate-400 dark:text-slate-500", hex: "#64748b", icon: Circle },
-  in_progress: { label: "In Progress", color: "text-signal-500", hex: "#00E0A0", icon: PlayCircle as typeof Circle },
-  coding_completed: { label: "Coding Completed", color: "text-cyan-500", hex: "#0F9FA8", icon: CheckCircle2 as typeof Circle },
-  completed: { label: "Completed", color: "text-status-green", hex: "#00AB84", icon: CheckCircle2 as typeof Circle },
-};
+import { KanbanTaskCard } from "./components/tasks/KanbanTaskCard.js";
+import { STATUS_CFG } from "./lib/tasks-constants.js";
+import { buildTaskCardViewModel } from "./lib/tasks/task-card-view-model.js";
 
 const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "coding_completed", "completed"];
-const EXECUTOR_LABEL: Record<Task["executorType"], string> = {
-  auto: "Auto",
-  docker_cli: "CLI",
-  jules: "Jules",
-};
-
-const EMPTY_DEPENDENTS: DependentTaskMetadata[] = [];
 
 type StatusFilter = "all" | TaskStatus;
 type PriorityFilter = "all" | TaskPriority;
-
-const timeAgo = (iso: string) => {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-};
-
-const TaskCard: FunctionComponent<{
-  task: Task;
-  dependents: DependentTaskMetadata[];
-  onEdit: (task: Task) => void;
-  onDelete: (task: Task) => void;
-}> = memo(({ task, dependents, onEdit, onDelete }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const pri = PRIORITY_CFG[task.priority];
-
-  const handleMouseMove = (event: MouseEvent) => {
-    const element = cardRef.current;
-    if (!element) return;
-    const bounds = element.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-    gsap.to(element, {
-      rotationY: x * 10,
-      rotationX: -y * 8,
-      z: 12,
-      transformPerspective: 800,
-      duration: 0.4,
-      ease: "power2.out",
-      overwrite: "auto",
-    });
-  };
-
-  const handleMouseLeave = () => {
-    if (!cardRef.current) return;
-    gsap.to(cardRef.current, {
-      rotationY: 0,
-      rotationX: 0,
-      z: 0,
-      transformPerspective: 800,
-      duration: 0.8,
-      ease: "elastic.out(1, 0.5)",
-      overwrite: "auto",
-    });
-  };
-
-  return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      tabIndex={0}
-      className={`group relative flex flex-col bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"}`}
-      style={{ transformStyle: "preserve-3d", willChange: "transform" }}
-    >
-      <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
-      <WaveFluid accentHex={STATUS_CFG[task.status].hex} />
-      <BorderTrace accentHex={STATUS_CFG[task.status].hex} />
-
-      <div className="flex items-center justify-between mb-3 relative z-10">
-        <span className="font-mono text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-[0.1em]">
-          {task.id.toUpperCase()}
-        </span>
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-[0.14em] ${pri.bg} ${pri.color}`}>
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pri.dot}`} />
-          {pri.label}
-        </div>
-      </div>
-
-      <h4 className={`text-[15px] font-bold tracking-tight leading-snug mb-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-300 ${
-        task.status === "completed" ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-700" : "text-slate-900 dark:text-white"
-      }`}>
-        {task.title}
-      </h4>
-
-      <div className="relative z-10 mb-4 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
-        <span className="rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2.5 py-1">
-          {EXECUTOR_LABEL[task.executorType]}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3 mt-auto relative z-10">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-          <FolderGit2 className="w-3 h-3 text-slate-300 dark:text-slate-600 group-hover:text-signal-500 transition-colors" strokeWidth={2} />
-          <span className="font-mono truncate max-w-[100px]">{task.source}</span>
-        </div>
-
-        <span className="text-slate-200 dark:text-slate-700 text-[9px]">·</span>
-
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-          <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-black/[0.03] dark:bg-white/[0.03]">
-            <span className="text-[9px] font-black font-display text-slate-500 dark:text-slate-400">
-              {task.assignee[0]}
-            </span>
-          </div>
-          <span className="font-medium">{task.assignee}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/[0.04] dark:border-white/[0.04] relative z-10">
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-300 dark:text-slate-600">
-          <Clock className="w-3 h-3" strokeWidth={2} />
-          <span className="font-mono">{task.time}</span>
-        </div>
-        <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">{timeAgo(task.createdAt)}</span>
-      </div>
-
-      {task.dependsOnTaskIds.length > 0 && (
-        <div className="relative z-10 mt-3 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-          Depends on {task.dependsOnTaskIds.length} task{task.dependsOnTaskIds.length > 1 ? "s" : ""}
-        </div>
-      )}
-
-      {dependents.length > 0 && (
-        <div className="relative z-10 mt-3 flex flex-wrap gap-1.5">
-          {dependents.map((dep) => (
-            <div
-              key={dep.recordId}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] ${
-                dep.status === "completed"
-                  ? "bg-status-green/[0.08] border-status-green/20 text-status-green"
-                  : dep.status === "coding_completed" || dep.status === "in_progress"
-                  ? "bg-signal-500/[0.08] border-signal-500/20 text-signal-500"
-                  : "bg-slate-400/[0.08] border-slate-400/20 text-slate-500"
-              }`}
-            >
-              <Target className="w-2.5 h-2.5" strokeWidth={2.5} />
-              <span>{dep.id}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 focus-within:opacity-100 focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
-        <button
-          type="button"
-          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
-          title="Edit task"
-          onClick={() => onEdit(task)}
-        >
-          <Settings className="w-3 h-3" />
-        </button>
-        <button
-          type="button"
-          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-status-red rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/30"
-          title="Delete task"
-          onClick={() => onDelete(task)}
-        >
-          <Trash2 className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-  );
-}, (prev, next) => {
-  return prev.task.recordId === next.task.recordId &&
-         prev.task.status === next.task.status &&
-         prev.task.priority === next.task.priority &&
-         prev.task.title === next.task.title &&
-         prev.dependents === next.dependents &&
-         prev.onEdit === next.onEdit &&
-         prev.onDelete === next.onDelete;
-});
 
 const ColumnHeader: FunctionComponent<{ status: TaskStatus; count: number }> = memo(({ status, count }) => {
   const cfg = STATUS_CFG[status];
@@ -484,11 +302,19 @@ export const TasksPage: FunctionComponent = () => {
   }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, isFadingOut]);
 
   const allTasks = useMemo(() => [...optimisticTasks, ...tasks], [optimisticTasks, tasks]);
-  const dependenciesMap = useMemo(() => buildDependentTasksMap(allTasks), [allTasks]);
+  const taskLookup = useMemo(() => new Map(allTasks.map(t => [t.recordId, t])), [allTasks]);
 
   const { filteredTasks, visibleTasks, stats, columns } = useMemo(() => {
     return deriveTaskBoardState(allTasks, statusFilter, priorityFilter, listWindow);
   }, [allTasks, statusFilter, priorityFilter, listWindow]);
+
+  const taskViewModels = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildTaskCardViewModel>>();
+    allTasks.forEach(task => {
+      map.set(task.recordId, buildTaskCardViewModel(task, taskLookup));
+    });
+    return map;
+  }, [allTasks, taskLookup]);
 
   const selectedSprintModel = taskScopeSprintId ? sprints.find((sprint: Sprint) => sprint.id === taskScopeSprintId) || null : null;
 
@@ -738,16 +564,21 @@ export const TasksPage: FunctionComponent = () => {
                   {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
                 </div>
               ) : !loading && !isFadingOut ? (
-                columnTasks.map((task) => (
-                  <div key={task.recordId} className="task-card-entry">
-                    <TaskCard
-                      task={task}
-                      dependents={dependenciesMap[task.recordId] ?? EMPTY_DEPENDENTS}
-                      onEdit={handleEditClick}
-                      onDelete={handleDeleteTask}
-                    />
-                  </div>
-                ))
+                columnTasks.map((task, index) => {
+                  const viewModel = taskViewModels.get(task.recordId);
+                  if (!viewModel) return null;
+
+                  return (
+                    <div key={task.recordId} className="task-card-entry">
+                      <KanbanTaskCard
+                        viewModel={viewModel}
+                        index={index}
+                        onEdit={handleEditClick}
+                        onDelete={handleDeleteTask}
+                      />
+                    </div>
+                  );
+                })
               ) : null}
             </div>
           </div>
