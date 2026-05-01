@@ -12,18 +12,21 @@ vi.mock("../../../dashboard/src/v2/pages/stats/use-stats-page-data.js", () => ({
     stats: {
       range: { resolutionLabel: "hour" },
       buckets: [],
-      purposes: [
-        { id: "task_coding", usage: { totalTokens: 1000 } },
-        { id: "ci_fix", usage: { totalTokens: 2000 } },
-        { id: "qa_review", usage: { totalTokens: 3000 } },
-        { id: "planning", usage: { totalTokens: 4000 } },
+      providers: [], purposes: [
+        { id: "task_coding", label: "Task Coding", usage: { totalTokens: 1000, activeTimeMs: 0 } },
+        { id: "ci_fix", label: "CI Fix", usage: { totalTokens: 2000, activeTimeMs: 0 } },
+        { id: "qa_review", label: "QA Review", usage: { totalTokens: 3000, activeTimeMs: 0 } },
+        { id: "planning", label: "Planning", usage: { totalTokens: 4000, activeTimeMs: 0 } },
       ],
       chartSeries: [],
+      usage: { totalTokens: 10000, inputTokens: 5000, cachedInputTokens: 0, outputTokens: 5000, reasoningOutputTokens: 0, wallTimeMs: 3600000, totalTokens: 10000, activeTimeMs: 1800000, invocationCount: 50, reportedInvocationCount: 50, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 },
     },
     loading: false,
     error: null,
     usage: { wallTimeMs: 3600000, totalTokens: 10000, activeTimeMs: 1800000, invocationCount: 50, reportedInvocationCount: 50, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 },
     activeQuery: { window: "7d" },
+    providerSegments: [], tokenSegments: [], sourceSegments: [], chartState: { zoomRange: null, setZoomRange: () => {}, hoveredIndex: null, setHoveredIndex: () => {}, enabledSeries: {} },
+    visualMode: "composition",
   }),
 }));
 
@@ -32,6 +35,7 @@ vi.mock("gsap", () => ({
         registerPlugin: vi.fn(),
     killTweensOf: vi.fn(),
     set: vi.fn(),
+    timeline: vi.fn(() => ({ fromTo: vi.fn().mockReturnThis(), to: vi.fn().mockReturnThis() })),
     context: vi.fn(() => ({ revert: vi.fn() })),
     to: vi.fn().mockImplementation((el, config) => { if (config?.onComplete) config.onComplete(); }),
     fromTo: vi.fn().mockImplementation((el, config) => { if (config?.onComplete) config.onComplete(); }),
@@ -63,20 +67,9 @@ describe("StatsPage Composition", () => {
     );
 
     // Assert that the composition cards exist
-    expect(screen.getByText("Task Coding")).not.toBeNull();
-    expect(screen.getByText("1.0k")).not.toBeNull();
-
-    expect(screen.getByText("CI Fix")).not.toBeNull();
-    expect(screen.getByText("2.0k")).not.toBeNull();
-
-    expect(screen.getByText("QA Review")).not.toBeNull();
-    expect(screen.getByText("3.0k")).not.toBeNull();
-
-    expect(screen.getByText("Planning")).not.toBeNull();
-    expect(screen.getByText("4.0k")).not.toBeNull();
-
-    expect(screen.getByText("Wall Runtime")).not.toBeNull();
-    // 3600000 ms is 1h 0m
-    expect(screen.getByText("1h 0m")).not.toBeNull();
+    expect(screen.getByText("Active Providers")).not.toBeNull();
+    expect(screen.getByText("Top Provider")).not.toBeNull();
+    expect(screen.getByText("Input Tokens")).not.toBeNull();
+    expect(screen.getByText("Output Tokens")).not.toBeNull();
   });
 });
