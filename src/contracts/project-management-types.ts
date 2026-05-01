@@ -153,6 +153,7 @@ export interface PlanningOverrides {
 export interface ImprovePromptInput {
   name: string;
   goal: string;
+  clientRequestId?: string;
   planningAgentPresetId?: string;
   overrides?: PlanningOverrides;
 }
@@ -161,6 +162,7 @@ export interface PlanSprintOptions {
   sprintRunId?: string;
   autoStart: boolean;
   replan?: boolean;
+  clientRequestId?: string;
   planningAgentPresetId?: string;
   quicksprintTemplateId?: string;
   overrides?: PlanningOverrides;

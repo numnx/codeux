@@ -4,7 +4,7 @@ import { type ListWindowOption, resolveListWindow } from "./list-window.js";
 const BOARD_LANES: TaskStatus[] = ["pending", "in_progress", "completed"];
 
 const getLane = (status: TaskStatus): TaskStatus =>
-  status === "coding_completed" ? "in_progress" : status;
+  (status === "coding_completed" || status === "QA_REVIEW_FAILED") ? "in_progress" : status;
 
 export interface TaskBoardState {
   filteredTasks: Task[];
