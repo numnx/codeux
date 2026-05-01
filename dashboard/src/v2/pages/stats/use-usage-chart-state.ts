@@ -4,7 +4,7 @@ import type { ChartZoomRange, StatsVisualMode } from "./components/StatsShared.j
 
 export interface UsageChartState {
   visualMode: StatsVisualMode;
-  setVisualMode: (mode: StatsVisualMode | "reliability") => void;
+  setVisualMode: (mode: StatsVisualMode) => void;
   zoomRange: ChartZoomRange | null;
   setZoomRange: (range: ChartZoomRange | null) => void;
   hoveredIndex: number | null;
@@ -21,12 +21,7 @@ export function useUsageChartState(
   projectId: string | null,
   stats: ProjectExecutionStatsSnapshot | null
 ): UsageChartState {
-  const [visualMode, _setVisualMode] = useState<StatsVisualMode>("trend");
-
-  const setVisualMode = (mode: StatsVisualMode | "reliability") => {
-    _setVisualMode(mode === "reliability" ? "providers" : mode);
-  };
-
+  const [visualMode, setVisualMode] = useState<StatsVisualMode>("trend");
   const [zoomRange, setZoomRange] = useState<ChartZoomRange | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);

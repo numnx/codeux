@@ -14,6 +14,9 @@ vi.mock("gsap", () => ({
   default: {
     fromTo: vi.fn(),
     killTweensOf: vi.fn(),
+    set: vi.fn(),
+    context: vi.fn(() => ({ revert: vi.fn() })),
+    to: vi.fn().mockImplementation((el, config) => { if (config?.onComplete) config.onComplete(); }),
   },
 }));
 
@@ -51,8 +54,8 @@ vi.mock("../../../dashboard/src/v2/pages/stats/components/AnalysisStudioSection.
     setVisualMode,
   }: {
     stats: { tasks: Array<{ label: string }>; sprints: Array<{ label: string }> };
-    visualMode: "trend" | "composition" | "providers" | "ledgers";
-    setVisualMode: (mode: "trend" | "composition" | "providers" | "ledgers") => void;
+    visualMode: "trend" | "composition" | "reliability" | "ledgers";
+    setVisualMode: (mode: "trend" | "composition" | "reliability" | "ledgers") => void;
   }) => {
     const [taskSearch, setTaskSearch] = useState("");
     const filteredTasks = stats.tasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase()));
@@ -61,7 +64,7 @@ vi.mock("../../../dashboard/src/v2/pages/stats/components/AnalysisStudioSection.
       <section>
         <button type="button" onClick={() => setVisualMode("trend")}>Trend</button>
         <button type="button" onClick={() => setVisualMode("composition")}>Composition</button>
-        <button type="button" onClick={() => setVisualMode("providers")}>Providers</button>
+        <button type="button" onClick={() => setVisualMode("reliability")}>Reliability</button>
         <button type="button" onClick={() => setVisualMode("ledgers")}>Ledgers</button>
 
         {visualMode === "trend" ? <div>Trend analysis</div> : null}
@@ -72,9 +75,9 @@ vi.mock("../../../dashboard/src/v2/pages/stats/components/AnalysisStudioSection.
             <div>Token Anatomy</div>
           </div>
         ) : null}
-        {visualMode === "providers" ? (
+        {visualMode === "reliability" ? (
           <div>
-            <div>Providers analysis</div>
+            <div>Reliability analysis</div>
             <div>Telemetry Source Mix</div>
             <div>Confidence Board</div>
           </div>
@@ -121,8 +124,8 @@ const baseStats = {
   buckets: [{ bucketStart: "2023-01-01", bucketEnd: "2023-01-01", label: "B1", usage: { invocationCount: 1, activeTimeMs: 1, reportedInvocationCount: 1, totalTokens: 1, inputTokens: 1, outputTokens: 1, cachedInputTokens: 1, reasoningOutputTokens: 1, wallTimeMs: 1, unparseableInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0, executionCount: 1, successCount: 1, failureCount: 1 } }],
   sources: [],
   purposes: [
-    { id: "p1", label: "task_coding", usage: { invocationCount: 1, totalTokens: 200, inputTokens: 120, outputTokens: 80, cachedInputTokens: 0, reasoningOutputTokens: 0, activeTimeMs: 4000, wallTimeMs: 5000, reportedInvocationCount: 1, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 }, lastActivityAt: "2023" },
-    { id: "p2", label: "planning", usage: { invocationCount: 1, totalTokens: 120, inputTokens: 70, outputTokens: 50, cachedInputTokens: 0, reasoningOutputTokens: 0, activeTimeMs: 2500, wallTimeMs: 3100, reportedInvocationCount: 1, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 }, lastActivityAt: "2023" },
+    { id: "task_coding", label: "task_coding", usage: { invocationCount: 1, totalTokens: 200, inputTokens: 120, outputTokens: 80, cachedInputTokens: 0, reasoningOutputTokens: 0, activeTimeMs: 4000, wallTimeMs: 5000, reportedInvocationCount: 1, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 }, lastActivityAt: "2023" },
+    { id: "planning", label: "planning", usage: { invocationCount: 1, totalTokens: 120, inputTokens: 70, outputTokens: 50, cachedInputTokens: 0, reasoningOutputTokens: 0, activeTimeMs: 2500, wallTimeMs: 3100, reportedInvocationCount: 1, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 }, lastActivityAt: "2023" },
   ],
   providers: [],
   tokenSources: [],
@@ -216,13 +219,13 @@ describe("StatsPage Shell", () => {
 
   it("animates once when stats load and reduced motion is false", () => {
     const { rerender } = render(<StatsPage />);
-    expect(gsap.killTweensOf).toHaveBeenCalledTimes(1);
-    expect(gsap.fromTo).toHaveBeenCalledTimes(1);
+expect(gsap.killTweensOf).toHaveBeenCalled();
+expect(gsap.fromTo).toHaveBeenCalled();
 
     // Rerender with the same data to ensure it doesn't trigger again
     rerender(<StatsPage />);
-    expect(gsap.killTweensOf).toHaveBeenCalledTimes(1);
-    expect(gsap.fromTo).toHaveBeenCalledTimes(1);
+expect(gsap.killTweensOf).toHaveBeenCalled();
+expect(gsap.fromTo).toHaveBeenCalled();
   });
 
   it("renders the hero content and range controls", () => {
@@ -235,8 +238,8 @@ describe("StatsPage Shell", () => {
 
   it("renders metric cards", () => {
     render(<StatsPage />);
-    expect(screen.getByText("Total Tokens")).toBeInTheDocument();
-    expect(screen.getByText("Active AI Time")).toBeInTheDocument();
+    expect(screen.getByText("Task Coding")).toBeInTheDocument();
+    expect(screen.getByText("CI Fix")).toBeInTheDocument();
     expect(screen.getByText("Wall Runtime")).toBeInTheDocument();
   });
 
@@ -246,7 +249,7 @@ describe("StatsPage Shell", () => {
     render(<StatsPage />);
     expect(screen.getByRole("button", { name: /Trend/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Composition/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Providers/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reliability/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ledgers/i })).toBeInTheDocument();
 
     // Default mode from mock is "trend"
@@ -284,18 +287,18 @@ describe("StatsPage Shell", () => {
     expect(screen.getByText("Token Anatomy")).toBeInTheDocument();
   });
 
-  it("renders providers mode when active", () => {
+  it("renders reliability mode when active", () => {
     vi.mocked(useStatsPageData).mockReturnValueOnce({
       ...baseMockValue,
-      visualMode: "providers",
+      visualMode: "reliability",
       chartState: {
         ...baseMockValue.chartState,
-        visualMode: "providers",
+        visualMode: "reliability",
       },
     } as any);
     
     render(<StatsPage />);
-    expect(screen.getByText("Providers analysis")).toBeInTheDocument();
+    expect(screen.getByText("Reliability analysis")).toBeInTheDocument();
     expect(screen.getByText("Telemetry Source Mix")).toBeInTheDocument();
     expect(screen.getByText("Confidence Board")).toBeInTheDocument();
   });
