@@ -11,7 +11,10 @@ import { useStatsPageData } from "./use-stats-page-data.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { StatsPageHero } from "./components/StatsPageHero.js";
 import { AnalysisStudioSection } from "./components/AnalysisStudioSection.js";
-import { SignalMetricCard } from "./components/StatsShared.js";
+import { StatsMetricCard } from "../../components/stats/StatsMetricCard.js";
+import { TopCardsModeRenderer } from "../../components/stats/TopCardsModeRenderer.js";
+import { STATS_COLORS } from "../../lib/stats/color-tokens.js";
+import { buildMetricSeries } from "../../lib/stats/series-builders.js";
 import styles from "./StatsPage.module.css";
 
 export const StatsPage: FunctionComponent = () => {
@@ -43,6 +46,9 @@ export const StatsPage: FunctionComponent = () => {
     applyCustomRange,
     completionConfidence,
   } = useStatsPageData(selectedProject?.id || null);
+
+
+
 
   useLayoutEffect(() => {
     if (!rootRef.current || reducedMotion || !stats || hasAnimated.current) {
@@ -86,44 +92,14 @@ export const StatsPage: FunctionComponent = () => {
         </div>
       ) : stats ? (
         <>
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
-            <SignalMetricCard
-              label="Total Tokens"
-              value={formatTokens(usage.totalTokens)}
-              detail={`${usage.reportedInvocationCount} reported · ${usage.estimatedInvocationCount} estimated provider calls`}
-              accentHex="#00E0A0"
-              hoverTint="group-hover:bg-signal-500/[0.025]"
-              sparkline={tokenSeries}
-              signalLabel="Throughput"
-            />
-            <SignalMetricCard
-              label="Active AI Time"
-              value={formatDuration(usage.activeTimeMs)}
-              detail={`${usage.invocationCount} tracked CLI invocations across the selected window`}
-              accentHex="#FFB800"
-              hoverTint="group-hover:bg-amber-500/[0.03]"
-              sparkline={activeTimeSeries}
-              signalLabel="Latency"
-            />
-            <SignalMetricCard
-              label="Wall Runtime"
-              value={formatDuration(usage.wallTimeMs)}
-              detail="Task-run wall time in the same window, including completed sprint work."
-              accentHex="#0EA5E9"
-              hoverTint="group-hover:bg-cyan-500/[0.03]"
-              sparkline={wallTimeSeries}
-              signalLabel="Task Scope"
-            />
-            <SignalMetricCard
-              label="Telemetry Confidence"
-              value={completionConfidence}
-              detail={`${usage.unavailableInvocationCount + usage.unsupportedInvocationCount} invocations could not expose authoritative counts`}
-              accentHex="#10B981"
-              hoverTint="group-hover:bg-emerald-500/[0.03]"
-              sparkline={createSeries(stats.buckets, (bucket) => bucket.usage.reportedInvocationCount)}
-              signalLabel="Audit"
-            />
-          </section>
+
+          <TopCardsModeRenderer
+            mode={visualMode}
+            stats={stats}
+            providerSegments={providerSegments}
+            tokenSegments={tokenSegments}
+            sourceSegments={sourceSegments}
+          />
 
           <section className={styles.telemetryStack}>
 

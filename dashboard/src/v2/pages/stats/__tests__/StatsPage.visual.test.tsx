@@ -1,6 +1,17 @@
 /**
  * @vitest-environment jsdom
  */
+vi.mock("gsap", () => ({
+  default: {
+    killTweensOf: vi.fn(),
+    fromTo: vi.fn().mockImplementation((el, config) => { if (config?.onComplete) config.onComplete(); }),
+    to: vi.fn().mockImplementation((el, config) => { if (config?.onComplete) config.onComplete(); }),
+    set: vi.fn(),
+    context: vi.fn(() => ({ revert: vi.fn() })),
+    registerPlugin: vi.fn(),
+    timeline: vi.fn(() => ({ to: vi.fn().mockReturnThis(), fromTo: vi.fn().mockReturnThis(), set: vi.fn().mockReturnThis() }))
+  }
+}));
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/preact';
 import { StatsPage } from '../StatsPage.js';
@@ -33,6 +44,7 @@ describe('StatsPage visual tests', () => {
 
     vi.spyOn(useStatsPageDataModule, 'useStatsPageData').mockReturnValue({
       stats: {
+        usage: { invocationCount: 1, activeTimeMs: 1000, wallTimeMs: 1000, inputTokens: 10, cachedInputTokens: 0, outputTokens: 20, reasoningOutputTokens: 0, totalTokens: 30, reportedInvocationCount: 1, estimatedInvocationCount: 0, unavailableInvocationCount: 0, unsupportedInvocationCount: 0 },
         chartSeries: [],
         range: { resolution: 'hour', bucketCount: 1, label: '24h' },
         buckets: [],
@@ -76,7 +88,7 @@ describe('StatsPage visual tests', () => {
 
   it('renders StatsPage with execution purpose cards in trend mode', () => {
     const { getByText } = render(<StatsPage />);
-    expect(getByText('Total Tokens')).toBeTruthy();
-    expect(getByText('Code Generation')).toBeTruthy();
+    expect(getByText('Task Coding')).toBeTruthy();
+    expect(getByText('CI Fix')).toBeTruthy();
   });
 });
