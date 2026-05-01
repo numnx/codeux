@@ -6,7 +6,6 @@ import gsap from "gsap";
 import { useProjectData } from "../context/project-data.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
-import { useMagnetic } from "../hooks/use-magnetic.js";
 
 /* Chat sits left of the divider — the rest are standard nav */
 const LEFT_ITEMS = [
@@ -28,16 +27,11 @@ const RIGHT_ITEMS = [
 type DockItem = (typeof LEFT_ITEMS)[number] | (typeof RIGHT_ITEMS)[number];
 
 const DockItemIcon: FunctionComponent<{ item: DockItem; isActive: boolean }> = ({ item, isActive }) => {
-    const triggerRef = useRef<HTMLDivElement>(null);
-    const targetRef = useRef<HTMLDivElement>(null);
-
-    useMagnetic(triggerRef, targetRef);
-
     return (
-        <div ref={triggerRef} className="relative w-full h-full flex items-center justify-center">
-            <div ref={targetRef}>
+        <div className="relative w-full h-full flex items-center justify-center">
+            <div className="transition-transform duration-300 ease-out group-hover:-translate-y-2.5 group-hover:scale-[1.15] group-active:-translate-y-2.5 group-active:scale-[1.15]">
                 <item.icon
-                    className={`w-5 h-5 relative z-10 transition-all duration-300
+                    className={`w-5 h-5 relative z-10 transition-colors duration-300
                         ${isActive
                             ? item.color
                             : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200'
@@ -106,41 +100,6 @@ export const KineticDock: FunctionComponent = () => {
         };
     }, [updateIndicatorPosition]);
 
-    /* Magnetic fisheye */
-    const handleMouseMove = (e: MouseEvent) => {
-        if (!dockRef.current || prefersReducedMotion) return;
-        const dockRect = dockRef.current.getBoundingClientRect();
-        const mouseX   = e.clientX;
-
-        itemRefs.current.forEach((item) => {
-            if (!item) return;
-            const rect    = item.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const dist    = Math.abs(mouseX - centerX);
-            const maxDist = 110;
-
-            if (dist < maxDist) {
-                const ratio = 1 - Math.pow(dist / maxDist, 1.5);
-                gsap.to(item, {
-                    scale: 1 + 0.45 * ratio,
-                    y: -18 * ratio,
-                    duration: 0.35,
-                    ease: "power2.out",
-                    overwrite: "auto",
-                });
-            } else {
-                gsap.to(item, { scale: 1, y: 0, duration: 0.35, ease: "power2.out", overwrite: "auto" });
-            }
-        });
-    };
-
-    const handleMouseLeave = () => {
-        itemRefs.current.forEach(item => {
-            if (!item) return;
-            gsap.to(item, { scale: 1, y: 0, duration: 0.55, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
-        });
-    };
-
     const renderItem = (item: DockItem, globalIndex: number) => {
         const isActive = activeIndex === globalIndex;
         return (
@@ -176,8 +135,6 @@ export const KineticDock: FunctionComponent = () => {
             <nav
                 aria-label="Dock navigation"
                 ref={dockRef}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
                 className="relative pointer-events-auto flex items-center gap-1.5 p-2.5
                            bg-white/60 dark:bg-void-800/70 backdrop-blur-3xl
                            border border-black/[0.06] dark:border-white/[0.08]
