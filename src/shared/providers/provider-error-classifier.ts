@@ -190,6 +190,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
   "qwen-code": "Qwen Code",
+  opencode: "OpenCode",
 };
 
 function isGeminiRuntimeStorageError(text: string): boolean {

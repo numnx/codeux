@@ -46,7 +46,7 @@ export interface IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code";
+    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
@@ -89,7 +89,7 @@ export class DockerRunner implements IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code";
+    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
@@ -314,7 +314,7 @@ export class DockerRunner implements IDockerRunner {
 
   private async buildProviderMcpMounts(
     conn: McpConnectionInfo,
-    provider: "gemini" | "codex" | "claude-code" | "qwen-code",
+    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
     tempRoot: string,
   ): Promise<ContainerMount[]> {
     const headers: Record<string, string> = {};
@@ -360,6 +360,10 @@ export class DockerRunner implements IDockerRunner {
         },
       }, null, 2));
       return [{ source: filePath, destination: QWEN_CODE_SETTINGS_MOUNT, readonly: true }];
+    }
+
+    if (provider === "opencode") {
+      return [];
     }
 
     const filePath = path.join(tempRoot, "codex-config.toml");

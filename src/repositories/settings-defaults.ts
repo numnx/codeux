@@ -32,7 +32,7 @@ export const DEFAULT_SKILLS: SkillToggle[] = INTERNAL_SKILL_NAMES.map((name) => 
   isInternal: true,
 }));
 
-export const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code"];
+export const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"];
 export const THINKING_MODES: ThinkingMode[] = ["SMALL", "MEDIUM", "HIGH"];
 export const PROVIDER_STRATEGIES: ProviderStrategy[] = ["MANUAL", "WEIGHTED", "ORCHESTRATOR"];
 export const INVOCATION_ROUTING_PROFILES: InvocationRoutingProfile[] = ["GLOBAL", "WORKER"];
@@ -48,13 +48,14 @@ export const INVOCATION_ROUTING_IDS: InvocationRoutingId[] = [
 export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["DOCKER", "HOST"];
 export const FEATURE_PR_AUTOMERGE_MODES: FeaturePrAutoMergeMode[] = ["OFF", "CREATE_PR", "WHEN_GREEN", "ALWAYS"];
 export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["VIRTUAL"];
-export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code", "qwen-code"];
+export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code", "qwen-code", "opencode"];
 export const DEFAULT_PROVIDER_CONFIG_IDS: Record<ProviderId, ProviderConfigId> = {
   jules: "jules",
   gemini: "gemini",
   codex: "codex",
   "claude-code": "claude-code",
   "qwen-code": "qwen-code",
+  opencode: "opencode",
 };
 export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   jules: "Jules Primary",
@@ -62,6 +63,7 @@ export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   codex: "Codex Primary",
   "claude-code": "Claude Primary",
   "qwen-code": "Qwen Primary",
+  opencode: "OpenCode Primary",
 };
 export const DEFAULT_PROVIDER_AUTH_PATHS: Record<ProviderId, string> = {
   jules: "",
@@ -69,6 +71,7 @@ export const DEFAULT_PROVIDER_AUTH_PATHS: Record<ProviderId, string> = {
   codex: "~/.codex",
   "claude-code": "~/.claude",
   "qwen-code": "~/.qwen",
+  opencode: "~/.local/share/opencode",
 };
 
 // AI Models catalog — available model identifiers per virtual worker provider
@@ -123,11 +126,23 @@ export const QWEN_MODELS: string[] = [
   "local-model",
 ];
 
+export const OPENCODE_MODELS: string[] = [
+  "anthropic/claude-sonnet-4-5",
+  "anthropic/claude-opus-4-1",
+  "anthropic/claude-haiku-4-5",
+  "openai/gpt-5",
+  "openai/gpt-5-mini",
+  "github-copilot/gpt-5",
+  "openrouter/anthropic/claude-sonnet-4.5",
+  "custom/model",
+];
+
 export const AI_MODEL_CATALOG: Record<string, string[]> = {
   gemini: GEMINI_MODELS,
   "claude-code": CLAUDE_MODELS,
   codex: CODEX_MODELS,
   "qwen-code": QWEN_MODELS,
+  opencode: OPENCODE_MODELS,
 };
 
 export const DEFAULT_VIRTUAL_WORKER_MODELS: Record<string, string> = {
@@ -135,6 +150,7 @@ export const DEFAULT_VIRTUAL_WORKER_MODELS: Record<string, string> = {
   "claude-code": "default",
   codex: "gpt-5.3-codex",
   "qwen-code": "qwen3-coder-plus",
+  opencode: "anthropic/claude-sonnet-4-5",
 };
 
 export const MIN_WATCH_LOOP_INTERVAL_SECONDS = 1;
@@ -205,6 +221,18 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     authPath: DEFAULT_PROVIDER_AUTH_PATHS["qwen-code"],
     maxConcurrentTasks: 0,
   },
+  opencode: {
+    provider: "opencode",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.opencode,
+    enabled: false,
+    model: "anthropic/claude-sonnet-4-5",
+    weight: 0,
+    thinkingMode: "HIGH",
+    apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.opencode,
+    maxConcurrentTasks: 0,
+  },
 };
 
 export const createDefaultProviderSettings = (
@@ -221,6 +249,8 @@ export const buildDefaultProviderSettingsMap = (): Record<ProviderConfigId, Prov
   [DEFAULT_PROVIDER_CONFIG_IDS.gemini]: createDefaultProviderSettings("gemini"),
   [DEFAULT_PROVIDER_CONFIG_IDS.codex]: createDefaultProviderSettings("codex"),
   [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: createDefaultProviderSettings("claude-code"),
+  [DEFAULT_PROVIDER_CONFIG_IDS["qwen-code"]]: createDefaultProviderSettings("qwen-code"),
+  [DEFAULT_PROVIDER_CONFIG_IDS.opencode]: createDefaultProviderSettings("opencode"),
 });
 
 export const DEFAULT_INVOCATION_ROUTING: Record<InvocationRoutingId, InvocationRoutingSettings> = {
@@ -359,11 +389,13 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     containerMountCodexAuth: false,
     containerMountClaudeCodeAuth: false,
     containerMountQwenCodeAuth: false,
+    containerMountOpenCodeAuth: false,
     containerGithubAuthPath: "~/.config/gh",
     containerGeminiAuthPath: "~/.gemini",
     containerCodexAuthPath: "~/.codex",
     containerClaudeCodeAuthPath: "~/.claude",
     containerQwenCodeAuthPath: "~/.qwen",
+    containerOpenCodeAuthPath: "~/.local/share/opencode",
     maxPlanningJsonRetries: 3,
     maxQuotaRetriesWithoutTimer: 5,
   },

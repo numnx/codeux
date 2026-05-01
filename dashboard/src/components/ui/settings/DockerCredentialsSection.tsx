@@ -72,6 +72,13 @@ const toggleDescriptors: FieldDescriptor<DashboardSettings["cliWorkflow"]>[] = [
     getValue: (workflow) => workflow.containerMountClaudeCodeAuth,
     onToggle: (workflow, checked) => ({ ...workflow, containerMountClaudeCodeAuth: checked }),
   },
+  {
+    id: "containerMountOpenCodeAuth",
+    type: "toggle",
+    label: "Mount OpenCode auth",
+    getValue: (workflow) => workflow.containerMountOpenCodeAuth,
+    onToggle: (workflow, checked) => ({ ...workflow, containerMountOpenCodeAuth: checked }),
+  },
 ];
 
 const pathInputDescriptors: FieldDescriptor<DashboardSettings["cliWorkflow"]>[] = [
@@ -110,6 +117,15 @@ const pathInputDescriptors: FieldDescriptor<DashboardSettings["cliWorkflow"]>[] 
     disabled: (workflow) => !workflow.containerMountClaudeCodeAuth,
     getValue: (workflow) => workflow.containerClaudeCodeAuthPath,
     onInput: (workflow, value) => ({ ...workflow, containerClaudeCodeAuthPath: value }),
+  },
+  {
+    id: "containerOpenCodeAuthPath",
+    type: "input",
+    label: "OpenCode auth path",
+    placeholder: "~/.local/share/opencode",
+    disabled: (workflow) => !workflow.containerMountOpenCodeAuth,
+    getValue: (workflow) => workflow.containerOpenCodeAuthPath,
+    onInput: (workflow, value) => ({ ...workflow, containerOpenCodeAuthPath: value }),
   },
 ];
 

@@ -415,7 +415,7 @@ export class PlanningAgentService {
     const route = resolveProviderForInvocation(args.settings, {
       invocation: "planning",
       task: routingTask,
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
     });
     const providerConfigId = args.overrides?.virtualProvider
       ? Object.entries(route.providers).find(([, candidate]) => candidate.provider === args.overrides?.virtualProvider)?.[0] || route.providerConfigId
@@ -546,6 +546,8 @@ export class PlanningAgentService {
         return "Claude Code";
       case "qwen-code":
         return "Qwen Code";
+      case "opencode":
+        return "OpenCode";
       case "codex":
       default:
         return "Codex";

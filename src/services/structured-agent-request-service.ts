@@ -21,6 +21,12 @@ export interface StructuredRequestArgs<T> {
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
   providerMountAuth?: boolean;
   providerAuthPath?: string;
   providerPrompt: string;
@@ -117,6 +123,12 @@ export class StructuredAgentRequestService {
       qwenBaseUrl: args.qwenBaseUrl,
       qwenEnvKey: args.qwenEnvKey,
       qwenProtocol: args.qwenProtocol,
+        openCodeAuthMode: args.openCodeAuthMode,
+        openCodeProviderId: args.openCodeProviderId,
+        openCodeModelId: args.openCodeModelId,
+        openCodeBaseUrl: args.openCodeBaseUrl,
+        openCodeEnvKey: args.openCodeEnvKey,
+        openCodePackage: args.openCodePackage,
       providerMountAuth: args.providerMountAuth,
       providerAuthPath: args.providerAuthPath,
       sessionId,

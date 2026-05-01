@@ -306,7 +306,7 @@ export class SessionTrackingRepository {
   }): CliSessionWorkspaceTarget | null {
     const providers = (args.providers && args.providers.length > 0)
       ? args.providers
-      : ["gemini", "codex", "claude-code", "qwen-code"];
+      : ["gemini", "codex", "claude-code", "qwen-code", "opencode"];
     const placeholders = providers.map(() => "?").join(", ");
     const row = this.db.prepare(`
       SELECT id, worker_branch, state

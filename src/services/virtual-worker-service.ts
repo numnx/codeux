@@ -299,6 +299,12 @@ export class VirtualWorkerService {
       qwenBaseUrl: providerSettings.qwenBaseUrl,
       qwenEnvKey: providerSettings.qwenEnvKey,
       qwenProtocol: providerSettings.qwenProtocol,
+        openCodeAuthMode: providerSettings.openCodeAuthMode,
+        openCodeProviderId: providerSettings.openCodeProviderId,
+        openCodeModelId: providerSettings.openCodeModelId,
+        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+        openCodeEnvKey: providerSettings.openCodeEnvKey,
+        openCodePackage: providerSettings.openCodePackage,
         providerMountAuth: providerSettings.mountAuth,
         providerAuthPath: providerSettings.authPath,
       },
@@ -514,7 +520,7 @@ export class VirtualWorkerService {
         is_independent: true,
         status: "PENDING",
       },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
     });
     const provider = route.provider as Exclude<ProviderId, "jules">;
     const providerConfigId = route.providerConfigId || route.provider;
@@ -604,6 +610,12 @@ export class VirtualWorkerService {
           qwenBaseUrl: providerSettings.qwenBaseUrl,
           qwenEnvKey: providerSettings.qwenEnvKey,
           qwenProtocol: providerSettings.qwenProtocol,
+        openCodeAuthMode: providerSettings.openCodeAuthMode,
+        openCodeProviderId: providerSettings.openCodeProviderId,
+        openCodeModelId: providerSettings.openCodeModelId,
+        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+        openCodeEnvKey: providerSettings.openCodeEnvKey,
+        openCodePackage: providerSettings.openCodePackage,
           providerMountAuth: providerSettings.mountAuth,
           providerAuthPath: providerSettings.authPath,
           githubToken: settings.git.githubToken,
@@ -720,7 +732,7 @@ export class VirtualWorkerService {
         is_independent: true,
         status: "PENDING",
       },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
     });
     const provider = route.provider as Exclude<ProviderId, "jules">;
     const providerConfigId = route.providerConfigId || route.provider;
@@ -829,6 +841,12 @@ export class VirtualWorkerService {
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
         qwenProtocol: providerSettings.qwenProtocol,
+        openCodeAuthMode: providerSettings.openCodeAuthMode,
+        openCodeProviderId: providerSettings.openCodeProviderId,
+        openCodeModelId: providerSettings.openCodeModelId,
+        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+        openCodeEnvKey: providerSettings.openCodeEnvKey,
+        openCodePackage: providerSettings.openCodePackage,
         providerMountAuth: providerSettings.mountAuth,
         providerAuthPath: providerSettings.authPath,
         githubToken: settings.git.githubToken,
@@ -1046,6 +1064,12 @@ export class VirtualWorkerService {
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
     githubToken: string;
@@ -1069,6 +1093,12 @@ export class VirtualWorkerService {
       qwenBaseUrl: args.qwenBaseUrl,
       qwenEnvKey: args.qwenEnvKey,
       qwenProtocol: args.qwenProtocol,
+        openCodeAuthMode: args.openCodeAuthMode,
+        openCodeProviderId: args.openCodeProviderId,
+        openCodeModelId: args.openCodeModelId,
+        openCodeBaseUrl: args.openCodeBaseUrl,
+        openCodeEnvKey: args.openCodeEnvKey,
+        openCodePackage: args.openCodePackage,
       providerMountAuth: args.providerMountAuth,
       providerAuthPath: args.providerAuthPath,
       sessionId: args.sessionId,
@@ -1266,6 +1296,8 @@ export class VirtualWorkerService {
         return "Claude Code";
       case "qwen-code":
         return "Qwen Code";
+      case "opencode":
+        return "OpenCode";
       case "gemini":
         return "Gemini";
       case "codex":

@@ -36,6 +36,12 @@ export interface ProcessManagementActionArgs {
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
   providerMountAuth?: boolean;
   providerAuthPath?: string;
   sessionId: string;
@@ -142,6 +148,12 @@ export class ChatManagementActionService {
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
         qwenProtocol: args.qwenProtocol,
+        openCodeAuthMode: args.openCodeAuthMode,
+        openCodeProviderId: args.openCodeProviderId,
+        openCodeModelId: args.openCodeModelId,
+        openCodeBaseUrl: args.openCodeBaseUrl,
+        openCodeEnvKey: args.openCodeEnvKey,
+        openCodePackage: args.openCodePackage,
         providerMountAuth: args.providerMountAuth,
         providerAuthPath: args.providerAuthPath,
         sessionId: args.sessionId,
@@ -225,6 +237,12 @@ export class ChatManagementActionService {
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
         qwenProtocol: args.qwenProtocol,
+        openCodeAuthMode: args.openCodeAuthMode,
+        openCodeProviderId: args.openCodeProviderId,
+        openCodeModelId: args.openCodeModelId,
+        openCodeBaseUrl: args.openCodeBaseUrl,
+        openCodeEnvKey: args.openCodeEnvKey,
+        openCodePackage: args.openCodePackage,
         providerMountAuth: args.providerMountAuth,
         providerAuthPath: args.providerAuthPath,
         sessionId: args.sessionId,

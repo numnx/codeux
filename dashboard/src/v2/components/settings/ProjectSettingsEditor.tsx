@@ -363,6 +363,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["containerMountGeminiAuth", "Mount Gemini auth"],
             ["containerMountCodexAuth", "Mount Codex auth"],
             ["containerMountClaudeCodeAuth", "Mount Claude Code auth"],
+            ["containerMountOpenCodeAuth", "Mount OpenCode auth"],
           ].map(([field, label]) => (
             <Row key={field} label={label} description={`Enable ${label.toLowerCase()} for this scope.`} badge={getBadge(`cliWorkflow.${field}`)}>
               <Toggle
@@ -409,6 +410,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["containerGeminiAuthPath", "Gemini auth path"],
             ["containerCodexAuthPath", "Codex auth path"],
             ["containerClaudeCodeAuthPath", "Claude Code auth path"],
+            ["containerOpenCodeAuthPath", "OpenCode auth path"],
           ].map(([field, label]) => (
             <Row key={field} label={label} description={`Runtime path mounted for ${label.toLowerCase()}.`} badge={getBadge(`cliWorkflow.${field}`)}>
               <TextInput

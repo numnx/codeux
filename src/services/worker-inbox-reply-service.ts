@@ -135,6 +135,12 @@ export class WorkerInboxReplyService {
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
         qwenProtocol: providerSettings.qwenProtocol,
+        openCodeAuthMode: providerSettings.openCodeAuthMode,
+        openCodeProviderId: providerSettings.openCodeProviderId,
+        openCodeModelId: providerSettings.openCodeModelId,
+        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+        openCodeEnvKey: providerSettings.openCodeEnvKey,
+        openCodePackage: providerSettings.openCodePackage,
         providerMountAuth: providerSettings.mountAuth,
         providerAuthPath: providerSettings.authPath,
         githubToken: this.deps.getGithubToken(),
@@ -291,6 +297,12 @@ export class WorkerInboxReplyService {
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
         qwenProtocol: providerSettings.qwenProtocol,
+        openCodeAuthMode: providerSettings.openCodeAuthMode,
+        openCodeProviderId: providerSettings.openCodeProviderId,
+        openCodeModelId: providerSettings.openCodeModelId,
+        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+        openCodeEnvKey: providerSettings.openCodeEnvKey,
+        openCodePackage: providerSettings.openCodePackage,
         providerMountAuth: providerSettings.mountAuth,
         providerAuthPath: providerSettings.authPath,
         githubToken: this.deps.getGithubToken(),
@@ -393,6 +405,12 @@ export class WorkerInboxReplyService {
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
     githubToken?: string;
@@ -410,6 +428,12 @@ export class WorkerInboxReplyService {
       qwenBaseUrl: input.qwenBaseUrl,
       qwenEnvKey: input.qwenEnvKey,
       qwenProtocol: input.qwenProtocol,
+        openCodeAuthMode: input.openCodeAuthMode,
+        openCodeProviderId: input.openCodeProviderId,
+        openCodeModelId: input.openCodeModelId,
+        openCodeBaseUrl: input.openCodeBaseUrl,
+        openCodeEnvKey: input.openCodeEnvKey,
+        openCodePackage: input.openCodePackage,
       providerMountAuth: input.providerMountAuth,
       providerAuthPath: input.providerAuthPath,
       sessionId: "worker-reply-" + randomUUID(),
