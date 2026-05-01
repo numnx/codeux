@@ -140,7 +140,7 @@ export class StructuredAgentRequestService {
       invocationId,
       onActivity: args.onActivity,
       settings: args.settings,
-      maxRetries: args.maxRetries ?? args.settings.cliWorkflow?.maxPlanningJsonRetries ?? 3,
+      maxRetries: args.maxRetries ?? args.settings.cliWorkflow?.maxParsingRetries ?? 3,
       providerLabel: args.providerLabel,
       parseFn: args.parseFn,
       buildRetryPrompt: args.buildRetryPrompt,

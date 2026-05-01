@@ -28,8 +28,8 @@ export class QaReviewState {
       status: "errored",
       summaryMarkdown: outcome.message,
       payload: {
-        errorReason: outcome.reason,
-        errorCode: outcome.reason,
+        error_reason: outcome.reason,
+        error_code: outcome.reason,
         errorMessage: outcome.message,
       },
       finishedAt: new Date().toISOString(),
