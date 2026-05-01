@@ -7,6 +7,7 @@ export const GEMINI_CREDENTIALS_MOUNT = "/opt/credentials/gemini";
 export const CLAUDE_CODE_CREDENTIALS_MOUNT = "/opt/credentials/claude-code";
 export const CLAUDE_CODE_AUTH_JSON_MOUNT = "/opt/credentials/claude-code-auth.json";
 export const QWEN_CODE_CREDENTIALS_MOUNT = "/opt/credentials/qwen-code";
+export const OPENCODE_CREDENTIALS_MOUNT = "/opt/credentials/opencode";
 export const GITCONFIG_CREDENTIALS_MOUNT = "/opt/credentials/gitconfig";
 export const CLAUDE_CODE_MCP_CONFIG_MOUNT = "/opt/provider-config/claude-mcp.json";
 export const GEMINI_MCP_SETTINGS_MOUNT = "/opt/provider-config/gemini-settings.json";
@@ -34,7 +35,7 @@ export class DockerBootstrapBuilder {
       this.credentialSync(),
       this.npmConfig(options.runtimeNpmPrefix, options.runtimeNpmCache),
       this.setupScript(options.runSetupScript !== false),
-      this.fallbackInstall(options.fallbackProviders || ["gemini", "codex", "claude", "qwen"]),
+      this.fallbackInstall(options.fallbackProviders || ["gemini", "codex", "claude", "qwen", "opencode"]),
       this.claudeAuth(),
       this.execution(),
     ];
@@ -45,7 +46,7 @@ export class DockerBootstrapBuilder {
   private header(): string {
     return [
       "set -euo pipefail",
-      "mkdir -p \"$HOME/.config\" \"$HOME/.codex\" \"$HOME/.claude\" \"$HOME/.gemini\" \"$HOME/.qwen\"",
+      "mkdir -p \"$HOME/.config\" \"$HOME/.codex\" \"$HOME/.claude\" \"$HOME/.gemini\" \"$HOME/.qwen\" \"$HOME/.local/share/opencode\" \"$HOME/.config/opencode\"",
       "sync_dir_contents() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; mkdir -p \"$destination\"; if ! cp -r \"$source/.\" \"$destination/\"; then echo \"provider-runner: warning: failed to copy $label credentials\" >&2; fi; }",
       "copy_if_present() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; if [ -e \"$source\" ]; then mkdir -p \"$(dirname \"$destination\")\"; if ! cp -f \"$source\" \"$destination\"; then echo \"provider-runner: warning: failed to copy $label\" >&2; fi; fi; }",
       "merge_json_file() { local source=\"$1\"; local destination=\"$2\"; local label=\"$3\"; if [ ! -e \"$source\" ]; then return 0; fi; mkdir -p \"$(dirname \"$destination\")\"; if ! node -e 'const fs=require(\"fs\"); const [source,destination]=process.argv.slice(1); const read=(file)=>{ try { return JSON.parse(fs.readFileSync(file,\"utf8\")); } catch { return {}; } }; const sourceJson=read(source); const destinationJson=read(destination); const merged={...destinationJson,...sourceJson}; if (destinationJson.mcpServers || sourceJson.mcpServers) merged.mcpServers={...(destinationJson.mcpServers||{}), ...(sourceJson.mcpServers||{})}; fs.writeFileSync(destination, `${JSON.stringify(merged, null, 2)}\\n`);' \"$source\" \"$destination\"; then echo \"provider-runner: warning: failed to merge $label\" >&2; fi; }",
@@ -113,6 +114,9 @@ export class DockerBootstrapBuilder {
       "if [ \"$1\" = \"qwen\" ]; then",
       `  if [ -d "${QWEN_CODE_CREDENTIALS_MOUNT}" ]; then sync_dir_contents "${QWEN_CODE_CREDENTIALS_MOUNT}" "$HOME/.qwen" "qwen"; fi`,
       `  merge_json_file "${QWEN_CODE_SETTINGS_MOUNT}" "$HOME/.qwen/settings.json" "qwen settings.json"`,
+      "fi",
+      "if [ \"$1\" = \"opencode\" ]; then",
+      `  if [ -d "${OPENCODE_CREDENTIALS_MOUNT}" ]; then sync_dir_contents "${OPENCODE_CREDENTIALS_MOUNT}" "$HOME/.local/share/opencode" "opencode"; fi`,
       "fi",
       `append_if_missing_literal "${CODEX_MCP_CONFIG_MOUNT}" "$HOME/.codex/config.toml" "[mcp_servers.sprint-os]" "codex mcp config"`,
     ].join("\n");

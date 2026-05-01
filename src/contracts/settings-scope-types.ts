@@ -89,6 +89,12 @@ export interface SystemProviderCredentialSettings {
   qwenEnvKey?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
   qwenAdditionalModelProviders?: QwenModelProviderSettings[];
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
 }
 
 export interface SystemIntegrationSettings {

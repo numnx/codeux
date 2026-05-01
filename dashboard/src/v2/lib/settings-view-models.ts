@@ -244,6 +244,7 @@ export const providerLabels: Record<ProviderId, string> = {
   codex: "Codex",
   "claude-code": "Claude Code",
   "qwen-code": "Qwen Code",
+  opencode: "OpenCode",
 };
 
 export const getProviderTypeLabel = (providerId: ProviderId): string => providerLabels[providerId];
@@ -254,10 +255,16 @@ export const createProjectProviderDraft = (
 ): ProjectProviderSettings => ({
   provider: providerId,
   name,
-  enabled: providerId !== "claude-code" && providerId !== "qwen-code",
-  model: providerId === "codex" ? "gpt-5.3-codex" : providerId === "qwen-code" ? "qwen3-coder-plus" : "default",
-  weight: providerId === "jules" ? 60 : providerId === "claude-code" || providerId === "qwen-code" ? 0 : 20,
-  thinkingMode: providerId === "codex" || providerId === "claude-code" || providerId === "qwen-code" ? "HIGH" : "MEDIUM",
+  enabled: providerId !== "claude-code" && providerId !== "qwen-code" && providerId !== "opencode",
+  model: providerId === "codex"
+    ? "gpt-5.3-codex"
+    : providerId === "qwen-code"
+      ? "qwen3-coder-plus"
+      : providerId === "opencode"
+        ? "anthropic/claude-sonnet-4-5"
+        : "default",
+  weight: providerId === "jules" ? 60 : providerId === "claude-code" || providerId === "qwen-code" || providerId === "opencode" ? 0 : 20,
+  thinkingMode: providerId === "codex" || providerId === "claude-code" || providerId === "qwen-code" || providerId === "opencode" ? "HIGH" : "MEDIUM",
   maxConcurrentTasks: providerId === "jules" ? 15 : 0,
 });
 
@@ -277,7 +284,9 @@ export const createSystemProviderDraft = (
         ? "~/.claude"
         : providerId === "qwen-code"
           ? "~/.qwen"
-        : "",
+          : providerId === "opencode"
+            ? "~/.local/share/opencode"
+            : "",
   ...(providerId === "qwen-code" ? {
     qwenAuthMode: "LOCAL_AUTH" as const,
     qwenRegion: "international" as const,
@@ -285,6 +294,14 @@ export const createSystemProviderDraft = (
     qwenEnvKey: "DASHSCOPE_API_KEY",
     qwenProtocol: "openai" as const,
     qwenAdditionalModelProviders: [],
+  } : {}),
+  ...(providerId === "opencode" ? {
+    openCodeAuthMode: "LOCAL_AUTH" as const,
+    openCodeProviderId: "anthropic",
+    openCodeModelId: "claude-sonnet-4-5",
+    openCodeBaseUrl: "https://api.openai.com/v1",
+    openCodeEnvKey: "ANTHROPIC_API_KEY",
+    openCodePackage: "@ai-sdk/openai-compatible",
   } : {}),
 });
 
@@ -374,6 +391,16 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "qwen-max",
     "local-model",
   ],
+  opencode: [
+    "anthropic/claude-sonnet-4-5",
+    "anthropic/claude-opus-4-1",
+    "anthropic/claude-haiku-4-5",
+    "openai/gpt-5",
+    "openai/gpt-5-mini",
+    "github-copilot/gpt-5",
+    "openrouter/anthropic/claude-sonnet-4.5",
+    "custom/model",
+  ],
 };
 
 const PROVIDER_MODEL_LABEL_OVERRIDES: Partial<Record<ProviderId, Record<string, string>>> = {
@@ -400,7 +427,10 @@ const getHintApiKey = (
   if (providerId === "claude-code") {
     return hints?.resolved.claudeCodeApiKey || "";
   }
-  return hints?.resolved.qwenCodeApiKey || "";
+  if (providerId === "qwen-code") {
+    return hints?.resolved.qwenCodeApiKey || "";
+  }
+  return hints?.resolved.openCodeApiKey || "";
 };
 
 const getLegacyIntegrationApiKey = (
@@ -420,7 +450,10 @@ const getLegacyIntegrationApiKey = (
   if (providerId === "claude-code") {
     return typeof integrations.claudeCodeApiKey === "string" ? integrations.claudeCodeApiKey : "";
   }
-  return typeof integrations.qwenCodeApiKey === "string" ? integrations.qwenCodeApiKey : "";
+  if (providerId === "qwen-code") {
+    return typeof integrations.qwenCodeApiKey === "string" ? integrations.qwenCodeApiKey : "";
+  }
+  return typeof integrations.openCodeApiKey === "string" ? integrations.openCodeApiKey : "";
 };
 
 const getSystemIntegrationProviders = (
@@ -432,7 +465,7 @@ const getSystemIntegrationProviders = (
   }
 
   const fallback: Record<ProviderConfigId, SystemProviderCredentialSettings> = {};
-  for (const providerId of ["jules", "gemini", "codex", "claude-code", "qwen-code"] as ProviderId[]) {
+  for (const providerId of ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"] as ProviderId[]) {
     const apiKey = getLegacyIntegrationApiKey(systemSettings, providerId);
     fallback[providerId] = {
       provider: providerId,
@@ -447,7 +480,9 @@ const getSystemIntegrationProviders = (
             ? "~/.claude"
             : providerId === "qwen-code"
               ? "~/.qwen"
-            : "",
+              : providerId === "opencode"
+                ? "~/.local/share/opencode"
+                : "",
       ...(providerId === "qwen-code" ? {
         qwenAuthMode: "LOCAL_AUTH" as const,
         qwenRegion: "international" as const,
@@ -455,6 +490,14 @@ const getSystemIntegrationProviders = (
         qwenEnvKey: "DASHSCOPE_API_KEY",
         qwenProtocol: "openai" as const,
         qwenAdditionalModelProviders: [],
+      } : {}),
+      ...(providerId === "opencode" ? {
+        openCodeAuthMode: "LOCAL_AUTH" as const,
+        openCodeProviderId: "anthropic",
+        openCodeModelId: "claude-sonnet-4-5",
+        openCodeBaseUrl: "https://api.openai.com/v1",
+        openCodeEnvKey: "ANTHROPIC_API_KEY",
+        openCodePackage: "@ai-sdk/openai-compatible",
       } : {}),
     };
   }
@@ -476,6 +519,9 @@ const inferProviderTypeFromConfigId = (providerConfigId: ProviderConfigId): Prov
   }
   if (providerConfigId === "qwen-code" || providerConfigId.startsWith("qwen-code-") || providerConfigId.startsWith("qwen-")) {
     return "qwen-code";
+  }
+  if (providerConfigId === "opencode" || providerConfigId.startsWith("opencode-")) {
+    return "opencode";
   }
   return null;
 };
@@ -667,6 +713,15 @@ export const PROVIDER_CARD_TOKENS: Record<ProviderId, {
   "qwen-code": {
     watermark: "QWN",
     logoLabel: "Q",
+    badgeLabel: "CLI",
+    badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  },
+  opencode: {
+    watermark: "OPC",
+    logoLabel: "O",
     badgeLabel: "CLI",
     badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
     glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",

@@ -17,6 +17,7 @@ export const cloneDefaultSettings = (): DashboardSettings => ({
       codex: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.codex },
       "claude-code": { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers["claude-code"] },
       "qwen-code": { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers["qwen-code"] },
+      opencode: { ...DEFAULT_DASHBOARD_SETTINGS.aiProvider.providers.opencode },
     },
   },
   git: { ...DEFAULT_DASHBOARD_SETTINGS.git },
@@ -63,7 +64,9 @@ export const applyExternalSettingsHints = (
                   ? hints.resolved.codexApiKey
                   : provider.provider === "claude-code"
                     ? hints.resolved.claudeCodeApiKey
-                    : hints.resolved.qwenCodeApiKey,
+                    : provider.provider === "qwen-code"
+                      ? hints.resolved.qwenCodeApiKey
+                      : hints.resolved.openCodeApiKey,
         },
       ]),
     ),

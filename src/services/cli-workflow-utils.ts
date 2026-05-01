@@ -19,11 +19,13 @@ export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   containerMountCodexAuth: false,
   containerMountClaudeCodeAuth: false,
   containerMountQwenCodeAuth: false,
+  containerMountOpenCodeAuth: false,
   containerGithubAuthPath: "~/.config/gh",
   containerGeminiAuthPath: "~/.gemini",
   containerCodexAuthPath: "~/.codex",
   containerClaudeCodeAuthPath: "~/.claude",
   containerQwenCodeAuthPath: "~/.qwen",
+  containerOpenCodeAuthPath: "~/.local/share/opencode",
   maxPlanningJsonRetries: 3,
   maxQuotaRetriesWithoutTimer: 5,
 };

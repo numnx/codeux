@@ -12,6 +12,7 @@ export const providerOptions: Array<{ value: DashboardSettings["aiProvider"]["pr
   { value: "codex", label: "Codex CLI" },
   { value: "claude-code", label: "Claude Code" },
   { value: "qwen-code", label: "Qwen Code" },
+  { value: "opencode", label: "OpenCode" },
 ];
 
 export const providerStrategyOptions: Array<{ value: DashboardSettings["aiProvider"]["strategy"]; label: string }> = [

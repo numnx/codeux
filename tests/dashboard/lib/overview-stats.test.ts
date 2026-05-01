@@ -147,24 +147,29 @@ describe("overview-stats", () => {
   describe("new helpers and edge cases", () => {
     it("getDateWindow returns correct window", () => {
       const { windowStart, startOfToday } = getDateWindow(7);
-      expect(startOfToday.toISOString()).toContain("2024-03-10");
-      expect(windowStart.toISOString()).toContain("2024-03-04");
+      expect(startOfToday.getFullYear()).toBe(2024);
+      expect(startOfToday.getMonth()).toBe(2);
+      expect(startOfToday.getDate()).toBe(10);
+      expect(windowStart.getFullYear()).toBe(2024);
+      expect(windowStart.getMonth()).toBe(2);
+      expect(windowStart.getDate()).toBe(4);
     });
 
     it("getTrendIndex handles various dates correctly", () => {
       const { windowStart } = getDateWindow(7);
+      const localDate = (year: number, month: number, day: number, hour = 12) => new Date(year, month, day, hour).toISOString();
       
       // Before window
-      expect(getTrendIndex("2024-03-03T23:59:59Z", windowStart, 7)).toBe(-2);
+      expect(getTrendIndex(localDate(2024, 2, 3), windowStart, 7)).toBe(-2);
       
       // First day of window
-      expect(getTrendIndex("2024-03-04T00:00:01Z", windowStart, 7)).toBe(0);
+      expect(getTrendIndex(localDate(2024, 2, 4), windowStart, 7)).toBe(0);
       
       // Last day of window (today)
-      expect(getTrendIndex("2024-03-10T10:00:00Z", windowStart, 7)).toBe(6);
+      expect(getTrendIndex(localDate(2024, 2, 10), windowStart, 7)).toBe(6);
       
       // Future date
-      expect(getTrendIndex("2024-03-11T10:00:00Z", windowStart, 7)).toBe(-1);
+      expect(getTrendIndex(localDate(2024, 2, 11), windowStart, 7)).toBe(-1);
       
       // Invalid date
       expect(getTrendIndex("invalid", windowStart, 7)).toBe(-1);

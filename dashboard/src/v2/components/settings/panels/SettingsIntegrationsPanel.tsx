@@ -18,14 +18,15 @@ import {
 } from "../../../lib/settings-view-models.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code"];
+const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"];
 
 const getProviderWatermark = (providerId: ProviderId): string => (
   providerId === "jules" ? "JLS"
     : providerId === "gemini" ? "GMN"
       : providerId === "codex" ? "CDX"
         : providerId === "qwen-code" ? "QWN"
-          : "CLD"
+          : providerId === "opencode" ? "OPC"
+            : "CLD"
 );
 
 const qwenAuthModeOptions = [
@@ -43,6 +44,12 @@ const qwenProtocolOptions = [
 const qwenRegionOptions = [
   { value: "international", label: "International" },
   { value: "china", label: "China" },
+];
+
+const openCodeAuthModeOptions = [
+  { value: "LOCAL_AUTH", label: "Local auth", hint: "Copy auth.json cache" },
+  { value: "ENV_KEY", label: "Provider key", hint: "Built-in OpenCode provider" },
+  { value: "CUSTOM_PROVIDER", label: "Custom endpoint", hint: "OpenAI-compatible config" },
 ];
 
 const getQwenEndpointForRegion = (region: string | undefined): string => (
@@ -96,6 +103,61 @@ const buildQwenSettingsPreview = (
       name: model || "qwen3-coder-plus",
     },
     ...(authMode === "ALIBABA_CODING_PLAN" ? { codingPlan: { region: provider.qwenRegion || "international" } } : {}),
+  }, null, 2);
+};
+
+const splitOpenCodeModel = (model: string): { providerId: string; modelId: string } => {
+  const [providerId, ...modelParts] = (model || "anthropic/claude-sonnet-4-5").split("/");
+  return {
+    providerId: providerId || "anthropic",
+    modelId: modelParts.join("/") || "claude-sonnet-4-5",
+  };
+};
+
+const buildOpenCodeConfigPreview = (
+  provider: SystemSettings["integrations"]["providers"][ProviderConfigId],
+  model: string,
+): string => {
+  const authMode = provider.openCodeAuthMode || "LOCAL_AUTH";
+  const modelParts = splitOpenCodeModel(model);
+  const providerId = provider.openCodeProviderId || modelParts.providerId;
+  const modelId = provider.openCodeModelId || modelParts.modelId;
+  const selectedModel = authMode === "CUSTOM_PROVIDER" ? `${providerId}/${modelId}` : model || `${providerId}/${modelId}`;
+  const config: Record<string, unknown> = {
+    $schema: "https://opencode.ai/config.json",
+    model: selectedModel,
+    autoupdate: false,
+  };
+  if (authMode === "ENV_KEY") {
+    config.provider = {
+      [providerId]: {
+        options: {
+          apiKey: "{env:OPENCODE_API_KEY}",
+        },
+      },
+    };
+  }
+  if (authMode === "CUSTOM_PROVIDER") {
+    config.provider = {
+      [providerId]: {
+        npm: provider.openCodePackage || "@ai-sdk/openai-compatible",
+        name: providerId,
+        options: {
+          baseURL: provider.openCodeBaseUrl || "https://api.openai.com/v1",
+          apiKey: "{env:OPENCODE_API_KEY}",
+        },
+        models: {
+          [modelId]: { name: modelId },
+        },
+      },
+    };
+  }
+  return JSON.stringify({
+    ...config,
+    env: {
+      [provider.openCodeEnvKey || "ANTHROPIC_API_KEY"]: maskSecret(provider.apiKey),
+      OPENCODE_API_KEY: maskSecret(provider.apiKey),
+    },
   }, null, 2);
 };
 
@@ -437,7 +499,8 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
             </NoticePanel>
           ) : (
             providerEntries.map(([providerConfigId, provider], index) => {
-              const providerModel = systemSettings.defaults.aiProvider.providers[providerConfigId]?.model || "qwen3-coder-plus";
+              const providerModel = systemSettings.defaults.aiProvider.providers[providerConfigId]?.model
+                || (provider.provider === "opencode" ? "anthropic/claude-sonnet-4-5" : "qwen3-coder-plus");
               return (
               <div key={providerConfigId} className="rounded-[1.45rem] border border-black/[0.06] bg-white/82 p-4 dark:border-white/[0.06] dark:bg-white/[0.04]">
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-black/[0.06] pb-4 dark:border-white/[0.06]">
@@ -526,6 +589,57 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                     <Row label="Generated settings preview" description="Masked Qwen settings.json fragment produced for Docker runtime." last={index === providerEntries.length - 1}>
                       <pre className="max-h-72 min-w-[280px] overflow-auto rounded-[1rem] border border-black/[0.06] bg-black/[0.04] p-3 text-left font-mono text-[11px] leading-relaxed text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
                         {buildQwenSettingsPreview(provider, providerModel)}
+                      </pre>
+                    </Row>
+                  </>
+                ) : provider.provider === "opencode" ? (
+                  <>
+                    <Row label="Authentication mode" description="Choose how this OpenCode instance authenticates and how its runtime opencode.json is generated.">
+                      <PillChoiceGroup
+                        value={provider.openCodeAuthMode || "LOCAL_AUTH"}
+                        onChange={(value) => updateProviderInstance(providerConfigId, { openCodeAuthMode: value as SystemSettings["integrations"]["providers"][ProviderConfigId]["openCodeAuthMode"] })}
+                        options={openCodeAuthModeOptions}
+                      />
+                    </Row>
+                    {(provider.openCodeAuthMode || "LOCAL_AUTH") === "LOCAL_AUTH" ? (
+                      <>
+                        <Row label="Mount OpenCode auth" description="Copy OpenCode auth.json and related local auth state into Docker.">
+                          <Toggle
+                            value={provider.mountAuth}
+                            onChange={() => updateProviderInstance(providerConfigId, { mountAuth: !provider.mountAuth })}
+                          />
+                        </Row>
+                        <Row label="OpenCode auth path" description="Usually `~/.local/share/opencode`; contains auth.json created by `/connect` or `opencode auth login`.">
+                          <TextInput value={provider.authPath} onChange={(value) => updateProviderInstance(providerConfigId, { authPath: value })} disabled={!provider.mountAuth} mono />
+                        </Row>
+                      </>
+                    ) : null}
+                    {(provider.openCodeAuthMode || "LOCAL_AUTH") !== "LOCAL_AUTH" ? (
+                      <>
+                        <Row label="Provider id" description="The provider segment in OpenCode's `provider/model` selector.">
+                          <TextInput value={provider.openCodeProviderId || splitOpenCodeModel(providerModel).providerId} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeProviderId: value })} mono />
+                        </Row>
+                        <Row label="Environment key" description="Host environment variable to import when the stored API key is empty. Runtime config maps it to OPENCODE_API_KEY.">
+                          <TextInput value={provider.openCodeEnvKey || "ANTHROPIC_API_KEY"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeEnvKey: value })} mono />
+                        </Row>
+                      </>
+                    ) : null}
+                    {(provider.openCodeAuthMode || "LOCAL_AUTH") === "CUSTOM_PROVIDER" ? (
+                      <>
+                        <Row label="Model id" description="The model segment registered under the custom provider.">
+                          <TextInput value={provider.openCodeModelId || splitOpenCodeModel(providerModel).modelId} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeModelId: value })} mono />
+                        </Row>
+                        <Row label="Provider package" description="OpenCode provider adapter package. OpenAI-compatible endpoints use the AI SDK compatible adapter.">
+                          <TextInput value={provider.openCodePackage || "@ai-sdk/openai-compatible"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodePackage: value })} mono />
+                        </Row>
+                        <Row label="Base URL" description="OpenAI-compatible endpoint for OpenRouter, Ollama, vLLM, LM Studio, LiteLLM, or a private gateway.">
+                          <TextInput value={provider.openCodeBaseUrl || "https://api.openai.com/v1"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeBaseUrl: value })} mono />
+                        </Row>
+                      </>
+                    ) : null}
+                    <Row label="Generated config preview" description="Masked OpenCode config injected through OPENCODE_CONFIG_CONTENT for host and Docker runs." last={index === providerEntries.length - 1}>
+                      <pre className="max-h-72 min-w-[280px] overflow-auto rounded-[1rem] border border-black/[0.06] bg-black/[0.04] p-3 text-left font-mono text-[11px] leading-relaxed text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+                        {buildOpenCodeConfigPreview(provider, providerModel)}
                       </pre>
                     </Row>
                   </>

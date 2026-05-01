@@ -8,6 +8,7 @@ import {
   CLAUDE_CODE_CREDENTIALS_MOUNT,
   CLAUDE_CODE_AUTH_JSON_MOUNT,
   QWEN_CODE_CREDENTIALS_MOUNT,
+  OPENCODE_CREDENTIALS_MOUNT,
   GITCONFIG_CREDENTIALS_MOUNT,
   CLAUDE_CODE_MCP_CONFIG_MOUNT,
   GEMINI_MCP_SETTINGS_MOUNT,
@@ -104,11 +105,13 @@ describe("DockerCredentialMountBuilder", () => {
     containerMountCodexAuth: false,
     containerMountClaudeCodeAuth: false,
     containerMountQwenCodeAuth: false,
+    containerMountOpenCodeAuth: false,
     containerGithubAuthPath: "/mock/gh",
     containerGeminiAuthPath: "/mock/gemini",
     containerCodexAuthPath: "/mock/codex",
     containerClaudeCodeAuthPath: "/mock/claude",
     containerQwenCodeAuthPath: "/mock/qwen",
+    containerOpenCodeAuthPath: "/mock/opencode",
   } as unknown as CliWorkflowSettings;
 
   afterEach(() => {
@@ -136,6 +139,7 @@ describe("DockerCredentialMountBuilder", () => {
       containerMountCodexAuth: true,
       containerMountClaudeCodeAuth: true,
       containerMountQwenCodeAuth: true,
+      containerMountOpenCodeAuth: true,
     };
     const onActivity = vi.fn();
 
@@ -143,7 +147,7 @@ describe("DockerCredentialMountBuilder", () => {
 
     const mounts = await builder.build(settings, mockRepoPath, onActivity);
 
-    expect(mounts).toHaveLength(7);
+    expect(mounts).toHaveLength(8);
     expect(mounts).toEqual(expect.arrayContaining([
       expect.objectContaining({ destination: GITCONFIG_CREDENTIALS_MOUNT }),
       expect.objectContaining({ destination: GITHUB_CREDENTIALS_MOUNT }),
@@ -152,6 +156,7 @@ describe("DockerCredentialMountBuilder", () => {
       expect.objectContaining({ destination: CLAUDE_CODE_CREDENTIALS_MOUNT }),
       expect.objectContaining({ destination: CLAUDE_CODE_AUTH_JSON_MOUNT }),
       expect.objectContaining({ destination: QWEN_CODE_CREDENTIALS_MOUNT }),
+      expect.objectContaining({ destination: OPENCODE_CREDENTIALS_MOUNT }),
     ]));
     expect(onActivity).toHaveBeenCalledWith(expect.stringContaining("Resolved credential mount for GitConfig"));
   });

@@ -5,7 +5,7 @@ import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/pr
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DockerStatusMenu } from "../../../src/v2/components/DockerStatusMenu.js";
-import * as matchers from '@testing-library/jest-dom/matchers';
+import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);
 
 const mockContainers = [
@@ -16,7 +16,7 @@ const mockContainers = [
     status: "Up 2 hours",
     state: "running",
     runningFor: "2 hours",
-    labels: { "sprint-os.command": "npm run start" }
+    labels: { "sprint-os.command": "npm run start" },
   },
   {
     id: "2",
@@ -25,8 +25,8 @@ const mockContainers = [
     status: "Exited (0) 5 days ago",
     state: "exited",
     runningFor: "5 days ago",
-    labels: {}
-  }
+    labels: {},
+  },
 ];
 
 describe("DockerStatusMenu", () => {
@@ -47,7 +47,7 @@ describe("DockerStatusMenu", () => {
   it("opens popover on click, displays containers, and traps focus", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockContainers
+      json: async () => mockContainers,
     } as Response);
 
     render(<DockerStatusMenu />);
@@ -58,7 +58,7 @@ describe("DockerStatusMenu", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -74,7 +74,7 @@ describe("DockerStatusMenu", () => {
   it("closes popover on escape and restores focus", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockContainers
+      json: async () => mockContainers,
     } as Response);
 
     render(<DockerStatusMenu />);
@@ -84,17 +84,17 @@ describe("DockerStatusMenu", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
     });
 
     await waitFor(() => {
-        expect(screen.getByText("test-container-1")).toBeInTheDocument();
+      expect(screen.getByText("test-container-1")).toBeInTheDocument();
     });
 
     fireEvent.keyDown(document, { key: "Escape" });
 
     await waitFor(() => {
-        expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Active Docker Containers" })).not.toBeInTheDocument();
     });
 
     expect(button).toHaveFocus();
@@ -103,7 +103,7 @@ describe("DockerStatusMenu", () => {
   it("closes the popover on mouse leave after a delay", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockContainers
+      json: async () => mockContainers,
     } as Response);
 
     vi.useFakeTimers();
@@ -113,12 +113,11 @@ describe("DockerStatusMenu", () => {
     const wrapper = container.firstChild?.firstChild as HTMLElement;
     fireEvent.mouseEnter(wrapper);
 
-    // wait for interaction state 'hover' to take effect which opens it
     vi.runAllTimers();
     await Promise.resolve();
 
     await waitFor(() => {
-        expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
     });
 
     fireEvent.mouseLeave(wrapper);
@@ -134,7 +133,7 @@ describe("DockerStatusMenu", () => {
   it("shows zero state when no containers exist", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => []
+      json: async () => [],
     } as Response);
 
     render(<DockerStatusMenu />);
@@ -148,7 +147,7 @@ describe("DockerStatusMenu", () => {
   });
 
   it("handles fetch errors gracefully", async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     vi.mocked(fetch).mockRejectedValueOnce(new Error("Network Error"));
 
@@ -163,3 +162,5 @@ describe("DockerStatusMenu", () => {
     consoleSpy.mockRestore();
   });
 });
+
+void userEvent;

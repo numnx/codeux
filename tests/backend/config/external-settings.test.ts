@@ -24,6 +24,7 @@ describe("external-settings", () => {
     process.env.DASHSCOPE_API_KEY = "";
     process.env.BAILIAN_CODING_PLAN_API_KEY = "";
     process.env.QWEN_API_KEY = "";
+    process.env.OPENCODE_API_KEY = "";
     process.env.GH_TOKEN = "";
     process.env.GITHUB_TOKEN = "";
   });
@@ -80,6 +81,7 @@ describe("external-settings", () => {
 
     expect(hints.resolved.julesApiKey).toBe("jules-key-alt");
     expect(hints.resolved.claudeCodeApiKey).toBe("anthropic-key");
+    expect(hints.resolved.openCodeApiKey).toBe("anthropic-key");
     expect(hints.resolved.qwenCodeApiKey).toBe("dashscope-key");
     expect(hints.resolved.githubToken).toBe("gh-token");
   });
@@ -113,6 +115,7 @@ describe("external-settings", () => {
     expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
     expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
     expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
   });
 
   it("should correctly report hasApiKey when keys are available", () => {
@@ -129,6 +132,7 @@ describe("external-settings", () => {
     expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
     expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
     expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
   });
 
   it("should correctly report hasLocalAuth when auth files exist", () => {
@@ -138,6 +142,9 @@ describe("external-settings", () => {
         return true;
       }
       if (p.endsWith(path.join(".qwen", "settings.json"))) {
+        return true;
+      }
+      if (p.endsWith(path.join(".local", "share", "opencode", "auth.json"))) {
         return true;
       }
       return false;
@@ -150,5 +157,6 @@ describe("external-settings", () => {
     expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
     expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
     expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: true });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: true });
   });
 });

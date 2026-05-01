@@ -66,6 +66,12 @@ interface StartCliTaskInput {
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
   };

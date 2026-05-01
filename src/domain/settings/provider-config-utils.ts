@@ -42,7 +42,10 @@ export const getHintApiKeyForProvider = (
   if (providerId === "claude-code") {
     return externalHints?.resolved.claudeCodeApiKey || "";
   }
-  return externalHints?.resolved.qwenCodeApiKey || "";
+  if (providerId === "qwen-code") {
+    return externalHints?.resolved.qwenCodeApiKey || "";
+  }
+  return externalHints?.resolved.openCodeApiKey || "";
 };
 
 export const buildDefaultIntegrationProviders = (
@@ -89,6 +92,19 @@ export const buildDefaultIntegrationProviders = (
     qwenProtocol: "openai",
     qwenAdditionalModelProviders: [],
   },
+  [DEFAULT_PROVIDER_CONFIG_IDS.opencode]: {
+    provider: "opencode",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.opencode,
+    apiKey: getHintApiKeyForProvider("opencode", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.opencode,
+    openCodeAuthMode: "LOCAL_AUTH",
+    openCodeProviderId: "anthropic",
+    openCodeModelId: "claude-sonnet-4-5",
+    openCodeBaseUrl: "https://api.openai.com/v1",
+    openCodeEnvKey: "ANTHROPIC_API_KEY",
+    openCodePackage: "@ai-sdk/openai-compatible",
+  },
 });
 
 const normalizeProviderId = (value: unknown): ProviderId | null => (
@@ -130,6 +146,14 @@ const normalizeQwenRegion = (value: unknown): SystemProviderCredentialSettings["
 
 const normalizeQwenProtocol = (value: unknown): NonNullable<SystemProviderCredentialSettings["qwenProtocol"]> => (
   value === "anthropic" || value === "gemini" || value === "openai" ? value : "openai"
+);
+
+const normalizeOpenCodeAuthMode = (value: unknown): NonNullable<SystemProviderCredentialSettings["openCodeAuthMode"]> => (
+  value === "ENV_KEY" || value === "CUSTOM_PROVIDER" || value === "LOCAL_AUTH" ? value : "LOCAL_AUTH"
+);
+
+const normalizeNonEmptyString = (value: unknown, fallback: string): string => (
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback
 );
 
 export const normalizeSystemIntegrationProviders = (
@@ -180,6 +204,14 @@ export const normalizeSystemIntegrationProviders = (
             .filter((entry) => entry.id && entry.envKey)
           : [],
       } : {}),
+      ...(providerId === "opencode" ? {
+        openCodeAuthMode: normalizeOpenCodeAuthMode(rawValue.openCodeAuthMode),
+        openCodeProviderId: normalizeNonEmptyString(rawValue.openCodeProviderId, "anthropic"),
+        openCodeModelId: normalizeNonEmptyString(rawValue.openCodeModelId, "claude-sonnet-4-5"),
+        openCodeBaseUrl: normalizeNonEmptyString(rawValue.openCodeBaseUrl, "https://api.openai.com/v1"),
+        openCodeEnvKey: normalizeNonEmptyString(rawValue.openCodeEnvKey, "ANTHROPIC_API_KEY"),
+        openCodePackage: normalizeNonEmptyString(rawValue.openCodePackage, "@ai-sdk/openai-compatible"),
+      } : {}),
     };
   }
 
@@ -189,6 +221,7 @@ export const normalizeSystemIntegrationProviders = (
     ["codex", input.codexApiKey],
     ["claude-code", input.claudeCodeApiKey],
     ["qwen-code", input.qwenCodeApiKey],
+    ["opencode", input.openCodeApiKey],
   ];
 
   for (const [providerId, legacyApiKey] of legacyEntries) {
@@ -297,6 +330,14 @@ export const buildDashboardProviderSettings = (
             qwenBaseUrl: integrationProviders[providerConfigId]?.qwenBaseUrl,
             qwenEnvKey: integrationProviders[providerConfigId]?.qwenEnvKey,
             qwenProtocol: integrationProviders[providerConfigId]?.qwenProtocol,
+          } : {}),
+          ...(providerId === "opencode" ? {
+            openCodeAuthMode: integrationProviders[providerConfigId]?.openCodeAuthMode,
+            openCodeProviderId: integrationProviders[providerConfigId]?.openCodeProviderId,
+            openCodeModelId: integrationProviders[providerConfigId]?.openCodeModelId,
+            openCodeBaseUrl: integrationProviders[providerConfigId]?.openCodeBaseUrl,
+            openCodeEnvKey: integrationProviders[providerConfigId]?.openCodeEnvKey,
+            openCodePackage: integrationProviders[providerConfigId]?.openCodePackage,
           } : {}),
         },
       ];

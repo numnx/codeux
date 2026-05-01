@@ -114,6 +114,35 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("builds OpenCode run commands with generated config content", async () => {
+    await runner.runProvider({
+      provider: "opencode",
+      prompt: "review this",
+      cwd: "/repo",
+      model: "custom/model",
+      apiKey: "sk-open-test",
+      openCodeAuthMode: "CUSTOM_PROVIDER",
+      openCodeProviderId: "custom",
+      openCodeModelId: "model",
+      openCodeBaseUrl: "https://llm.example.com/v1",
+      openCodeEnvKey: "CUSTOM_LLM_API_KEY",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      mcpConnection: { url: "http://127.0.0.1:4444/mcp", authToken: "token" },
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "opencode",
+      args: ["run", "--model", "custom/model", "review this"],
+      providerEnv: expect.objectContaining({
+        OPENCODE_API_KEY: "sk-open-test",
+        OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"baseURL\":\"https://llm.example.com/v1\""),
+      }),
+    }));
+  });
+
   it("captures Codex text output from the isolated workspace", async () => {
     const result = await runner.runProviderForText({
       provider: "codex",

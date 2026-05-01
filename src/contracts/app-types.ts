@@ -48,7 +48,7 @@ export interface JulesActivity {
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA";
 export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY" | "QA_PENDING";
-export type ProviderId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code";
+export type ProviderId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
 export type ProviderConfigId = string;
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -549,6 +549,12 @@ export interface ProviderSettings {
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
 }
 
 export interface InvocationProviderOverrideSettings {
@@ -629,11 +635,13 @@ export interface CliWorkflowSettings {
   containerMountCodexAuth: boolean;
   containerMountClaudeCodeAuth: boolean;
   containerMountQwenCodeAuth: boolean;
+  containerMountOpenCodeAuth: boolean;
   containerGithubAuthPath: string;
   containerGeminiAuthPath: string;
   containerCodexAuthPath: string;
   containerClaudeCodeAuthPath: string;
   containerQwenCodeAuthPath: string;
+  containerOpenCodeAuthPath: string;
   maxPlanningJsonRetries: number;
   maxQuotaRetriesWithoutTimer: number;
 }
@@ -804,6 +812,7 @@ export interface ExternalSettingsHints {
     codexApiKey: string;
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
+    openCodeApiKey: string;
     githubToken: string;
   };
   settingsJson: {
@@ -812,6 +821,7 @@ export interface ExternalSettingsHints {
     codexApiKey: string;
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
+    openCodeApiKey: string;
     githubToken: string;
   };
   resolved: {
@@ -820,6 +830,7 @@ export interface ExternalSettingsHints {
     codexApiKey: string;
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
+    openCodeApiKey: string;
     githubToken: string;
   };
   providerAvailability: {
@@ -828,6 +839,7 @@ export interface ExternalSettingsHints {
     codex: { hasApiKey: boolean; hasLocalAuth: boolean };
     claudeCode: { hasApiKey: boolean; hasLocalAuth: boolean };
     qwenCode: { hasApiKey: boolean; hasLocalAuth: boolean };
+    openCode: { hasApiKey: boolean; hasLocalAuth: boolean };
   };
 }
 

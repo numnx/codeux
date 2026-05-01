@@ -21,7 +21,7 @@ export interface ProviderRunResult extends CommandResult {
   text?: string;
 }
 
-export type CliProviderId = Extract<ProviderId, "gemini" | "codex" | "claude-code" | "qwen-code">;
+export type CliProviderId = Extract<ProviderId, "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode">;
 
 export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
   "gemini": (model: string, prompt: string) => ({
@@ -46,7 +46,22 @@ export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
     args.push("-p", prompt);
     return { command: "qwen", args };
   },
+  opencode: (model: string, prompt: string) => {
+    const args = ["run"];
+    if (model && model !== "default") args.push("--model", model);
+    args.push(prompt);
+    return { command: "opencode", args };
+  },
 };
+
+interface OpenCodeRuntimeSettings {
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
+}
 
 export interface ProviderRunInput {
   provider: CliProviderId;
@@ -59,6 +74,12 @@ export interface ProviderRunInput {
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
   providerMountAuth?: boolean;
   providerAuthPath?: string;
   sessionId: string;
@@ -159,6 +180,12 @@ export class ProviderRunner implements IProviderRunner {
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
+    openCodeProviderId?: string;
+    openCodeModelId?: string;
+    openCodeBaseUrl?: string;
+    openCodeEnvKey?: string;
+    openCodePackage?: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
     sessionId: string;
@@ -341,6 +368,17 @@ export class ProviderRunner implements IProviderRunner {
       return { command: "qwen", args };
     }
 
+    if (provider === "opencode") {
+      const args = continueSession && nativeSessionId
+        ? ["run", "--session", nativeSessionId]
+        : ["run"];
+      if (model && model !== "default") {
+        args.push("--model", model);
+      }
+      args.push(prompt);
+      return { command: "opencode", args };
+    }
+
     const providerSpec = providerSpecs[provider];
     if (!providerSpec) {
       throw new Error(`Unsupported CLI provider: ${provider}`);
@@ -356,7 +394,7 @@ export class ProviderRunner implements IProviderRunner {
     workflowSettings: CliWorkflowSettings,
     githubToken?: string,
     providerMountAuth?: boolean,
-    qwenConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenProtocol">,
+    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenProtocol" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection">,
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env };
     const useContainerMounts = workflowSettings.executionMode === "DOCKER";
@@ -378,27 +416,107 @@ export class ProviderRunner implements IProviderRunner {
       if (apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
     } else if (provider === "qwen-code") {
       if (apiKey && !useProviderMount) {
-        const envKey = qwenConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
+        const envKey = providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
           ? "BAILIAN_CODING_PLAN_API_KEY"
-          : qwenConfig?.qwenEnvKey || "DASHSCOPE_API_KEY";
+          : providerConfig?.qwenEnvKey || "DASHSCOPE_API_KEY";
         env[envKey] = apiKey;
         env.DASHSCOPE_API_KEY ||= apiKey;
         env.BAILIAN_CODING_PLAN_API_KEY ||= apiKey;
         env.QWEN_API_KEY ||= apiKey;
-        if ((qwenConfig?.qwenProtocol || "openai") === "openai") {
+        if ((providerConfig?.qwenProtocol || "openai") === "openai") {
           env.OPENAI_API_KEY ||= apiKey;
         }
       }
-      const baseUrl = qwenConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
-        ? qwenConfig.qwenRegion === "china"
+      const baseUrl = providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
+        ? providerConfig.qwenRegion === "china"
           ? "https://coding.dashscope.aliyuncs.com/v1"
           : "https://coding-intl.dashscope.aliyuncs.com/v1"
-        : qwenConfig?.qwenBaseUrl;
+        : providerConfig?.qwenBaseUrl;
       if (baseUrl) {
         env.OPENAI_BASE_URL = baseUrl;
       }
+    } else if (provider === "opencode") {
+      const envKey = providerConfig?.openCodeEnvKey || "ANTHROPIC_API_KEY";
+      const resolvedApiKey = apiKey || process.env[envKey] || "";
+      if (resolvedApiKey && !useProviderMount) {
+        env[envKey] = resolvedApiKey;
+        env.OPENCODE_API_KEY = resolvedApiKey;
+        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "anthropic") {
+          env.ANTHROPIC_API_KEY ||= resolvedApiKey;
+        }
+        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "openai") {
+          env.OPENAI_API_KEY ||= resolvedApiKey;
+        }
+        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "github-copilot") {
+          env.GITHUB_TOKEN ||= resolvedApiKey;
+        }
+      }
+      env.OPENCODE_CONFIG_CONTENT = this.buildOpenCodeConfigContent(model, providerConfig, providerConfig?.mcpConnection || null);
     }
     return env;
+  }
+
+  private buildOpenCodeConfigContent(
+    model: string,
+    config?: OpenCodeRuntimeSettings,
+    conn?: McpConnectionInfo | null,
+  ): string {
+    const authMode = config?.openCodeAuthMode || "LOCAL_AUTH";
+    const providerId = (config?.openCodeProviderId || model.split("/")[0] || "anthropic").trim();
+    const modelId = (config?.openCodeModelId || model.split("/").slice(1).join("/") || "claude-sonnet-4-5").trim();
+    const selectedModel = authMode === "CUSTOM_PROVIDER"
+      ? `${providerId}/${modelId}`
+      : model && model !== "default"
+        ? model
+        : `${providerId}/${modelId}`;
+    const runtimeConfig: Record<string, unknown> = {
+      $schema: "https://opencode.ai/config.json",
+      model: selectedModel,
+      autoupdate: false,
+    };
+
+    if (authMode === "ENV_KEY") {
+      runtimeConfig.provider = {
+        [providerId]: {
+          options: {
+            apiKey: "{env:OPENCODE_API_KEY}",
+          },
+        },
+      };
+    } else if (authMode === "CUSTOM_PROVIDER") {
+      runtimeConfig.provider = {
+        [providerId]: {
+          npm: config?.openCodePackage || "@ai-sdk/openai-compatible",
+          name: providerId,
+          options: {
+            baseURL: config?.openCodeBaseUrl || "https://api.openai.com/v1",
+            apiKey: "{env:OPENCODE_API_KEY}",
+          },
+          models: {
+            [modelId]: {
+              name: modelId,
+            },
+          },
+        },
+      };
+    }
+
+    if (conn) {
+      const headers: Record<string, string> = {};
+      if (conn.authToken) {
+        headers.Authorization = `Bearer ${conn.authToken}`;
+      }
+      runtimeConfig.mcp = {
+        sprint_os: {
+          type: "remote",
+          url: conn.url,
+          enabled: true,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        },
+      };
+    }
+
+    return JSON.stringify(runtimeConfig);
   }
 
   private isTransientCodexTransportError(result: CommandResult): boolean {

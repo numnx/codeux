@@ -61,6 +61,8 @@ export const pickContainerEnv = (env: NodeJS.ProcessEnv): Array<{ key: string; v
     "DASHSCOPE_API_KEY",
     "BAILIAN_CODING_PLAN_API_KEY",
     "QWEN_API_KEY",
+    "OPENCODE_API_KEY",
+    "OPENCODE_CONFIG_CONTENT",
     "GH_TOKEN",
     "GITHUB_TOKEN",
     "HTTP_PROXY",
@@ -113,6 +115,8 @@ export const getProviderFallbackInstallCommand = (providerCommand: string): stri
       return "if command -v curl >/dev/null 2>&1; then curl -fsSL https://claude.ai/install.sh | bash && export PATH=\"$HOME/.local/bin:$PATH\"; else echo \"provider-runner: curl not found; cannot install claude\" >&2; fi";
     case "qwen":
       return "npm install -g @qwen-code/qwen-code";
+    case "opencode":
+      return "if command -v curl >/dev/null 2>&1; then curl -fsSL https://opencode.ai/install | bash && export PATH=\"$HOME/.opencode/bin:$HOME/.local/bin:$PATH\"; else echo \"provider-runner: curl not found; cannot install opencode\" >&2; fi";
     default:
       return undefined;
   }
