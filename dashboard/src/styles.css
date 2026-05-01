@@ -369,6 +369,15 @@
     transition: transform 500ms ease, background-color 500ms ease, border-color 500ms ease, box-shadow 500ms ease;
   }
 
+  .dag-scroll-shell {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .dag-scroll-shell::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Text overflow breaking utilities */
   .break-words {
     word-break: break-word;
