@@ -1462,7 +1462,7 @@ function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string 
 function normalizeQaReviewResult(bodyMarkdown: string): NormalizedQaReviewResult {
   const extraction = extractJsonFromText(bodyMarkdown);
   if (!extraction.success) {
-    throw new Error(`Invalid JSON format: ${extraction.error.message}`);
+    throw new Error(`Invalid JSON format: ${(extraction as any).error?.message || "Unknown error"}`);
   }
 
   const parsed = extraction.data;
