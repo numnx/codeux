@@ -726,7 +726,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                 const tone = getNodeTone(node);
                 const dispatch = dispatchByTaskId.get(node.task.record_id || "") || dispatchByTaskId.get(node.task.id);
                 return (
-                  <div key={node.task.id} className="pointer-events-auto">
+                  <div key={node.task.id} className="pointer-events-auto relative z-10">
                     <DagNode node={node} dispatch={dispatch} tone={tone} />
                   </div>
                 );

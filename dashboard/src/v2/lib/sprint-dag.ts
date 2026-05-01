@@ -49,55 +49,7 @@ export interface SprintDagModel {
   metrics: SprintDagMetrics;
 }
 
-export function getSprintDagFocusNodeIds(model: SprintDagModel): string[] {
-  const byPriority = (predicate: (node: SprintDagNodeModel) => boolean): string[] => (
-    model.nodes
-      .filter(predicate)
-      .sort((left, right) => {
-        if (left.depth !== right.depth) {
-          return left.depth - right.depth;
-        }
-        if (left.row !== right.row) {
-          return left.row - right.row;
-        }
-        return left.order - right.order;
-      })
-      .map((node) => node.task.id)
-  );
-
-  const running = byPriority((node) => node.phase === "RUNNING");
-  if (running.length > 0) {
-    return running;
-  }
-
-  const codingCompleted = byPriority((node) => node.phase === "CODING_COMPLETED");
-  if (codingCompleted.length > 0) {
-    return codingCompleted;
-  }
-
-  const ready = byPriority((node) => node.isReady);
-  if (ready.length > 0) {
-    return ready;
-  }
-
-  const unresolved = byPriority((node) => node.phase !== "COMPLETED");
-  if (unresolved.length > 0) {
-    return unresolved;
-  }
-
-  return model.nodes
-    .slice()
-    .sort((left, right) => {
-      if (left.depth !== right.depth) {
-        return left.depth - right.depth;
-      }
-      if (left.row !== right.row) {
-        return left.row - right.row;
-      }
-      return left.order - right.order;
-    })
-    .map((node) => node.task.id);
-}
+// auto-focus behavior removed
 
 function isSettledPhase(phase: TaskProgressPhase): boolean {
   return phase === "COMPLETED";
