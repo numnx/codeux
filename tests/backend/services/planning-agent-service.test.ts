@@ -1217,7 +1217,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
-      cliWorkflow: { maxPlanningJsonRetries: 2 },
+      cliWorkflow: { maxParsingRetries: 2, maxPlanningJsonRetries: 2 },
     });
 
     await expect(service.planSprint(project.id, sprint.id, { autoStart: false }))

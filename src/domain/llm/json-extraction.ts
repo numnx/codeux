@@ -75,30 +75,10 @@ export function extractJsonFromText(text: string): ExtractJsonResult {
     try {
       const parsed = JSON.parse(candidate);
 
-      // Is it a direct planning payload?
-      let isPlanning = false;
-      if (parsed && typeof parsed === "object") {
-         if ("goal" in parsed && !("tasks" in parsed) && !("subtasks" in parsed) && Object.keys(parsed).length <= 2) isPlanning = true;
-         if ("tasks" in parsed && Array.isArray(parsed.tasks)) isPlanning = true;
-         if ("subtasks" in parsed && Array.isArray(parsed.subtasks)) isPlanning = true;
-         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && ("title" in parsed[0] || "description" in parsed[0] || "prompt" in parsed[0])) isPlanning = true;
-      }
-
-      if (isPlanning) {
-        return { success: true, data: parsed, sourceText: candidate };
-      }
-
       // Is it wrapped?
       let foundPayload = null;
       const searchForPayload = (obj: any): any => {
         if (!obj || typeof obj !== "object") return null;
-
-        let isPlanningLocal = false;
-        if ("goal" in obj && !("tasks" in obj) && !("subtasks" in obj) && Object.keys(obj).length <= 2) isPlanningLocal = true;
-        if ("tasks" in obj && Array.isArray(obj.tasks)) isPlanningLocal = true;
-        if ("subtasks" in obj && Array.isArray(obj.subtasks)) isPlanningLocal = true;
-        if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === "object" && ("title" in obj[0] || "description" in obj[0] || "prompt" in obj[0])) isPlanningLocal = true;
-        if (isPlanningLocal) return obj;
 
         const wrapperFields = ["response", "content", "message", "data", "text"];
         for (const field of wrapperFields) {
@@ -109,13 +89,12 @@ export function extractJsonFromText(text: string): ExtractJsonResult {
               if (innerTrimmed.startsWith("{") || innerTrimmed.startsWith("[")) {
                 try {
                   const parsedInner = JSON.parse(innerTrimmed);
-                  const found = searchForPayload(parsedInner);
-                  if (found) return found;
+                  // We only do one level deep of wrapper unboxing here to prevent infinite recurse
+                  if (parsedInner && typeof parsedInner === "object") return parsedInner;
                 } catch {}
               }
             } else if (typeof val === "object") {
-              const found = searchForPayload(val);
-              if (found) return found;
+              if (val && !Array.isArray(val)) return val;
             }
           }
         }
