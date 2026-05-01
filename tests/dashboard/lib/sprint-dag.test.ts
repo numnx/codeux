@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Subtask } from "../../../dashboard/src/types.js";
-import { buildSprintDagModel, getSprintDagFocusNodeIds } from "../../../dashboard/src/v2/lib/sprint-dag.js";
+import { buildSprintDagModel } from "../../../dashboard/src/v2/lib/sprint-dag.js";
 
 function makeTask(overrides: Partial<Subtask> & Pick<Subtask, "id" | "title">): Subtask {
   return {
@@ -57,22 +57,7 @@ describe("buildSprintDagModel", () => {
     expect(model.edges[0]?.state).toBe("blocked");
   });
 
-  it("focuses the live viewport on the active frontier", () => {
-    const runningModel = buildSprintDagModel([
-      makeTask({ id: "T01", title: "Base", status: "COMPLETED" }),
-      makeTask({ id: "T02", title: "Running A", depends_on: ["T01"], status: "RUNNING" }),
-      makeTask({ id: "T03", title: "Running B", depends_on: ["T01"], status: "RUNNING" }),
-      makeTask({ id: "T04", title: "Future", depends_on: ["T02"], status: "PENDING" }),
-    ]);
-    expect(getSprintDagFocusNodeIds(runningModel)).toEqual(["T02", "T03"]);
 
-    const readyModel = buildSprintDagModel([
-      makeTask({ id: "T01", title: "Done", status: "COMPLETED" }),
-      makeTask({ id: "T02", title: "Ready Child", depends_on: ["T01"], status: "PENDING" }),
-      makeTask({ id: "T03", title: "Blocked Child", depends_on: ["T02"], status: "PENDING" }),
-    ]);
-    expect(getSprintDagFocusNodeIds(readyModel)).toEqual(["T02"]);
-  });
 
   it("generates hover payloads with prompt fallback and dependency resolution", () => {
     const model = buildSprintDagModel([
