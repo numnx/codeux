@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 /** @vitest-environment jsdom */
 import * as React from "preact/compat";
 import { h } from "preact";
+import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
+
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui/PlanningProgressOverlay.js";
@@ -11,8 +13,24 @@ import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../da
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
 import { FilterStrip } from "../../../dashboard/src/v2/components/ui/FilterStrip.js";
 import { SprintComposer } from "../../../dashboard/src/v2/components/ui/SprintComposer.js";
+import { KineticDock } from "../../../dashboard/src/v2/components/KineticDock.js";
+import { ProjectDataProvider } from "../../../dashboard/src/v2/context/project-data.js";
 import { CollapsiblePanel } from "../../../dashboard/src/v2/components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../../../dashboard/src/hooks/ExecutionTimelineContext.js";
+
+
+
+vi.mock("@tanstack/react-router", () => {
+  const { forwardRef } = require("preact/compat");
+  return {
+    Link: forwardRef(({ children, className, to }: any, ref: any) => <a ref={ref} href={to} className={className} data-testid={"link-" + to}>{children}</a>),
+    useRouterState: () => [{ pathname: "/chat" }]
+  };
+});
+
+vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: vi.fn().mockReturnValue(false)
+}));
 
 vi.mock("../../../dashboard/src/v2/lib/sprint-composer-state.js", () => ({
   useSprintComposerState: vi.fn(() => ({
@@ -36,7 +54,51 @@ vi.mock("../../../dashboard/src/v2/lib/sprint-composer-state.js", () => ({
   resolveSubmitOriginalPrompt: vi.fn(),
 }));
 
+
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 describe("UI Components Coverage", () => {
+
+  it("renders KineticDock and handles pointer events appropriately", () => {
+    // Import here for dynamic modification
+
+
+    const { unmount } = render(
+      <ProjectDataProvider>
+        <KineticDock />
+      </ProjectDataProvider>
+    );
+
+    // Check it rendered
+    const dockNav = screen.getByLabelText("Dock navigation");
+    expect(dockNav).toBeDefined();
+
+    // Trigger pointer events to test fish-eye does not throw
+    fireEvent.pointerMove(dockNav, { clientX: 100 });
+    fireEvent.pointerLeave(dockNav);
+
+    unmount();
+    // Re-render with reduced motion
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+
+    const { unmount: unmount2 } = render(
+      <ProjectDataProvider>
+        <KineticDock />
+      </ProjectDataProvider>
+    );
+    const dockNav2 = screen.getByLabelText("Dock navigation");
+
+    // Pointer move should return early under reduced motion
+    fireEvent.pointerMove(dockNav2, { clientX: 100 });
+    fireEvent.pointerLeave(dockNav2);
+
+    unmount2();
+  });
+
   it("renders PlanningProgressOverlay in various states", () => {
     const feedback = { shipType: "container" as const, shipProgress: 0.5, text: "Test Message" };
     const { rerender } = render(
