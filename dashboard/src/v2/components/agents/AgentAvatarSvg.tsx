@@ -26,17 +26,19 @@ interface AgentAvatarSvgProps {
 function chassisPath(type?: string): string {
   switch (type) {
     case "egg":
-      // EVE-style elongated companion egg
+      // Companion — elegant EVE pear, bottom-heavy.
       return "M 60 14 C 84 14 92 36 92 58 C 92 86 78 100 60 100 C 42 100 28 86 28 58 C 28 36 36 14 60 14 Z";
     case "capsule":
-      // Streamlined pod
+      // Pod — streamlined tall capsule.
       return "M 60 16 C 78 18 84 32 84 50 C 84 72 80 96 60 100 C 40 96 36 72 36 50 C 36 32 42 18 60 16 Z";
     case "square":
-      // Wide bumper drum
-      return "M 30 36 C 30 26 42 22 60 22 C 78 22 90 26 90 36 L 90 80 C 90 90 78 94 60 94 C 42 94 30 90 30 80 Z";
+      // Sentinel — heroic guardian: narrow base, proud chest, slim
+      // shoulders, small noble head. Single continuous silhouette.
+      return "M 60 8 C 66 8 70 12 71 18 C 72 22 70 26 70 32 C 70 38 76 42 82 50 C 88 60 90 70 90 78 C 90 90 78 102 60 104 C 42 102 30 90 30 78 C 30 70 32 60 38 50 C 44 42 50 38 50 32 C 50 26 48 22 49 18 C 50 12 54 8 60 8 Z";
     default:
-      // round → "Pebble" — friendly low-wide stone
-      return "M 60 18 C 86 18 96 38 96 60 C 96 84 80 98 60 98 C 40 98 24 84 24 60 C 24 38 34 18 60 18 Z";
+      // Sprout — soft acorn dumpling: wide cradle base, gentle waist,
+      // generous round head. Pixar-protagonist proportions.
+      return "M 60 14 C 70 14 76 22 76 32 C 76 40 70 46 70 50 C 70 54 76 58 80 64 C 86 72 92 82 92 90 C 92 100 80 110 60 110 C 40 110 28 100 28 90 C 28 82 34 72 40 64 C 44 58 50 54 50 50 C 50 46 44 40 44 32 C 44 22 50 14 60 14 Z";
   }
 }
 
@@ -44,13 +46,15 @@ function chassisPath(type?: string): string {
 function facePlate(type?: string) {
   switch (type) {
     case "egg":
-      return { cx: 60, cy: 50, rx: 22, ry: 19 };
+      return { cx: 60, cy: 50, rx: 24, ry: 22 };
     case "capsule":
-      return { cx: 60, cy: 50, rx: 19, ry: 19 };
+      return { cx: 60, cy: 50, rx: 22, ry: 22 };
     case "square":
-      return { cx: 60, cy: 52, rx: 26, ry: 18 };
+      // Sentinel — face on the proud chest (lower-mid)
+      return { cx: 60, cy: 70, rx: 26, ry: 23 };
     default:
-      return { cx: 60, cy: 54, rx: 24, ry: 20 };
+      // Sprout — face fills the generous round head
+      return { cx: 60, cy: 30, rx: 19, ry: 17 };
   }
 }
 

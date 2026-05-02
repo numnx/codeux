@@ -39,10 +39,10 @@ export const AGENT_AVATAR_BOTTOMS = ["style1", "style2", "style3", "style4"];
 
 /* ── Robot part catalogues ── */
 export const ROBOT_CHASSIS_OPTIONS = [
-  { id: "round", label: "Pebble" },
+  { id: "round", label: "Sprout" },
   { id: "egg", label: "Companion" },
   { id: "capsule", label: "Pod" },
-  { id: "square", label: "Bumper" },
+  { id: "square", label: "Sentinel" },
 ] as const;
 
 export const ROBOT_EYE_OPTIONS = [

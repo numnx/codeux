@@ -90,7 +90,14 @@ vi.mock("../../../dashboard/src/lib/three-lite.js", () => {
     TorusGeometry: class { type = "TorusGeometry"; dispose() {} },
     CircleGeometry: class { type = "CircleGeometry"; dispose() {} },
     LatheGeometry: class { type = "LatheGeometry"; dispose() {} },
-    PlaneGeometry: class { type = "PlaneGeometry"; dispose() {} },
+    PlaneGeometry: class {
+      type = "PlaneGeometry";
+      attributes = {
+        position: { count: 0, getX: () => 0, getY: () => 0, setZ: vi.fn(), needsUpdate: false },
+      };
+      computeVertexNormals() {}
+      dispose() {}
+    },
     RingGeometry: class { type = "RingGeometry"; dispose() {} },
     BufferGeometry: class {
       setAttribute() {}

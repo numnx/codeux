@@ -257,68 +257,48 @@ function chassisProfile(chassis?: string): THREE.Vector2[] {
       return pts;
     }
     case "square": {
-      // "Bumper" — wide drum with rounded shoulders and a small head dome.
-      // Two-stage profile: wide low body, gentle neck, small dome head on top.
-      const samples = 44;
-      const yMin = -1.10, yMax = 1.55;
-      const range = yMax - yMin;
+      // "SENTINEL" — a tall heroic guardian. The silhouette is a single
+      // continuous curve: narrow rounded base (elegant footing), proud
+      // chest swelling at lower-third (the heart), graceful shoulders
+      // tapering through a slim neck, capped by a small noble head dome.
+      // Reads as Iron Giant meets EVE — capable, watchful, trustworthy.
+      const samples = 64;
+      const yMin = -1.45, yMax = 1.60, range = yMax - yMin;
       for (let i = 0; i <= samples; i++) {
         const t = i / samples;
         const y = yMin + t * range;
-        // body region [0, 0.62]: rounded drum, peak radius near t=0.30
-        // neck region [0.62, 0.74]: smooth narrow
-        // head region [0.74, 1.0]: small dome
-        let r: number;
-        if (t < 0.62) {
-          const tt = t / 0.62;
-          // half-cosine drum: wide at base, gently narrowing
-          r = 1.22 * (0.92 + 0.12 * Math.sin(tt * Math.PI));
-          // soft bottom rounding
-          r *= Math.pow(Math.sin(Math.min(1, tt * 1.6) * Math.PI * 0.5), 0.35);
-        } else if (t < 0.74) {
-          // smooth interpolation from body radius to neck
-          const tt = (t - 0.62) / 0.12;
-          const bodyR = 1.22 * (0.92 + 0.12 * Math.sin(Math.PI));
-          const neckR = 0.62;
-          r = bodyR + (neckR - bodyR) * (3 * tt * tt - 2 * tt * tt * tt); // smoothstep
-        } else {
-          // head dome
-          const tt = (t - 0.74) / 0.26;
-          const headEnv = Math.pow(Math.sin(tt * Math.PI), 0.85);
-          r = 0.68 * headEnv + 0.001;
-        }
-        push(r, y);
+        // Compose silhouette from smooth gaussian "lobes" — this gives
+        // C∞ continuity (no kinks) while keeping each feature easy to tune.
+        const chest = 0.78 * Math.exp(-Math.pow((t - 0.32) / 0.22, 2));
+        const head  = 0.30 * Math.exp(-Math.pow((t - 0.92) / 0.10, 2));
+        const baseRamp = Math.pow(Math.min(1, t / 0.06), 0.7);
+        const topTaper = t > 0.97 ? Math.pow(Math.max(0, 1 - (t - 0.97) / 0.03), 1.3) : 1;
+        // gentle neck slim between chest and head
+        const neck = 1 - 0.18 * Math.exp(-Math.pow((t - 0.72) / 0.08, 2));
+        const r = (0.30 + chest + head) * neck * baseRamp * topTaper;
+        push(Math.max(0.001, r), y);
       }
       return pts;
     }
     default: {
-      // "Pebble" — friendly grounded river-stone with a small dome head.
-      // One-piece silhouette but with a clear "shoulder + head" feel.
-      const samples = 44;
-      const yMin = -1.10, yMax = 1.40;
-      const range = yMax - yMin;
+      // "SPROUT" — an award-winning Pixar silhouette: a soft acorn body
+      // with a wide cradle base, a gentle waist, and a generous round head.
+      // Single continuous gaussian-sum curve, perfectly smooth, juvenile-
+      // friendly proportions (head ~75% of belly width — the cuteness ratio
+      // Pixar uses for protagonists). Bottom-heavy = trustworthy.
+      const samples = 64;
+      const yMin = -1.05, yMax = 1.30, range = yMax - yMin;
       for (let i = 0; i <= samples; i++) {
         const t = i / samples;
         const y = yMin + t * range;
-        let r: number;
-        if (t < 0.55) {
-          // body — pebble bottom, max around t=0.30
-          const tt = t / 0.55;
-          const env = Math.pow(Math.sin(tt * Math.PI * 0.8 + 0.3), 0.55);
-          r = 1.05 * env;
-        } else if (t < 0.66) {
-          // soft neck — smoothstep from body to head radius
-          const tt = (t - 0.55) / 0.11;
-          const bodyR = 1.05 * Math.pow(Math.sin(Math.PI * 0.8 + 0.3), 0.55);
-          const headR = 0.78;
-          r = bodyR + (headR - bodyR) * (3 * tt * tt - 2 * tt * tt * tt);
-        } else {
-          // head dome
-          const tt = (t - 0.66) / 0.34;
-          const env = Math.pow(Math.sin(tt * Math.PI), 0.72);
-          r = 0.78 * env + 0.001;
-        }
-        push(r, y);
+        const belly = 0.65 * Math.exp(-Math.pow((t - 0.24) / 0.30, 2));
+        const head  = 0.55 * Math.exp(-Math.pow((t - 0.78) / 0.22, 2));
+        const baseRamp = Math.pow(Math.min(1, t / 0.06), 0.7);
+        const topTaper = t > 0.94 ? Math.pow(Math.max(0, 1 - (t - 0.94) / 0.06), 1.3) : 1;
+        // soft waist between belly and head — the "neck" pinch
+        const waist = 1 - 0.28 * Math.exp(-Math.pow((t - 0.55) / 0.10, 2));
+        const r = (0.30 + belly + head) * waist * baseRamp * topTaper;
+        push(Math.max(0.001, r), y);
       }
       return pts;
     }
@@ -346,17 +326,17 @@ function faceAnchor(
   let targetT: number;
   let visibleMul: number;
   switch (chassis) {
-    case "egg":     targetT = 0.55; visibleMul = 0.55; break; // upper-mid (EVE)
-    case "capsule": targetT = 0.60; visibleMul = 0.60; break;
-    case "square":  targetT = 0.90; visibleMul = 0.70; break; // head dome
-    default:        targetT = 0.84; visibleMul = 0.62; break; // pebble head
+    case "egg":     targetT = 0.55; visibleMul = 0.85; break; // EVE — upper-mid, near peak
+    case "capsule": targetT = 0.50; visibleMul = 0.90; break; // pod — at peak
+    case "square":  targetT = 0.32; visibleMul = 0.92; break; // sentinel — proud chest
+    default:        targetT = 0.78; visibleMul = 0.95; break; // sprout — head peak
   }
   const idx = Math.max(0, Math.min(profile.length - 1, Math.round(profile.length * targetT)));
   const p = profile[idx];
 
   let visibleR = p.x * visibleMul;
-  // Safety cap: if any other profile point is wider, ensure the disc edge
-  // can't reach that latitude.
+  // Safety cap 1 — neighbour widths: if any other profile point is wider,
+  // shrink so the disc edge can't reach that latitude.
   for (let i = 0; i < profile.length; i++) {
     if (i === idx) continue;
     const dy = Math.abs(profile[i].y - p.y);
@@ -364,7 +344,14 @@ function faceAnchor(
       visibleR = Math.min(visibleR, dy * 0.92);
     }
   }
-  visibleR = Math.max(0.30, visibleR);
+  // Safety cap 2 — body's vertical extents: don't let the disc extend past
+  // the top or bottom of the body (otherwise the face appears to float
+  // outside the silhouette).
+  const yMinDist = p.y - profile[0].y;
+  const yMaxDist = profile[profile.length - 1].y - p.y;
+  visibleR = Math.min(visibleR, Math.min(yMinDist, yMaxDist) * 0.92);
+
+  visibleR = Math.max(0.32, visibleR);
   return { y: p.y, r: p.x, visibleR };
 }
 
@@ -798,7 +785,8 @@ function buildChassis(
     if (v.x > maxR) { maxR = v.x; yAtMax = v.y; }
   }
 
-  // Face anchor — chosen per chassis to land on the head region.
+  // Face anchor — per-chassis tuned (y, r, visibleR), where visibleR is
+  // already capped so the disc cannot clip into a wider body region.
   const anchor = faceAnchor(profile, chassis);
   const faceY = anchor.y;
   const faceR = anchor.r;
@@ -819,61 +807,71 @@ function buildChassis(
    * the viewer warmly, not staring straight ahead.
    */
 
-  // Visible disc radius (must match the shader's plateR=0.92 in NDC of the
-  // plate plane). Plate plane width = visibleR / 0.92 * 2.
-  const visibleR = Math.max(0.42, faceR * 0.78);
-  const plateSize = (visibleR / 0.92) * 2;
+  const visibleR = anchor.visibleR;
+  // Subtle forward bulge for visual depth — but kept SMALL so the rim
+  // doesn't curve back into the body. Combined with a generous forward
+  // offset, this guarantees clip-free even on tight chassis.
+  const domeDepth = 0.04;
+  // Push the whole socket clearly forward of the body — the visible disc
+  // rim sits at z = socketForward - domeDepth, so socketForward must
+  // exceed domeDepth comfortably.
+  const socketForward = 0.12;
 
-  // Socket parent group — gives the whole face a slight upward tilt so the
-  // bot has a friendly, slightly-looking-up posture (a Pixar charm trick).
+  // Socket parent group — sits at the body surface plus margin. No tilt:
+  // the dome curvature itself supplies the "looking warmly forward" feel
+  // without any tilt that could push the lower edge into the body.
   const socket = new THREE.Group();
-  socket.position.set(0, faceY, faceR - 0.02);
-  socket.rotation.x = 0.08;
+  socket.position.set(0, faceY, faceR + socketForward);
   group.add(socket);
 
-  // 1. Recess cup — a thin dark disc behind the bezel that simulates a
-  //    cavity in the body. Slight inward push.
-  const recessGeo = new THREE.CircleGeometry(visibleR + 0.06, 64);
+  // 1. Recess cup — a thin dark disc behind the bezel suggesting a cavity
+  //    carved into the body. Sits behind the dome rim.
+  const recessGeo = new THREE.CircleGeometry(visibleR + 0.05, 64);
   const recessMat = new THREE.MeshStandardMaterial({
-    color: 0x05060a,
-    metalness: 0.2,
-    roughness: 0.55,
+    color: 0x04050a,
+    metalness: 0.15,
+    roughness: 0.6,
   });
   const recess = new THREE.Mesh(recessGeo, recessMat);
-  recess.position.set(0, 0, -0.05);
+  recess.position.set(0, 0, -0.04);
   socket.add(recess);
 
-  // 2. Bezel torus — sits proud of the surface, the most important depth cue.
-  //    Two-tone: an outer brushed-metal ring + a thin inner accent piping.
-  const bezelOuter = new THREE.TorusGeometry(visibleR + 0.07, 0.045, 14, 96);
+  // 2. Bezel torus — brushed-metal frame at the front rim of the dome.
+  //    Sits at z = domeDepth so it aligns with the bulged-forward apex
+  //    region of the curved face plate.
+  const bezelOuter = new THREE.TorusGeometry(visibleR + 0.055, 0.038, 14, 96);
   const bezel = new THREE.Mesh(bezelOuter, mats.trim);
-  bezel.position.set(0, 0, 0.005);
+  bezel.position.set(0, 0, domeDepth - 0.02);
   socket.add(bezel);
 
-  const bezelInner = new THREE.TorusGeometry(visibleR + 0.005, 0.012, 8, 96);
+  // Thin accent piping just inside the bezel — EVE-signature glow.
+  const bezelInner = new THREE.TorusGeometry(visibleR + 0.005, 0.010, 8, 96);
   const bezelAccent = new THREE.Mesh(bezelInner, mats.accentMat);
-  bezelAccent.position.set(0, 0, 0.012);
+  bezelAccent.position.set(0, 0, domeDepth - 0.012);
   socket.add(bezelAccent);
 
-  // 3. Face plate — recessed behind the bezel rim.
-  const plateGeo = new THREE.PlaneGeometry(plateSize, plateSize, 1, 1);
+  // 3. Face plate — *curved* dome geometry. Centre apex protrudes forward
+  //    (z = domeDepth), rim curves back (z = 0) so the lower edge naturally
+  //    follows the body's curvature instead of slicing through it.
+  const plateGeo = makeCurvedFacePlate(visibleR, domeDepth);
   const faceMaterial = makeFaceMaterial(accent);
   faceMaterial.uniforms.uEyeStyle.value = 0;
   const faceMesh = new THREE.Mesh(plateGeo, faceMaterial);
-  faceMesh.position.set(0, 0, -0.02);
+  // Plate's z=0 vertex (rim) sits at socket's z=0; apex protrudes to z=domeDepth.
+  faceMesh.position.set(0, 0, 0);
   socket.add(faceMesh);
 
   // 4. Halo glow — soft accent ring just outside the bezel on the body.
-  const haloGeo = new THREE.RingGeometry(visibleR + 0.13, visibleR + 0.30, 64);
+  const haloGeo = new THREE.RingGeometry(visibleR + 0.12, visibleR + 0.28, 64);
   const haloMat = new THREE.MeshBasicMaterial({
     color: accent,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.20,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
-  halo.position.set(0, 0, -0.08);
+  halo.position.set(0, 0, -0.06);
   socket.add(halo);
 
   /* ── Body accents ──────────────────────────────────────────────── */
