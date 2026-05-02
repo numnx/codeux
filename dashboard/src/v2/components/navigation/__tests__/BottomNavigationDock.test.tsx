@@ -64,12 +64,12 @@ describe('BottomNavigationDock (KineticDock)', () => {
 
         // The inner icon wrapper that receives the hover transform classes
         const overviewLink = screen.getByTestId('link-/');
-        const iconWrapper = overviewLink.querySelector('div.transition-transform');
+        const iconWrapper = overviewLink.querySelector('svg');
 
         expect(iconWrapper).toBeInTheDocument();
         // Check for the explicit presence of the static CSS class handling the lift
-        expect(iconWrapper?.className).toContain('group-hover:-translate-y-2.5');
-        expect(iconWrapper?.className).toContain('group-hover:scale-[1.15]');
+        expect(iconWrapper?.getAttribute('class')).toContain('group-active:-translate-y-1.5');
+        expect(iconWrapper?.getAttribute('class')).toContain('group-active:scale-[1.15]');
     });
 
     it('should support keyboard navigation paths without modifying pointer-specific styles', () => {
@@ -83,7 +83,7 @@ describe('BottomNavigationDock (KineticDock)', () => {
         expect(overviewLink.style.transform).toBe('');
         // Ensure standard hover class is present, which standard browser behavior handles with :focus-visible / group-focus etc if defined,
         // or ensure no crash/override happens during keyboard focus.
-        const iconWrapper = overviewLink.querySelector('div.transition-transform');
-        expect(iconWrapper?.className).toContain('group-hover:-translate-y-2.5');
+        const iconWrapper = overviewLink.querySelector('svg');
+        expect(iconWrapper?.getAttribute('class')).toContain('group-focus-visible:-translate-y-1.5');
     });
 });
