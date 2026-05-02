@@ -4,15 +4,37 @@ import { MemoryRouter } from "react-router-dom";
 /** @vitest-environment jsdom */
 import * as React from "preact/compat";
 import { h } from "preact";
+import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
+
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui/PlanningProgressOverlay.js";
 import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../dashboard/src/v2/components/ui/ListSkeletons.js";
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
+import { FilterStrip } from "../../../dashboard/src/v2/components/ui/FilterStrip.js";
 import { SprintComposer } from "../../../dashboard/src/v2/components/ui/SprintComposer.js";
+import { KineticDock } from "../../../dashboard/src/v2/components/KineticDock.js";
+import { ProjectDataProvider } from "../../../dashboard/src/v2/context/project-data.js";
+import { CollapsiblePanel } from "../../../dashboard/src/v2/components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../../../dashboard/src/hooks/ExecutionTimelineContext.js";
 import { ConfirmDialog } from "../../../dashboard/src/v2/components/ui/ConfirmDialog.js";
 import { RerunTaskModal } from "../../../dashboard/src/v2/components/ui/RerunTaskModal.js";
+import { Button } from "../../../dashboard/src/v2/components/ui/Button.js";
+import { ActionButton } from "../../../dashboard/src/v2/components/settings/SettingsSurface.js";
+
+
+
+vi.mock("@tanstack/react-router", () => {
+  const { forwardRef } = require("preact/compat");
+  return {
+    Link: forwardRef(({ children, className, to }: any, ref: any) => <a ref={ref} href={to} className={className} data-testid={"link-" + to}>{children}</a>),
+    useRouterState: () => [{ pathname: "/chat" }]
+  };
+});
+
+vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: vi.fn().mockReturnValue(false)
+}));
 
 vi.mock("../../../dashboard/src/v2/lib/sprint-composer-state.js", () => ({
   useSprintComposerState: vi.fn(() => ({
@@ -36,7 +58,51 @@ vi.mock("../../../dashboard/src/v2/lib/sprint-composer-state.js", () => ({
   resolveSubmitOriginalPrompt: vi.fn(),
 }));
 
+
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 describe("UI Components Coverage", () => {
+
+  it("renders KineticDock and handles pointer events appropriately", () => {
+    // Import here for dynamic modification
+
+
+    const { unmount } = render(
+      <ProjectDataProvider>
+        <KineticDock />
+      </ProjectDataProvider>
+    );
+
+    // Check it rendered
+    const dockNav = screen.getByLabelText("Dock navigation");
+    expect(dockNav).toBeDefined();
+
+    // Trigger pointer events to test fish-eye does not throw
+    fireEvent.pointerMove(dockNav, { clientX: 100 });
+    fireEvent.pointerLeave(dockNav);
+
+    unmount();
+    // Re-render with reduced motion
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+
+    const { unmount: unmount2 } = render(
+      <ProjectDataProvider>
+        <KineticDock />
+      </ProjectDataProvider>
+    );
+    const dockNav2 = screen.getByLabelText("Dock navigation");
+
+    // Pointer move should return early under reduced motion
+    fireEvent.pointerMove(dockNav2, { clientX: 100 });
+    fireEvent.pointerLeave(dockNav2);
+
+    unmount2();
+  });
+
   it("renders PlanningProgressOverlay in various states", () => {
     const feedback = { shipType: "container" as const, shipProgress: 0.5, text: "Test Message" };
     const { rerender } = render(
@@ -110,13 +176,55 @@ describe("UI Components Coverage", () => {
     expect(document.body.textContent).toContain("New Sprint");
   });
 
+  it("handles keyboard navigation in FilterStrip", () => {
+    const options = [{ value: "1", label: "Opt 1" }, { value: "2", label: "Opt 2" }];
+    const onChange = vi.fn();
+    render(<FilterStrip options={options} active="1" onChange={onChange} />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.length).toBe(2);
+
+    // Initial selected state and tabindex
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0].getAttribute("tabindex")).toBe("0");
+    expect(tabs[1].getAttribute("aria-selected")).toBe("false");
+    expect(tabs[1].getAttribute("tabindex")).toBe("-1");
+
+    // Right Arrow
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+
+    // Left Arrow
+    fireEvent.keyDown(tabs[1], { key: "ArrowLeft" });
+
+    // Home/End
+    fireEvent.keyDown(tabs[0], { key: "End" });
+    fireEvent.keyDown(tabs[1], { key: "Home" });
+  });
+
   it("handles keyboard opening in AvantgardeSelect", () => {
-    const options = [{ value: "1", label: "Opt 1" }];
+    const options = [{ value: "1", label: "Opt-Select-1" }];
     render(<AvantgardeSelect value="1" onChange={() => {}} options={options} />);
-    const trigger = screen.getByText("Opt 1").closest("button")!;
+    const trigger = screen.getAllByText("Opt-Select-1")[0].closest("button")!;
     
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     expect(screen.getByRole("listbox")).toBeDefined();
+  });
+
+  it("toggles CollapsiblePanel via keyboard and updates aria attributes", () => {
+    render(
+      <CollapsiblePanel title="Test Panel" icon={() => <svg />} accentHex="#000">
+        <div data-testid="content">Child</div>
+      </CollapsiblePanel>
+    );
+
+    const trigger = screen.getByRole("button", { name: /Test Panel/i });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("renders SprintComposer", () => {
@@ -134,6 +242,24 @@ describe("UI Components Coverage", () => {
       </ExecutionTimelineProvider>
     );
     expect(screen.getByText("Sprint Composer")).toBeDefined();
+  });
+
+  it("renders Button with pending attributes and styling", () => {
+    render(<Button pending>Test</Button>);
+    const btn = screen.getByRole("button", { name: "Test" });
+    expect(btn.getAttribute("aria-busy")).toBe("true");
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(btn.querySelector(".animate-spin")).toBeTruthy();
+  });
+
+  it("renders ActionButton with busy attributes and styling", () => {
+    render(<ActionButton busy label="Action" onClick={() => {}} />);
+    const btn = screen.getByRole("button", { name: "Action" });
+    expect(btn.getAttribute("aria-busy")).toBe("true");
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(btn.querySelector(".animate-spin")).toBeTruthy();
+    const labelContainer = btn.querySelector(".transition-opacity");
+    expect(labelContainer?.className).toContain("opacity-0");
   });
 
   it("renders Skeletons", () => {
@@ -167,10 +293,6 @@ describe("UI Components Coverage", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-
-
-
-
   it("ConfirmDialog handles Escape key properly", async () => {
     const onCancel = vi.fn();
 
@@ -183,7 +305,7 @@ describe("UI Components Coverage", () => {
       />
     );
 
-        await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     vi.spyOn(event, 'preventDefault');
@@ -196,13 +318,11 @@ describe("UI Components Coverage", () => {
     unmount();
   });
 
-
-
   it("RerunTaskModal prevents multiple submissions", async () => {
     let confirmResolver;
     const confirmPromise = new Promise(resolve => { confirmResolver = resolve; });
 
-        const onConfirm = vi.fn(() => confirmPromise);
+    const onConfirm = vi.fn(() => confirmPromise);
     const task = { id: "1", depends_on: [], title: "Task 1" } as any;
 
     render(
@@ -234,7 +354,7 @@ describe("UI Components Coverage", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(confirmBtn.hasAttribute("disabled")).toBe(true);
 
-        confirmResolver();
+    confirmResolver();
     await act(async () => {
         await confirmPromise;
     });

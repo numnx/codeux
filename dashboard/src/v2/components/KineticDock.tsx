@@ -29,12 +29,16 @@ type DockItem = (typeof LEFT_ITEMS)[number] | (typeof RIGHT_ITEMS)[number];
 const DockItemIcon: FunctionComponent<{ item: DockItem; isActive: boolean }> = ({ item, isActive }) => {
     return (
         <div className="relative w-full h-full flex items-center justify-center">
-            <div className="transition-transform duration-300 ease-out group-hover:-translate-y-2.5 group-hover:scale-[1.15] group-active:-translate-y-2.5 group-active:scale-[1.15]">
+            {/*
+              JS handles the hover magnetic fisheye effect via pointer events on the container.
+              We still keep static active/focus transformations on the inner icon to avoid conflict with GSAP container.
+            */}
+            <div className="dock-item-icon-wrapper">
                 <item.icon
-                    className={`w-5 h-5 relative z-10 transition-colors duration-300
+                    className={`w-5 h-5 relative z-10 transition-all duration-300 ease-out group-focus-visible:-translate-y-1.5 group-focus-visible:scale-[1.15] group-active:-translate-y-1.5 group-active:scale-[1.15]
                         ${isActive
                             ? item.color
-                            : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                            : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-focus-visible:text-slate-700 dark:group-focus-visible:text-slate-200'
                         }`}
                     strokeWidth={isActive ? 2 : 1.5}
                 />
@@ -46,7 +50,7 @@ const DockItemIcon: FunctionComponent<{ item: DockItem; isActive: boolean }> = (
 export const KineticDock: FunctionComponent = () => {
     const dockRef    = useRef<HTMLDivElement>(null);
     const itemRefs   = useRef<(HTMLAnchorElement | null)[]>([]);
-    const [indicatorLeft, setIndicatorLeft] = useState(22);
+    const [indicatorState, setIndicatorState] = useState({ left: 22, initialized: false });
     const { selectedProject } = useProjectData();
     const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
     const browserVisible = !selectedProject || (
@@ -68,7 +72,7 @@ export const KineticDock: FunctionComponent = () => {
 
         // Use offsetLeft to make calculation transformation-invariant (GSAP scaling won't affect it)
         const center = el.offsetLeft + (el.offsetWidth / 2);
-        setIndicatorLeft(center - 14); // 14 = half of 28px indicator
+        setIndicatorState({ left: center - 14, initialized: true }); // 14 = half of 28px indicator
     }, [activeIndex]);
 
     /* Entrance */
@@ -85,6 +89,74 @@ export const KineticDock: FunctionComponent = () => {
         }
     }, [prefersReducedMotion]);
 
+    /* Magnetic hover implementation */
+    const handlePointerMove = useCallback((e: PointerEvent) => {
+        if (prefersReducedMotion || !dockRef.current) return;
+
+        const bounds = dockRef.current.getBoundingClientRect();
+        // Calculate relative mouse position
+        const mouseX = e.clientX;
+
+        // Iterate over all items to compute distance from mouse and apply scale/translation
+        itemRefs.current.forEach((el) => {
+            if (!el) return;
+            const itemBounds = el.getBoundingClientRect();
+            const itemCenterX = itemBounds.left + (itemBounds.width / 2);
+            const distance = Math.abs(mouseX - itemCenterX);
+
+            // Fisheye logic: items within 100px get affected
+            const maxDistance = 100;
+            if (distance < maxDistance) {
+                // Calculate scale (1.0 to 1.3)
+                const scale = 1 + (0.3 * (1 - (distance / maxDistance)));
+                // Calculate Y translation (-12px to 0)
+                const translateY = -12 * (1 - (distance / maxDistance));
+
+                const iconWrapper = el.querySelector('.dock-item-icon-wrapper');
+                if (iconWrapper) {
+                    gsap.to(iconWrapper, {
+                        scale,
+                        y: translateY,
+                        duration: 0.15,
+                        ease: "power2.out",
+                        overwrite: "auto"
+                    });
+                }
+            } else {
+                // Reset items out of range
+                const iconWrapper = el.querySelector('.dock-item-icon-wrapper');
+                if (iconWrapper) {
+                    gsap.to(iconWrapper, {
+                        scale: 1,
+                        y: 0,
+                        duration: 0.25,
+                        ease: "power2.out",
+                        overwrite: "auto"
+                    });
+                }
+            }
+        });
+    }, [prefersReducedMotion]);
+
+    const handlePointerLeave = useCallback(() => {
+        if (prefersReducedMotion) return;
+
+        itemRefs.current.forEach((el) => {
+            if (!el) return;
+            const iconWrapper = el.querySelector('.dock-item-icon-wrapper');
+            if (iconWrapper) {
+                gsap.to(iconWrapper, {
+                    scale: 1,
+                    y: 0,
+                    duration: 0.35,
+                    ease: "elastic.out(1, 0.7)",
+                    overwrite: "auto",
+                    clearProps: "transform" // Reset inline styles so CSS can take over again
+                });
+            }
+        });
+    }, [prefersReducedMotion]);
+
     /* Active indicator — DOM-based so the divider doesn't break the math */
     useLayoutEffect(() => {
         updateIndicatorPosition();
@@ -94,8 +166,17 @@ export const KineticDock: FunctionComponent = () => {
         window.addEventListener('resize', updateIndicatorPosition);
         // Also run once after a small delay to handle font loading/layout stabilization
         const timer = setTimeout(updateIndicatorPosition, 50);
+
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => {
+            updateIndicatorPosition();
+        }) : null;
+        if (observer && dockRef.current) {
+            observer.observe(dockRef.current);
+        }
+
         return () => {
             window.removeEventListener('resize', updateIndicatorPosition);
+            if (observer) observer.disconnect();
             clearTimeout(timer);
         };
     }, [updateIndicatorPosition]);
@@ -107,9 +188,9 @@ export const KineticDock: FunctionComponent = () => {
                 key={item.label}
                 to={item.path}
                 ref={(el: HTMLAnchorElement | null) => { itemRefs.current[globalIndex] = el; }}
-                className="relative group flex flex-col items-center justify-center w-[52px] h-[52px] rounded-[1.4rem] transition-colors duration-300 decoration-none"
+                className="relative group flex flex-col items-center justify-center w-[52px] h-[52px] rounded-[1.4rem] transition-colors duration-300 decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500"
             >
-                <div className="absolute inset-0 bg-transparent group-hover:bg-black/[0.04] dark:group-hover:bg-white/[0.05] rounded-[1.4rem] pointer-events-none transition-colors duration-300" />
+                <div className="absolute inset-0 bg-transparent group-hover:bg-black/[0.04] dark:group-hover:bg-white/[0.05] group-focus-visible:bg-black/[0.04] dark:group-focus-visible:bg-white/[0.05] rounded-[1.4rem] pointer-events-none transition-colors duration-300" />
 
                 <DockItemIcon item={item} isActive={isActive} />
 
@@ -120,7 +201,8 @@ export const KineticDock: FunctionComponent = () => {
                                  text-[11px] font-bold tracking-wide rounded-xl
                                  opacity-0 scale-75
                                  group-hover:opacity-100 group-hover:scale-100
-                                 -translate-y-1 group-hover:-translate-y-0
+                                 group-focus-visible:opacity-100 group-focus-visible:scale-100
+                                 -translate-y-1 group-hover:-translate-y-0 group-focus-visible:-translate-y-0
                                  pointer-events-none
                                  transition-all duration-200 ease-out
                                  shadow-xl backdrop-blur-md whitespace-nowrap">
@@ -135,6 +217,8 @@ export const KineticDock: FunctionComponent = () => {
             <nav
                 aria-label="Dock navigation"
                 ref={dockRef}
+                onPointerMove={handlePointerMove}
+                onPointerLeave={handlePointerLeave}
                 className="relative pointer-events-auto flex items-center gap-1.5 p-2.5
                            bg-white/60 dark:bg-void-800/70 backdrop-blur-3xl
                            border border-black/[0.06] dark:border-white/[0.08]
@@ -145,10 +229,11 @@ export const KineticDock: FunctionComponent = () => {
             >
                 {/* Active Signal Indicator */}
                 <div
-                    className="absolute bottom-2 h-[3px] w-7 rounded-full
+                    className={`absolute bottom-2 h-[3px] w-7 rounded-full
                                bg-signal-500 shadow-[0_0_12px_rgba(0,224,160,0.8)]
-                               transition-[left] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
-                    style={{ left: `${indicatorLeft}px` }}
+                               transition-[left,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
+                               ${indicatorState.initialized ? "opacity-100" : "opacity-0"}`}
+                    style={{ left: `${indicatorState.left}px` }}
                 />
 
                 {/* Chat — left of divider */}
