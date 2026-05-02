@@ -62,10 +62,10 @@ vi.mock("../../../dashboard/src/v2/pages/stats/components/AnalysisStudioSection.
 
     return (
       <section>
-        <button type="button" onClick={() => setVisualMode("trend")}>Trend</button>
-        <button type="button" onClick={() => setVisualMode("composition")}>Composition</button>
-        <button type="button" onClick={() => setVisualMode("reliability")}>Reliability</button>
-        <button type="button" onClick={() => setVisualMode("ledgers")}>Ledgers</button>
+        <button type="button" onClick={() => setVisualMode("trend")} aria-pressed={visualMode === "trend"}>Trend</button>
+        <button type="button" onClick={() => setVisualMode("composition")} aria-pressed={visualMode === "composition"}>Composition</button>
+        <button type="button" onClick={() => setVisualMode("reliability")} aria-pressed={visualMode === "reliability"}>Reliability</button>
+        <button type="button" onClick={() => setVisualMode("ledgers")} aria-pressed={visualMode === "ledgers"}>Ledgers</button>
 
         {visualMode === "trend" ? <div>Trend analysis</div> : null}
         {visualMode === "composition" ? (
@@ -139,6 +139,7 @@ const baseMockValue = {
   stats: baseStats,
   loading: false,
   error: null,
+  refresh: vi.fn(),
   usage: baseStats.usage,
   tokenSeries: [0, 10, 5],
   activeTimeSeries: [0, 10, 5],
@@ -208,6 +209,16 @@ describe("StatsPage Shell", () => {
     render(<StatsPage />);
     expect(gsap.fromTo).not.toHaveBeenCalled();
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+  });
+
+  it("renders previous stats when loading is true but stats exist", () => {
+    vi.mocked(useStatsPageData).mockReturnValue({
+      ...baseMockValue,
+      loading: true,
+    } as any);
+    render(<StatsPage />);
+    expect(screen.queryByText(/Loading the telemetry field/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
   });
 
   it("does not animate if reduced motion is enabled", () => {
@@ -285,6 +296,8 @@ expect(gsap.fromTo).toHaveBeenCalled();
     expect(screen.getByText("Composition analysis")).toBeInTheDocument();
     expect(screen.getByText("Provider Share")).toBeInTheDocument();
     expect(screen.getByText("Token Anatomy")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Composition" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Reliability" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("renders reliability mode when active", () => {
@@ -301,6 +314,8 @@ expect(gsap.fromTo).toHaveBeenCalled();
     expect(screen.getByText("Reliability analysis")).toBeInTheDocument();
     expect(screen.getByText("Telemetry Source Mix")).toBeInTheDocument();
     expect(screen.getByText("Confidence Board")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reliability" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Composition" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("allows searching in telemetry ledgers", () => {

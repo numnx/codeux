@@ -66,7 +66,6 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
     const handleBlur = (e: FocusEvent) => {
         if (!containerRef.current?.contains(e.relatedTarget as Node)) {
             setInteractionState('closed');
-            containerRef.current?.querySelector("button")?.focus();
         }
     };
 
@@ -75,12 +74,31 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
         setInteractionState((prev) => (prev === 'closed' || prev === 'hover' ? 'open' : 'closed'));
     };
 
+    const handleMenuKeyDown = (e: KeyboardEvent) => {
+        if (!isMenuVisible || !containerRef.current) return;
+
+        const items = Array.from(containerRef.current.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+        if (items.length === 0) return;
+
+        const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+            items[nextIndex]?.focus();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+            items[prevIndex]?.focus();
+        }
+    };
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isMenuVisible) {
                 setInteractionState('closed');
                 const triggerBtn = containerRef.current?.querySelector('button');
-                triggerBtn?.focus();
+                setTimeout(() => triggerBtn?.focus(), 0);
             }
         };
         document.addEventListener('keydown', handleKeyDown);
@@ -121,6 +139,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
             ref={containerRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            onKeyDown={handleMenuKeyDown as any}
         >
             <button
                 type="button"

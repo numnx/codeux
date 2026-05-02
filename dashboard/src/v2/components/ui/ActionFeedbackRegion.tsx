@@ -4,6 +4,7 @@ import { X, CheckCircle, AlertTriangle, XCircle, Loader2, RotateCcw } from "luci
 import gsap from "gsap";
 import type { ActionFeedbackStatus } from "../../hooks/use-action-feedback.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 
 interface ActionFeedbackRegionProps {
   status: ActionFeedbackStatus;
@@ -26,6 +27,7 @@ const statusConfig: Record<Exclude<ActionFeedbackStatus, "idle">, { icon: Functi
 export function ActionFeedbackRegion({ status, message, onDismiss, className = "", autoDismissMs = 5000, autoDismiss, retryAction, retryLabel }: ActionFeedbackRegionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
+  const dismissBtnRef = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
 
   useLayoutEffect(() => {
@@ -34,8 +36,8 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
     const ctx = gsap.context(() => {
       gsap.fromTo(
         containerRef.current,
-        { y: reducedMotion ? 0 : -10, opacity: 0, scale: reducedMotion ? 1 : 0.98 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }
+        { y: reducedMotion ? 0 : MODAL_MOTION.feedback.yStart, opacity: 0, scale: reducedMotion ? 1 : MODAL_MOTION.feedback.scaleStart },
+        { y: MODAL_MOTION.feedback.yEnd, opacity: 1, scale: MODAL_MOTION.feedback.scaleEnd, duration: reducedMotion ? 0 : MODAL_MOTION.feedback.duration, ease: MODAL_MOTION.feedback.ease }
       );
     });
 
@@ -47,15 +49,19 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
     if (autoDismiss === false || retryAction) return;
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(
-        progressRef.current,
-        { width: "100%" },
-        { width: "0%", duration: autoDismissMs / 1000, ease: "linear" }
-      );
+      if (reducedMotion) {
+        gsap.set(progressRef.current, { width: "0%" });
+      } else {
+        gsap.fromTo(
+          progressRef.current,
+          { width: "100%" },
+          { width: "0%", duration: autoDismissMs / 1000, ease: "linear" }
+        );
+      }
     });
 
     return () => ctx.revert();
-  }, [status, message, autoDismissMs, autoDismiss, retryAction]);
+  }, [status, message, autoDismissMs, autoDismiss, retryAction, reducedMotion]);
 
   if (status === "idle" || !message) return null;
 
@@ -80,7 +86,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
           <button
             type="button"
             onClick={retryAction}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-white/50 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/40 border border-black/5 dark:border-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-white/50 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/40 border border-black/5 dark:border-white/5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             {retryLabel || "Retry"}
@@ -88,9 +94,16 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
         )}
         {onDismiss && (
           <button
+            ref={dismissBtnRef}
             type="button"
-            onClick={onDismiss}
-            className="p-1 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+            onClick={() => {
+              if (document.activeElement === dismissBtnRef.current) {
+                // attempt to restore focus contextually or drop it safely
+                dismissBtnRef.current?.blur();
+              }
+              onDismiss?.();
+            }}
+            className="p-1 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             aria-label="Dismiss message"
           >
             <X className="w-4 h-4" />
