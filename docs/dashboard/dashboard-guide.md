@@ -223,6 +223,7 @@ Legacy runtime:
 - Tasks page is project-scoped and uses a three-column board state (`Queued`, `In Progress`, `Completed`), where `coding_completed` acts as active work.
 - Tasks page renders create/edit inline through the new `TaskComposer` replacing the modal flow.
 - Task cards now explicitly show downstream dependent tasks as readable metadata tags.
+- Task cards keep the premium glass layout with pointer-driven tilt, status wave, border trace, compact executor/time metadata, and dependency status badges.
 - Navigating from a sprint cell into `View Tasks` now preselects that sprint instead of leaving the board on `All Sprints`
 - Tasks page sprint deep links are now local route filters; they no longer rewrite the project-wide selected sprint until the operator explicitly changes sprint scope from the selector
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
