@@ -1,4 +1,4 @@
-import { Circle, PlayCircle, CheckCircle2 } from "lucide-preact";
+import { Circle, PlayCircle, CheckCircle2, AlertCircle } from "lucide-preact";
 import type { TaskPriority, TaskStatus, Task } from "../types.js";
 
 export const PRIORITY_CFG: Record<TaskPriority, { label: string; color: string; dot: string; bg: string }> = {
@@ -13,6 +13,7 @@ export const STATUS_CFG: Record<TaskStatus, { label: string; color: string; hex:
   in_progress: { label: "In Progress", color: "text-signal-500", hex: "#00E0A0", icon: PlayCircle as typeof Circle },
   coding_completed: { label: "Coding Completed", color: "text-cyan-500", hex: "#0F9FA8", icon: CheckCircle2 as typeof Circle },
   completed: { label: "Completed", color: "text-status-green", hex: "#00AB84", icon: CheckCircle2 as typeof Circle },
+  QA_REVIEW_FAILED: { label: "QA Failed", color: "text-red-500", hex: "#ef4444", icon: AlertCircle as typeof Circle },
 };
 
 export const EXECUTOR_LABEL: Record<Task["executorType"], string> = {

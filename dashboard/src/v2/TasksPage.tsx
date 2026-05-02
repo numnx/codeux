@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   ArrowUpRight,
+  AlertCircle,
 } from "lucide-preact";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
@@ -38,7 +39,7 @@ import { KanbanTaskCard } from "./components/tasks/KanbanTaskCard.js";
 import { STATUS_CFG } from "./lib/tasks-constants.js";
 import { buildTaskCardViewModel } from "./lib/tasks/task-card-view-model.js";
 
-const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "coding_completed", "completed"];
+const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "coding_completed", "QA_REVIEW_FAILED", "completed"];
 
 type StatusFilter = "all" | TaskStatus;
 type PriorityFilter = "all" | TaskPriority;

@@ -1,206 +1,180 @@
 import { PlanningPayloadValidator } from "./planning-payload-validator.js";
 import type { PlannedSprintPayload } from "../contracts/project-management-types.js";
+import { findAllJsonCandidates, type ExtractJsonResult, extractJsonFromText } from "../domain/llm/json-extraction.js";
 
-export function extractJsonLikeBlock(bodyMarkdown: string): string {
-  const trimmed = bodyMarkdown.trim();
-
-  // Strategy 1: Look for a fenced code block whose content looks like JSON.
-  // Skip fenced blocks that capture code examples inside JSON string values
-  // (e.g. ```ts ... ``` embedded in promptMarkdown fields).
-  const fenceRegex = /```[a-zA-Z0-9_-]*\s*([\s\S]*?)```/g;
-  let fencedMatch: RegExpExecArray | null;
-  const fencedCandidates: string[] = [];
-  while ((fencedMatch = fenceRegex.exec(trimmed)) !== null) {
-    const fencedContent = fencedMatch[1]?.trim();
-    if (fencedContent && (fencedContent.startsWith("{") || fencedContent.startsWith("["))) {
-      fencedCandidates.push(fencedContent);
-    }
+export class PlanningParseError extends Error {
+  constructor(message: string, public readonly attempts: number, public readonly rawContent: string) {
+    super(message);
+    this.name = "PlanningParseError";
+    this.reason = message;
   }
-
-  // Helper to check if a parsed object looks like a planning payload.
-  const isPlanningPayload = (parsed: any): boolean => {
-    if (!parsed) return false;
-    if (typeof parsed !== "object") return false;
-
-    // Direct improve prompt result
-    if ("goal" in parsed && !("tasks" in parsed) && !("subtasks" in parsed) && Object.keys(parsed).length <= 2) {
-      return true;
-    }
-
-    // Direct plan result
-    if ("tasks" in parsed && Array.isArray(parsed.tasks)) return true;
-    if ("subtasks" in parsed && Array.isArray(parsed.subtasks)) return true;
-
-    // Top-level array of tasks
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = parsed[0];
-      if (first && typeof first === "object" && ("title" in first || "description" in first || "prompt" in first)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  // Helper to recursively search an object for a planning payload
-  const searchForPayload = (obj: any): any => {
-    if (!obj || typeof obj !== "object") return null;
-
-    if (isPlanningPayload(obj)) return obj;
-
-    // Check common wrapper fields for stringified JSON or nested objects
-    const wrapperFields = ["response", "content", "message", "data", "text"];
-    for (const field of wrapperFields) {
-      if (field in obj) {
-        const val = obj[field];
-        if (typeof val === "string") {
-          const innerTrimmed = val.trim();
-          if (innerTrimmed.startsWith("{") || innerTrimmed.startsWith("[")) {
-            try {
-              const parsedInner = JSON.parse(innerTrimmed);
-              const found = searchForPayload(parsedInner);
-              if (found) return found;
-            } catch {
-              // Ignore invalid JSON in wrapper field
-            }
-          }
-        } else if (typeof val === "object") {
-          const found = searchForPayload(val);
-          if (found) return found;
-        }
-      }
-    }
-
-    // If it's an array, search elements
-    if (Array.isArray(obj)) {
-      for (const item of obj) {
-        const found = searchForPayload(item);
-        if (found) return found;
-      }
-    }
-
-    return null;
-  };
+  public readonly reason: string;
+}
 
 
-  const MAX_CANDIDATES = 50;
+export function extractPlanningJsonFromText(text: string): ExtractJsonResult {
+  const candidates = findAllJsonCandidates(text);
 
-  // Strategy 2: Find all balanced brace/bracket blocks.
-  const findAllBalancedJson = (openChar: "{" | "[", closeChar: "}" | "]"): string[] => {
-    const candidates: string[] = [];
-    let searchFrom = 0;
-    while (searchFrom < trimmed.length && candidates.length < MAX_CANDIDATES) {
-      const start = trimmed.indexOf(openChar, searchFrom);
-      if (start < 0) break;
-
-      let depth = 0;
-      let inString = false;
-      let escaped = false;
-      let endIndex = -1;
-      for (let index = start; index < trimmed.length; index += 1) {
-        const char = trimmed[index]!;
-        if (inString) {
-          if (escaped) { escaped = false; continue; }
-          if (char === "\\") { escaped = true; continue; }
-          if (char === "\"") { inString = false; }
-          continue;
-        }
-        if (char === "\"") { inString = true; continue; }
-        if (char === openChar) { depth += 1; continue; }
-        if (char === closeChar) {
-          depth -= 1;
-          if (depth === 0) { endIndex = index; break; }
-        }
-      }
-
-      if (endIndex >= 0) {
-        const candidate = trimmed.slice(start, endIndex + 1);
-        try {
-          JSON.parse(candidate);
-          candidates.push(candidate);
-        } catch {
-          // Not valid JSON
-        }
-      }
-      searchFrom = start + 1;
-    }
-    return candidates;
-  };
-
-  const allCandidates = [
-    trimmed,
-    ...fencedCandidates,
-    ...findAllBalancedJson("{", "}"),
-    ...findAllBalancedJson("[", "]")
-  ];
-
-  let bestCandidate: string = trimmed;
+  let bestData: unknown = null;
+  let bestSourceText = text;
   let bestScore = -1;
 
-  for (const candidate of allCandidates) {
+  for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
 
-      // Score 3: Direct Payload
-      if (isPlanningPayload(parsed)) {
-        return JSON.stringify(parsed);
+      let isPlanning = false;
+      if (parsed && typeof parsed === "object") {
+         if ("goal" in parsed && !("tasks" in parsed) && !("subtasks" in parsed) && Object.keys(parsed).length <= 2) isPlanning = true;
+         if ("tasks" in parsed && Array.isArray(parsed.tasks)) isPlanning = true;
+         if ("subtasks" in parsed && Array.isArray(parsed.subtasks)) isPlanning = true;
+         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && ("title" in parsed[0] || "description" in parsed[0] || "prompt" in parsed[0])) isPlanning = true;
       }
 
-      // Score 2: Wrapped Payload
-      const foundPayload = searchForPayload(parsed);
+      if (isPlanning) {
+        return { success: true, data: parsed, sourceText: candidate };
+      }
+
+      let foundPayload = null;
+      const searchForPayload = (obj: any): any => {
+        if (!obj || typeof obj !== "object") return null;
+
+        let isPlanningLocal = false;
+        if ("goal" in obj && !("tasks" in obj) && !("subtasks" in obj) && Object.keys(obj).length <= 2) isPlanningLocal = true;
+        if ("tasks" in obj && Array.isArray(obj.tasks)) isPlanningLocal = true;
+        if ("subtasks" in obj && Array.isArray(obj.subtasks)) isPlanningLocal = true;
+        if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === "object" && ("title" in obj[0] || "description" in obj[0] || "prompt" in obj[0])) isPlanningLocal = true;
+        if (isPlanningLocal) return obj;
+
+        const wrapperFields = ["response", "content", "message", "data", "text"];
+        for (const field of wrapperFields) {
+          if (field in obj) {
+            const val = obj[field];
+            if (typeof val === "string") {
+              const innerTrimmed = val.trim();
+              if (innerTrimmed.startsWith("{") || innerTrimmed.startsWith("[")) {
+                try {
+                  const parsedInner = JSON.parse(innerTrimmed);
+                  const found = searchForPayload(parsedInner);
+                  if (found) return found;
+                } catch {}
+              }
+            } else if (typeof val === "object") {
+              const found = searchForPayload(val);
+              if (found) return found;
+            }
+          }
+        }
+        if (Array.isArray(obj)) {
+          for (const item of obj) {
+            const found = searchForPayload(item);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      foundPayload = searchForPayload(parsed);
       if (foundPayload) {
         if (bestScore < 2) {
-          bestCandidate = JSON.stringify(foundPayload);
+          bestData = foundPayload;
+          bestSourceText = candidate;
           bestScore = 2;
         }
         continue;
       }
 
-      // Score 1: Fallback JSON
       if (
         parsed &&
         typeof parsed === "object" &&
         !Array.isArray(parsed) &&
-        typeof parsed.response === "string"
+        typeof (parsed as any).response === "string"
       ) {
-        const inner = parsed.response.trim();
+        const inner = (parsed as any).response.trim();
         if (inner.startsWith("{") || inner.startsWith("[")) {
           try {
-            JSON.parse(inner);
+            const innerParsed = JSON.parse(inner);
             if (bestScore < 1) {
-              bestCandidate = inner;
+              bestData = innerParsed;
+              bestSourceText = inner;
               bestScore = 1;
             }
             continue;
-          } catch {
-            // inner response isn't valid JSON on its own — fall through
-          }
+          } catch {}
         }
       }
 
-      // Score 0: Valid JSON, but not a recognized planning payload or fallback
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray((parsed as any).data) &&
+        (parsed as any).data.length > 0 &&
+        typeof (parsed as any).data[0].text === "string"
+      ) {
+        const inner = (parsed as any).data[0].text.trim();
+        if (inner.startsWith("{") || inner.startsWith("[")) {
+          try {
+            const innerParsed = JSON.parse(inner);
+            if (bestScore < 1) {
+              bestData = innerParsed;
+              bestSourceText = inner;
+              bestScore = 1;
+            }
+            continue;
+          } catch {}
+        }
+      }
+
       if (bestScore < 0) {
-        bestCandidate = candidate;
+        bestData = parsed;
+        bestSourceText = candidate;
         bestScore = 0;
       }
     } catch {
-      // Not valid JSON or parsing failed
+      // Ignored
     }
   }
 
-  return bestCandidate;
+  if (bestData !== null) {
+      return { success: true, data: bestData, sourceText: bestSourceText };
+  }
+
+  return { success: false, error: new Error("Failed to extract valid JSON from text.") };
 }
 
+export function extractJsonLikeBlock(bodyMarkdown: string): string {
+  const result = extractPlanningJsonFromText(bodyMarkdown);
+  if (!result.success) {
+    return bodyMarkdown.trim();
+  }
+  return JSON.stringify(result.data);
+}
 
 export function parsePlannedSprintReply(bodyMarkdown: string): PlannedSprintPayload {
-  const rawJson = extractJsonLikeBlock(bodyMarkdown);
-  let payload: any;
-  try {
-    payload = JSON.parse(rawJson);
-  } catch (error) {
-    throw new Error("Planning agent reply was not valid JSON.");
+  const result = extractPlanningJsonFromText(bodyMarkdown);
+  if (!result.success) {
+    throw new PlanningParseError("Planning agent reply was not valid JSON.", 0, bodyMarkdown);
+  }
+  let payload: any = result.data;
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    typeof (payload as any).response === "string"
+  ) {
+    const inner = (payload as any).response.trim();
+    if (inner.startsWith("{") || inner.startsWith("[")) {
+      try {
+        payload = JSON.parse(inner);
+      } catch {}
+    }
   }
 
   const validator = new PlanningPayloadValidator();
-  return validator.validate(payload);
+  try {
+    return validator.validate(payload);
+  } catch (error) {
+    throw new PlanningParseError(error instanceof Error ? error.message : String(error), 0, bodyMarkdown);
+  }
 }

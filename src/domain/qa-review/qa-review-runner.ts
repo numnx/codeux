@@ -1,0 +1,123 @@
+import type { StructuredAgentRequestService } from "../../services/structured-agent-request-service.js";
+import type { NormalizedQaReviewResult } from "./qa-review-types.js";
+import type { QaReviewRunRecord } from "../../repositories/qa-review-repository.js";
+import type { ProviderId } from "../../contracts/app-types.js";
+
+// Outcome types
+export type QaReviewRunnerOutcome =
+  | { status: "success"; review: NormalizedQaReviewResult }
+  | { status: "error"; reason: "parse_failure" | "api_failure" | "transport_error"; message: string; error?: unknown };
+
+export interface QaReviewRunnerDependencies {
+  structuredAgentRequestService: StructuredAgentRequestService;
+}
+
+export interface QaReviewRunnerArgs {
+  projectId: string;
+  sprintId: string | null;
+  taskId?: string;
+  sprintRunId?: string;
+  taskRunId?: string;
+  provider: ProviderId;
+  model: string;
+  apiKey: string;
+  qwenAuthMode?: string;
+  qwenRegion?: "china" | "international";
+  qwenBaseUrl?: string;
+  qwenEnvKey?: string;
+  qwenProtocol?: string;
+  openCodeAuthMode?: string;
+  openCodeProviderId?: string;
+  openCodeModelId?: string;
+  openCodeBaseUrl?: string;
+  openCodeEnvKey?: string;
+  openCodePackage?: string;
+  providerMountAuth?: boolean;
+  providerAuthPath?: string;
+  providerPrompt: string;
+  repoPath: string | null;
+  cwd?: string | null;
+  workspaceSessionId?: string;
+  settings: Record<string, unknown>;
+  agentInstructions: string;
+  onActivity?: () => void;
+  runRecord: QaReviewRunRecord;
+  parseFn: (text: string) => NormalizedQaReviewResult;
+}
+
+export class QaReviewRunner {
+  constructor(private readonly deps: QaReviewRunnerDependencies) {}
+
+  async runQaReview(args: QaReviewRunnerArgs): Promise<QaReviewRunnerOutcome> {
+    try {
+      const result = await this.deps.structuredAgentRequestService.executeRequest<NormalizedQaReviewResult>({
+        projectId: args.projectId,
+        sprintId: args.sprintId,
+        taskId: args.taskId,
+        sprintRunId: args.sprintRunId,
+        taskRunId: args.taskRunId,
+        purpose: "qa_review",
+        type: "qa_review",
+        provider: args.provider,
+        model: args.model,
+        apiKey: args.apiKey,
+        qwenAuthMode: args.qwenAuthMode as any,
+        qwenRegion: args.qwenRegion,
+        qwenBaseUrl: args.qwenBaseUrl,
+        qwenEnvKey: args.qwenEnvKey,
+        qwenProtocol: args.qwenProtocol as any,
+        openCodeAuthMode: args.openCodeAuthMode as any,
+        openCodeProviderId: args.openCodeProviderId,
+        openCodeModelId: args.openCodeModelId,
+        openCodeBaseUrl: args.openCodeBaseUrl,
+        openCodeEnvKey: args.openCodeEnvKey,
+        openCodePackage: args.openCodePackage,
+        providerMountAuth: args.providerMountAuth as any,
+        providerAuthPath: args.providerAuthPath,
+        providerPrompt: args.providerPrompt,
+        repoPath: args.repoPath ?? "",
+        cwd: args.cwd ?? undefined,
+        workspaceSessionId: args.workspaceSessionId,
+        settings: args.settings as any,
+        parseFn: args.parseFn,
+        buildRetryPrompt: (error) => [
+          "Your previous response failed validation with this error:",
+          error.message,
+          "",
+          "Please provide a valid JSON object matching the requested schema exactly.",
+        ].join("\n"),
+        providerLabel: "QA",
+        sessionIdPrefix: "qa-review",
+        systemRoutingMessage: args.agentInstructions.trim(),
+        onActivity: args.onActivity,
+        maxRetries: (args.settings as any)?.cliWorkflow?.maxParsingRetries as number | undefined,
+      });
+
+      return { status: "success", review: result.parsed };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const lowerMessage = message.toLowerCase();
+      let reason: "parse_failure" | "api_failure" | "transport_error" = "api_failure";
+
+      if (
+        lowerMessage.includes("json") ||
+        lowerMessage.includes("validation") ||
+        lowerMessage.includes("failed to extract valid json") ||
+        lowerMessage.includes("must be 'pass'") ||
+        lowerMessage.includes("must be a non-empty string") ||
+        lowerMessage.includes("must be a json object")
+      ) {
+        reason = "parse_failure";
+      } else if (lowerMessage.includes("timeout") || lowerMessage.includes("network") || lowerMessage.includes("fetch")) {
+        reason = "transport_error";
+      }
+
+      return {
+        status: "error",
+        reason,
+        message,
+        error,
+      };
+    }
+  }
+}
