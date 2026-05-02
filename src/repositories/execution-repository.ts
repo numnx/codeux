@@ -12,6 +12,7 @@ import {
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
+import { toNumber, parsePayloadJson } from "./repository-utils.js";
 import { queryProjectExecutionSnapshot } from "./execution/project-execution-snapshot-query.js";
 import {
   mapProviderInvocationUsageRow,
@@ -198,23 +199,6 @@ interface WorkerProjectAffinityRow {
   project_id: string;
   active_count: number | string;
   last_seen_at: string | null;
-}
-
-function toNumber(value: number | string): number {
-  return typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
-}
-
-function parsePayloadJson(value: string | null): Record<string, unknown> | null {
-  if (!value || !value.trim()) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
 }
 
 function asNonEmptyString(value: unknown): string | null {
