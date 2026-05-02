@@ -47,7 +47,7 @@ export function useDropdownKeyboard(
         if (e.key === "Escape") {
             e.preventDefault();
             setIsOpen(false);
-            toggleRef.current?.focus();
+            setTimeout(() => toggleRef.current?.focus(), 0);
             return;
         }
 
@@ -56,7 +56,7 @@ export function useDropdownKeyboard(
 
             const focusableElements = Array.from(
                 containerRef.current.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), a[href], input:not([disabled])'
+                    'button, a[href], input'
                 )
             ).filter(el => el !== toggleRef.current);
 
@@ -82,7 +82,7 @@ export function useDropdownKeyboard(
                 if (!containerRef.current) return;
                 const focusableElements = Array.from(
                     containerRef.current.querySelectorAll<HTMLElement>(
-                        'button:not([disabled]), a[href], input:not([disabled])'
+                        'button, a[href], input'
                     )
                 ).filter(el => el !== toggleRef.current);
 
@@ -177,7 +177,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
             if (e.key === 'Escape' && isNotificationMenuVisible) {
                 setNotificationInteractionState('closed');
                 const triggerBtn = notificationContainerRef.current?.querySelector('button');
-                triggerBtn?.focus();
+                setTimeout(() => triggerBtn?.focus(), 0);
             }
         };
         document.addEventListener('keydown', handleKeyDown);
@@ -512,10 +512,16 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         <button
                             ref={sprintKb.toggleRef}
                             onKeyDown={sprintKb.onToggleKeyDown}
-                            onClick={() => setSprintDropdownOpen(!sprintDropdownOpen)}
                             aria-haspopup="listbox"
                             aria-expanded={sprintDropdownOpen}
-                            disabled={sprints.length === 0}
+                            onClick={(e) => {
+                                if (sprints.length === 0) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                setSprintDropdownOpen(!sprintDropdownOpen);
+                            }}
+                            aria-disabled={sprints.length === 0}
                             className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 flex items-center gap-2.5 px-3.5 py-2 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent rounded-xl transition-all group ${
                                 sprints.length > 0
                                     ? 'hover:border-black/[0.08] dark:hover:border-white/[0.08] cursor-pointer'
@@ -642,8 +648,14 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                                             key={option.id}
                                             role="option"
                                             aria-selected={selectedWorker?.id === option.id}
-                                            onClick={() => handleWorkerSelect(option)}
-                                            disabled={!option.isSelectable || workerSwitchBusy}
+                                            onClick={(e) => {
+                                                if (!option.isSelectable || workerSwitchBusy) {
+                                                    e.preventDefault();
+                                                    return;
+                                                }
+                                                handleWorkerSelect(option);
+                                            }}
+                                            aria-disabled={!option.isSelectable || workerSwitchBusy}
                                             className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left transition-colors group ${
                                                 option.isPrimary ? 'bg-signal-500/8' : ''
                                             } ${
