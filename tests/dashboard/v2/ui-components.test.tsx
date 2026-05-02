@@ -11,9 +11,11 @@ import { render, screen, fireEvent } from "@testing-library/preact";
 import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui/PlanningProgressOverlay.js";
 import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../dashboard/src/v2/components/ui/ListSkeletons.js";
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
+import { FilterStrip } from "../../../dashboard/src/v2/components/ui/FilterStrip.js";
 import { SprintComposer } from "../../../dashboard/src/v2/components/ui/SprintComposer.js";
 import { KineticDock } from "../../../dashboard/src/v2/components/KineticDock.js";
 import { ProjectDataProvider } from "../../../dashboard/src/v2/context/project-data.js";
+import { CollapsiblePanel } from "../../../dashboard/src/v2/components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../../../dashboard/src/hooks/ExecutionTimelineContext.js";
 
 
@@ -170,13 +172,55 @@ describe("UI Components Coverage", () => {
     expect(document.body.textContent).toContain("New Sprint");
   });
 
+  it("handles keyboard navigation in FilterStrip", () => {
+    const options = [{ value: "1", label: "Opt 1" }, { value: "2", label: "Opt 2" }];
+    const onChange = vi.fn();
+    render(<FilterStrip options={options} active="1" onChange={onChange} />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.length).toBe(2);
+
+    // Initial selected state and tabindex
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0].getAttribute("tabindex")).toBe("0");
+    expect(tabs[1].getAttribute("aria-selected")).toBe("false");
+    expect(tabs[1].getAttribute("tabindex")).toBe("-1");
+
+    // Right Arrow
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+
+    // Left Arrow
+    fireEvent.keyDown(tabs[1], { key: "ArrowLeft" });
+
+    // Home/End
+    fireEvent.keyDown(tabs[0], { key: "End" });
+    fireEvent.keyDown(tabs[1], { key: "Home" });
+  });
+
   it("handles keyboard opening in AvantgardeSelect", () => {
-    const options = [{ value: "1", label: "Opt 1" }];
+    const options = [{ value: "1", label: "Opt-Select-1" }];
     render(<AvantgardeSelect value="1" onChange={() => {}} options={options} />);
-    const trigger = screen.getByText("Opt 1").closest("button")!;
+    const trigger = screen.getAllByText("Opt-Select-1")[0].closest("button")!;
     
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     expect(screen.getByRole("listbox")).toBeDefined();
+  });
+
+  it("toggles CollapsiblePanel via keyboard and updates aria attributes", () => {
+    render(
+      <CollapsiblePanel title="Test Panel" icon={() => <svg />} accentHex="#000">
+        <div data-testid="content">Child</div>
+      </CollapsiblePanel>
+    );
+
+    const trigger = screen.getByRole("button", { name: /Test Panel/i });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("renders SprintComposer", () => {
