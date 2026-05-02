@@ -237,6 +237,19 @@ describe("SprintLedger Component", () => {
     await waitFor(() => {
       const selectAllBtn = screen.getByTitle("Select all visible");
       expect(selectAllBtn).not.toBeDisabled();
+
+      const rows = screen.getAllByRole("row");
+      const lockedRow = rows.find(r => r.textContent?.includes("Alpha Design"));
+      const unlockedRow = rows.find(r => r.textContent?.includes("Beta API"));
+
+      expect(lockedRow).toBeDefined();
+      expect(unlockedRow).toBeDefined();
+
+      const lockedCheckbox = lockedRow!.querySelector("button");
+      const unlockedCheckbox = unlockedRow!.querySelector("button");
+
+      expect(lockedCheckbox).toBeDisabled();
+      expect(unlockedCheckbox).not.toBeDisabled();
     });
   });
 });

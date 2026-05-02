@@ -7,7 +7,7 @@ import { h } from "preact";
 import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/preact";
+import { render, screen, fireEvent, cleanup } from "@testing-library/preact";
 import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui/PlanningProgressOverlay.js";
 import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../dashboard/src/v2/components/ui/ListSkeletons.js";
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
@@ -21,6 +21,8 @@ import { ConfirmDialog } from "../../../dashboard/src/v2/components/ui/ConfirmDi
 import { RerunTaskModal } from "../../../dashboard/src/v2/components/ui/RerunTaskModal.js";
 import { Button } from "../../../dashboard/src/v2/components/ui/Button.js";
 import { ActionButton } from "../../../dashboard/src/v2/components/settings/SettingsSurface.js";
+import * as matchers from '@testing-library/jest-dom/matchers';
+expect.extend(matchers);
 
 
 
@@ -66,6 +68,34 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 describe("UI Components Coverage", () => {
+
+  it("verifies ARIA state transitions in FilterStrip", () => {
+    const options = [{ value: "1", label: "Opt 1" }, { value: "2", label: "Opt 2" }];
+    const onChange = vi.fn();
+    const { rerender } = render(<FilterStrip options={options} active="1" onChange={onChange} />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+
+    // Re-render with active="2"
+    rerender(<FilterStrip options={options} active="2" onChange={onChange} />);
+
+    // Have to query again in case elements changed, though FilterStrip should just update props
+    const tabsUpdated = screen.getAllByRole("tab");
+    expect(tabsUpdated[0]).toHaveAttribute("aria-selected", "false");
+    expect(tabsUpdated[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("verifies ActionButton aria-disabled when busy", () => {
+    const { rerender } = render(<ActionButton label="Save" onClick={() => {}} busy={false} />);
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toHaveAttribute("aria-disabled", "false");
+
+    rerender(<ActionButton label="Save" onClick={() => {}} busy={true} />);
+    expect(button).toHaveAttribute("aria-disabled", "true");
+  });
 
   it("renders KineticDock and handles pointer events appropriately", () => {
     // Import here for dynamic modification
@@ -179,6 +209,9 @@ describe("UI Components Coverage", () => {
   it("handles keyboard navigation in FilterStrip", () => {
     const options = [{ value: "1", label: "Opt 1" }, { value: "2", label: "Opt 2" }];
     const onChange = vi.fn();
+
+    // We already have a FilterStrip rendered in a previous test that didn't clean up correctly
+    cleanup();
     render(<FilterStrip options={options} active="1" onChange={onChange} />);
 
     const tabs = screen.getAllByRole("tab");
