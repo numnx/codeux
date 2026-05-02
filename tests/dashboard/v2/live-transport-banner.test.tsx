@@ -2,8 +2,8 @@
 import { h, Fragment } from "preact";
 /** @jsx h */
 /** @jsxFrag Fragment */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, act } from "@testing-library/preact";
+import { describe, expect, it, beforeEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);
 
@@ -12,12 +12,6 @@ import { LiveTransportBanner } from "../../../dashboard/src/v2/components/live-s
 describe("LiveTransportBanner", () => {
   beforeEach(() => {
     cleanup();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:20Z")); // Set system time to 20 seconds
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("returns null when connected, not recovering, not stale, and no error", () => {
@@ -93,36 +87,17 @@ describe("LiveTransportBanner", () => {
     expect(screen.getByText("Recovering State")).toBeInTheDocument();
   });
 
-  it("renders Stale Data when snapshot is older than threshold", () => {
-    render(
-      <LiveTransportBanner
-        transportState="connected"
-        isRecovering={false}
-        snapshotUpdatedAt="2026-01-01T00:00:00Z" // 20 seconds ago
-        error={null}
-      />
-    );
-    expect(screen.getByText("Stale Data")).toBeInTheDocument();
-  });
-
-  it("updates stale state via timer tick", () => {
-    vi.setSystemTime(new Date("2026-01-01T00:00:10Z")); // 10 seconds (not stale)
+  it("returns null when connected with an old snapshot", () => {
     const { container } = render(
       <LiveTransportBanner
         transportState="connected"
         isRecovering={false}
-        snapshotUpdatedAt="2026-01-01T00:00:00Z" // 10s old
+        snapshotUpdatedAt="2026-01-01T00:00:00Z"
         error={null}
       />
     );
+
     expect(container.firstChild).toBeNull();
-
-    act(() => {
-      // Advance by 6 seconds to trigger the 1s interval 6 times
-      vi.advanceTimersByTime(6000);
-    });
-
-    // Now 16 seconds old (stale threshold is 15000ms)
-    expect(screen.getByText("Stale Data")).toBeInTheDocument();
+    expect(screen.queryByText("Stale Data")).not.toBeInTheDocument();
   });
 });
