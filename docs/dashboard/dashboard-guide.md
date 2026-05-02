@@ -223,6 +223,7 @@ Legacy runtime:
 - Tasks page is project-scoped and uses a three-column board state (`Queued`, `In Progress`, `Completed`), where `coding_completed` acts as active work.
 - Tasks page renders create/edit inline through the new `TaskComposer` replacing the modal flow.
 - Task cards now explicitly show downstream dependent tasks as readable metadata tags.
+- Task cards keep the premium glass layout with pointer-driven tilt, status wave, border trace, compact executor/time metadata, and dependency status badges.
 - Navigating from a sprint cell into `View Tasks` now preselects that sprint instead of leaving the board on `All Sprints`
 - Tasks page sprint deep links are now local route filters; they no longer rewrite the project-wide selected sprint until the operator explicitly changes sprint scope from the selector
 - Tasks page now refreshes from the same project-structure realtime invalidation path as sprints
@@ -318,6 +319,7 @@ Legacy runtime:
   - task ordering, dependency edges, visible phase, and task activities all come from that same selected-sprint snapshot
   - execution dispatches and runtime events still enrich cards with session, provider, branch, PR, attention, and timing metadata without becoming a second visual source of truth for task identity
 - Live Session now shows a clear paused-for-human-intervention banner, repeats the reason/instructions in the hero state, and surfaces the same guidance inside paused sprint run cards
+- The Live page no longer shows the timer-based `Stale Data` transport infobox while connected; reconnecting, recovering, and explicit transport errors still surface through the live transport banner.
 - worker-owned merge conflicts are now excluded from that human-intervention projection; they remain visible in the attention queue and realtime runtime feed, but they no longer tell the operator to merge or resume while the worker is handling them
 - Worker mode is now explicit in settings:
   - `Virtual on-demand` hands worker-owned attention and automation follow-up to short-lived internal CLI workers that do not create MCP connection rows
@@ -335,6 +337,14 @@ Legacy runtime:
   - `Stats` for a compact asymmetric telemetry deck with one dominant sprint-time panel, a slimmer runtime intelligence rail, live flow-state deltas, merge pressure, and accumulated stage timing
   - `Race` for stage-based progress across the execution course
   - `DAG` for an animated dependency graph of the current sprint using real `depends_on` edges, live task phases, and merge-stage state
+- The DAG canvas positions task cards directly against its absolute coordinate system, with fixed card dimensions and centered per-column row spacing so cards do not stack and dependency connectors attach to the visible node ports.
+- DAG node hover cards now use the shared portal tooltip with a full-card trigger area and a compact contextual panel showing task title, phase, prompt, dependencies, depth, and dependency counts instead of relying on native browser title overlays.
+- DAG task cards use a clipped rounded skin with external connector ports, compact truncating metadata chips, and a bottom-aligned runtime footer so long ids, status labels, providers, and dependency counts cannot overlap the card body or bleed dark corner artifacts.
+- DAG task-card status glows use shape-following `drop-shadow` utilities instead of rectangular wrapper `box-shadow` classes, preventing visible square shadow corners around rounded cards.
+- DAG rows are top-aligned with tighter vertical spacing, and connector ports only render when a real incoming or outgoing dependency exists so orphan dots do not imply missing lines.
+- DAG node hover details use a compact local infobox instead of the shared portal tooltip. The panel is positioned directly to the right of the hovered card inside the scrollable DAG canvas, with a right-side canvas gutter, signal accent bar, prompt panel, dependency list, metrics, and rounded-shape drop shadows.
+- DAG node infoboxes become pointer-interactive while visible, so operators can move the mouse into the panel and scroll long prompts or dependency lists without closing the hover state.
+- Portal tooltip positioning now clamps against viewport-capped overlay dimensions after collision flips, so wide DAG details stay visible and do not introduce page scrollbars.
 - The Stats deck no longer uses the old shimmer card treatment; count changes now surface as short-lived `+1` / `-1` indicators instead of flashing the entire card
 - Sprint timing in the Stats deck now includes:
   - total sprint elapsed time
