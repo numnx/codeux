@@ -19,6 +19,7 @@ import type {
   SprintLoopStepSettings,
   Subtask,
   AutoMergeFeaturePrResult,
+  DashboardStatusSnapshot,
 } from "../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -71,7 +72,7 @@ export interface SprintOrchestratorDependencies {
       sprintNumber: number;
     },
   ) => Promise<StartSprintDispatchResult>;
-  updateLastStatus: (status: any) => void;
+  updateLastStatus: (status: DashboardStatusSnapshot) => void;
   getDashboardSettings: (scope?: DashboardSettingsScope) => DashboardSettings;
   isJulesApiConfigured: () => boolean;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;

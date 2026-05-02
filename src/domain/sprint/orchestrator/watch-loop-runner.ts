@@ -8,6 +8,7 @@ import type { Subtask,
   DashboardSettings,
   DashboardSettingsScope,
   SprintLoopStepSettings,
+  DashboardStatusSnapshot,
  } from "../../../contracts/app-types.js";
 import type { InstructionTemplateId } from "../../../instructions/instruction-template-catalog.js";
 import type { MemoryPromotionService } from "../../../services/memory-promotion-service.js";
@@ -39,7 +40,7 @@ export interface WatchLoopDependencies {
   sleep?: (ms: number) => Promise<void>;
   getDashboardSettings: (scope?: DashboardSettingsScope) => DashboardSettings;
   renderInstruction: (templateId: InstructionTemplateId, variables: Record<string, unknown>, repoPath?: string) => Promise<string>;
-  updateLastStatus: (status: any) => void;
+  updateLastStatus: (status: DashboardStatusSnapshot) => void;
   resolvePlanningAgentPresetId?: (projectId: string) => Promise<string | undefined>;
   memoryPromotionService?: MemoryPromotionService;
   qualityAssuranceService?: QualityAssuranceService;
@@ -364,7 +365,7 @@ export class WatchLoopRunner {
       statusTable: cycleResult.statusTable,
       instructions: cycleResult.instructions,
       timestamp,
-    });
+    } as DashboardStatusSnapshot);
 
     return cycleResult;
   }
