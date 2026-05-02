@@ -95,7 +95,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
             onClick={() => {
               if (document.activeElement === dismissBtnRef.current) {
                 // attempt to restore focus contextually or drop it safely
-                dismissBtnRef.current.blur();
+                dismissBtnRef.current?.blur();
               }
               onDismiss?.();
             }}
