@@ -10,6 +10,7 @@ import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui
 import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../dashboard/src/v2/components/ui/ListSkeletons.js";
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
 import { SprintComposer } from "../../../dashboard/src/v2/components/ui/SprintComposer.js";
+import { CollapsiblePanel } from "../../../dashboard/src/v2/components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../../../dashboard/src/hooks/ExecutionTimelineContext.js";
 
 vi.mock("../../../dashboard/src/v2/lib/sprint-composer-state.js", () => ({
@@ -115,6 +116,23 @@ describe("UI Components Coverage", () => {
     
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     expect(screen.getByRole("listbox")).toBeDefined();
+  });
+
+  it("toggles CollapsiblePanel via keyboard and updates aria attributes", () => {
+    render(
+      <CollapsiblePanel title="Test Panel" icon={() => <svg />} accentHex="#000">
+        <div data-testid="content">Child</div>
+      </CollapsiblePanel>
+    );
+
+    const trigger = screen.getByRole("button", { name: /Test Panel/i });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("renders SprintComposer", () => {
