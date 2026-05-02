@@ -1321,6 +1321,21 @@ export class ExecutionRepository {
     return row ? this.mapExecutionLeaseRow(row) : null;
   }
 
+  listAllLeases(scopeType?: ExecutionLeaseRecord["scopeType"]): ExecutionLeaseRecord[] {
+    const rows = scopeType
+      ? this.db.prepare(`
+        SELECT *
+        FROM execution_leases
+        WHERE scope_type = ?
+      `).all(scopeType)
+      : this.db.prepare(`
+        SELECT *
+        FROM execution_leases
+      `).all();
+
+    return (rows as unknown as ExecutionLeaseRow[]).map((row) => this.mapExecutionLeaseRow(row));
+  }
+
   listExpiredLeases(scopeType?: ExecutionLeaseRecord["scopeType"], now = new Date()): ExecutionLeaseRecord[] {
     const nowIso = now.toISOString();
     const rows = scopeType
@@ -1945,7 +1960,7 @@ export class ExecutionRepository {
     }
   }
 
-  private resolveLeaseProjectId(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): string | null {
+  public resolveLeaseProjectId(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): string | null {
     if (scopeType === "sprint") {
       const row = this.db.prepare(`
         SELECT project_id
