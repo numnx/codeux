@@ -5,17 +5,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { BrowserSessionsMenu } from "../../../dashboard/src/v2/components/browser/BrowserSessionsMenu.js";
+import { SearchOverlay } from "../../../dashboard/src/v2/components/search/SearchOverlay.js";
 import { useProjectData } from "../../../dashboard/src/v2/context/project-data.js";
 import * as browserApi from "../../../dashboard/src/v2/lib/browser-api.js";
 import { buildPreviewUrl } from "../../../dashboard/src/v2/lib/preview-origin.js";
 
 expect.extend(matchers);
 
-vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
-
-
-  useProjectData: vi.fn(),
-}));
+vi.mock("../../../dashboard/src/v2/context/project-data.js", async (importOriginal) => {
+    const actual = await importOriginal();
+    const preact = await import("preact");
+    return {
+        ...actual,
+        useProjectData: vi.fn(),
+        ProjectDataContext: preact.createContext(null)
+    };
+});
 
 vi.mock("../../../dashboard/src/v2/lib/browser-api.js", () => ({
     fetchPreviewSessions: vi.fn(),
@@ -25,13 +30,18 @@ vi.mock("../../../dashboard/src/v2/lib/preview-origin.js", () => ({
     buildPreviewUrl: vi.fn((sessionId, path) => `http://preview-${sessionId}.localhost${path || "/"}`),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
+const mockNavigate = vi.fn();
+vi.mock("@tanstack/react-router", () => {
+    return {
     Link: ({ children, to, ...props }: any) => (
-        <a href={to} data-testid="router-link" {...props}>
+        <a href={to} data-testid="router-link" {...(props as any)}>
             {children}
         </a>
     ),
-}));
+    useNavigate: () => mockNavigate,
+    useRouterState: () => ({ matches: [] }),
+  };
+});
 
 describe("BrowserSessionsMenu", () => {
     beforeEach(() => {
@@ -142,5 +152,68 @@ describe("BrowserSessionsMenu", () => {
         expect(links[1]).toHaveAttribute("target", "_blank");
 
         expect(browserApi.fetchPreviewSessions).toHaveBeenCalledWith("proj-1");
+    });
+});
+
+
+describe("SearchOverlay Interactions", () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+    });
+
+    const mockResults = {
+        sprints: [{ id: "spr-1", title: "SPR-1: Test Sprint", status: "active" }],
+        tasks: [{ id: "tsk-1", title: "Test Task", status: "open" }],
+        agents: [],
+        containers: []
+    };
+
+    it("open-focus, arrow navigation, enter selection, and escape close all work in sequence", async () => {
+        const onClose = vi.fn();
+
+        render(
+            <SearchOverlay
+                isOpen={true}
+                onClose={onClose}
+                searchQuery="test"
+                onSearchChange={vi.fn()}
+                results={mockResults as any}
+            />
+        );
+
+        const input = screen.getByPlaceholderText("Search sprints, tasks, agents...");
+        expect(input).toBeInTheDocument();
+
+        fireEvent.keyDown(window, { key: "ArrowDown" });
+
+        const sprintRow = screen.getByRole("option", { name: /sprints result:/i });
+        await waitFor(() => {
+            expect(sprintRow).toHaveAttribute("aria-selected", "true");
+        });
+
+        fireEvent.keyDown(window, { key: "ArrowDown" });
+
+        const taskRow = screen.getByRole("option", { name: /tasks result: Test Task/i });
+        await waitFor(() => {
+            expect(taskRow).toHaveAttribute("aria-selected", "true");
+        });
+
+        fireEvent.keyDown(window, { key: "ArrowUp" });
+        await waitFor(() => {
+            expect(sprintRow).toHaveAttribute("aria-selected", "true");
+        });
+
+        fireEvent.keyDown(window, { key: "Enter" });
+
+        await waitFor(() => {
+            expect(mockNavigate).toHaveBeenCalledWith({ to: "/sprints/spr-1" });
+            expect(onClose).toHaveBeenCalled();
+        });
+
+        fireEvent.keyDown(window, { key: "Escape" });
+        await waitFor(() => {
+            expect(onClose).toHaveBeenCalledTimes(2);
+        });
     });
 });

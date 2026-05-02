@@ -1,7 +1,8 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
+import { useEffect, useRef, useState, useLayoutEffect, useCallback, useMemo } from "preact/hooks";
 import gsap from "gsap";
 import { Search, X, Layers, Activity, Cpu, Box, ArrowRight } from "lucide-preact";
+import { useNavigate } from "@tanstack/react-router";
 import { SearchResultRow } from "./SearchResultRow";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
@@ -22,22 +23,24 @@ interface SearchOverlayProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     results: SearchResults;
+    isLoading?: boolean;
 }
 
-export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange, results }) => {
+export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, onClose, searchQuery, onSearchChange, results, isLoading = false }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [focusedIndex, setFocusedIndex] = useState(-1);
+    const navigate = useNavigate();
 
-    const CATEGORIES: Array<{ id: string; title: string; icon: any; items: ReadonlyArray<SearchItem> }> = [
+    const CATEGORIES = useMemo(() => [
         { id: 'sprints', title: 'Sprints', icon: Layers, items: results.sprints },
         { id: 'tasks', title: 'Tasks', icon: Activity, items: results.tasks },
         { id: 'agents', title: 'Agents', icon: Cpu, items: results.agents },
         { id: 'containers', title: 'Preview Containers', icon: Box, items: results.containers }
-    ];
+    ], [results]);
 
-    const allItems = CATEGORIES.flatMap(c => c.items);
+    const allItems = useMemo(() => CATEGORIES.flatMap(c => c.items), [CATEGORIES]);
     const reducedMotion = useReducedMotion();
 
     useLayoutEffect(() => {
@@ -62,10 +65,11 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                 reducedMotion ? 0 : "-=0.2"
             );
 
-            // Focus input after animation
-            setTimeout(() => {
-                inputRef.current?.focus();
-            }, 100);
+            tl.eventCallback("onComplete", () => {
+                if (isOpen && inputRef.current) {
+                    inputRef.current.focus();
+                }
+            });
         } else {
             const tl = gsap.timeline({
                 onComplete: () => {
@@ -82,6 +86,24 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
         }
     }, [isOpen, reducedMotion]);
 
+    const handleSelect = useCallback((item: SearchItem, categoryType: string) => {
+        let path = '';
+        if (categoryType === 'sprints') {
+            path = `/sprints/${item.id}`;
+        } else if (categoryType === 'tasks') {
+            path = `/tasks/${item.id}`;
+        } else if (categoryType === 'agents') {
+            path = `/agents/${item.id}`;
+        } else if (categoryType === 'containers') {
+             path = `/browser/${item.id}`;
+        }
+
+        if (path) {
+            navigate({ to: path as any });
+            onClose();
+        }
+    }, [navigate, onClose]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isOpen) return;
@@ -97,20 +119,23 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                 setFocusedIndex(prev => (prev > 0 ? prev - 1 : allItems.length - 1));
             } else if (e.key === 'Enter' && focusedIndex >= 0) {
                 e.preventDefault();
-                // Handle selection (mock for now)
-                onClose();
+                const item = allItems[focusedIndex];
+                const category = CATEGORIES.find(c => c.items.includes(item as any));
+                if (item && category) {
+                    handleSelect(item as any, category.id);
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, focusedIndex, allItems.length, onClose]);
+    }, [isOpen, focusedIndex, allItems, CATEGORIES, handleSelect, onClose]);
 
     // Track active item ref to ensure it's in view
     const activeItemRef = useRef<HTMLButtonElement>(null);
     useEffect(() => {
         if (activeItemRef.current) {
-            activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            activeItemRef.current.scrollIntoView({ block: 'nearest' });
         }
     }, [focusedIndex]);
 
@@ -153,9 +178,26 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
 
                 {/* Results Area */}
                 <div className="flex-1 max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
-                    {searchQuery.length === 0 ? (
-                        <div className="py-12 text-center text-slate-500 dark:text-slate-400">
-                            Start typing to search across your workspace...
+                    {searchQuery.trim().length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <Search className="w-12 h-12 text-slate-200 dark:text-slate-700 mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Search SprintOS</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                                Find sprints, tasks, agents, and preview environments quickly by typing your query above.
+                            </p>
+                        </div>
+                    ) : isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-signal-500 animate-spin mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Searching...</h3>
+                        </div>
+                    ) : allItems.length === 0 ? (
+                         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <Box className="w-12 h-12 text-slate-200 dark:text-slate-700 mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No results found for '{searchQuery}'</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                                Try adjusting your search terms.
+                            </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2">
@@ -181,6 +223,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                                                         isFocused={isFocused}
                                                         onFocus={() => setFocusedIndex(currentIndex)}
                                                         activeItemRef={isFocused ? activeItemRef : null}
+                                                        onSelect={() => handleSelect(item as any, category.id)}
                                                     />
                                                 );
                                             })

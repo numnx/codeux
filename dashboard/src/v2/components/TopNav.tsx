@@ -200,7 +200,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
     const { data: sprints, selectedSprintId, selectedSprint, selectSprint, loading: sprintsLoading } = useSprints(selectedProject?.id || null);
     const projectId = selectedProject?.id || null;
 
-    const { tasks } = useProjectTasks(projectId, selectedProject ? [selectedProject] : [], sprints, null, { enabled: isSearchOpen });
+    const { tasks, loading: tasksLoading } = useProjectTasks(projectId, selectedProject ? [selectedProject] : [], sprints, null, { enabled: isSearchOpen });
     const { sessions } = usePreviewSessions({ projectId: isSearchOpen ? projectId : null, pollInterval: 0 });
 
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
@@ -400,6 +400,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         value={searchQuery}
                         onInput={(e) => setSearchQuery(e.currentTarget.value)}
                         onFocus={() => setIsSearchOpen(true)}
+                        id="global-search-input"
                         className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] focus:border-signal-500/40 dark:focus:border-signal-500/40 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-signal-500/10 transition-all"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
@@ -761,10 +762,18 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
             )}
             <SearchOverlay
                 isOpen={isSearchOpen}
-                onClose={() => setIsSearchOpen(false)}
+                onClose={() => {
+                    setIsSearchOpen(false);
+                    // Return focus to the trigger
+                    setTimeout(() => {
+                        const trigger = document.getElementById("global-search-input");
+                        if (trigger) trigger.focus();
+                    }, 0);
+                }}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 results={searchResults}
+                isLoading={searchQuery.trim().length > 0 && searchQuery !== debouncedQuery}
             />
         </>
     );
