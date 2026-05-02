@@ -219,7 +219,6 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
       <SprintLedgerBulkActions
         selectedCount={selectedFiltered.length}
         totalCount={ledgerSprints.length}
-        isAnyPending={isAnyBulkPending}
         isStartPending={isBulkStartPending}
         isDeletePending={isBulkDeletePending}
         isPinPending={isBulkPinPending}

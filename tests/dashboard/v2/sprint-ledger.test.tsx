@@ -211,4 +211,41 @@ describe("SprintLedger Component", () => {
 
     expect(screen.getByText("All sprints, fully sortable.")).toBeInTheDocument();
   });
+
+  it("respects pending lockouts for destructive and non-destructive actions", async () => {
+    const pendingSet = new Set(["sprint-delete:sprint-2"]);
+
+    render(
+      <SprintLedger
+        {...defaultProps}
+        listWindow="all"
+        pendingActionIds={pendingSet}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha Design")).toBeInTheDocument();
+    });
+
+    const checkboxes = screen.getAllByRole("button").filter(b => b.innerHTML.includes("lucide-square"));
+
+    // Beta API is second row initially
+    fireEvent.click(checkboxes[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 of 2 selected/)).toBeInTheDocument();
+    });
+
+    // Bulk buttons should be present.
+    const bulkStartBtn = screen.getAllByText("Start", { selector: 'button' })[0];
+    const bulkDeleteBtn = screen.getAllByText("Deleting...")[0];
+    const clearBtn = screen.getAllByText("Clear")[0];
+
+    // They should be disabled due to delete pending lock
+    expect(bulkStartBtn).toBeDisabled();
+    expect(bulkDeleteBtn).toBeDisabled();
+
+    // Clear selection should always be enabled
+    expect(clearBtn).not.toBeDisabled();
+  });
 });
