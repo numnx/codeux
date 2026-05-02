@@ -911,10 +911,20 @@ export class ProjectManagementRepository {
       if (!normalized || seen.has(normalized)) {
         continue;
       }
-      this.requireTask(normalized);
       seen.add(normalized);
       output.push(normalized);
     }
+
+    if (output.length > 0) {
+      const tasks = this.getTasksByIds(output);
+      const foundTaskIds = new Set(tasks.map(t => t.id));
+      for (const normalized of output) {
+        if (!foundTaskIds.has(normalized)) {
+          throw new Error(`Task not found: ${normalized}`);
+        }
+      }
+    }
+
     return output;
   }
 
