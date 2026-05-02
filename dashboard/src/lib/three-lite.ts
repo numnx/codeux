@@ -1,4 +1,4 @@
-export { ACESFilmicToneMapping, NormalBlending, RepeatWrapping } from "three/src/constants.js";
+export { ACESFilmicToneMapping, NormalBlending, AdditiveBlending, RepeatWrapping, BackSide, FrontSide, DoubleSide } from "three/src/constants.js";
 export { BufferAttribute, Float32BufferAttribute } from "three/src/core/BufferAttribute.js";
 export { BufferGeometry } from "three/src/core/BufferGeometry.js";
 export { InstancedBufferAttribute } from "three/src/core/InstancedBufferAttribute.js";
@@ -6,6 +6,11 @@ export { Object3D } from "three/src/core/Object3D.js";
 export { Color } from "three/src/math/Color.js";
 export { MathUtils } from "three/src/math/MathUtils.js";
 export { Vector2 } from "three/src/math/Vector2.js";
+export { Vector3 } from "three/src/math/Vector3.js";
+export { Quaternion } from "three/src/math/Quaternion.js";
+export { Raycaster } from "three/src/core/Raycaster.js";
+export { RingGeometry } from "three/src/geometries/RingGeometry.js";
+export { IcosahedronGeometry } from "three/src/geometries/IcosahedronGeometry.js";
 export { OrthographicCamera } from "three/src/cameras/OrthographicCamera.js";
 export { PerspectiveCamera } from "three/src/cameras/PerspectiveCamera.js";
 export { AmbientLight } from "three/src/lights/AmbientLight.js";

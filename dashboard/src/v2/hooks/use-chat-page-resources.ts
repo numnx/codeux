@@ -57,7 +57,7 @@ export const toAgentConnection = (connection: ExecutionConnectionSummary): Agent
 export const useChatPageResources = (options: {
   selectedProject: { id: string } | null;
   cache: ReturnType<typeof useMessageCache>;
-  chatMode: "threads" | "invocations";
+  chatMode: "interactive" | "threads" | "invocations";
   threadData: {
     selectedThreadId: string | null;
     selectedThreadIdRef: MutableRef<string | null>;
@@ -110,7 +110,8 @@ export const useChatPageResources = (options: {
       setLoading(true);
     }
 
-    const refreshMode = refreshOptions?.mode || (refreshOptions?.manual ? chatMode : "both");
+    const effectiveChatMode = chatMode === "interactive" ? "threads" : chatMode;
+    const refreshMode = refreshOptions?.mode || (refreshOptions?.manual ? effectiveChatMode : "both");
 
     try {
       const fetchPromises: Promise<any>[] = [];

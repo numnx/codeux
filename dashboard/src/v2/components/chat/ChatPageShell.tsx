@@ -7,8 +7,9 @@ import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export const ChatPageShell: FunctionComponent<{
   selectedProject: Source | null;
-  chatMode: "threads" | "invocations";
-  onSetChatMode: (mode: "threads" | "invocations") => void;
+  chatMode: "interactive" | "threads" | "invocations";
+  onSetChatMode: (mode: "interactive" | "threads" | "invocations") => void;
+  immersive?: boolean;
   onRefresh: () => void;
   manualRefreshing: boolean;
   onCreateThread: () => void;
@@ -29,6 +30,7 @@ export const ChatPageShell: FunctionComponent<{
   error,
   railSlot,
   detailSlot,
+  immersive = false,
 }) => {
   const headerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
@@ -74,30 +76,22 @@ export const ChatPageShell: FunctionComponent<{
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center rounded-full border border-black/[0.06] bg-white/70 p-1 dark:border-white/[0.06] dark:bg-white/[0.03]">
-            <button
-              type="button"
-              onClick={() => onSetChatMode("threads")}
-              className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
-                chatMode === "threads"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-void-900"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              }`}
-            >
-              Threads
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetChatMode("invocations")}
-              className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
-                chatMode === "invocations"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-void-900"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              }`}
-            >
-              Invocations
-            </button>
+            {(["interactive", "threads", "invocations"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onSetChatMode(mode)}
+                className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                  chatMode === mode
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-void-900"
+                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                }`}
+              >
+                {mode === "interactive" ? "Interactive" : mode === "threads" ? "Threads" : "Invocations"}
+              </button>
+            ))}
           </div>
-          {chatMode === "threads" && (
+          {(chatMode === "threads" || chatMode === "interactive") && (
             <>
               <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
                 {activeConnectionLabel || "Unassigned"}
@@ -120,7 +114,7 @@ export const ChatPageShell: FunctionComponent<{
             <RefreshCw className={`h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} strokeWidth={2.1} />
             Refresh
           </button>
-          {chatMode === "threads" && (
+          {(chatMode === "threads" || chatMode === "interactive") && (
             <button
               type="button"
               onClick={onCreateThread}
@@ -140,9 +134,13 @@ export const ChatPageShell: FunctionComponent<{
         </div>
       )}
 
-      <div className="flex-1 min-h-[70vh] flex flex-col md:grid md:grid-cols-[360px_minmax(0,1fr)] gap-6 pb-6">
+      <div className={`flex-1 min-h-[70vh] flex flex-col md:grid gap-6 pb-6 ${immersive ? "md:grid-cols-[280px_minmax(0,1fr)]" : "md:grid-cols-[360px_minmax(0,1fr)]"}`}>
         {railSlot}
-        <section className="flex flex-col min-h-[70vh] flex-1 rounded-[1.9rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+        <section className={`flex flex-col min-h-[70vh] flex-1 overflow-hidden rounded-[1.9rem] border shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] ${
+          immersive
+            ? "border-white/[0.08] bg-gradient-to-b from-void-900/70 via-void-900/55 to-black/70 dark:border-white/[0.08]"
+            : "border-black/[0.06] bg-white/70 dark:border-white/[0.06] dark:bg-void-800/60"
+        }`}>
           {detailSlot}
         </section>
       </div>

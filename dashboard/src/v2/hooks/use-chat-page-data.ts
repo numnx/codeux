@@ -28,7 +28,7 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
 
   const { options: workerOptions } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
 
-  const [chatMode, setChatMode] = useState<"threads" | "invocations">("threads");
+  const [chatMode, setChatMode] = useState<"interactive" | "threads" | "invocations">("interactive");
 
   const threadData = useChatThreadData({
     selectedProject,

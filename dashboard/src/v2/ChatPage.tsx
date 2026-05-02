@@ -11,6 +11,7 @@ import { ThreadListCard } from "./components/chat/ThreadListCard.js";
 import { InvocationListCard } from "./components/chat/InvocationListCard.js";
 import { EmptyChat, LoadingChat } from "./components/chat/ChatEmptyState.js";
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
+import { InteractiveChatView } from "./components/chat/InteractiveChatView.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
 import { WorkingBubble } from "./components/chat/WorkingBubble.js";
@@ -92,7 +93,7 @@ export const ChatPage: FunctionComponent = () => {
   }, [messages]);
 
   const renderRail = () => {
-    if (chatMode === "threads") {
+    if (chatMode === "threads" || chatMode === "interactive") {
       return (
         <ChatRail
           title="Threads"
@@ -144,6 +145,31 @@ export const ChatPage: FunctionComponent = () => {
   };
 
   const renderDetail = () => {
+    if (chatMode === "interactive") {
+      return (
+        <>
+          <ConfirmDialog isOpen={isConfirmOpen} options={confirmOptions} onConfirm={handleConfirm} onCancel={handleCancel} />
+          {feedback.status !== "idle" && (
+            <div className="absolute top-4 right-4 z-50 shadow-lg">
+              <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} />
+            </div>
+          )}
+          <InteractiveChatView
+            selectedThread={selectedThread}
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            sending={sending}
+            hasWorkingReply={hasWorkingReply}
+            composerRef={composerRef}
+            onSend={() => void handleSend()}
+            onCreateThread={() => void createThreadForCompose()}
+            activeConnectionLabel={activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : null}
+            selectedProjectName={selectedProject?.name || null}
+          />
+        </>
+      );
+    }
     if (chatMode === "threads") {
       return (
         <>
@@ -331,6 +357,7 @@ export const ChatPage: FunctionComponent = () => {
       onCreateThread={() => void createThreadForCompose()}
       pendingDashboardMessages={pendingDashboardMessages}
       activeConnectionLabel={activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : undefined}
+      immersive={chatMode === "interactive"}
       error={error}
       railSlot={renderRail()}
       detailSlot={renderDetail()}
