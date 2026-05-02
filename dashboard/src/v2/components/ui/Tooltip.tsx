@@ -9,6 +9,8 @@ interface TooltipProps {
     content: ComponentChildren;
     position?: "top" | "bottom" | "left" | "right";
     className?: string;
+    triggerClassName?: string;
+    unstyled?: boolean;
     delay?: number;
 }
 
@@ -17,6 +19,8 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
     content,
     position = "bottom",
     className = "",
+    triggerClassName = "",
+    unstyled = false,
     delay = 150
 }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -116,7 +120,7 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
     return (
         <div
             ref={wrapperRef}
-            className="inline-flex relative"
+            className={`inline-flex relative ${triggerClassName}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onFocusCapture={handleFocus}
@@ -128,7 +132,9 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
                 <div
                     id={tooltipId}
                     ref={tooltipRef}
-                    className={`fixed z-[9999] px-2.5 py-1.5 text-xs font-medium text-white bg-slate-900 dark:bg-black rounded-lg shadow-xl pointer-events-none ${className.includes("whitespace-") ? className : "whitespace-nowrap " + className}`}
+                    className={unstyled
+                        ? `fixed z-[9999] pointer-events-none bg-transparent p-0 shadow-none ${className}`
+                        : `fixed z-[9999] px-2.5 py-1.5 text-xs font-medium text-white bg-slate-900 dark:bg-black rounded-lg shadow-xl pointer-events-none ${className.includes("whitespace-") ? className : "whitespace-nowrap " + className}`}
                     style={{ top: coords.top, left: coords.left }}
                     role="tooltip"
                 >

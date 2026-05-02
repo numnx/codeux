@@ -6,20 +6,21 @@ import type { ExecutionTaskDispatchSummary, Subtask } from "../../types.js";
 import { buildSprintDagModel, type SprintDagEdgeModel, type SprintDagNodeModel } from "../lib/sprint-dag.js";
 import { WaveFluid } from "./ui/WaveFluid.js";
 import { BorderTrace } from "./ui/BorderTrace.js";
-import { Tooltip } from "./ui/Tooltip.js";
 
 interface SprintDagProps {
-  tasks: Subtask[];
-  dispatches: ExecutionTaskDispatchSummary[];
+  tasks?: Subtask[];
+  dispatches?: ExecutionTaskDispatchSummary[];
   hasSprintContext: boolean;
 }
 
-const NODE_W = 240;
-const NODE_H = 144;
-const COL_GAP = 300;
-const ROW_GAP = 180;
+const NODE_W = 280;
+const NODE_H = 188;
+const COL_GAP = 370;
+const ROW_GAP = 38;
 const PAD_X = 110;
 const PAD_Y = 110;
+const INFOBOX_W = 352;
+const INFOBOX_GAP = 14;
 
 type Tone = {
   accent: string;
@@ -46,7 +47,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
       return {
         accent: "#00E0A0",
         edge: "#00E0A0",
-        glow: "shadow-[0_18px_55px_rgba(0,224,160,0.08)]",
+        glow: "drop-shadow-[0_18px_34px_rgba(0,224,160,0.08)]",
         badge: "border-signal-500/25 bg-signal-500/12 text-signal-600 dark:text-signal-300",
         card: "border-signal-500/20 bg-white/80 dark:bg-void-800/78",
         label: "Running",
@@ -57,7 +58,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
       return {
         accent: "#0F9FA8",
         edge: "#0F9FA8",
-        glow: "shadow-[0_16px_44px_rgba(15,159,168,0.08)]",
+        glow: "drop-shadow-[0_16px_30px_rgba(15,159,168,0.08)]",
         badge: "border-cyan-500/25 bg-cyan-500/12 text-cyan-600 dark:text-cyan-300",
         card: "border-cyan-500/18 bg-white/78 dark:bg-void-800/76",
         label: "Coding Completed",
@@ -68,7 +69,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
       return {
         accent: "#00AB84",
         edge: "#00AB84",
-        glow: "shadow-[0_16px_44px_rgba(0,171,132,0.07)]",
+        glow: "drop-shadow-[0_16px_30px_rgba(0,171,132,0.07)]",
         badge: "border-status-green/20 bg-status-green/12 text-status-green",
         card: "border-status-green/18 bg-white/78 dark:bg-void-800/76",
         label: "Completed",
@@ -79,7 +80,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
       return {
         accent: "#E3000F",
         edge: "#E3000F",
-        glow: "shadow-[0_14px_36px_rgba(227,0,15,0.06)]",
+        glow: "drop-shadow-[0_14px_26px_rgba(227,0,15,0.06)]",
         badge: "border-status-red/20 bg-status-red/12 text-status-red",
         card: "border-status-red/16 bg-white/72 dark:bg-void-800/72",
         label: "Failed",
@@ -91,7 +92,7 @@ function getNodeTone(node: SprintDagNodeModel): Tone {
       return {
         accent: "#F59E0B",
         edge: "#F59E0B",
-        glow: "shadow-[0_14px_36px_rgba(245,158,11,0.06)]",
+        glow: "drop-shadow-[0_14px_26px_rgba(245,158,11,0.06)]",
         badge: "border-status-amber/20 bg-status-amber/12 text-status-amber",
         card: "border-status-amber/16 bg-white/72 dark:bg-void-800/72",
         label: node.phase === "QUOTA" ? "Quota" : "Blocked",
@@ -177,40 +178,61 @@ function formatExecutor(dispatch?: ExecutionTaskDispatchSummary): string | null 
 
 function renderDagNodeTooltipContent(node: SprintDagNodeModel) {
   const hover = node.hover;
-
-  const startedAt = (node.task as any).started_at ? new Date((node.task as any).started_at).getTime() : null;
-  const finishedAt = (node.task as any).finished_at ? new Date((node.task as any).finished_at).getTime() : null;
-  const duration = startedAt && finishedAt ? `${Math.round((finishedAt - startedAt) / 1000)}s` : null;
+  const phaseLabel = node.phase === "CODING_COMPLETED" ? "Coding Done" : node.phase.toLowerCase();
+  const dependencies = hover?.dependencies || [];
 
   return (
-    <div className="flex flex-col gap-3 w-72 p-1 text-slate-200 pointer-events-none">
-      <div className="flex flex-col gap-1.5">
-        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prompt</h4>
-        <div className="text-xs font-mono leading-relaxed whitespace-pre-wrap text-slate-300 break-words line-clamp-6">
-          {hover?.prompt || "No prompt available."}
+    <div className="w-full">
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-signal-500 via-signal-400 to-ember-400" />
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] pb-3 dark:border-white/[0.08]">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-signal-600 dark:text-signal-300">{node.task.id}</div>
+            <div className="mt-1 line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white">{node.task.title}</div>
+          </div>
+          <div className="shrink-0 rounded-full border border-signal-500/20 bg-signal-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-signal-700 dark:text-signal-300">
+            {phaseLabel}
+          </div>
+        </div>
+
+        <div className="rounded-[1rem] border border-black/[0.06] bg-black/[0.025] p-3 dark:border-white/[0.07] dark:bg-white/[0.035]">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Prompt</div>
+            <div className="font-mono text-[9px] text-slate-400">{hover?.prompt?.length || 0} chars</div>
+          </div>
+          <div className="max-h-32 overflow-y-auto pr-1 font-mono text-xs leading-relaxed text-slate-600 break-words whitespace-pre-wrap dark:text-slate-300 dropdown-scrollbar">
+            {hover?.prompt || "No prompt available."}
+          </div>
+        </div>
+
+        {dependencies.length > 0 && (
+          <div className="rounded-[1rem] border border-black/[0.06] bg-white/70 p-3 dark:border-white/[0.07] dark:bg-white/[0.035]">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Waiting on</div>
+            <ul className="flex max-h-24 flex-col gap-1 overflow-y-auto pr-1 dropdown-scrollbar">
+              {dependencies.map((dep) => (
+                <li key={dep.id} className="flex items-center gap-2 rounded-lg bg-black/[0.025] px-2 py-1.5 text-[11px] text-slate-600 dark:bg-white/[0.035] dark:text-slate-300">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/70" />
+                  <span className="truncate">{dep.title}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ["Depth", String(node.depth + 1)],
+            ["In", String(hover?.counters.incoming || 0)],
+            ["Out", String(hover?.counters.outgoing || 0)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-[0.9rem] border border-black/[0.06] bg-white/75 px-3 py-2 dark:border-white/[0.07] dark:bg-white/[0.04]">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</div>
+              <div className="mt-1 font-mono text-sm font-black text-slate-800 dark:text-white">{value}</div>
+            </div>
+          ))}
         </div>
       </div>
-
-      {(hover?.dependencies?.length || 0) > 0 && (
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Waiting on</h4>
-          <ul className="flex flex-col gap-1">
-            {hover?.dependencies?.map((dep: { id: string, title: string }) => (
-              <li key={dep.id} className="text-[11px] flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50" />
-                <span className="truncate flex-1">{dep.title}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {duration && (
-        <div className="flex items-center gap-2 pt-2 border-t border-white/10 text-xs text-slate-400 font-mono">
-          <Clock3 className="w-3.5 h-3.5" />
-          <span>Completed in {duration}</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -238,103 +260,114 @@ const DagNode = memo(({ node, dispatch, tone }: { node: SprintDagNodeModel & { x
 
   return (
     <div
-      className={`absolute ${tone.glow} ${tone.dim}`}
+      className={`group/dag-node pointer-events-auto absolute z-10 hover:z-50 focus-within:z-50 ${tone.glow} ${tone.dim}`}
       style={{
         left: `${node.x}px`,
         top: `${node.y}px`,
         width: `${NODE_W}px`,
         height: `${NODE_H}px`,
       }}
-      title={`${node.task.id} · ${node.task.title}`}
+      tabIndex={0}
+      aria-label={`${node.task.id}: ${node.task.title}`}
     >
-      <Tooltip
-        className="whitespace-normal w-full h-full text-left"
-        content={renderDagNodeTooltipContent(node)}
-      >
-        <div className={`relative h-full rounded-[1.4rem] border ${tone.card} p-5 backdrop-blur-2xl dag-node-transition`}>
-        <div
-          className="absolute left-[-7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-white/70 dark:border-white/15"
-          style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
-        />
-        <div
-          className="absolute right-[-7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-white/70 dark:border-white/15"
-          style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
-        />
-
-        <div
-          className="absolute inset-x-3 top-2 h-[2px] rounded-full opacity-90"
-          style={{ background: `linear-gradient(90deg, transparent, ${tone.accent}, transparent)` }}
-        />
-        <div
-          className="absolute inset-x-3 bottom-0 h-10 rounded-b-[1.2rem] opacity-60"
-          style={{ background: `radial-gradient(circle at 50% 0%, ${tone.accent}14 0%, transparent 70%)` }}
-        />
-
-        {node.phase === "RUNNING" && (
+      <div className="relative h-full w-full">
+        {node.incoming.length > 0 && (
           <div
-            className="dag-running-ring absolute -inset-1 rounded-[1.65rem] border border-signal-500/30"
-            style={{ boxShadow: "0 0 32px rgba(0,224,160,0.12)" }}
+            className="absolute left-[-5px] top-1/2 z-20 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white/75 dark:border-white/20"
+            style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
+          />
+        )}
+        {node.outgoing.length > 0 && (
+          <div
+            className="absolute right-[-5px] top-1/2 z-20 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white/75 dark:border-white/20"
+            style={{ backgroundColor: `${tone.accent}CC`, boxShadow: `0 0 18px ${tone.accent}50` }}
           />
         )}
 
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
-                {node.task.id}
-              </span>
-              {node.incoming.length === 0 && (
-                <span className="rounded-full border border-ember-500/20 bg-ember-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-ember-600 dark:text-ember-400">
-                  Root
-                </span>
-              )}
-              {node.isReady && (
-                <span className="rounded-full border border-signal-500/20 bg-signal-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-300">
-                  Ready
-                </span>
-              )}
-            </div>
-            <div className="mt-2 line-clamp-2 text-[15px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
-              {node.task.title}
-            </div>
-          </div>
+        <div
+          className="pointer-events-none absolute left-[calc(100%+14px)] top-0 z-50 w-[22rem] max-w-[calc(100vw-2rem)] translate-x-2 scale-[0.98] overflow-hidden rounded-[1.45rem] border border-black/[0.08] bg-white/96 p-4 text-slate-700 opacity-0 drop-shadow-[0_18px_34px_rgba(15,23,42,0.18)] backdrop-blur-2xl transition-all duration-180 ease-out group-hover/dag-node:pointer-events-auto group-hover/dag-node:translate-x-0 group-hover/dag-node:scale-100 group-hover/dag-node:opacity-100 group-focus-within/dag-node:pointer-events-auto group-focus-within/dag-node:translate-x-0 group-focus-within/dag-node:scale-100 group-focus-within/dag-node:opacity-100 dark:border-white/[0.09] dark:bg-void-800/96 dark:text-slate-200 dark:drop-shadow-[0_22px_44px_rgba(0,0,0,0.42)]"
+          role="tooltip"
+        >
+          {renderDagNodeTooltipContent(node)}
+        </div>
 
+        <div className={`relative isolate flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border ${tone.card} p-4.5 backdrop-blur-2xl dag-node-transition`}>
           <div
-            className="relative mt-1 h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: tone.accent, boxShadow: `0 0 18px ${tone.accent}70` }}
-          >
-            {(node.phase === "RUNNING" || node.phase === "CODING_COMPLETED") && (
-              <span className="absolute inset-0 rounded-full bg-current opacity-50 animate-ping" />
-            )}
-          </div>
-        </div>
+            className="pointer-events-none absolute inset-x-4 top-2 z-0 h-[2px] rounded-full opacity-90"
+            style={{ background: `linear-gradient(90deg, transparent, ${tone.accent}, transparent)` }}
+          />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-16 rounded-b-[1.4rem] opacity-70"
+            style={{ background: `radial-gradient(circle at 50% 0%, ${tone.accent}16 0%, transparent 68%)` }}
+          />
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${tone.badge}`}>
-            <tone.icon className="h-3 w-3" strokeWidth={2.5} />
-            {phaseLabel}
-          </span>
-          {mergeLabel && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
-              <GitBranch className="h-3 w-3" strokeWidth={2.5} />
-              {mergeLabel}
-            </span>
+          {node.phase === "RUNNING" && (
+            <div
+              className="dag-running-ring pointer-events-none absolute inset-0 z-0 rounded-[1.35rem] border border-signal-500/30"
+              style={{ boxShadow: "inset 0 0 0 1px rgba(0,224,160,0.08), 0 0 28px rgba(0,224,160,0.10)" }}
+            />
           )}
-        </div>
 
-        <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-2">
-          <div className="min-w-0 text-[10px] font-mono leading-tight text-slate-400">
-            <div>{node.incoming.length} deps in</div>
-            <div>{node.outgoing.length} deps out</div>
-          </div>
-          <div className="flex flex-col items-end text-[10px] font-mono text-slate-400">
-            {executorLabel && <span>{executorLabel}</span>}
-            {dispatch?.provider && <span>{dispatch.provider}</span>}
-            {!executorLabel && !dispatch?.provider && <Clock3 className="h-3.5 w-3.5 opacity-50" strokeWidth={1.8} />}
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <span className="min-w-0 max-w-[8rem] truncate rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.08em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+                    {node.task.id}
+                  </span>
+                  {node.incoming.length === 0 && (
+                    <span className="shrink-0 rounded-full border border-ember-500/20 bg-ember-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-ember-600 dark:text-ember-400">
+                      Root
+                    </span>
+                  )}
+                  {node.isReady && (
+                    <span className="shrink-0 rounded-full border border-signal-500/20 bg-signal-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-signal-600 dark:text-signal-300">
+                      Ready
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 line-clamp-2 text-[14px] font-bold leading-snug tracking-tight text-slate-900 dark:text-white">
+                  {node.task.title}
+                </div>
+              </div>
+
+              <div
+                className="relative mt-1 h-3 w-3 shrink-0 rounded-full"
+                style={{ backgroundColor: tone.accent, boxShadow: `0 0 18px ${tone.accent}70` }}
+              >
+                {(node.phase === "RUNNING" || node.phase === "CODING_COMPLETED") && (
+                  <span className="absolute inset-0 rounded-full bg-current opacity-50 animate-ping" />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className={`inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${tone.badge}`}>
+                <tone.icon className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+                <span className="truncate">{phaseLabel}</span>
+              </span>
+              {mergeLabel && (
+                <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+                  <GitBranch className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+                  <span className="truncate">{mergeLabel}</span>
+                </span>
+              )}
+            </div>
+
+            <div className="mt-auto grid grid-cols-[1fr_auto] items-end gap-3 pt-3">
+              <div className="min-w-0 rounded-2xl border border-black/[0.045] bg-white/38 px-3 py-2 font-mono text-[10px] leading-tight text-slate-500 dark:border-white/[0.055] dark:bg-white/[0.035] dark:text-slate-400">
+                <div className="truncate">{node.incoming.length} deps in</div>
+                <div className="truncate">{node.outgoing.length} deps out</div>
+              </div>
+              <div className="flex min-w-0 max-w-[7.5rem] flex-col items-end rounded-2xl border border-black/[0.045] bg-white/38 px-3 py-2 text-right font-mono text-[10px] leading-tight text-slate-500 dark:border-white/[0.055] dark:bg-white/[0.035] dark:text-slate-400">
+                {executorLabel && <span className="max-w-full truncate">{executorLabel}</span>}
+                {dispatch?.provider && <span className="max-w-full truncate">{dispatch.provider}</span>}
+                {!executorLabel && !dispatch?.provider && <Clock3 className="h-3.5 w-3.5 opacity-50" strokeWidth={1.8} />}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      </Tooltip>
     </div>
   );
 }, areDagNodePropsEqual);
@@ -345,12 +378,14 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
   const startPosRef = useRef({ x: 0, y: 0 });
   const startScrollRef = useRef({ left: 0, top: 0 });
   const [isDraggingState, setIsDraggingState] = useState(false);
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeDispatches = Array.isArray(dispatches) ? dispatches : [];
 
-  const model = useMemo(() => buildSprintDagModel(tasks), [tasks]);
+  const model = useMemo(() => buildSprintDagModel(safeTasks), [safeTasks]);
 
   const dispatchByTaskId = useMemo(() => {
     const map = new Map<string, ExecutionTaskDispatchSummary>();
-    for (const dispatch of dispatches) {
+    for (const dispatch of safeDispatches) {
       if (dispatch.taskId && !map.has(dispatch.taskId)) {
         map.set(dispatch.taskId, dispatch);
       }
@@ -359,18 +394,18 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
       }
     }
     return map;
-  }, [dispatches]);
+  }, [safeDispatches]);
 
   const maxDepth = model.columns.length - 1;
   const maxRows = Math.max(1, ...model.columns.map((column) => column.length));
-  const canvasWidth = Math.max(1180, PAD_X * 2 + Math.max(0, maxDepth) * COL_GAP + NODE_W);
-  const canvasHeight = Math.max(560, PAD_Y * 2 + Math.max(0, maxRows - 1) * ROW_GAP + NODE_H);
+  const canvasWidth = Math.max(1180, PAD_X * 2 + Math.max(0, maxDepth) * COL_GAP + NODE_W + INFOBOX_W + INFOBOX_GAP);
+  const canvasHeight = Math.max(560, PAD_Y * 2 + maxRows * NODE_H + Math.max(0, maxRows - 1) * ROW_GAP);
 
   const positionedNodes = useMemo(() => {
     return model.nodes.map((node) => ({
       ...node,
       x: PAD_X + node.depth * COL_GAP,
-      y: PAD_Y + node.row * ROW_GAP,
+      y: PAD_Y + node.row * (NODE_H + ROW_GAP),
     }));
   }, [model.nodes]);
 
@@ -413,7 +448,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
     setIsDraggingState(false);
   };
 
-  if (!hasSprintContext || tasks.length === 0) {
+  if (!hasSprintContext || safeTasks.length === 0) {
     return (
       <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
         <WaveFluid accentHex="#00E0A0" />
@@ -575,43 +610,6 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                   </g>
                 ))}
 
-                {model.adjacencies.map((adjacency) => {
-                  const source = positionedNodeById.get(adjacency.from);
-                  const target = positionedNodeById.get(adjacency.to);
-                  if (!source || !target) {
-                    return null;
-                  }
-
-                  const sourceX = source.x + NODE_W / 2;
-                  const sourceY = source.y + NODE_H;
-                  const targetX = target.x + NODE_W / 2;
-                  const targetY = target.y;
-
-                  const isSettled = source.phase === "COMPLETED" && target.phase === "COMPLETED";
-                  const isActive = (source.phase === "RUNNING" || source.phase === "CODING_COMPLETED") &&
-                                   (target.phase === "RUNNING" || target.phase === "CODING_COMPLETED");
-
-                  const strokeColor = isActive ? "rgba(0,224,160,0.4)" : isSettled ? "rgba(0,171,132,0.3)" : "rgba(100,116,139,0.2)";
-                  const strokeWidth = isActive ? 2 : isSettled ? 1.5 : 1;
-                  const strokeDasharray = isActive ? undefined : isSettled ? "6 6" : "4 8";
-
-                  return (
-                    <g key={adjacency.id}>
-                      <line
-                        className="dag-edge-transition"
-                        x1={sourceX}
-                        y1={sourceY}
-                        x2={targetX}
-                        y2={targetY}
-                        stroke={strokeColor}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={strokeDasharray}
-                        strokeLinecap="round"
-                      />
-                    </g>
-                  );
-                })}
-
                 {model.edges.map((edge) => {
                   const source = positionedNodeById.get(edge.from);
                   const target = positionedNodeById.get(edge.to);
@@ -639,9 +637,9 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                       <path
                         className="dag-edge-transition"
                         d={path}
-                        stroke="rgba(15,23,42,0.07)"
-                        strokeWidth={tone.width + 6}
-                        opacity={edge.state === "active" ? 0.14 : 0.06}
+                        stroke="rgba(15,23,42,0.10)"
+                        strokeWidth={tone.width + 8}
+                        opacity={edge.state === "active" ? 0.18 : 0.10}
                         strokeLinecap="round"
                       />
                       {edge.state === "active" && (
@@ -660,10 +658,10 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                         className="dag-edge-transition"
                         d={path}
                         stroke={stroke}
-                        strokeWidth={tone.width}
-                        opacity={tone.opacity}
+                        strokeWidth={Math.max(tone.width, 2)}
+                        opacity={Math.max(tone.opacity, edge.state === "pending" ? 0.5 : tone.opacity)}
                         strokeLinecap="round"
-                        strokeDasharray={edge.state === "pending" ? "5 10" : undefined}
+                        strokeDasharray={edge.state === "pending" ? "7 9" : undefined}
                         filter={edge.state === "active" ? "url(#dag-glow)" : undefined}
                       >
                         {edge.state === "pending" && (
@@ -726,9 +724,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                 const tone = getNodeTone(node);
                 const dispatch = dispatchByTaskId.get(node.task.record_id || "") || dispatchByTaskId.get(node.task.id);
                 return (
-                  <div key={node.task.id} className="pointer-events-auto relative z-10">
-                    <DagNode node={node} dispatch={dispatch} tone={tone} />
-                  </div>
+                  <DagNode key={node.task.id} node={node} dispatch={dispatch} tone={tone} />
                 );
               })}
             </div>

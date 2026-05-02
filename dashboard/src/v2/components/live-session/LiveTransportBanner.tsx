@@ -1,8 +1,7 @@
 import { h } from "preact";
 import type { FunctionComponent } from "preact";
-import { Zap, RefreshCcw, WifiOff, AlertTriangle } from "lucide-preact";
+import { Zap, RefreshCcw, WifiOff } from "lucide-preact";
 import type { TransportState } from "../../../lib/realtime/dashboard-realtime-client.js";
-import { useEffect, useState } from "preact/hooks";
 
 export interface LiveTransportBannerProps {
   transportState: TransportState;
@@ -11,27 +10,12 @@ export interface LiveTransportBannerProps {
   error: string | null;
 }
 
-const STALE_THRESHOLD_MS = 15000;
-
 export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = ({
   transportState,
   isRecovering,
-  snapshotUpdatedAt,
   error,
 }) => {
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const isStale =
-    snapshotUpdatedAt && transportState === "connected" && !isRecovering
-      ? now - new Date(snapshotUpdatedAt).getTime() > STALE_THRESHOLD_MS
-      : false;
-
-  if (transportState === "connected" && !isRecovering && !isStale && !error) {
+  if (transportState === "connected" && !isRecovering && !error) {
     return null;
   }
 
@@ -60,13 +44,6 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
     icon = <RefreshCcw className="w-5 h-5 shrink-0 animate-spin" />;
     title = "Recovering State";
     message = "Fetching latest snapshot to ensure data consistency...";
-    wrapperClass = "bg-status-amber/10 border-status-amber/20 text-status-amber";
-    iconClass = "text-status-amber";
-    isUrgent = false;
-  } else if (isStale) {
-    icon = <AlertTriangle className="w-5 h-5 shrink-0" />;
-    title = "Stale Data";
-    message = "Data has not been updated recently. Network issues may be present.";
     wrapperClass = "bg-status-amber/10 border-status-amber/20 text-status-amber";
     iconClass = "text-status-amber";
     isUrgent = false;

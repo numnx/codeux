@@ -24,16 +24,18 @@ export function calculatePosition({
 }: CalculatePositionArgs) {
     let top = 0;
     let left = 0;
+    const effectiveWidth = Math.min(contentRect.width, Math.max(0, viewportWidth - padding * 2));
+    const effectiveHeight = Math.min(contentRect.height, Math.max(0, viewportHeight - padding * 2));
 
     switch (position) {
         case "top":
-            top = triggerRect.top - contentRect.height - gap;
+            top = triggerRect.top - effectiveHeight - gap;
             break;
         case "bottom":
             top = triggerRect.bottom + gap;
             break;
         case "left":
-            left = triggerRect.left - contentRect.width - gap;
+            left = triggerRect.left - effectiveWidth - gap;
             break;
         case "right":
             left = triggerRect.right + gap;
@@ -46,10 +48,10 @@ export function calculatePosition({
                 left = triggerRect.left;
                 break;
             case "center":
-                left = triggerRect.left + triggerRect.width / 2 - contentRect.width / 2;
+                left = triggerRect.left + triggerRect.width / 2 - effectiveWidth / 2;
                 break;
             case "end":
-                left = triggerRect.right - contentRect.width;
+                left = triggerRect.right - effectiveWidth;
                 break;
         }
     } else {
@@ -58,10 +60,10 @@ export function calculatePosition({
                 top = triggerRect.top;
                 break;
             case "center":
-                top = triggerRect.top + triggerRect.height / 2 - contentRect.height / 2;
+                top = triggerRect.top + triggerRect.height / 2 - effectiveHeight / 2;
                 break;
             case "end":
-                top = triggerRect.bottom - contentRect.height;
+                top = triggerRect.bottom - effectiveHeight;
                 break;
         }
     }
@@ -69,33 +71,39 @@ export function calculatePosition({
     // Boundary checks with fallback positions
     if (position === "top" || position === "bottom") {
         if (left < padding) left = padding;
-        if (left + contentRect.width > viewportWidth - padding) {
-            left = viewportWidth - contentRect.width - padding;
+        if (left + effectiveWidth > viewportWidth - padding) {
+            left = viewportWidth - effectiveWidth - padding;
         }
 
         // Vertical collision
         if (position === "top" && top < padding) {
             top = triggerRect.bottom + gap; // Flip to bottom
-        } else if (position === "bottom" && top + contentRect.height > viewportHeight - padding) {
-            top = triggerRect.top - contentRect.height - gap; // Flip to top
+        } else if (position === "bottom" && top + effectiveHeight > viewportHeight - padding) {
+            top = triggerRect.top - effectiveHeight - gap; // Flip to top
         }
     } else {
          if (top < padding) top = padding;
-         if (top + contentRect.height > viewportHeight - padding) {
-            top = viewportHeight - contentRect.height - padding;
+         if (top + effectiveHeight > viewportHeight - padding) {
+            top = viewportHeight - effectiveHeight - padding;
          }
 
          // Horizontal collision
          if (position === "left" && left < padding) {
              left = triggerRect.right + gap; // Flip to right
-         } else if (position === "right" && left + contentRect.width > viewportWidth - padding) {
-             left = triggerRect.left - contentRect.width - gap; // Flip to left
+         } else if (position === "right" && left + effectiveWidth > viewportWidth - padding) {
+             left = triggerRect.left - effectiveWidth - gap; // Flip to left
          }
     }
 
     // Final boundary safeguard
     if (top < padding) top = padding;
     if (left < padding) left = padding;
+    if (top + effectiveHeight > viewportHeight - padding) {
+        top = Math.max(padding, viewportHeight - effectiveHeight - padding);
+    }
+    if (left + effectiveWidth > viewportWidth - padding) {
+        left = Math.max(padding, viewportWidth - effectiveWidth - padding);
+    }
 
     return { top, left };
 }

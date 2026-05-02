@@ -124,7 +124,11 @@ class DashboardRealtimeClient {
 
   private scheduleSubscriptionSync(): void {
     if (this.subscriptionSyncTimer !== null) {
-      window.clearTimeout(this.subscriptionSyncTimer);
+      globalThis.clearTimeout(this.subscriptionSyncTimer);
+    }
+    if (typeof window === "undefined") {
+      this.subscriptionSyncTimer = null;
+      return;
     }
     this.subscriptionSyncTimer = window.setTimeout(() => {
       this.subscriptionSyncTimer = null;
@@ -156,6 +160,9 @@ class DashboardRealtimeClient {
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
     this.setTransportState("reconnecting");
+    if (typeof window === "undefined") {
+      return;
+    }
     const delayMs = Math.min(5000, 250 * (2 ** this.reconnectAttempt));
     this.reconnectAttempt += 1;
     this.reconnectTimer = window.setTimeout(() => {
@@ -169,7 +176,7 @@ class DashboardRealtimeClient {
   private disconnect(): void {
     this.clearReconnectTimer();
     if (this.subscriptionSyncTimer !== null) {
-      window.clearTimeout(this.subscriptionSyncTimer);
+      globalThis.clearTimeout(this.subscriptionSyncTimer);
       this.subscriptionSyncTimer = null;
     }
     this.lastSentScopesKey = "";
@@ -181,7 +188,7 @@ class DashboardRealtimeClient {
 
   private clearReconnectTimer(): void {
     if (this.reconnectTimer !== null) {
-      window.clearTimeout(this.reconnectTimer);
+      globalThis.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
   }
