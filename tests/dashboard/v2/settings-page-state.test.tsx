@@ -201,23 +201,33 @@ describe("useSettingsPageState", () => {
     });
   });
 
-  it.skip("handles saving system settings", async () => {
+  it("handles saving system settings and verifying loading states", async () => {
     const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    // forcefully mock systemSettings to not be null if it is
-    if (!result.current.systemSettings) {
-      act(() => { result.current.updateSystem(() => ({ defaults: {}, runtime: {} } as any)); });
-    }
 
     act(() => {
         result.current.updateSystem((curr) => ({ ...curr, defaults: {} }));
     });
 
-    await act(async () => {
-        await result.current.handleSave();
+    let resolveSave: (v: any) => void;
+    const savePromise = new Promise(resolve => { resolveSave = resolve; });
+    mockSaveSystem.mockReturnValueOnce(savePromise);
+
+    let handleSavePromise: Promise<void>;
+    act(() => {
+        handleSavePromise = result.current.handleSave();
     });
 
+    expect(result.current.savingSystem).toBe(true);
+    expect(result.current.activeSaving).toBe(true);
+
+    await act(async () => {
+        resolveSave(undefined);
+        await handleSavePromise;
+    });
+
+    expect(result.current.savingSystem).toBe(false);
+    expect(result.current.activeSaving).toBe(false);
     expect(mockSaveSystem).toHaveBeenCalled();
   });
 

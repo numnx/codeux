@@ -11,6 +11,7 @@ expect.extend(matchers);
 vi.mock("gsap", () => ({
   default: {
     fromTo: vi.fn(),
+    to: vi.fn((el, config) => { if (config?.onComplete) config.onComplete(); }),
     set: vi.fn(),
     killTweensOf: vi.fn(),
     context: (fn: () => void) => {
@@ -191,6 +192,28 @@ describe("AddTaskModal Lifecycle", () => {
 
   beforeEach(() => {
     cleanup();
+  });
+
+  it("returns focus to trigger upon modal close", async () => {
+    const trigger = document.createElement("button");
+    trigger.textContent = "Open Modal";
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { getByLabelText, unmount } = render(
+      <AddTaskModal {...defaultProps} />
+    );
+
+    const closeBtn = getByLabelText("Close");
+    fireEvent.click(closeBtn);
+
+    // useFocusTrap sets the timeout to focus the previous active element.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    unmount();
+    trigger.remove();
   });
 
   it("disables cancel and close buttons during pending submit", async () => {

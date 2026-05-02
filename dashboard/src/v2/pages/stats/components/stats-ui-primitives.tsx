@@ -180,6 +180,7 @@ export const ViewToggle: FunctionComponent<{
             key={mode.id}
             type="button"
             onClick={() => onChange(mode.id)}
+            aria-pressed={value === mode.id}
             className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${
               value === mode.id
                 ? "bg-slate-900 text-white shadow-[0_14px_32px_rgba(15,23,42,0.16)] dark:bg-white dark:text-slate-900"

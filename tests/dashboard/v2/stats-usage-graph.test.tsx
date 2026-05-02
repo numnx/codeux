@@ -29,7 +29,9 @@ vi.mock("gsap", () => ({
       set: vi.fn()
     }),
     to: vi.fn(),
+    fromTo: vi.fn(),
     set: vi.fn(),
+    getProperty: vi.fn().mockReturnValue(1),
     context: (fn: () => void) => {
       fn();
       return { revert: vi.fn() };
@@ -122,6 +124,44 @@ describe("UsageSeriesSidebar", () => {
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
     expect(screen.queryByText("providers")).not.toBeInTheDocument();
     expect(screen.queryByText("purposes_time")).not.toBeInTheDocument();
+  });
+});
+
+import { UsageFilterMenu } from "../../../dashboard/src/v2/pages/stats/components/UsageFilterMenu.js";
+
+describe("UsageFilterMenu", () => {
+  it("renders correctly and manages aria states", () => {
+    const stats = {
+      chartSeries: [
+        { id: "tokens", label: "Tokens", grouping: "Usage", defaultEnabled: true, data: [100] },
+        { id: "active", label: "Active Time", grouping: "Usage", defaultEnabled: true, data: [200] },
+      ]
+    } as any;
+
+    const { getByRole, getAllByRole } = render(
+      <UsageFilterMenu
+        isOpen={true}
+        onClose={vi.fn()}
+        activeWindow="7d"
+        customFrom="2023-01-01"
+        customTo="2023-01-07"
+        onSelectPreset={vi.fn()}
+        onCustomFromChange={vi.fn()}
+        onCustomToChange={vi.fn()}
+        onApplyCustom={vi.fn()}
+        stats={stats}
+        enabledSeries={{ tokens: true, active: false }}
+        setEnabledSeries={vi.fn()}
+        activeSeriesCount={1}
+      />
+    );
+
+    const tokensBtn = getByRole("button", { name: /Tokens/i });
+    const activeBtn = getByRole("button", { name: /Active Time/i });
+
+    // Since tokens is the only active series, it should be disabled to prevent 0 active series
+    expect(tokensBtn).toBeDisabled();
+    expect(activeBtn).not.toBeDisabled();
   });
 });
 
