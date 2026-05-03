@@ -22,7 +22,7 @@ import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orch
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
-import type { MemoryCategory } from "../../../contracts/memory-types.js";
+import type { MemoryCategory, CreateMemoryInput } from "../../../contracts/memory-types.js";
 import { isTaskCodeComplete } from "../task-merge-state.js";
 import pLimit from "p-limit";
 import { PROVIDER_IDS } from "../../../repositories/settings-defaults.js";
@@ -118,7 +118,7 @@ export class CycleRunner {
           projectManagementRepository: this.deps.projectManagementRepository,
           executionRepository: this.deps.executionRepository,
           sprintRunId: args.sprintRunId,
-          logger: this.deps.logger.child({ component: "session-sync-step" }),
+          logger: this.deps.logger.child({ component: "session-sync-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
         },
         args.retryFailed,
         {
@@ -223,30 +223,40 @@ export class CycleRunner {
           task,
           prNumber,
         ),
-        openCiFixAttention: (task, payload) => {
-          const taskId = task.record_id?.trim();
-          if (!taskId || !this.deps.projectAttentionService) {
+        openCiFixAttentionItems: (items) => {
+          if (!this.deps.projectAttentionService || items.length === 0) {
             return;
           }
-          const summaryLines = [
-            `CI failed for task \`${task.id}\` on branch \`${payload.branchName}\`.`,
-            `PR: ${payload.prUrl}`,
-            `Failed checks: ${payload.failedChecks.join(", ")}`,
-            payload.failedJobLabels.length > 0 ? `Failed jobs: ${payload.failedJobLabels.join(", ")}` : null,
-          ].filter(Boolean).join("\n");
 
-          this.deps.projectAttentionService.openItem({
-            projectId: args.executionContext.project.id,
-            sprintId: args.executionContext.sprint.id,
-            taskId,
-            sprintRunId: args.sprintRunId,
-            attentionType: "ci_fix_required",
-            severity: "high",
-            ownerType: "worker",
-            title: `CI fix required for ${task.id}`,
-            summaryMarkdown: summaryLines,
-            payload: { ...payload },
-          });
+          const attentionPayloads = [];
+          for (const { task, payload } of items) {
+            const taskId = task.record_id?.trim();
+            if (!taskId) continue;
+
+            const summaryLines = [
+              `CI failed for task \`${task.id}\` on branch \`${payload.branchName}\`.`,
+              `PR: ${payload.prUrl}`,
+              `Failed checks: ${payload.failedChecks.join(", ")}`,
+              payload.failedJobLabels.length > 0 ? `Failed jobs: ${payload.failedJobLabels.join(", ")}` : null,
+            ].filter(Boolean).join("\n");
+
+            attentionPayloads.push({
+              projectId: args.executionContext.project.id,
+              sprintId: args.executionContext.sprint.id,
+              taskId,
+              sprintRunId: args.sprintRunId,
+              attentionType: "ci_fix_required" as const,
+              severity: "high" as const,
+              ownerType: "worker" as const,
+              title: `CI fix required for ${task.id}`,
+              summaryMarkdown: summaryLines,
+              payload: { ...payload },
+            });
+          }
+
+          if (attentionPayloads.length > 0) {
+            this.deps.projectAttentionService.openItems(attentionPayloads);
+          }
         },
         persistMergedTask: async (task) => {
           if (typeof task.record_id !== "string" || task.record_id.trim().length === 0) {
@@ -381,7 +391,7 @@ export class CycleRunner {
       },
       resolveSessionName: this.deps.resolveSessionName,
       extractSessionId: this.deps.extractSessionId,
-      logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
+      logger: this.deps.logger.child({ component: "start-ready-tasks-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
       shouldSkipTask: (task) => task.status === "QUOTA",
     });
   }
@@ -395,7 +405,7 @@ export class CycleRunner {
     const memoryService = this.deps.memoryService;
     if (!memoryService || !settings?.memory?.enabled || !settings?.memory?.autoCaptureSprint) return;
 
-    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
+    const memoryInputs: CreateMemoryInput[] = [];
     for (const task of subtasks) {
       const prev = preDerivationStates.get(task.id);
       if (prev === task.status) continue;
@@ -416,25 +426,33 @@ export class CycleRunner {
         continue;
       }
 
-      pendingCaptures.push({
-        taskId: task.id,
-        promise: memoryService.createMemory(args.executionContext.project.id, {
-          scope: "sprint",
-          sprintId: args.executionContext.sprint.id,
-          agentPresetId: args.planningAgentPresetId ?? null,
-          content,
-          category,
-          strength,
-          source: {
-            type: "auto_capture",
-            originType: "task_status_change",
-            originId: task.record_id || task.id,
-          },
-        }).then(() => {}),
+      memoryInputs.push({
+        scope: "sprint",
+        sprintId: args.executionContext.sprint.id,
+        agentPresetId: args.planningAgentPresetId ?? null,
+        content,
+        category,
+        strength,
+        source: {
+          type: "auto_capture",
+          originType: "task_status_change",
+          originId: task.record_id || task.id,
+        },
       });
     }
 
-    await this.captureMemoriesForTasks(pendingCaptures, args);
+    if (memoryInputs.length > 0) {
+      try {
+        await memoryService.createMemories(args.executionContext.project.id, memoryInputs);
+      } catch (error) {
+        this.deps.logger.warn("Failed to auto-capture task memory", {
+          projectId: args.executionContext.project.id,
+          sprintId: args.executionContext.sprint.id,
+          sprintRunId: args.sprintRunId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   private async captureCiFailureMemories(
@@ -446,7 +464,7 @@ export class CycleRunner {
     const memoryService = this.deps.memoryService;
     if (!memoryService || !settings?.memory?.enabled || !settings?.memory?.autoCaptureSprint) return;
 
-    const pendingCaptures: { taskId: string; promise: Promise<void> }[] = [];
+    const memoryInputs: CreateMemoryInput[] = [];
     for (const task of subtasks) {
       if (task.merge_indicator !== "CI") continue;
       const prev = preGateStates.get(task.id);
@@ -454,25 +472,33 @@ export class CycleRunner {
 
       const content = `CI failure detected for task ${task.id} — ${task.title}. Branch: ${task.worker_branch || "unknown"}. PR: ${task.pr_url || "none"}.`;
 
-      pendingCaptures.push({
-        taskId: task.id,
-        promise: memoryService.createMemory(args.executionContext.project.id, {
-          scope: "sprint",
-          sprintId: args.executionContext.sprint.id,
-          agentPresetId: args.planningAgentPresetId ?? null,
-          content,
-          category: "error",
-          strength: 0.7,
-          source: {
-            type: "auto_capture",
-            originType: "ci_failure",
-            originId: task.record_id || task.id,
-          },
-        }).then(() => {}),
+      memoryInputs.push({
+        scope: "sprint",
+        sprintId: args.executionContext.sprint.id,
+        agentPresetId: args.planningAgentPresetId ?? null,
+        content,
+        category: "error",
+        strength: 0.7,
+        source: {
+          type: "auto_capture",
+          originType: "ci_failure",
+          originId: task.record_id || task.id,
+        },
       });
     }
 
-    await this.captureMemoriesForTasks(pendingCaptures, args);
+    if (memoryInputs.length > 0) {
+      try {
+        await memoryService.createMemories(args.executionContext.project.id, memoryInputs);
+      } catch (error) {
+        this.deps.logger.warn("Failed to auto-capture task memory", {
+          projectId: args.executionContext.project.id,
+          sprintId: args.executionContext.sprint.id,
+          sprintRunId: args.sprintRunId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   private async reviewCompletedTasks(
@@ -487,7 +513,6 @@ export class CycleRunner {
 
     const limit = pLimit(5);
     const reviewPromises: Promise<void>[] = [];
-    const isDocker = settings.cliWorkflow?.executionMode === "DOCKER";
 
     for (const task of subtasks) {
       const prev = previousStates.get(task.id);
@@ -524,6 +549,7 @@ export class CycleRunner {
             this.deps.logger.info("QA reopened completed task for follow-up fixes", {
               projectId: args.executionContext.project.id,
               sprintId: args.executionContext.sprint.id,
+              sprintRunId: args.sprintRunId,
               taskId: task.record_id || task.id,
               taskKey: task.id,
             });
@@ -531,6 +557,7 @@ export class CycleRunner {
             this.deps.logger.info("QA blocked merge until review clears", {
               projectId: args.executionContext.project.id,
               sprintId: args.executionContext.sprint.id,
+              sprintRunId: args.sprintRunId,
               taskId: task.record_id || task.id,
               taskKey: task.id,
             });
@@ -539,6 +566,7 @@ export class CycleRunner {
           this.deps.logger.error("QA review failed for task", {
             projectId: args.executionContext.project.id,
             sprintId: args.executionContext.sprint.id,
+            sprintRunId: args.sprintRunId,
             taskId: task.record_id || task.id,
             taskKey: task.id,
             error: error instanceof Error ? error.message : String(error),
@@ -546,32 +574,12 @@ export class CycleRunner {
         }
       };
 
-      if (isDocker) {
-        reviewPromises.push(limit(runReview));
-      } else {
-        await runReview();
-      }
+      reviewPromises.push(limit(runReview));
     }
 
-    if (isDocker && reviewPromises.length > 0) {
+    if (reviewPromises.length > 0) {
       await Promise.all(reviewPromises);
     }
   }
 
-  private async captureMemoriesForTasks(
-    captures: { taskId: string; promise: Promise<void> }[],
-    args: CycleRunnerArgs,
-  ): Promise<void> {
-    if (captures.length === 0) return;
-
-    const results = await Promise.allSettled(captures.map(p => p.promise));
-    results.forEach((result, index) => {
-      if (result.status === "rejected") {
-        this.deps.logger.warn("Failed to auto-capture task memory", {
-          taskId: captures[index].taskId,
-          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-        });
-      }
-    });
-  }
 }

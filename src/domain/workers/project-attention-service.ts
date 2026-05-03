@@ -35,7 +35,7 @@ export class ProjectAttentionService {
       };
     });
 
-    const items = this.projectAttentionRepository.openItems(processedInputs);
+    const items = this.projectAttentionRepository.openOrRefreshItems(processedInputs);
 
     if (this.onWorkerAttentionOpenedCallback) {
       const notifiedProjects = new Set<string>();
