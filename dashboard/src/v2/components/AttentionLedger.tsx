@@ -21,10 +21,9 @@ export const AttentionLedger: FunctionComponent = memo(() => {
 
     if (!snapshot) return null;
     const workersByEndpointId = useMemo(() => {
-        const overflow = snapshot.overflowAssignedWorkers || [];
         const pairs = [
             snapshot.primaryAssignedWorker,
-            ...overflow,
+            ...snapshot.overflowAssignedWorkers,
         ].filter(Boolean).map((worker) => [worker!.workerEndpointId || "", worker!.workerDisplayName] as const);
         return new Map(pairs);
     }, [snapshot.overflowAssignedWorkers, snapshot.primaryAssignedWorker]);
@@ -47,15 +46,19 @@ export const AttentionLedger: FunctionComponent = memo(() => {
     }, [snapshot.attentionItems, snapshot.attentionItems?.length]);
 
     useLayoutEffect(() => {
-        const items = snapshot.attentionItems || [];
         if (!listRef.current || reducedMotion) {
-            prevCountRef.current = items.length;
+            prevCountRef.current = snapshot.attentionItems.length;
             return;
         }
 
-        const currentCount = items.length;
+        const currentCount = snapshot.attentionItems.length;
         if (currentCount > prevCountRef.current) {
             // New items were added, animate them
+            const newCount = currentCount - prevCountRef.current;
+            const elements = Array.from(listRef.current.children).slice(0, newCount); // Assuming new items are at the top (or we just animate all if we don't know exactly)
+            // Wait, snapshot.attentionItems is mapped directly. If new items are added, they usually appear at the top or bottom.
+            // Let's just animate any elements that don't have a 'data-animated' attribute, or we can just stagger all if count changes, but the constraint says "animate the entry ... when they first mount".
+            // A simple way is to use a class or attribute.
             const newElements = Array.from(listRef.current.children).filter(el => !el.hasAttribute('data-entered'));
 
             if (newElements.length > 0) {
@@ -69,7 +72,8 @@ export const AttentionLedger: FunctionComponent = memo(() => {
         prevCountRef.current = currentCount;
     }, [snapshot.attentionItems, snapshot.attentionItems?.length, reducedMotion]);
 
-    const canAutoClaim = Boolean(snapshot.primaryAssignedWorker || (snapshot.overflowAssignedWorkers && snapshot.overflowAssignedWorkers.length > 0));
+
+    const canAutoClaim = Boolean(snapshot.primaryAssignedWorker || snapshot.overflowAssignedWorkers.length > 0);
 
     return (
         <div>
@@ -85,13 +89,13 @@ export const AttentionLedger: FunctionComponent = memo(() => {
                 </div>
             </div>
 
-            {(!snapshot.attentionItems || snapshot.attentionItems.length === 0) ? (
+            {snapshot.attentionItems.length === 0 ? (
                 <p className="text-[11px] text-slate-400 dark:text-slate-600 font-mono">
                     No active blockers are waiting in the project attention queue.
                 </p>
             ) : (
                 <div ref={listRef} className="space-y-2 max-h-80 overflow-y-auto dashboard-scrollbar pr-1">
-                    {visibleAttentionItems.map((item) => {
+                    {snapshot.attentionItems.slice(0, 8).map((item) => {
                         const assignedWorkerLabel = item.assignedWorkerEndpointId
                             ? workersByEndpointId.get(item.assignedWorkerEndpointId) || item.assignedWorkerEndpointId
                             : item.ownerType === "worker"
