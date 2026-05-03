@@ -1081,13 +1081,13 @@ export class ExecutionRepository {
     const rows = this.storage.executeChunkedInQuery<TaskRunRow>({
       sqlPrefix: `SELECT tr.*
       FROM task_runs tr
-      INNER JOIN (
-        SELECT task_id, MAX(rowid) AS latest_rowid
+      WHERE tr.rowid IN (
+        SELECT MAX(rowid)
         FROM task_runs
         WHERE task_id`,
       sqlSuffix: `${runClause}
         GROUP BY task_id
-      ) latest ON latest.latest_rowid = tr.rowid
+      )
       ORDER BY tr.rowid DESC`,
       items: uniqueTaskIds,
       bindParamsAfter: sprintRunId ? [sprintRunId] : [],

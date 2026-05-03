@@ -78,6 +78,7 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureUniqueIndex(db, "idx_tasks_sprint_key", "tasks", "sprint_id, task_key");
   ensureIndex(db, "idx_sprint_runs_project_sprint", "sprint_runs", "project_id, sprint_id, created_at DESC");
   ensureIndex(db, "idx_tasks_project_sprint_sort", "tasks", "project_id, sprint_id, sort_order ASC, created_at ASC, task_key ASC");
+  ensureIndex(db, "idx_task_runs_task", "task_runs", "task_id");
   ensureIndex(db, "idx_task_runs_project_started", "task_runs", "project_id, started_at DESC");
   ensureIndex(db, "idx_task_runs_dispatch", "task_runs", "dispatch_id");
   ensureIndex(db, "idx_task_runs_task_session_id", "task_runs", "task_id, session_id");
