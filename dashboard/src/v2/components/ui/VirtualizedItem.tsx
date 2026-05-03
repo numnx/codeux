@@ -12,7 +12,7 @@ export const VirtualizedItem: FunctionComponent<{
     const [height, setHeight] = useState(defaultHeight);
 
     useEffect(() => {
-        if (!ref.current) return;
+        if (!ref.current || typeof IntersectionObserver === 'undefined') return;
         const node = ref.current;
         const observer = new IntersectionObserver(
             (entries) => {
