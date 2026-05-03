@@ -16,7 +16,19 @@ export function isDeepEqual(a: any, b: any): boolean {
   if (Array.isArray(a)) {
     if (!Array.isArray(b) || a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
-      if (!isDeepEqual(a[i], b[i])) return false;
+      const itemA = a[i];
+      const itemB = b[i];
+
+      // Array items key-based and timestamp optimization
+      if (itemA && itemB && typeof itemA === 'object' && typeof itemB === 'object') {
+        if ('id' in itemA && 'id' in itemB && itemA.id === itemB.id) {
+          if ('updatedAt' in itemA && 'updatedAt' in itemB && itemA.updatedAt != null && itemA.updatedAt === itemB.updatedAt) {
+            continue;
+          }
+        }
+      }
+
+      if (!isDeepEqual(itemA, itemB)) return false;
     }
     return true;
   }
