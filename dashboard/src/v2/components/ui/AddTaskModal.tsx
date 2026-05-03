@@ -206,7 +206,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
             <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} autoDismiss={feedback.autoDismiss} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="group/field">
@@ -218,7 +218,12 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                     setSprintId((event.target as HTMLSelectElement).value);
                     if (feedback.status === "error") clearFeedback();
                   }}
-                  className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500" aria-invalid={!!validationErrors.sprintId && touched.sprintId}
+                  className={`mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors focus:outline-none focus:border-signal-500 focus:ring-4 focus:ring-signal-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] ${
+                    validationErrors.sprintId && touched.sprintId
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-black/[0.08] dark:border-white/[0.08]"
+                  }`}
+                  aria-invalid={!!validationErrors.sprintId && touched.sprintId}
                   aria-describedby={validationErrors.sprintId && touched.sprintId ? "task-sprint-error" : undefined}
                   onBlur={() => setTouched(prev => ({ ...prev, sprintId: true }))}
                   required
@@ -241,13 +246,16 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                     setTitle((event.target as HTMLInputElement).value);
                     if (feedback.status === "error") clearFeedback();
                   }}
-                  className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500"
+                  className={`mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors focus:outline-none focus:border-signal-500 focus:ring-4 focus:ring-signal-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] ${
+                    validationErrors.title && touched.title
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-black/[0.08] dark:border-white/[0.08]"
+                  }`}
                   placeholder="Define the task scope"
                   required
                   aria-invalid={!!validationErrors.title && touched.title}
                   aria-describedby={validationErrors.title && touched.title ? "task-title-error" : undefined}
                   onBlur={() => setTouched(prev => ({ ...prev, title: true }))}
-
                 />
                 {validationErrors.title && touched.title && <div id="task-title-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.title}</div>}
               </div>
@@ -325,7 +333,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                 id="add-task-description"
                 value={description}
                 onInput={(event) => setDescription((event.target as HTMLTextAreaElement).value)}
-                className="mt-2.5 w-full min-h-[110px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500 resize-none"
+                className="mt-2.5 w-full min-h-[110px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 transition-colors focus:outline-none focus:border-signal-500 focus:ring-4 focus:ring-signal-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] resize-none overflow-y-auto"
                 placeholder="Summarize the intent and outcome."
               />
             </div>
@@ -336,7 +344,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                 id="add-task-prompt"
                 value={promptMarkdown}
                 onInput={(event) => setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
-                className="mt-2.5 w-full min-h-[150px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500 resize-none font-mono"
+                className="mt-2.5 w-full min-h-[150px] rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm text-slate-700 dark:text-slate-300 transition-colors focus:outline-none focus:border-signal-500 focus:ring-4 focus:ring-signal-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] resize-none overflow-y-auto font-mono"
                 placeholder="Detailed markdown instructions for the agent."
               />
             </div>

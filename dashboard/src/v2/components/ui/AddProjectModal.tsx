@@ -170,7 +170,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+                    <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1">
                         <div ref={fieldsRef} className="flex flex-col gap-6 flex-1">
 
                             {submitError && (
@@ -194,7 +194,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         if (submitError) setSubmitError(null);
                                     }}
                                     placeholder="My Awesome Project"
-                                    className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors font-display tracking-tight leading-none"
+                                    className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 transition-colors focus:outline-none focus:border-ember-500 dark:focus:border-ember-500 focus:ring-4 focus:ring-ember-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] rounded-t-sm font-display tracking-tight leading-none ${
+                                        validationErrors.name && touched.name
+                                            ? "border-red-500 dark:border-red-500"
+                                            : "border-black/[0.08] dark:border-white/[0.08]"
+                                    }`}
                                     required
                                     autoFocus
                                     aria-invalid={!!validationErrors.name && touched.name}
@@ -246,7 +250,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             if (submitError) setSubmitError(null);
                                         }}
                                         placeholder="/home/user/projects/my-project"
-                                        className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                        className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 transition-colors focus:outline-none focus:border-ember-500 dark:focus:border-ember-500 focus:ring-4 focus:ring-ember-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] rounded-t-sm ${
+                                            validationErrors.path && touched.path
+                                                ? "border-red-500 dark:border-red-500"
+                                                : "border-black/[0.08] dark:border-white/[0.08]"
+                                        }`}
                                         required
                                         aria-invalid={!!validationErrors.path && touched.path}
                                         aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
@@ -269,7 +277,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                 if (submitError) setSubmitError(null);
                                             }}
                                             placeholder="https://github.com/user/repo.git"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                            className={`mt-2.5 w-full bg-transparent border-0 border-b-2 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 transition-colors focus:outline-none focus:border-ember-500 dark:focus:border-ember-500 focus:ring-4 focus:ring-ember-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] rounded-t-sm ${
+                                                validationErrors.path && touched.path
+                                                    ? "border-red-500 dark:border-red-500"
+                                                    : "border-black/[0.08] dark:border-white/[0.08]"
+                                            }`}
                                             required
                                             aria-invalid={!!validationErrors.path && touched.path}
                                             aria-describedby={validationErrors.path && touched.path ? "project-git-error" : undefined}
@@ -288,7 +300,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             value={cloneDir}
                                             onInput={(e) => setCloneDir((e.target as HTMLInputElement).value)}
                                             placeholder="/home/user/projects"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 transition-colors focus:outline-none focus:border-ember-500 dark:focus:border-ember-500 focus:ring-4 focus:ring-ember-500/40 focus:bg-black/[0.05] dark:focus:bg-white/[0.05] rounded-t-sm"
                                         />
                                     </div>
                                 </>
