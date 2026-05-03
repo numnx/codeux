@@ -330,6 +330,14 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
                     setOpen(false);
                     triggerRef.current?.focus();
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onChange(option.value);
+                      setOpen(false);
+                      triggerRef.current?.focus();
+                    }
+                  }}
                   className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors ${
                     isFocused ? "bg-slate-100 dark:bg-void-700 outline outline-2 outline-signal-500/50 -outline-offset-2 z-10 relative " : ""
                   }${
@@ -362,7 +370,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
         type="button"
         onClick={() => !disabled && setOpen(!open)}
         onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === " ")) {
+          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === " " || e.key === "Enter")) {
             e.preventDefault();
             setOpen(true);
           }
