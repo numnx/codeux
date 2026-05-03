@@ -186,6 +186,21 @@ export class MemoryService {
     return record;
   }
 
+  async createMemoriesBatch(projectId: string, inputs: CreateMemoryInput[]): Promise<{ records: MemoryRecord[], errors: { index: number, error: unknown }[] }> {
+    const result = this.memoryRepository.createMemoriesBatch(projectId, inputs);
+
+    // Async: compute embedding if model is loaded
+    if (this.embeddingService.isLoaded()) {
+      for (const record of result.records) {
+        this.triggerEmbedding(record).catch(error => {
+          this.logger.warn(`Failed to embed memory ${record.id}: ${error}`);
+        });
+      }
+    }
+
+    return result;
+  }
+
   getMemory(memoryId: string): MemoryRecord | null {
     return this.memoryRepository.getMemory(memoryId);
   }
