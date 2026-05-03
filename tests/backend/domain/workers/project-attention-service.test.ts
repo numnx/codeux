@@ -98,6 +98,102 @@ describe("ProjectAttentionService", () => {
     expect(item.assignedWorkerEndpointId).toBeNull();
   });
 
+
+  it("batch opens multiple items correctly and calls callback once per project", async () => {
+    const {
+      storage,
+      projectRepository,
+      connectionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectAttentionRepository,
+    } = await createFixture();
+
+    // Use a custom resolver to NOT be virtual
+    const projectAttentionService = new ProjectAttentionService(
+      projectAttentionRepository,
+      projectWorkerAssignmentRepository,
+      () => "LOCAL"
+    );
+
+    const project1 = projectRepository.createProject({
+      name: "Project 1",
+      sourceType: "local",
+      sourceRef: "/workspace/proj1",
+    });
+
+    const project2 = projectRepository.createProject({
+      name: "Project 2",
+      sourceType: "local",
+      sourceRef: "/workspace/proj2",
+    });
+
+    const worker1 = connectionRepository.startListen({
+      connectionKey: "worker-1",
+      displayName: "Worker 1",
+      role: "worker",
+      projectId: project1.id,
+    });
+
+    const worker2 = connectionRepository.startListen({
+      connectionKey: "worker-2",
+      displayName: "Worker 2",
+      role: "worker",
+      projectId: project2.id,
+    });
+
+    const endpoint1 = workerEndpointRepository.getWorkerEndpointByConnectionId(worker1.connection.id)!;
+    const endpoint2 = workerEndpointRepository.getWorkerEndpointByConnectionId(worker2.connection.id)!;
+
+    projectWorkerAssignmentRepository.createAssignment(project1.id, endpoint1, "primary");
+    projectWorkerAssignmentRepository.createAssignment(project2.id, endpoint2, "primary");
+
+    const callback = vi.fn();
+    projectAttentionService.setWorkerAttentionOpenedCallback(callback);
+
+    const items = projectAttentionService.openItems([
+      {
+        projectId: project1.id,
+        attentionType: "merge_conflict",
+        severity: "high",
+        ownerType: "worker",
+        title: "Conflict 1",
+        summaryMarkdown: "Fix conflict 1",
+      },
+      {
+        projectId: project1.id,
+        attentionType: "worker_error",
+        severity: "high",
+        ownerType: "worker",
+        title: "Error 1",
+        summaryMarkdown: "Fix error 1",
+      },
+      {
+        projectId: project2.id,
+        attentionType: "merge_conflict",
+        severity: "high",
+        ownerType: "worker",
+        title: "Conflict 2",
+        summaryMarkdown: "Fix conflict 2",
+      }
+    ]);
+
+    expect(items.length).toBe(3);
+
+    const p1Items = items.filter(i => i.projectId === project1.id);
+    expect(p1Items.length).toBe(2);
+    expect(p1Items[0].assignedWorkerEndpointId).toBe(endpoint1.id);
+    expect(p1Items[1].assignedWorkerEndpointId).toBe(endpoint1.id);
+
+    const p2Items = items.filter(i => i.projectId === project2.id);
+    expect(p2Items.length).toBe(1);
+    expect(p2Items[0].assignedWorkerEndpointId).toBe(endpoint2.id);
+
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(callback).toHaveBeenCalledWith(project1.id);
+    expect(callback).toHaveBeenCalledWith(project2.id);
+  });
+
   it("leaves worker-owned attention unassigned when the project uses virtual workers", async () => {
     const {
       projectRepository,
