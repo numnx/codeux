@@ -226,9 +226,9 @@ export class ExecutionRepository {
   private readonly db: DatabaseAdapter;
   private readonly taskWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
   private readonly sprintRunWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
-  private readonly pendingRealtimeProjectRefreshes = new Map<string, { includeOverview: boolean }>();
+  private readonly pendingRealtimeProjectRefreshes = new Map<string, { includeOverview: boolean; immediate: boolean }>();
+  private readonly realtimeProjectRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly leaseProjectCache = new Map<string, string>();
-  private realtimeProjectRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
@@ -396,7 +396,7 @@ export class ExecutionRepository {
       const stmt = this.db.prepare(sql);
       stmt.run(...values);
 
-      this.notifyRealtime(existing.projectId, true);
+      this.notifyRealtime(existing.projectId, true, input.status !== undefined);
     }
 
     return existing;
@@ -496,7 +496,7 @@ export class ExecutionRepository {
     );
 
     const created = requireSprintRun((id) => this.getSprintRun(id), id);
-    this.notifyRealtime(created.projectId, true);
+    this.notifyRealtime(created.projectId, true, true);
     return created;
   }
 
@@ -594,7 +594,7 @@ export class ExecutionRepository {
     );
     const updated = requireSprintRun((id) => this.getSprintRun(id), runId);
     if (this.shouldPublishSprintRunUpdate(input)) {
-      this.notifyRealtime(updated.projectId, true);
+      this.notifyRealtime(updated.projectId, true, true);
     }
     return updated;
   }
@@ -637,7 +637,7 @@ export class ExecutionRepository {
     );
 
     const created = requireTaskDispatch((id) => this.getTaskDispatch(id), id);
-    this.notifyRealtime(created.projectId, true);
+    this.notifyRealtime(created.projectId, true, true);
     return created;
   }
 
@@ -747,7 +747,7 @@ export class ExecutionRepository {
     );
     const updated = requireTaskDispatch((id) => this.getTaskDispatch(id), dispatchId);
     if (this.shouldPublishTaskDispatchUpdate(input)) {
-      this.notifyRealtime(updated.projectId, true);
+      this.notifyRealtime(updated.projectId, true, true);
     }
     return updated;
   }
@@ -894,7 +894,8 @@ export class ExecutionRepository {
     );
 
     const updated = requireProviderInvocationUsage((id) => this.getProviderInvocationUsage(id), invocationId);
-    this.notifyRealtime(updated.projectId, false);
+    const isImmediate = input.status !== undefined || input.finishedAt !== undefined;
+    this.notifyRealtime(updated.projectId, false, isImmediate);
     return updated;
   }
 
@@ -1069,7 +1070,8 @@ export class ExecutionRepository {
     const updated = requireTaskRun((id) => this.getTaskRun(id), taskRunId);
     if (updated.taskId) this.taskWallTimeCache.delete(updated.taskId);
     if (updated.sprintRunId) this.sprintRunWallTimeCache.delete(updated.sprintRunId);
-    this.notifyRealtime(updated.projectId, false);
+    const isImmediate = input.startedAt !== undefined || input.finishedAt !== undefined;
+    this.notifyRealtime(updated.projectId, false, isImmediate);
     return updated;
   }
 
@@ -1202,7 +1204,7 @@ export class ExecutionRepository {
     }
 
     const updated = requireTaskDispatch((id) => this.getTaskDispatch(id), claimedId);
-    this.notifyRealtime(updated.projectId, true);
+    this.notifyRealtime(updated.projectId, true, true);
     return updated;
   }
 
@@ -1922,41 +1924,52 @@ export class ExecutionRepository {
     return right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id);
   }
 
-  private notifyRealtime(projectId: string, includeOverview: boolean): void {
+  private notifyRealtime(projectId: string, includeOverview: boolean, immediate: boolean = false): void {
     const normalizedProjectId = String(projectId || "").trim();
     if (!normalizedProjectId || !this.realtimeNotifier) {
       return;
     }
 
     const existing = this.pendingRealtimeProjectRefreshes.get(normalizedProjectId);
+    const isImmediate = immediate || Boolean(existing?.immediate);
+
     this.pendingRealtimeProjectRefreshes.set(normalizedProjectId, {
       includeOverview: Boolean(existing?.includeOverview) || includeOverview,
+      immediate: isImmediate,
     });
 
-    if (this.realtimeProjectRefreshTimer) {
-      return;
+    const existingTimer = this.realtimeProjectRefreshTimers.get(normalizedProjectId);
+    if (existingTimer) {
+      if (isImmediate && !existing?.immediate) {
+        clearTimeout(existingTimer);
+      } else {
+        return;
+      }
     }
 
-    this.realtimeProjectRefreshTimer = setTimeout(() => {
-      this.realtimeProjectRefreshTimer = null;
-      this.flushPendingRealtimeProjectRefreshes();
-    }, 0);
+    const delayMs = isImmediate ? 0 : 75;
+    const timer = setTimeout(() => {
+      this.realtimeProjectRefreshTimers.delete(normalizedProjectId);
+      this.flushProjectRealtime(normalizedProjectId);
+    }, delayMs);
+
+    this.realtimeProjectRefreshTimers.set(normalizedProjectId, timer);
   }
 
-  private flushPendingRealtimeProjectRefreshes(): void {
-    if (!this.realtimeNotifier || this.pendingRealtimeProjectRefreshes.size === 0) {
-      this.pendingRealtimeProjectRefreshes.clear();
+  private flushProjectRealtime(projectId: string): void {
+    if (!this.realtimeNotifier) {
       return;
     }
 
-    const pendingEntries = [...this.pendingRealtimeProjectRefreshes.entries()];
-    this.pendingRealtimeProjectRefreshes.clear();
-
-    for (const [projectId, options] of pendingEntries) {
-      this.realtimeNotifier.scheduleProjectExecutionRefresh(projectId, {
-        includeOverview: options.includeOverview,
-      });
+    const options = this.pendingRealtimeProjectRefreshes.get(projectId);
+    if (!options) {
+      return;
     }
+
+    this.pendingRealtimeProjectRefreshes.delete(projectId);
+    this.realtimeNotifier.scheduleProjectExecutionRefresh(projectId, {
+      includeOverview: options.includeOverview,
+    });
   }
 
   private shouldPublishSprintRunUpdate(input: UpdateSprintRunInput): boolean {
