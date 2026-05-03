@@ -823,21 +823,19 @@ export class ProjectManagementRepository {
 
   private createUniqueProjectSlug(name: string, ignoreProjectId?: string): string {
     return this.createUniqueSlug(name, `
-      SELECT id
+      SELECT slug
       FROM projects
-      WHERE slug = ?
+      WHERE slug LIKE ?
       ${ignoreProjectId ? "AND id != ?" : ""}
-      LIMIT 1
     `, [], ignoreProjectId ? [ignoreProjectId] : []);
   }
 
   private createUniqueSprintSlug(projectId: string, name: string, ignoreSprintId?: string): string {
     return this.createUniqueSlug(name, `
-      SELECT id
+      SELECT slug
       FROM sprints
-      WHERE project_id = ? AND slug = ?
+      WHERE project_id = ? AND slug LIKE ?
       ${ignoreSprintId ? "AND id != ?" : ""}
-      LIMIT 1
     `, [projectId], ignoreSprintId ? [ignoreSprintId] : []);
   }
 
@@ -848,16 +846,21 @@ export class ProjectManagementRepository {
     trailingParams: string[] = []
   ): string {
     const baseSlug = slugify(name);
-    let slug = baseSlug;
-    let suffix = 2;
+    const params = [...leadingParams, `${baseSlug}%`, ...trailingParams];
 
+    const rows = this.db.prepare(sql).all(...params) as { slug: string }[];
+    const existingSlugs = new Set(rows.map((r) => r.slug));
+
+    if (!existingSlugs.has(baseSlug)) {
+      return baseSlug;
+    }
+
+    let suffix = 2;
     while (true) {
-      const params = [...leadingParams, slug, ...trailingParams];
-      const row = this.db.prepare(sql).get(...params) as { id: string } | undefined;
-      if (!row) {
-        return slug;
+      const nextSlug = `${baseSlug}-${suffix}`;
+      if (!existingSlugs.has(nextSlug)) {
+        return nextSlug;
       }
-      slug = `${baseSlug}-${suffix}`;
       suffix += 1;
     }
   }
