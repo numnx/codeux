@@ -10,6 +10,7 @@ import {
   Sparkles,
   Target,
   X,
+  AlertCircle
 } from "lucide-preact";
 import type { Sprint, ExecutionConnectionSummary, AgentPreset } from "../../types.js";
 import { AvantgardeSelect } from "./AvantgardeSelect.js";
