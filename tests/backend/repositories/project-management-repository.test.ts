@@ -25,7 +25,7 @@ async function createRepository(): Promise<{
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true, maxRetries: 3 })));
 });
 
 describe("ProjectManagementRepository", () => {
