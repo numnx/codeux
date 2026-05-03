@@ -362,8 +362,8 @@
   }
 
   @keyframes dag-running-ring {
-    0%, 100% { opacity: 0.5; transform: scale(1); }
-    50%      { opacity: 1; transform: scale(1.02); }
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50%      { opacity: 0.7; transform: scale(1.01); }
   }
 
   .dag-aurora {
@@ -380,10 +380,6 @@
 
   .dag-edge-transition {
     transition: stroke 500ms ease, stroke-width 500ms ease, opacity 500ms ease;
-  }
-
-  .dag-node-transition {
-    transition: transform 500ms ease, background-color 500ms ease, border-color 500ms ease, box-shadow 500ms ease;
   }
 
   .dag-scroll-shell {
@@ -491,7 +487,6 @@
     }
 
     .dag-edge-transition,
-    .dag-node-transition,
     .collapsible-section,
     .collapsible-content {
       transition: none !important;
@@ -526,7 +521,6 @@
   }
 
   :root[data-reduced-motion="true"] .dag-edge-transition,
-  :root[data-reduced-motion="true"] .dag-node-transition,
   :root[data-reduced-motion="true"] .collapsible-section,
   :root[data-reduced-motion="true"] .collapsible-content {
     transition: none !important;

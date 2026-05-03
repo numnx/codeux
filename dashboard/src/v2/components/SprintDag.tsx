@@ -296,7 +296,7 @@ const DagNode = memo(({ node, dispatch, onNodeClick }: { node: SprintDagNodeMode
           {renderDagNodeTooltipContent(node)}
         </div>
 
-        <div className={`relative isolate flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border ${tone.card} p-4.5 backdrop-blur-2xl dag-node-transition`}>
+        <div className={`relative isolate flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border ${tone.card} p-4.5 backdrop-blur-2xl transition-all duration-500 group-hover/dag-node:scale-[1.02]`}>
           <div
             className="pointer-events-none absolute inset-x-4 top-2 z-0 h-[2px] rounded-full opacity-90"
             style={{ background: `linear-gradient(90deg, transparent, ${tone.accent}, transparent)` }}
