@@ -27,6 +27,7 @@ import { decideMainMergeWaitOrPause, decideTerminalCompletion } from "./watch-lo
 import { decideFinalizationTransition } from "./watch-loop-finalization-policy.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts } from "./conflict-summary-utils.js";
 import { WorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
+import pLimit from "p-limit";
 import { evaluateSprintRunState, isMainMergeAttentionItem } from "./sprint-state-evaluator.js";
 import type { HeartbeatService } from "../../../services/heartbeat-service.js";
 
@@ -699,6 +700,8 @@ export class WatchLoopRunner {
       sprintRunId: args.sprintRunId,
     });
     const cleanedSessionIds = new Set<string>();
+    const limit = pLimit(5);
+    const cleanupPromises: Promise<void>[] = [];
 
     for (const dispatch of dispatches) {
       if (dispatch.executorType !== "docker_cli") {
@@ -711,16 +714,25 @@ export class WatchLoopRunner {
       }
       cleanedSessionIds.add(sessionId);
 
-      const worktreePath = await this.deps.workspaceManager.resolveResumeWorktreePath(
-        args.repoPath,
-        sessionId,
-        executionMode,
-      ).catch(() => undefined);
-      if (!worktreePath) {
-        continue;
-      }
-      await this.deps.workspaceManager.removeWorktree(args.repoPath, worktreePath).catch(() => undefined);
+      cleanupPromises.push(limit(async () => {
+        const worktreePath = await this.deps.workspaceManager.resolveResumeWorktreePath(
+          args.repoPath,
+          sessionId,
+          executionMode,
+        ).catch((err) => {
+          this.deps.logger.warn(`Failed to resolve worktree path for session ${sessionId}`, { error: err instanceof Error ? err.message : String(err) });
+          return undefined;
+        });
+        if (!worktreePath) {
+          return;
+        }
+        await this.deps.workspaceManager.removeWorktree(args.repoPath, worktreePath).catch((err) => {
+          this.deps.logger.warn(`Failed to remove worktree path ${worktreePath}`, { error: err instanceof Error ? err.message : String(err) });
+        });
+      }));
     }
+
+    await Promise.all(cleanupPromises);
   }
 }
 function resolveMainMergeConflictAttentionItems(
