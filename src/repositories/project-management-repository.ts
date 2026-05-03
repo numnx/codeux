@@ -910,19 +910,21 @@ export class ProjectManagementRepository {
 
   private createUniqueProjectSlug(name: string, ignoreProjectId?: string): string {
     return this.createUniqueSlug(name, `
-      SELECT slug
+      SELECT id
       FROM projects
-      WHERE slug LIKE ?
+      WHERE slug = ?
       ${ignoreProjectId ? "AND id != ?" : ""}
+      LIMIT 1
     `, [], ignoreProjectId ? [ignoreProjectId] : []);
   }
 
   private createUniqueSprintSlug(projectId: string, name: string, ignoreSprintId?: string): string {
     return this.createUniqueSlug(name, `
-      SELECT slug
+      SELECT id
       FROM sprints
-      WHERE project_id = ? AND slug LIKE ?
+      WHERE project_id = ? AND slug = ?
       ${ignoreSprintId ? "AND id != ?" : ""}
+      LIMIT 1
     `, [projectId], ignoreSprintId ? [ignoreSprintId] : []);
   }
 
@@ -933,21 +935,16 @@ export class ProjectManagementRepository {
     trailingParams: string[] = []
   ): string {
     const baseSlug = slugify(name);
-    const params = [...leadingParams, `${baseSlug}%`, ...trailingParams];
-
-    const rows = this.db.prepare(sql).all(...params) as { slug: string }[];
-    const existingSlugs = new Set(rows.map((r) => r.slug));
-
-    if (!existingSlugs.has(baseSlug)) {
-      return baseSlug;
-    }
-
+    let slug = baseSlug;
     let suffix = 2;
+
     while (true) {
-      const nextSlug = `${baseSlug}-${suffix}`;
-      if (!existingSlugs.has(nextSlug)) {
-        return nextSlug;
+      const params = [...leadingParams, slug, ...trailingParams];
+      const row = this.db.prepare(sql).get(...params) as { id: string } | undefined;
+      if (!row) {
+        return slug;
       }
+      slug = `${baseSlug}-${suffix}`;
       suffix += 1;
     }
   }
@@ -973,47 +970,24 @@ export class ProjectManagementRepository {
   }
 
   private createNextTaskKey(sprintId: string): string {
-    const row = this.db.prepare(`
-      SELECT MAX(
-        CASE
-          WHEN task_key GLOB 'T[0-9]*' AND ltrim(SUBSTR(task_key, 2), '0123456789') = '' THEN CAST(SUBSTR(task_key, 2) AS INTEGER)
-          ELSE 0
-        END
-      ) as max_standard_num,
-      SUM(
-        CASE
-          WHEN task_key GLOB 'T[0-9]*' AND ltrim(SUBSTR(task_key, 2), '0123456789') = '' THEN 0
-          ELSE 1
-        END
-      ) as non_standard_count
+    const rows = this.db.prepare(`
+      SELECT task_key
       FROM tasks
       WHERE sprint_id = ?
-    `).get(sprintId) as { max_standard_num: number | null, non_standard_count: number | null };
+    `).all(sprintId) as { task_key: string }[];
 
-    // Fallback if there are any non-standard task keys that don't match the standard 'Txx' format.
-    if (row && row.non_standard_count && row.non_standard_count > 0) {
-      const rows = this.db.prepare(`
-        SELECT task_key
-        FROM tasks
-        WHERE sprint_id = ?
-      `).all(sprintId) as { task_key: string }[];
-
-      if (rows.length === 0) {
-        return "T01";
-      }
-
-      let maxNumber = 0;
-      for (const r of rows) {
-        const match = r.task_key.match(/(\d+)$/);
-        if (match) {
-          maxNumber = Math.max(maxNumber, Number(match[1]));
-        }
-      }
-
-      return `T${String(maxNumber + 1).padStart(2, "0")}`;
+    if (rows.length === 0) {
+      return "T01";
     }
 
-    const maxNumber = row?.max_standard_num || 0;
+    let maxNumber = 0;
+    for (const row of rows) {
+      const match = row.task_key.match(/(\d+)$/);
+      if (match) {
+        maxNumber = Math.max(maxNumber, Number(match[1]));
+      }
+    }
+
     return `T${String(maxNumber + 1).padStart(2, "0")}`;
   }
 
