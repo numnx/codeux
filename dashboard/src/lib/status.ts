@@ -7,61 +7,83 @@ export interface ProcessedTasksResult {
   stats: DashboardStats;
 }
 
+const phaseCache = new WeakMap<Subtask, string>();
+
 export const processDashboardTasks = (
   tasks: Subtask[],
   liveBySession?: Record<string, JulesActivity[]> | null,
 ): ProcessedTasksResult => {
-  const stats: DashboardStats = {
-    total: tasks.length,
-    running: 0,
-    codingCompleted: 0,
-    completed: 0,
-    failed: 0,
-    ci: 0,
-    automerge: 0,
-    merged: 0,
-    mergeBlocked: 0,
-    mergeConflicts: 0,
-  };
+  let running = 0;
+  let codingCompleted = 0;
+  let completed = 0;
+  let failed = 0;
+  let ci = 0;
+  let automerge = 0;
+  let merged = 0;
+  let mergeBlocked = 0;
+  let mergeConflicts = 0;
 
   const processedTasks: Subtask[] = [];
+  processedTasks.length = tasks.length;
 
-  for (const task of tasks) {
-    const phase = getTaskProgressPhase(task);
+  const needsProcessing = Boolean(liveBySession);
 
-    if (phase === "RUNNING") stats.running += 1;
-    else if (phase === "CODING_COMPLETED") stats.codingCompleted += 1;
-    else if (phase === "COMPLETED") stats.completed += 1;
-    else if (phase === "FAILED") stats.failed += 1;
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
 
-    if (task.merge_indicator === "CI") stats.ci += 1;
-    else if (task.merge_indicator === "AUTOMERGE") stats.automerge += 1;
-    else if (task.merge_indicator === "MERGE_BLOCKED") stats.mergeBlocked += 1;
-    else if (task.merge_indicator === "MERGE_CONFLICT") stats.mergeConflicts += 1;
-
-    if (task.merge_indicator === "MERGED" || task.is_merged) {
-      stats.merged += 1;
+    let phase = phaseCache.get(task);
+    if (!phase) {
+      phase = getTaskProgressPhase(task);
+      phaseCache.set(task, phase);
     }
 
-    if (!liveBySession) {
-      processedTasks.push(task);
+    if (phase === "RUNNING") running += 1;
+    else if (phase === "CODING_COMPLETED") codingCompleted += 1;
+    else if (phase === "COMPLETED") completed += 1;
+    else if (phase === "FAILED") failed += 1;
+
+    const mergeIndicator = task.merge_indicator;
+    if (mergeIndicator === "CI") ci += 1;
+    else if (mergeIndicator === "AUTOMERGE") automerge += 1;
+    else if (mergeIndicator === "MERGE_BLOCKED") mergeBlocked += 1;
+    else if (mergeIndicator === "MERGE_CONFLICT") mergeConflicts += 1;
+
+    if (mergeIndicator === "MERGED" || task.is_merged) {
+      merged += 1;
+    }
+
+    if (!needsProcessing) {
+      processedTasks[i] = task;
       continue;
     }
 
     const sessionName = normalizeSessionName(task);
     if (!sessionName) {
-      processedTasks.push(task);
+      processedTasks[i] = task;
       continue;
     }
 
-    const liveActivities = liveBySession[sessionName];
+    const liveActivities = liveBySession![sessionName];
     if (!liveActivities) {
-      processedTasks.push(task);
+      processedTasks[i] = task;
       continue;
     }
 
-    processedTasks.push({ ...task, session_name: sessionName, activities: liveActivities });
+    processedTasks[i] = { ...task, session_name: sessionName, activities: liveActivities };
   }
+
+  const stats: DashboardStats = {
+    total: tasks.length,
+    running,
+    codingCompleted,
+    completed,
+    failed,
+    ci,
+    automerge,
+    merged,
+    mergeBlocked,
+    mergeConflicts,
+  };
 
   return { tasks: processedTasks, stats };
 };
