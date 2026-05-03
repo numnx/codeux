@@ -118,7 +118,7 @@ export class CycleRunner {
           projectManagementRepository: this.deps.projectManagementRepository,
           executionRepository: this.deps.executionRepository,
           sprintRunId: args.sprintRunId,
-          logger: this.deps.logger.child({ component: "session-sync-step" }),
+          logger: this.deps.logger.child({ component: "session-sync-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
         },
         args.retryFailed,
         {
@@ -381,7 +381,7 @@ export class CycleRunner {
       },
       resolveSessionName: this.deps.resolveSessionName,
       extractSessionId: this.deps.extractSessionId,
-      logger: this.deps.logger.child({ component: "start-ready-tasks-step" }),
+      logger: this.deps.logger.child({ component: "start-ready-tasks-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
       shouldSkipTask: (task) => task.status === "QUOTA",
     });
   }
@@ -524,6 +524,7 @@ export class CycleRunner {
             this.deps.logger.info("QA reopened completed task for follow-up fixes", {
               projectId: args.executionContext.project.id,
               sprintId: args.executionContext.sprint.id,
+              sprintRunId: args.sprintRunId,
               taskId: task.record_id || task.id,
               taskKey: task.id,
             });
@@ -531,6 +532,7 @@ export class CycleRunner {
             this.deps.logger.info("QA blocked merge until review clears", {
               projectId: args.executionContext.project.id,
               sprintId: args.executionContext.sprint.id,
+              sprintRunId: args.sprintRunId,
               taskId: task.record_id || task.id,
               taskKey: task.id,
             });
@@ -539,6 +541,7 @@ export class CycleRunner {
           this.deps.logger.error("QA review failed for task", {
             projectId: args.executionContext.project.id,
             sprintId: args.executionContext.sprint.id,
+            sprintRunId: args.sprintRunId,
             taskId: task.record_id || task.id,
             taskKey: task.id,
             error: error instanceof Error ? error.message : String(error),
@@ -568,6 +571,9 @@ export class CycleRunner {
     results.forEach((result, index) => {
       if (result.status === "rejected") {
         this.deps.logger.warn("Failed to auto-capture task memory", {
+          projectId: args.executionContext.project.id,
+          sprintId: args.executionContext.sprint.id,
+          sprintRunId: args.sprintRunId,
           taskId: captures[index].taskId,
           error: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
