@@ -235,6 +235,7 @@ export const TasksPage: FunctionComponent = () => {
   const [showComposer, setShowComposer] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]);
+  const [resolvedTaskId, setResolvedTaskId] = useState<string | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
 
   const { tasks, loading, error, refresh: refreshTasks } = useProjectTasks(
@@ -301,6 +302,49 @@ export const TasksPage: FunctionComponent = () => {
       }
     }
   }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, isFadingOut]);
+
+  useLayoutEffect(() => {
+    if (resolvedTaskId && boardRef.current) {
+      const el = boardRef.current.querySelector(`[data-task-id="${resolvedTaskId}"] .kanban-card`) as HTMLDivElement;
+      if (el) {
+        const flashEl = document.createElement("div");
+        flashEl.style.position = "absolute";
+        flashEl.style.inset = "0";
+        flashEl.style.backgroundColor = "rgba(0, 224, 160, 0.2)";
+        flashEl.style.borderRadius = "1.75rem";
+        flashEl.style.pointerEvents = "none";
+        flashEl.style.zIndex = "50";
+        el.appendChild(flashEl);
+
+        gsap.to(flashEl, {
+          opacity: 0,
+          duration: 0.4,
+          ease: "power2.out",
+          onComplete: () => flashEl.remove()
+        });
+
+        gsap.fromTo(el,
+          {
+            opacity: 0.6,
+            borderWidth: "2px",
+            borderColor: "rgba(148, 163, 184, 0.5)",
+            borderStyle: "dashed"
+          },
+          {
+            opacity: 1,
+            borderWidth: "1px",
+            borderColor: "rgba(0,0,0,0.06)", // Fallback, clearProps will remove it
+            borderStyle: "solid",
+            duration: 0.4,
+            ease: "power2.out",
+            clearProps: "opacity,borderWidth,borderStyle,borderColor"
+          }
+        );
+
+        setResolvedTaskId(null);
+      }
+    }
+  }, [resolvedTaskId, tasks]);
 
   const allTasks = useMemo(() => [...optimisticTasks, ...tasks], [optimisticTasks, tasks]);
   const taskLookup = useMemo(() => new Map(allTasks.map(t => [t.recordId, t])), [allTasks]);
@@ -376,14 +420,20 @@ export const TasksPage: FunctionComponent = () => {
     }
 
     try {
+      let createdTaskId: string | null = null;
       if (isEditing) {
         await updateTask(editingTask.recordId, draft);
       } else {
-        await createTask(selectedProject.id, draft);
+        const createdTask = await createTask(selectedProject.id, draft);
+        createdTaskId = createdTask.id;
       }
       await Promise.all([refreshTasks(), refreshSprints()]);
       setEditingTask(null);
       setShowComposer(false);
+
+      if (createdTaskId) {
+        setResolvedTaskId(createdTaskId);
+      }
     } finally {
       if (!isEditing) {
         setOptimisticTasks((prev) => prev.filter((t) => t.recordId !== optId));
@@ -570,7 +620,7 @@ export const TasksPage: FunctionComponent = () => {
                   if (!viewModel) return null;
 
                   return (
-                    <div key={task.recordId} className="task-card-entry">
+                    <div key={task.recordId} className="task-card-entry" data-task-id={task.recordId}>
                       <KanbanTaskCard
                         viewModel={viewModel}
                         index={index}
