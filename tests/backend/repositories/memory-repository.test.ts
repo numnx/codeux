@@ -132,14 +132,14 @@ describe("MemoryRepository", () => {
     });
   });
 
-  describe("createMemoriesBatch", () => {
+  describe("createMemories", () => {
     it("creates multiple memories in a single transaction and returns the records", () => {
       const inputs = [
         makeInput({ content: "mem 1", category: "architecture", strength: 0.8 }),
         makeInput({ content: "mem 2", category: "codebase", strength: 0.9 })
       ];
 
-      const results = repo.createMemoriesBatch(projectId, inputs);
+      const results = repo.createMemories(projectId, inputs);
 
       expect(results).toHaveLength(2);
 
@@ -165,13 +165,13 @@ describe("MemoryRepository", () => {
     });
 
     it("returns an empty array if inputs is empty", () => {
-      const results = repo.createMemoriesBatch(projectId, []);
+      const results = repo.createMemories(projectId, []);
       expect(results).toEqual([]);
     });
 
     it("honors projectId validation", () => {
       expect(() => {
-        repo.createMemoriesBatch("non-existent-project", [makeInput()]);
+        repo.createMemories("non-existent-project", [makeInput()]);
       }).toThrow(/Project/);
     });
   });

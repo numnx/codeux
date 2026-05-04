@@ -1,5 +1,4 @@
 import type { Subtask, GitTrackingStatus, GitPullRequestStatus } from "../../../contracts/app-types.js";
-import type { UpdateTaskRunInput, UpdateTaskDispatchInput } from "../../../contracts/execution-types.js";
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
 import type { ProjectAttentionItemRecord, ProjectAttentionOwnerType } from "../../../contracts/project-attention-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
@@ -33,9 +32,6 @@ export class CycleStateCoordinator {
     }
 
     const now = new Date().toISOString();
-    const taskRunUpdates: { id: string; input: UpdateTaskRunInput }[] = [];
-    const dispatchUpdates: { id: string; input: UpdateTaskDispatchInput }[] = [];
-
     for (const task of subtasks) {
       const previous = previousTasks.get(task.id);
       if (!previous || !task.record_id) {
@@ -53,13 +49,10 @@ export class CycleStateCoordinator {
         continue;
       }
 
-      taskRunUpdates.push({
-        id: taskRun.id,
-        input: {
-          state: "RUNNING",
-          finishedAt: null,
-          durationMs: null,
-        },
+      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+        state: "RUNNING",
+        finishedAt: null,
+        durationMs: null,
       });
 
       if (!taskRun.dispatchId) {
@@ -71,23 +64,13 @@ export class CycleStateCoordinator {
         continue;
       }
 
-      dispatchUpdates.push({
-        id: dispatch.id,
-        input: {
-          status: "running",
-          startedAt: dispatch.startedAt || taskRun.startedAt || now,
-          finishedAt: null,
-          lastHeartbeatAt: now,
-          errorMessage: null,
-        },
+      this.deps.executionRepository.updateTaskDispatch(dispatch.id, {
+        status: "running",
+        startedAt: dispatch.startedAt || taskRun.startedAt || now,
+        finishedAt: null,
+        lastHeartbeatAt: now,
+        errorMessage: null,
       });
-    }
-
-    if (taskRunUpdates.length > 0) {
-      this.deps.executionRepository.updateTaskRunsBatch(taskRunUpdates);
-    }
-    if (dispatchUpdates.length > 0) {
-      this.deps.executionRepository.updateTaskDispatchesBatch(dispatchUpdates);
     }
   }
 

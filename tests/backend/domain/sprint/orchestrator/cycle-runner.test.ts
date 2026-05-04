@@ -24,8 +24,6 @@ function buildDeps(): SprintOrchestratorDependencies {
       resolveTaskProvider: vi.fn().mockReturnValue("codex"),
     } as any,
     executionRepository: {
-      updateTaskRunsBatch: vi.fn(),
-      updateTaskDispatchesBatch: vi.fn(),
       getLatestTaskRun: vi.fn().mockReturnValue({ id: "task-run-1", dispatchId: "dispatch-1" }),
       getTaskDispatch: vi.fn().mockReturnValue({
         id: "dispatch-1",
@@ -655,26 +653,16 @@ describe("CycleRunner attention sync", () => {
     const firstResult = await runner.run(baseArgs);
     expect(firstResult.subtasks[0]).toMatchObject({ status: "RUNNING" });
     expect(deps.sendSessionMessage).toHaveBeenCalledTimes(1);
-    expect(deps.executionRepository.updateTaskRunsBatch).toHaveBeenCalledWith([
-      {
-        id: "task-run-1",
-        input: {
-          state: "RUNNING",
-          finishedAt: null,
-          durationMs: null,
-        },
-      }
-    ]);
-    expect(deps.executionRepository.updateTaskDispatchesBatch).toHaveBeenCalledWith([
-      {
-        id: "dispatch-1",
-        input: expect.objectContaining({
-          status: "running",
-          finishedAt: null,
-          errorMessage: null,
-        }),
-      }
-    ]);
+    expect(deps.executionRepository.updateTaskRun).toHaveBeenCalledWith("task-run-1", {
+      state: "RUNNING",
+      finishedAt: null,
+      durationMs: null,
+    });
+    expect(deps.executionRepository.updateTaskDispatch).toHaveBeenCalledWith("dispatch-1", expect.objectContaining({
+      status: "running",
+      finishedAt: null,
+      errorMessage: null,
+    }));
 
     vi.mocked(deps.projectAttentionService.openItems).mockClear();
 
@@ -780,7 +768,7 @@ describe("CycleRunner attention sync", () => {
   it("captures CI failure memory with importance of 0.7", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -854,7 +842,7 @@ describe("CycleRunner attention sync", () => {
     // Give the unawaited promise returned by createMemory inside catch block a chance to resolve.
 
 
-    expect(mockMemoryService.createMemoriesBatch).toHaveBeenCalledWith("project-1", [expect.objectContaining({
+    expect(mockMemoryService.createMemories).toHaveBeenCalledWith("project-1", [expect.objectContaining({
       category: "error",
       strength: 0.7,
       content: expect.stringContaining("CI failure detected for task T1"),
@@ -865,7 +853,7 @@ describe("CycleRunner attention sync", () => {
   it("does not capture CI failure memory if settings are disabled", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -919,13 +907,13 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).not.toHaveBeenCalled();
+    expect(mockMemoryService.createMemories).not.toHaveBeenCalled();
   });
 
   it("does not capture task memory if setting autoCaptureSprint is disabled", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -980,13 +968,13 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).not.toHaveBeenCalled();
+    expect(mockMemoryService.createMemories).not.toHaveBeenCalled();
   });
 
   it("does not capture CI failure memory if setting autoCaptureSprint is disabled", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -1040,13 +1028,13 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).not.toHaveBeenCalled();
+    expect(mockMemoryService.createMemories).not.toHaveBeenCalled();
   });
 
   it("does not capture task memory if task status is unchanged", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -1101,13 +1089,13 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).not.toHaveBeenCalled();
+    expect(mockMemoryService.createMemories).not.toHaveBeenCalled();
   });
 
   it("does not capture task memory if settings are disabled", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -1162,7 +1150,7 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).not.toHaveBeenCalled();
+    expect(mockMemoryService.createMemories).not.toHaveBeenCalled();
   });
 
   it("short circuits ci fix attempt if attention type or owner type mismatch", async () => {
@@ -1219,7 +1207,7 @@ describe("CycleRunner attention sync", () => {
   it("captures task memory when task state changes to FAILED", async () => {
     const deps = buildDeps();
     const mockMemoryService = {
-      createMemoriesBatch: vi.fn().mockResolvedValue([]),
+      createMemories: vi.fn().mockResolvedValue([]),
       search: vi.fn(),
     };
     deps.memoryService = mockMemoryService as any;
@@ -1274,7 +1262,7 @@ describe("CycleRunner attention sync", () => {
 
 
 
-    expect(mockMemoryService.createMemoriesBatch).toHaveBeenCalledWith("project-1", [expect.objectContaining({
+    expect(mockMemoryService.createMemories).toHaveBeenCalledWith("project-1", [expect.objectContaining({
       category: "error",
       strength: 0.8,
       content: expect.stringContaining("Task failed: T1"),
@@ -1657,26 +1645,18 @@ describe("CycleRunner attention sync", () => {
 
       (runner as any).stateCoordinator.syncAutoInterventionExecutionState(subtasks, previousTasks, "run-1");
 
-      expect(deps.executionRepository.updateTaskRunsBatch).toHaveBeenCalledWith([
-        {
-          id: "task-run-1",
-          input: {
-            state: "RUNNING",
-            finishedAt: null,
-            durationMs: null,
-          },
-        }
-      ]);
-      expect(deps.executionRepository.updateTaskDispatchesBatch).toHaveBeenCalledWith([
-        {
-          id: "dispatch-1",
-          input: expect.objectContaining({
-            status: "running",
-            finishedAt: null,
-            errorMessage: null,
-          }),
-        }
-      ]);
+      expect(deps.executionRepository.updateTaskRun).toHaveBeenCalledWith("task-run-1", {
+        state: "RUNNING",
+        finishedAt: null,
+        durationMs: null,
+      });
+      expect(deps.executionRepository.updateTaskDispatch).toHaveBeenCalledWith("dispatch-1", {
+        status: "running",
+        startedAt: expect.any(String),
+        finishedAt: null,
+        lastHeartbeatAt: expect.any(String),
+        errorMessage: null,
+      });
     });
 
     it("clears attention items when tasks are no longer in action-required or ci_fix_required state", async () => {
