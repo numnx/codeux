@@ -61,6 +61,7 @@ export interface ExecutionProviderRunArgs {
   expectTextOutput?: boolean;
 
   invocationId?: string; // Use existing execution invocation if passed
+  trackPromptInInvocation?: boolean;
 
   /** MCP server connection info for injecting management tools into the CLI provider. */
   mcpConnection?: McpConnectionInfo | null;
@@ -99,7 +100,7 @@ export class ProviderExecutionService {
         });
       }
 
-      if (execInvocationId) {
+      if (execInvocationId && args.trackPromptInInvocation !== false) {
         this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
           role: "user",
           contentMarkdown: p,

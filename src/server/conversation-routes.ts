@@ -57,9 +57,9 @@ export function registerConversationRoutes(app: Express, options: DashboardDepen
     res.json(options.listConversationMessages(requireTrimmedString(req.params.threadId, "threadId")));
   }));
 
-  app.post("/api/projects/:projectId/conversations/messages", syncRoute((req, res) => {
+  app.post("/api/projects/:projectId/conversations/messages", asyncRoute(async (req, res) => {
     res.status(201).json(
-      options.postConversationMessage(
+      await options.postConversationMessage(
         requireTrimmedString(req.params.projectId, "projectId"),
         parseCreateDashboardConversationMessageInput(req.body)
       )

@@ -162,6 +162,7 @@ export class ChatManagementActionService {
         workflowSettings: args.settings.cliWorkflow,
         repoPath: args.repoPath,
         invocationId: execInvocationId,
+        trackPromptInInvocation: false,
         expectTextOutput: true,
         mcpConnection: args.mcpConnection,
       });
@@ -254,6 +255,7 @@ export class ChatManagementActionService {
         settings: args.settings,
         providerLabel: args.provider,
         invocationId: execInvocationId,
+        trackPromptInInvocation: false,
         parseFn: (bodyMarkdown: string) => {
           let jsonStr = bodyMarkdown;
           const jsonMatch = bodyMarkdown.match(/```json\s*([\s\S]*?)\s*```/);

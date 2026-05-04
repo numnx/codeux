@@ -71,6 +71,7 @@ export function createDashboardDependencies(
   });
 
   const providerExecutionService = new ProviderExecutionService({
+    executionRepository,
     providerRunner,
     logger: logger.child({ component: "provider-execution-service" }),
   });
