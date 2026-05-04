@@ -41,14 +41,14 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     }, [name, localPath, gitUrl, sourceType]);
 
     useLayoutEffect(() => {
-        const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.entry.duration;
+        const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
         const d_card = reducedMotion ? 0 : MODAL_MOTION.entry.duration;
         const d_fields = reducedMotion ? 0 : 0.45;
 
         gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: d_backdrop, ease: MODAL_MOTION.backdrop.ease });
         gsap.fromTo(cardRef.current,
             { y: reducedMotion ? 0 : MODAL_MOTION.entry.yStart, opacity: MODAL_MOTION.entry.opacityStart, scale: reducedMotion ? 1 : MODAL_MOTION.entry.scaleStart, filter: reducedMotion ? MODAL_MOTION.entry.filterEnd : MODAL_MOTION.entry.filterStart },
-            { y: MODAL_MOTION.entry.yEnd, opacity: MODAL_MOTION.entry.opacityEnd, scale: MODAL_MOTION.entry.scaleEnd, filter: MODAL_MOTION.entry.filterEnd, duration: d_card, ease: MODAL_MOTION.entry.ease }
+            { y: MODAL_MOTION.entry.yEnd, opacity: MODAL_MOTION.entry.opacityEnd, scale: MODAL_MOTION.entry.scaleEnd, filter: MODAL_MOTION.entry.filterEnd, duration: d_card, ease: MODAL_MOTION.entry.ease, clearProps: "filter" }
         );
         if (fieldsRef.current) {
             gsap.fromTo(Array.from(fieldsRef.current.children),
@@ -62,9 +62,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         if (isSubmitting) return;
         setIsClosing(true);
 
-        const duration = reducedMotion ? 0 : MODAL_MOTION.exit.duration;
-        gsap.to(cardRef.current, { y: MODAL_MOTION.exit.yEnd, opacity: MODAL_MOTION.exit.opacityEnd, scale: MODAL_MOTION.exit.scaleEnd, filter: MODAL_MOTION.exit.filterEnd, duration, ease: MODAL_MOTION.exit.ease });
-        gsap.to(backdropRef.current, { opacity: 0, duration, delay: reducedMotion ? 0 : 0.05, onComplete: onClose });
+        const d_card = reducedMotion ? 0 : MODAL_MOTION.exit.duration;
+        const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
+
+        gsap.to(cardRef.current, { y: MODAL_MOTION.exit.yEnd, opacity: MODAL_MOTION.exit.opacityEnd, scale: MODAL_MOTION.exit.scaleEnd, filter: MODAL_MOTION.exit.filterEnd, duration: d_card, ease: MODAL_MOTION.exit.ease });
+        gsap.to(backdropRef.current, { opacity: 0, duration: d_backdrop, delay: reducedMotion ? 0 : 0.05, onComplete: onClose });
     };
 
     const backdropRef = useFocusTrap(!isClosing, { onClose: handleClose, restoreFocus: true });

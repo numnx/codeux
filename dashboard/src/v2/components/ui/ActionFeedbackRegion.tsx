@@ -5,6 +5,7 @@ import gsap from "gsap";
 import type { ActionFeedbackStatus } from "../../hooks/use-action-feedback.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
+import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
 
 interface ActionFeedbackRegionProps {
   status: ActionFeedbackStatus;
@@ -29,12 +30,27 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
   const progressRef = useRef<HTMLDivElement>(null);
   const dismissBtnRef = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
+  const durations = useGsapDurations();
 
+  const [isOpen, setIsOpen] = useState(false);
+  const [isRendered, setIsRendered] = useState(false);
+  const [displayedStatus, setDisplayedStatus] = useState<ActionFeedbackStatus>(status);
   const [displayedMessage, setDisplayedMessage] = useState(message);
+
   const messageRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    if (message !== displayedMessage) {
+    if (status !== "idle" && message) {
+      setDisplayedStatus(status);
+      setIsRendered(true);
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  }, [status, message]);
+
+  useLayoutEffect(() => {
+    if (message && status !== "idle" && message !== displayedMessage && isRendered) {
       if (reducedMotion || !messageRef.current) {
         setDisplayedMessage(message);
       } else {
@@ -42,63 +58,83 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
           gsap.to(messageRef.current, {
             opacity: 0,
             y: -4,
-            duration: 0.15,
+            duration: durations.fast,
             onComplete: () => {
               setDisplayedMessage(message);
-              gsap.fromTo(messageRef.current, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.15 });
+              gsap.fromTo(messageRef.current, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: durations.fast });
             }
           });
         });
         return () => ctx.revert();
       }
+    } else if (message && status !== "idle" && message !== displayedMessage) {
+      setDisplayedMessage(message);
     }
-  }, [message, displayedMessage, reducedMotion]);
-
-  const [isVisible, setIsVisible] = useState(false);
-  useLayoutEffect(() => {
-    if (status !== "idle" && message) setIsVisible(true);
-    else setIsVisible(false);
-  }, [status, message]);
+  }, [message, displayedMessage, reducedMotion, durations, status, isRendered]);
 
   useLayoutEffect(() => {
-    if (!isVisible || !containerRef.current) return;
+    if (!isRendered || !containerRef.current) return;
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(
-        containerRef.current,
-        { y: reducedMotion ? 0 : MODAL_MOTION.feedback.yStart, opacity: 0, scale: reducedMotion ? 1 : MODAL_MOTION.feedback.scaleStart },
-        { y: MODAL_MOTION.feedback.yEnd, opacity: 1, scale: MODAL_MOTION.feedback.scaleEnd, duration: reducedMotion ? 0 : MODAL_MOTION.feedback.duration, ease: MODAL_MOTION.feedback.ease }
-      );
+      if (isOpen) {
+        gsap.fromTo(
+          containerRef.current,
+          { y: reducedMotion ? 0 : MODAL_MOTION.feedback.yStart, opacity: 0, scale: reducedMotion ? 1 : MODAL_MOTION.feedback.scaleStart },
+          { y: MODAL_MOTION.feedback.yEnd, opacity: 1, scale: MODAL_MOTION.feedback.scaleEnd, duration: reducedMotion ? 0 : MODAL_MOTION.feedback.duration, ease: MODAL_MOTION.feedback.ease }
+        );
+      } else {
+        gsap.to(containerRef.current, {
+          y: reducedMotion ? 0 : MODAL_MOTION.feedback.yStart,
+          opacity: 0,
+          scale: reducedMotion ? 1 : MODAL_MOTION.feedback.scaleStart,
+          duration: reducedMotion ? 0 : durations.fast,
+          ease: GSAP_EASINGS.smooth,
+          onComplete: () => setIsRendered(false)
+        });
+      }
     });
 
     return () => ctx.revert();
-  }, [isVisible, reducedMotion]);
+  }, [isOpen, isRendered, reducedMotion, durations]);
 
   useEffect(() => {
-    if (status === "idle" || !message || status === "error" || status === "pending" || !progressRef.current) return;
+    if (!isOpen || displayedStatus === "idle" || !displayedMessage || displayedStatus === "error" || displayedStatus === "pending" || !progressRef.current) return;
     if (autoDismiss === false || retryAction) return;
 
     const ctx = gsap.context(() => {
       if (reducedMotion) {
         gsap.set(progressRef.current, { width: "0%" });
       } else {
-        gsap.fromTo(
+        const totalDuration = autoDismissMs / 1000;
+        const fadeDuration = durations.fast;
+
+        const tl = gsap.timeline();
+        tl.fromTo(
           progressRef.current,
-          { width: "100%" },
-          { width: "0%", duration: autoDismissMs / 1000, ease: "linear" }
+          { width: "100%", opacity: 0.2 },
+          { width: "0%", duration: totalDuration, ease: GSAP_EASINGS.linear },
+          0
         );
+
+        if (totalDuration > fadeDuration) {
+          tl.to(
+            progressRef.current,
+            { opacity: 0, duration: fadeDuration, ease: GSAP_EASINGS.linear },
+            totalDuration - fadeDuration
+          );
+        }
       }
     });
 
     return () => ctx.revert();
-  }, [status, message, autoDismissMs, autoDismiss, retryAction, reducedMotion]);
+  }, [isOpen, displayedStatus, displayedMessage, autoDismissMs, autoDismiss, retryAction, reducedMotion, durations]);
 
-  if (status === "idle" || !message) return null;
+  if (!isRendered || !displayedMessage) return null;
 
-  const config = statusConfig[status];
+  const config = statusConfig[displayedStatus === "idle" ? "pending" : displayedStatus];
   const Icon = config.icon;
 
-  const ariaLive = status === "error" ? "assertive" : "polite";
+  const ariaLive = displayedStatus === "error" ? "assertive" : "polite";
 
   return (
     <div
@@ -107,7 +143,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
       aria-live={ariaLive}
       className={`relative overflow-hidden flex items-start gap-3 p-3 rounded-xl border ${config.colors} ${className}`}
     >
-      <Icon className={`w-5 h-5 shrink-0 ${status === "pending" ? "animate-spin" : ""}`} />
+      <Icon className={`w-5 h-5 shrink-0 ${displayedStatus === "pending" ? "animate-spin" : ""}`} />
       <div className="flex-1 text-sm font-medium mt-0.5 relative">
         <div ref={messageRef}>
           {displayedMessage}
@@ -142,7 +178,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
           </button>
         )}
       </div>
-      {(status === "success" || status === "warning") && autoDismiss !== false && !retryAction && (
+      {(displayedStatus === "success" || displayedStatus === "warning") && autoDismiss !== false && !retryAction && (
         <div
           ref={progressRef}
           className={`absolute bottom-0 left-0 h-1 opacity-20 ${config.progressColors}`}

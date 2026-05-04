@@ -296,7 +296,7 @@ const DagNode = memo(({ node, dispatch, onNodeClick }: { node: SprintDagNodeMode
           {renderDagNodeTooltipContent(node)}
         </div>
 
-        <div className={`relative isolate flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border ${tone.card} p-4.5 backdrop-blur-2xl dag-node-transition`}>
+        <div className={`relative isolate flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border ${tone.card} p-4.5 backdrop-blur-2xl transition-all duration-500 group-hover/dag-node:scale-[1.02]`}>
           <div
             className="pointer-events-none absolute inset-x-4 top-2 z-0 h-[2px] rounded-full opacity-90"
             style={{ background: `linear-gradient(90deg, transparent, ${tone.accent}, transparent)` }}
@@ -699,8 +699,8 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                         strokeDasharray={edge.state === "pending" ? "7 9" : undefined}
                         filter={edge.state === "active" ? "url(#dag-glow)" : undefined}
                       >
-                        {edge.state === "pending" && (source.isFocusMode || target.isFocusMode) && (
-                          <animate attributeName="stroke-dashoffset" from="30" to="0" dur="2.8s" repeatCount="indefinite" />
+                        {edge.state === "pending" && (
+                          <animate attributeName="stroke-dashoffset" from="32" to="0" dur="2.8s" repeatCount="indefinite" />
                         )}
                       </path>
                       {edge.state === "active" && (
@@ -716,16 +716,18 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                           <animate attributeName="stroke-dashoffset" from="0" to="-100" dur="1.6s" repeatCount="indefinite" />
                         </path>
                       )}
-                      {(edge.state === "active" || ((edge.state === "settled" || edge.state === "blocked") && (source.isFocusMode || target.isFocusMode))) && (
-                        <circle r={edge.state === "active" ? 4.5 : 3.2} fill={tone.stroke} opacity={edge.state === "blocked" ? 0.7 : 0.92}>
-                          <animateMotion dur={edge.state === "active" ? "2.2s" : "4.8s"} repeatCount="indefinite" rotate="auto">
+                      {(edge.state === "active" || (edge.state === "blocked" && (source.isFocusMode || target.isFocusMode))) && (
+                        <circle r={edge.state === "active" ? 4.5 : 3.2} fill={tone.stroke} opacity={0}>
+                          <animate attributeName="opacity" values={edge.state === "blocked" ? "0; 0.7; 0.7; 0" : "0; 0.92; 0.92; 0"} keyTimes="0; 0.1; 0.9; 1" dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" />
+                          <animateMotion dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" rotate="auto">
                             <mpath href={`#dag-path-${edge.id}`} />
                           </animateMotion>
                         </circle>
                       )}
                       {edge.state === "active" && (
-                        <circle r={2.8} fill="#F4FFF8" opacity={0.95}>
-                          <animateMotion dur="1.4s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" rotate="auto">
+                        <circle r={2.8} fill="#F4FFF8" opacity={0}>
+                          <animate attributeName="opacity" values="0; 0.95; 0.95; 0" keyTimes="0; 0.1; 0.9; 1" dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" />
+                          <animateMotion dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" rotate="auto">
                             <mpath href={`#dag-path-${edge.id}`} />
                           </animateMotion>
                         </circle>
