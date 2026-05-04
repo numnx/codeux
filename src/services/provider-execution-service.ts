@@ -62,6 +62,8 @@ export interface ExecutionProviderRunArgs {
 
   invocationId?: string; // Use existing execution invocation if passed
   trackPromptInInvocation?: boolean;
+  trackAssistantInInvocation?: boolean;
+  finalizeExecutionInvocation?: boolean;
 
   /** MCP server connection info for injecting management tools into the CLI provider. */
   mcpConnection?: McpConnectionInfo | null;
@@ -243,16 +245,20 @@ export class ProviderExecutionService {
 
       if (providerResult.ok) {
         if (execInvocationId) {
-          this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
-            status: "completed",
-            provider: args.provider,
-            model: args.model,
-            finishedAt: new Date().toISOString(),
-          });
-          this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
-            role: "assistant",
-            contentMarkdown: args.expectTextOutput ? (providerResult as any).text : providerResult.usageTelemetry.transcriptText,
-          });
+          if (args.finalizeExecutionInvocation !== false) {
+            this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
+              status: "completed",
+              provider: args.provider,
+              model: args.model,
+              finishedAt: new Date().toISOString(),
+            });
+          }
+          if (args.trackAssistantInInvocation !== false) {
+            this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+              role: "assistant",
+              contentMarkdown: args.expectTextOutput ? (providerResult as any).text : providerResult.usageTelemetry.transcriptText,
+            });
+          }
         }
         return providerResult;
       }

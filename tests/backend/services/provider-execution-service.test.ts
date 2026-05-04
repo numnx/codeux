@@ -130,6 +130,38 @@ describe("ProviderExecutionService", () => {
     );
   });
 
+  it("allows structured callers to defer invocation completion and assistant transcript writes", async () => {
+    const textMockResult = { ...mockResult, text: "text output" };
+    providerRunner.runProviderForText.mockResolvedValue(textMockResult);
+
+    const result = await service.executeProvider({
+      ...defaultArgs,
+      expectTextOutput: true,
+      invocationId: "exec-inv-structured",
+      finalizeExecutionInvocation: false,
+      trackAssistantInInvocation: false,
+      trackPromptInInvocation: false,
+    });
+
+    expect(result).toBe(textMockResult);
+    expect(executionRepository.createExecutionInvocation).not.toHaveBeenCalled();
+    expect(executionRepository.updateExecutionInvocation).toHaveBeenCalledWith("exec-inv-structured", {
+      providerInvocationId: "prov-inv-1",
+    });
+    expect(executionRepository.updateExecutionInvocation).not.toHaveBeenCalledWith(
+      "exec-inv-structured",
+      expect.objectContaining({ status: "completed" })
+    );
+    expect(executionRepository.appendExecutionInvocationMessage).not.toHaveBeenCalledWith(
+      "exec-inv-structured",
+      expect.objectContaining({ role: "assistant" })
+    );
+    expect(executionRepository.appendExecutionInvocationMessage).not.toHaveBeenCalledWith(
+      "exec-inv-structured",
+      expect.objectContaining({ role: "user" })
+    );
+  });
+
   it("Read-file-not-found retry: retries once with modified prompt", async () => {
     const failedResult = { ...mockResult, ok: false };
     providerRunner.runProvider
