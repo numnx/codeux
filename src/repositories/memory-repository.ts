@@ -115,6 +115,14 @@ export class MemoryRepository {
     }
   }
 
+  createMemoriesBatch(projectId: string, items: import("../contracts/memory-types.js").CreateMemoryInput[]): import("../contracts/memory-types.js").MemoryRecord[] {
+    if (items.length === 0) return [];
+
+    return this.db.transaction(() => {
+      return items.map((item) => this.createMemory(projectId, item));
+    });
+  }
+
   createMemories(projectId: string, inputs: CreateMemoryInput[]): MemoryRecord[] {
     try {
       requireRecord(this.db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId), "Project", projectId);
