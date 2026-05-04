@@ -25,15 +25,12 @@ export const VirtualizedItem: FunctionComponent<VirtualizedItemProps> = ({
           if (entry.isIntersecting) {
             setIsVisible(true);
           } else {
-            // Keep visibility content optimization by tracking exit
-            // but setting visibility: "auto" is handled by style directly if needed
-            // however standard optimization is rendering an empty placeholder
             setIsVisible(false);
           }
         });
       },
       {
-        rootMargin: "200px 0px 200px 0px", // Pre-render slightly off-screen
+        rootMargin: "200px 0px 200px 0px",
       }
     );
 

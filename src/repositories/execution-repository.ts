@@ -763,6 +763,15 @@ export class ExecutionRepository {
     return rows.map((row) => this.mapTaskDispatchRow(row));
   }
 
+  updateTaskDispatchesBatch(dispatches: Array<{id: string} & UpdateTaskDispatchInput>): void {
+    if (dispatches.length === 0) return;
+    this.db.transaction(() => {
+      for (const dispatch of dispatches) {
+        this.updateTaskDispatch(dispatch.id, dispatch);
+      }
+    });
+  }
+
   updateTaskDispatch(dispatchId: string, input: UpdateTaskDispatchInput): TaskDispatchRecord {
     try {
       const current = requireTaskDispatch((id) => this.getTaskDispatch(id), dispatchId);
@@ -1106,6 +1115,15 @@ export class ExecutionRepository {
       }
     }
     return map;
+  }
+
+  updateTaskRunsBatch(runs: Array<{id: string} & UpdateTaskRunInput>): void {
+    if (runs.length === 0) return;
+    this.db.transaction(() => {
+      for (const run of runs) {
+        this.updateTaskRun(run.id, run);
+      }
+    });
   }
 
   updateTaskRun(taskRunId: string, input: UpdateTaskRunInput): TaskRunRecord {
