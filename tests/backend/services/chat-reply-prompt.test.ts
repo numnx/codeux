@@ -19,6 +19,23 @@ describe("chat-reply-prompt", () => {
       expect(normalizeProviderReply('{"response": "Extracted answer"}')).toBe("Extracted answer");
     });
 
+    it("extracts plain response text from provider envelopes surrounded by bootstrap logs", () => {
+      const providerEnvelope = JSON.stringify({
+        session_id: "session-1",
+        response: "Only send this answer to Jules.",
+        stats: { models: {} },
+      }, null, 2);
+
+      expect(normalizeProviderReply(`[setup] Bootstrap complete.\n${providerEnvelope}\nnpm notice`)).toBe("Only send this answer to Jules.");
+    });
+
+    it("unwraps nested provider response envelopes", () => {
+      const inner = JSON.stringify({ response: "Nested reply body" });
+      const outer = JSON.stringify({ session_id: "session-1", response: inner });
+
+      expect(normalizeProviderReply(outer)).toBe("Nested reply body");
+    });
+
     it("handles empty strings", () => {
       expect(normalizeProviderReply("")).toBe("");
     });

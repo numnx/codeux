@@ -335,11 +335,14 @@ describe("WorkerInboxReplyService", () => {
   });
 
   it("builds clarification replies from the editable project manager agent and the latest Jules request", async () => {
-    mockRunProviderForText.mockResolvedValue({ text: JSON.stringify({
-        session_id: "b0536833-b397-4d12-b39d-b8818bcf5e12",
-        response: "Only the clarification answer.",
-        stats: { models: {} },
-      }) });
+    const providerEnvelope = JSON.stringify({
+      session_id: "b0536833-b397-4d12-b39d-b8818bcf5e12",
+      response: "Only the clarification answer.",
+      stats: { models: {} },
+    }, null, 2);
+    mockRunProviderForText.mockResolvedValue({
+      text: `[setup] Bootstrap complete.\n${providerEnvelope}\nnpm notice New minor version of npm available!`,
+    });
 
     const service = new WorkerInboxReplyService({
       projectManagementRepository: {

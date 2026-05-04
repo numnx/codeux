@@ -215,6 +215,7 @@ Dashboard behavior:
 - `clarificationCooldownSeconds` (default `300`): retained for compatibility, but clarification dedupe now keys off the latest clarification content instead of elapsed time; once Sprint OS answers a specific clarification request, repeated cycles skip re-sending the same answer until Jules emits a different clarification prompt
 - when `autoAnswerClarificationMode = WORKER`, Sprint OS now composes the clarification-answer prompt from the editable `Project manager` agent preset instead of prepending worker instructions
 - worker-routed clarification prompts now include a dedicated Jules clarification section so the latest explicit `agentMessaged.agentMessage` is passed through when available instead of only broad sprint context
+- worker-routed clarification responses are normalized before submission; if the selected CLI provider returns setup logs around a `{ "response": "..." }` envelope, Sprint OS extracts only the response text and sends that reply body to Jules
 
 `agents` contains:
 

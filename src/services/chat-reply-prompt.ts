@@ -4,6 +4,7 @@ import {
   ConversationRuntimeState,
   ConversationThreadRecord,
 } from "../contracts/connection-chat-types.js";
+import { findAllJsonCandidates } from "../domain/llm/json-extraction.js";
 
 export function normalizeProviderReply(output: string): string {
   const trimmed = output.trim();
@@ -11,13 +12,15 @@ export function normalizeProviderReply(output: string): string {
     return "";
   }
 
-  try {
-    const parsed = JSON.parse(trimmed) as { response?: unknown };
-    if (typeof parsed?.response === "string") {
-      return parsed.response.trim();
+  for (const candidate of findAllJsonCandidates(trimmed)) {
+    try {
+      const parsed = JSON.parse(candidate) as { response?: unknown };
+      if (typeof parsed?.response === "string") {
+        return normalizeProviderReply(parsed.response);
+      }
+    } catch {
+      // Provider returned plain text or logs around the reply; keep scanning candidates.
     }
-  } catch {
-    // Provider returned plain text; keep it as-is.
   }
 
   return trimmed;
