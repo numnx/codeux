@@ -676,6 +676,48 @@ export class ConnectionChatRepository {
     return updatedThread;
   }
 
+  markDashboardMessagesFailed(threadId: string, options?: { upToMessageId?: string | null }): ConversationThreadRecord {
+    const thread = requireConversationThreadQuery(this.db, threadId);
+    const now = new Date().toISOString();
+
+    this.runInTransaction(() => {
+      if (options?.upToMessageId) {
+        this.db.prepare(`
+          UPDATE conversation_messages
+          SET delivery_status = 'failed'
+          WHERE thread_id = ?
+            AND direction = 'dashboard_to_connection'
+            AND delivery_status IN ('pending', 'delivered')
+            AND created_at <= COALESCE((
+              SELECT created_at
+              FROM conversation_messages
+              WHERE id = ?
+                AND thread_id = ?
+            ), created_at)
+        `).run(threadId, options.upToMessageId, threadId);
+      } else {
+        this.db.prepare(`
+          UPDATE conversation_messages
+          SET delivery_status = 'failed'
+          WHERE thread_id = ?
+            AND direction = 'dashboard_to_connection'
+            AND delivery_status IN ('pending', 'delivered')
+        `).run(threadId);
+      }
+
+      this.db.prepare(`
+        UPDATE conversation_threads
+        SET updated_at = ?
+        WHERE id = ?
+      `).run(now, threadId);
+    });
+
+    const updatedThread = requireConversationThreadQuery(this.db, threadId);
+    this.notifyProjects([thread.projectId]);
+    this.publishThreadUpdatedEvent(updatedThread);
+    return updatedThread;
+  }
+
   startListen(input: StartListenInput): StartListenResponse {
     const normalizedProjectIds = this.normalizeListenProjectIds(input.projectIds, input.projectId);
     const fallbackProjectId = normalizedProjectIds[0] || this.getSelectedProjectId();

@@ -26,6 +26,115 @@ interface ParsedProviderManagementJSON {
   action: ManageSprintOsArgs | null;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+};
+
+const stripJsonLanguagePrefix = (value: string): string => {
+  return value.trim().replace(/^json\s*\n/i, "").trim();
+};
+
+const extractJsonObjectCandidates = (value: string): string[] => {
+  const candidates: string[] = [];
+  let startIndex = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (character === "{") {
+      if (depth === 0) {
+        startIndex = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (character === "}" && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && startIndex >= 0) {
+        candidates.push(value.slice(startIndex, index + 1));
+        startIndex = -1;
+      }
+    }
+  }
+
+  return candidates;
+};
+
+const buildJsonCandidates = (bodyMarkdown: string): string[] => {
+  const candidates: string[] = [];
+  const pushCandidate = (candidate: string): void => {
+    const trimmed = candidate.trim();
+    if (trimmed && !candidates.includes(trimmed)) {
+      candidates.push(trimmed);
+    }
+    const stripped = stripJsonLanguagePrefix(candidate);
+    if (stripped && stripped !== trimmed && !candidates.includes(stripped)) {
+      candidates.push(stripped);
+    }
+  };
+
+  pushCandidate(bodyMarkdown);
+
+  const fencedJsonPattern = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  let match: RegExpExecArray | null;
+  while ((match = fencedJsonPattern.exec(bodyMarkdown)) !== null) {
+    pushCandidate(match[1] || "");
+  }
+
+  for (const candidate of extractJsonObjectCandidates(bodyMarkdown)) {
+    pushCandidate(candidate);
+  }
+
+  return candidates;
+};
+
+const parseProviderManagementJson = (bodyMarkdown: string, depth = 0): ParsedProviderManagementJSON => {
+  if (depth > 2) {
+    throw new Error("Missing or invalid 'replyMarkdown'");
+  }
+
+  for (const candidate of buildJsonCandidates(bodyMarkdown)) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+
+      if (isRecord(parsed) && typeof parsed.replyMarkdown === "string") {
+        return {
+          replyMarkdown: parsed.replyMarkdown,
+          action: isRecord(parsed.action) ? parsed.action as unknown as ManageSprintOsArgs : null,
+        };
+      }
+
+      if (isRecord(parsed) && typeof parsed.response === "string") {
+        return parseProviderManagementJson(parsed.response, depth + 1);
+      }
+    } catch {
+      // Keep scanning; provider output can include bootstrap logs around the JSON payload.
+    }
+  }
+
+  throw new Error("Missing or invalid 'replyMarkdown'");
+};
+
 export interface ProcessManagementActionArgs {
   projectId: string;
   provider: Exclude<ProviderId, "jules">;
@@ -162,6 +271,9 @@ export class ChatManagementActionService {
         workflowSettings: args.settings.cliWorkflow,
         repoPath: args.repoPath,
         invocationId: execInvocationId,
+        trackPromptInInvocation: false,
+        trackAssistantInInvocation: false,
+        finalizeExecutionInvocation: false,
         expectTextOutput: true,
         mcpConnection: args.mcpConnection,
       });
@@ -254,17 +366,11 @@ export class ChatManagementActionService {
         settings: args.settings,
         providerLabel: args.provider,
         invocationId: execInvocationId,
+        trackPromptInInvocation: false,
+        trackAssistantInInvocation: false,
+        finalizeExecutionInvocation: false,
         parseFn: (bodyMarkdown: string) => {
-          let jsonStr = bodyMarkdown;
-          const jsonMatch = bodyMarkdown.match(/```json\s*([\s\S]*?)\s*```/);
-          if (jsonMatch) {
-            jsonStr = jsonMatch[1];
-          }
-          const parsed = JSON.parse(jsonStr) as ParsedProviderManagementJSON;
-          if (typeof parsed.replyMarkdown !== "string") {
-            throw new Error("Missing or invalid 'replyMarkdown'");
-          }
-          return parsed;
+          return parseProviderManagementJson(bodyMarkdown);
         },
         buildRetryPrompt: (error: Error) => {
           return `Your response could not be parsed as valid JSON. Please return STRICT JSON with \`replyMarkdown\` and \`action\` fields.\nError: ${error.message}`;

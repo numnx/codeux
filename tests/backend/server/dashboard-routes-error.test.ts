@@ -190,6 +190,18 @@ describe("dashboard route handlers", () => {
     expect((await request(app).post("/api/projects/project-1/conversations/messages").send({ bodyMarkdown: "Hello" })).status).toBe(201);
     expect((await request(app).post("/api/projects/project-1/conversations/messages").send({ bodyMarkdown: "   " })).status).toBe(400);
 
+    const failingMessageApp = createApp((router) => registerConversationRoutes(router, {
+      ...conversationDeps,
+      postConversationMessage: async () => {
+        throw new Error("async chat failure");
+      },
+    } as unknown as DashboardDependencies));
+    const failedMessageResponse = await request(failingMessageApp)
+      .post("/api/projects/project-1/conversations/messages")
+      .send({ bodyMarkdown: "Hello" });
+    expect(failedMessageResponse.status).toBe(400);
+    expect(failedMessageResponse.body).toEqual({ error: "async chat failure" });
+
     const disabledApp = createApp((router) => registerConversationRoutes(router, {} as DashboardDependencies));
     expect((await request(disabledApp).put("/api/conversations/threads/thread-1/route").send({ routeKind: "worker" })).status).toBe(404);
     expect((await request(disabledApp).post("/api/conversations/threads/thread-1/compact")).status).toBe(404);

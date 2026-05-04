@@ -218,9 +218,29 @@ export class ChatThreadRuntimeService {
     const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true });
     const settings = this.deps.getDashboardSettings();
 
-    const route = this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
-
-    await this.runVirtualProvider(projectId, thread, userMessage, route);
+    try {
+      const route = this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
+      await this.runVirtualProvider(projectId, thread, userMessage, route);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.deps.logger?.error("Dashboard chat turn failed", {
+        projectId,
+        threadId: thread.id,
+        messageId: userMessage.id,
+        error: message,
+      });
+      this.deps.connectionChatRepository.markDashboardMessagesFailed(thread.id, {
+        upToMessageId: userMessage.id,
+      });
+      this.deps.connectionChatRepository.postSystemMessage(projectId, {
+        threadId: thread.id,
+        bodyMarkdown: `Worker execution failed: ${message}`,
+      });
+      return {
+        ...userMessage,
+        deliveryStatus: "failed",
+      };
+    }
     return userMessage;
   }
 
@@ -329,98 +349,89 @@ export class ChatThreadRuntimeService {
 
     const finalPrompt = buildProviderPrompt(promptContent, thinkingMode as any);
 
-    try {
-      const result = await this.deps.chatManagementActionService.processManagementAction({
-        projectId,
-        provider,
-        model,
-        apiKey,
+    const result = await this.deps.chatManagementActionService.processManagementAction({
+      projectId,
+      provider,
+      model,
+      apiKey,
       qwenAuthMode: route.qwenAuthMode,
       qwenRegion: route.qwenRegion,
       qwenBaseUrl: route.qwenBaseUrl,
       qwenEnvKey: route.qwenEnvKey,
       qwenProtocol: route.qwenProtocol,
-        openCodeAuthMode: route.openCodeAuthMode,
-        openCodeProviderId: route.openCodeProviderId,
-        openCodeModelId: route.openCodeModelId,
-        openCodeBaseUrl: route.openCodeBaseUrl,
-        openCodeEnvKey: route.openCodeEnvKey,
-        openCodePackage: route.openCodePackage,
-        providerMountAuth: route.providerMountAuth,
-        providerAuthPath: route.providerAuthPath,
-        sessionId: continueSessionId || thread.id,
-        settings: dashboardSettings,
-        prompt: finalPrompt,
-        repoPath: project.baseDir,
-        mcpConnection,
-      });
+      openCodeAuthMode: route.openCodeAuthMode,
+      openCodeProviderId: route.openCodeProviderId,
+      openCodeModelId: route.openCodeModelId,
+      openCodeBaseUrl: route.openCodeBaseUrl,
+      openCodeEnvKey: route.openCodeEnvKey,
+      openCodePackage: route.openCodePackage,
+      providerMountAuth: route.providerMountAuth,
+      providerAuthPath: route.providerAuthPath,
+      sessionId: continueSessionId || thread.id,
+      settings: dashboardSettings,
+      prompt: finalPrompt,
+      repoPath: project.baseDir,
+      mcpConnection,
+    });
 
-      this.deps.connectionChatRepository.markDashboardMessagesProcessed(thread.id, {
-        upToMessageId: latestMessage.id,
-      });
+    this.deps.connectionChatRepository.markDashboardMessagesProcessed(thread.id, {
+      upToMessageId: latestMessage.id,
+    });
 
-      let systemReply = result.replyMarkdown;
-      let newPendingAction = null;
+    let systemReply = result.replyMarkdown;
+    let newPendingAction = null;
 
-      if (result.action) {
-        if (result.approvalRequired) {
-          systemReply += `\n\n_Action requires approval: ${result.approvalMessage}_\n_Please reply with "yes" to confirm or "no" to cancel._`;
-          newPendingAction = {
-            action: result.action,
-            approvalMessage: result.approvalMessage || "Action requires approval.",
-            proposedAt: new Date().toISOString(),
-          };
-        } else if (result.result) {
-          const stringifiedResult = typeof result.result === "object" ? JSON.stringify(result.result, null, 2) : String(result.result);
-          systemReply += `\n\n_Action completed successfully._\n\`\`\`json\n${stringifiedResult}\n\`\`\``;
-        }
+    if (result.action) {
+      if (result.approvalRequired) {
+        systemReply += `\n\n_Action requires approval: ${result.approvalMessage}_\n_Please reply with "yes" to confirm or "no" to cancel._`;
+        newPendingAction = {
+          action: result.action,
+          approvalMessage: result.approvalMessage || "Action requires approval.",
+          proposedAt: new Date().toISOString(),
+        };
+      } else if (result.result) {
+        const stringifiedResult = typeof result.result === "object" ? JSON.stringify(result.result, null, 2) : String(result.result);
+        systemReply += `\n\n_Action completed successfully._\n\`\`\`json\n${stringifiedResult}\n\`\`\``;
       }
-
-      // In MCP-native mode, check if the worker triggered an approval-gated action
-      if (mcpAvailable && !newPendingAction) {
-        const tracker = this.deps.getMcpApprovalTracker?.();
-        const pendingApproval = tracker?.takePending() ?? null;
-        if (pendingApproval) {
-          newPendingAction = {
-            action: pendingApproval.action,
-            approvalMessage: pendingApproval.approvalMessage,
-            proposedAt: pendingApproval.proposedAt,
-          };
-        }
-      }
-
-      this.deps.connectionChatRepository.postSystemMessage(projectId, {
-        threadId: thread.id,
-        bodyMarkdown: systemReply.trim(),
-      });
-
-      const newRuntimeState: ConversationRuntimeState = {
-        ...runtimeState,
-        routeKind: "virtual",
-        virtualProvider: provider,
-        modelLabel: model,
-        sessionIds: [continueSessionId || thread.id], // processManagementAction doesn't currently return nativeSessionId from StructuredProviderResponseService!
-        replayRequired: false,
-      };
-
-      if (newPendingAction) {
-        newRuntimeState.pendingManagementAction = newPendingAction;
-      } else {
-        delete newRuntimeState.pendingManagementAction;
-      }
-
-      this.deps.connectionChatRepository.updateThread(thread.id, {
-        connectionId: null,
-        runtimeState: newRuntimeState,
-      });
-
-    } catch (err: any) {
-      this.deps.connectionChatRepository.postSystemMessage(projectId, {
-        threadId: thread.id,
-        bodyMarkdown: `Worker execution failed: ${err.message}`,
-      });
-      throw err;
     }
+
+    // In MCP-native mode, check if the worker triggered an approval-gated action
+    if (mcpAvailable && !newPendingAction) {
+      const tracker = this.deps.getMcpApprovalTracker?.();
+      const pendingApproval = tracker?.takePending() ?? null;
+      if (pendingApproval) {
+        newPendingAction = {
+          action: pendingApproval.action,
+          approvalMessage: pendingApproval.approvalMessage,
+          proposedAt: pendingApproval.proposedAt,
+        };
+      }
+    }
+
+    this.deps.connectionChatRepository.postSystemMessage(projectId, {
+      threadId: thread.id,
+      bodyMarkdown: systemReply.trim(),
+    });
+
+    const newRuntimeState: ConversationRuntimeState = {
+      ...runtimeState,
+      routeKind: "virtual",
+      virtualProvider: provider,
+      modelLabel: model,
+      sessionIds: [continueSessionId || thread.id], // processManagementAction doesn't currently return nativeSessionId from StructuredProviderResponseService!
+      replayRequired: false,
+    };
+
+    if (newPendingAction) {
+      newRuntimeState.pendingManagementAction = newPendingAction;
+    } else {
+      delete newRuntimeState.pendingManagementAction;
+    }
+
+    this.deps.connectionChatRepository.updateThread(thread.id, {
+      connectionId: null,
+      runtimeState: newRuntimeState,
+    });
   }
 
   private isVirtualProvider(value: string | undefined | null): value is Exclude<ProviderId, "jules"> {

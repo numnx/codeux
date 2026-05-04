@@ -69,7 +69,7 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
   }, [connectionIndex, threadData.selectedThread]);
 
   const pendingDashboardMessages = threadData.messages.filter((message) => (
-    message.direction === "dashboard_to_connection" && message.deliveryStatus !== "processed"
+    message.direction === "dashboard_to_connection" && (message.deliveryStatus === "pending" || message.deliveryStatus === "delivered")
   )).length;
 
   const hasWorkingReply = useMemo(() => threadData.messages.some((message) => isWorkingMessage(message, threadData.messages)), [threadData.messages]);

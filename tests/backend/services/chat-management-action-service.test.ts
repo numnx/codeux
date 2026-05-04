@@ -222,6 +222,13 @@ describe("ChatManagementActionService", () => {
 
      expect(parseFn('```json\n{"replyMarkdown": "Hi", "action": null}\n```')).toEqual({replyMarkdown: "Hi", action: null});
      expect(parseFn('{"replyMarkdown": "Hello", "action": null}')).toEqual({replyMarkdown: "Hello", action: null});
+     expect(parseFn('json\n{"replyMarkdown": "Language prefix", "action": null}')).toEqual({replyMarkdown: "Language prefix", action: null});
+     const providerEnvelope = JSON.stringify({
+       session_id: "session-1",
+       response: "```json\n{\n  \"replyMarkdown\": \"Nested hello\",\n  \"action\": null\n}\n```",
+       stats: {},
+     }, null, 2);
+     expect(parseFn(`[setup] Bootstrap complete.\n${providerEnvelope}\nnpm notice`)).toEqual({replyMarkdown: "Nested hello", action: null});
 
      expect(() => parseFn('{"action": null}')).toThrow("Missing or invalid 'replyMarkdown'");
   });

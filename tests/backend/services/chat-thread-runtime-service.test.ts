@@ -13,6 +13,7 @@ describe("ChatThreadRuntimeService", () => {
         updateThread: vi.fn(),
         listMessages: vi.fn(),
         markDashboardMessagesProcessed: vi.fn(),
+        markDashboardMessagesFailed: vi.fn(),
         postSystemMessage: vi.fn(),
       },
       projectWorkerAssignmentRepository: {
@@ -326,6 +327,36 @@ describe("ChatThreadRuntimeService", () => {
     }));
     expect(deps.chatManagementActionService.processManagementAction).toHaveBeenCalledWith(expect.objectContaining({
       prompt: expect.not.stringContaining("historic prompt"),
+    }));
+  });
+
+  it("marks a dashboard message failed when virtual chat execution fails", async () => {
+    deps.connectionChatRepository.postDashboardMessage.mockReturnValue({ id: "msg-fail", threadId: "t1", bodyMarkdown: "hello", deliveryStatus: "pending" });
+    deps.connectionChatRepository.getThread.mockReturnValue({
+      id: "t1",
+      projectId: "p1",
+      connectionId: null,
+      runtimeState: { routeKind: "virtual", virtualProvider: "codex" },
+    });
+    deps.projectManagementRepository.getProject.mockReturnValue({ id: "p1", name: "proj", baseDir: "/tmp" });
+    deps.taskService.resolveInvocationProvider.mockReturnValue({
+      provider: "codex",
+      providers: { codex: { model: "gpt-5.3-codex", apiKey: "codex-key" } },
+    });
+    deps.connectionChatRepository.listMessages.mockReturnValue([
+      { id: "msg-fail", authorType: "dashboard_user", bodyMarkdown: "hello" },
+    ]);
+    deps.chatManagementActionService.processManagementAction.mockRejectedValue(new Error("provider timeout"));
+
+    const message = await service.postMessage("p1", { bodyMarkdown: "hello" });
+
+    expect(message.deliveryStatus).toBe("failed");
+    expect(deps.connectionChatRepository.markDashboardMessagesFailed).toHaveBeenCalledWith("t1", {
+      upToMessageId: "msg-fail",
+    });
+    expect(deps.connectionChatRepository.postSystemMessage).toHaveBeenCalledWith("p1", expect.objectContaining({
+      threadId: "t1",
+      bodyMarkdown: "Worker execution failed: provider timeout",
     }));
   });
 });

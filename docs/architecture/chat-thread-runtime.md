@@ -34,6 +34,16 @@ Route resolution now follows this precedence on each posted message:
 
 This keeps the chat page's explicit route selector authoritative for new-thread first messages instead of accidentally re-resolving through the global provider default.
 
+Message posting is an awaited runtime operation. `POST /api/projects/:projectId/conversations/messages` waits for the chat runtime to finish routing the dashboard turn before returning the stored dashboard message, so provider/runtime errors are handled inside the same request lifecycle instead of continuing as detached background work.
+
+Virtual chat failures are terminal for that dashboard turn:
+- the dashboard message is moved from `pending`/`delivered` to `failed`
+- a visible system message is appended with the worker execution error
+- the thread pending count is cleared because only `pending` and `delivered` dashboard messages are actionable inbox work
+- the execution invocation and provider usage rows are linked through `ProviderExecutionService`, keeping Chat and Stats pages replayable for dashboard replies
+
+Structured dashboard replies parse provider output defensively. Some CLI providers emit bootstrap logs around a JSON envelope and place the requested strict JSON inside an envelope field such as `response`. The chat runtime extracts fenced JSON, bare JSON, and nested provider-envelope `response` payloads before deciding a parse retry is required. While structured parsing is still pending, provider execution does not mark the parent execution invocation completed; the chat management layer finalizes it only after the structured reply is accepted or the retry flow has failed.
+
 ### First-Message Replay & Worker Switching
 
 A thread's conversation history is independent of the provider processing it. If a user switches the active worker mid-conversation (e.g., from a Claude CLI to a connected Gemini MCP worker), the `ChatThreadRuntimeService` marks the `runtimeState.replayRequired` flag as `true`.

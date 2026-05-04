@@ -286,6 +286,31 @@ describe("ConnectionChatRepository", () => {
     });
   });
 
+  it("marks dashboard messages failed after virtual reply execution errors", async () => {
+    const { projectRepository, connectionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Virtual Reply Failure Project",
+      sourceType: "local",
+      sourceRef: "/workspace/virtual-reply-failure-project",
+    });
+
+    const message = connectionRepository.postDashboardMessage(project.id, {
+      title: "Failure test",
+      bodyMarkdown: "Please reply from a failing virtual worker.",
+    });
+    const thread = connectionRepository.listThreads(project.id)[0];
+
+    const failed = connectionRepository.markDashboardMessagesFailed(thread.id, {
+      upToMessageId: message.id,
+    });
+
+    expect(failed.pendingMessageCount).toBe(0);
+    expect(connectionRepository.listMessages(thread.id)[0]).toMatchObject({
+      id: message.id,
+      deliveryStatus: "failed",
+    });
+  });
+
   it("keeps hidden control messages out of visible chat counts while still delivering them to workers", async () => {
     const { projectRepository, connectionRepository } = await createRepositories();
     const project = projectRepository.createProject({
