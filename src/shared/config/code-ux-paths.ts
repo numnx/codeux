@@ -1,34 +1,34 @@
 import os from "os";
 import * as path from "path";
 
-export const SPRINT_OS_DIRNAME = ".sprint-os";
-export const SPRINT_OS_SERVICE_NAME = "sprint-os";
-export const SPRINT_OS_DISPLAY_NAME = "Sprint OS";
+export const CODE_UX_DIRNAME = ".code-ux";
+export const CODE_UX_SERVICE_NAME = "code-ux";
+export const CODE_UX_DISPLAY_NAME = "Code UX";
 
-export function getRelativeSprintOsPath(...segments: string[]): string {
-  return path.join(SPRINT_OS_DIRNAME, ...segments);
+export function getRelativeCodeUxPath(...segments: string[]): string {
+  return path.join(CODE_UX_DIRNAME, ...segments);
 }
 
-export function getRepoSprintOsDir(repoPath: string): string {
-  return path.join(repoPath, SPRINT_OS_DIRNAME);
+export function getRepoCodeUxDir(repoPath: string): string {
+  return path.join(repoPath, CODE_UX_DIRNAME);
 }
 
-export function getRepoSprintOsPath(repoPath: string, ...segments: string[]): string {
-  return path.join(getRepoSprintOsDir(repoPath), ...segments);
+export function getRepoCodeUxPath(repoPath: string, ...segments: string[]): string {
+  return path.join(getRepoCodeUxDir(repoPath), ...segments);
 }
 
-export function getHomeSprintOsDir(): string {
-  return path.join(os.homedir(), SPRINT_OS_DIRNAME);
+export function getHomeCodeUxDir(): string {
+  return path.join(os.homedir(), CODE_UX_DIRNAME);
 }
 
-export function getHomeSprintOsPath(...segments: string[]): string {
-  return path.join(getHomeSprintOsDir(), ...segments);
+export function getHomeCodeUxPath(...segments: string[]): string {
+  return path.join(getHomeCodeUxDir(), ...segments);
 }
 
-export function getSprintSubtasksDir(repoPath: string, sprintNumber: number): string {
-  return getRepoSprintOsPath(repoPath, "sprints", `sprint${sprintNumber}-subtasks`);
+export function getCodeUxSubtasksDir(repoPath: string, sprintNumber: number): string {
+  return getRepoCodeUxPath(repoPath, "sprints", `sprint${sprintNumber}-subtasks`);
 }
 
 export function getRepoDebugLogPath(repoPath: string): string {
-  return getRepoSprintOsPath(repoPath, "debug.log");
+  return getRepoCodeUxPath(repoPath, "debug.log");
 }
