@@ -14,6 +14,10 @@
    - In `handleFocus`, if `isPointerInteraction.current` is true, reset it to false and `return;`. Otherwise, call `handleMouseEnter()`.
    - Update `onKeyDownCapture` to handle `Escape`.
 
-4. **Tests Updates**:
+4. **Focus Trap Refactor (Completed in feature branch)**:
+   - Refactor `dashboard/src/v2/hooks/use-focus-trap.ts` to improve Tab logic, Escape handling, and focus restoration resilience.
+   - Consolidate tests in `tests/dashboard/v2/use-focus-trap.test.tsx`.
+
+5. **Tests Updates**:
    - Update `tests/dashboard/v2/tooltip.test.tsx` to handle the pointer interaction ref.
    - Run tests.
