@@ -87,7 +87,9 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                     if (overlayRef.current) {
                         gsap.set(overlayRef.current, { display: 'none' });
                     }
-                    triggerElementRef.current?.focus();
+                    if (triggerElementRef.current?.isConnected) {
+                        triggerElementRef.current.focus();
+                    }
                 }
             });
 
@@ -102,15 +104,19 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isOpen) return;
 
+            if (e.defaultPrevented) return;
+
             if (e.key === 'Escape') {
                 e.preventDefault();
                 onClose();
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                setFocusedIndex(prev => (prev < allItems?.length || 0 - 1 ? prev + 1 : 0));
+                const total = allItems?.length || 0;
+                setFocusedIndex(prev => (total > 0 ? (prev < total - 1 ? prev + 1 : 0) : -1));
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                setFocusedIndex(prev => (prev > 0 ? prev - 1 : allItems?.length || 0 - 1));
+                const total = allItems?.length || 0;
+                setFocusedIndex(prev => (total > 0 ? (prev > 0 ? prev - 1 : total - 1) : -1));
             } else if (e.key === 'Enter' && focusedIndex >= 0) {
                 e.preventDefault();
                 const selectedItem = allItems[focusedIndex];
@@ -156,6 +162,10 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                     <input
                         ref={inputRef}
                         type="text"
+                        role="combobox"
+                        aria-expanded={isOpen}
+                        aria-controls="search-results-listbox"
+                        aria-activedescendant={focusedIndex >= 0 && allItems[focusedIndex] ? `search-result-${allItems[focusedIndex].category}-${allItems[focusedIndex].id}` : undefined}
                         placeholder="Search sprints, tasks, agents..."
                         value={searchQuery}
                         onInput={(e) => onSearchChange(e.currentTarget.value)}
@@ -170,7 +180,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
                 </div>
 
                 {/* Results Area */}
-                <div className="flex-1 max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
+                <div className="flex-1 max-h-[60vh] overflow-y-auto custom-scrollbar p-2" role="listbox" id="search-results-listbox">
                     {searchQuery.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-8">
                                 <Inbox className="w-8 h-8 mb-4 opacity-50 text-slate-500 dark:text-slate-400" />
