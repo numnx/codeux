@@ -73,15 +73,16 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
         <button
             onClick={onClick}
             ref={activeItemRef}
-            onMouseEnter={onFocus}
+            onPointerEnter={onFocus}
             aria-label={`${categoryType} result: ${title}`}
+            id={`search-result-${categoryType}-${item.id}`}
             role="option"
             aria-selected={isFocused}
-            className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all duration-200 overflow-hidden ${
+            className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all duration-200 overflow-hidden border ${
                 isFocused
-                    ? 'bg-signal-500/8 dark:bg-signal-500/10 border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-2xl'
-                    : 'bg-white/50 dark:bg-void-800/40 hover:bg-white/80 dark:hover:bg-void-700/60 border-black/5 dark:border-white/5 backdrop-blur-xl'
-            } border`}
+                    ? 'bg-signal-500/8 dark:bg-signal-500/10 border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-2xl ring-2 ring-signal-500/50 outline-none'
+                    : 'bg-white/50 dark:bg-void-800/40 hover:bg-white/80 dark:hover:bg-void-700/60 border-black/5 dark:border-white/5 backdrop-blur-xl outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50'
+            }`}
         >
             {/* Hover/Focus Background Glow */}
             {isFocused && (
