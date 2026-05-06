@@ -494,9 +494,15 @@
   }
 
   /* App-level reduced motion override */
-  :root[data-reduced-motion="true"] *,
-  :root[data-reduced-motion="true"] ::before,
-  :root[data-reduced-motion="true"] ::after {
+  :root[data-reduced-motion="true"] button,
+  :root[data-reduced-motion="true"] a,
+  :root[data-reduced-motion="true"] [role="dialog"],
+  :root[data-reduced-motion="true"] [role="menu"],
+  :root[data-reduced-motion="true"] [role="listbox"],
+  :root[data-reduced-motion="true"] .transition-all,
+  :root[data-reduced-motion="true"] .transition-colors,
+  :root[data-reduced-motion="true"] .transition-opacity,
+  :root[data-reduced-motion="true"] .transition-transform {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
