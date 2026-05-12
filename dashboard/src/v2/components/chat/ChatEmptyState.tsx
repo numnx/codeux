@@ -1,4 +1,5 @@
 import type { FunctionComponent } from "preact";
+import { Link } from "@tanstack/react-router";
 import { Bot, MessageCircle, Plus, Radio, Sparkles } from "lucide-preact";
 
 type EmptyChatTone = "project" | "thread" | "messages" | "invocations";
@@ -94,7 +95,8 @@ export const ChatRailPlaceholder: FunctionComponent<{
   title?: string;
   message: string;
   actionLabel?: string;
-}> = ({ title = "Thread Rail Ready", message, actionLabel = "New Thread" }) => (
+  actionTo?: string;
+}> = ({ title = "Thread Rail Ready", message, actionLabel = "New Thread", actionTo }) => (
   <div className="relative flex min-h-[22rem] flex-col justify-between overflow-hidden rounded-[1.5rem] border border-dashed border-signal-500/20 bg-black/[0.025] p-5 dark:bg-white/[0.03]">
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_0%,rgba(0,224,160,0.12),transparent_62%)]" />
     <div className="relative z-10 space-y-3">
@@ -121,10 +123,20 @@ export const ChatRailPlaceholder: FunctionComponent<{
       </div>
       <div className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{title}</div>
       <p className="mt-2 text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
-      <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-300">
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
-        {actionLabel}
-      </div>
+      {actionTo ? (
+        <Link
+          to={actionTo}
+          className="mt-5 inline-flex min-h-[36px] items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 transition-colors hover:border-signal-500/35 hover:bg-signal-500/15 hover:text-signal-700 focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:text-signal-300"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+          {actionLabel}
+        </Link>
+      ) : (
+        <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-300">
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+          {actionLabel}
+        </div>
+      )}
     </div>
   </div>
 );

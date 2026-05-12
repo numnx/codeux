@@ -1,13 +1,17 @@
 /* istanbul ignore file */
 import type { FunctionComponent } from "preact";
+import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import {
   Activity,
+  ArrowRight,
   CheckCircle2,
   CheckSquare,
   Download,
+  FolderOpen,
   Heart,
+  Layers,
   Pencil,
   Plus,
   Radio,
@@ -22,6 +26,7 @@ import { SprintLedger } from "../../components/sprints/SprintLedger.js";
 import { QuicksprintPanel } from "../../components/quicksprint/QuicksprintPanel.js";
 import { AddTaskModal } from "../../components/ui/AddTaskModal.js";
 import { SprintComposer } from "../../components/ui/SprintComposer.js";
+import { AddProjectModal } from "../../components/ui/AddProjectModal.js";
 import { SprintMarkdownModal } from "../../components/ui/SprintMarkdownModal.js";
 import { SprintSettingsOverrideModal } from "../../components/ui/SprintSettingsOverrideModal.js";
 import { SprintImportMenu } from "../../components/sprints/SprintImportMenu.js";
@@ -31,14 +36,93 @@ import { useProgressiveList } from "../../hooks/use-progressive-list.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "../../lib/list-window.js";
 import { ExecutionTimelineProvider } from "../../../hooks/ExecutionTimelineContext.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+import { useProjectData } from "../../context/project-data.js";
 
 const ACCENT_CYCLE = ["text-signal-500", "text-ember-500", "text-status-green"] as const;
+
+const SprintsProjectPlaceholder: FunctionComponent<{
+  hasProjects: boolean;
+  onAddProject: () => void;
+}> = ({ hasProjects, onAddProject }) => (
+  <div className="relative overflow-hidden rounded-[2.2rem] border border-black/[0.06] bg-white/72 p-8 shadow-[0_18px_48px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/62 dark:shadow-[0_18px_48px_rgba(0,0,0,0.28)] md:p-10">
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_30%,rgba(0,224,160,0.09),transparent_62%)] dark:bg-[radial-gradient(ellipse_70%_55%_at_50%_30%,rgba(0,224,160,0.13),transparent_62%)]" />
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="h-56 w-56 rounded-full border border-signal-500/14 animate-[ping_5.2s_cubic-bezier(0.1,0.5,0.8,1)_infinite]" />
+      <div className="absolute h-80 w-80 rounded-full border border-ember-500/10 animate-[ping_8s_cubic-bezier(0.1,0.5,0.8,1)_infinite]" />
+      <div className="absolute h-[30rem] w-[30rem] rounded-full border border-black/[0.035] animate-[ping_10.5s_cubic-bezier(0.1,0.5,0.8,1)_infinite] dark:border-white/[0.04]" />
+    </div>
+
+    <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
+      <div>
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[1.35rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_32px_rgba(0,224,160,0.16)]">
+          <Layers className="h-7 w-7" strokeWidth={1.7} />
+        </div>
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-signal-500">
+          Sprint Workspace Standby
+        </div>
+        <h2 className="mt-3 max-w-3xl font-display text-4xl font-black leading-[0.98] tracking-tight text-slate-900 dark:text-white md:text-5xl">
+          Project scope comes first.
+        </h2>
+        <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400 md:text-base">
+          Projects scope the sprint gallery. Select a project from the top navigation before creating or planning sprints.
+        </p>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onAddProject}
+            className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-signal-500 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-void-900 shadow-[0_10px_30px_rgba(0,224,160,0.22)] transition-all hover:-translate-y-px hover:bg-signal-400 focus-visible:ring-2 focus-visible:ring-signal-500/40"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+            {hasProjects ? "Add Project" : "Add First Project"}
+          </button>
+          <Link
+            to="/projects"
+            className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/75 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all hover:-translate-y-px hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white"
+          >
+            <FolderOpen className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.1} />
+            Manage Projects
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.1} />
+          </Link>
+        </div>
+      </div>
+
+      <div className="relative overflow-hidden rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 dark:border-white/[0.06] dark:bg-white/[0.035]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_65%_at_50%_0%,rgba(255,184,0,0.12),transparent_68%)]" />
+        <div className="relative z-10 space-y-3">
+          {[
+            { label: "Project", value: hasProjects ? "selectable" : "required", tone: "text-ember-500" },
+            { label: "Gallery", value: "waiting", tone: "text-signal-500" },
+            { label: "Planning", value: "locked", tone: "text-slate-500 dark:text-slate-400" },
+          ].map((item, index) => (
+            <div
+              key={item.label}
+              className="rounded-[1.15rem] border border-white/60 bg-white/72 p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.04]"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{item.label}</div>
+                  <div className={`mt-1 text-xs font-bold uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</div>
+                </div>
+                <div className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-ember-500" : index === 1 ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`}>
+                  <span className="block h-full w-full rounded-full animate-ping bg-current opacity-40" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export const SprintsPage: FunctionComponent = () => {
   const headerRef = useRef<HTMLDivElement>(null);
   const bubblesRef = useRef<HTMLDivElement>(null);
   const createStageRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const { projects, createProject } = useProjectData();
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
   const {
     selectedProject,
@@ -212,6 +296,15 @@ export const SprintsPage: FunctionComponent = () => {
   const handleBulkShowcaseDisable = useCallback((ids: string[]) => {
     void handleBulkToggleShowcase(ids, false);
   }, [handleBulkToggleShowcase]);
+
+  const handleAddProject = useCallback(async (project: { name: string; type: "local" | "git"; path: string; cloneDir?: string }) => {
+    await createProject({
+      name: project.name,
+      sourceType: project.type,
+      sourceRef: project.path,
+      cloneDir: project.cloneDir,
+    });
+  }, [createProject]);
 
   return (
     <ExecutionTimelineProvider
@@ -469,11 +562,19 @@ export const SprintsPage: FunctionComponent = () => {
             </div>
           </>
         ) : (
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-void-800/55 dark:text-slate-400">
-            Projects scope the sprint gallery. Select a project from the top navigation before creating or planning sprints.
-          </div>
+          <SprintsProjectPlaceholder
+            hasProjects={projects.length > 0}
+            onAddProject={() => setShowAddProjectModal(true)}
+          />
         )}
       </div>
+
+      {showAddProjectModal && (
+        <AddProjectModal
+          onClose={() => setShowAddProjectModal(false)}
+          onAdd={handleAddProject}
+        />
+      )}
 
       {rowMenu && activeRowMenuSprint && (
         <div

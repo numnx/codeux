@@ -340,6 +340,7 @@ export const ChatPage: FunctionComponent = () => {
               title="No Project Scope"
               message="Connect a project first; the thread rail will then become the live inbox for that workspace."
               actionLabel="Add Project"
+              actionTo="/projects"
             />
           </ChatRail>
         )}
