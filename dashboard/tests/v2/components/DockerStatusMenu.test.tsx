@@ -29,6 +29,39 @@ const mockContainers = [
   },
 ];
 
+const mockReadiness = {
+  checkedAt: "2026-05-12T00:00:00.000Z",
+  cluster: {
+    status: "ready",
+    label: "Cluster ready",
+    detail: "Required local runtime dependencies are available.",
+  },
+  dependencies: [],
+  providers: [],
+};
+
+const mockFetchResponses = (containers: unknown, readiness: unknown = mockReadiness) => {
+  vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/api/onboarding/readiness")) {
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => readiness,
+        text: async () => JSON.stringify(readiness),
+      } as Response;
+    }
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => containers,
+      text: async () => JSON.stringify(containers),
+    } as Response;
+  });
+};
+
 describe("DockerStatusMenu", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -45,10 +78,7 @@ describe("DockerStatusMenu", () => {
   });
 
   it("opens popover on click, displays containers, and traps focus", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockContainers,
-    } as Response);
+    mockFetchResponses(mockContainers);
 
     render(<DockerStatusMenu />);
 
@@ -72,10 +102,7 @@ describe("DockerStatusMenu", () => {
   });
 
   it("closes popover on escape and restores focus", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockContainers,
-    } as Response);
+    mockFetchResponses(mockContainers);
 
     render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
@@ -101,10 +128,7 @@ describe("DockerStatusMenu", () => {
   });
 
   it("closes the popover on mouse leave after a delay", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockContainers,
-    } as Response);
+    mockFetchResponses(mockContainers);
 
     vi.useFakeTimers();
 
@@ -131,10 +155,7 @@ describe("DockerStatusMenu", () => {
   });
 
   it("shows zero state when no containers exist", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    } as Response);
+    mockFetchResponses([]);
 
     render(<DockerStatusMenu />);
     const button = screen.getByRole("button", { name: "Docker Status" });
@@ -160,6 +181,37 @@ describe("DockerStatusMenu", () => {
     });
 
     consoleSpy.mockRestore();
+  });
+
+  it("shows cluster-not-ready guidance when Docker is unavailable", async () => {
+    mockFetchResponses([], {
+      checkedAt: "2026-05-12T00:00:00.000Z",
+      cluster: {
+        status: "not_ready",
+        label: "Cluster not ready",
+        detail: "Docker must be installed and running before containerized provider CLIs can execute tasks.",
+      },
+      dependencies: [
+        {
+          id: "docker-daemon",
+          label: "Docker daemon",
+          status: "missing",
+          required: true,
+          description: "Docker daemon is not available to the dashboard runtime.",
+          resolution: "Start Docker Desktop or the Docker Engine service, then retry once `docker ps` succeeds.",
+        },
+      ],
+      providers: [],
+    });
+
+    render(<DockerStatusMenu />);
+    fireEvent.click(screen.getByRole("button", { name: "Docker Status" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Cluster not ready").length).toBeGreaterThan(0);
+      expect(screen.getByText("Docker is mandatory")).toBeInTheDocument();
+      expect(screen.getByText(/Start Docker Desktop/)).toBeInTheDocument();
+    });
   });
 });
 

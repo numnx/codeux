@@ -150,6 +150,8 @@ Legacy runtime:
   - Same-origin proxy used by the in-app browser to render the sprint preview app
 - `GET /api/settings/import-sources`
   - External key hints from env/json
+- `GET /api/onboarding/readiness`
+  - First-run onboarding readiness payload with Docker/Git dependency checks and local provider auth detection
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
@@ -192,6 +194,10 @@ Legacy runtime:
   - Git Flow lives in the Sprint tab with default branch, branch prefix, sprint branch scheme, remote/local mode, and auto-create PR
   - Integrations exposes the system GitHub token plus per-scope GitHub auth-copy mounts and gitconfig sharing
   - CLI provider credentials are managed per named instance, including optional local auth-copy mounts and custom auth paths for each Gemini, Codex, or Claude entry
+- The first-run onboarding flow guides operators through installation checks, container security basics, provider auth-copy setup, AI behaviour defaults, appearance preferences, and primary dashboard controls. See [Dashboard Onboarding](./onboarding.md).
+- The Docker top-nav control now consumes onboarding readiness data. If Docker is unavailable, it shows a `Cluster not ready` badge with an info icon and explains that Docker is mandatory for containerized CLI execution.
+- Settings -> General includes `Open Onboarding`, which reopens the setup flow without clearing saved settings.
+- The notification center now renders startup-check notifications from real readiness data and persists read/dismissed notification state in browser storage.
 - GitLab support is currently partial:
   - backend git host detection, `glab`, and GitLab CI queries are implemented
   - dashboard token persistence is still GitHub-only, so GitLab tokens currently come from `GITLAB_TOKEN` / `GLAB_TOKEN`

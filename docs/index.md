@@ -54,6 +54,7 @@ Use this page as the main entrypoint.
 36. [Qwen Code Integration](./settings/qwen-code-integration.md)
 37. [OpenCode Integration](./settings/opencode-integration.md)
 38. [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
+39. [Dashboard Onboarding](./dashboard/onboarding.md)
 
 ### Path 3: MCP integrator (tool contracts and runtime expectations)
 1. [Quickstart](./getting-started/quickstart.md)
@@ -108,6 +109,7 @@ Use this page as the main entrypoint.
 - [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
 - [Instruction Template System](./instructions/markdown-template-system.md)
 - [Dashboard Guide](./dashboard/dashboard-guide.md)
+- [Dashboard Onboarding](./dashboard/onboarding.md)
 - [Quicksprint Templates](./dashboard/quicksprint-templates.md)
 - [Configuration and Storage](./settings/configuration-and-storage.md)
 - [Provider Routing](./settings/provider-routing.md)

@@ -15,6 +15,7 @@ import type {
   ExternalSettingsHints,
   GitTrackingStatus,
   JulesActivity,
+  OnboardingRuntimeReadiness,
   OverviewTelemetrySnapshot,
   ProjectExecutionStatsSnapshot,
   ProjectLiveDashboardSnapshot,
@@ -196,6 +197,7 @@ export interface DashboardServerOptions {
   isReady?: () => ReadinessProbeStatus;
   isHealthy?: () => ReadinessProbeStatus;
   listDockerContainers: () => Promise<DockerContainer[]>;
+  getOnboardingRuntimeReadiness?: () => Promise<OnboardingRuntimeReadiness> | OnboardingRuntimeReadiness;
   listSprintPreviewSessions?: (projectId: string) => Promise<SprintPreviewSession[]> | SprintPreviewSession[];
   getSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession | null> | SprintPreviewSession | null;
   startSprintPreviewSession?: (projectId: string, sprintId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;

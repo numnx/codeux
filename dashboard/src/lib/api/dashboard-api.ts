@@ -5,6 +5,7 @@ import type {
   ExecutionDashboardSnapshot,
   ExternalSettingsHints,
   GitTrackingStatus,
+  OnboardingRuntimeReadiness,
   OverviewTelemetrySnapshot,
   ProjectLiveDashboardSnapshot,
 } from "../../types.js";
@@ -42,6 +43,10 @@ export const fetchOverviewTelemetry = async (): Promise<OverviewTelemetrySnapsho
 
 export const fetchGitTrackingStatus = async (): Promise<GitTrackingStatus> => {
   return fetchJson<GitTrackingStatus>("/api/git-status");
+};
+
+export const fetchOnboardingReadiness = async (): Promise<OnboardingRuntimeReadiness> => {
+  return fetchJson<OnboardingRuntimeReadiness>("/api/onboarding/readiness");
 };
 
 

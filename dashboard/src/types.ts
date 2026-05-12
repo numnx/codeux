@@ -51,7 +51,10 @@ import type {
   GitTrackingScope,
   GitTrackingTarget,
   GitTrackingStatus,
-  ExternalSettingsHints
+  ExternalSettingsHints,
+  OnboardingRuntimeReadiness,
+  OnboardingDependencyCheck,
+  OnboardingProviderCredentialStatus
 } from "../../src/contracts/app-types.js";
 import type {
   EffectiveSettingsResponse,
@@ -118,6 +121,9 @@ export type {
   GitTrackingTarget,
   GitTrackingStatus,
   ExternalSettingsHints,
+  OnboardingRuntimeReadiness,
+  OnboardingDependencyCheck,
+  OnboardingProviderCredentialStatus,
   EffectiveSettingsResponse,
   ProjectProviderSettings,
   ProjectSettings,

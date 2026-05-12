@@ -13,6 +13,7 @@ import type {
   ExternalSettingsHints,
   GitTrackingStatus,
   JulesActivity,
+  OnboardingRuntimeReadiness,
   ProjectLiveDashboardSnapshot,
   ProjectStatsQuery,
   ReadinessProbeStatus,
@@ -47,6 +48,7 @@ import type { MemoryRepository } from "../../repositories/memory-repository.js";
 import { getRepoDebugLogPath, CODE_UX_SERVICE_NAME } from "../../shared/config/code-ux-paths.js";
 import { getProjectLiveSnapshot } from "../live/project-live-snapshot.js";
 import { DashboardSnapshotCache, mapAssignedWorkers } from "./dashboard-snapshot-cache.js";
+import { getOnboardingRuntimeReadiness } from "../../services/onboarding-readiness-service.js";
 
 export interface BootDashboardDeps {
   app: Express;
@@ -79,6 +81,7 @@ export interface BootDashboardDeps {
   isReady: () => ReadinessProbeStatus;
   isHealthy: () => ReadinessProbeStatus;
   listDockerContainers: () => Promise<DockerContainer[]>;
+  getOnboardingRuntimeReadiness?: () => Promise<OnboardingRuntimeReadiness>;
   listSprintPreviewSessions: (projectId: string) => Promise<SprintPreviewSession[]>;
   getSprintPreviewSession: (sessionId: string) => Promise<SprintPreviewSession | null>;
   startSprintPreviewSession: (projectId: string, sprintId: string) => Promise<SprintPreviewSession>;
@@ -498,6 +501,8 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<void> {
     isReady: deps.isReady,
     isHealthy: deps.isHealthy,
     listDockerContainers: deps.listDockerContainers,
+    getOnboardingRuntimeReadiness: deps.getOnboardingRuntimeReadiness
+      ?? (() => getOnboardingRuntimeReadiness(deps.settingsRepository.getSystemSettings())),
     listSprintPreviewSessions: deps.listSprintPreviewSessions,
     getSprintPreviewSession: deps.getSprintPreviewSession,
     startSprintPreviewSession: deps.startSprintPreviewSession,
