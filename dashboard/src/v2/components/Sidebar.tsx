@@ -118,7 +118,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
         {isMobile && (
             <div
                 ref={overlayRef}
-                className="fixed inset-0 bg-black/50 z-40 hidden backdrop-blur-sm"
+                className="fixed inset-0 bg-black/50 z-40 hidden cursor-pointer backdrop-blur-sm"
                 aria-hidden="true"
                 onClick={onClose}
             />

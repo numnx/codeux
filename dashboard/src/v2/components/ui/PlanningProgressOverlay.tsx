@@ -100,7 +100,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 p-8 backdrop-blur-xl dark:bg-void-900/80"
+      className="absolute inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-white/80 p-8 backdrop-blur-xl dark:bg-void-900/80"
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss();
       }}
@@ -138,7 +138,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         </div>
       </div>
 
-      <div className="space-y-4 text-center">
+      <div className="cursor-default space-y-4 text-center">
         <div className={`inline-flex items-center gap-3 rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] ${theme.badgeBorder} ${theme.badgeBg} ${theme.badgeText}`}>
           <span className="relative flex h-2 w-2">
             <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${theme.pingBg1}`}></span>

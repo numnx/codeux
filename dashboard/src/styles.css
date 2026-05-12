@@ -38,6 +38,28 @@
     @apply transition-all duration-200;
   }
 
+  :where(
+    a[href],
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]),
+    [role="tab"]:not([aria-disabled="true"]),
+    summary,
+    label[for],
+    select,
+    input[type="button"],
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="range"],
+    input[type="reset"],
+    input[type="submit"]
+  ) {
+    cursor: pointer;
+  }
+
+  :where(button:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+  }
+
   button:hover:not(:disabled) {
     @apply brightness-110;
   }

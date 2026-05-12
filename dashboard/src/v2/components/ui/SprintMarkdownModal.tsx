@@ -114,11 +114,11 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
     <div
       ref={backdropRef}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-[220] flex items-center justify-center px-6 bg-black/55 dark:bg-black/75 backdrop-blur-xl"
+      className="fixed inset-0 z-[220] flex cursor-pointer items-center justify-center px-6 bg-black/55 dark:bg-black/75 backdrop-blur-xl"
     >
       <div
         ref={cardRef}
-        className="relative w-full max-w-5xl overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)] flex"
+        className="relative flex w-full max-w-5xl cursor-default overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
       >
         <div className="relative w-56 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
           <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">

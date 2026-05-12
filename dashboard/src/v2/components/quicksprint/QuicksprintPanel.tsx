@@ -806,7 +806,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
             {/* Picker popups (absolute to section, overflow toggled) */}
             {showIconPicker && (<>
-              <div className="fixed inset-0 z-[9998] cursor-default" onClick={() => setShowIconPicker(false)} />
+              <div className="fixed inset-0 z-[9998] cursor-pointer" onClick={() => setShowIconPicker(false)} />
               <div
                 className="absolute z-[9999] w-[17rem] rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
                 style={{ top: pickerPos.top, left: pickerPos.left, animation: "qs-picker-in 0.2s cubic-bezier(0.22,1,0.36,1)" }}
@@ -835,7 +835,7 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
             </>)}
 
             {showColorPicker && (<>
-              <div className="fixed inset-0 z-[9998] cursor-default" onClick={() => setShowColorPicker(false)} />
+              <div className="fixed inset-0 z-[9998] cursor-pointer" onClick={() => setShowColorPicker(false)} />
               <div
                 className="absolute z-[9999] w-52 rounded-2xl border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl bg-[#1a1d24]/95"
                 style={{ top: pickerPos.top, left: pickerPos.left, animation: "qs-picker-in 0.2s cubic-bezier(0.22,1,0.36,1)" }}

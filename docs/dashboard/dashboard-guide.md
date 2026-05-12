@@ -160,6 +160,7 @@ Legacy runtime:
 ## UI Sections
 
 ### V2 project management
+- Interactive dashboard controls use pointer cursors consistently: enabled buttons, links, tab controls, form toggles, menu/popover triggers, DAG nodes, cards, and dismissible overlays expose a pointer affordance, while disabled controls retain `not-allowed`.
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
 - Top-nav search sits in the left header cluster beside the brand, while the active task counter uses the same compact height as the project, sprint, and worker selectors

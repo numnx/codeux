@@ -123,7 +123,7 @@ export const Menu = ({
     <>
       <div
         ref={externalTriggerRef ? undefined : localTriggerRef}
-        className="inline-flex"
+        className="inline-flex cursor-pointer"
         onClick={() => onOpenChange(!isOpen)}
         aria-haspopup="menu"
         aria-expanded={isOpen}

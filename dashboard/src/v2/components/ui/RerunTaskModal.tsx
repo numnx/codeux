@@ -121,14 +121,14 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
         <div
             ref={backdropRef}
             onClick={(e) => { if (e.target === backdropRef.current) handleClose(); }}
-            className="fixed inset-0 z-[250] flex items-center justify-center bg-black/50 px-6 py-8 backdrop-blur-md dark:bg-black/70"
+            className="fixed inset-0 z-[250] flex cursor-pointer items-center justify-center bg-black/50 px-6 py-8 backdrop-blur-md dark:bg-black/70"
         >
             <div
                 ref={cardRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="rerun-modal-title"
-                className="w-full max-w-md rounded-[2rem] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.18)] dark:bg-void-900 dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden"
+                className="w-full max-w-md cursor-default overflow-hidden rounded-[2rem] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.18)] dark:bg-void-900 dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)]"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between px-7 pt-6 pb-4">

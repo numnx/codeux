@@ -123,7 +123,7 @@ export const Popover = ({
     <>
       <div
         ref={externalTriggerRef ? undefined : localTriggerRef}
-        className="inline-flex"
+        className="inline-flex cursor-pointer"
         onClick={() => onOpenChange(!isOpen)}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
