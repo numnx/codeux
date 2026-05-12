@@ -37,7 +37,7 @@ import {
 
 const DeepOceanBackground = lazy(async () => {
   const mod = await import("../chat/DeepOceanBackground.js");
-  return { default: mod.DeepOceanBackground };
+  return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
 
 type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "ai" | "appearance";
@@ -549,24 +549,26 @@ export const OnboardingExperience: FunctionComponent = () => {
   const clusterReady = readiness.cluster.status === "ready";
 
   return (
-    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#070A0F] px-3 py-4 md:px-6 md:py-8">
+    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060A0D] px-3 py-4 md:px-6 md:py-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <Suspense fallback={<div className="absolute inset-0 bg-[#060A0D]" />}>
-          <DeepOceanBackground />
+          <DeepOceanBackground forceDark className="opacity-75 saturate-[0.86] contrast-[0.92]" />
         </Suspense>
-        <div className="absolute inset-0 bg-[#05070B]/72 backdrop-blur-[2px]" />
-        <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(0,224,160,0.2),transparent)]" />
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-[linear-gradient(0deg,rgba(255,184,0,0.14),transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(0,224,160,0.16),transparent_30%),radial-gradient(circle_at_82%_78%,rgba(255,184,0,0.12),transparent_32%),linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_18%,transparent_70%,rgba(0,224,160,0.08)_100%)]" />
+        <div className="absolute inset-0 bg-[#05070B]/54 backdrop-blur-[1px]" />
+        <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgba(0,224,160,0.12),rgba(5,7,11,0.02)_58%,transparent)]" />
+        <div className="absolute inset-x-0 bottom-0 h-72 bg-[linear-gradient(0deg,rgba(255,184,0,0.08),rgba(5,7,11,0.02)_62%,transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_17%_16%,rgba(0,224,160,0.1),transparent_31%),radial-gradient(circle_at_80%_78%,rgba(255,184,0,0.075),transparent_34%),linear-gradient(115deg,rgba(255,255,255,0.055)_0%,transparent_20%,transparent_72%,rgba(0,224,160,0.05)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,7,10,0.18),rgba(4,7,10,0.62))]" />
       </div>
       <section
         ref={shellRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="relative z-10 grid max-h-[94vh] w-full max-w-[1280px] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:grid-cols-[330px_1fr]"
+        className="relative z-10 grid h-[calc(100vh-2rem)] max-h-[900px] min-h-0 w-full max-w-[1280px] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:h-[calc(100vh-4rem)] md:grid-cols-[330px_1fr]"
       >
-        <aside ref={sideRef} className="relative hidden overflow-hidden border-r border-white/10 bg-[#0B0F14] p-7 text-white md:block">
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-20 rounded-[2rem] ring-1 ring-inset ring-white/10" />
+        <aside ref={sideRef} className="relative hidden h-full min-h-0 overflow-hidden border-r border-white/10 bg-[#0B0F14] p-7 text-white md:block">
           <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(0,224,160,0.16),transparent_34%),linear-gradient(330deg,rgba(255,184,0,0.13),transparent_38%)]" />
           <span className="pointer-events-none absolute -left-5 -top-3 select-none font-display text-[8rem] font-black leading-none tracking-tighter text-white/[0.035]">
             RUN
@@ -626,8 +628,9 @@ export const OnboardingExperience: FunctionComponent = () => {
           </div>
         </aside>
 
-        <div className="flex min-h-0 flex-col">
-          <header className="relative flex items-center justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06] md:px-8">
+        <div className="relative flex h-full max-h-full min-h-0 flex-col overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.38),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0))] dark:bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015)_34%,rgba(255,255,255,0))]" />
+          <header className="relative flex shrink-0 items-center justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06] md:px-8">
             <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-signal-500/30 to-transparent" />
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Step {activeStep + 1} of {steps.length}</div>
@@ -646,7 +649,7 @@ export const OnboardingExperience: FunctionComponent = () => {
             </button>
           </header>
 
-          <main ref={contentRef} className="dashboard-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-6 dark:text-slate-100 md:px-8">
+          <main ref={contentRef} className="dashboard-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 dark:text-slate-100 md:px-8">
             {error ? (
               <div className="mb-4 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red">
                 {error}
@@ -964,7 +967,7 @@ export const OnboardingExperience: FunctionComponent = () => {
             ) : null}
           </main>
 
-          <footer className="flex items-center justify-between gap-3 border-t border-black/[0.06] px-5 py-4 dark:border-white/[0.06] md:px-8">
+          <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-black/[0.06] bg-white/45 px-5 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-950/28 md:px-8">
             <button
               type="button"
               disabled={activeStep === 0}
