@@ -2,6 +2,8 @@
 
 The dashboard shows a first-run onboarding flow in the browser until the operator finishes or dismisses it. Completion is tracked with the browser-local key `codeux:onboarding-complete:v1`, so each browser profile can onboard independently.
 
+The onboarding shell uses the same animated dashboard background and modal motion system as the Import and Add Project overlays. This keeps first-run setup visually aligned with the main app while still respecting the configured reduced-motion preference.
+
 ## Runtime Readiness
 
 Onboarding begins with installation checks from `GET /api/onboarding/readiness`.

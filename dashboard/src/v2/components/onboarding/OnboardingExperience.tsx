@@ -1,4 +1,5 @@
 import type { FunctionComponent } from "preact";
+import { lazy, Suspense } from "preact/compat";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import {
@@ -24,6 +25,8 @@ import {
 import { fetchOnboardingReadiness } from "../../../lib/api/dashboard-api.js";
 import { fetchSystemSettings, saveSystemSettings } from "../../lib/settings-api.js";
 import { ONBOARDING_OPEN_EVENT, ONBOARDING_STORAGE_KEY } from "../../lib/onboarding-control.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import type { OnboardingProviderCredentialStatus, OnboardingRuntimeReadiness, ProviderConfigId, ProviderId, ProjectSettings, SystemSettings } from "../../../types.js";
 import {
   createProjectProviderDraft,
@@ -31,6 +34,11 @@ import {
   getProviderTypeLabel,
   sortProviderConfigEntries,
 } from "../../lib/settings-view-models.js";
+
+const DeepOceanBackground = lazy(async () => {
+  const mod = await import("../chat/DeepOceanBackground.js");
+  return { default: mod.DeepOceanBackground };
+});
 
 type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "ai" | "appearance";
 
@@ -176,6 +184,7 @@ const syncProjectProvidersToIntegrationCatalog = (
 };
 
 export const OnboardingExperience: FunctionComponent = () => {
+  const backdropRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -186,6 +195,7 @@ export const OnboardingExperience: FunctionComponent = () => {
   const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const completed = window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "true";
@@ -225,20 +235,38 @@ export const OnboardingExperience: FunctionComponent = () => {
     }
     const ctx = gsap.context(() => {
       gsap.fromTo(
+        backdropRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: reducedMotion ? 0 : MODAL_MOTION.backdrop.duration, ease: MODAL_MOTION.backdrop.ease },
+      );
+      gsap.fromTo(
         shellRef.current,
-        { opacity: 0, y: 28, scale: 0.985 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: "power4.out" },
+        {
+          opacity: MODAL_MOTION.entry.opacityStart,
+          y: reducedMotion ? 0 : MODAL_MOTION.entry.yStart,
+          scale: reducedMotion ? 1 : MODAL_MOTION.entry.scaleStart,
+          filter: reducedMotion ? MODAL_MOTION.entry.filterEnd : MODAL_MOTION.entry.filterStart,
+        },
+        {
+          opacity: MODAL_MOTION.entry.opacityEnd,
+          y: MODAL_MOTION.entry.yEnd,
+          scale: MODAL_MOTION.entry.scaleEnd,
+          filter: MODAL_MOTION.entry.filterEnd,
+          duration: reducedMotion ? 0 : 0.72,
+          ease: MODAL_MOTION.entry.ease,
+          clearProps: "filter",
+        },
       );
       if (sideRef.current) {
         gsap.fromTo(
           sideRef.current.querySelectorAll("[data-step-item], [data-sidebar-copy]"),
-          { opacity: 0, x: -18 },
-          { opacity: 1, x: 0, duration: 0.65, stagger: 0.055, ease: "power3.out", delay: 0.12 },
+          { opacity: 0, x: reducedMotion ? 0 : -18 },
+          { opacity: 1, x: 0, duration: reducedMotion ? 0 : 0.65, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out", delay: reducedMotion ? 0 : 0.12 },
         );
       }
     });
     return () => ctx.revert();
-  }, [open]);
+  }, [open, reducedMotion]);
 
   useLayoutEffect(() => {
     if (!contentRef.current) {
@@ -247,12 +275,12 @@ export const OnboardingExperience: FunctionComponent = () => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
         contentRef.current!.querySelectorAll("[data-onboarding-card]"),
-        { opacity: 0, y: 22, scale: 0.985 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.55, stagger: 0.055, ease: "power3.out" },
+        { opacity: 0, y: reducedMotion ? 0 : 22, scale: reducedMotion ? 1 : 0.985 },
+        { opacity: 1, y: 0, scale: 1, duration: reducedMotion ? 0 : 0.55, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out" },
       );
     });
     return () => ctx.revert();
-  }, [activeStep, selectedProviders.length, settings]);
+  }, [activeStep, selectedProviders.length, settings, reducedMotion]);
 
   const active = steps[activeStep] ?? steps[0]!;
   const readinessByProvider = useMemo(
@@ -521,21 +549,33 @@ export const OnboardingExperience: FunctionComponent = () => {
   const clusterReady = readiness.cluster.status === "ready";
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#070A0F]/78 px-3 py-4 backdrop-blur-3xl md:px-6 md:py-8">
+    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#070A0F] px-3 py-4 md:px-6 md:py-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(0,224,160,0.18),transparent)]" />
-        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(255,184,0,0.12),transparent)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_18%,transparent_70%,rgba(0,224,160,0.08)_100%)]" />
+        <Suspense fallback={<div className="absolute inset-0 bg-[#060A0D]" />}>
+          <DeepOceanBackground />
+        </Suspense>
+        <div className="absolute inset-0 bg-[#05070B]/72 backdrop-blur-[2px]" />
+        <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(0,224,160,0.2),transparent)]" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-[linear-gradient(0deg,rgba(255,184,0,0.14),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(0,224,160,0.16),transparent_30%),radial-gradient(circle_at_82%_78%,rgba(255,184,0,0.12),transparent_32%),linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_18%,transparent_70%,rgba(0,224,160,0.08)_100%)]" />
       </div>
       <section
         ref={shellRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="relative grid max-h-[94vh] w-full max-w-[1280px] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:grid-cols-[330px_1fr]"
+        className="relative z-10 grid max-h-[94vh] w-full max-w-[1280px] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:grid-cols-[330px_1fr]"
       >
         <aside ref={sideRef} className="relative hidden overflow-hidden border-r border-white/10 bg-[#0B0F14] p-7 text-white md:block">
           <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(0,224,160,0.16),transparent_34%),linear-gradient(330deg,rgba(255,184,0,0.13),transparent_38%)]" />
+          <span className="pointer-events-none absolute -left-5 -top-3 select-none font-display text-[8rem] font-black leading-none tracking-tighter text-white/[0.035]">
+            RUN
+          </span>
+          <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-56 w-56 animate-organic bg-signal-500/[0.08]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
+            <div className="absolute h-40 w-40 animate-organic-reverse bg-ember-500/[0.12]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
+            <div className="absolute h-24 w-24 animate-organic bg-signal-500/[0.18]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
+          </div>
           <div className="absolute inset-x-7 top-24 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <div className="relative z-10">
             <div data-sidebar-copy className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 shadow-[0_0_35px_rgba(0,224,160,0.12)]">
@@ -1011,10 +1051,10 @@ const ToggleRow: FunctionComponent<{
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`h-7 w-12 rounded-full border p-0.5 transition-colors ${checked ? "border-signal-500/30 bg-signal-500" : "border-black/[0.12] bg-slate-200 dark:border-white/[0.12] dark:bg-white/[0.08]"}`}
+      className={`relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors ${checked ? "border-signal-500/30 bg-signal-500" : "border-black/[0.12] bg-slate-200 dark:border-white/[0.12] dark:bg-white/[0.08]"}`}
       aria-pressed={checked}
     >
-      <span className={`block h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      <span className={`absolute left-1 top-1 block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
     </button>
   </div>
 );
