@@ -5,16 +5,16 @@
       <stop offset="0%" stop-color="#1A1612"/>
       <stop offset="100%" stop-color="#0A0807"/>
     </radialGradient>
-    <linearGradient id="fav-trail" gradientUnits="userSpaceOnUse" x1="32" y1="54" x2="51" y2="43">
+    <linearGradient id="fav-trail" gradientUnits="userSpaceOnUse" x1="32" y1="49" x2="54" y2="41">
       <stop offset="0%" stop-color="#00E0A0" stop-opacity="0"/>
       <stop offset="100%" stop-color="#00E0A0" stop-opacity="1"/>
     </linearGradient>
   </defs>
   <circle cx="32" cy="32" r="32" fill="url(#fav-disc)"/>
-  <path d="M 51 21 A 22 22 0 1 0 51 43" fill="none" stroke="#F9F8F4" stroke-opacity="0.32" stroke-width="3" stroke-linecap="round"/>
-  <path d="M 32 54 A 22 22 0 0 0 51 43" fill="none" stroke="url(#fav-trail)" stroke-width="3.75" stroke-linecap="round"/>
+  <path d="M 54 23 A 25 17 0 1 0 54 41" fill="none" stroke="#F9F8F4" stroke-opacity="0.32" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 32 49 A 25 17 0 0 0 54 41" fill="none" stroke="url(#fav-trail)" stroke-width="3.75" stroke-linecap="round"/>
   <circle cx="32" cy="32" r="7" fill="#00E0A0"/>
   <circle cx="30" cy="30" r="2.2" fill="#80FFD6"/>
-  <circle cx="51" cy="43" r="4.2" fill="#00E0A0"/>
-  <circle cx="49.9" cy="41.9" r="1.4" fill="#80FFD6"/>
+  <circle cx="54" cy="41" r="4.2" fill="#00E0A0"/>
+  <circle cx="52.9" cy="39.9" r="1.4" fill="#80FFD6"/>
 </svg>

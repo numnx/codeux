@@ -22,7 +22,7 @@ export const BrandSection: FunctionComponent<BrandSectionProps> = ({ isMobile, o
                 </button>
             )}
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 cursor-pointer group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-xl">
+            <Link to="/" className="cux-trigger flex items-center gap-3 cursor-pointer group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-xl">
                 <div className="relative w-9 h-9 flex items-center justify-center bg-void-900 dark:bg-white/[0.06] rounded-2xl overflow-hidden ring-1 ring-inset ring-white/[0.05] dark:ring-white/[0.08] shadow-[0_0_22px_rgba(0,224,160,0.22)] transition-shadow duration-500 group-hover:shadow-[0_0_32px_rgba(0,224,160,0.42)]">
                     <Logo
                         size={28}

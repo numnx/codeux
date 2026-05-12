@@ -154,7 +154,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
             </svg>
 
             {/* Logo */}
-            <a href="/" className="px-7 mb-10 flex items-center gap-3 group cursor-pointer relative z-10 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 rounded-xl">
+            <a href="/" className="cux-trigger px-7 mb-10 flex items-center gap-3 group cursor-pointer relative z-10 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 rounded-xl">
                 <div aria-hidden="true" className="relative w-10 h-10 rounded-2xl bg-void-900 dark:bg-white/[0.04] ring-1 ring-inset ring-white/[0.06] dark:ring-white/[0.07] flex items-center justify-center text-white/30 dark:text-white/40 shadow-[0_0_22px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_34px_rgba(0,224,160,0.36)] transition-shadow duration-500">
                     <Logo size={30} className="transition-transform duration-500 ease-out group-hover:scale-[1.06]" />
                 </div>
