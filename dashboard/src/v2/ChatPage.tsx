@@ -9,7 +9,7 @@ import { ChatPageShell } from "./components/chat/ChatPageShell.js";
 import { ChatRail } from "./components/chat/ChatRail.js";
 import { ThreadListCard } from "./components/chat/ThreadListCard.js";
 import { InvocationListCard } from "./components/chat/InvocationListCard.js";
-import { EmptyChat, LoadingChat } from "./components/chat/ChatEmptyState.js";
+import { ChatRailPlaceholder, EmptyChat, LoadingChat } from "./components/chat/ChatEmptyState.js";
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
@@ -103,7 +103,9 @@ export const ChatPage: FunctionComponent = () => {
           {threadsLoading ? (
             <LoadingChat label="Loading threads" />
           ) : threads.filter((t) => t.scope === "project").length === 0 ? (
-            <EmptyChat message="Create the first project thread or post a message to queue work for an incoming listener." />
+            <ChatRailPlaceholder
+              message="Fresh installs start with a quiet rail. Create the first thread and Code UX will keep routing, pending replies, and history organized here."
+            />
           ) : (
             <ThreadListCard
               threads={threads.filter((t) => t.scope === "project")}
@@ -128,7 +130,11 @@ export const ChatPage: FunctionComponent = () => {
         {invocationsLoading ? (
           <LoadingChat label="Loading invocations" />
         ) : invocations.length === 0 ? (
-          <EmptyChat message="No execution invocations found for this project." />
+          <ChatRailPlaceholder
+            title="Invocation Rail Standby"
+            message="Execution transcripts appear here after planning, chat, or runtime work creates invocation records."
+            actionLabel="Awaiting Runtime"
+          />
         ) : (
           <InvocationListCard
             invocations={invocations}
@@ -166,11 +172,17 @@ export const ChatPage: FunctionComponent = () => {
             {threadsLoading ? (
               <LoadingChat label="Loading conversation" />
             ) : !selectedThread ? (
-              <EmptyChat message="Select an existing thread or create a new one to start routing dashboard chat through the selected project." />
+              <EmptyChat
+                tone="thread"
+                message="Create the first project thread to open a clean operator channel. Messages will be stored in Code UX and queued for the selected worker route."
+              />
             ) : threadMessagesLoading ? (
               <LoadingChat label="Loading conversation" />
             ) : messages.length === 0 ? (
-              <EmptyChat message="This thread is ready. The next dashboard message will be stored in Code UX and queued for a listening MCP connection." />
+              <EmptyChat
+                tone="messages"
+                message="This thread is ready. The next dashboard message will be stored in Code UX and queued for a listening MCP connection or virtual worker route."
+              />
             ) : (
               <>
                 {messages.map((message) => <ChatMessageBubble key={message.id} message={message} />)}
@@ -280,11 +292,18 @@ export const ChatPage: FunctionComponent = () => {
           {invocationsLoading ? (
             <LoadingChat label="Loading invocations" />
           ) : !selectedInvocation ? (
-            <EmptyChat message="Select an existing execution invocation to view its logs and messages." />
+            <EmptyChat
+              tone="invocations"
+              message="Select an execution invocation to inspect the exact runtime transcript, retry state, and provider response trail."
+            />
           ) : invocationMessagesLoading ? (
             <LoadingChat label="Loading messages" />
           ) : invocationMessages.length === 0 ? (
-            <EmptyChat message="No messages found for this invocation." />
+            <EmptyChat
+              tone="invocations"
+              title="Transcript Is Empty"
+              message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
+            />
           ) : (
             <>
               {invocationMessages.map((message) => <InvocationMessageBubble key={message.id} message={message} />)}
@@ -315,8 +334,21 @@ export const ChatPage: FunctionComponent = () => {
         pendingDashboardMessages={pendingDashboardMessages}
         activeConnectionLabel={activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : undefined}
         error={error}
-        railSlot={<div />}
-        detailSlot={<EmptyChat message="Choose a project from the top navigation to load its stored chat threads and messages." />}
+        railSlot={(
+          <ChatRail title="Threads" count={0} secondaryTitle="Listeners" secondaryCount={0}>
+            <ChatRailPlaceholder
+              title="No Project Scope"
+              message="Connect a project first; the thread rail will then become the live inbox for that workspace."
+              actionLabel="Add Project"
+            />
+          </ChatRail>
+        )}
+        detailSlot={(
+          <EmptyChat
+            tone="project"
+            message="Choose or add a project from the top navigation to unlock stored chat threads, listener routing, and project-scoped conversation history."
+          />
+        )}
       />
     );
   }
