@@ -33,8 +33,10 @@ The flow currently contains six steps:
    - Checks Docker and Git availability.
    - Gives Docker installation/start guidance when required checks fail.
 2. Introduction
+   - Opens with a short `Welcome to Code UX` overview of the containerized agentic workspace.
    - Explains the container-first runtime model.
    - Clarifies that provider credentials stay within the intended CLI workflow instead of being reused as raw application secrets.
+   - Includes placeholder action badges for GitHub, starring the project on GitHub, and documentation.
 3. Provider Configuration
    - Detects local provider auth directories.
    - Lets operators choose multiple providers to activate, including Jules API-key based usage.
@@ -44,8 +46,10 @@ The flow currently contains six steps:
    - Supports API keys, local auth-copy paths, and enablement per instance.
    - Supports Qwen modes for local auth, API-key/model-provider config, Alibaba Coding Plan, and custom endpoint details.
    - Supports OpenCode modes for local auth, provider keys, and custom OpenAI-compatible endpoint details.
-5. AI Behaviour
-   - Configures system defaults for automation level, feature PR automerge, plan approval, and memory.
+5. Automation
+   - Configures system defaults for automation level, feature PR automerge, main PR automerge, plan approval, and memory.
+   - Controls virtual-worker resolution for main and feature merge conflicts.
+   - Enables the QA agent for completion-time review workflows.
 6. Appearance
    - Configures system defaults for theme, motion, and navigation mode.
    - Explains primary dashboard controls such as project selection, sprint scope, worker routing, and Settings.

@@ -6,6 +6,7 @@ import { Hexagon, Layers, ListChecks, Zap, Settings, Inbox, Cpu, BarChart3, Comp
 import { useProjectData } from "../context/project-data.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
+import { Logo } from "./brand/Logo.js";
 
 const ALL_NAV_ITEMS = [
     { icon: MessageCircle, label: "Chat",     path: "/chat" },
@@ -154,12 +155,8 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
 
             {/* Logo */}
             <a href="/" className="px-7 mb-10 flex items-center gap-3 group cursor-pointer relative z-10 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 rounded-xl">
-                <div aria-hidden="true" className="w-9 h-9 rounded-2xl bg-void-900 dark:bg-[#F9F8F4] p-[1px] shadow-[0_0_16px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_24px_rgba(0,224,160,0.35)] transition-shadow duration-500">
-                    <div className="w-full h-full bg-[#F9F8F4] dark:bg-void-900 rounded-[14px] flex items-center justify-center">
-                        <div className="w-4 h-4 rounded-full bg-void-900 dark:bg-[#F9F8F4] relative">
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-signal-500 group-hover:scale-[2] transition-transform duration-500 ease-out shadow-[0_0_6px_rgba(0,224,160,0.8)]" />
-                        </div>
-                    </div>
+                <div aria-hidden="true" className="relative w-10 h-10 rounded-2xl bg-void-900 dark:bg-white/[0.04] ring-1 ring-inset ring-white/[0.06] dark:ring-white/[0.07] flex items-center justify-center text-white/30 dark:text-white/40 shadow-[0_0_22px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_34px_rgba(0,224,160,0.36)] transition-shadow duration-500">
+                    <Logo size={30} className="transition-transform duration-500 ease-out group-hover:scale-[1.06]" />
                 </div>
                 <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex flex-col leading-none font-display">
                     Code <span className="text-[9px] uppercase font-bold font-mono tracking-[0.2em] text-signal-500 mt-1 opacity-90">UX Runtime</span>

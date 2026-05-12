@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Compass,
   Cpu,
+  BookOpen,
   FolderOpen,
+  Github,
   Info,
   KeyRound,
   Monitor,
@@ -20,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Star,
   Trash2,
   X,
 } from "lucide-preact";
@@ -41,14 +44,14 @@ const DeepOceanBackground = lazy(async () => {
   return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
 
-type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "ai" | "appearance";
+type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "automation" | "appearance";
 
 const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
   { id: "installation", label: "Installation", icon: Box },
   { id: "introduction", label: "Introduction", icon: ShieldCheck },
   { id: "providers", label: "Providers", icon: Cpu },
   { id: "provider-setup", label: "Configure", icon: Settings },
-  { id: "ai", label: "AI Behaviour", icon: Sparkles },
+  { id: "automation", label: "Automation", icon: Sparkles },
   { id: "appearance", label: "Appearance", icon: Monitor },
 ];
 
@@ -714,6 +717,25 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-300">
                       Code UX is an advanced containerized agentic workspace for turning projects into guided sprints, executable tasks, live previews, and measurable delivery. It coordinates provider CLIs inside isolated Docker runtimes, keeps credentials inside the intended tools, and gives you one polished control surface for agents, memory, browser sessions, and automation.
                     </p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {[
+                        [Github, "GitHub", "#"],
+                        [Star, "Star on GitHub", "#"],
+                        [BookOpen, "Documentation", "#"],
+                      ].map(([Icon, label, href]) => {
+                        const BadgeIcon = Icon as typeof Github;
+                        return (
+                          <a
+                            key={String(label)}
+                            href={String(href)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.06] bg-white/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-signal-500/25 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.08] dark:bg-white/[0.055] dark:text-slate-300 dark:hover:text-white"
+                          >
+                            <BadgeIcon className="h-3.5 w-3.5 text-signal-600 dark:text-signal-300" strokeWidth={2.4} />
+                            {String(label)}
+                          </a>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
@@ -930,12 +952,12 @@ export const OnboardingExperience: FunctionComponent = () => {
               </div>
             ) : null}
 
-            {active.id === "ai" && settings ? (
+            {active.id === "automation" && settings ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <Choice title="Automation level" value={settings.defaults.automationLevel} options={[
-                  ["MANUAL", "Manual"],
+                  ["ALWAYS_ASK", "Manual"],
                   ["SEMI_AUTO", "Semi-auto"],
-                  ["FULL_AUTO", "Full auto"],
+                  ["FULL", "Full auto"],
                 ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, automationLevel: value as SystemSettings["defaults"]["automationLevel"] } }))} />
                 <Choice title="Feature PR automerge" value={settings.defaults.ciIntelligence.featurePrAutoMergeMode} options={[
                   ["OFF", "Off"],
@@ -943,8 +965,17 @@ export const OnboardingExperience: FunctionComponent = () => {
                   ["WHEN_GREEN", "When green"],
                   ["ALWAYS", "Always"],
                 ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, featurePrAutoMergeMode: value as SystemSettings["defaults"]["ciIntelligence"]["featurePrAutoMergeMode"] } } }))} />
+                <Choice title="Main PR automerge" value={settings.defaults.ciIntelligence.mainBranchAutoMergeMode} options={[
+                  ["OFF", "Off"],
+                  ["CREATE_PR", "Create PR"],
+                  ["WHEN_GREEN", "When green"],
+                  ["ALWAYS", "Always"],
+                ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, mainBranchAutoMergeMode: value as SystemSettings["defaults"]["ciIntelligence"]["mainBranchAutoMergeMode"] } } }))} />
                 <ToggleRow title="Auto-approve plans" description="Let planning continue without manual approval when the generated plan is available." checked={settings.defaults.automationInterventions.autoApprovePlan} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, automationInterventions: { ...current.defaults.automationInterventions, autoApprovePlan: checked } } }))} />
                 <ToggleRow title="Memory system" description="Capture sprint and agent learnings for later retrieval." checked={settings.defaults.memory.enabled} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, memory: { ...current.defaults.memory, enabled: checked } } }))} />
+                <ToggleRow title="Resolve main merge conflicts" description="Let a virtual worker attempt conflicts on the main branch merge gate before escalating." checked={settings.defaults.ciIntelligence.resolveMainMergeConflicts} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, resolveMainMergeConflicts: checked } } }))} />
+                <ToggleRow title="Resolve feature merge conflicts" description="Let a virtual worker resolve feature PR conflicts against the sprint branch when safe." checked={settings.defaults.ciIntelligence.resolveMergeConflicts} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, resolveMergeConflicts: checked } } }))} />
+                <ToggleRow title="Enable QA agent" description="Run quality-assurance reviews after task and sprint completion events." checked={settings.defaults.agents.qualityAssurance.enabled} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, agents: { ...current.defaults.agents, qualityAssurance: { ...current.defaults.agents.qualityAssurance, enabled: checked } } } }))} />
               </div>
             ) : null}
 
