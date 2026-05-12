@@ -139,6 +139,9 @@ export const SettingsAppearancePanel: FunctionComponent<{
                 { value: "deep-ocean", label: "Deep Ocean" },
                 { value: "neon-dreams", label: "Neon Dreams" },
                 { value: "aurora-borealis", label: "Aurora Borealis" },
+                { value: "cosmic-dust", label: "Cosmic Dust" },
+                { value: "ethereal-mist", label: "Ethereal Mist" },
+                { value: "quantum-field", label: "Quantum Field" },
               ]}
             />
           </Row>

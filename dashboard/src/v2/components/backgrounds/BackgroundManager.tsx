@@ -13,6 +13,18 @@ const AuroraBorealisBackground = lazy(() => import("./AuroraBorealisBackground.j
   default: module.AuroraBorealisBackground,
 })));
 
+const CosmicDustBackground = lazy(() => import("./CosmicDustBackground.js").then((module) => ({
+  default: module.CosmicDustBackground,
+})));
+
+const EtherealMistBackground = lazy(() => import("./EtherealMistBackground.js").then((module) => ({
+  default: module.EtherealMistBackground,
+})));
+
+const QuantumFieldBackground = lazy(() => import("./QuantumFieldBackground.js").then((module) => ({
+  default: module.QuantumFieldBackground,
+})));
+
 export interface BackgroundManagerProps {
   mode: "ANIMATED" | "STATIC";
   animation: string;
@@ -37,6 +49,12 @@ export const BackgroundManager: FunctionComponent<BackgroundManagerProps> = ({ m
         <NeonDreamsBackground forceDark={isDark} />
       ) : animation === "aurora-borealis" ? (
         <AuroraBorealisBackground forceDark={isDark} />
+      ) : animation === "cosmic-dust" ? (
+        <CosmicDustBackground forceDark={isDark} />
+      ) : animation === "ethereal-mist" ? (
+        <EtherealMistBackground forceDark={isDark} />
+      ) : animation === "quantum-field" ? (
+        <QuantumFieldBackground forceDark={isDark} />
       ) : (
         <DeepOceanBackground forceDark={isDark} />
       )}

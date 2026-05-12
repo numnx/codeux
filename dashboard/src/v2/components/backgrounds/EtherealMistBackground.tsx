@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import * as THREE from "../../../lib/three-lite.js";
 
-const RENDER_SCALE = 0.5;
+const RENDER_SCALE = 0.5; // lower res for soft blur
 
 const causticVert = /* glsl */ `
   varying vec2 vUv;
@@ -15,6 +15,7 @@ const causticFrag = /* glsl */ `
   precision mediump float;
   uniform float uTime;
   uniform vec2  uResolution;
+  uniform vec2  uMouse;
   uniform float uDark;
   varying vec2  vUv;
 
@@ -34,7 +35,7 @@ const causticFrag = /* glsl */ `
     float f = 0.0;
     float a = 0.5;
     mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
       f += a * noise(p);
       p = rot * p * 2.0;
       a *= 0.5;
@@ -45,61 +46,51 @@ const causticFrag = /* glsl */ `
   void main() {
     vec2 uv = vUv;
     float aspect = uResolution.x / uResolution.y;
-    uv.x *= aspect;
+    vec2 aspectUv = vec2(uv.x * aspect, uv.y);
     
-    float t = uTime * 0.1;
+    vec2 mouse = vec2(uMouse.x * aspect, uMouse.y);
     
-    // Create aurora waves
-    vec2 q = vec2(0.0);
-    q.x = fbm(uv + vec2(t));
-    q.y = fbm(uv + vec2(t * 1.5));
+    // Very slow time
+    float t = uTime * 0.05;
     
-    vec2 r = vec2(0.0);
-    r.x = fbm(uv + 1.0 * q + vec2(t * 0.5, t * 1.2));
-    r.y = fbm(uv + 1.0 * q + vec2(t * 1.5, t * 0.8));
+    // Subtle mouse displacement
+    float mouseDist = length(aspectUv - mouse);
+    float mouseInfluence = smoothstep(0.8, 0.0, mouseDist) * 0.15;
+    vec2 mouseDir = normalize(aspectUv - mouse + vec2(0.001));
     
-    float f = fbm(uv + r * 2.0);
+    vec2 p = aspectUv * 2.5;
     
-    // Aurora colors
-    vec3 col1 = vec3(0.0, 0.8, 0.5); // Teal/Green
-    vec3 col2 = vec3(0.4, 0.0, 0.8); // Deep Purple
-    vec3 col3 = vec3(0.1, 0.9, 0.7); // Bright Cyan
+    // Base mist movement
+    vec2 offset = vec2(fbm(p + vec2(t, t * 0.5)), fbm(p + vec2(-t * 0.8, t)));
     
-    // Base sky
-    vec3 darkSky = vec3(0.01, 0.02, 0.05);
-    vec3 lightSky = vec3(0.85, 0.9, 0.95);
+    // Apply mouse parting effect
+    p += mouseDir * mouseInfluence;
+    
+    float mist1 = fbm(p + offset * 1.5 + t);
+    float mist2 = fbm(p * 1.5 - offset * 2.0 - t * 0.5 + mist1 * 1.5);
+    float mist3 = fbm(p * 0.8 + vec2(mist2, mist1) + t * 0.2);
+    
+    float finalMist = (mist1 * 0.4 + mist2 * 0.4 + mist3 * 0.2);
+    
+    // Colors
+    vec3 darkSky = vec3(0.02, 0.03, 0.05);
+    vec3 lightSky = vec3(0.92, 0.94, 0.96);
     vec3 bg = mix(lightSky, darkSky, uDark);
     
-    // Aurora calculation
-    float aurora = f * f * f * 2.5;
+    vec3 darkMist = mix(vec3(0.08, 0.15, 0.2), vec3(0.2, 0.1, 0.3), mist1);
+    vec3 lightMist = mix(vec3(0.8, 0.85, 0.9), vec3(0.95, 0.9, 0.85), mist1);
+    vec3 mistColor = mix(lightMist, darkMist, uDark);
     
-    // Dark mode colors (bright glowing)
-    vec3 darkAuroraCol = mix(col1, col2, clamp(r.x, 0.0, 1.0));
-    darkAuroraCol = mix(darkAuroraCol, col3, clamp(r.y, 0.0, 1.0));
+    // Blend mist
+    float alpha = smoothstep(0.2, 0.8, finalMist);
+    vec3 color = mix(bg, mistColor, alpha * 0.6); // Soft 60% opacity max
     
-    // Light mode colors (darker watercolor-like)
-    vec3 lightAuroraCol = mix(vec3(0.0, 0.5, 0.4), vec3(0.3, 0.1, 0.6), clamp(r.x, 0.0, 1.0));
-    lightAuroraCol = mix(lightAuroraCol, vec3(0.1, 0.6, 0.5), clamp(r.y, 0.0, 1.0));
+    // Soft studio lighting (vignette + top gradient)
+    float topLight = smoothstep(0.0, 1.0, vUv.y);
+    color += mix(vec3(1.0), vec3(0.5, 0.6, 0.8), uDark) * topLight * 0.05;
     
-    // Vertical mask so it looks like curtains hanging
-    float mask = smoothstep(0.0, 0.8, 1.0 - uv.y) * smoothstep(0.0, 0.5, uv.y + 0.2);
-    
-    // Stars in dark mode
-    float star = 0.0;
-    if (uDark > 0.5) {
-      float s1 = noise(uv * 150.0);
-      star = smoothstep(0.9, 1.0, s1) * noise(uv * 50.0 + t * 5.0);
-    }
-    
-    // Blend differently based on mode
-    vec3 colorDark = bg + (darkAuroraCol * aurora * mask) + (vec3(1.0) * star);
-    vec3 colorLight = mix(bg, lightAuroraCol, clamp(aurora * mask * 1.2, 0.0, 0.8));
-    
-    vec3 color = mix(colorLight, colorDark, uDark);
-    
-    // Vignette
     vec2 vigUv = vUv * 2.0 - 1.0;
-    float vig = 1.0 - dot(vigUv * 0.6, vigUv * 0.6);
+    float vig = 1.0 - dot(vigUv * 0.5, vigUv * 0.5);
     color *= smoothstep(0.0, 1.0, vig);
     
     gl_FragColor = vec4(color, 1.0);
@@ -110,7 +101,7 @@ function isDarkMode(forceDark = false): boolean {
   return forceDark || document.documentElement.classList.contains("dark");
 }
 
-export const AuroraBorealisBackground = ({ forceDark = false, className = "" }: { forceDark?: boolean; className?: string }) => {
+export const EtherealMistBackground = ({ forceDark = false, className = "" }: { forceDark?: boolean; className?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,12 +122,24 @@ export const AuroraBorealisBackground = ({ forceDark = false, className = "" }: 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+    let mouseX = 0.5;
+    let mouseY = 0.5;
+    let targetMouseX = 0.5;
+    let targetMouseY = 0.5;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX / window.innerWidth;
+      targetMouseY = 1.0 - (e.clientY / window.innerHeight);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
     const mat = new THREE.ShaderMaterial({
       vertexShader: causticVert,
       fragmentShader: causticFrag,
       uniforms: {
         uTime: { value: 0 },
         uResolution: { value: new THREE.Vector2(el.clientWidth, el.clientHeight) },
+        uMouse: { value: new THREE.Vector2(0.5, 0.5) },
         uDark: { value: currentDark },
       },
     });
@@ -155,8 +158,14 @@ export const AuroraBorealisBackground = ({ forceDark = false, className = "" }: 
       const elapsed = (performance.now() - startTime) * 0.001;
 
       currentDark += (targetDark - currentDark) * 0.05;
+      
+      // Extremely smooth and slow mouse interpolation
+      mouseX += (targetMouseX - mouseX) * 0.01;
+      mouseY += (targetMouseY - mouseY) * 0.01;
+
       mat.uniforms.uTime.value = elapsed;
       mat.uniforms.uDark.value = currentDark;
+      mat.uniforms.uMouse.value.set(mouseX, mouseY);
 
       renderer.render(scene, camera);
     };
@@ -172,6 +181,7 @@ export const AuroraBorealisBackground = ({ forceDark = false, className = "" }: 
 
     return () => {
       cancelAnimationFrame(animId);
+      window.removeEventListener("mousemove", handleMouseMove);
       mo.disconnect();
       ro.disconnect();
       renderer.dispose();
