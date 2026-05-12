@@ -3,6 +3,7 @@ import type {
   CreateSprintInput,
   CreateTaskInput,
   ImprovePromptInput,
+  LocalDirectoryBrowserResponse,
   PlanSprintOptions,
   ProjectCollectionResponse,
   ProjectSummary,
@@ -26,6 +27,14 @@ import { fetchJson } from "../../lib/api/fetch-json.js";
 
 export const fetchProjects = async (signal?: AbortSignal): Promise<ProjectCollectionResponse> => {
   return fetchJson<ProjectCollectionResponse>("/api/projects", { signal });
+};
+
+export const fetchLocalDirectories = async (directoryPath?: string): Promise<LocalDirectoryBrowserResponse> => {
+  const url = new URL("/api/local-directories", window.location.origin);
+  if (directoryPath?.trim()) {
+    url.searchParams.set("path", directoryPath.trim());
+  }
+  return fetchJson<LocalDirectoryBrowserResponse>(`${url.pathname}${url.search}`);
 };
 
 export const createProject = async (input: CreateProjectInput): Promise<ProjectSummary> => {

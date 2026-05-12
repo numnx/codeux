@@ -54,7 +54,9 @@ import type {
   ExternalSettingsHints,
   OnboardingRuntimeReadiness,
   OnboardingDependencyCheck,
-  OnboardingProviderCredentialStatus
+  OnboardingProviderCredentialStatus,
+  LocalDirectoryBrowserEntry,
+  LocalDirectoryBrowserResponse
 } from "../../src/contracts/app-types.js";
 import type {
   EffectiveSettingsResponse,
@@ -124,6 +126,8 @@ export type {
   OnboardingRuntimeReadiness,
   OnboardingDependencyCheck,
   OnboardingProviderCredentialStatus,
+  LocalDirectoryBrowserEntry,
+  LocalDirectoryBrowserResponse,
   EffectiveSettingsResponse,
   ProjectProviderSettings,
   ProjectSettings,

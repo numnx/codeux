@@ -14,6 +14,7 @@ import { registerConnectionRoutes } from "./connection-routes.js";
 import { registerAgentPresetRoutes } from "./agent-preset-routes.js";
 import { registerExecutionInvocationRoutes } from "./execution-invocation-routes.js";
 import { registerQuicksprintRoutes } from "./quicksprint-routes.js";
+import { registerLocalDirectoryRoutes } from "./local-directory-routes.js";
 
 export const registerDashboardRoutes = (
   app: Express,
@@ -27,6 +28,7 @@ export const registerDashboardRoutes = (
   registerPlanningRoutes(app, deps);
   registerPreviewRoutes(app, deps);
   registerRuntimeRoutes(app, deps);
+  registerLocalDirectoryRoutes(app);
   registerExecutionControlRoutes(app, deps);
   registerSettingsRoutes(app, deps, liveActivityCacheMs);
   registerConnectionRoutes(app, deps);

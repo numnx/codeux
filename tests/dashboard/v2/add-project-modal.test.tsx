@@ -5,6 +5,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/preact";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { AddProjectModal } from "../../../dashboard/src/v2/components/ui/AddProjectModal.js";
+import { fetchLocalDirectories } from "../../../dashboard/src/v2/lib/project-api.js";
 
 expect.extend(matchers);
 
@@ -22,9 +23,14 @@ vi.mock("gsap", () => ({
   },
 }));
 
+vi.mock("../../../dashboard/src/v2/lib/project-api.js", () => ({
+  fetchLocalDirectories: vi.fn(),
+}));
+
 describe("AddProjectModal", () => {
   beforeEach(() => {
     cleanup();
+    vi.mocked(fetchLocalDirectories).mockReset();
     vi.useFakeTimers();
   });
 
@@ -53,5 +59,37 @@ describe("AddProjectModal", () => {
 
     expect(nameInput.value).toBe("A");
     expect(document.activeElement).toBe(nameInput);
+  });
+
+  it("browses into a directory and applies it to the local path input", async () => {
+    vi.mocked(fetchLocalDirectories)
+      .mockResolvedValueOnce({
+        currentPath: "/home/user",
+        parentPath: "/home",
+        rootPath: "/",
+        homePath: "/home/user",
+        directories: [{ name: "project", path: "/home/user/project" }],
+      })
+      .mockResolvedValueOnce({
+        currentPath: "/home/user/project",
+        parentPath: "/home/user",
+        rootPath: "/",
+        homePath: "/home/user",
+        directories: [],
+      });
+
+    render(<AddProjectModal onClose={vi.fn()} onAdd={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /browse/i }));
+
+    expect(await screen.findByText("/home/user")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^project$/i }));
+
+    expect(await screen.findByText("/home/user/project")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^use$/i }));
+
+    expect(screen.getByLabelText("Directory Path")).toHaveValue("/home/user/project");
   });
 });

@@ -1,10 +1,12 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState, useMemo } from "preact/hooks";
 import gsap from "gsap";
-import { X, Plus, FolderOpen, GitBranch, FolderInput, Link2, Loader2 } from "lucide-preact";
+import { AlertCircle, Check, ChevronUp, FolderOpen, GitBranch, FolderInput, Home, Link2, Loader2, Plus, RefreshCw, X } from "lucide-preact";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
+import { fetchLocalDirectories } from "../../lib/project-api.js";
+import type { LocalDirectoryBrowserResponse } from "../../types.js";
 
 interface AddProjectModalProps {
     onClose: () => void;
@@ -17,7 +19,8 @@ const fieldLabelClass = "text-[9px] font-bold uppercase tracking-[0.2em] text-sl
 
 const projectNameInputClass = "mt-2.5 w-full rounded-[1.35rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3.5 font-display text-[1.55rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-all duration-250 placeholder:text-slate-200 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.18),0_14px_34px_rgba(255,184,0,0.12)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-white dark:placeholder:text-slate-700 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] dark:focus:shadow-[0_0_0_1px_rgba(255,184,0,0.22),0_16px_38px_rgba(255,184,0,0.1)] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
 
-const detailInputClass = "mt-2.5 w-full rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-sm font-mono font-semibold text-slate-700 outline-none transition-all duration-250 placeholder:text-slate-300 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.16),0_12px_28px_rgba(255,184,0,0.1)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
+const detailInputSurfaceClass = "w-full rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-sm font-mono font-semibold text-slate-700 outline-none transition-all duration-250 placeholder:text-slate-300 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.16),0_12px_28px_rgba(255,184,0,0.1)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
+const detailInputClass = `mt-2.5 ${detailInputSurfaceClass}`;
 
 export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClose, onAdd }) => {
     const cardRef     = useRef<HTMLDivElement>(null);
@@ -29,6 +32,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const [gitUrl, setGitUrl]       = useState('');
     const [cloneDir, setCloneDir]   = useState('');
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isDirectoryPickerOpen, setIsDirectoryPickerOpen] = useState(false);
+    const [directoryListing, setDirectoryListing] = useState<LocalDirectoryBrowserResponse | null>(null);
+    const [directoryPickerError, setDirectoryPickerError] = useState<string | null>(null);
+    const [isDirectoryPickerLoading, setIsDirectoryPickerLoading] = useState(false);
 
     const reducedMotion = useReducedMotion();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,9 +114,38 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         }
     };
 
+    const loadDirectory = async (directoryPath?: string) => {
+        setIsDirectoryPickerOpen(true);
+        setIsDirectoryPickerLoading(true);
+        setDirectoryPickerError(null);
+        try {
+            const listing = await fetchLocalDirectories(directoryPath);
+            setDirectoryListing(listing);
+        } catch (err) {
+            setDirectoryPickerError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setIsDirectoryPickerLoading(false);
+        }
+    };
+
+    const handleOpenDirectoryPicker = () => {
+        void loadDirectory(localPath.trim() || undefined);
+    };
+
+    const handleUseDirectory = () => {
+        if (!directoryListing) return;
+        setLocalPath(directoryListing.currentPath);
+        setTouched(prev => ({ ...prev, path: false }));
+        setSubmitError(null);
+        setIsDirectoryPickerOpen(false);
+    };
+
     // Re-animate fields when source type changes
     const handleSourceTypeChange = (type: SourceType) => {
         setSourceType(type);
+        if (type !== 'local') {
+            setIsDirectoryPickerOpen(false);
+        }
         if (fieldsRef.current) {
             const conditionalFields = Array.from(fieldsRef.current.children).slice(2);
             gsap.fromTo(conditionalFields,
@@ -245,21 +281,118 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     <label htmlFor="add-project-path" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                         <FolderInput className="w-3 h-3" /> Directory Path
                                     </label>
-                                    <input
-                                        id="add-project-path"
-                                        type="text"
-                                        value={localPath}
-                                        onInput={(e) => {
-                                            setLocalPath((e.target as HTMLInputElement).value);
-                                            if (submitError) setSubmitError(null);
-                                        }}
-                                        placeholder="/home/user/projects/my-project"
-                                        className={detailInputClass}
-                                        required
-                                        aria-invalid={!!validationErrors.path && touched.path}
-                                        aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
-                                        onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
-                                    />
+                                    <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                                        <input
+                                            id="add-project-path"
+                                            type="text"
+                                            value={localPath}
+                                            onInput={(e) => {
+                                                setLocalPath((e.target as HTMLInputElement).value);
+                                                if (submitError) setSubmitError(null);
+                                            }}
+                                            placeholder="/home/user/projects/my-project"
+                                            className={`${detailInputSurfaceClass} min-w-0 flex-1`}
+                                            required
+                                            aria-invalid={!!validationErrors.path && touched.path}
+                                            aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
+                                            onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenDirectoryPicker}
+                                            className="flex shrink-0 items-center justify-center gap-2 rounded-[1.15rem] border border-black/[0.06] bg-void-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition-all duration-250 hover:-translate-y-px hover:bg-void-800 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:border-white/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12]"
+                                            aria-expanded={isDirectoryPickerOpen}
+                                            aria-controls="add-project-directory-picker"
+                                            title="Browse directories"
+                                        >
+                                            <FolderOpen className="h-4 w-4" />
+                                            Browse
+                                        </button>
+                                    </div>
+                                    {isDirectoryPickerOpen && (
+                                        <div
+                                            id="add-project-directory-picker"
+                                            className="mt-3 overflow-hidden rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.035]"
+                                        >
+                                            <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 py-2.5 dark:border-white/[0.08]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => directoryListing?.parentPath && void loadDirectory(directoryListing.parentPath)}
+                                                    disabled={!directoryListing?.parentPath || isDirectoryPickerLoading}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm transition-all hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:text-white"
+                                                    aria-label="Go to parent directory"
+                                                    title="Go up"
+                                                >
+                                                    <ChevronUp className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void loadDirectory(directoryListing?.homePath)}
+                                                    disabled={isDirectoryPickerLoading}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm transition-all hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:text-white"
+                                                    aria-label="Go to home directory"
+                                                    title="Home"
+                                                >
+                                                    <Home className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void loadDirectory(directoryListing?.currentPath || localPath.trim() || undefined)}
+                                                    disabled={isDirectoryPickerLoading}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm transition-all hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:text-white"
+                                                    aria-label="Refresh directories"
+                                                    title="Refresh"
+                                                >
+                                                    <RefreshCw className={`h-4 w-4 ${isDirectoryPickerLoading ? "animate-spin" : ""}`} />
+                                                </button>
+                                                <div className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-600 dark:bg-white/[0.055] dark:text-slate-300">
+                                                    {directoryListing?.currentPath || "Loading directories..."}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleUseDirectory}
+                                                    disabled={!directoryListing || isDirectoryPickerLoading}
+                                                    className="flex h-8 items-center gap-1.5 rounded-xl bg-ember-500 px-3 text-xs font-black uppercase tracking-[0.12em] text-void-900 transition-all hover:bg-ember-400 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+                                                >
+                                                    <Check className="h-3.5 w-3.5" />
+                                                    Use
+                                                </button>
+                                            </div>
+                                            {directoryPickerError ? (
+                                                <div className="flex items-center gap-2 px-3 py-3 text-xs font-semibold text-status-red">
+                                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                                    <span>{directoryPickerError}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-44 overflow-y-auto p-2">
+                                                    {isDirectoryPickerLoading && !directoryListing ? (
+                                                        <div className="flex items-center gap-2 px-2 py-3 text-xs font-semibold text-slate-400">
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Loading directories
+                                                        </div>
+                                                    ) : directoryListing?.directories.length ? (
+                                                        <div className="grid gap-1">
+                                                            {directoryListing.directories.map((directory) => (
+                                                                <button
+                                                                    key={directory.path}
+                                                                    type="button"
+                                                                    onClick={() => void loadDirectory(directory.path)}
+                                                                    className="flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 text-left font-mono text-xs font-semibold text-slate-600 transition-all hover:bg-white hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                                                                >
+                                                                    <FolderOpen className="h-4 w-4 shrink-0 text-ember-500" />
+                                                                    <span className="truncate">{directory.name}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="px-2 py-3 text-xs font-semibold text-slate-400">
+                                                            No child directories
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {validationErrors.path && touched.path && <div id="project-path-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.path}</div>}
                                 </div>
                             ) : (

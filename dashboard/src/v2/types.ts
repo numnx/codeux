@@ -43,6 +43,8 @@ import type {
   ProjectStatsWindow,
   ProviderId,
   VirtualWorkerProvider,
+  LocalDirectoryBrowserEntry,
+  LocalDirectoryBrowserResponse,
 } from "../../../src/contracts/app-types.js";
 import type {
   CreateProjectInput,
@@ -115,6 +117,8 @@ export interface Task {
 export type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
+  LocalDirectoryBrowserEntry,
+  LocalDirectoryBrowserResponse,
   AgentAvatarConfig,
   AgentPresetRecord,
   CreateProjectInput,

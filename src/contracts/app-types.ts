@@ -107,6 +107,19 @@ export interface DashboardStatus {
   timestamp: string | null;
 }
 
+export interface LocalDirectoryBrowserEntry {
+  name: string;
+  path: string;
+}
+
+export interface LocalDirectoryBrowserResponse {
+  currentPath: string;
+  parentPath: string | null;
+  rootPath: string;
+  homePath: string;
+  directories: LocalDirectoryBrowserEntry[];
+}
+
 /**
  * The authoritative contract for the Live page snapshot.
  *
