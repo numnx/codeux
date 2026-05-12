@@ -13,6 +13,12 @@ interface AddProjectModalProps {
 
 type SourceType = 'local' | 'git';
 
+const fieldLabelClass = "text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors";
+
+const projectNameInputClass = "mt-2.5 w-full rounded-[1.35rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3.5 font-display text-[1.55rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-all duration-250 placeholder:text-slate-200 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.18),0_14px_34px_rgba(255,184,0,0.12)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-white dark:placeholder:text-slate-700 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] dark:focus:shadow-[0_0_0_1px_rgba(255,184,0,0.22),0_16px_38px_rgba(255,184,0,0.1)] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
+
+const detailInputClass = "mt-2.5 w-full rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-sm font-mono font-semibold text-slate-700 outline-none transition-all duration-250 placeholder:text-slate-300 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.16),0_12px_28px_rgba(255,184,0,0.1)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
+
 export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClose, onAdd }) => {
     const cardRef     = useRef<HTMLDivElement>(null);
     const fieldsRef   = useRef<HTMLDivElement>(null);
@@ -124,8 +130,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         >
             <div
                 ref={cardRef}
-                className="relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)] flex"
-                style={{ minHeight: '520px' }}
+                className="relative flex w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+                style={{ minHeight: 'min(520px, calc(100vh - 2rem))' }}
             >
                 {/* ── Left decorative panel ── */}
                 <div className="relative w-52 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
@@ -151,9 +157,9 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                 </div>
 
                 {/* ── Right form panel ── */}
-                <div className="flex-1 bg-white/98 dark:bg-void-800/98 p-8 flex flex-col">
+                <div className="flex-1 overflow-y-auto bg-white/98 dark:bg-void-800/98 p-7 lg:p-8 flex flex-col">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-8">
+                    <div className="flex items-start justify-between mb-6 lg:mb-8">
                         <div>
                             <h2 id="add-project-modal-title" className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
                                 Add Project.
@@ -173,7 +179,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-                        <div ref={fieldsRef} className="flex flex-col gap-6 flex-1">
+                        <div ref={fieldsRef} className="flex flex-col gap-5 lg:gap-6 flex-1">
 
                             {submitError && (
                                 // form errors demand immediate user attention to proceed.
@@ -184,7 +190,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                             {/* Project Name */}
                             <div className="group/field">
-                                <label htmlFor="add-project-name" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors">
+                                <label htmlFor="add-project-name" className={fieldLabelClass}>
                                     Project Name
                                 </label>
                                 <input
@@ -196,7 +202,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         if (submitError) setSubmitError(null);
                                     }}
                                     placeholder="My Awesome Project"
-                                    className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-[1.6rem] font-black text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors font-display tracking-tight leading-none"
+                                    className={projectNameInputClass}
                                     required
                                     autoFocus
                                     aria-invalid={!!validationErrors.name && touched.name}
@@ -236,7 +242,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             {/* Conditional fields */}
                             {sourceType === 'local' ? (
                                 <div className="group/field">
-                                    <label htmlFor="add-project-path" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                    <label htmlFor="add-project-path" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                         <FolderInput className="w-3 h-3" /> Directory Path
                                     </label>
                                     <input
@@ -248,7 +254,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             if (submitError) setSubmitError(null);
                                         }}
                                         placeholder="/home/user/projects/my-project"
-                                        className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                        className={detailInputClass}
                                         required
                                         aria-invalid={!!validationErrors.path && touched.path}
                                         aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
@@ -259,7 +265,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             ) : (
                                 <>
                                     <div className="group/field">
-                                        <label htmlFor="add-project-git-url" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label htmlFor="add-project-git-url" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                             <Link2 className="w-3 h-3" /> Repository URL
                                         </label>
                                         <input
@@ -271,7 +277,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                 if (submitError) setSubmitError(null);
                                             }}
                                             placeholder="https://github.com/user/repo.git"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                            className={detailInputClass}
                                             required
                                             aria-invalid={!!validationErrors.path && touched.path}
                                             aria-describedby={validationErrors.path && touched.path ? "project-git-error" : undefined}
@@ -280,7 +286,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         {validationErrors.path && touched.path && <div id="project-git-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.path}</div>}
                                     </div>
                                     <div className="group/field">
-                                        <label htmlFor="add-project-clone-dir" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors flex items-center gap-1.5">
+                                        <label htmlFor="add-project-clone-dir" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                             <FolderInput className="w-3 h-3" /> Clone Into Directory
                                             <span className="ml-1 text-slate-300 dark:text-slate-600 normal-case font-medium tracking-normal">(optional)</span>
                                         </label>
@@ -290,7 +296,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             value={cloneDir}
                                             onInput={(e) => setCloneDir((e.target as HTMLInputElement).value)}
                                             placeholder="/home/user/projects"
-                                            className="mt-2.5 w-full bg-transparent border-0 border-b-2 border-black/[0.08] dark:border-white/[0.08] focus:border-ember-500 dark:focus:border-ember-500 pb-2.5 text-sm font-mono font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 transition-colors"
+                                            className={detailInputClass}
                                         />
                                     </div>
                                 </>

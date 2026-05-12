@@ -33,7 +33,6 @@ import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import { OnboardingIntro } from "./OnboardingIntro.js";
 
-const INTRO_SEEN_KEY = "cux-onboarding-intro-seen";
 type IntroPhase = "intro" | "transitioning" | "onboarding";
 import type { OnboardingProviderCredentialStatus, OnboardingRuntimeReadiness, ProviderConfigId, ProviderId, ProjectSettings, SystemSettings } from "../../../types.js";
 import {
@@ -204,9 +203,7 @@ export const OnboardingExperience: FunctionComponent = () => {
   const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [introPhase, setIntroPhase] = useState<IntroPhase>(() =>
-    typeof window !== "undefined" && window.localStorage.getItem(INTRO_SEEN_KEY) === "true" ? "onboarding" : "intro",
-  );
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("intro");
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -215,9 +212,7 @@ export const OnboardingExperience: FunctionComponent = () => {
     const handleOpen = () => {
       setActiveStep(0);
       setOpen(true);
-      if (window.localStorage.getItem(INTRO_SEEN_KEY) !== "true") {
-        setIntroPhase("intro");
-      }
+      setIntroPhase("intro");
     };
     window.addEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
     return () => window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
@@ -228,11 +223,6 @@ export const OnboardingExperience: FunctionComponent = () => {
   };
 
   const handleIntroComplete = () => {
-    try {
-      window.localStorage.setItem(INTRO_SEEN_KEY, "true");
-    } catch {
-      /* localStorage may be unavailable; intro will replay next time, no functional issue */
-    }
     setIntroPhase("onboarding");
   };
 
