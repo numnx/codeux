@@ -3,10 +3,11 @@ import { useState } from "preact/hooks";
 import type { ProviderId } from "../../../types.js";
 
 export type BrandIconId = ProviderId | "github";
+export type GitHostBrandIconId = BrandIconId | "gitlab";
 
 const LOBE_ICON_BASE_URL = "/lobe-icons";
 
-const brandIcons: Record<BrandIconId, { slug: string; fallback: string; label: string }> = {
+const brandIcons: Record<GitHostBrandIconId, { slug: string; fallback: string; label: string }> = {
   jules: { slug: "google-color", fallback: "J", label: "Jules" },
   gemini: { slug: "gemini-color", fallback: "G", label: "Gemini" },
   codex: { slug: "codex-color", fallback: "C", label: "Codex" },
@@ -14,14 +15,15 @@ const brandIcons: Record<BrandIconId, { slug: string; fallback: string; label: s
   "qwen-code": { slug: "qwen-color", fallback: "Q", label: "Qwen Code" },
   opencode: { slug: "opencode", fallback: "O", label: "OpenCode" },
   github: { slug: "github", fallback: "GH", label: "GitHub" },
+  gitlab: { slug: "gitlab", fallback: "GL", label: "GitLab" },
 };
 
-const getBrandIcon = (id: ProviderId | "github" | string): { slug: string; fallback: string; label: string } => (
-  brandIcons[(id in brandIcons ? id : "jules") as BrandIconId]
+const getBrandIcon = (id: ProviderId | "github" | "gitlab" | string): { slug: string; fallback: string; label: string } => (
+  brandIcons[(id in brandIcons ? id : "jules") as GitHostBrandIconId]
 );
 
 export const ProviderBrandIcon: FunctionComponent<{
-  id: ProviderId | "github" | string;
+  id: ProviderId | "github" | "gitlab" | string;
   disabled?: boolean;
   className?: string;
   imageClassName?: string;

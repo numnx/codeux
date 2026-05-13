@@ -13,7 +13,7 @@ export const CATEGORIES: Category[] = [
   { id: "browser", num: "05", label: "Browser Preview", icon: Compass, description: "Preview runtime, browser visibility, and container policy" },
   { id: "agents", num: "06", label: "Agents", icon: Bot, description: "Project-local markdown mirrors and agent authoring behavior" },
   { id: "memory", num: "07", label: "Memory", icon: BrainCircuit, description: "Embedding models, auto-capture, and promotion policy" },
-  { id: "integrations", num: "08", label: "Integrations", icon: Plug, description: "Provider keys, GitHub, and external connection policy" },
+  { id: "integrations", num: "08", label: "Integrations", icon: Plug, description: "Provider keys, Git hosts, and external connection policy" },
   { id: "danger", num: "09", label: "Danger Zone", icon: AlertTriangle, description: "Reset project overrides only when needed", danger: true },
 ];
 
@@ -25,7 +25,7 @@ export const CATEGORY_SEARCH_HINTS: Record<CategoryId, string[]> = {
   browser: ["browser", "preview", "container", "port", "routing", "rebuild", "launch", "concurrent", "iframe"],
   agents: ["agent", "prompt", "template", "markdown", "instruction"],
   memory: ["memory", "embedding", "capture", "promotion", "learning"],
-  integrations: ["github", "token", "api key", "auth", "credential", "integration"],
+  integrations: ["github", "gitlab", "token", "api key", "auth", "credential", "integration"],
   danger: ["reset", "delete", "danger", "database", "wipe"],
 };
 
