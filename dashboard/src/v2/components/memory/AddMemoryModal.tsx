@@ -32,9 +32,9 @@ export const AddMemoryModal: FunctionComponent<{
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/50 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/30 dark:bg-black/50 backdrop-blur-sm"
             onClick={onClose}>
-            <div className="w-full max-w-md bg-white dark:bg-void-800 rounded-[1.5rem] p-6 flex flex-col gap-4
+            <div className="w-full max-w-md cursor-default bg-white dark:bg-void-800 rounded-[1.5rem] p-6 flex flex-col gap-4
                            border border-black/[0.06] dark:border-white/[0.06]
                            shadow-[0_24px_80px_rgba(0,0,0,0.15)] dark:shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
                 onClick={e => e.stopPropagation()}>

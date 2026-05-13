@@ -165,12 +165,12 @@ const particleFrag = /* glsl */ `
 `;
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
-function isDarkMode(): boolean {
-  return document.documentElement.classList.contains("dark");
+function isDarkMode(forceDark = false): boolean {
+  return forceDark || document.documentElement.classList.contains("dark");
 }
 
 /* ── Component ────────────────────────────────────────────────────────────── */
-export const DeepOceanBackground = () => {
+export const DeepOceanBackground = ({ forceDark = false, className = "" }: { forceDark?: boolean; className?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export const DeepOceanBackground = () => {
     } catch { return; }
 
     /* ── state ── */
-    let currentDark = isDarkMode() ? 1.0 : 0.0;
+    let currentDark = isDarkMode(forceDark) ? 1.0 : 0.0;
     let targetDark = currentDark;
 
     /* ── renderer ── */
@@ -196,7 +196,7 @@ export const DeepOceanBackground = () => {
       powerPreference: "low-power",
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5) * RENDER_SCALE);
-    renderer.setClearColor(isDarkMode() ? 0x060a0d : 0xdbe8f8, 1);
+    renderer.setClearColor(isDarkMode(forceDark) ? 0x060a0d : 0xdbe8f8, 1);
     renderer.setSize(el.clientWidth, el.clientHeight);
     el.appendChild(renderer.domElement);
     Object.assign(renderer.domElement.style, {
@@ -258,7 +258,7 @@ export const DeepOceanBackground = () => {
 
     /* ── dark/light observer ── */
     const mo = new MutationObserver(() => {
-      targetDark = isDarkMode() ? 1.0 : 0.0;
+      targetDark = isDarkMode(forceDark) ? 1.0 : 0.0;
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
@@ -316,13 +316,13 @@ export const DeepOceanBackground = () => {
       quadGeo.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [forceDark]);
 
   return (
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="fixed inset-0 overflow-hidden bg-[#dbe8f8] dark:bg-[#060a0d]"
+      className={`fixed inset-0 overflow-hidden ${forceDark ? "bg-[#060a0d]" : "bg-[#dbe8f8] dark:bg-[#060a0d]"} ${className}`}
       style={{ zIndex: 0 }}
     />
   );

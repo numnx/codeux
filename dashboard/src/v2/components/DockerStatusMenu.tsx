@@ -8,8 +8,10 @@
 
 import { FunctionComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Box, Play, Square, Terminal } from "lucide-preact";
+import { Box, Info, Play, Square, Terminal } from "lucide-preact";
 import { useFocusTrap } from "../hooks/use-focus-trap";
+import { fetchOnboardingReadiness } from "../../lib/api/dashboard-api.js";
+import type { OnboardingRuntimeReadiness } from "../../types.js";
 
 export interface DockerContainer {
   id: string;
@@ -23,6 +25,7 @@ export interface DockerContainer {
 
 export const DockerStatusMenu: FunctionComponent = () => {
     const [containers, setContainers] = useState<DockerContainer[]>([]);
+    const [readiness, setReadiness] = useState<OnboardingRuntimeReadiness | null>(null);
     const [loading, setLoading] = useState(false);
     const [interactionState, setInteractionState] = useState<'closed' | 'hover' | 'open'>('closed');
     const menuRef = useRef<HTMLDivElement>(null);
@@ -65,11 +68,13 @@ export const DockerStatusMenu: FunctionComponent = () => {
         try {
             setLoading(true);
             const response = await fetch("/api/docker/containers");
+            const readinessResponse = await fetchOnboardingReadiness().catch(() => null);
             if (!response.ok) {
                 throw new Error("Failed to fetch containers");
             }
             const data = await response.json() as DockerContainer[];
             setContainers(data);
+            setReadiness(readinessResponse);
         } catch (error) {
             console.error("Error fetching docker containers:", error);
             setContainers([]);
@@ -77,6 +82,20 @@ export const DockerStatusMenu: FunctionComponent = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchOnboardingReadiness()
+            .then((nextReadiness) => {
+                if (!cancelled) {
+                    setReadiness(nextReadiness);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const handleMouseEnter = () => {
         if (timeoutRef.current) {
@@ -107,9 +126,16 @@ export const DockerStatusMenu: FunctionComponent = () => {
     }, []);
 
     const activeContainers = containers.filter(c => c.state === "running");
+    const clusterNotReady = readiness?.cluster.status === "not_ready";
 
     return (
-      <div className="relative inline-block" ref={containerRef}>
+      <div className="relative inline-flex items-center gap-2" ref={containerRef}>
+        {clusterNotReady ? (
+            <div className="hidden h-9 items-center gap-1.5 rounded-full border border-status-amber/25 bg-status-amber/10 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-status-amber md:inline-flex">
+                <Info className="h-3.5 w-3.5" strokeWidth={2.4} />
+                Cluster not ready
+            </div>
+        ) : null}
         <div
             className="relative"
             onMouseEnter={handleMouseEnter}
@@ -118,6 +144,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
         >
             <button
                 type="button"
+                data-tour-id="docker-containers"
                 aria-label="Docker Status"
                 aria-haspopup="dialog"
                 aria-expanded={interactionState !== 'closed'}
@@ -177,9 +204,9 @@ export const DockerStatusMenu: FunctionComponent = () => {
                             Docker Containers
                         </span>
                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/[0.03] dark:bg-white/[0.03]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-signal-500 animate-pulse" />
+                            <span className={`w-1.5 h-1.5 rounded-full ${clusterNotReady ? "bg-status-amber" : "bg-signal-500 animate-pulse"}`} />
                             <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400">
-                                {activeContainers.length} Active
+                                {clusterNotReady ? "Not Ready" : `${activeContainers.length} Active`}
                             </span>
                         </div>
                     </div>
@@ -188,6 +215,31 @@ export const DockerStatusMenu: FunctionComponent = () => {
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
                                 <span className="text-xs font-medium text-slate-400">Loading containers...</span>
+                            </div>
+                        ) : clusterNotReady ? (
+                            <div className="flex flex-col gap-3 px-4 py-5">
+                                <div className="flex items-start gap-3 rounded-xl border border-status-amber/20 bg-status-amber/10 p-3">
+                                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-status-amber" strokeWidth={2.4} />
+                                    <div>
+                                        <div className="text-sm font-bold text-slate-800 dark:text-slate-100">Docker is mandatory</div>
+                                        <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                            Docker is not running or not reachable. Code UX runs provider CLIs inside containers, so task execution cannot start until Docker is available.
+                                        </div>
+                                    </div>
+                                </div>
+                                {readiness?.dependencies.map((dependency) => (
+                                    <div key={dependency.id} className="rounded-xl border border-black/[0.05] bg-black/[0.02] p-3 dark:border-white/[0.05] dark:bg-white/[0.03]">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{dependency.label}</span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${dependency.status === "ready" ? "bg-signal-500/10 text-signal-600 dark:text-signal-300" : "bg-status-amber/10 text-status-amber"}`}>
+                                                {dependency.status}
+                                            </span>
+                                        </div>
+                                        {dependency.status !== "ready" ? (
+                                            <div className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{dependency.resolution}</div>
+                                        ) : null}
+                                    </div>
+                                ))}
                             </div>
                         ) : containers.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">

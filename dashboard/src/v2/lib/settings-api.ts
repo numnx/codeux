@@ -33,6 +33,11 @@ export const saveSystemSettings = async (settings: SystemSettings): Promise<Syst
   });
   systemSettingsCache = saved;
   effectiveSettingsCache.clear();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("codeux:settings-updated", {
+      detail: { scope: "system" },
+    }));
+  }
   return saved;
 };
 
@@ -69,6 +74,11 @@ export const saveProjectSettings = async (projectId: string, settings: ProjectSe
     body: JSON.stringify(settings),
   });
   effectiveSettingsCache.delete(projectId);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("codeux:settings-updated", {
+      detail: { scope: "project", projectId },
+    }));
+  }
 };
 
 export const resetProjectSettings = async (projectId: string): Promise<void> => {

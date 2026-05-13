@@ -46,6 +46,14 @@ export function registerSettingsRoutes(router: Express, deps: DashboardDependenc
     res.json(deps.getExternalSettingsHints());
   }));
 
+  router.get("/api/onboarding/readiness", asyncRoute(async (req, res) => {
+    if (!deps.getOnboardingRuntimeReadiness) {
+      res.status(404).json({ error: "Onboarding readiness checks are not available." });
+      return;
+    }
+    res.json(await deps.getOnboardingRuntimeReadiness());
+  }));
+
   router.get("/api/git-status", asyncRoute(async (req, res) => {
     try {
       const status = await deps.getGitStatus();

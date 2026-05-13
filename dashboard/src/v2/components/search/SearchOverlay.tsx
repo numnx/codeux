@@ -142,7 +142,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
             style={{ display: 'none' }}
         >
             <div
-                className="absolute inset-0 bg-void-900/80 dark:bg-void-900/90 backdrop-blur-3xl"
+                className="absolute inset-0 cursor-pointer bg-void-900/80 dark:bg-void-900/90 backdrop-blur-3xl"
                 onClick={onClose}
             />
 

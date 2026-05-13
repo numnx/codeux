@@ -150,6 +150,10 @@ Legacy runtime:
   - Same-origin proxy used by the in-app browser to render the sprint preview app
 - `GET /api/settings/import-sources`
   - External key hints from env/json
+- `GET /api/onboarding/readiness`
+  - First-run onboarding readiness payload with Docker/Git dependency checks and local provider auth detection
+- `GET /api/local-directories?path=/absolute/path`
+  - Lists child directories for the local Add Project directory picker, including current, parent, root, and home paths for browser-style navigation
 - `GET /api/git-status`
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
@@ -158,6 +162,8 @@ Legacy runtime:
 ## UI Sections
 
 ### V2 project management
+- Interactive dashboard controls use pointer cursors consistently: enabled buttons, links, tab controls, form toggles, menu/popover triggers, DAG nodes, cards, and dismissible overlays expose a pointer affordance, while disabled controls retain `not-allowed`.
+- V2 pages use the shared `PageContainer` atomic component for page-level layout. Its `2400px` max width matches the `/` overview dashboard and is the single source of truth for page container width across overview, project, sprint, task, live, memory, stats, settings, agents, chat, and browser routes.
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
 - Top-nav search sits in the left header cluster beside the brand, while the active task counter uses the same compact height as the project, sprint, and worker selectors
@@ -169,6 +175,8 @@ Legacy runtime:
 - Connected MCP worker selection has been removed; the worker selector is now virtual-only
 - Projects page is DB-backed and can create/select/delete projects
 - The `Add Project` dialog now keeps keyboard focus inside the active form field while typing, and its initial focus respects the form's `autofocus` input instead of jumping to the header close button
+- The Projects page `Add Project` placeholder card uses the same full-height card footprint and internal padding as project cards, and the add dialog fields use rounded field surfaces with amber focus states instead of bare underline inputs; the dialog also constrains itself to the viewport on shorter screens
+- The `Add Project` dialog now has a wider desktop layout, keeps a stable Git-form-height floor while switching source types, and exposes the inline directory browser on both local project paths and optional Git clone destination paths, with home, refresh, parent-directory navigation, child-directory traversal, and an explicit use-current-folder action
 - Project selector and project cards now refresh over websocket when the project collection or selected project changes
 - Sprints page is project-scoped, creates sprint records in sqlite, and exposes a structured Import flyout with Markdown (and soon Jira) capabilities, plus markdown export controls
 - Sprints page now also refreshes from project-structure realtime invalidation, so sprint CRUD and status-adjacent updates propagate across open dashboard tabs
@@ -192,6 +200,10 @@ Legacy runtime:
   - Git Flow lives in the Sprint tab with default branch, branch prefix, sprint branch scheme, remote/local mode, and auto-create PR
   - Integrations exposes the system GitHub token plus per-scope GitHub auth-copy mounts and gitconfig sharing
   - CLI provider credentials are managed per named instance, including optional local auth-copy mounts and custom auth paths for each Gemini, Codex, or Claude entry
+- The first-run onboarding flow guides operators through installation checks, container security basics, provider auth-copy setup, AI behaviour defaults, appearance preferences, and primary dashboard controls. See [Dashboard Onboarding](./onboarding.md).
+- The Docker top-nav control now consumes onboarding readiness data. If Docker is unavailable, it shows a `Cluster not ready` badge with an info icon and explains that Docker is mandatory for containerized CLI execution.
+- Settings -> General includes `Open Onboarding`, which reopens the setup flow without clearing saved settings.
+- The notification center now renders startup-check notifications from real readiness data and persists read/dismissed notification state in browser storage.
 - GitLab support is currently partial:
   - backend git host detection, `glab`, and GitLab CI queries are implemented
   - dashboard token persistence is still GitHub-only, so GitLab tokens currently come from `GITLAB_TOKEN` / `GLAB_TOKEN`
@@ -208,6 +220,7 @@ Legacy runtime:
 - Showcase pinning is now fully operator-controlled; pinned sprints remain in the gallery until explicitly unpinned, surviving transitions like sprint start, pause, and completion
 - Showcase heart controls in the sprint ledger remain available for completed sprints, so completed work can stay pinned in or be removed from the gallery manually
 - The sprint gallery selection is now the full set of showcased sprints, ordered newest-first by sprint creation time
+- On a fresh installation with no selected project, the Sprints page renders a polished project-scope placeholder with working `Add First Project` and `Manage Projects` actions; the first action opens the shared Add Project dialog directly
 - Completed sprint cells now use a static finished treatment and fade slightly instead of continuing animated motion
 - Sprint cell settings now open an animated menu with showcase toggle, `Edit`, `Export`, `Delete`, and live `Overrides`
 - The showcase wrappers now leave enough vertical breathing room for hover expansion, so bubble motion is no longer clipped top or bottom
@@ -226,6 +239,7 @@ Legacy runtime:
 - Heavy WebGL-only dashboard surfaces are now lazy-loaded, including the global ocean background and the agent avatar scene, so the initial dashboard route no longer eagerly pulls those renderer modules into the first page chunk
 - Tasks page is project-scoped and uses a three-column board state (`Queued`, `In Progress`, `Completed`), where `coding_completed` acts as active work.
 - Tasks page renders create/edit inline through the new `TaskComposer` replacing the modal flow.
+- On a fresh installation, the Tasks page replaces the old generic project/sprint/task database message with a polished task-scope placeholder; the project action opens the shared Add Project dialog and the sprint action routes operators to the Sprints page before the kanban controls appear.
 - Task cards now explicitly show downstream dependent tasks as readable metadata tags.
 - Task cards keep the premium glass layout with pointer-driven tilt, status wave, border trace, compact executor/time metadata, and dependency status badges.
 - Navigating from a sprint cell into `View Tasks` now preselects that sprint instead of leaving the board on `All Sprints`
@@ -291,6 +305,7 @@ Legacy runtime:
 - Chat page now hydrates thread lists and conversation panes from cache first, so revisiting a project or switching between already-seen threads is immediate instead of blocking on a fresh fetch
 - Loading states are now reserved for first hydration only; realtime invalidation, manual refresh, send/delete flows, reassignment, and unrelated project updates refresh in the background without replacing the thread rail or active conversation with loading cards
 - Creating and deleting threads now stay on the cache-first path too, so the thread rail count and conversation pane no longer flash or fall back to blocking loaders during thread mutations
+- Fresh-install chat states now render polished placeholders for the no-project, no-thread, empty-thread, and no-invocation paths, including an animated sidebar rail placeholder instead of an empty sidebar column; the chat rail/detail layout now waits until large screens before splitting into two columns so empty states remain readable on narrower viewports
 - Chat composer now sends on `Enter` and inserts a newline on `Shift+Enter`
 - Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
 - Virtual-worker-routed tasks are created from the same task modal and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or handled by the virtual worker lane

@@ -1,9 +1,10 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
-import { NoticePanel } from "../SettingsSurface.js";
+import { ActionButton, NoticePanel } from "../SettingsSurface.js";
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
 import type { ProjectSettings } from "../../../../../../src/contracts/settings-scope-types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
+import { openOnboarding } from "../../../lib/onboarding-control.js";
 
 
 const ProjectContextCard: FunctionComponent<{
@@ -89,6 +90,15 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
                   { value: "full", label: "Full", hint: "Includes HTTP requests." },
                 ]}
               />
+            </Row>
+          </SectionCard>
+
+          <SectionCard title="Onboarding" watermark="ONB">
+            <NoticePanel title="First-run guide" tone="success">
+              Reopen the guided setup flow for Docker checks, provider configuration, AI behaviour, appearance preferences, and dashboard controls. This does not reset saved settings.
+            </NoticePanel>
+            <Row label="Show onboarding again" description="Launch the interactive setup flow from the beginning." last>
+              <ActionButton label="Open Onboarding" tone="primary" onClick={openOnboarding} />
             </Row>
           </SectionCard>
 

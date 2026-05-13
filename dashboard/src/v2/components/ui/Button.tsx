@@ -7,7 +7,7 @@ import { useMagnetic } from "../../hooks/use-magnetic.js";
 import { useScalePop } from "../../hooks/use-scale-pop.js";
 import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
 
-export const SHARED_INTERACTION_CLASSES = "transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-signal-500 aria-disabled:opacity-60 aria-disabled:cursor-not-allowed touch-target";
+export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-signal-500 aria-disabled:opacity-60 aria-disabled:cursor-not-allowed touch-target";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   success?: boolean;

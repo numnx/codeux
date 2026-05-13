@@ -28,6 +28,7 @@ import {
 } from "../lib/project-worker-options.js";
 import { saveProjectSettings } from "../lib/settings-api.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
+import { useNotifications } from "../hooks/use-notifications.js";
 
 export function useDropdownKeyboard(
     isOpen: boolean,
@@ -123,6 +124,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
     const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false);
     const [showAddProject, setShowAddProject] = useState(false);
     const [workerSwitchBusy, setWorkerSwitchBusy] = useState(false);
+    const notifications = useNotifications();
 
     const [projectSwitchBusy, setProjectSwitchBusy] = useState(false);
     const [sprintSwitchBusy, setSprintSwitchBusy] = useState(false);
@@ -323,6 +325,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                         ref={projectKb.toggleRef}
                         onKeyDown={projectKb.onToggleKeyDown}
                         onClick={() => setDropdownOpen(!dropdownOpen)}
+                        data-tour-id="project-selector"
                         aria-haspopup="listbox"
                         aria-expanded={dropdownOpen}
                         className="flex h-9 items-center gap-2.5 rounded-xl border border-black/[0.06] bg-black/[0.04] px-3.5 py-0 transition-all group hover:border-black/[0.08] focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.06] dark:bg-white/[0.04] dark:hover:border-white/[0.08]"
@@ -634,10 +637,23 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                         >
                             <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
-                            <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-signal-500 shadow-[0_0_6px_rgba(0,224,160,0.8)] ring-1 ring-[#F9F8F4] dark:ring-void-900" />
+                            {notifications.unreadCount > 0 && (
+                                <span className="absolute top-2.5 right-2.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-status-red px-1 text-[9px] font-black leading-none text-white shadow-[0_0_10px_rgba(211,47,47,0.35)] ring-1 ring-[#F9F8F4] dark:ring-void-900">
+                                    {notifications.unreadCount > 9 ? "9+" : notifications.unreadCount}
+                                </span>
+                            )}
                         </button>
                     </Tooltip>
-                    {isNotificationMenuVisible && <NotificationPanel />}
+                    {isNotificationMenuVisible && (
+                        <NotificationPanel
+                            notifications={notifications.notifications}
+                            unreadCount={notifications.unreadCount}
+                            onMarkAllRead={notifications.markAllRead}
+                            onMarkRead={notifications.markRead}
+                            onDismiss={notifications.dismiss}
+                            onRefresh={() => void notifications.refresh()}
+                        />
+                    )}
                 </div>
 
                 {/* Theme Toggle */}

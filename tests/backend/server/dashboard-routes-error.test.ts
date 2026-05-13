@@ -7,6 +7,7 @@ import type { DashboardDependencies } from "../../../src/server/dashboard-server
 import { registerPlanningRoutes } from "../../../src/server/planning-routes.js";
 import { registerProjectRoutes } from "../../../src/server/project-routes.js";
 import { registerRuntimeRoutes } from "../../../src/server/runtime-routes.js";
+import { registerSettingsRoutes } from "../../../src/server/settings-routes.js";
 import { toErrorResponse } from "../../../src/server/route-utils.js";
 import { registerSprintRoutes } from "../../../src/server/sprint-routes.js";
 import { registerTaskRoutes } from "../../../src/server/task-routes.js";
@@ -135,6 +136,44 @@ describe("dashboard route handlers", () => {
     expect((await request(disabledApp).put("/api/projects/project-1/preferred-worker").send({})).status).toBe(501);
     expect((await request(disabledApp).post("/api/projects/project-1/attention-items/item-1/claim").send({})).status).toBe(501);
     expect((await request(disabledApp).post("/api/projects/project-1/attention-items/item-1/resolve").send({})).status).toBe(501);
+  });
+
+  it("returns onboarding readiness payload from settings routes", async () => {
+    const settingsDeps = {
+      getOnboardingRuntimeReadiness: async () => ({
+        checkedAt: "2026-05-12T00:00:00.000Z",
+        cluster: {
+          status: "not_ready",
+          label: "Cluster not ready",
+          detail: "Docker must be installed and running before containerized provider CLIs can execute tasks.",
+        },
+        dependencies: [
+          {
+            id: "docker-daemon",
+            label: "Docker daemon",
+            status: "missing",
+            required: true,
+            description: "Docker daemon is not available.",
+            resolution: "Start Docker Desktop or Docker Engine.",
+          },
+        ],
+        providers: [],
+      }),
+      listDockerContainers: async () => [],
+      getLiveActivities: async () => ({}),
+      getSystemSettings: () => ({}),
+      saveSystemSettings: (settings: unknown) => settings,
+      resetDatabase: async () => undefined,
+      getExternalSettingsHints: () => ({}),
+      getGitStatus: async () => ({}),
+    } as unknown as DashboardDependencies;
+
+    const app = createApp((router) => registerSettingsRoutes(router, settingsDeps, 1000));
+    const response = await request(app).get("/api/onboarding/readiness");
+
+    expect(response.status).toBe(200);
+    expect(response.body.cluster.label).toBe("Cluster not ready");
+    expect(response.body.dependencies[0].id).toBe("docker-daemon");
   });
 
   it("covers execution control routes and body validation", async () => {

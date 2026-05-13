@@ -38,6 +38,28 @@
     @apply transition-all duration-200;
   }
 
+  :where(
+    a[href],
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]),
+    [role="tab"]:not([aria-disabled="true"]),
+    summary,
+    label[for],
+    select,
+    input[type="button"],
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="range"],
+    input[type="reset"],
+    input[type="submit"]
+  ) {
+    cursor: pointer;
+  }
+
+  :where(button:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+  }
+
   button:hover:not(:disabled) {
     @apply brightness-110;
   }
@@ -567,4 +589,48 @@
 .agent-orb:nth-child(3) {
   animation-delay: -5s;
   animation-duration: 12s;
+}
+
+/* ============================================================
+   Code UX brand motion — Reusable hover primitives.
+   The brand mark itself uses the GSAP-driven <Atom> component.
+   These utilities are for general-purpose micro-interactions
+   throughout the app: status badges, pill highlights, etc.
+   ============================================================ */
+
+@keyframes cux-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  55%      { opacity: 1.55; transform: scale(1.22); }
+}
+
+@keyframes cux-glint {
+  0%, 100% { opacity: 0.78; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.32); }
+}
+
+.cux-pulse-on-hover {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.cux-pulse-on-hover:hover,
+.cux-trigger:hover .cux-pulse-on-hover {
+  animation: cux-pulse 1240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cux-glint-on-hover {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.cux-glint-on-hover:hover,
+.cux-trigger:hover .cux-glint-on-hover {
+  animation: cux-glint 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cux-pulse-on-hover:hover,
+  .cux-glint-on-hover:hover,
+  .cux-trigger:hover .cux-pulse-on-hover,
+  .cux-trigger:hover .cux-glint-on-hover {
+    animation: none !important;
+  }
 }

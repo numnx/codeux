@@ -9,6 +9,7 @@ import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { useProjectData } from "./context/project-data.js";
 import { SkeletonPanel } from "./components/ui/ListSkeletons.js";
+import { PageContainer } from "./components/ui/PageContainer.js";
 
 const EMBER_HEX = '#FFB800';
 
@@ -227,11 +228,15 @@ const ProjectCard: FunctionComponent<{
 const AddCard: FunctionComponent<{ onClick: () => void }> = ({ onClick }) => (
     <button
         onClick={onClick}
-        className="group relative flex flex-col items-center justify-center gap-5
+        className="group relative flex h-full min-h-[260px] w-full flex-col items-center justify-center gap-5
+                   p-7
+                   bg-white/55 dark:bg-void-800/40
+                   backdrop-blur-2xl
                    border-2 border-dashed border-signal-500/25 hover:border-signal-500/50
-                   rounded-[1.75rem] min-h-[260px]
+                   rounded-[1.75rem]
+                   shadow-[0_2px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.18)]
                    transition-colors duration-500
-                   hover:bg-signal-500/[0.02] cursor-pointer"
+                   hover:bg-signal-500/[0.025] cursor-pointer"
     >
         {/* Morphing organic icon */}
         <div
@@ -377,10 +382,7 @@ export const ProjectsPage: FunctionComponent = () => {
 
     return (
         <>
-            <div
-                ref={mainRef}
-                className="max-w-[1920px] mx-auto px-8 md:px-20 py-24 flex flex-col gap-16 relative z-10"
-            >
+            <PageContainer containerRef={mainRef} className="gap-16">
                 {/* ── Ambient glows (max 2 per page) ─────────────────── */}
                 <div
                     aria-hidden="true"
@@ -518,7 +520,7 @@ export const ProjectsPage: FunctionComponent = () => {
                         </>
                     ) : null}
                 </div>
-            </div>
+            </PageContainer>
 
             {showModal && (
                 <AddProjectModal

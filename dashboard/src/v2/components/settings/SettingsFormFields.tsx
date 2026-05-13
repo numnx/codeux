@@ -27,12 +27,12 @@ export const Toggle: FunctionComponent<{
       className={`absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.28),rgba(255,255,255,0))] transition-opacity ${value ? "opacity-100" : "opacity-40"}`}
     />
     <span
-      className={`absolute left-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-[0_2px_7px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-out ${
+      className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-[0_2px_7px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-out ${
         value ? "translate-x-5" : "translate-x-0"
       }`}
     >
       <svg
-        className={`h-3.5 w-3.5 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
+        className={`h-3 w-3 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

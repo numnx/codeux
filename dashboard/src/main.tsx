@@ -13,19 +13,22 @@ import { Sidebar } from "./v2/components/Sidebar.js";
 import { TopNav } from "./v2/components/TopNav.js";
 import { ProjectDataProvider, useProjectData } from "./v2/context/project-data.js";
 import { useProjectEffectiveSettings } from "./v2/hooks/use-project-effective-settings.js";
+import { fetchSystemSettings } from "./v2/lib/settings-api.js";
+import type { SystemSettings } from "./types.js";
 import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
+import { OnboardingExperience } from "./v2/components/onboarding/OnboardingExperience.js";
+import { GuidedDashboardTour } from "./v2/components/onboarding/GuidedDashboardTour.js";
 import "./styles.css";
 
-const DeepOceanBackground = lazy(() => import("./v2/components/chat/DeepOceanBackground.js").then((module) => ({
-  default: module.DeepOceanBackground,
-})));
+import { BackgroundManager } from "./v2/components/backgrounds/BackgroundManager.js";
 
 // 0. AppLayout extracted to use context hooks
 const AppLayout = () => {
   const { selectedProject } = useProjectData();
   const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -36,7 +39,30 @@ const AppLayout = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const appearanceTheme = effectiveSettings?.settings.appearance?.theme || "SYSTEM";
+  useEffect(() => {
+    let cancelled = false;
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await fetchSystemSettings();
+        if (!cancelled) {
+          setSystemSettings(settings);
+        }
+      } catch (error) {
+        console.error("Failed to load system settings:", error);
+      }
+    };
+    void loadSystemSettings();
+    const handler = () => void loadSystemSettings();
+    window.addEventListener("codeux:settings-updated", handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("codeux:settings-updated", handler);
+    };
+  }, []);
+
+  const appearanceSettings = effectiveSettings?.settings.appearance || systemSettings?.defaults.appearance;
+  const appearanceTheme = appearanceSettings?.theme || "SYSTEM";
+  const reducedMotion = appearanceSettings?.reducedMotion || "AUTO";
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === "undefined") return true;
     if (appearanceTheme === "SYSTEM") {
@@ -77,17 +103,21 @@ const AppLayout = () => {
     document.body.style.background = bg;
   }, [isDark]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = window.document.documentElement;
+    if (reducedMotion === "REDUCE" || (reducedMotion === "AUTO" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      root.setAttribute("data-reduced-motion", "true");
+    } else {
+      root.removeAttribute("data-reduced-motion");
+    }
+  }, [reducedMotion]);
+
   const toggleTheme = () => {
-    // If the theme is currently controlled by the user, we can temporarily override it
-    // Wait, the requirement says "integrate the Light/Dark theme preference into the app."
-    // It's probably best if toggleTheme still toggles it but maybe doesn't persist if they want to override?
-    // The requirements say: "Implement a root-level effect that applies the 'dark' class to the html element based on the appearance.theme setting."
-    // And "Preserve the 'Warm Void' aesthetic across both Light and Dark modes."
-    // Let's just update local state if they click toggle
     setIsDark((prev) => !prev);
   };
 
-  const navMode = effectiveSettings?.settings.appearance?.navigationMode || "DOCK";
+  const navMode = appearanceSettings?.navigationMode || "DOCK";
   const showSidebar = isMobile || navMode === "SIDEBAR";
 
   return (
@@ -99,7 +129,12 @@ const AppLayout = () => {
           Skip to main content
         </a>
         <Suspense fallback={null}>
-          <DeepOceanBackground />
+          <BackgroundManager 
+            mode={appearanceSettings?.backgroundMode || "ANIMATED"} 
+            animation={appearanceSettings?.animatedBackground || "deep-ocean"} 
+            staticColor={appearanceSettings?.staticBackgroundColor || "#0d0f12"} 
+            isDark={isDark} 
+          />
         </Suspense>
 
         <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
@@ -113,6 +148,8 @@ const AppLayout = () => {
         </div>
 
         {!showSidebar && <KineticDock />}
+        <OnboardingExperience />
+        <GuidedDashboardTour />
         <footer className="sr-only">Dashboard Footer</footer>
       </div>
     </div>

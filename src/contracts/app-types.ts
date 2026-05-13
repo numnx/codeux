@@ -107,6 +107,19 @@ export interface DashboardStatus {
   timestamp: string | null;
 }
 
+export interface LocalDirectoryBrowserEntry {
+  name: string;
+  path: string;
+}
+
+export interface LocalDirectoryBrowserResponse {
+  currentPath: string;
+  parentPath: string | null;
+  rootPath: string;
+  homePath: string;
+  directories: LocalDirectoryBrowserEntry[];
+}
+
 /**
  * The authoritative contract for the Live page snapshot.
  *
@@ -696,6 +709,9 @@ export interface AppearanceSettings {
   navigationMode: "DOCK" | "SIDEBAR";
   theme: "LIGHT" | "DARK" | "SYSTEM";
   reducedMotion: "AUTO" | "REDUCE" | "NONE";
+  backgroundMode: "ANIMATED" | "STATIC";
+  animatedBackground: string;
+  staticBackgroundColor: string;
 }
 
 export interface SkillToggle {
@@ -897,6 +913,40 @@ export interface DockerContainer {
   state: string;
   runningFor: string;
   labels: Record<string, string>;
+}
+
+export type OnboardingCheckStatus = "ready" | "warning" | "missing";
+export type OnboardingClusterStatus = "ready" | "not_ready";
+
+export interface OnboardingDependencyCheck {
+  id: string;
+  label: string;
+  status: OnboardingCheckStatus;
+  required: boolean;
+  description: string;
+  resolution: string;
+  detail?: string;
+}
+
+export interface OnboardingProviderCredentialStatus {
+  provider: ProviderId;
+  label: string;
+  authPath: string;
+  available: boolean;
+  mountEnabled: boolean;
+  detectedFiles: string[];
+  description: string;
+}
+
+export interface OnboardingRuntimeReadiness {
+  checkedAt: string;
+  cluster: {
+    status: OnboardingClusterStatus;
+    label: string;
+    detail: string;
+  };
+  dependencies: OnboardingDependencyCheck[];
+  providers: OnboardingProviderCredentialStatus[];
 }
 
 export type SprintPreviewSessionStatus = "stopped" | "starting" | "running" | "error";

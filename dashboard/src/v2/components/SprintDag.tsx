@@ -265,7 +265,7 @@ const DagNode = memo(({ node, dispatch, onNodeClick }: { node: SprintDagNodeMode
 
   return (
     <div
-      className={`group/dag-node pointer-events-auto absolute z-10 hover:z-50 focus-within:z-50 ${tone.glow} ${tone.dim}`} onClick={() => onNodeClick?.(node)}
+      className={`group/dag-node pointer-events-auto absolute z-10 cursor-pointer hover:z-50 focus-within:z-50 ${tone.glow} ${tone.dim}`} onClick={() => onNodeClick?.(node)}
       style={{
         left: `${node.x}px`,
         top: `${node.y}px`,
