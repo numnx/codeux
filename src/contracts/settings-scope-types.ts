@@ -102,6 +102,7 @@ export interface SystemProviderCredentialSettings {
 export interface SystemIntegrationSettings {
   providers: Record<ProviderConfigId, SystemProviderCredentialSettings>;
   githubToken: string;
+  gitlabToken?: string;
 }
 
 export interface QwenModelProviderSettings {

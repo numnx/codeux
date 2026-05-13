@@ -10,6 +10,7 @@ export const sanitizeGit = (
   return {
     githubMode: gitInput.githubMode === "LOCAL" ? "LOCAL" as const : "REMOTE" as const,
     githubToken: typeof gitInput.githubToken === "string" ? gitInput.githubToken : (externalHints?.resolved.githubToken || ""),
+    gitlabToken: typeof gitInput.gitlabToken === "string" ? gitInput.gitlabToken : (externalHints?.resolved.gitlabToken || ""),
     defaultBranch: typeof gitInput.defaultBranch === "string" && gitInput.defaultBranch.trim().length > 0
       ? gitInput.defaultBranch.trim()
       : DEFAULT_DASHBOARD_SETTINGS.git.defaultBranch,

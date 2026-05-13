@@ -75,5 +75,6 @@ export const applyExternalSettingsHints = (
   git: {
     ...settings.git,
     githubToken: settings.git.githubToken.trim().length > 0 ? settings.git.githubToken : hints.resolved.githubToken,
+    gitlabToken: settings.git.gitlabToken?.trim().length ? settings.git.gitlabToken : hints.resolved.gitlabToken || "",
   },
 });

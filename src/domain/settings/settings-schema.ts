@@ -203,6 +203,9 @@ const validateGitSettings = (
   if (typeof value.githubToken !== "string") {
     issues.push({ path: `${path}.githubToken`, message: "Expected a string" });
   }
+  if (value.gitlabToken !== undefined && typeof value.gitlabToken !== "string") {
+    issues.push({ path: `${path}.gitlabToken`, message: "Expected a string" });
+  }
   if (typeof value.defaultBranch !== "string") {
     issues.push({ path: `${path}.defaultBranch`, message: "Expected a string" });
   }

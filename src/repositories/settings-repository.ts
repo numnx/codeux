@@ -214,6 +214,7 @@ export class SettingsRepository {
           codexApiKey: legacySettings.aiProvider?.providers?.codex?.apiKey || "",
           claudeCodeApiKey: legacySettings.aiProvider?.providers?.["claude-code"]?.apiKey || "",
           githubToken: legacySettings.git?.githubToken || "",
+          gitlabToken: legacySettings.git?.gitlabToken || "",
         },
         defaults: {
           automationLevel: legacySettings.automationLevel,

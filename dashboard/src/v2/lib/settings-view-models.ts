@@ -193,6 +193,7 @@ export const applyExternalHintsToSystemSettings = (
     integrations: {
       providers: nextProviders,
       githubToken: settings.integrations.githubToken || hints.resolved.githubToken || "",
+      gitlabToken: settings.integrations.gitlabToken || hints.resolved.gitlabToken || "",
     },
   };
 };

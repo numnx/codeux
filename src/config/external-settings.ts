@@ -36,6 +36,7 @@ const PROVIDER_KEY_MAP = {
   qwenCodeApiKey: ["qwenCodeApiKey", "DASHSCOPE_API_KEY", "BAILIAN_CODING_PLAN_API_KEY", "QWEN_API_KEY"],
   openCodeApiKey: ["openCodeApiKey", "OPENCODE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GITHUB_TOKEN"],
   githubToken: ["githubToken", "GITHUB_TOKEN", "GH_TOKEN"],
+  gitlabToken: ["gitlabToken", "GITLAB_TOKEN", "GLAB_TOKEN"],
 } as const;
 
 type ProviderKey = keyof typeof PROVIDER_KEY_MAP;
