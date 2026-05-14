@@ -59,7 +59,7 @@ describe("git branch sync service", () => {
     expect(env.GCM_INTERACTIVE).toBe("never");
   });
 
-  it("disables interactive prompts for HTTPS remotes even when no token is configured", async () => {
+  it("falls back to the OS credential helper for HTTPS remotes when no token is configured", async () => {
     const runner = vi.fn()
       .mockResolvedValueOnce({ stdout: "https://github.com/owner/repo.git\n", stderr: "", exitCode: 0 })
       .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
@@ -70,13 +70,11 @@ describe("git branch sync service", () => {
     })).resolves.toBe(true);
 
     const fetchCall = runner.mock.calls[1];
-    const env = fetchCall?.[3] as NodeJS.ProcessEnv;
+    const env = fetchCall?.[3] as NodeJS.ProcessEnv | undefined;
     const options = fetchCall?.[4] as { timeoutMs?: number };
-    expect(env.GIT_CONFIG_KEY_0).toBeUndefined();
-    expect(env.GIT_TERMINAL_PROMPT).toBe("0");
-    expect(env.GIT_ASKPASS).toBe("true");
-    expect(env.SSH_ASKPASS).toBe("true");
-    expect(env.GCM_INTERACTIVE).toBe("never");
+    // No token configured: leave env untouched so the OS git credential helper
+    // (or cached credentials) still works for HTTPS remotes.
+    expect(env).toBeUndefined();
     expect(options.timeoutMs).toBe(5000);
   });
 

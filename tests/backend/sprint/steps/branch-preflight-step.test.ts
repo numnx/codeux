@@ -239,6 +239,37 @@ describe("runBranchPreflightStep (Async)", () => {
     expect(commandRunner.run).toHaveBeenCalledWith("git", ["push", "-u", "origin", "refs/heads/feature/sprint1:refs/heads/feature/sprint1"], { cwd: "/valid-repo" });
   });
 
+  it("does not force non-interactive mode on HTTPS remotes when no token is configured", async () => {
+    vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+    vi.mocked(commandRunner.run)
+      // prepareBranchForOrchestration -> remote URL for auth
+      .mockResolvedValueOnce({ ok: true, code: 0, stdout: "https://github.com/example/repo.git\n", stderr: "" })
+      // prepareBranchForOrchestration -> fetch origin
+      .mockResolvedValueOnce({ ok: true, code: 0, stdout: "", stderr: "" })
+      // runBranchPreflightStep -> is git repo
+      .mockResolvedValueOnce({ ok: true, code: 0, stdout: "", stderr: "" })
+      // runBranchPreflightStep -> local branch exists
+      .mockResolvedValueOnce({ ok: true, code: 0, stdout: "", stderr: "" })
+      // runBranchPreflightStep -> remote branch exists (ls-remote returns a ref)
+      .mockResolvedValueOnce({ ok: true, code: 0, stdout: "abc refs/heads/feature/sprint1\n", stderr: "" });
+
+    await prepareBranchForOrchestration("/valid-repo", "feature/sprint1", "main", {});
+
+    const remoteCalls = vi.mocked(commandRunner.run).mock.calls.filter((call) => (
+      call[1][0] === "fetch" || call[1][0] === "ls-remote" || call[1][0] === "push"
+    ));
+    expect(remoteCalls.length).toBeGreaterThan(0);
+    for (const call of remoteCalls) {
+      // Without a configured token, do not inject token-based auth headers and
+      // do not disable interactive prompts — the OS credential helper must
+      // still be allowed to supply credentials for HTTPS remotes.
+      const env = (call[2] as { env?: NodeJS.ProcessEnv }).env;
+      expect(env?.GIT_CONFIG_KEY_0).toBeUndefined();
+      expect(env?.GIT_TERMINAL_PROMPT).toBeUndefined();
+      expect(env?.GIT_ASKPASS).toBeUndefined();
+    }
+  });
+
   it("uses HTTPS auth headers for remote branch checks and pushes when a token is configured", async () => {
     vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
     vi.mocked(commandRunner.run)

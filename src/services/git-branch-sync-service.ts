@@ -58,8 +58,15 @@ const buildNonInteractiveHttpEnv = (
     return undefined;
   }
 
+  const authEnv = buildGitHttpAuthEnv(remoteUrl, options);
+  if (!authEnv) {
+    // No token configured — fall back to the OS credential helper rather than
+    // forcing non-interactive mode, which would block stored credentials.
+    return undefined;
+  }
+
   return {
-    ...(buildGitHttpAuthEnv(remoteUrl, options) || process.env),
+    ...authEnv,
     GIT_TERMINAL_PROMPT: "0",
     GIT_ASKPASS: "true",
     SSH_ASKPASS: "true",
