@@ -88,6 +88,7 @@ Runtime resolution:
   - `codexApiKey`
   - `claudeCodeApiKey`
   - `githubToken`
+  - `gitlabToken`
 - `defaults`
   - full inheritable project settings baseline
 - `mcpTools`
@@ -115,7 +116,7 @@ System-level integrations are injected into effective dashboard settings at reso
   - default instance ids intentionally match the base provider ids (`jules`, `gemini`, `codex`, `claude-code`) for compatibility with older settings payloads
   - additional instances can coexist under the same CLI type
   - for CLI providers, `mountAuth` and `authPath` are instance-specific Docker auth-copy settings, so multiple Codex/Gemini/Claude entries can each point at different local credential directories
-- `git.githubToken` is system-scoped
+- `git.githubToken` and `git.gitlabToken` are system-scoped
 - runtime fields like `dashboardPort` and `enableDebugLogFile` are system-scoped
 - project and sprint scopes still own `cliWorkflow.containerMountGithubAuth`, `cliWorkflow.containerGithubAuthPath`, and `cliWorkflow.containerMountGitConfig`
 
@@ -165,6 +166,7 @@ Dashboard behavior:
 - the Integrations panel restores the Git host workspace:
   - system scope edits the GitHub token and per-instance CLI auth sources
   - project and sprint scopes edit GitHub auth-copy mounts and gitconfig sharing for Docker runs
+- integration and AI model provider tiles use vendored, pinned Lobe Icons SVG brand marks for Jules/Google, Gemini, Codex, Claude, Qwen, OpenCode, GitHub, and GitLab identity.
 
 `aiProvider` contains:
 - `provider` (`ProviderConfigId|null`)

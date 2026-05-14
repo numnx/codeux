@@ -359,6 +359,7 @@ export function buildDefaultSystemSettings(externalHints?: ExternalSettingsHints
     integrations: {
       providers: buildDefaultIntegrationProviders(externalHints),
       githubToken: externalHints?.resolved.githubToken || "",
+      gitlabToken: externalHints?.resolved.gitlabToken || "",
     },
     defaults: buildDefaultProjectSettings(externalHints),
     mcpTools: cloneMcpTools(DEFAULT_DASHBOARD_SETTINGS.mcpTools),
@@ -478,6 +479,9 @@ export function sanitizeSystemSettings(value: unknown, externalHints?: ExternalS
       githubToken: typeof toRecord(input.integrations).githubToken === "string"
         ? toRecord(input.integrations).githubToken
         : defaults.integrations.githubToken,
+      gitlabToken: typeof toRecord(input.integrations).gitlabToken === "string"
+        ? toRecord(input.integrations).gitlabToken
+        : defaults.integrations.gitlabToken,
     },
   }, externalHints);
 
@@ -492,6 +496,9 @@ export function sanitizeSystemSettings(value: unknown, externalHints?: ExternalS
       githubToken: typeof toRecord(input.integrations).githubToken === "string"
         ? toRecord(input.integrations).githubToken as string
         : defaults.integrations.githubToken,
+      gitlabToken: typeof toRecord(input.integrations).gitlabToken === "string"
+        ? toRecord(input.integrations).gitlabToken as string
+        : defaults.integrations.gitlabToken,
     },
     defaults: defaultsInput,
     mcpTools: sanitizeMcpToolToggles(input.mcpTools ?? defaults.mcpTools).map((tool) => ({ ...tool })),
@@ -559,6 +566,7 @@ export function resolveDashboardSettings(args: {
     git: {
       ...sprintSettings.git,
       githubToken: args.systemSettings.integrations.githubToken,
+      gitlabToken: args.systemSettings.integrations.gitlabToken,
     },
     ciIntelligence: { ...sprintSettings.ciIntelligence },
     sprintLoopSteps: { ...sprintSettings.sprintLoopSteps },

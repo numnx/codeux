@@ -78,7 +78,7 @@ const routingProfileOptions = [
   { value: "WORKER", label: "Worker defaults" },
 ];
 
-type IntegrationId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "github";
+type IntegrationId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "github" | "gitlab";
 
 interface IntegrationDefinition {
   id: IntegrationId;
@@ -94,6 +94,7 @@ const INTEGRATIONS: IntegrationDefinition[] = [
   { id: "qwen-code", label: "Qwen Code", description: "Qwen CLI with OAuth, Alibaba Coding Plan, and custom model providers" },
   { id: "opencode", label: "OpenCode", description: "OpenCode CLI with local auth, provider keys, and custom OpenAI-compatible endpoints" },
   { id: "github", label: "GitHub", description: "Repository, pull request, branch, and CI integration" },
+  { id: "gitlab", label: "GitLab", description: "GitLab repository, merge request, and CI token integration" },
 ];
 
 const AGENT_INSTRUCTION_TEMPLATE_OPTIONS: Array<{

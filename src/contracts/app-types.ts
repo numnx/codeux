@@ -599,6 +599,7 @@ export interface AiProviderSettings {
 export interface GitSettings {
   githubMode: "REMOTE" | "LOCAL";
   githubToken: string;
+  gitlabToken?: string;
   defaultBranch: string;
   autoCreatePr: boolean;
   featureBranchPrefix: string;
@@ -838,6 +839,7 @@ export interface ExternalSettingsHints {
     qwenCodeApiKey: string;
     openCodeApiKey: string;
     githubToken: string;
+    gitlabToken?: string;
   };
   settingsJson: {
     julesApiKey: string;
@@ -847,6 +849,7 @@ export interface ExternalSettingsHints {
     qwenCodeApiKey: string;
     openCodeApiKey: string;
     githubToken: string;
+    gitlabToken?: string;
   };
   resolved: {
     julesApiKey: string;
@@ -856,6 +859,7 @@ export interface ExternalSettingsHints {
     qwenCodeApiKey: string;
     openCodeApiKey: string;
     githubToken: string;
+    gitlabToken?: string;
   };
   providerAvailability: {
     jules: { hasApiKey: boolean; hasLocalAuth: boolean };

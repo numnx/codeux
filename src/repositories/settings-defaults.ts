@@ -344,6 +344,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   git: {
     githubMode: "REMOTE",
     githubToken: "",
+    gitlabToken: "",
     defaultBranch: "main",
     autoCreatePr: true,
     featureBranchPrefix: "feature/",

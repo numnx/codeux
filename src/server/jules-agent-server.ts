@@ -500,6 +500,10 @@ export class JulesAgentServer {
     if (liveEnvToken && liveEnvToken.length > 0) {
       return liveEnvToken;
     }
+    const uiGitlabToken = settings.git?.gitlabToken?.trim();
+    if (uiGitlabToken && uiGitlabToken.length > 0) {
+      return uiGitlabToken;
+    }
     const gitlabToken = process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim();
     if (gitlabToken && gitlabToken.length > 0) {
       return gitlabToken;
