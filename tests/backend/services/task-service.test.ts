@@ -122,7 +122,9 @@ describe("TaskService", () => {
     expect(payload.sourceContext.source).toBe("sources/999");
     expect(payload.sourceContext.githubRepoContext.startingBranch).toBe("feature/sprint1");
     expect(payload.prompt).toContain("SUBTASK TO EXECUTE");
-    expect(syncRemoteBranchIfAvailable).toHaveBeenCalledWith("/tmp/repo", "feature/sprint1");
+    expect(syncRemoteBranchIfAvailable).toHaveBeenCalledWith("/tmp/repo", "feature/sprint1", {
+      githubToken: undefined,
+    });
   });
 
   it("uses matching provider settings when a persisted task provider overrides the resolved route", async () => {
