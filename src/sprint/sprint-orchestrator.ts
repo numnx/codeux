@@ -458,6 +458,9 @@ export class SprintOrchestrator {
     const automationLevel = dashboardSettings.automationLevel;
     const automationInterventions = this.getAutomationInterventionsSettings(dashboardSettings);
     const featureBranchPrefix = dashboardSettings.git.featureBranchPrefix;
+    const gitAuthOptions = {
+      githubToken: dashboardSettings.git.githubToken,
+    };
 
     const enabledProviders = Object.entries(dashboardSettings.aiProvider.providers)
       .filter(([, provider]) => provider.enabled)
@@ -477,7 +480,7 @@ export class SprintOrchestrator {
     if (loopSteps.branchPreflight && (args.action === "plan" || args.action === "orchestrate")) {
       if (githubMode === "REMOTE") {
         try {
-          await fetchOriginIfAvailable(repoPath);
+          await fetchOriginIfAvailable(repoPath, gitAuthOptions);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           const branchBlocker = [
@@ -506,8 +509,8 @@ export class SprintOrchestrator {
       }
 
       const branchAvailability = args.action === "orchestrate"
-        ? await prepareBranchForOrchestration(repoPath, defaultFeatureBranch, defaultBranch)
-        : await runBranchPreflightStep(repoPath, defaultFeatureBranch);
+        ? await prepareBranchForOrchestration(repoPath, defaultFeatureBranch, defaultBranch, gitAuthOptions)
+        : await runBranchPreflightStep(repoPath, defaultFeatureBranch, gitAuthOptions);
       const { existsLocal, existsRemote } = branchAvailability;
       const requiresRemoteBranch = args.action === "plan"
         || ("hasRemoteOrigin" in branchAvailability && branchAvailability.hasRemoteOrigin);

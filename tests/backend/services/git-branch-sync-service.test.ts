@@ -2,6 +2,53 @@ import { describe, expect, it, vi } from "vitest";
 import { syncRemoteBranchIfAvailable } from "../../../src/services/git-branch-sync-service.js";
 
 describe("git branch sync service", () => {
+  it("fetches SSH remotes without injecting HTTPS auth", async () => {
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+
+    await expect(syncRemoteBranchIfAvailable("/repo", undefined, {
+      runner,
+      githubToken: "gh-token",
+    })).resolves.toBe(true);
+
+    expect(runner).toHaveBeenNthCalledWith(1, "git", ["remote", "get-url", "origin"], "/repo");
+    expect(runner).toHaveBeenNthCalledWith(2, "git", ["fetch", "origin", "--prune"], "/repo");
+  });
+
+  it("fetches HTTPS GitHub remotes with a temporary auth header", async () => {
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "https://github.com/owner/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+
+    await expect(syncRemoteBranchIfAvailable("/repo", undefined, {
+      runner,
+      githubToken: "gh-token",
+    })).resolves.toBe(true);
+
+    expect(runner).toHaveBeenCalledTimes(2);
+    const fetchCall = runner.mock.calls[1];
+    const env = fetchCall?.[3] as NodeJS.ProcessEnv;
+    expect(fetchCall?.slice(0, 3)).toEqual(["git", ["fetch", "origin", "--prune"], "/repo"]);
+    expect(env.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraheader");
+    expect(env.GIT_CONFIG_VALUE_0).toBe(`Authorization: Basic ${Buffer.from("x-access-token:gh-token").toString("base64")}`);
+  });
+
+  it("fetches HTTPS GitLab remotes with a temporary auth header", async () => {
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "https://gitlab.com/group/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+
+    await expect(syncRemoteBranchIfAvailable("/repo", undefined, {
+      runner,
+      gitlabToken: "gl-token",
+    })).resolves.toBe(true);
+
+    const env = runner.mock.calls[1]?.[3] as NodeJS.ProcessEnv;
+    expect(env.GIT_CONFIG_KEY_0).toBe("http.https://gitlab.com/.extraheader");
+    expect(env.GIT_CONFIG_VALUE_0).toBe(`Authorization: Basic ${Buffer.from("oauth2:gl-token").toString("base64")}`);
+  });
+
   it("creates a missing local branch from origin after fetching", async () => {
     const runner = vi.fn()
       .mockResolvedValueOnce({ stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 })
