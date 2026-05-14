@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { PillChoiceGroup } from "../SettingsFormFields.js";
-import { Card, SectionCard, Row, getFieldBadge } from "./SharedPanelComponents.js";
+import { SectionCard, Row, getFieldBadge } from "./SharedPanelComponents.js";
 
 export const SettingsAppearancePanel: FunctionComponent<{
   state: SettingsPageState;
@@ -15,10 +15,7 @@ export const SettingsAppearancePanel: FunctionComponent<{
   const appearance = settings.appearance;
 
   return (
-    <Card
-      title="Appearance"
-      description="Customize the dashboard layout, theme, and motion preferences."
-    >
+    <div className="flex flex-col gap-5">
       <SectionCard title="Display Settings" watermark="UI">
         <Row
           label="Navigation Mode"
@@ -174,6 +171,6 @@ export const SettingsAppearancePanel: FunctionComponent<{
           </Row>
         )}
       </SectionCard>
-    </Card>
+    </div>
   );
 };
