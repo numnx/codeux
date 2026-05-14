@@ -1,4 +1,5 @@
 import { resolveRepositoryHost } from "../infrastructure/git/repository-host-resolver.js";
+import { runCommandStrict } from "./cli-process-runner.js";
 
 export interface GitHttpAuthOptions {
   githubToken?: string | null;
@@ -84,4 +85,23 @@ export function buildGitHttpAuthEnv(
   }
 
   return undefined;
+}
+
+export async function readOriginRemoteUrl(repoPath: string): Promise<string | null> {
+  try {
+    const result = await runCommandStrict("git", ["remote", "get-url", "origin"], repoPath);
+    const value = result.stdout.trim();
+    return value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function buildGitHttpAuthEnvForRepo(
+  repoPath: string,
+  auth: GitHttpAuthOptions = {},
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): Promise<NodeJS.ProcessEnv | undefined> {
+  const remoteUrl = await readOriginRemoteUrl(repoPath);
+  return buildGitHttpAuthEnv(remoteUrl, auth, baseEnv);
 }
