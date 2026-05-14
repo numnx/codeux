@@ -1,5 +1,5 @@
 import { runCommandStrict, type CommandResult } from "./cli-process-runner.js";
-import { buildGitHttpAuthEnv, type GitHttpAuthOptions } from "./git-http-auth.js";
+import { resolveHttpsAuthOrFallback, type GitHttpAuthOptions } from "./git-http-auth.js";
 
 export type GitBranchSyncRunner = (
   command: string,
@@ -48,32 +48,6 @@ const defaultGitRunner: GitBranchSyncRunner = (
   timeout: options?.timeoutMs,
 });
 
-const isHttpRemote = (remoteUrl: string): boolean => /^https?:\/\//i.test(remoteUrl.trim());
-
-const buildNonInteractiveHttpEnv = (
-  remoteUrl: string,
-  options: GitBranchSyncOptions,
-): NodeJS.ProcessEnv | undefined => {
-  if (!isHttpRemote(remoteUrl)) {
-    return undefined;
-  }
-
-  const authEnv = buildGitHttpAuthEnv(remoteUrl, options);
-  if (!authEnv) {
-    // No token configured — fall back to the OS credential helper rather than
-    // forcing non-interactive mode, which would block stored credentials.
-    return undefined;
-  }
-
-  return {
-    ...authEnv,
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_ASKPASS: "true",
-    SSH_ASKPASS: "true",
-    GCM_INTERACTIVE: "never",
-  };
-};
-
 export async function fetchOriginIfAvailable(
   repoPath: string,
   runnerOrOptions?: GitBranchSyncRunner | GitBranchSyncOptions,
@@ -87,7 +61,7 @@ export async function fetchOriginIfAvailable(
     return false;
   }
 
-  const fetchEnv = buildNonInteractiveHttpEnv(remoteUrl, options);
+  const fetchEnv = await resolveHttpsAuthOrFallback(remoteUrl, options);
   await runGit(runner, ["fetch", "origin", "--prune"], repoPath, fetchEnv, {
     timeoutMs: options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
   });

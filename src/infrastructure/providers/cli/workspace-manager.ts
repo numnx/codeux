@@ -8,7 +8,7 @@ import { CliWorkflowSettings } from "../../../contracts/app-types.js";
 import { CommandResult, runCommandStrict } from "../../../services/cli-process-runner.js";
 import { extractPathHints } from "../../../services/cli-workflow-text-utils.js";
 import {
-  buildGitHttpAuthEnvForRepo,
+  buildGitHttpAuthEnvForRepoWithFallbacks,
   type GitHttpAuthOptions,
 } from "../../../services/git-http-auth.js";
 
@@ -117,7 +117,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     await this.withRepoLock(repoPath, async () => {
       await this.assertExactGitWorktreeRoot(repoPath);
       try {
-        const fetchEnv = await buildGitHttpAuthEnvForRepo(repoPath, gitAuth ?? {});
+        const fetchEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(repoPath, gitAuth ?? {});
         await runCommandStrict("git", ["fetch", "origin"], repoPath, fetchEnv ?? process.env);
       } catch {
         // continue with local refs when origin is unavailable

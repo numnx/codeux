@@ -20,7 +20,7 @@ import type { TaskService } from "./task-service.js";
 import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { runCommandStrict } from "./cli-process-runner.js";
-import { buildGitHttpAuthEnvForRepo, type GitHttpAuthOptions } from "./git-http-auth.js";
+import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import type { MemoryService } from "./memory-service.js";
 import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
@@ -1259,7 +1259,7 @@ export class QualityAssuranceService {
       hasUnpushed = await this.prService.hasUnpushedCommits(args.repoPath, workerBranch, args.featureBranch);
       hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(args.repoPath, workerBranch, args.featureBranch);
       if (hasUnpushed) {
-        const pushEnv = await buildGitHttpAuthEnvForRepo(args.repoPath, gitAuth);
+        const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(args.repoPath, gitAuth);
         await runCommandStrict(
           "git",
           ["push", "-u", "origin", `refs/heads/${workerBranch}:refs/heads/${workerBranch}`],

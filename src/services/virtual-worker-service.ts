@@ -19,7 +19,7 @@ import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
 import { runCommandStrict } from "./cli-process-runner.js";
-import { buildGitHttpAuthEnvForRepo, type GitHttpAuthOptions } from "./git-http-auth.js";
+import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 import { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
 import { ProjectWorkerAssignmentService } from "../domain/workers/project-worker-assignment-service.js";
 import { WorkerTaskDispatchService } from "./worker-task-dispatch-service.js";
@@ -656,7 +656,7 @@ export class VirtualWorkerService {
         hasUnpushed = await this.prService.hasUnpushedCommits(repoPath, sourceBranch, targetBranch);
         hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(repoPath, sourceBranch, targetBranch);
         if (hasUnpushed) {
-          const pushEnv = await buildGitHttpAuthEnvForRepo(repoPath, gitAuth);
+          const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(repoPath, gitAuth);
           await runCommandStrict(
             "git",
             ["push", "-u", "origin", `refs/heads/${sourceBranch}:refs/heads/${sourceBranch}`],
@@ -892,7 +892,7 @@ export class VirtualWorkerService {
         hasUnpushed = await this.prService.hasUnpushedCommits(repoPath, branchName, compareBaseBranch);
         hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(repoPath, branchName, compareBaseBranch);
         if (hasUnpushed) {
-          const pushEnv = await buildGitHttpAuthEnvForRepo(repoPath, gitAuth);
+          const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(repoPath, gitAuth);
           await runCommandStrict(
             "git",
             ["push", "-u", "origin", `refs/heads/${branchName}:refs/heads/${branchName}`],

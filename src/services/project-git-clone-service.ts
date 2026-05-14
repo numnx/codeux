@@ -3,7 +3,7 @@ import * as path from "path";
 import { getHomeCodeUxPath } from "../shared/config/code-ux-paths.js";
 import { runCommandStrict } from "./cli-process-runner.js";
 import type { CreateProjectInput } from "../contracts/project-management-types.js";
-import { buildGitHttpAuthEnv, type GitHttpAuthOptions } from "./git-http-auth.js";
+import { buildGitHttpAuthEnvWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 
 const isPathWithin = (basePath: string, targetPath: string): boolean => {
   const base = path.resolve(basePath);
@@ -82,7 +82,7 @@ async function ensureExistingCloneMatchesRemote(
     "git",
     ["fetch", "origin", "--prune"],
     targetPath,
-    buildGitHttpAuthEnv(sourceRef, options) || process.env,
+    (await buildGitHttpAuthEnvWithFallbacks(sourceRef, options)) || process.env,
   );
 }
 
@@ -115,7 +115,7 @@ export async function prepareGitProjectCreateInput(
         "git",
         ["clone", sourceRef, targetPath],
         cloneRoot,
-        buildGitHttpAuthEnv(sourceRef, options) || process.env,
+        (await buildGitHttpAuthEnvWithFallbacks(sourceRef, options)) || process.env,
       );
     } else {
       await ensureExistingCloneMatchesRemote(targetPath, sourceRef, options);
@@ -125,7 +125,7 @@ export async function prepareGitProjectCreateInput(
       "git",
       ["clone", sourceRef, targetPath],
       cloneRoot,
-      buildGitHttpAuthEnv(sourceRef, options) || process.env,
+      (await buildGitHttpAuthEnvWithFallbacks(sourceRef, options)) || process.env,
     );
   }
 

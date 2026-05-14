@@ -1,5 +1,5 @@
 import type { PipelineContext } from "./pipeline-context.js";
-import { buildGitHttpAuthEnvForRepo, type GitHttpAuthOptions } from "../../git-http-auth.js";
+import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "../../git-http-auth.js";
 
 export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{
   hasChanges: boolean;
@@ -47,7 +47,7 @@ export async function executeGitFinalizeStage(ctx: PipelineContext): Promise<{
   }
 
   if (hasUnpushed) {
-    const pushEnv = await buildGitHttpAuthEnvForRepo(ctx.repoPath, gitAuth);
+    const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(ctx.repoPath, gitAuth);
     await ctx.runCommand(
       "git",
       ["push", "-u", "origin", `refs/heads/${ctx.workerBranch}:refs/heads/${ctx.workerBranch}`],

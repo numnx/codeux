@@ -36,7 +36,7 @@ import {
 import type { Logger } from "../shared/logging/logger.js";
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../shared/config/code-ux-paths.js";
 import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
-import { buildGitHttpAuthEnvForRepo, type GitHttpAuthOptions } from "./git-http-auth.js";
+import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 
 const BUNDLED_CONTAINER_SETUP_SCRIPT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1045,7 +1045,7 @@ export class SprintPreviewService {
     gitAuthOptions?: GitHttpAuthOptions,
   ): Promise<boolean> {
     try {
-      const env = await buildGitHttpAuthEnvForRepo(repoPath, gitAuthOptions ?? {});
+      const env = await buildGitHttpAuthEnvForRepoWithFallbacks(repoPath, gitAuthOptions ?? {});
       const result = await runCommandStrict("git", ["ls-remote", "--heads", "origin", branch], repoPath, env ?? process.env);
       return result.stdout.trim().length > 0;
     } catch {

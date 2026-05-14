@@ -1,9 +1,14 @@
 import * as fs from "fs/promises";
 import { commandRunner } from "../../../../src/shared/subprocess/command-runner.js";
 import { prepareBranchForOrchestration, runBranchPreflightStep } from "../../../../src/sprint/steps/branch-preflight-step.js";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { SprintOrchestrator } from "../../../../src/sprint/sprint-orchestrator.js";
 import { buildMockSettings } from "../../../builders/settings-builder.js";
+import { setProviderTokenResolverForTests } from "../../../../src/services/git-http-auth.js";
+
+beforeEach(() => {
+  setProviderTokenResolverForTests(async () => null);
+});
 
 const buildDeps = () => {
   const deps = {
@@ -239,7 +244,7 @@ describe("runBranchPreflightStep (Async)", () => {
     expect(commandRunner.run).toHaveBeenCalledWith("git", ["push", "-u", "origin", "refs/heads/feature/sprint1:refs/heads/feature/sprint1"], { cwd: "/valid-repo" });
   });
 
-  it("does not force non-interactive mode on HTTPS remotes when no token is configured", async () => {
+  it("forces non-interactive mode on HTTPS remotes when no token can be resolved (fail fast, do not hang on askpass)", async () => {
     vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
     vi.mocked(commandRunner.run)
       // prepareBranchForOrchestration -> remote URL for auth
@@ -260,13 +265,13 @@ describe("runBranchPreflightStep (Async)", () => {
     ));
     expect(remoteCalls.length).toBeGreaterThan(0);
     for (const call of remoteCalls) {
-      // Without a configured token, do not inject token-based auth headers and
-      // do not disable interactive prompts — the OS credential helper must
-      // still be allowed to supply credentials for HTTPS remotes.
+      // Without any resolvable token, force non-interactive so we fail fast
+      // rather than hang on an askpass helper that cannot supply credentials.
       const env = (call[2] as { env?: NodeJS.ProcessEnv }).env;
       expect(env?.GIT_CONFIG_KEY_0).toBeUndefined();
-      expect(env?.GIT_TERMINAL_PROMPT).toBeUndefined();
-      expect(env?.GIT_ASKPASS).toBeUndefined();
+      expect(env?.GIT_TERMINAL_PROMPT).toBe("0");
+      expect(env?.GIT_ASKPASS).toBe("true");
+      expect(env?.GCM_INTERACTIVE).toBe("never");
     }
   });
 
