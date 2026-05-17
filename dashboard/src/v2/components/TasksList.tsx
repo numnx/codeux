@@ -56,6 +56,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
             if (reducedMotion) {
                 gsap.set(listRef.current.children, { y: 0, opacity: 1, scale: 1 });
             } else if (flipStateRef.current) {
+                listRef.current.style.minHeight = `${listRef.current.scrollHeight}px`;
                 Flip.from(flipStateRef.current, {
                     targets: listRef.current.children,
                     duration: 0.4,
