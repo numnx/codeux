@@ -57,7 +57,9 @@ export class DockerService {
         }
       }
 
-      return containers;
+      return containers.filter((container) =>
+        Object.keys(container.labels || {}).some((key) => key.startsWith("code-ux."))
+      );
     } catch (error) {
       // Return empty array if Docker is unavailable or command fails
       return [];

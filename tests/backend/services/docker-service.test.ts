@@ -66,7 +66,7 @@ describe("DockerService", () => {
         Status: "Up 2 hours",
         Size: "0B",
         Names: "web-server",
-        Labels: "env=production,version=1.0,mylabel",
+        Labels: "env=production,code-ux.session-id=123,mylabel",
         Mounts: "",
         Networks: "bridge",
         State: "running",
@@ -82,7 +82,7 @@ describe("DockerService", () => {
         Status: "Up 1 hour",
         Size: "0B",
         Names: "cache-db",
-        Labels: "project=dashboard",
+        Labels: "project=dashboard,code-ux.command=test",
         Mounts: "",
         Networks: "bridge",
         State: "running",
@@ -108,7 +108,7 @@ describe("DockerService", () => {
         runningFor: "2 hours ago",
         labels: {
           env: "production",
-          version: "1.0",
+          "code-ux.session-id": "123",
           mylabel: "",
         },
       });
@@ -122,6 +122,7 @@ describe("DockerService", () => {
         runningFor: "1 hour ago",
         labels: {
           project: "dashboard",
+          "code-ux.command": "test",
         },
       });
     });
@@ -131,6 +132,7 @@ describe("DockerService", () => {
         ID: "e2c4587a829f",
         Names: "valid-container",
         State: "running",
+        Labels: "code-ux.workspace=true",
       });
       const malformedLine = "This is not json";
 
@@ -151,7 +153,7 @@ describe("DockerService", () => {
     it("should map empty strings for missing optional properties", async () => {
       const incompleteContainer = JSON.stringify({
         ID: "some-id",
-        Labels: "justakey,", // Tests labels[pair] = "" and trailing commas
+        Labels: "justakey,code-ux.test,", // Tests labels[pair] = "" and trailing commas
       });
 
       vi.mocked(runCommandStrict).mockResolvedValue({
@@ -173,6 +175,7 @@ describe("DockerService", () => {
         runningFor: "",
         labels: {
           justakey: "",
+          "code-ux.test": "",
         },
       });
     });
@@ -181,6 +184,7 @@ describe("DockerService", () => {
       const dockerOutputLine1 = JSON.stringify({
         ID: "e2c4587a829f",
         Names: "valid-container",
+        Labels: "code-ux.xyz=1",
       });
       // The catch block intercepts the parsing error
       const malformedLine = "{ invalid json }";
@@ -197,6 +201,38 @@ describe("DockerService", () => {
       expect(containers).toHaveLength(1);
       expect(containers[0].id).toBe("e2c4587a829f");
       expect(containers[0].names).toBe("valid-container");
+    });
+
+    it("should filter out containers that do not have a code-ux label", async () => {
+      const codeUxContainer = JSON.stringify({
+        ID: "container1",
+        Names: "code-ux-runner",
+        Labels: "env=prod,code-ux.session-id=456",
+      });
+
+      const unrelatedContainer = JSON.stringify({
+        ID: "container2",
+        Names: "system-db",
+        Labels: "env=prod,project=system",
+      });
+
+      const noLabelsContainer = JSON.stringify({
+        ID: "container3",
+        Names: "no-labels-container",
+      });
+
+      vi.mocked(runCommandStrict).mockResolvedValue({
+        exitCode: 0,
+        stdout: `${codeUxContainer}\n${unrelatedContainer}\n${noLabelsContainer}\n`,
+        stderr: "",
+        durationMs: 10,
+      });
+
+      const containers = await dockerService.listContainers();
+
+      expect(containers).toHaveLength(1);
+      expect(containers[0].id).toBe("container1");
+      expect(containers[0].names).toBe("code-ux-runner");
     });
   });
 });
