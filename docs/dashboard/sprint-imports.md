@@ -44,13 +44,15 @@ Use `Import -> GitHub Issues` or `Import -> GitLab Issues` to search the selecte
 
 For local projects, the dashboard reads the repository's `remote.origin.url` from `.git/config` when available. This pre-fills the provider and `owner/repository` target for projects that were added from a local checkout instead of a Git clone URL.
 
-Imported issues appear in the sprint composer under the Sprint Prompt field as linked issue cards. Each card shows the provider, repository, issue key, title, labels, assignees, and a direct link to the source issue. When the sprint is submitted, the selected issues are persisted as linked sprint issue records and the sprint prompt receives a `Linked Issues` markdown section so the Planning agent has the issue context.
+Imported issues appear in the sprint composer under the Sprint Prompt field as linked issue cards. Each card shows the provider, repository, issue key, title, labels, assignees, and a direct link to the source issue. The import view includes an `Append Conversation` toggle on each issue card. When enabled, the sprint prompt receives the full issue body plus issue comments/notes; when disabled, it receives the full issue body without the conversation.
+
+When the sprint is submitted, selected issues are persisted as linked sprint issue records and the sprint prompt receives a structured `Linked Issues` markdown section. Each imported issue is appended with source metadata, labels, assignees, author/timestamps when available, the complete issue body, and the selected conversation context. This gives the Planning agent and task agents the actual issue text instead of only a remote link.
 
 Issue import uses the saved integration tokens:
 - GitHub: system/project effective `git.githubToken`, usually configured in Settings -> Integrations.
 - GitLab: system/project effective `git.gitlabToken`, also available through `GITLAB_TOKEN` / `GLAB_TOKEN` host hints.
 
-When the GitHub token is empty, the server falls back to local `gh` CLI authentication for search and auto-close (`gh issue list` / `gh issue close`). This uses the dashboard host environment's GitHub auth; Docker auth-copy mount settings help worker containers, but the dashboard import itself needs either a saved token or a working local `gh auth login`.
+When the GitHub token is empty, the server falls back to local `gh` CLI authentication for search, issue context loading, and auto-close (`gh issue list` / `gh issue view` / `gh issue close`). This uses the dashboard host environment's GitHub auth; Docker auth-copy mount settings help worker containers, but the dashboard import itself needs either a saved token or a working local `gh auth login`.
 
 ## Auto-Close
 

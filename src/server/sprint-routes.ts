@@ -3,6 +3,7 @@ import type { DashboardDependencies } from "./dashboard-server.js";
 import { asyncRoute, toErrorResponse, syncRoute, requireTrimmedString, parseTrimmedString } from "./route-utils.js";
 import type {
   CreateSprintInput,
+  IssuePromptContextInput,
   SprintMarkdownImportInput,
   UpdateSprintInput,
 } from "../contracts/project-management-types.js";
@@ -41,6 +42,22 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
       ));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to search repository issues"));
+    }
+  }));
+
+  router.post("/api/projects/:projectId/issues/context", asyncRoute(async (req, res) => {
+    if (!deps.sprintIssueService) {
+      res.status(501).json({ error: "Issue import service is not available." });
+      return;
+    }
+    try {
+      const issues = Array.isArray(req.body?.issues) ? req.body.issues : [];
+      res.json(await deps.sprintIssueService.getIssuePromptContexts(
+        requireTrimmedString(req.params.projectId, "projectId"),
+        issues as IssuePromptContextInput[],
+      ));
+    } catch (error) {
+      res.status(400).json(toErrorResponse(error, "Failed to load repository issue context"));
     }
   }));
 
