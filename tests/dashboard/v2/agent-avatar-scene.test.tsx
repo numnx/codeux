@@ -83,6 +83,19 @@ vi.mock("../../../dashboard/src/lib/three-lite.js", () => {
     BoxGeometry: class { type = "BoxGeometry"; scale() {} dispose() {} },
     TorusGeometry: class { type = "TorusGeometry"; dispose() {} },
     CircleGeometry: class { type = "CircleGeometry"; dispose() {} },
+    ExtrudeGeometry: class { type = "ExtrudeGeometry"; dispose() {} },
+    Shape: class {
+      moveTo() { return this; }
+      lineTo() { return this; }
+      quadraticCurveTo() { return this; }
+      bezierCurveTo() { return this; }
+    },
+    Path: class {
+      moveTo() { return this; }
+      lineTo() { return this; }
+      quadraticCurveTo() { return this; }
+      bezierCurveTo() { return this; }
+    },
     BufferGeometry: class {
       setAttribute() {}
       getAttribute() {
