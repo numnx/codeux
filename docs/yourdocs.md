@@ -471,8 +471,8 @@ Files:
 ## Incremental Update: Configurable Watch Loop Interval
 
 Change:
-- Added dashboard setting `sprintLoopSteps.watchLoopIntervalSeconds` (default `120`).
-- Watch loop sleep is now configurable instead of hardcoded `120s`.
+- Added dashboard setting `sprintLoopSteps.watchLoopIntervalSeconds` (default `10`).
+- Watch loop sleep is now configurable instead of hardcoded `10s`.
 - Value is sanitized and clamped to `1..3600` seconds.
 
 Files:

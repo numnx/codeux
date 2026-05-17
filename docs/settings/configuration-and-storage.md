@@ -335,7 +335,7 @@ Container execution notes:
 - merge-conflict preparation and CI-fix Git commands must execute through the workspace runner; host-path Git invocations against `docker-volume://...` workspace handles are not valid
 
 `sprintLoopSteps` also includes:
-- `watchLoopIntervalSeconds` (default `120`, clamped to `1..3600`)
+- `watchLoopIntervalSeconds` (default `10`, clamped to `1..3600`)
 - `watchLoopOutputIntervalSeconds` (default `300`, clamped to `60..3600`): max watch-loop runtime before returning an in-progress status and rerun instruction
 
 `ciIntelligence` also includes:

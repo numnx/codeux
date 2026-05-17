@@ -117,7 +117,7 @@ describe("settings-sanitizer", () => {
     expect(settings.aiProvider.provider).toBe("jules");
     expect(settings.git.githubMode).toBe("REMOTE");
     expect(settings.ciIntelligence.waitForJulesCiAutofix).toBe(false);
-    expect(settings.sprintLoopSteps.watchLoopIntervalSeconds).toBe(120);
+    expect(settings.sprintLoopSteps.watchLoopIntervalSeconds).toBe(10);
     expect(settings.sprintLoopSteps.watchLoopOutputIntervalSeconds).toBe(300);
     expect(settings.cliWorkflow.executionMode).toBe("DOCKER");
     expect(settings.cliWorkflow.containerImage).toBe("node:24-bookworm");
