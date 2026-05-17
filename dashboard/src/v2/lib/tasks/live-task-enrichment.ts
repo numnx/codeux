@@ -1,21 +1,49 @@
+import type { Subtask, ExecutionTaskDispatchSummary, ExecutionRuntimeEventSummary } from "../../../types.js";
+import { buildLiveTaskTimingSummary } from "../live-stats.js";
+
 export interface LiveTaskEnrichment {
   sessionId?: string;
   sessionState?: string;
   prUrl?: string;
-  liveTotalSeconds?: number;
   liveStartedAt?: string | null;
+  liveTotalSeconds?: number;
 }
 
-export function formatDuration(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.round(totalSeconds));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+export function buildLiveTaskEnrichmentMap(
+  runtimeTasks: Subtask[],
+  dispatches: ExecutionTaskDispatchSummary[],
+  events: ExecutionRuntimeEventSummary[]
+): Map<string, LiveTaskEnrichment> {
+  const map = new Map<string, LiveTaskEnrichment>();
+
+  for (const task of runtimeTasks) {
+    const timing = buildLiveTaskTimingSummary({ task, dispatches, events });
+
+    const enrichment: LiveTaskEnrichment = {};
+
+    if (task.session_id) {
+      enrichment.sessionId = task.session_id.replace(/^sessions\//, "");
+    }
+
+    if (timing.startedAt) {
+      enrichment.liveStartedAt = timing.startedAt;
+    }
+
+    if (timing.totalSeconds > 0) {
+      enrichment.liveTotalSeconds = timing.totalSeconds;
+    }
+
+    const primaryKey = task.record_id;
+    const fallbackKey = task.id;
+
+    if (primaryKey) {
+      map.set(primaryKey, enrichment);
+    }
+
+    if (fallbackKey && fallbackKey !== primaryKey) {
+      map.set(fallbackKey, enrichment);
+    }
   }
-  if (minutes > 0) {
-    return `${minutes}m ${remainingSeconds}s`;
-  }
-  return `${remainingSeconds}s`;
+
+  return map;
 }
