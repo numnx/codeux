@@ -230,6 +230,7 @@ Legacy runtime:
 - Sprint cell settings now open an animated menu with showcase toggle, `Edit`, `Export`, `Delete`, and live `Overrides`
 - The showcase wrappers now leave enough vertical breathing room for hover expansion, so bubble motion is no longer clipped top or bottom
 - Sprint cells now use the created column for both created-date metadata and QA review badges, and move the visible sprint key into the card body instead of surfacing the UUID there
+- QA review badge overlays on sprint cells and ledger rows render beside the badge icon through a viewport-level overlay, so review summaries and findings are not clipped by the ledger controls or table layout.
 - Sprint markdown export now includes direct download actions and per-section copy-to-clipboard buttons (with brief `Copied` confirmation) in the export modal
 - The in-page sprint composer collapses into a stacked single-column layout on smaller screens, and both create and edit now use that same inline flow. The Quicksprint panel and the Sprint Composer are mutually exclusive; opening one automatically dismisses the other to maintain focus.
 - The Quicksprint panel now separates `Default Templates` from custom templates and includes a purpose selector for built-in template sets. The first shipped built-in purpose is `Fullstack JS App`, which groups six project-agnostic engineering and UI quicksprint templates. See [Quicksprint Templates](./quicksprint-templates.md).

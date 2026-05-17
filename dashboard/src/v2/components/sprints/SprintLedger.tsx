@@ -270,8 +270,8 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
       />
 
       <div className="min-h-[20rem] px-3 py-4 sm:px-4 lg:px-5">
-        <div className="lg:overflow-x-auto dag-scroll-shell">
-          <table className="block w-full border-separate border-spacing-y-3 text-left lg:table lg:min-w-[74rem]">
+        <div className="overflow-visible">
+          <table className="block w-full border-separate border-spacing-y-3 text-left lg:table">
             <thead className="hidden lg:table-header-group">
             <tr className="text-[11px] font-bold text-slate-400">
               <th className="w-12 rounded-l-2xl border-y border-l border-black/[0.06] bg-white/55 px-4 py-3 pl-6 dark:border-white/[0.06] dark:bg-white/[0.035]">
