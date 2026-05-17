@@ -123,7 +123,7 @@ describe("SettingsRepository", () => {
           actionRequiredProtocol: true,
           statusTable: true,
           watchLoop: true,
-          watchLoopIntervalSeconds: 120,
+          watchLoopIntervalSeconds: 10,
           watchLoopOutputIntervalSeconds: 300,
         },
         cliWorkflow: {

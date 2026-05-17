@@ -76,7 +76,7 @@ Workers are routed per *invocation type* (`task_coding`, `planning`, `dashboard_
 
 ### Watch loop
 
-The watch loop is the heartbeat of an active sprint. By default it cycles every **120 seconds** and emits a checkpoint report every **300 seconds**. Each cycle:
+The watch loop is the heartbeat of an active sprint. By default it cycles every **10 seconds** and emits a checkpoint report every **300 seconds**. Each cycle:
 
 1. Loads subtasks from disk and the database.
 2. Syncs worker session state with the orchestrator.

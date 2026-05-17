@@ -21,7 +21,7 @@ describe("dashboard settings helpers", () => {
     expect(second.git.defaultBranch).toBe("main");
     expect(second.dashboardPort).toBe(4444);
     expect(second.aiProvider.providers.gemini.model).toBe("default");
-    expect(second.sprintLoopSteps.watchLoopIntervalSeconds).toBe(120);
+    expect(second.sprintLoopSteps.watchLoopIntervalSeconds).toBe(10);
     expect(second.sprintLoopSteps.watchLoopOutputIntervalSeconds).toBe(300);
     expect(second.automationInterventions.autoAnswerClarification).toBe(false);
     expect(second.ciIntelligence.julesCiAutofixMaxRetries).toBe(3);
