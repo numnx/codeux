@@ -72,9 +72,13 @@ describe("SprintBubble", () => {
       />
     );
 
-    // Test the text element using queryAllByText to handle multiple instances (compact mode, hidden tooltip)
-    const reviewLabels = screen.queryAllByText(/QA Review(ed| Complete)/i);
-    expect(reviewLabels.length).toBeGreaterThan(0);
+    const reviewBadge = screen.getByLabelText("QA review details");
+    expect(reviewBadge).toBeDefined();
+    fireEvent.mouseEnter(reviewBadge.parentElement as Element);
+
+    await waitFor(() => {
+      expect(screen.getByText("QA Review Complete")).toBeDefined();
+    });
 
     // Check for the summary content
     expect(screen.getByText("Everything looks solid.")).toBeDefined();
