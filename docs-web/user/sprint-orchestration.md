@@ -49,7 +49,7 @@ Defaults:
 
 | Setting | Default | Min | Max | Notes |
 | --- | --- | --- | --- | --- |
-| `watchLoopIntervalSeconds` | `120` | `1` | `3600` | Cycle frequency |
+| `watchLoopIntervalSeconds` | `10` | `1` | `3600` | Cycle frequency |
 | `watchLoopOutputIntervalSeconds` | `300` | `60` | `3600` | Checkpoint frequency |
 
 If you set `watchLoop: false`, `orchestrate` runs exactly one cycle and returns.

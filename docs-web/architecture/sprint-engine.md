@@ -108,7 +108,7 @@ Default tunables (`sprintLoopSteps`):
 
 | Setting | Default | Min | Max |
 | --- | --- | --- | --- |
-| `watchLoopIntervalSeconds` | 120 | 1 | 3600 |
+| `watchLoopIntervalSeconds` | 10 | 1 | 3600 |
 | `watchLoopOutputIntervalSeconds` | 300 | 60 | 3600 |
 
 ## Heartbeat & leasing

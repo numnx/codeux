@@ -15,7 +15,7 @@ export const DEFAULT_SPRINT_LOOP_STEP_SETTINGS: SprintLoopStepSettings = {
   actionRequiredProtocol: true,
   statusTable: true,
   watchLoop: true,
-  watchLoopIntervalSeconds: 120,
+  watchLoopIntervalSeconds: 10,
   watchLoopOutputIntervalSeconds: 300,
 };
 

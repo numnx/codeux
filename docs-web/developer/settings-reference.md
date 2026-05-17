@@ -132,7 +132,7 @@ Default: `SEMI_AUTO`.
   "actionRequiredProtocol": true,
   "statusTable": true,
   "watchLoop": true,
-  "watchLoopIntervalSeconds": 120,         // min 1, max 3600
+  "watchLoopIntervalSeconds": 10,         // min 1, max 3600
   "watchLoopOutputIntervalSeconds": 300    // min 60, max 3600
 }
 ```
