@@ -2,7 +2,7 @@ import type { FunctionComponent } from "preact";
 import { useState } from "preact/hooks";
 import { Link } from "@tanstack/react-router";
 import { Menu } from "lucide-preact";
-import { Atom } from "../brand/Atom.js";
+import { RobotLogo } from "../brand/RobotLogo.js";
 
 interface BrandSectionProps {
     isMobile?: boolean;
@@ -33,11 +33,12 @@ export const BrandSection: FunctionComponent<BrandSectionProps> = ({ isMobile, o
                 onBlur={() => setBrandActive(false)}
                 className="flex items-center gap-3 cursor-pointer group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-xl"
             >
-                <div className="relative w-9 h-9 flex items-center justify-center bg-void-900 dark:bg-white/[0.06] rounded-2xl overflow-hidden ring-1 ring-inset ring-white/[0.05] dark:ring-white/[0.08] shadow-[0_0_22px_rgba(0,224,160,0.22)] transition-shadow duration-500 group-hover:shadow-[0_0_32px_rgba(0,224,160,0.42)]">
-                    <Atom
-                        size={28}
+                <div className="relative w-9 h-9 rounded-2xl overflow-hidden ring-1 ring-inset ring-white/[0.05] dark:ring-white/[0.08] shadow-[0_0_22px_rgba(0,224,160,0.22)] transition-shadow duration-500 group-hover:shadow-[0_0_32px_rgba(0,224,160,0.42)]">
+                    <RobotLogo
+                        size={36}
+                        rounded={false}
                         active={brandActive}
-                        className="relative z-10 text-white/35 dark:text-white/55 transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                        className="relative z-10 transition-transform duration-500 ease-out group-hover:scale-[1.06]"
                     />
                 </div>
                 <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5 sm:flex">
