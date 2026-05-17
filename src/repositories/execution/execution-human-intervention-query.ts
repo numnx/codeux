@@ -170,6 +170,9 @@ function buildHumanInterventionSummaryFromEvents(
           ownerType: "human",
         };
       case "sprint_paused":
+        if (sprintRunStatus !== "paused") {
+          return null;
+        }
         return {
           title: "Sprint paused",
           reason: "The sprint was manually paused by a team member.",
@@ -233,6 +236,9 @@ export function buildHumanInterventionSummaryBySprintRun(
     if (!sprintRunId || !isOperatorInterventionAttentionRow(row)) {
       continue;
     }
+    if (row.owner_type === "worker" && (row.status === "claimed" || row.status === "resolved")) {
+      continue;
+    }
     const existing = attentionBySprintRunId.get(sprintRunId) || [];
     existing.push(row);
     attentionBySprintRunId.set(sprintRunId, existing);
@@ -249,6 +255,10 @@ export function buildHumanInterventionSummaryBySprintRun(
   }
 
   for (const sprintRun of sprintRuns) {
+    if (sprintRun.status === "completed" || sprintRun.status === "cancelled" || sprintRun.status === "continued" || sprintRun.status === "failed") {
+      continue;
+    }
+
     const attentionSummary = buildHumanInterventionSummaryFromAttentionRows(
       attentionBySprintRunId.get(sprintRun.id) || [],
     );

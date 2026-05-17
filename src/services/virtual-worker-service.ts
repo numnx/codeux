@@ -238,7 +238,7 @@ export class VirtualWorkerService {
   }
 
   private pickNextWorkerAttention(projectId: string): ProjectAttentionItemRecord | null {
-    return this.deps.projectAttentionService.listActiveProjectItems(projectId)
+    const nextItem = this.deps.projectAttentionService.listActiveProjectItems(projectId)
       .find((item) => {
         if (item.ownerType !== "worker") {
           return false;
@@ -273,6 +273,14 @@ export class VirtualWorkerService {
         // Default: worker-owned items are handleable unless explicitly excluded above
         return true;
       }) || null;
+
+    if (nextItem && nextItem.status === "open") {
+      // Explicitly set the item's status to claimed so subsequent HI queries filter it out
+      this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
+      nextItem.status = "claimed";
+    }
+
+    return nextItem;
   }
 
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
