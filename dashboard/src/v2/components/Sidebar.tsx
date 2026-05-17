@@ -6,7 +6,7 @@ import { Hexagon, Layers, ListChecks, Zap, Settings, Inbox, Cpu, BarChart3, Comp
 import { useProjectData } from "../context/project-data.js";
 import { useProjectEffectiveSettings } from "../hooks/use-project-effective-settings.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
-import { Atom } from "./brand/Atom.js";
+import { RobotLogo } from "./brand/RobotLogo.js";
 
 const ALL_NAV_ITEMS = [
     { icon: MessageCircle, label: "Chat",     path: "/chat" },
@@ -142,8 +142,8 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
                 onBlur={() => setBrandActive(false)}
                 className={`mb-10 flex items-center group cursor-pointer relative z-10 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 rounded-xl transition-all duration-500 ${isMinimized && !isMobile ? 'px-0 w-full justify-center' : 'px-7 gap-3'}`}
             >
-                <div aria-hidden="true" className="relative w-10 h-10 rounded-2xl bg-void-900 dark:bg-white/[0.04] ring-1 ring-inset ring-white/[0.06] dark:ring-white/[0.07] flex items-center justify-center text-white/30 dark:text-white/55 shadow-[0_0_22px_rgba(0,224,160,0.2)] group-hover:shadow-[0_0_34px_rgba(0,224,160,0.36)] transition-shadow duration-500 shrink-0">
-                    <Atom size={32} active={brandActive} className="transition-transform duration-500 ease-out group-hover:scale-[1.06]" />
+                <div aria-hidden="true" className="relative w-10 h-10 rounded-2xl overflow-hidden ring-1 ring-inset ring-white/[0.06] dark:ring-white/[0.08] shadow-[0_0_22px_rgba(0,224,160,0.22)] group-hover:shadow-[0_0_34px_rgba(0,224,160,0.42)] transition-shadow duration-500 shrink-0">
+                    <RobotLogo size={40} rounded={false} active={brandActive} className="transition-transform duration-500 ease-out group-hover:scale-[1.06]" />
                 </div>
                 <div className={`overflow-hidden transition-all duration-500 ${isMinimized && !isMobile ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
                     <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex flex-col leading-none font-display whitespace-nowrap">
