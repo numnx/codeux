@@ -28,7 +28,8 @@ import type { AgentAvatarConfig } from "../../types.js";
 import {
   DEFAULT_AGENT_AVATAR_CONFIG,
   getAccentHex,
-  getVisorColorHex,
+  getInsetHex,
+  getShellHex,
   isLightBase,
   BRAND_COLORS,
   type AgentAvatarExpression,
@@ -261,8 +262,6 @@ function buildHeadphones(
   headphonesId: string,
   parent: THREE.Group,
   mats: Mats,
-  visorColorInt: number,
-  envMap: THREE.CubeTexture | null,
   shellW: number,
 ) {
   if (headphonesId === "bumper") return;
@@ -353,7 +352,7 @@ function buildHeadphones(
   }
 }
 
-function buildAvatar(config: AgentAvatarConfig, mats: Mats, visorColorInt: number, envMap: THREE.CubeTexture | null) {
+function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
   const root = new THREE.Group();
   const headGroup = new THREE.Group();
   root.add(headGroup);
@@ -417,18 +416,11 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats, visorColorInt: numbe
 
   if (eyesId === "visor") {
     eyesKind = "visor";
-    // Visor uses its own configurable color (independent of the jade accent)
-    const visorMat = new THREE.MeshStandardMaterial({
-      color: visorColorInt,
-      emissive: visorColorInt,
-      emissiveIntensity: 0.95,
-      metalness: 0.4,
-      roughness: 0.18,
-      envMap,
-      envMapIntensity: 0.55,
-    });
+    // The visor eye style uses the accent color. The screen plate around
+    // the eyes (the "visor" face plate) is controlled separately by the
+    // Visor Color picker → it lives on the inset material above.
     const visorGeo = new THREE.BoxGeometry(insetW * 0.82, 0.12, 0.06);
-    leftEye = new THREE.Mesh(visorGeo, visorMat);
+    leftEye = new THREE.Mesh(visorGeo, mats.jade);
     leftEye.position.set(0, 0, 0);
     eyesGroup.add(leftEye);
     // Inner pupil dots
@@ -510,7 +502,7 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats, visorColorInt: numbe
 
   /* ── Headphones — five styles, drawn over the white ear caps ── */
   const headphonesId = config.headphones ?? "bumper";
-  buildHeadphones(headphonesId, innerGroup, mats, visorColorInt, envMap, shellW);
+  buildHeadphones(headphonesId, innerGroup, mats, shellW);
 
   /* ── 7. Antenna ── */
   const antennaGroup = new THREE.Group();
@@ -736,9 +728,11 @@ export function AgentAvatarScene({
     camera.lookAt(0, 0, 0);
 
     const accent = hexInt(getAccentHex(config.accent), 0x00eaab);
-    const visorColor = hexInt(getVisorColorHex(config.visorColor, config.accent), accent);
-    const shell = isLightBase(config.baseColor) ? hexInt("#1A1A22") : hexInt(BRAND_COLORS.shellLight);
-    const inset = isLightBase(config.baseColor) ? hexInt(BRAND_COLORS.shellLight) : hexInt(BRAND_COLORS.inkFace);
+    // Shell = base color directly. Pearl base → white shell, onyx base → black, etc.
+    const shell = hexInt(getShellHex(config.baseColor), 0xfcfbfc);
+    // The "visor" is the inset face plate around the eyes. When the user
+    // picks a Visor Color it overrides the auto-contrast dark/light default.
+    const inset = hexInt(getInsetHex(config.baseColor, config.visorColor));
     const light = isLightBase(config.baseColor);
 
     /* 5-point lighting rig */
@@ -766,7 +760,7 @@ export function AgentAvatarScene({
     const avatarGroup = new THREE.Group();
     scene.add(avatarGroup);
 
-    const parts = buildAvatar(config, mats, visorColor, envMap);
+    const parts = buildAvatar(config, mats);
     avatarGroup.add(parts.root);
 
     // Particle ambient: jade motes drifting up around the head

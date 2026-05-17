@@ -23,8 +23,8 @@ import type { AgentAvatarConfig } from "../../types.js";
 import {
   BRAND_COLORS,
   getAccentHex,
-  getBaseColorHex,
-  getVisorColorHex,
+  getInsetHex,
+  getShellHex,
   isLightBase,
   type AgentAvatarExpression,
 } from "../../lib/agent-avatar.js";
@@ -110,18 +110,19 @@ function renderEyes(
   expression: AgentAvatarExpression,
   accent: string,
   jadeBright: string,
-  visorColor: string,
 ): h.JSX.Element {
   const wide = expression === "hyped";
   const squint = expression === "sleepy" || expression === "bored";
   const sad = expression === "sad";
   const angry = expression === "angry";
 
-  /* ── Visor: a horizontal jade band crossing both eye centers ── */
+  /* ── Visor (eye style): a horizontal jade band crossing both eye
+       centers. Uses the accent color — the inset face's color is
+       controlled separately by the "visor color" field. ── */
   if (eyesId === "visor") {
     const yCenter = (EYE_L.y + EYE_R.y) / 2;
     const halfH = squint ? 14 : wide ? 38 : sad ? 18 : 26;
-    const visorLight = lighten(visorColor, 0.35);
+    const accentLight = lighten(accent, 0.35);
     return (
       <g>
         <rect
@@ -131,18 +132,18 @@ function renderEyes(
           height={halfH * 2}
           rx={halfH * 0.6}
           ry={halfH * 0.6}
-          fill={visorColor}
+          fill={accent}
         >
           <animate attributeName="opacity" values="1;0.55;1" dur="2.4s" repeatCount="indefinite" />
         </rect>
         {!squint && (
           <>
-            <rect x={EYE_L.x - 22} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={visorLight} opacity="0.5" />
-            <rect x={EYE_R.x - 14} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={visorLight} opacity="0.45" />
+            <rect x={EYE_L.x - 22} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={accentLight} opacity="0.5" />
+            <rect x={EYE_R.x - 14} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={accentLight} opacity="0.45" />
           </>
         )}
-        {/* Subtle scanline sweep across the visor */}
-        <rect x={EYE_L.x - 60} y={yCenter - halfH} width="60" height={halfH * 2} fill={visorLight} opacity="0.0">
+        {/* Subtle scanline sweep across the visor band */}
+        <rect x={EYE_L.x - 60} y={yCenter - halfH} width="60" height={halfH * 2} fill={accentLight} opacity="0.0">
           <animate attributeName="x" values={`${EYE_L.x - 60};${EYE_R.x + 60};${EYE_L.x - 60}`} dur="3.6s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0;0.35;0" dur="3.6s" repeatCount="indefinite" />
         </rect>
@@ -657,17 +658,20 @@ export function AgentAvatarSvg({
   static: isStatic = false,
 }: AgentAvatarSvgProps) {
   const accent = getAccentHex(config?.accent);
-  const visorColor = getVisorColorHex(config?.visorColor, config?.accent);
   const chassisSpec = getChassisSpec(config?.chassis);
   const eyesId = config?.eyes ?? "smile";
   const antennaId = config?.antenna ?? "jewel";
   const wingsId = config?.wings ?? "none";
   const headphonesId = config?.headphones ?? "bumper";
-  const baseHex = getBaseColorHex(config?.baseColor);
+  // Base color → chassis (shell) directly. Pearl chassis on a default bot,
+  // onyx chassis when the user picks the dark base, etc.
+  const shellHex = getShellHex(config?.baseColor);
   const light = isLightBase(config?.baseColor);
-  const shellHex = light ? "#1A1A22" : "#FCFBFC";
-  const insetHex = light ? "#FCFBFC" : "#010101";
-  const bezelHex = light ? "#3a3a44" : "#101010";
+  // The "visor" is the screen plate around the eyes (the inset face).
+  // When the user picks a Visor Color, it overrides the auto contrast.
+  const insetHex = getInsetHex(config?.baseColor, config?.visorColor);
+  // Bezel: a slightly darker line on light chassis, slightly lighter on dark.
+  const bezelHex = light ? darken(shellHex, 0.55) : lighten(shellHex, 0.45);
   const jadeBright = BRAND_COLORS.jadeBright;
 
   const innerScale = `translate(627 627) scale(${chassisSpec.scaleX} ${chassisSpec.scaleY}) translate(-627 -627)`;
@@ -683,32 +687,25 @@ export function AgentAvatarSvg({
       aria-hidden="true"
     >
       <defs>
-        <radialGradient id="cux-tile-grad" cx="50%" cy="20%" r="90%">
-          <stop offset="0%" stopColor={lighten(baseHex, 0.18)} />
-          <stop offset="100%" stopColor={baseHex} />
-        </radialGradient>
         <radialGradient id="cux-shell-grad" cx="50%" cy="32%" r="75%">
-          <stop offset="0%" stopColor={shellHex} />
-          <stop offset="100%" stopColor={light ? "#0f0f17" : "#E8E5DF"} stopOpacity={light ? "1" : "0.92"} />
+          <stop offset="0%" stopColor={lighten(shellHex, 0.06)} />
+          <stop offset="55%" stopColor={shellHex} />
+          <stop offset="100%" stopColor={darken(shellHex, 0.08)} />
         </radialGradient>
         <radialGradient id="cux-inset-grad" cx="50%" cy="30%" r="75%">
-          <stop offset="0%" stopColor={lighten(insetHex, 0.1)} />
+          <stop offset="0%" stopColor={lighten(insetHex, 0.12)} />
           <stop offset="100%" stopColor={insetHex} />
         </radialGradient>
         <radialGradient id="cux-aura-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={accent} stopOpacity="0.65" />
+          <stop offset="0%" stopColor={accent} stopOpacity="0.55" />
           <stop offset="100%" stopColor={accent} stopOpacity="0" />
         </radialGradient>
-        <filter id="cux-tile-shadow" x="-12%" y="-12%" width="124%" height="124%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="20" />
+        <filter id="cux-bot-shadow" x="-12%" y="-12%" width="124%" height="124%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="18" />
           <feOffset dy="14" result="off" />
-          <feComponentTransfer><feFuncA type="linear" slope="0.42" /></feComponentTransfer>
+          <feComponentTransfer><feFuncA type="linear" slope={light ? "0.18" : "0.42"} /></feComponentTransfer>
           <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
-        {/* Mask: clip-the-tile so the white shell shows the rounded-corner tile */}
-        <clipPath id="cux-tile-clip">
-          <rect x="1" y="1" width="1253" height="1253" rx={chassisSpec.cornerRadius} ry={chassisSpec.cornerRadius} />
-        </clipPath>
       </defs>
 
       {/* Ambient aura — sits behind the tile */}
@@ -717,8 +714,10 @@ export function AgentAvatarSvg({
       {/* Big soft jade glow behind the tile */}
       <ellipse cx="627" cy="700" rx="600" ry="560" fill="url(#cux-aura-glow)" opacity="0.55" />
 
-      {/* Float wrap */}
-      <g filter="url(#cux-tile-shadow)">
+      {/* Float wrap — bot only (no surrounding tile). The drop-shadow
+          filter wraps every layer so the floating bot casts a soft shadow
+          on whatever background the host provides. */}
+      <g filter="url(#cux-bot-shadow)">
         {!isStatic && (
           <animateTransform
             attributeName="transform"
@@ -729,21 +728,10 @@ export function AgentAvatarSvg({
           />
         )}
 
-        {/* Antenna sits ABOVE the tile, hangs into the dark space above the bot */}
+        {/* Antenna sits above the bot */}
         <g transform={innerScale}>{renderAntenna(antennaId, accent, jadeBright, expression)}</g>
 
-        {/* Outer black tile (rounded square) with subtle top-light gradient */}
-        <rect x="1" y="1" width="1253" height="1253" rx={chassisSpec.cornerRadius} ry={chassisSpec.cornerRadius} fill="url(#cux-tile-grad)" />
-
-        {/* Specular sweep across the tile — sells the clear-coat plastic */}
-        <path
-          d={`M 60 ${chassisSpec.cornerRadius + 20} Q 627 -120 ${1254 - 60} ${chassisSpec.cornerRadius + 20}`}
-          stroke={light ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.07)"}
-          strokeWidth="2"
-          fill="none"
-        />
-
-        <g clipPath="url(#cux-tile-clip)" transform={innerScale}>
+        <g transform={innerScale}>
           {/* White face shell + ear caps — the bot's body */}
           <path d={PATH_FACE_SHELL} fill="url(#cux-shell-grad)" />
           <path d={PATH_EAR_LEFT} fill="url(#cux-shell-grad)" />
@@ -768,7 +756,7 @@ export function AgentAvatarSvg({
           <path d={PATH_BEZEL_SLIVER} fill={bezelHex} />
 
           {/* Eyes inside the dark inset */}
-          {renderEyes(eyesId, expression, accent, jadeBright, visorColor)}
+          {renderEyes(eyesId, expression, accent, jadeBright)}
 
           {/* Inner glow inside the inset face — pulses subtly */}
           <ellipse cx={627} cy={700} rx="220" ry="120" fill="url(#cux-aura-glow)" opacity="0.18" pointerEvents="none">
@@ -780,7 +768,7 @@ export function AgentAvatarSvg({
   );
 }
 
-/* ── tiny color helper ── */
+/* ── tiny color helpers ── */
 function lighten(hex: string, factor: number): string {
   const m = hex.match(/^#?([\da-f]{6})$/i);
   if (!m) return hex;
@@ -788,5 +776,15 @@ function lighten(hex: string, factor: number): string {
   const r = Math.min(255, ((n >> 16) & 0xff) + Math.round(factor * 90));
   const g = Math.min(255, ((n >> 8) & 0xff) + Math.round(factor * 90));
   const b = Math.min(255, (n & 0xff) + Math.round(factor * 90));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+function darken(hex: string, factor: number): string {
+  const m = hex.match(/^#?([\da-f]{6})$/i);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = Math.max(0, Math.round(((n >> 16) & 0xff) * (1 - factor)));
+  const g = Math.max(0, Math.round(((n >> 8) & 0xff) * (1 - factor)));
+  const b = Math.max(0, Math.round((n & 0xff) * (1 - factor)));
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }

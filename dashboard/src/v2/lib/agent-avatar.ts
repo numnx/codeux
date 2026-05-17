@@ -127,22 +127,45 @@ export const ROBOT_ACCENT_OPTIONS = [
   { id: "rose",     label: "Rose Quartz",    hex: "#FB7185" },
 ] as const;
 
-export const ROBOT_VISOR_COLOR_OPTIONS = ROBOT_ACCENT_OPTIONS;
+/* ────────────────────────────────────────────────────────────────────────
+ *  Visor palette (12) — DEDICATED list, curated for contrast across all
+ *  chassis colors. Mixes pure darks (noir, void, forest), pure lights
+ *  (pearl, ice, lilac), the brand jade, and saturated jewel tones that
+ *  pop against any neutral chassis.
+ * ──────────────────────────────────────────────────────────────────────── */
+export const ROBOT_VISOR_COLOR_OPTIONS = [
+  { id: "noir",     label: "Noir",       hex: "#0A0A0E" },
+  { id: "pearl",    label: "Pearl",      hex: "#F5F1E8" },
+  { id: "jade",     label: "Signal Jade", hex: BRAND_COLORS.jade },
+  { id: "void",     label: "Void",       hex: "#1A1B2E" },
+  { id: "ice",      label: "Ice",        hex: "#E0F2FE" },
+  { id: "sapphire", label: "Sapphire",   hex: "#1E40AF" },
+  { id: "ruby",     label: "Ruby",       hex: "#9F1239" },
+  { id: "violet",   label: "Royal Violet", hex: "#6B21A8" },
+  { id: "forest",   label: "Forest",     hex: "#064E3B" },
+  { id: "bronze",   label: "Bronze",     hex: "#92400E" },
+  { id: "amber",    label: "Vivid Amber", hex: "#D97706" },
+  { id: "lilac",    label: "Lilac",      hex: "#C4B5FD" },
+] as const;
 
+/* ────────────────────────────────────────────────────────────────────────
+ *  Base color palette (12) — IS the chassis color (no longer inverted).
+ *  Six lights (default + variants) and six darks.
+ *  Pearl is the brand default — it matches the logo's white body exactly.
+ * ──────────────────────────────────────────────────────────────────────── */
 export const ROBOT_BASE_COLOR_OPTIONS = [
+  { id: "pearl",    label: "Pearl",       hex: BRAND_COLORS.shellLight }, // logo white — default
+  { id: "ivory",    label: "Ivory",       hex: BRAND_COLORS.shellWarm },
+  { id: "cream",    label: "Cream",       hex: "#F5EFE0" },
+  { id: "arctic",   label: "Arctic",      hex: "#E5ECF3" },
+  { id: "sage",     label: "Sage",        hex: "#D9E3D3" },
+  { id: "rose",     label: "Rose Dust",   hex: "#F2D6D2" },
   { id: "onyx",     label: "Onyx",        hex: BRAND_COLORS.onyx },
   { id: "graphite", label: "Graphite",    hex: "#1B1B22" },
-  { id: "midnight", label: "Midnight",    hex: "#0B1023" },
-  { id: "ivory",    label: "Ivory",       hex: BRAND_COLORS.shellWarm },
-  { id: "arctic",   label: "Arctic",      hex: "#E5ECF3" },
-  { id: "rose",     label: "Rose Dust",   hex: "#F2D6D2" },
-  /* NEW (+6) */
   { id: "charcoal", label: "Charcoal",    hex: "#2A2C33" },
-  { id: "plum",     label: "Plum Noir",   hex: "#1F0F2A" },
+  { id: "midnight", label: "Midnight",    hex: "#0B1023" },
   { id: "navy",     label: "Deep Navy",   hex: "#0F1E3D" },
-  { id: "cream",    label: "Cream",       hex: "#F5EFE0" },
-  { id: "mist",     label: "Pale Mist",   hex: "#DDE8F0" },
-  { id: "sage",     label: "Sage",        hex: "#D9E3D3" },
+  { id: "plum",     label: "Plum Noir",   hex: "#1F0F2A" },
 ] as const;
 
 export type RobotChassis    = typeof ROBOT_CHASSIS_OPTIONS[number]["id"];
@@ -165,8 +188,11 @@ export const DEFAULT_AGENT_AVATAR_CONFIG: AgentAvatarConfig = {
   wings: "none",
   headphones: "bumper",
   accent: "jade",
-  baseColor: "onyx",
-  visorColor: "jade",
+  // Pearl is the brand white — pairs with the logo silhouette out of the
+  // box. Users pick a different base to recolor the chassis directly.
+  baseColor: "pearl",
+  // visorColor intentionally unset — falls back to a contrast-matched
+  // dark/light inset derived from the (now direct) base color.
 };
 
 /* ── Color helpers ── */
@@ -180,32 +206,46 @@ export function getBaseColorHex(baseColorId?: string): string {
   return found?.hex ?? BRAND_COLORS.onyx;
 }
 
-export function getVisorColorHex(visorColorId?: string, fallbackAccentId?: string): string {
+/**
+ * Returns true when the base color is in the "light" group (whites, creams,
+ * pastels). Used to choose contrasting defaults for the inset face, bezel,
+ * and lighting hints in the 3D scene.
+ */
+export function isLightBase(baseColorId?: string): boolean {
+  return (
+    baseColorId === "pearl"  ||
+    baseColorId === "ivory"  ||
+    baseColorId === "cream"  ||
+    baseColorId === "arctic" ||
+    baseColorId === "sage"   ||
+    baseColorId === "rose"
+  );
+}
+
+/**
+ * The chassis color — the bot's main body.
+ * As of the latest brand-direction change, base color drives this directly
+ * (no longer inverted). A "pearl" base produces a white body; an "onyx"
+ * base produces a black body.
+ */
+export function getShellHex(baseColorId?: string): string {
+  return getBaseColorHex(baseColorId);
+}
+
+/**
+ * Inset face / "visor" color — the screen plate around the eyes.
+ *
+ * If the user has explicitly picked a `visorColor`, that wins. Otherwise
+ * we auto-pick a contrasting dark/light plate so the eyes still pop:
+ *   • light chassis → near-black plate (logo default look)
+ *   • dark chassis  → near-white plate
+ */
+export function getInsetHex(baseColorId?: string, visorColorId?: string): string {
   if (visorColorId) {
     const found = ROBOT_VISOR_COLOR_OPTIONS.find((o) => o.id === visorColorId);
     if (found) return found.hex;
   }
-  return getAccentHex(fallbackAccentId);
-}
-
-/** A "light" base flips the shell colors for contrast. */
-export function isLightBase(baseColorId?: string): boolean {
-  return (
-    baseColorId === "ivory" ||
-    baseColorId === "arctic" ||
-    baseColorId === "rose" ||
-    baseColorId === "cream" ||
-    baseColorId === "mist" ||
-    baseColorId === "sage"
-  );
-}
-
-export function getShellHex(baseColorId?: string): string {
-  return isLightBase(baseColorId) ? "#1A1A22" : BRAND_COLORS.shellLight;
-}
-
-export function getInsetHex(baseColorId?: string): string {
-  return isLightBase(baseColorId) ? "#FCFBFC" : BRAND_COLORS.inkFace;
+  return isLightBase(baseColorId) ? BRAND_COLORS.inkFace : BRAND_COLORS.shellLight;
 }
 
 /** Deterministic seeded RNG */
