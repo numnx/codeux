@@ -24,6 +24,7 @@ import {
   BRAND_COLORS,
   getAccentHex,
   getBaseColorHex,
+  getVisorColorHex,
   isLightBase,
   type AgentAvatarExpression,
 } from "../../lib/agent-avatar.js";
@@ -63,7 +64,8 @@ const PATH_ANTENNA_TILT_LEFT = "M522.916 304.064C531.988 313.127 540.862 321.883
 
 const PATH_INSET_FACE = "M737.238 539.907C763.445 539.452 787.836 546.29 809.88 560.074C867.204 595.918 892.392 648.475 888.456 715.38C884.547 781.841 834.894 838.559 767.307 850.362C757.839 852.015 748.093 852.727 738.473 852.753C665.822 852.952 593.142 854.134 520.528 852.493C457.598 851.07 409.282 822.226 381.12 764.979C361.113 724.31 361.95 681.699 378.902 640.018C400.041 588.043 438.119 554.943 493.233 542.464C501.134 540.675 509.411 540.547 517.649 540.121C519.668 541.064 521.551 541.946 523.436 541.948C593.15 542.018 662.865 542.006 732.58 542C734.075 542 735.577 541.981 737.057 541.808C737.189 541.792 737.181 540.57 737.238 539.907Z";
 
-const PATH_FOREHEAD_JEWEL = "M627.224 372.172C641.642 372.793 652.09 379.939 656.159 391.65C660.116 403.037 656.693 415.164 647.257 423.191C638.155 430.933 624.958 432.258 614.636 426.464C603.398 420.156 597.95 408.776 599.946 395.772C601.635 384.76 611.224 375.188 622.868 372.897C624.173 372.64 625.485 372.424 627.224 372.172Z";
+/* Forehead jewel was removed at user request — the brand smile-arc bot now
+   has no forehead dot. The path is intentionally not exported. */
 
 const PATH_BEZEL_SLIVER = "M736.958 539.833C737.181 540.57 737.189 541.792 737.057 541.808C735.577 541.981 734.075 542 732.58 542C662.865 542.006 593.15 542.018 523.436 541.948C521.551 541.946 519.668 541.064 518.125 540.246C522.617 539.771 526.767 539.534 530.917 539.533C598.01 539.522 665.102 539.539 732.195 539.561C733.689 539.562 735.184 539.69 736.958 539.833Z";
 
@@ -74,9 +76,6 @@ const PATH_EYE_RIGHT_SMILE = "M804.095 712.988C800.066 717.639 795.349 718.882 7
 /* Anchor centers used by expression overlays */
 const EYE_L = { x: 510, y: 690 };
 const EYE_R = { x: 750, y: 690 };
-const JEWEL = { x: 628, y: 400 };
-const ANTENNA_TOP = { x: 628, y: 245 };
-
 /* ════════════════════════════════════════════════════════════════════════
  *  Chassis variants — tweak the outer-tile path or scale the inner bot to
  *  give each variant a distinct silhouette while preserving the logo DNA.
@@ -91,10 +90,11 @@ type ChassisSpec = {
   scaleY: number;
 };
 const CHASSIS_SPECS: Record<string, ChassisSpec> = {
-  classic: { cornerRadius: 200, scaleX: 1.0, scaleY: 1.0 },
-  square:  { cornerRadius: 90,  scaleX: 1.0, scaleY: 1.0 },
+  classic: { cornerRadius: 200, scaleX: 1.0,  scaleY: 1.0 },
+  square:  { cornerRadius: 90,  scaleX: 1.0,  scaleY: 1.0 },
   tall:    { cornerRadius: 200, scaleX: 0.88, scaleY: 1.0 },
-  pebble:  { cornerRadius: 320, scaleX: 1.0, scaleY: 0.92 },
+  pebble:  { cornerRadius: 320, scaleX: 1.0,  scaleY: 0.92 },
+  soft:    { cornerRadius: 460, scaleX: 1.0,  scaleY: 1.0 },  // squircle / extra-soft
 };
 function getChassisSpec(id: string | undefined): ChassisSpec {
   return CHASSIS_SPECS[id ?? "classic"] ?? CHASSIS_SPECS.classic;
@@ -110,6 +110,7 @@ function renderEyes(
   expression: AgentAvatarExpression,
   accent: string,
   jadeBright: string,
+  visorColor: string,
 ): h.JSX.Element {
   const wide = expression === "hyped";
   const squint = expression === "sleepy" || expression === "bored";
@@ -120,6 +121,7 @@ function renderEyes(
   if (eyesId === "visor") {
     const yCenter = (EYE_L.y + EYE_R.y) / 2;
     const halfH = squint ? 14 : wide ? 38 : sad ? 18 : 26;
+    const visorLight = lighten(visorColor, 0.35);
     return (
       <g>
         <rect
@@ -129,14 +131,49 @@ function renderEyes(
           height={halfH * 2}
           rx={halfH * 0.6}
           ry={halfH * 0.6}
-          fill={accent}
+          fill={visorColor}
         >
           <animate attributeName="opacity" values="1;0.55;1" dur="2.4s" repeatCount="indefinite" />
         </rect>
         {!squint && (
           <>
-            <rect x={EYE_L.x - 22} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={jadeBright} opacity="0.5" />
-            <rect x={EYE_R.x - 14} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={jadeBright} opacity="0.45" />
+            <rect x={EYE_L.x - 22} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={visorLight} opacity="0.5" />
+            <rect x={EYE_R.x - 14} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={visorLight} opacity="0.45" />
+          </>
+        )}
+        {/* Subtle scanline sweep across the visor */}
+        <rect x={EYE_L.x - 60} y={yCenter - halfH} width="60" height={halfH * 2} fill={visorLight} opacity="0.0">
+          <animate attributeName="x" values={`${EYE_L.x - 60};${EYE_R.x + 60};${EYE_L.x - 60}`} dur="3.6s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0;0.35;0" dur="3.6s" repeatCount="indefinite" />
+        </rect>
+      </g>
+    );
+  }
+
+  /* ── Heart: cute heart-shaped eyes ── */
+  if (eyesId === "heart") {
+    const s = squint ? 0.5 : wide ? 1.35 : 1.0;
+    const heartPath = (cx: number, cy: number) => {
+      const w = 38 * s;
+      const h = 36 * s;
+      return `M ${cx} ${cy + h * 0.5}
+              C ${cx - w} ${cy} ${cx - w} ${cy - h * 0.6} ${cx - w * 0.4} ${cy - h * 0.6}
+              C ${cx - w * 0.15} ${cy - h * 0.6} ${cx} ${cy - h * 0.3} ${cx} ${cy - h * 0.05}
+              C ${cx} ${cy - h * 0.3} ${cx + w * 0.15} ${cy - h * 0.6} ${cx + w * 0.4} ${cy - h * 0.6}
+              C ${cx + w} ${cy - h * 0.6} ${cx + w} ${cy} ${cx} ${cy + h * 0.5} Z`;
+    };
+    return (
+      <g>
+        <path d={heartPath(EYE_L.x, EYE_L.y)} fill={accent}>
+          <animateTransform attributeName="transform" type="scale" values="1;1.08;1" dur="1.8s" repeatCount="indefinite" />
+        </path>
+        <path d={heartPath(EYE_R.x, EYE_R.y)} fill={accent}>
+          <animateTransform attributeName="transform" type="scale" values="1;1.08;1" dur="1.8s" repeatCount="indefinite" begin="0.4s" />
+        </path>
+        {!squint && (
+          <>
+            <circle cx={EYE_L.x - 8} cy={EYE_L.y - 12} r="6" fill={jadeBright} opacity="0.9" />
+            <circle cx={EYE_R.x - 8} cy={EYE_R.y - 12} r="6" fill={jadeBright} opacity="0.9" />
           </>
         )}
       </g>
@@ -312,6 +349,37 @@ function renderAntenna(
     );
   }
 
+  if (antennaId === "wifi") {
+    // Three concentric signal arcs emanating from a small antenna dot.
+    // Each arc fades in then out in sequence, like a transmitting wifi mark.
+    const arc = (rx: number, ry: number, dur: string, begin: string) => (
+      <path
+        d={`M ${628 - rx} 320 A ${rx} ${ry} 0 0 1 ${628 + rx} 320`}
+        fill="none"
+        stroke={accent}
+        strokeWidth="14"
+        strokeLinecap="round"
+        opacity="0"
+      >
+        <animate attributeName="opacity" values="0;0.95;0" dur={dur} repeatCount="indefinite" begin={begin} />
+      </path>
+    );
+    return (
+      <g>
+        {swayAnim}
+        {/* Small antenna stem + base dot */}
+        <rect x="622" y="270" width="12" height="60" rx="6" fill={accent} />
+        <circle cx="628" cy="332" r="12" fill={accent}>
+          <animate attributeName="opacity" values="1;0.6;1" dur="1.4s" repeatCount="indefinite" />
+        </circle>
+        {/* Concentric signal arcs */}
+        {arc(60, 36, "1.6s", "0s")}
+        {arc(110, 64, "1.6s", "0.35s")}
+        {arc(170, 100, "1.6s", "0.7s")}
+      </g>
+    );
+  }
+
   // Default: jewel — the canonical logo antenna (pill stem + 2 diagonal lines)
   return (
     <g>
@@ -328,31 +396,122 @@ function renderAntenna(
 /* ════════════════════════════════════════════════════════════════════════
  *  Aura — ambient flourish behind the tile
  * ════════════════════════════════════════════════════════════════════════ */
-function renderAura(wingsId: string | undefined, accent: string): h.JSX.Element | null {
+function renderAura(wingsId: string | undefined, accent: string, jadeBright: string): h.JSX.Element | null {
   if (!wingsId || wingsId === "none") return null;
 
+  /* ── Halo: stacked tilted ellipses — a celestial-feeling crown ── */
   if (wingsId === "halo") {
     return (
-      <ellipse cx="628" cy="700" rx="660" ry="640" fill="none" stroke={accent} strokeWidth="12" opacity="0.32">
-        <animate attributeName="opacity" values="0.32;0.12;0.32" dur="3.2s" repeatCount="indefinite" />
-      </ellipse>
-    );
-  }
-
-  if (wingsId === "pulse") {
-    return (
       <g>
-        <rect x="-40" y="-40" width="1334" height="1334" rx="280" fill="none" stroke={accent} strokeWidth="14" opacity="0.45">
-          <animate attributeName="opacity" values="0.45;0;0.45" dur="2.4s" repeatCount="indefinite" />
-        </rect>
-        <rect x="-80" y="-80" width="1414" height="1414" rx="320" fill="none" stroke={accent} strokeWidth="10" opacity="0.3">
-          <animate attributeName="opacity" values="0.3;0;0.3" dur="2.4s" repeatCount="indefinite" begin="0.9s" />
-        </rect>
+        {/* Outer broad halo */}
+        <ellipse cx="628" cy="200" rx="520" ry="80" fill="none" stroke={accent} strokeWidth="10" opacity="0.55">
+          <animate attributeName="opacity" values="0.55;0.25;0.55" dur="3.6s" repeatCount="indefinite" />
+        </ellipse>
+        {/* Inner crisp halo */}
+        <ellipse cx="628" cy="190" rx="420" ry="56" fill="none" stroke={jadeBright} strokeWidth="6" opacity="0.7">
+          <animate attributeName="opacity" values="0.7;0.4;0.7" dur="3.6s" repeatCount="indefinite" begin="0.4s" />
+        </ellipse>
+        {/* Slow rotation suggested by 3 tiny floating accent dots on the ring */}
+        <g>
+          <animateTransform attributeName="transform" type="rotate" from="0 628 200" to="360 628 200" dur="14s" repeatCount="indefinite" />
+          <circle cx="1148" cy="200" r="12" fill={jadeBright} />
+          <circle cx="108"  cy="200" r="10" fill={accent} />
+          <circle cx="628"  cy="120" r="8"  fill={jadeBright} opacity="0.85" />
+        </g>
       </g>
     );
   }
 
-  // dust — drifting jade motes
+  /* ── Pulse: angular shock-wave with offset secondaries — avantgarde ── */
+  if (wingsId === "pulse") {
+    /* Concentric, slightly rotated rounded-squares pulsing outward with
+       phase offsets — feels like a graphic-design shock wave rather than a
+       generic radio pulse. */
+    const shockwave = (delay: string, scaleFrom: number, scaleTo: number, opa: number, sw: number, rot: number) => (
+      <rect
+        x="200"
+        y="200"
+        width="854"
+        height="854"
+        rx="220"
+        fill="none"
+        stroke={accent}
+        strokeWidth={sw}
+        opacity="0"
+        transform={`rotate(${rot} 627 627)`}
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          values={`${rot} 627 627`}
+          additive="sum"
+          dur="6s"
+          repeatCount="indefinite"
+        />
+        <animate
+          attributeName="opacity"
+          values={`0;${opa};0`}
+          dur="2.6s"
+          repeatCount="indefinite"
+          begin={delay}
+        />
+        <animateTransform
+          attributeName="transform"
+          type="scale"
+          additive="sum"
+          values={`${scaleFrom};${scaleTo};${scaleFrom}`}
+          dur="2.6s"
+          repeatCount="indefinite"
+          begin={delay}
+        />
+      </rect>
+    );
+    return (
+      <g style="transform-origin: 627px 627px;">
+        {shockwave("0s",   1.0, 1.25, 0.7,  18, 0)}
+        {shockwave("0.5s", 1.0, 1.35, 0.5,  10, 6)}
+        {shockwave("1.0s", 1.0, 1.45, 0.35, 6,  -6)}
+        {/* Crisp focal dot in the lower center to anchor the wave */}
+        <circle cx="627" cy="1180" r="14" fill={accent}>
+          <animate attributeName="opacity" values="1;0.4;1" dur="2.6s" repeatCount="indefinite" />
+        </circle>
+      </g>
+    );
+  }
+
+  /* ── Orbit: 3 jade satellites circling on a tilted elliptical path ── */
+  if (wingsId === "orbit") {
+    const orbitPath = (
+      <path
+        id="cux-orbit-path"
+        d="M 627 200 a 540 180 0 1 0 0.001 0"
+        fill="none"
+        stroke={accent}
+        strokeOpacity="0.18"
+        strokeWidth="3"
+        strokeDasharray="6 8"
+      />
+    );
+    const satellite = (delay: string, r: number, fill: string, opacity: number) => (
+      <circle r={r} fill={fill} opacity={opacity}>
+        <animateMotion dur="6s" repeatCount="indefinite" begin={delay} rotate="auto">
+          <mpath href="#cux-orbit-path" />
+        </animateMotion>
+        <animate attributeName="opacity" values={`${opacity};${opacity * 0.4};${opacity}`} dur="6s" repeatCount="indefinite" begin={delay} />
+      </circle>
+    );
+    return (
+      <g>
+        <defs>{orbitPath}</defs>
+        {orbitPath}
+        {satellite("0s",   18, accent, 0.95)}
+        {satellite("-2s",  14, jadeBright, 0.85)}
+        {satellite("-4s",  10, accent, 0.75)}
+      </g>
+    );
+  }
+
+  /* ── Dust (kept as-is — user requested) ── */
   return (
     <g>
       {Array.from({ length: 8 }, (_, i) => {
@@ -371,6 +530,123 @@ function renderAura(wingsId: string | undefined, accent: string): h.JSX.Element 
 }
 
 /* ════════════════════════════════════════════════════════════════════════
+ *  Headphones — five styles, layered over the white ear-cap area.
+ *
+ *  Anchor centers for the side decorations:
+ *    LEFT_EAR   ≈ (272, 700)
+ *    RIGHT_EAR  ≈ (980, 700)
+ * ════════════════════════════════════════════════════════════════════════ */
+const EAR_L = { x: 272, y: 700 };
+const EAR_R = { x: 980, y: 700 };
+
+function renderHeadphones(
+  headphonesId: string | undefined,
+  accent: string,
+  jadeBright: string,
+  shellHex: string,
+): h.JSX.Element | null {
+  if (!headphonesId || headphonesId === "bumper") return null;
+
+  /* ── Studio: over-ear cups with jade pad center + connecting band overhead ── */
+  if (headphonesId === "studio") {
+    return (
+      <g>
+        {/* Connecting band arcing over the head */}
+        <path
+          d={`M ${EAR_L.x + 20} 560 Q 627 360 ${EAR_R.x - 20} 560`}
+          fill="none"
+          stroke={shellHex}
+          strokeWidth="22"
+          strokeLinecap="round"
+        />
+        <path
+          d={`M ${EAR_L.x + 20} 560 Q 627 360 ${EAR_R.x - 20} 560`}
+          fill="none"
+          stroke="rgba(0,0,0,0.15)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          opacity="0.5"
+        />
+        {/* Left cup */}
+        <circle cx={EAR_L.x} cy={EAR_L.y} r="98" fill="#1a1a22" />
+        <circle cx={EAR_L.x} cy={EAR_L.y} r="98" fill="none" stroke={shellHex} strokeWidth="6" opacity="0.6" />
+        <circle cx={EAR_L.x} cy={EAR_L.y} r="58" fill={accent}>
+          <animate attributeName="opacity" values="1;0.6;1" dur="2.4s" repeatCount="indefinite" />
+        </circle>
+        <circle cx={EAR_L.x - 16} cy={EAR_L.y - 16} r="14" fill={jadeBright} opacity="0.85" />
+        {/* Right cup */}
+        <circle cx={EAR_R.x} cy={EAR_R.y} r="98" fill="#1a1a22" />
+        <circle cx={EAR_R.x} cy={EAR_R.y} r="98" fill="none" stroke={shellHex} strokeWidth="6" opacity="0.6" />
+        <circle cx={EAR_R.x} cy={EAR_R.y} r="58" fill={accent}>
+          <animate attributeName="opacity" values="1;0.6;1" dur="2.4s" repeatCount="indefinite" begin="0.4s" />
+        </circle>
+        <circle cx={EAR_R.x - 16} cy={EAR_R.y - 16} r="14" fill={jadeBright} opacity="0.85" />
+      </g>
+    );
+  }
+
+  /* ── Earbuds: small jade orbs clipping onto the ear caps ── */
+  if (headphonesId === "earbuds") {
+    return (
+      <g>
+        <circle cx={EAR_L.x - 30} cy={EAR_L.y} r="34" fill={accent}>
+          <animate attributeName="opacity" values="1;0.65;1" dur="2.8s" repeatCount="indefinite" />
+        </circle>
+        <circle cx={EAR_L.x - 30 - 8} cy={EAR_L.y - 8} r="10" fill={jadeBright} opacity="0.85" />
+        {/* Tiny audio cable hint */}
+        <path d={`M ${EAR_L.x - 30} ${EAR_L.y + 30} Q ${EAR_L.x - 60} ${EAR_L.y + 120} ${EAR_L.x - 30} ${EAR_L.y + 200}`} fill="none" stroke={accent} strokeWidth="6" opacity="0.55" />
+
+        <circle cx={EAR_R.x + 30} cy={EAR_R.y} r="34" fill={accent}>
+          <animate attributeName="opacity" values="1;0.65;1" dur="2.8s" repeatCount="indefinite" begin="0.5s" />
+        </circle>
+        <circle cx={EAR_R.x + 30 - 8} cy={EAR_R.y - 8} r="10" fill={jadeBright} opacity="0.85" />
+        <path d={`M ${EAR_R.x + 30} ${EAR_R.y + 30} Q ${EAR_R.x + 60} ${EAR_R.y + 120} ${EAR_R.x + 30} ${EAR_R.y + 200}`} fill="none" stroke={accent} strokeWidth="6" opacity="0.55" />
+      </g>
+    );
+  }
+
+  /* ── Halo Loop: bold jade rings framing the side caps ── */
+  if (headphonesId === "loop") {
+    return (
+      <g>
+        <ellipse cx={EAR_L.x} cy={EAR_L.y} rx="60" ry="86" fill="none" stroke={accent} strokeWidth="14" />
+        <ellipse cx={EAR_L.x} cy={EAR_L.y} rx="36" ry="56" fill={accent} opacity="0.35">
+          <animate attributeName="opacity" values="0.35;0.7;0.35" dur="2.4s" repeatCount="indefinite" />
+        </ellipse>
+        <ellipse cx={EAR_R.x} cy={EAR_R.y} rx="60" ry="86" fill="none" stroke={accent} strokeWidth="14" />
+        <ellipse cx={EAR_R.x} cy={EAR_R.y} rx="36" ry="56" fill={accent} opacity="0.35">
+          <animate attributeName="opacity" values="0.35;0.7;0.35" dur="2.4s" repeatCount="indefinite" begin="0.6s" />
+        </ellipse>
+      </g>
+    );
+  }
+
+  /* ── Wing Fins: angular jade fins slicing back ── */
+  if (headphonesId === "fins") {
+    const finL = `M ${EAR_L.x + 20} ${EAR_L.y - 80}
+                  L ${EAR_L.x - 130} ${EAR_L.y - 30}
+                  L ${EAR_L.x - 150} ${EAR_L.y + 30}
+                  L ${EAR_L.x - 60} ${EAR_L.y + 50}
+                  L ${EAR_L.x + 20} ${EAR_L.y + 70} Z`;
+    const finR = `M ${EAR_R.x - 20} ${EAR_R.y - 80}
+                  L ${EAR_R.x + 130} ${EAR_R.y - 30}
+                  L ${EAR_R.x + 150} ${EAR_R.y + 30}
+                  L ${EAR_R.x + 60} ${EAR_R.y + 50}
+                  L ${EAR_R.x - 20} ${EAR_R.y + 70} Z`;
+    return (
+      <g>
+        <path d={finL} fill={accent} />
+        <path d={finL} fill="none" stroke={jadeBright} strokeWidth="4" opacity="0.6" />
+        <path d={finR} fill={accent} />
+        <path d={finR} fill="none" stroke={jadeBright} strokeWidth="4" opacity="0.6" />
+      </g>
+    );
+  }
+
+  return null;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
  *  Main component
  * ════════════════════════════════════════════════════════════════════════ */
 export function AgentAvatarSvg({
@@ -381,10 +657,12 @@ export function AgentAvatarSvg({
   static: isStatic = false,
 }: AgentAvatarSvgProps) {
   const accent = getAccentHex(config?.accent);
+  const visorColor = getVisorColorHex(config?.visorColor, config?.accent);
   const chassisSpec = getChassisSpec(config?.chassis);
   const eyesId = config?.eyes ?? "smile";
   const antennaId = config?.antenna ?? "jewel";
   const wingsId = config?.wings ?? "none";
+  const headphonesId = config?.headphones ?? "bumper";
   const baseHex = getBaseColorHex(config?.baseColor);
   const light = isLightBase(config?.baseColor);
   const shellHex = light ? "#1A1A22" : "#FCFBFC";
@@ -417,18 +695,10 @@ export function AgentAvatarSvg({
           <stop offset="0%" stopColor={lighten(insetHex, 0.1)} />
           <stop offset="100%" stopColor={insetHex} />
         </radialGradient>
-        <radialGradient id="cux-jade-jewel-grad" cx="40%" cy="35%" r="70%">
-          <stop offset="0%" stopColor={jadeBright} />
-          <stop offset="55%" stopColor={accent} />
-          <stop offset="100%" stopColor={BRAND_COLORS.jadeShadow} />
-        </radialGradient>
         <radialGradient id="cux-aura-glow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor={accent} stopOpacity="0.65" />
           <stop offset="100%" stopColor={accent} stopOpacity="0" />
         </radialGradient>
-        <filter id="cux-jade-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="14" />
-        </filter>
         <filter id="cux-tile-shadow" x="-12%" y="-12%" width="124%" height="124%">
           <feGaussianBlur in="SourceAlpha" stdDeviation="20" />
           <feOffset dy="14" result="off" />
@@ -442,7 +712,7 @@ export function AgentAvatarSvg({
       </defs>
 
       {/* Ambient aura — sits behind the tile */}
-      {renderAura(wingsId, accent)}
+      {renderAura(wingsId, accent, jadeBright)}
 
       {/* Big soft jade glow behind the tile */}
       <ellipse cx="627" cy="700" rx="600" ry="560" fill="url(#cux-aura-glow)" opacity="0.55" />
@@ -488,25 +758,17 @@ export function AgentAvatarSvg({
             opacity="0.7"
           />
 
+          {/* Headphones — layered over the ear-cap area (skipped for "bumper") */}
+          {renderHeadphones(headphonesId, accent, jadeBright, shellHex)}
+
           {/* Dark inset face — the screen */}
           <path d={PATH_INSET_FACE} fill="url(#cux-inset-grad)" />
 
           {/* Bezel sliver — the dark line above the inset */}
           <path d={PATH_BEZEL_SLIVER} fill={bezelHex} />
 
-          {/* Forehead jewel — only when eyes are smile (matches logo) */}
-          {eyesId === "smile" && (
-            <g>
-              <circle cx={JEWEL.x} cy={JEWEL.y} r="42" fill="url(#cux-jade-jewel-grad)" filter="url(#cux-jade-glow)" opacity="0.55">
-                <animate attributeName="opacity" values="0.55;0.2;0.55" dur="2.6s" repeatCount="indefinite" />
-              </circle>
-              <path d={PATH_FOREHEAD_JEWEL} fill="url(#cux-jade-jewel-grad)" />
-              <circle cx={JEWEL.x - 6} cy={JEWEL.y - 8} r="6" fill={jadeBright} opacity="0.9" />
-            </g>
-          )}
-
           {/* Eyes inside the dark inset */}
-          {renderEyes(eyesId, expression, accent, jadeBright)}
+          {renderEyes(eyesId, expression, accent, jadeBright, visorColor)}
 
           {/* Inner glow inside the inset face — pulses subtly */}
           <ellipse cx={627} cy={700} rx="220" ry="120" fill="url(#cux-aura-glow)" opacity="0.18" pointerEvents="none">

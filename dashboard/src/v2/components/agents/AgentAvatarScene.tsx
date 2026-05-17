@@ -28,6 +28,7 @@ import type { AgentAvatarConfig } from "../../types.js";
 import {
   DEFAULT_AGENT_AVATAR_CONFIG,
   getAccentHex,
+  getVisorColorHex,
   isLightBase,
   BRAND_COLORS,
   type AgentAvatarExpression,
@@ -248,7 +249,111 @@ function getChassisSpec(id?: string): ChassisSpec {
 /* ════════════════════════════════════════════════════════════════════════
  *  Build the avatar — returns named refs for the animation loop
  * ════════════════════════════════════════════════════════════════════════ */
-function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
+/* ════════════════════════════════════════════════════════════════════════
+ *  Headphones — five 3D variants. Drawn flanking the ear-cap area; the
+ *  underlying white ear-cap spheres stay so the brand silhouette persists.
+ *
+ *  Coordinate system (relative to innerGroup):
+ *    Left ear  ≈ (-0.78, -0.18, 0.18)
+ *    Right ear ≈ ( 0.78, -0.18, 0.18)
+ * ════════════════════════════════════════════════════════════════════════ */
+function buildHeadphones(
+  headphonesId: string,
+  parent: THREE.Group,
+  mats: Mats,
+  visorColorInt: number,
+  envMap: THREE.CubeTexture | null,
+  shellW: number,
+) {
+  if (headphonesId === "bumper") return;
+
+  const earL = { x: -shellW / 2 - 0.05, y: -0.18, z: 0.18 };
+  const earR = { x:  shellW / 2 + 0.05, y: -0.18, z: 0.18 };
+
+  if (headphonesId === "studio") {
+    // Connecting band arcing over the head — a thin torus arc
+    const bandGeo = new THREE.TorusGeometry(shellW / 2 + 0.05, 0.04, 10, 40, Math.PI);
+    const band = new THREE.Mesh(bandGeo, mats.shell);
+    band.rotation.x = Math.PI / 2;
+    band.rotation.z = Math.PI; // arch opens downward → over the head
+    band.position.set(0, 0.45, 0.18);
+    parent.add(band);
+    // Cups + pads
+    [earL, earR].forEach((e) => {
+      const cupGeo = new THREE.SphereGeometry(0.22, 24, 24);
+      cupGeo.scale(1.0, 1.0, 0.6);
+      const cup = new THREE.Mesh(cupGeo, mats.inset);
+      cup.position.set(e.x, e.y, e.z + 0.03);
+      parent.add(cup);
+      const padGeo = new THREE.SphereGeometry(0.13, 20, 20);
+      padGeo.scale(1.0, 1.0, 0.5);
+      const pad = new THREE.Mesh(padGeo, mats.jade);
+      pad.position.set(e.x, e.y, e.z + 0.12);
+      parent.add(pad);
+      const ringGeo = new THREE.TorusGeometry(0.22, 0.014, 8, 32);
+      const ring = new THREE.Mesh(ringGeo, mats.shell);
+      ring.position.set(e.x, e.y, e.z + 0.05);
+      parent.add(ring);
+    });
+    return;
+  }
+
+  if (headphonesId === "earbuds") {
+    [earL, earR].forEach((e, idx) => {
+      const sign = idx === 0 ? -1 : 1;
+      const budGeo = new THREE.SphereGeometry(0.085, 18, 18);
+      const bud = new THREE.Mesh(budGeo, mats.jade);
+      bud.position.set(e.x + sign * 0.06, e.y, e.z + 0.06);
+      parent.add(bud);
+      // Tiny cable hint — a small torus segment
+      const cableGeo = new THREE.TorusGeometry(0.16, 0.012, 6, 24, Math.PI / 2);
+      const cable = new THREE.Mesh(cableGeo, mats.jadeStem);
+      cable.rotation.z = sign > 0 ? -Math.PI / 2 : Math.PI;
+      cable.position.set(e.x + sign * 0.06, e.y - 0.12, e.z + 0.06);
+      parent.add(cable);
+    });
+    return;
+  }
+
+  if (headphonesId === "loop") {
+    [earL, earR].forEach((e) => {
+      const ringGeo = new THREE.TorusGeometry(0.2, 0.035, 12, 40);
+      const ring = new THREE.Mesh(ringGeo, mats.jade);
+      ring.position.set(e.x, e.y, e.z + 0.04);
+      ring.rotation.y = Math.PI / 2;
+      parent.add(ring);
+      const padGeo = new THREE.SphereGeometry(0.1, 18, 18);
+      padGeo.scale(0.4, 1.0, 1.0);
+      const pad = new THREE.Mesh(padGeo, mats.jade);
+      pad.position.set(e.x, e.y, e.z + 0.06);
+      parent.add(pad);
+    });
+    return;
+  }
+
+  if (headphonesId === "fins") {
+    // Sleek angled fins sweeping backward — extruded triangles
+    const buildFin = (sign: number) => {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0.18);
+      shape.lineTo(sign * 0.36, -0.05);
+      shape.lineTo(sign * 0.42, -0.16);
+      shape.lineTo(sign * 0.12, -0.12);
+      shape.lineTo(0, -0.04);
+      shape.lineTo(0, 0.18);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 3, curveSegments: 16 });
+      const fin = new THREE.Mesh(geo, mats.jade);
+      const target = sign < 0 ? earL : earR;
+      fin.position.set(target.x, target.y, target.z + 0.02);
+      parent.add(fin);
+    };
+    buildFin(-1);
+    buildFin(1);
+    return;
+  }
+}
+
+function buildAvatar(config: AgentAvatarConfig, mats: Mats, visorColorInt: number, envMap: THREE.CubeTexture | null) {
   const root = new THREE.Group();
   const headGroup = new THREE.Group();
   root.add(headGroup);
@@ -308,12 +413,22 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
   const eyesId = config.eyes ?? "smile";
   let leftEye: THREE.Mesh;
   let rightEye: THREE.Mesh | null = null;
-  let eyesKind: "smile" | "visor" | "single" | "pixel" = "smile";
+  let eyesKind: "smile" | "visor" | "single" | "pixel" | "heart" = "smile";
 
   if (eyesId === "visor") {
     eyesKind = "visor";
+    // Visor uses its own configurable color (independent of the jade accent)
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: visorColorInt,
+      emissive: visorColorInt,
+      emissiveIntensity: 0.95,
+      metalness: 0.4,
+      roughness: 0.18,
+      envMap,
+      envMapIntensity: 0.55,
+    });
     const visorGeo = new THREE.BoxGeometry(insetW * 0.82, 0.12, 0.06);
-    leftEye = new THREE.Mesh(visorGeo, mats.jade);
+    leftEye = new THREE.Mesh(visorGeo, visorMat);
     leftEye.position.set(0, 0, 0);
     eyesGroup.add(leftEye);
     // Inner pupil dots
@@ -324,6 +439,37 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
     const rp = new THREE.Mesh(pupGeo, mats.glint);
     rp.position.set(eyeSep, 0, 0.05);
     eyesGroup.add(rp);
+  } else if (eyesId === "heart") {
+    eyesKind = "heart";
+    // Heart-shaped eyes — two stacked spheres + a downward triangle, fused.
+    const buildHeart = (sign: number) => {
+      const grp = new THREE.Group();
+      const lobeGeo = new THREE.SphereGeometry(0.06, 18, 18);
+      const lobeL = new THREE.Mesh(lobeGeo, mats.jade);
+      lobeL.position.set(-0.04, 0.025, 0.0);
+      const lobeR = new THREE.Mesh(lobeGeo, mats.jade);
+      lobeR.position.set(0.04, 0.025, 0.0);
+      grp.add(lobeL);
+      grp.add(lobeR);
+      // Pointed bottom — small extruded triangle
+      const tri = new THREE.Shape();
+      tri.moveTo(-0.07, 0.02);
+      tri.lineTo(0.07, 0.02);
+      tri.lineTo(0, -0.09);
+      tri.lineTo(-0.07, 0.02);
+      const triGeo = new THREE.ExtrudeGeometry(tri, { depth: 0.04, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 3, curveSegments: 12 });
+      const triMesh = new THREE.Mesh(triGeo, mats.jade);
+      triMesh.position.set(0, 0, 0);
+      grp.add(triMesh);
+      grp.position.set(sign * eyeSep, 0, 0.03);
+      eyesGroup.add(grp);
+      return grp;
+    };
+    const lh = buildHeart(-1);
+    const rh = buildHeart(1);
+    // Treat the GROUPs as eyes for the animation loop's scale.y squash
+    leftEye = lh as unknown as THREE.Mesh;
+    rightEye = rh as unknown as THREE.Mesh;
   } else if (eyesId === "single") {
     eyesKind = "single";
     const lensGeo = new THREE.SphereGeometry(0.18, 32, 32);
@@ -359,22 +505,12 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
     eyesGroup.add(rightEye);
   }
 
-  /* ── 6. Forehead jewel ── */
-  let jewel: THREE.Mesh | null = null;
-  if (eyesId === "smile") {
-    const jewelGeo = new THREE.SphereGeometry(0.075, 24, 24);
-    jewel = new THREE.Mesh(jewelGeo, mats.jade);
-    jewel.position.set(0, 0.08, 0.34);
-    innerGroup.add(jewel);
-    const jewelGlowGeo = new THREE.SphereGeometry(0.16, 16, 16);
-    const jewelGlow = new THREE.Mesh(jewelGlowGeo, mats.jadeGlow);
-    jewelGlow.position.copy(jewel.position);
-    innerGroup.add(jewelGlow);
-    const glintGeo = new THREE.SphereGeometry(0.022, 8, 8);
-    const glint = new THREE.Mesh(glintGeo, mats.glint);
-    glint.position.set(-0.022, 0.094, 0.41);
-    innerGroup.add(glint);
-  }
+  /* The forehead jewel was removed per user request — the smile bot now
+     has a clean forehead. The antenna jewel keeps the brand pulse. */
+
+  /* ── Headphones — five styles, drawn over the white ear caps ── */
+  const headphonesId = config.headphones ?? "bumper";
+  buildHeadphones(headphonesId, innerGroup, mats, visorColorInt, envMap, shellW);
 
   /* ── 7. Antenna ── */
   const antennaGroup = new THREE.Group();
@@ -411,6 +547,20 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
     halo.rotation.x = Math.PI / 2;
     halo.position.copy(tip.position);
     antennaGroup.add(halo);
+  } else if (antennaId === "wifi") {
+    // Small antenna dot + three signal arcs radiating up
+    const baseGeo = new THREE.SphereGeometry(0.05, 16, 16);
+    const base = new THREE.Mesh(baseGeo, mats.jade);
+    base.position.set(0, 0.12, 0.05);
+    antennaGroup.add(base);
+    antennaTip = base;
+    // Three concentric arcs — TorusGeometry with arc < 2π
+    [0.16, 0.24, 0.32].forEach((r, i) => {
+      const arcGeo = new THREE.TorusGeometry(r, 0.018, 10, 24, Math.PI);
+      const arc = new THREE.Mesh(arcGeo, mats.jade);
+      arc.position.set(0, 0.12, 0.05);
+      antennaGroup.add(arc);
+    });
   } else if (antennaId !== "none") {
     // Default jewel: vertical pill + two diagonal tilt lines
     const pillGeo = extrude(capsuleShape(0.09, 0.32), 0.05, 0.012, 3);
@@ -430,34 +580,82 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
     antennaGroup.add(lineR);
   }
 
-  /* ── 8. Aura (behind the tile) ── */
+  /* ── 8. Aura (behind / around the head) ── */
   const auraGroup = new THREE.Group();
   root.add(auraGroup);
   const wingsId = config.wings ?? "none";
-  const auraRefs: { r1?: THREE.Mesh; r2?: THREE.Mesh; halo?: THREE.Mesh; kind: string } = { kind: wingsId };
+  const auraRefs: { r1?: THREE.Mesh; r2?: THREE.Mesh; halo?: THREE.Mesh; orbits?: THREE.Mesh[]; kind: string } = { kind: wingsId };
+
   if (wingsId === "halo") {
-    const haloGeo = new THREE.TorusGeometry(1.55, 0.04, 12, 80);
+    // Tilted celestial crown — two stacked ellipses + 3 floating dots that rotate
+    const haloGeo = new THREE.TorusGeometry(1.05, 0.035, 12, 80);
     const halo = new THREE.Mesh(haloGeo, mats.jade);
-    halo.rotation.x = Math.PI / 2;
-    halo.position.z = -0.2;
+    halo.rotation.x = Math.PI / 2.4;
+    halo.position.set(0, 0.85, -0.2);
     auraGroup.add(halo);
     auraRefs.halo = halo;
+    // Inner crisp ring
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.02, 10, 64), mats.jade);
+    inner.rotation.x = Math.PI / 2.4;
+    inner.position.set(0, 0.85, -0.2);
+    auraGroup.add(inner);
+    // 3 floating accent satellites
+    [-1, 0, 1].forEach((i) => {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 14), mats.jade);
+      const a = i * (Math.PI / 3) + Math.PI / 2;
+      orb.position.set(Math.cos(a) * 1.05, 0.85 + Math.sin(a) * 0.4 - 0.05, -0.2);
+      auraGroup.add(orb);
+    });
   } else if (wingsId === "pulse") {
-    const r1Geo = new THREE.TorusGeometry(1.4, 0.025, 10, 80);
-    const r1 = new THREE.Mesh(r1Geo, mats.jade);
+    // Avantgarde shockwave — three rotated rounded-rect rings (extruded
+    // wireframes) instead of plain circles. Angled offsets create the
+    // designer-style asymmetric pulse the user wants.
+    const buildRect = (size: number, rot: number, mat: THREE.MeshStandardMaterial) => {
+      const outer = roundedRectShape(size, size, size * 0.32);
+      const innerR = roundedRectShape(size - 0.05, size - 0.05, (size - 0.05) * 0.32);
+      const path = new THREE.Path();
+      // Subtract inner from outer for a wireframe-like ring
+      outer.holes.push(path);
+      void innerR;
+      const geo = new THREE.ExtrudeGeometry(outer, { depth: 0.01, bevelEnabled: false, curveSegments: 24 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.z = rot;
+      mesh.position.z = -0.05;
+      return mesh;
+    };
+    // Use tori instead — cleaner ring silhouette
+    const r1 = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.025, 12, 80), mats.jade);
     r1.rotation.x = Math.PI / 2;
     r1.position.z = -0.1;
     auraGroup.add(r1);
     auraRefs.r1 = r1;
-    const r2Geo = new THREE.TorusGeometry(1.55, 0.02, 10, 80);
-    const r2 = new THREE.Mesh(r2Geo, mats.jadeStem);
+    const r2 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.018, 12, 80), mats.jadeStem);
     r2.rotation.x = Math.PI / 2;
     r2.position.z = -0.1;
     auraGroup.add(r2);
     auraRefs.r2 = r2;
+    // Plus an off-axis accent ring for the avantgarde tilt
+    const r3 = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.014, 10, 64), mats.jade);
+    r3.rotation.x = Math.PI / 2;
+    r3.rotation.z = Math.PI / 8;
+    r3.position.z = -0.1;
+    auraGroup.add(r3);
+    (auraRefs as { r3?: THREE.Mesh }).r3 = r3;
+  } else if (wingsId === "orbit") {
+    // Three jade satellites orbiting on a tilted ellipse
+    const orbits: THREE.Mesh[] = [];
+    [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].forEach((phase) => {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 18, 18), mats.jade);
+      // initial position; the animation loop updates them per-frame
+      orb.position.set(Math.cos(phase) * 1.45, 0, Math.sin(phase) * 0.35);
+      orb.userData.phase = phase;
+      auraGroup.add(orb);
+      orbits.push(orb);
+    });
+    auraRefs.orbits = orbits;
   }
 
-  return { root, headGroup, innerGroup, shell, inset, ears: [earL, earR], eyesGroup, leftEye, rightEye, eyesKind, jewel, antennaGroup, antennaTip, auraGroup, auraRefs };
+  return { root, headGroup, innerGroup, shell, inset, ears: [earL, earR], eyesGroup, leftEye, rightEye, eyesKind, antennaGroup, antennaTip, auraGroup, auraRefs };
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -492,7 +690,7 @@ export function AgentAvatarScene({
     return () => mq.removeEventListener?.("change", h);
   }, []);
 
-  const configKey = `${config.chassis}-${config.eyes}-${config.antenna}-${config.wings}-${config.accent}-${config.baseColor}`;
+  const configKey = `${config.chassis}-${config.eyes}-${config.antenna}-${config.wings}-${config.headphones}-${config.accent}-${config.baseColor}-${config.visorColor}`;
 
   useEffect(() => {
     if (fallbackMode || webglError) return;
@@ -538,6 +736,7 @@ export function AgentAvatarScene({
     camera.lookAt(0, 0, 0);
 
     const accent = hexInt(getAccentHex(config.accent), 0x00eaab);
+    const visorColor = hexInt(getVisorColorHex(config.visorColor, config.accent), accent);
     const shell = isLightBase(config.baseColor) ? hexInt("#1A1A22") : hexInt(BRAND_COLORS.shellLight);
     const inset = isLightBase(config.baseColor) ? hexInt(BRAND_COLORS.shellLight) : hexInt(BRAND_COLORS.inkFace);
     const light = isLightBase(config.baseColor);
@@ -567,7 +766,7 @@ export function AgentAvatarScene({
     const avatarGroup = new THREE.Group();
     scene.add(avatarGroup);
 
-    const parts = buildAvatar(config, mats);
+    const parts = buildAvatar(config, mats, visorColor, envMap);
     avatarGroup.add(parts.root);
 
     // Particle ambient: jade motes drifting up around the head
@@ -697,7 +896,6 @@ export function AgentAvatarScene({
       }
     }
 
-    const jewelMat = p.jewel?.material as THREE.MeshStandardMaterial | undefined;
     const antennaTipMat = p.antennaTip?.material as THREE.MeshStandardMaterial | undefined;
 
     const animate = () => {
@@ -745,17 +943,32 @@ export function AgentAvatarScene({
 
       // Jewel + antenna pulse
       const pulse = jewelIntensity * (0.85 + Math.sin(t * 2.4) * 0.2);
-      if (jewelMat) jewelMat.emissiveIntensity = THREE.MathUtils.lerp(jewelMat.emissiveIntensity, pulse, 0.08);
       if (antennaTipMat) antennaTipMat.emissiveIntensity = THREE.MathUtils.lerp(antennaTipMat.emissiveIntensity, pulse * 1.05, 0.08);
 
-      // Aura ring pulse
+      // Aura ring pulse — three rings phase-offset
       if (p.auraRefs.kind === "pulse" && p.auraRefs.r1 && p.auraRefs.r2) {
-        const k = 1 + Math.sin(t * 1.8) * 0.06;
-        p.auraRefs.r1.scale.set(k, k, k);
-        p.auraRefs.r2.scale.set(k * 1.04, k * 1.04, k * 1.04);
+        const k1 = 1 + Math.sin(t * 1.8) * 0.06;
+        const k2 = 1 + Math.sin(t * 1.8 + 0.5) * 0.05;
+        p.auraRefs.r1.scale.set(k1, k1, k1);
+        p.auraRefs.r2.scale.set(k2 * 1.04, k2 * 1.04, k2 * 1.04);
+        const r3 = (p.auraRefs as { r3?: THREE.Mesh }).r3;
+        if (r3) {
+          const k3 = 1 + Math.sin(t * 1.8 + 1.0) * 0.04;
+          r3.scale.set(k3 * 1.02, k3 * 1.02, k3 * 1.02);
+          r3.rotation.z += 0.004;
+        }
       }
       if (p.auraRefs.kind === "halo" && p.auraRefs.halo) {
         p.auraGroup.rotation.y += 0.006;
+      }
+      if (p.auraRefs.kind === "orbit" && p.auraRefs.orbits) {
+        // 3 satellites circling on a tilted ellipse (xz plane, slight y tilt)
+        p.auraRefs.orbits.forEach((orb) => {
+          const phase = (orb.userData.phase ?? 0) + t * 0.6;
+          orb.position.x = Math.cos(phase) * 1.5;
+          orb.position.z = Math.sin(phase) * 0.45;
+          orb.position.y = Math.sin(phase * 0.5) * 0.18;
+        });
       }
 
       // Particles drift up

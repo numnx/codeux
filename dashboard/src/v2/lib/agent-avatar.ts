@@ -39,7 +39,6 @@ export const SHOWCASE_EXPRESSIONS: AgentAvatarExpression[] = [
 
 /* ════════════════════════════════════════════════════════════════════════
  *  Brand DNA — the canonical Code UX logo palette.
- *  Every avatar variant pulls from this so they all read as the same family.
  * ════════════════════════════════════════════════════════════════════════ */
 export const BRAND_COLORS = {
   onyx: "#050507",
@@ -60,78 +59,99 @@ export const AGENT_AVATAR_SHIRTS = ["style1", "style2", "style3", "style4"];
 export const AGENT_AVATAR_BOTTOMS = ["style1", "style2", "style3", "style4"];
 
 /* ════════════════════════════════════════════════════════════════════════
- *  Robot part catalogues — curated to stay inside logo DNA.
+ *  Robot part catalogues
  *
- *  CHASSIS — silhouette proportions only. All chassis share the same
- *  rounded-cushion language as the logo's outer body; variations tweak
- *  width/height so identities feel distinct without breaking the brand.
- *
- *  EYES (face inset) — the canonical look is "smile" (the jade arches in
- *  the logo). Other variants live inside the same dark face inset and use
- *  the same jade glow language.
- *
- *  ANTENNA — the logo's signature is a single jade jewel-ball + two
- *  diagonal tilt lines. Variants are restatements of that motif.
- *
- *  AURA (stored in the `wings` field for backward compat) — adds an
- *  optional ambient flourish around the head. Replaces the old wing/jet
- *  metaphor with logo-faithful jade flair: none, pulse rings, jade dust,
- *  or a soft halo.
+ *  Five options per category, curated to stay inside logo DNA.
+ *  All renderers (SVG + 3D) must understand each id.
  * ════════════════════════════════════════════════════════════════════════ */
 
 export const ROBOT_CHASSIS_OPTIONS = [
   { id: "classic", label: "Classic" },
-  { id: "square", label: "Square" },
-  { id: "tall", label: "Tall" },
-  { id: "pebble", label: "Pebble" },
+  { id: "square",  label: "Square" },
+  { id: "tall",    label: "Tall" },
+  { id: "pebble",  label: "Pebble" },
+  { id: "soft",    label: "Soft" },        // NEW — extra-rounded squircle
 ] as const;
 
 export const ROBOT_EYE_OPTIONS = [
-  { id: "smile", label: "Smile Arcs" },
-  { id: "visor", label: "Visor" },
+  { id: "smile",  label: "Smile Arcs" },
+  { id: "visor",  label: "Visor" },
   { id: "single", label: "Single Lens" },
-  { id: "pixel", label: "Pixel" },
+  { id: "pixel",  label: "Pixel" },
+  { id: "heart",  label: "Heart" },        // NEW
 ] as const;
 
 export const ROBOT_ANTENNA_OPTIONS = [
   { id: "jewel", label: "Jewel" },
   { id: "bunny", label: "Bunny" },
-  { id: "beam", label: "Beacon" },
-  { id: "none", label: "None" },
+  { id: "beam",  label: "Beacon" },
+  { id: "wifi",  label: "Signal" },        // NEW — three arc waves
+  { id: "none",  label: "None" },
 ] as const;
 
-/** Stored in the legacy `wings` config field. */
+/** Aura — stored in the legacy `wings` config field for backward compat. */
 export const ROBOT_WING_OPTIONS = [
-  { id: "none", label: "Clean" },
-  { id: "pulse", label: "Pulse Rings" },
-  { id: "dust", label: "Jade Dust" },
-  { id: "halo", label: "Halo" },
+  { id: "none",  label: "Clean" },
+  { id: "pulse", label: "Pulse" },
+  { id: "dust",  label: "Jade Dust" },
+  { id: "halo",  label: "Halo" },
+  { id: "orbit", label: "Orbit" },         // NEW — orbiting jade satellites
 ] as const;
 
-export const ROBOT_ACCENT_OPTIONS = [
-  { id: "jade", label: "Signal Jade", hex: BRAND_COLORS.jade },
-  { id: "amber", label: "Ember Amber", hex: "#FFB347" },
-  { id: "violet", label: "Cosmic Violet", hex: "#A78BFA" },
-  { id: "coral", label: "Warm Coral", hex: "#FF8FA3" },
-  { id: "sky", label: "Sky Blue", hex: "#7DD3FC" },
-  { id: "fuchsia", label: "Neon Fuchsia", hex: "#F472B6" },
+/** Headphones — five different side-of-head styles. */
+export const ROBOT_HEADPHONES_OPTIONS = [
+  { id: "bumper",  label: "Bumper" },      // logo default — flat ear caps
+  { id: "studio",  label: "Studio" },      // over-ear cups with jade pad
+  { id: "earbuds", label: "Earbuds" },     // small clip-on spheres
+  { id: "loop",    label: "Halo Loop" },   // jade ring frames
+  { id: "fins",    label: "Wing Fins" },   // sleek angled fins
 ] as const;
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  Color palettes — 12 accents and 12 base colors, curated for harmony
+ *  with the jade brand mark. Visor color reuses the accent palette.
+ * ════════════════════════════════════════════════════════════════════════ */
+export const ROBOT_ACCENT_OPTIONS = [
+  { id: "jade",     label: "Signal Jade",  hex: BRAND_COLORS.jade },
+  { id: "amber",    label: "Ember Amber",  hex: "#FFB347" },
+  { id: "violet",   label: "Cosmic Violet", hex: "#A78BFA" },
+  { id: "coral",    label: "Warm Coral",   hex: "#FF8FA3" },
+  { id: "sky",      label: "Sky Blue",     hex: "#7DD3FC" },
+  { id: "fuchsia",  label: "Neon Fuchsia", hex: "#F472B6" },
+  /* NEW (+6) */
+  { id: "emerald",  label: "Forest Emerald", hex: "#10B981" },
+  { id: "gold",     label: "Luxe Gold",      hex: "#FBBF24" },
+  { id: "crimson",  label: "Crimson",        hex: "#EF4444" },
+  { id: "lavender", label: "Lavender",       hex: "#C4B5FD" },
+  { id: "cyan",     label: "Electric Cyan",  hex: "#06B6D4" },
+  { id: "rose",     label: "Rose Quartz",    hex: "#FB7185" },
+] as const;
+
+export const ROBOT_VISOR_COLOR_OPTIONS = ROBOT_ACCENT_OPTIONS;
 
 export const ROBOT_BASE_COLOR_OPTIONS = [
-  { id: "onyx", label: "Onyx", hex: BRAND_COLORS.onyx },
-  { id: "graphite", label: "Graphite", hex: "#1B1B22" },
-  { id: "midnight", label: "Midnight", hex: "#0B1023" },
-  { id: "ivory", label: "Ivory", hex: BRAND_COLORS.shellWarm },
-  { id: "arctic", label: "Arctic", hex: "#E5ECF3" },
-  { id: "rose", label: "Rose Dust", hex: "#F2D6D2" },
+  { id: "onyx",     label: "Onyx",        hex: BRAND_COLORS.onyx },
+  { id: "graphite", label: "Graphite",    hex: "#1B1B22" },
+  { id: "midnight", label: "Midnight",    hex: "#0B1023" },
+  { id: "ivory",    label: "Ivory",       hex: BRAND_COLORS.shellWarm },
+  { id: "arctic",   label: "Arctic",      hex: "#E5ECF3" },
+  { id: "rose",     label: "Rose Dust",   hex: "#F2D6D2" },
+  /* NEW (+6) */
+  { id: "charcoal", label: "Charcoal",    hex: "#2A2C33" },
+  { id: "plum",     label: "Plum Noir",   hex: "#1F0F2A" },
+  { id: "navy",     label: "Deep Navy",   hex: "#0F1E3D" },
+  { id: "cream",    label: "Cream",       hex: "#F5EFE0" },
+  { id: "mist",     label: "Pale Mist",   hex: "#DDE8F0" },
+  { id: "sage",     label: "Sage",        hex: "#D9E3D3" },
 ] as const;
 
-export type RobotChassis = typeof ROBOT_CHASSIS_OPTIONS[number]["id"];
-export type RobotEyes = typeof ROBOT_EYE_OPTIONS[number]["id"];
-export type RobotAntenna = typeof ROBOT_ANTENNA_OPTIONS[number]["id"];
-export type RobotWings = typeof ROBOT_WING_OPTIONS[number]["id"];
-export type RobotAccent = typeof ROBOT_ACCENT_OPTIONS[number]["id"];
-export type RobotBaseColor = typeof ROBOT_BASE_COLOR_OPTIONS[number]["id"];
+export type RobotChassis    = typeof ROBOT_CHASSIS_OPTIONS[number]["id"];
+export type RobotEyes       = typeof ROBOT_EYE_OPTIONS[number]["id"];
+export type RobotAntenna    = typeof ROBOT_ANTENNA_OPTIONS[number]["id"];
+export type RobotWings      = typeof ROBOT_WING_OPTIONS[number]["id"];
+export type RobotHeadphones = typeof ROBOT_HEADPHONES_OPTIONS[number]["id"];
+export type RobotAccent     = typeof ROBOT_ACCENT_OPTIONS[number]["id"];
+export type RobotBaseColor  = typeof ROBOT_BASE_COLOR_OPTIONS[number]["id"];
 
 export const DEFAULT_AGENT_AVATAR_CONFIG: AgentAvatarConfig = {
   body: "male",
@@ -143,38 +163,52 @@ export const DEFAULT_AGENT_AVATAR_CONFIG: AgentAvatarConfig = {
   eyes: "smile",
   antenna: "jewel",
   wings: "none",
+  headphones: "bumper",
   accent: "jade",
   baseColor: "onyx",
+  visorColor: "jade",
 };
 
-/** Get accent hex color from accent id */
+/* ── Color helpers ── */
 export function getAccentHex(accentId?: string): string {
   const found = ROBOT_ACCENT_OPTIONS.find((o) => o.id === accentId);
   return found?.hex ?? BRAND_COLORS.jade;
 }
 
-/** Get base color hex from base color id */
 export function getBaseColorHex(baseColorId?: string): string {
   const found = ROBOT_BASE_COLOR_OPTIONS.find((o) => o.id === baseColorId);
   return found?.hex ?? BRAND_COLORS.onyx;
 }
 
-/** Is this base color light (so we should flip the face shell to a darker tint)? */
-export function isLightBase(baseColorId?: string): boolean {
-  return baseColorId === "ivory" || baseColorId === "arctic" || baseColorId === "rose";
+export function getVisorColorHex(visorColorId?: string, fallbackAccentId?: string): string {
+  if (visorColorId) {
+    const found = ROBOT_VISOR_COLOR_OPTIONS.find((o) => o.id === visorColorId);
+    if (found) return found.hex;
+  }
+  return getAccentHex(fallbackAccentId);
 }
 
-/** Pick the right face-shell color for a given base. */
+/** A "light" base flips the shell colors for contrast. */
+export function isLightBase(baseColorId?: string): boolean {
+  return (
+    baseColorId === "ivory" ||
+    baseColorId === "arctic" ||
+    baseColorId === "rose" ||
+    baseColorId === "cream" ||
+    baseColorId === "mist" ||
+    baseColorId === "sage"
+  );
+}
+
 export function getShellHex(baseColorId?: string): string {
   return isLightBase(baseColorId) ? "#1A1A22" : BRAND_COLORS.shellLight;
 }
 
-/** Pick the right inner face inset color for a given base. */
 export function getInsetHex(baseColorId?: string): string {
   return isLightBase(baseColorId) ? "#FCFBFC" : BRAND_COLORS.inkFace;
 }
 
-/** Deterministically generates a random integer between min and max based on a seed string. */
+/** Deterministic seeded RNG */
 function deterministicRandomInt(seed: string, min: number, max: number): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -182,8 +216,7 @@ function deterministicRandomInt(seed: string, min: number, max: number): number 
     hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
-  const positiveHash = Math.abs(hash);
-  return min + (positiveHash % (max - min + 1));
+  return min + (Math.abs(hash) % (max - min + 1));
 }
 
 function pickRandom<T>(seed: string, options: readonly T[], salt: string): T {
@@ -196,100 +229,78 @@ function pickRandomId<T extends { id: string }>(seed: string, options: readonly 
 }
 
 export function generateRandomAgentAvatar(seed: string): AgentAvatarConfig {
-  if (!seed) {
-    return { ...DEFAULT_AGENT_AVATAR_CONFIG };
-  }
-
+  if (!seed) return { ...DEFAULT_AGENT_AVATAR_CONFIG };
   return {
     body: pickRandom(seed, AGENT_AVATAR_BODIES, "body"),
     hair: pickRandom(seed, AGENT_AVATAR_HAIRS, "hair"),
     face: pickRandom(seed, AGENT_AVATAR_FACES, "face"),
     shirt: pickRandom(seed, AGENT_AVATAR_SHIRTS, "shirt"),
     bottom: pickRandom(seed, AGENT_AVATAR_BOTTOMS, "bottom"),
-    chassis: pickRandomId(seed, ROBOT_CHASSIS_OPTIONS, "chassis"),
-    eyes: pickRandomId(seed, ROBOT_EYE_OPTIONS, "eyes"),
-    antenna: pickRandomId(seed, ROBOT_ANTENNA_OPTIONS, "antenna"),
-    wings: pickRandomId(seed, ROBOT_WING_OPTIONS, "wings"),
-    accent: pickRandomId(seed, ROBOT_ACCENT_OPTIONS, "accent"),
-    baseColor: pickRandomId(seed, ROBOT_BASE_COLOR_OPTIONS, "baseColor"),
+    chassis:    pickRandomId(seed, ROBOT_CHASSIS_OPTIONS,    "chassis"),
+    eyes:       pickRandomId(seed, ROBOT_EYE_OPTIONS,        "eyes"),
+    antenna:    pickRandomId(seed, ROBOT_ANTENNA_OPTIONS,    "antenna"),
+    wings:      pickRandomId(seed, ROBOT_WING_OPTIONS,       "wings"),
+    headphones: pickRandomId(seed, ROBOT_HEADPHONES_OPTIONS, "headphones"),
+    accent:     pickRandomId(seed, ROBOT_ACCENT_OPTIONS,     "accent"),
+    baseColor:  pickRandomId(seed, ROBOT_BASE_COLOR_OPTIONS, "baseColor"),
+    visorColor: pickRandomId(seed, ROBOT_VISOR_COLOR_OPTIONS, "visorColor"),
   };
 }
 
 export function normalizeAgentAvatarConfig(
   config?: Partial<AgentAvatarConfig> | null
 ): AgentAvatarConfig {
-  if (!config) {
-    return { ...DEFAULT_AGENT_AVATAR_CONFIG };
-  }
+  if (!config) return { ...DEFAULT_AGENT_AVATAR_CONFIG };
 
   const normalized = { ...DEFAULT_AGENT_AVATAR_CONFIG };
 
-  if (config.body && AGENT_AVATAR_BODIES.includes(config.body)) {
-    normalized.body = config.body;
-  }
-  if (config.hair && AGENT_AVATAR_HAIRS.includes(config.hair)) {
-    normalized.hair = config.hair;
-  }
-  if (config.face && AGENT_AVATAR_FACES.includes(config.face)) {
-    normalized.face = config.face;
-  }
-  if (config.shirt && AGENT_AVATAR_SHIRTS.includes(config.shirt)) {
-    normalized.shirt = config.shirt;
-  }
-  if (config.bottom && AGENT_AVATAR_BOTTOMS.includes(config.bottom)) {
-    normalized.bottom = config.bottom;
-  }
+  if (config.body && AGENT_AVATAR_BODIES.includes(config.body))     normalized.body = config.body;
+  if (config.hair && AGENT_AVATAR_HAIRS.includes(config.hair))      normalized.hair = config.hair;
+  if (config.face && AGENT_AVATAR_FACES.includes(config.face))      normalized.face = config.face;
+  if (config.shirt && AGENT_AVATAR_SHIRTS.includes(config.shirt))   normalized.shirt = config.shirt;
+  if (config.bottom && AGENT_AVATAR_BOTTOMS.includes(config.bottom)) normalized.bottom = config.bottom;
 
-  const chassisIds = ROBOT_CHASSIS_OPTIONS.map((o) => o.id as string);
-  const eyeIds = ROBOT_EYE_OPTIONS.map((o) => o.id as string);
-  const antennaIds = ROBOT_ANTENNA_OPTIONS.map((o) => o.id as string);
-  const wingIds = ROBOT_WING_OPTIONS.map((o) => o.id as string);
-  const accentIds = ROBOT_ACCENT_OPTIONS.map((o) => o.id as string);
+  const validate = <T extends { id: string }>(value: string | undefined, opts: readonly T[]): string | undefined =>
+    value && opts.some((o) => o.id === value) ? value : undefined;
 
-  if (config.chassis && chassisIds.includes(config.chassis)) {
-    normalized.chassis = config.chassis;
-  }
-  if (config.eyes && eyeIds.includes(config.eyes)) {
-    normalized.eyes = config.eyes;
-  }
-  if (config.antenna && antennaIds.includes(config.antenna)) {
-    normalized.antenna = config.antenna;
-  }
-  if (config.wings && wingIds.includes(config.wings)) {
-    normalized.wings = config.wings;
-  }
-  if (config.accent && accentIds.includes(config.accent)) {
-    normalized.accent = config.accent;
-  }
-
-  const baseColorIds = ROBOT_BASE_COLOR_OPTIONS.map((o) => o.id as string);
-  if (config.baseColor && baseColorIds.includes(config.baseColor)) {
-    normalized.baseColor = config.baseColor;
-  }
+  const c = validate(config.chassis,    ROBOT_CHASSIS_OPTIONS);
+  if (c) normalized.chassis = c;
+  const e = validate(config.eyes,       ROBOT_EYE_OPTIONS);
+  if (e) normalized.eyes = e;
+  const a = validate(config.antenna,    ROBOT_ANTENNA_OPTIONS);
+  if (a) normalized.antenna = a;
+  const w = validate(config.wings,      ROBOT_WING_OPTIONS);
+  if (w) normalized.wings = w;
+  const hp = validate(config.headphones, ROBOT_HEADPHONES_OPTIONS);
+  if (hp) normalized.headphones = hp;
+  const ac = validate(config.accent,    ROBOT_ACCENT_OPTIONS);
+  if (ac) normalized.accent = ac;
+  const bc = validate(config.baseColor, ROBOT_BASE_COLOR_OPTIONS);
+  if (bc) normalized.baseColor = bc;
+  const vc = validate(config.visorColor, ROBOT_VISOR_COLOR_OPTIONS);
+  if (vc) normalized.visorColor = vc;
 
   return normalized;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
- *  Chassis proportion table — single source of truth used by both SVG and
- *  3D renderers so the silhouette stays identical across surfaces.
- *
- *  All numbers are *relative* to a unit head (1.0 wide, 1.0 tall, 0.55 deep).
+ *  Chassis proportion table — shared by SVG + 3D
  * ════════════════════════════════════════════════════════════════════════ */
 export interface ChassisProportions {
-  width: number;       // horizontal scale (1 = base)
-  height: number;      // vertical scale
-  depth: number;       // z-depth scale
-  cornerRadius: number; // SVG corner radius fraction (0..1)
-  earOffset: number;   // ear-cap horizontal offset
-  earSize: number;     // ear-cap size
+  width: number;
+  height: number;
+  depth: number;
+  cornerRadius: number;
+  earOffset: number;
+  earSize: number;
 }
 
 export const CHASSIS_PROPORTIONS: Record<string, ChassisProportions> = {
-  classic: { width: 1.0, height: 1.0, depth: 0.55, cornerRadius: 0.26, earOffset: 0.5, earSize: 0.18 },
-  square:  { width: 1.05, height: 1.0, depth: 0.55, cornerRadius: 0.14, earOffset: 0.52, earSize: 0.17 },
+  classic: { width: 1.00, height: 1.00, depth: 0.55, cornerRadius: 0.26, earOffset: 0.50, earSize: 0.18 },
+  square:  { width: 1.05, height: 1.00, depth: 0.55, cornerRadius: 0.14, earOffset: 0.52, earSize: 0.17 },
   tall:    { width: 0.92, height: 1.18, depth: 0.55, cornerRadius: 0.28, earOffset: 0.46, earSize: 0.16 },
-  pebble:  { width: 1.18, height: 0.92, depth: 0.55, cornerRadius: 0.32, earOffset: 0.6, earSize: 0.18 },
+  pebble:  { width: 1.18, height: 0.92, depth: 0.55, cornerRadius: 0.32, earOffset: 0.60, earSize: 0.18 },
+  soft:    { width: 1.04, height: 1.04, depth: 0.55, cornerRadius: 0.48, earOffset: 0.52, earSize: 0.19 },
 };
 
 export function getChassisProportions(chassisId?: string): ChassisProportions {

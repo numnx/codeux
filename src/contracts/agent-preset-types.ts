@@ -12,8 +12,12 @@ export interface AgentAvatarConfig {
   eyes?: string;
   antenna?: string;
   wings?: string;
+  /** Side-of-head "headphones" piece — flat caps, studio cups, etc. */
+  headphones?: string;
   accent?: string;
   baseColor?: string;
+  /** Optional override color applied to the visor eye style. */
+  visorColor?: string;
 }
 
 export interface AgentPresetRecord {
