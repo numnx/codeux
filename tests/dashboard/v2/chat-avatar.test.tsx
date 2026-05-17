@@ -54,11 +54,24 @@ describe('ChatAvatar', () => {
     expect(img.innerHTML).toContain('lucide-terminal');
   });
 
-  it('renders an Agent avatar with custom name', () => {
+  it('renders an Agent avatar with custom name as the brand robot', () => {
     const { getByRole } = render(<ChatAvatar role="agent" agentName="CodeBot" />);
     const img = getByRole('img');
     expect(img).toBeInTheDocument();
     expect(img.getAttribute('aria-label')).toBe('CodeBot');
-    expect(img.innerHTML).toContain('lucide-bot');
+    // Agent avatars now render the logo-faithful brand robot via AgentAvatarSvg
+    const svg = img.querySelector('svg[data-testid="agent-avatar-svg"]');
+    expect(svg).toBeInTheDocument();
+    // Each agent's variant is deterministic from its name
+    expect(img.innerHTML).toContain('data-cux-agent-name="CodeBot"');
+  });
+
+  it('gives different agent names visually distinct robot variants', () => {
+    const { container: a } = render(<ChatAvatar role="agent" agentName="Alpha" />);
+    cleanup();
+    const { container: b } = render(<ChatAvatar role="agent" agentName="Beta" />);
+    // Both render the brand robot SVG, but their inner content differs because
+    // the chassis / accent variant is derived deterministically from the name.
+    expect(a.innerHTML).not.toEqual(b.innerHTML);
   });
 });

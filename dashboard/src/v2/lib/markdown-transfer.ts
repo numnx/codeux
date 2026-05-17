@@ -41,18 +41,9 @@ export function buildLinkedIssuePromptBlock(issues: SprintLinkedIssueInput[]): s
   const lines = [
     "## Linked Issues",
     "",
-    "Use these imported issue links as sprint scope. Preserve their acceptance criteria and close them only after the sprint is finished and merged.",
+    "Use these imported issue details as sprint scope. Preserve acceptance criteria, constraints, and user-reported context. Close linked issues only after the sprint is finished and merged.",
     "",
-    ...normalized.map((issue) => {
-      const labels = (issue.labels || []).slice(0, 8).map((label) => `\`${label}\``).join(", ");
-      const assignees = (issue.assignees || []).slice(0, 5).map((assignee) => `@${assignee}`).join(", ");
-      const meta = [
-        `${issue.provider.toUpperCase()} ${issue.repository}${issue.issueKey || `#${issue.issueNumber}`}`,
-        labels ? `labels: ${labels}` : "",
-        assignees ? `assignees: ${assignees}` : "",
-      ].filter(Boolean).join(" | ");
-      return `- [${issue.title}](${issue.url}) - ${meta}`;
-    }),
+    ...normalized.map((issue) => formatLinkedIssuePromptSection(issue)),
   ];
 
   return lines.join("\n");
@@ -68,4 +59,40 @@ export function mergePromptWithLinkedIssues(goal: string, issues: SprintLinkedIs
     return trimmedGoal;
   }
   return `${trimmedGoal}\n\n${block}`.trim();
+}
+
+function formatLinkedIssuePromptSection(issue: SprintLinkedIssueInput): string {
+  const issueRef = `${issue.provider.toUpperCase()} ${issue.repository}${issue.issueKey || `#${issue.issueNumber}`}`;
+  const labels = (issue.labels || []).slice(0, 8).map((label) => `\`${label}\``).join(", ");
+  const assignees = (issue.assignees || []).slice(0, 5).map((assignee) => `@${assignee}`).join(", ");
+  const metadata = [
+    `- Source: [${issueRef}](${issue.url})`,
+    issue.state ? `- State: ${issue.state}` : "",
+    labels ? `- Labels: ${labels}` : "",
+    assignees ? `- Assignees: ${assignees}` : "",
+    issue.issueAuthor ? `- Author: @${issue.issueAuthor}` : "",
+    issue.issueCreatedAt ? `- Created: ${issue.issueCreatedAt}` : "",
+    issue.issueUpdatedAt ? `- Updated: ${issue.issueUpdatedAt}` : "",
+  ].filter(Boolean);
+  const body = normalizeImportedMarkdown(issue.issueBodyMarkdown) || "_No issue body was provided._";
+  const conversation = normalizeImportedMarkdown(issue.issueConversationMarkdown);
+  const sections = [
+    `### ${issueRef}: ${issue.title}`,
+    "",
+    ...metadata,
+    "",
+    "#### Issue Body",
+    "",
+    body,
+  ];
+
+  if (issue.includeConversation && conversation) {
+    sections.push("", "#### Conversation", "", conversation);
+  }
+
+  return sections.join("\n");
+}
+
+function normalizeImportedMarkdown(value: string | null | undefined): string {
+  return (value || "").replace(/\r\n/g, "\n").trim();
 }

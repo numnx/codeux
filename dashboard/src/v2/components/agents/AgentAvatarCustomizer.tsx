@@ -11,8 +11,10 @@ import {
   ROBOT_EYE_OPTIONS,
   ROBOT_ANTENNA_OPTIONS,
   ROBOT_WING_OPTIONS,
+  ROBOT_HEADPHONES_OPTIONS,
   ROBOT_ACCENT_OPTIONS,
   ROBOT_BASE_COLOR_OPTIONS,
+  ROBOT_VISOR_COLOR_OPTIONS,
   SHOWCASE_EXPRESSIONS,
   generateRandomAgentAvatar,
 } from "../../lib/agent-avatar.js";
@@ -223,9 +225,11 @@ export function AgentAvatarCustomizer({
         <PartPicker label="Chassis" options={ROBOT_CHASSIS_OPTIONS} value={config.chassis} onChange={(id) => handleField("chassis", id)} disabled={disabled} />
         <PartPicker label="Eyes" options={ROBOT_EYE_OPTIONS} value={config.eyes} onChange={(id) => handleField("eyes", id)} disabled={disabled} />
         <PartPicker label="Antenna" options={ROBOT_ANTENNA_OPTIONS} value={config.antenna} onChange={(id) => handleField("antenna", id)} disabled={disabled} />
-        <PartPicker label="Propulsion" options={ROBOT_WING_OPTIONS} value={config.wings} onChange={(id) => handleField("wings", id)} disabled={disabled} />
+        <PartPicker label="Headphones" options={ROBOT_HEADPHONES_OPTIONS} value={config.headphones} onChange={(id) => handleField("headphones", id)} disabled={disabled} />
+        <PartPicker label="Aura" options={ROBOT_WING_OPTIONS} value={config.wings} onChange={(id) => handleField("wings", id)} disabled={disabled} />
         <ColorSwatchPicker label="Base Color" options={ROBOT_BASE_COLOR_OPTIONS} value={config.baseColor} onChange={(id) => handleField("baseColor", id)} disabled={disabled} />
         <ColorSwatchPicker label="Accent Color" options={ROBOT_ACCENT_OPTIONS} value={config.accent} onChange={(id) => handleField("accent", id)} disabled={disabled} />
+        <ColorSwatchPicker label="Visor Color" options={ROBOT_VISOR_COLOR_OPTIONS} value={config.visorColor} onChange={(id) => handleField("visorColor", id)} disabled={disabled} />
       </div>
     </div>
   );

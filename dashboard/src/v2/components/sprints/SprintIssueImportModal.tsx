@@ -7,12 +7,13 @@ import {
   Github,
   Gitlab,
   Loader2,
+  MessageSquare,
   Search,
   Tag,
   X,
 } from "lucide-preact";
 import type { ProjectSummary, SprintLinkedIssueInput } from "../../types.js";
-import { searchProjectIssues, type RemoteIssueSummary } from "../../lib/project-api.js";
+import { fetchProjectIssuePromptContexts, searchProjectIssues, type RemoteIssueSummary } from "../../lib/project-api.js";
 
 interface SprintIssueImportModalProps {
   project: ProjectSummary;
@@ -45,7 +46,9 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
   const [state, setState] = useState<"open" | "closed" | "all">("open");
   const [issues, setIssues] = useState<RemoteIssueSummary[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [conversationDisabledKeys, setConversationDisabledKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -76,6 +79,7 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
       }, controller.signal);
       setIssues(results);
       setSelectedKeys((current) => new Set([...current].filter((key) => results.some((issue) => issueKey(issue) === key))));
+      setConversationDisabledKeys((current) => new Set([...current].filter((key) => results.some((issue) => issueKey(issue) === key))));
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : String(err));
@@ -101,6 +105,35 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleConversation = (issue: RemoteIssueSummary): void => {
+    const key = issueKey(issue);
+    setConversationDisabledKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImport = async (): Promise<void> => {
+    if (selectedIssues.length === 0) {
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    try {
+      const contexts = await fetchProjectIssuePromptContexts(project.id, selectedIssues.map((issue) => ({
+        ...issue,
+        includeConversation: !conversationDisabledKeys.has(issueKey(issue)),
+      })));
+      onImport(contexts);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
   };
 
   return (
@@ -304,6 +337,19 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
                               </span>
                             ))}
                           </div>
+                          <label
+                            className="mt-3 inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:text-white"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!conversationDisabledKeys.has(issueKey(issue))}
+                              onChange={() => toggleConversation(issue)}
+                              className="h-3.5 w-3.5 rounded border-slate-300 text-signal-500 focus:ring-signal-500 dark:border-white/[0.18] dark:bg-transparent"
+                            />
+                            <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.1} />
+                            Append Conversation
+                          </label>
                         </div>
                         <a
                           href={issue.url}
@@ -337,11 +383,11 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
               </button>
               <button
                 type="button"
-                onClick={() => onImport(selectedIssues)}
-                disabled={selectedIssues.length === 0}
+                onClick={() => { void handleImport(); }}
+                disabled={selectedIssues.length === 0 || importing}
                 className="rounded-[1rem] bg-signal-500 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_12px_28px_rgba(0,224,160,0.2)] transition-all hover:-translate-y-px hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Import Issues
+                {importing ? "Importing..." : "Import Issues"}
               </button>
             </div>
           </footer>

@@ -2,6 +2,8 @@ import type {
   CreateProjectInput,
   CreateSprintInput,
   CreateTaskInput,
+  IssuePromptContext,
+  IssuePromptContextInput,
   ImprovePromptInput,
   LocalDirectoryBrowserResponse,
   PlanSprintOptions,
@@ -122,6 +124,19 @@ export const searchProjectIssues = async (
   if (input.assignee?.trim()) url.searchParams.set("assignee", input.assignee.trim());
   if (input.limit) url.searchParams.set("limit", String(input.limit));
   return fetchJson<RemoteIssueSummary[]>(`${url.pathname}${url.search}`, { signal });
+};
+
+export const fetchProjectIssuePromptContexts = async (
+  projectId: string,
+  issues: IssuePromptContextInput[],
+  signal?: AbortSignal,
+): Promise<IssuePromptContext[]> => {
+  return fetchJson<IssuePromptContext[]>(`/api/projects/${encodeURIComponent(projectId)}/issues/context`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ issues }),
+    signal,
+  });
 };
 
 export const selectSprint = async (projectId: string, sprintId: string | null): Promise<string | null> => {

@@ -1,4 +1,6 @@
 import type {
+  IssuePromptContext,
+  IssuePromptContextInput,
   LinkedIssueProvider,
   ProjectSummary,
   SprintLinkedIssueInput,
@@ -73,6 +75,22 @@ export class SprintIssueService {
       assignee: input.assignee,
       limit,
     });
+  }
+
+  async getIssuePromptContexts(projectId: string, issues: IssuePromptContextInput[]): Promise<IssuePromptContext[]> {
+    this.requireProject(projectId);
+    const settings = this.deps.getDashboardSettings({ projectId });
+    const normalized = normalizeIssuePromptContextInputs(issues);
+
+    const contexts: IssuePromptContext[] = [];
+    for (const issue of normalized) {
+      if (issue.provider === "github") {
+        contexts.push(await this.getGitHubIssuePromptContext(issue, settings.git.githubToken || ""));
+      } else {
+        contexts.push(await this.getGitLabIssuePromptContext(issue, settings.git.gitlabToken || ""));
+      }
+    }
+    return contexts;
   }
 
   async closeLinkedIssues(projectId: string, sprintId: string): Promise<{ reportText: string; closed: number; failed: number; skipped: number }> {
@@ -250,6 +268,97 @@ export class SprintIssueService {
     }));
   }
 
+  private async getGitHubIssuePromptContext(input: IssuePromptContextInput, tokenValue: string): Promise<IssuePromptContext> {
+    const token = tokenValue.trim();
+    if (!token) {
+      return this.getGitHubIssuePromptContextWithCli(input);
+    }
+
+    const apiBaseUrl = githubApiBaseUrl(input.hostDomain);
+    const issue = await requestJson<GitHubIssueDetail>(
+      `${apiBaseUrl}/repos/${input.repository}/issues/${input.issueNumber}`,
+      { token },
+    );
+    const comments = input.includeConversation === false
+      ? []
+      : await requestJsonPages<GitHubIssueComment>(
+        `${apiBaseUrl}/repos/${input.repository}/issues/${input.issueNumber}/comments?per_page=100`,
+        { token },
+      );
+
+    return buildIssuePromptContext(input, {
+      title: issue.title,
+      url: issue.html_url,
+      state: issue.state,
+      body: issue.body || "",
+      author: issue.user?.login || null,
+      createdAt: issue.created_at || null,
+      updatedAt: issue.updated_at || null,
+      labels: (issue.labels || [])
+        .map((label) => typeof label === "string" ? label : label.name)
+        .filter((label): label is string => typeof label === "string" && label.trim().length > 0),
+      assignees: (issue.assignees || [])
+        .map((assignee) => assignee.login)
+        .filter((assignee): assignee is string => typeof assignee === "string" && assignee.trim().length > 0),
+      conversationMarkdown: formatConversationMarkdown(comments.map((comment) => ({
+        author: comment.user?.login || "unknown",
+        body: comment.body || "",
+        createdAt: comment.created_at || null,
+        updatedAt: comment.updated_at || null,
+        url: comment.html_url || null,
+      }))),
+      includeConversation: input.includeConversation !== false,
+    });
+  }
+
+  private async getGitHubIssuePromptContextWithCli(input: IssuePromptContextInput): Promise<IssuePromptContext> {
+    const jsonFields = input.includeConversation === false
+      ? "number,title,url,state,body,createdAt,updatedAt,author,labels,assignees"
+      : "number,title,url,state,body,createdAt,updatedAt,author,labels,assignees,comments";
+    const cliArgs = [
+      "issue",
+      "view",
+      String(input.issueNumber),
+      "--repo",
+      formatGitHubCliRepo(input.hostDomain, input.repository),
+      "--json",
+      jsonFields,
+    ];
+    if (input.includeConversation !== false) {
+      cliArgs.push("--comments");
+    }
+    const result = await this.runCommand("gh", cliArgs);
+    if (!result.ok) {
+      throw new Error(`GitHub token is not configured and local gh auth failed: ${truncatePreview(result.stderr || result.stdout || "gh issue view failed")}`);
+    }
+
+    const issue = parseJsonObject<GitHubCliIssueDetail>(result.stdout, "gh issue view");
+    const comments = input.includeConversation === false ? [] : issue.comments || [];
+    return buildIssuePromptContext(input, {
+      title: issue.title,
+      url: issue.url,
+      state: String(issue.state || "open").toLowerCase(),
+      body: issue.body || "",
+      author: issue.author?.login || null,
+      createdAt: issue.createdAt || null,
+      updatedAt: issue.updatedAt || null,
+      labels: (issue.labels || [])
+        .map((label) => label.name)
+        .filter((label): label is string => typeof label === "string" && label.trim().length > 0),
+      assignees: (issue.assignees || [])
+        .map((assignee) => assignee.login || assignee.name)
+        .filter((assignee): assignee is string => typeof assignee === "string" && assignee.trim().length > 0),
+      conversationMarkdown: formatConversationMarkdown(comments.map((comment) => ({
+        author: comment.author?.login || comment.author?.name || "unknown",
+        body: comment.body || "",
+        createdAt: comment.createdAt || null,
+        updatedAt: comment.updatedAt || null,
+        url: comment.url || null,
+      }))),
+      includeConversation: input.includeConversation !== false,
+    });
+  }
+
   private async closeGitHubIssueWithCli(issue: SprintLinkedIssueRecord): Promise<void> {
     const result = await this.runCommand("gh", [
       "issue",
@@ -303,6 +412,49 @@ export class SprintIssueService {
     }));
   }
 
+  private async getGitLabIssuePromptContext(input: IssuePromptContextInput, tokenValue: string): Promise<IssuePromptContext> {
+    const token = tokenValue.trim();
+    if (!token) {
+      throw new Error("GitLab token is not configured.");
+    }
+
+    const baseUrl = `https://${input.hostDomain.replace(/\/+$/, "")}/api/v4`;
+    const issue = await requestJson<GitLabIssueDetail>(
+      `${baseUrl}/projects/${encodeURIComponent(input.repository)}/issues/${input.issueNumber}`,
+      { token, gitlab: true },
+    );
+    const notes = input.includeConversation === false
+      ? []
+      : await requestJsonPages<GitLabIssueNote>(
+        `${baseUrl}/projects/${encodeURIComponent(input.repository)}/issues/${input.issueNumber}/notes?per_page=100&sort=asc&order_by=created_at`,
+        { token, gitlab: true },
+      );
+
+    return buildIssuePromptContext(input, {
+      title: issue.title,
+      url: issue.web_url,
+      state: issue.state,
+      body: issue.description || "",
+      author: issue.author?.username || issue.author?.name || null,
+      createdAt: issue.created_at || null,
+      updatedAt: issue.updated_at || null,
+      labels: Array.isArray(issue.labels) ? issue.labels.filter((label): label is string => typeof label === "string") : [],
+      assignees: (issue.assignees || [])
+        .map((assignee) => assignee.username || assignee.name)
+        .filter((assignee): assignee is string => typeof assignee === "string" && assignee.trim().length > 0),
+      conversationMarkdown: formatConversationMarkdown(notes
+        .filter((note) => note.system !== true)
+        .map((note) => ({
+          author: note.author?.username || note.author?.name || "unknown",
+          body: note.body || "",
+          createdAt: note.created_at || null,
+          updatedAt: note.updated_at || null,
+          url: null,
+        }))),
+      includeConversation: input.includeConversation !== false,
+    });
+  }
+
   private requireProject(projectId: string): ProjectSummary {
     const project = this.deps.projectManagementRepository.getProject(projectId);
     if (!project) {
@@ -346,6 +498,19 @@ interface GitHubIssue {
   assignees?: Array<{ login?: string }>;
 }
 
+interface GitHubIssueDetail extends GitHubIssue {
+  user?: { login?: string } | null;
+  created_at?: string | null;
+}
+
+interface GitHubIssueComment {
+  body?: string | null;
+  html_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  user?: { login?: string } | null;
+}
+
 interface GitHubCliIssue {
   number: number;
   title: string;
@@ -355,6 +520,18 @@ interface GitHubCliIssue {
   updatedAt?: string | null;
   labels?: Array<{ name?: string }>;
   assignees?: Array<{ login?: string; name?: string }>;
+}
+
+interface GitHubCliIssueDetail extends GitHubCliIssue {
+  createdAt?: string | null;
+  author?: { login?: string; name?: string } | null;
+  comments?: Array<{
+    body?: string | null;
+    url?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    author?: { login?: string; name?: string } | null;
+  }>;
 }
 
 interface GitLabIssue {
@@ -368,6 +545,34 @@ interface GitLabIssue {
   assignees?: Array<{ username?: string; name?: string }>;
 }
 
+interface GitLabIssueDetail extends GitLabIssue {
+  description?: string | null;
+  created_at?: string | null;
+  author?: { username?: string; name?: string } | null;
+}
+
+interface GitLabIssueNote {
+  body?: string | null;
+  system?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  author?: { username?: string; name?: string } | null;
+}
+
+interface BuildIssuePromptContextOptions {
+  title: string;
+  url: string;
+  state: string;
+  body: string;
+  author: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  labels: string[];
+  assignees: string[];
+  conversationMarkdown: string;
+  includeConversation: boolean;
+}
+
 function resolveIssueTarget(project: ProjectSummary, input: IssueSearchInput): ResolvedIssueTarget {
   const repo = (input.repository || inferRepository(project)).trim().replace(/^\/+|\/+$/g, "");
   const provider = input.provider || project.gitProvider;
@@ -379,6 +584,61 @@ function resolveIssueTarget(project: ProjectSummary, input: IssueSearchInput): R
     throw new Error("Repository is required for issue import.");
   }
   return { provider, hostDomain, repository: repo };
+}
+
+function normalizeIssuePromptContextInputs(issues: IssuePromptContextInput[]): IssuePromptContextInput[] {
+  const seen = new Set<string>();
+  const normalized: IssuePromptContextInput[] = [];
+  for (const issue of issues) {
+    const hostDomain = issue.hostDomain.trim().toLowerCase();
+    const repository = issue.repository.trim().replace(/^\/+|\/+$/g, "");
+    const issueNumber = Math.trunc(issue.issueNumber);
+    const title = issue.title.trim();
+    const url = issue.url.trim();
+    if ((issue.provider !== "github" && issue.provider !== "gitlab") || !hostDomain || !repository || !title || !url || !Number.isFinite(issueNumber) || issueNumber < 1) {
+      continue;
+    }
+    const key = `${issue.provider}:${hostDomain}:${repository}:${issueNumber}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalized.push({
+      ...issue,
+      hostDomain,
+      repository,
+      issueNumber,
+      issueKey: issue.issueKey?.trim() || `${issue.provider === "github" ? "#" : "!"}${issueNumber}`,
+      title,
+      url,
+      state: issue.state?.trim() || "open",
+      labels: Array.from(new Set((issue.labels || []).map((label) => label.trim()).filter(Boolean))).slice(0, 12),
+      assignees: Array.from(new Set((issue.assignees || []).map((assignee) => assignee.trim()).filter(Boolean))).slice(0, 12),
+      includeConversation: issue.includeConversation !== false,
+    });
+  }
+  return normalized.slice(0, 50);
+}
+
+function buildIssuePromptContext(input: IssuePromptContextInput, options: BuildIssuePromptContextOptions): IssuePromptContext {
+  return {
+    provider: input.provider,
+    hostDomain: input.hostDomain,
+    repository: input.repository,
+    issueNumber: input.issueNumber,
+    issueKey: input.issueKey || `${input.provider === "github" ? "#" : "!"}${input.issueNumber}`,
+    title: options.title || input.title,
+    url: options.url || input.url,
+    state: options.state || input.state || "open",
+    labels: options.labels.length > 0 ? options.labels : input.labels || [],
+    assignees: options.assignees.length > 0 ? options.assignees : input.assignees || [],
+    issueBodyMarkdown: normalizeMarkdown(options.body),
+    issueConversationMarkdown: options.includeConversation ? options.conversationMarkdown : "",
+    includeConversation: options.includeConversation,
+    issueAuthor: options.author,
+    issueCreatedAt: options.createdAt,
+    issueUpdatedAt: options.updatedAt,
+  };
 }
 
 function inferRepository(project: ProjectSummary): string {
@@ -409,6 +669,13 @@ function formatGitHubCliRepo(hostDomain: string, repository: string): string {
     : repository;
 }
 
+function githubApiBaseUrl(hostDomain: string): string {
+  const normalizedHost = hostDomain.trim().toLowerCase().replace(/\/+$/, "");
+  return normalizedHost && normalizedHost !== "github.com"
+    ? `https://${normalizedHost}/api/v3`
+    : "https://api.github.com";
+}
+
 function parseJsonArray<T>(value: string, source: string): T[] {
   try {
     const parsed = JSON.parse(value);
@@ -419,6 +686,45 @@ function parseJsonArray<T>(value: string, source: string): T[] {
     // handled below
   }
   throw new Error(`Unable to parse ${source} JSON output.`);
+}
+
+function parseJsonObject<T>(value: string, source: string): T {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as T;
+    }
+  } catch {
+    // handled below
+  }
+  throw new Error(`Unable to parse ${source} JSON output.`);
+}
+
+function normalizeMarkdown(value: string): string {
+  return value.replace(/\r\n/g, "\n").trim();
+}
+
+function formatConversationMarkdown(comments: Array<{
+  author: string;
+  body: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  url: string | null;
+}>): string {
+  return comments
+    .map((comment, index) => {
+      const author = comment.author.trim() || "unknown";
+      const meta = [
+        `Comment ${index + 1}`,
+        `@${author}`,
+        comment.createdAt || "",
+        comment.updatedAt && comment.updatedAt !== comment.createdAt ? `updated ${comment.updatedAt}` : "",
+        comment.url ? `[source](${comment.url})` : "",
+      ].filter(Boolean).join(" - ");
+      const body = normalizeMarkdown(comment.body) || "_No comment body provided._";
+      return `##### ${meta}\n\n${body}`;
+    })
+    .join("\n\n");
 }
 
 function truncatePreview(value: string): string {
@@ -436,6 +742,32 @@ async function requestJson<T>(url: string, options: {
   gitlab?: boolean;
   body?: Record<string, unknown>;
 }): Promise<T> {
+  const result = await requestJsonWithHeaders<T>(url, options);
+  return result.data;
+}
+
+async function requestJsonPages<T>(url: string, options: {
+  method?: string;
+  token: string;
+  gitlab?: boolean;
+  body?: Record<string, unknown>;
+}): Promise<T[]> {
+  const items: T[] = [];
+  let nextUrl: string | null = url;
+  while (nextUrl) {
+    const result = await requestJsonWithHeaders<T[]>(nextUrl, options);
+    items.push(...result.data);
+    nextUrl = parseNextLink(result.linkHeader);
+  }
+  return items;
+}
+
+async function requestJsonWithHeaders<T>(url: string, options: {
+  method?: string;
+  token: string;
+  gitlab?: boolean;
+  body?: Record<string, unknown>;
+}): Promise<{ data: T; linkHeader: string | null }> {
   const response = await fetch(url, {
     method: options.method || "GET",
     headers: {
@@ -450,7 +782,23 @@ async function requestJson<T>(url: string, options: {
     const text = await response.text().catch(() => "");
     throw new Error(`${response.status} ${response.statusText}${text ? `: ${truncatePreview(text)}` : ""}`);
   }
-  return response.json() as Promise<T>;
+  return {
+    data: await response.json() as T,
+    linkHeader: response.headers.get("link"),
+  };
+}
+
+function parseNextLink(linkHeader: string | null): string | null {
+  if (!linkHeader) {
+    return null;
+  }
+  for (const part of linkHeader.split(",")) {
+    const match = part.match(/<([^>]+)>;\s*rel="next"/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return null;
 }
 
 async function runLocalCommand(command: string, args: string[]): Promise<LocalCommandResult> {

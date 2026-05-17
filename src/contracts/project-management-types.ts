@@ -78,6 +78,25 @@ export interface SprintLinkedIssueInput {
   state?: string;
   labels?: string[];
   assignees?: string[];
+  issueBodyMarkdown?: string;
+  issueConversationMarkdown?: string;
+  includeConversation?: boolean;
+  issueAuthor?: string | null;
+  issueCreatedAt?: string | null;
+  issueUpdatedAt?: string | null;
+}
+
+export interface IssuePromptContextInput extends SprintLinkedIssueInput {
+  includeConversation?: boolean;
+}
+
+export interface IssuePromptContext extends SprintLinkedIssueInput {
+  issueBodyMarkdown: string;
+  issueConversationMarkdown: string;
+  includeConversation: boolean;
+  issueAuthor: string | null;
+  issueCreatedAt: string | null;
+  issueUpdatedAt: string | null;
 }
 
 export interface SprintRecord {

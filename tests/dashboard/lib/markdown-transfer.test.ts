@@ -48,8 +48,37 @@ describe("markdown-transfer", () => {
     ]);
 
     expect(block).toContain("## Linked Issues");
-    expect(block).toContain("[Fix import UX](https://github.com/openai/example/issues/42)");
-    expect(block).toContain("labels: `ux`, `import`");
+    expect(block).toContain("[GITHUB openai/example#42](https://github.com/openai/example/issues/42)");
+    expect(block).toContain("Labels: `ux`, `import`");
+  });
+
+  it("renders full imported issue text and optional conversation context", () => {
+    const block = buildLinkedIssuePromptBlock([
+      {
+        provider: "github",
+        hostDomain: "github.com",
+        repository: "openai/example",
+        issueNumber: 42,
+        issueKey: "#42",
+        title: "Fix import UX",
+        url: "https://github.com/openai/example/issues/42",
+        state: "open",
+        labels: ["ux"],
+        assignees: ["pierre"],
+        issueAuthor: "alice",
+        issueCreatedAt: "2026-05-16T10:00:00.000Z",
+        issueUpdatedAt: "2026-05-17T10:00:00.000Z",
+        issueBodyMarkdown: "Full issue body\n\n- preserve this acceptance criterion",
+        issueConversationMarkdown: "##### Comment 1 - @bob\n\nFollow-up context",
+        includeConversation: true,
+      },
+    ]);
+
+    expect(block).toContain("### GITHUB openai/example#42: Fix import UX");
+    expect(block).toContain("#### Issue Body");
+    expect(block).toContain("Full issue body");
+    expect(block).toContain("#### Conversation");
+    expect(block).toContain("Follow-up context");
   });
 
   it("merges linked issue context once", () => {
