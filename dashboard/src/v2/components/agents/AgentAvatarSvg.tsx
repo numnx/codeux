@@ -116,37 +116,165 @@ function renderEyes(
   const sad = expression === "sad";
   const angry = expression === "angry";
 
-  /* ── Visor (eye style): a horizontal jade band crossing both eye
-       centers. Uses the accent color — the inset face's color is
-       controlled separately by the "visor color" field. ── */
+  /* ── Visor (eye style): an award-winning HUD-style band ──
+       Layered composition:
+         1. Outer recess shadow — gives the visor depth in the dark inset
+         2. Main body — solid accent slab, rounded
+         3. Cylindrical highlight — lighter top half suggests glass curvature
+         4. Inner recessed channel — darker band where the "display" lives
+         5. Glass top shine — narrow white strip simulating reflection
+         6. Two pulsing pupil cores at the eye centers
+         7. HUD tick marks at the edges (sci-fi accent)
+         8. Animated scan-line sweep moving left↔right
+         9. Mini EQ bars below the visor (suggests live data feed)
+       Squint/sad/angry expressions hide the busy elements so the mood
+       still reads at a glance. ── */
   if (eyesId === "visor") {
     const yCenter = (EYE_L.y + EYE_R.y) / 2;
-    const halfH = squint ? 14 : wide ? 38 : sad ? 18 : 26;
-    const accentLight = lighten(accent, 0.35);
+    const halfH = squint ? 16 : wide ? 36 : sad ? 22 : 28;
+    const visorW = EYE_R.x - EYE_L.x + 220;
+    const visorX = EYE_L.x - 110;
+    const visorY = yCenter - halfH;
+    const accentLight = lighten(accent, 0.45);
+    const accentDeep = darken(accent, 0.42);
+    const showDetails = !squint;
+    const showDataBars = !squint && !sad && !angry;
+
     return (
       <g>
+        {/* 1. Outer recess shadow — depth below the visor */}
         <rect
-          x={EYE_L.x - 60}
-          y={yCenter - halfH}
-          width={EYE_R.x - EYE_L.x + 120}
+          x={visorX - 10}
+          y={visorY - 6}
+          width={visorW + 20}
+          height={halfH * 2 + 18}
+          rx={halfH * 0.95}
+          ry={halfH * 0.95}
+          fill="#000000"
+          opacity="0.55"
+        />
+
+        {/* 2. Main visor body — solid accent slab */}
+        <rect
+          x={visorX}
+          y={visorY}
+          width={visorW}
           height={halfH * 2}
-          rx={halfH * 0.6}
-          ry={halfH * 0.6}
+          rx={halfH * 0.85}
+          ry={halfH * 0.85}
           fill={accent}
         >
-          <animate attributeName="opacity" values="1;0.55;1" dur="2.4s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="1;0.92;1" dur="2.6s" repeatCount="indefinite" />
         </rect>
-        {!squint && (
-          <>
-            <rect x={EYE_L.x - 22} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={accentLight} opacity="0.5" />
-            <rect x={EYE_R.x - 14} y={yCenter - halfH + 6} width="16" height={halfH * 2 - 12} rx="6" fill={accentLight} opacity="0.45" />
-          </>
+
+        {/* 3. Cylindrical top-half highlight — gives the bar 3D feel */}
+        <rect
+          x={visorX + 4}
+          y={visorY + 4}
+          width={visorW - 8}
+          height={halfH * 0.95}
+          rx={halfH * 0.7}
+          ry={halfH * 0.7}
+          fill={accentLight}
+          opacity="0.55"
+        />
+
+        {/* 4. Inner recessed channel — darker band */}
+        <rect
+          x={visorX + 22}
+          y={visorY + 14}
+          width={visorW - 44}
+          height={halfH * 2 - 28}
+          rx={Math.max(4, (halfH - 7) * 0.85)}
+          ry={Math.max(4, (halfH - 7) * 0.85)}
+          fill={accentDeep}
+          opacity="0.9"
+        />
+
+        {/* 5. Glass top shine — thin reflective strip */}
+        {showDetails && (
+          <rect
+            x={visorX + 28}
+            y={visorY + 9}
+            width={visorW - 56}
+            height={Math.max(4, halfH * 0.45)}
+            rx={halfH * 0.3}
+            ry={halfH * 0.3}
+            fill="#FFFFFF"
+            opacity="0.34"
+          />
         )}
-        {/* Subtle scanline sweep across the visor band */}
-        <rect x={EYE_L.x - 60} y={yCenter - halfH} width="60" height={halfH * 2} fill={accentLight} opacity="0.0">
-          <animate attributeName="x" values={`${EYE_L.x - 60};${EYE_R.x + 60};${EYE_L.x - 60}`} dur="3.6s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0;0.35;0" dur="3.6s" repeatCount="indefinite" />
+
+        {/* 6. Two pulsing pupil cores at the eye anchors */}
+        {showDetails && (
+          <g>
+            <circle cx={EYE_L.x} cy={yCenter + 2} r={wide ? 10 : 7.5} fill={accentLight}>
+              <animate attributeName="opacity" values="1;0.5;1" dur="1.6s" repeatCount="indefinite" />
+              <animate attributeName="r" values={`${wide ? 10 : 7.5};${wide ? 12 : 9};${wide ? 10 : 7.5}`} dur="1.6s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={EYE_R.x} cy={yCenter + 2} r={wide ? 10 : 7.5} fill={accentLight}>
+              <animate attributeName="opacity" values="1;0.5;1" dur="1.6s" repeatCount="indefinite" begin="0.5s" />
+              <animate attributeName="r" values={`${wide ? 10 : 7.5};${wide ? 12 : 9};${wide ? 10 : 7.5}`} dur="1.6s" repeatCount="indefinite" begin="0.5s" />
+            </circle>
+            {/* Bright white cores */}
+            <circle cx={EYE_L.x} cy={yCenter} r="2.5" fill="#FFFFFF" opacity="0.95" />
+            <circle cx={EYE_R.x} cy={yCenter} r="2.5" fill="#FFFFFF" opacity="0.95" />
+          </g>
+        )}
+
+        {/* 7. HUD tick marks at the edges */}
+        {showDetails && (
+          <g>
+            <rect x={visorX + 10} y={yCenter - 8} width="3.5" height="16" rx="1.5" fill={accentLight} opacity="0.95" />
+            <rect x={visorX + 18} y={yCenter - 5} width="2.5" height="10" rx="1.2" fill={accentLight} opacity="0.65" />
+            <rect x={visorX + visorW - 14} y={yCenter - 8} width="3.5" height="16" rx="1.5" fill={accentLight} opacity="0.95" />
+            <rect x={visorX + visorW - 21} y={yCenter - 5} width="2.5" height="10" rx="1.2" fill={accentLight} opacity="0.65" />
+          </g>
+        )}
+
+        {/* 8. Animated scan-line sweep */}
+        <rect
+          x={visorX - 60}
+          y={visorY + 4}
+          width="60"
+          height={halfH * 2 - 8}
+          fill="#FFFFFF"
+          opacity="0"
+          rx="10"
+        >
+          <animate attributeName="x" values={`${visorX - 60};${visorX + visorW};${visorX - 60}`} dur="4.5s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0;0.4;0;0" dur="4.5s" repeatCount="indefinite" />
         </rect>
+
+        {/* 9. Mini EQ data bars below the visor — suggests live data feed */}
+        {showDataBars && (
+          <g>
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+              const x = visorX + visorW / 2 - 48 + i * 16;
+              const peakHeight = [10, 18, 26, 14, 22, 12, 16][i];
+              const dur = 0.7 + (i % 3) * 0.18;
+              return (
+                <rect
+                  key={i}
+                  x={x}
+                  y={visorY + halfH * 2 + 14}
+                  width="6"
+                  height="4"
+                  rx="2.5"
+                  fill={accent}
+                  opacity="0.8"
+                >
+                  <animate
+                    attributeName="height"
+                    values={`4;${peakHeight};4`}
+                    dur={`${dur}s`}
+                    repeatCount="indefinite"
+                  />
+                </rect>
+              );
+            })}
+          </g>
+        )}
       </g>
     );
   }

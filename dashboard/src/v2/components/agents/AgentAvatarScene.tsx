@@ -416,21 +416,103 @@ function buildAvatar(config: AgentAvatarConfig, mats: Mats) {
 
   if (eyesId === "visor") {
     eyesKind = "visor";
-    // The visor eye style uses the accent color. The screen plate around
-    // the eyes (the "visor" face plate) is controlled separately by the
-    // Visor Color picker → it lives on the inset material above.
-    const visorGeo = new THREE.BoxGeometry(insetW * 0.82, 0.12, 0.06);
-    leftEye = new THREE.Mesh(visorGeo, mats.jade);
-    leftEye.position.set(0, 0, 0);
-    eyesGroup.add(leftEye);
-    // Inner pupil dots
-    const pupGeo = new THREE.SphereGeometry(0.025, 12, 12);
-    const lp = new THREE.Mesh(pupGeo, mats.glint);
-    lp.position.set(-eyeSep, 0, 0.05);
-    eyesGroup.add(lp);
-    const rp = new THREE.Mesh(pupGeo, mats.glint);
-    rp.position.set(eyeSep, 0, 0.05);
-    eyesGroup.add(rp);
+    /* Award-winning visor: layered, beveled HUD band.
+       Composition mirrors the SVG version so the look matches across
+       surfaces.  All sub-meshes live in a single Group that we treat as
+       the "eye" so the blink scale animates everything together. */
+    const visorGroup = new THREE.Group();
+    const visorW = insetW * 0.95;
+    const visorH = 0.22;
+    const visorD = 0.07;
+
+    // 1. Outer recess shadow — slightly larger dark plate behind the body
+    const recessGeo = extrude(
+      roundedRectShape(visorW + 0.04, visorH + 0.04, visorH * 0.48),
+      0.02,
+      0.005,
+      3,
+    );
+    const recess = new THREE.Mesh(recessGeo, mats.inset);
+    recess.position.set(0, 0, -0.02);
+    visorGroup.add(recess);
+
+    // 2. Main visor body — beveled extrusion in the jade accent
+    const bodyShape = roundedRectShape(visorW, visorH, visorH * 0.45);
+    const bodyGeo = extrude(bodyShape, visorD, 0.014, 5);
+    const body = new THREE.Mesh(bodyGeo, mats.jade);
+    body.position.set(0, 0, 0);
+    visorGroup.add(body);
+
+    // 3. Inner darker recessed channel — picks up the jade material's
+    //    env reflections via the parent mats.jade glow without needing a
+    //    direct envMap reference here.
+    const innerMat = new THREE.MeshStandardMaterial({
+      color: 0x081d16,
+      emissive: 0x041a12,
+      emissiveIntensity: 0.45,
+      metalness: 0.55,
+      roughness: 0.2,
+    });
+    const innerGeo = extrude(
+      roundedRectShape(visorW * 0.92, visorH * 0.55, visorH * 0.22),
+      0.015,
+      0.004,
+      3,
+    );
+    const inner = new THREE.Mesh(innerGeo, innerMat);
+    inner.position.set(0, 0, visorD * 0.75);
+    visorGroup.add(inner);
+
+    // 4. Glass top highlight — translucent white strip suggesting reflection
+    const glassMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.36,
+    });
+    const glassGeo = new THREE.BoxGeometry(visorW * 0.85, visorH * 0.2, 0.006);
+    const glass = new THREE.Mesh(glassGeo, glassMat);
+    glass.position.set(0, visorH * 0.32, visorD * 0.95);
+    visorGroup.add(glass);
+
+    // 5. Two pulsing pupil cores at the eye anchors
+    const pupilGeo = new THREE.SphereGeometry(0.032, 18, 18);
+    const pupilL = new THREE.Mesh(pupilGeo, mats.jade);
+    pupilL.position.set(-eyeSep, 0, visorD * 0.95);
+    visorGroup.add(pupilL);
+    const pupilR = new THREE.Mesh(pupilGeo, mats.jade);
+    pupilR.position.set(eyeSep, 0, visorD * 0.95);
+    visorGroup.add(pupilR);
+
+    // Bright white cores inside each pupil
+    const coreGeo = new THREE.SphereGeometry(0.012, 12, 12);
+    const coreL = new THREE.Mesh(coreGeo, mats.glint);
+    coreL.position.set(-eyeSep, 0.005, visorD + 0.018);
+    visorGroup.add(coreL);
+    const coreR = new THREE.Mesh(coreGeo, mats.glint);
+    coreR.position.set(eyeSep, 0.005, visorD + 0.018);
+    visorGroup.add(coreR);
+
+    // 6. HUD tick marks on the left + right edges
+    const tickShape = roundedRectShape(0.015, 0.08, 0.006);
+    const tickGeo = extrude(tickShape, 0.018, 0.003, 2);
+    const tickL1 = new THREE.Mesh(tickGeo, mats.jade);
+    tickL1.position.set(-visorW * 0.46, 0, visorD * 0.85);
+    visorGroup.add(tickL1);
+    const tickL2 = new THREE.Mesh(tickGeo, mats.jade);
+    tickL2.position.set(-visorW * 0.42, 0, visorD * 0.85);
+    tickL2.scale.set(1, 0.55, 1);
+    visorGroup.add(tickL2);
+    const tickR1 = new THREE.Mesh(tickGeo, mats.jade);
+    tickR1.position.set(visorW * 0.46, 0, visorD * 0.85);
+    visorGroup.add(tickR1);
+    const tickR2 = new THREE.Mesh(tickGeo, mats.jade);
+    tickR2.position.set(visorW * 0.42, 0, visorD * 0.85);
+    tickR2.scale.set(1, 0.55, 1);
+    visorGroup.add(tickR2);
+
+    eyesGroup.add(visorGroup);
+    // Treat the group as the "eye" for blink/scale animation
+    leftEye = visorGroup as unknown as THREE.Mesh;
   } else if (eyesId === "heart") {
     eyesKind = "heart";
     // Heart-shaped eyes — two stacked spheres + a downward triangle, fused.
