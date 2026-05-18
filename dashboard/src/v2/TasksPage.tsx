@@ -43,6 +43,7 @@ import { STATUS_CFG } from "./lib/tasks-constants.js";
 import { buildTaskCardViewModel } from "./lib/tasks/task-card-view-model.js";
 import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js";
 import { buildLiveTaskEnrichmentMap } from "./lib/tasks/live-task-enrichment.js";
+import { useReducedMotion } from "./hooks/use-reduced-motion.js";
 
 const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "coding_completed", "QA_REVIEW_FAILED", "completed"];
 
@@ -352,6 +353,7 @@ export const TasksPage: FunctionComponent = () => {
     taskScopeSprintId
   );
 
+  const reducedMotion = useReducedMotion();
   const [showSkeletons, setShowSkeletons] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
@@ -397,18 +399,22 @@ export const TasksPage: FunctionComponent = () => {
     if (boardRef.current && !loading && !showSkeletons && !isFadingOut) {
       const taskCards = Array.from(boardRef.current.querySelectorAll(".task-card-entry"));
       if (taskCards.length > 0) {
-        gsap.fromTo(taskCards, { opacity: 0, y: 15, scale: 0.98 }, {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          stagger: { amount: 0.2, from: "start" },
-          duration: 0.6,
-          ease: "power2.out",
-          delay: 0.05,
-        });
+        if (reducedMotion) {
+          gsap.set(taskCards, { opacity: 1, y: 0, scale: 1 });
+        } else {
+          gsap.fromTo(taskCards, { opacity: 0, y: 15, scale: 0.98 }, {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            stagger: 0.05,
+            duration: 0.6,
+            ease: "power2.out",
+            delay: 0.05,
+          });
+        }
       }
     }
-  }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, isFadingOut]);
+  }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, isFadingOut, reducedMotion]);
 
   useLayoutEffect(() => {
     if (resolvedTaskId && boardRef.current) {
