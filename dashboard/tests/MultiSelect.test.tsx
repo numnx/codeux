@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { render, fireEvent, screen } from "@testing-library/preact";
 import { MultiSelect } from "../src/v2/components/ui/MultiSelect";
 import { expect, test, vi, afterEach } from "vitest";
