@@ -37,11 +37,44 @@ import type { QuicksprintTemplateRecord } from "../../../src/contracts/quickspri
 type SchedulerView = "calendar" | "day";
 type FeedbackState = { tone: "idle" | "success" | "error"; message: string | null };
 
-const TARGET_OPTIONS: Array<{ value: ScheduleTargetType; label: string; icon: typeof Zap; tone: string }> = [
-  { value: "sprint", label: "Sprint", icon: Zap, tone: "text-ember-500" },
-  { value: "quicksprint", label: "Quicksprint", icon: RefreshCw, tone: "text-sky-500" },
-  { value: "chat", label: "Chat message", icon: MessageCircle, tone: "text-signal-500" },
+const SCHEDULER_FIELD_CLASS = "scheduler-field rounded-xl border border-black/[0.08] bg-white/95 px-3 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] outline-none transition focus:border-signal-500 focus:bg-white focus:ring-4 focus:ring-signal-500/10 dark:border-white/[0.10] dark:bg-[#10151b] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:focus:border-signal-400 dark:focus:bg-[#121922]";
+const SCHEDULER_COMPACT_FIELD_CLASS = `${SCHEDULER_FIELD_CLASS} min-h-[40px]`;
+
+const TARGET_OPTIONS: Array<{
+  value: ScheduleTargetType;
+  label: string;
+  icon: typeof Zap;
+  tone: string;
+  activeClassName: string;
+  chipClassName: string;
+}> = [
+  {
+    value: "sprint",
+    label: "Sprint",
+    icon: Zap,
+    tone: "text-ember-500",
+    activeClassName: "border-ember-500/35 bg-ember-500/10 shadow-[0_12px_34px_rgba(255,184,0,0.13)]",
+    chipClassName: "bg-ember-500/12 text-ember-600 dark:text-ember-400",
+  },
+  {
+    value: "quicksprint",
+    label: "Quicksprint",
+    icon: RefreshCw,
+    tone: "text-sky-500",
+    activeClassName: "border-sky-500/35 bg-sky-500/10 shadow-[0_12px_34px_rgba(14,165,233,0.13)]",
+    chipClassName: "bg-sky-500/12 text-sky-600 dark:text-sky-300",
+  },
+  {
+    value: "chat",
+    label: "Chat message",
+    icon: MessageCircle,
+    tone: "text-signal-500",
+    activeClassName: "border-signal-500/35 bg-signal-500/10 shadow-[0_12px_34px_rgba(0,224,160,0.13)]",
+    chipClassName: "bg-signal-500/12 text-signal-600 dark:text-signal-400",
+  },
 ];
+
+const targetOptionByType = new Map(TARGET_OPTIONS.map((option) => [option.value, option]));
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
@@ -134,7 +167,7 @@ export const SchedulerPage: FunctionComponent = () => {
 
   const range = useMemo(() => {
     const from = startOfWeek(selectedDate);
-    const to = addDays(from, 14);
+    const to = addDays(from, 6);
     to.setHours(23, 59, 59, 999);
     return { from, to };
   }, [selectedDate]);
@@ -191,6 +224,22 @@ export const SchedulerPage: FunctionComponent = () => {
     }
     return grouped;
   }, [schedule?.occurrences]);
+
+  const schedulerStats = useMemo(() => {
+    const entries = schedule?.entries || [];
+    const activeEntries = entries.filter((entry) => entry.status === "scheduled");
+    const repeatingEntries = entries.filter((entry) => entry.recurrence.frequency !== "none");
+    const nextOccurrence = (schedule?.occurrences || [])
+      .filter((occurrence) => new Date(occurrence.startsAt).getTime() >= Date.now())
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] || null;
+
+    return {
+      activeCount: activeEntries.length,
+      repeatingCount: repeatingEntries.length,
+      visibleCount: schedule?.occurrences.length || 0,
+      nextOccurrence,
+    };
+  }, [schedule?.entries, schedule?.occurrences]);
 
   const submitSchedule = async () => {
     if (!selectedProject) {
@@ -298,7 +347,7 @@ export const SchedulerPage: FunctionComponent = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setSelectedDate(addDays(selectedDate, -7))}
@@ -337,8 +386,36 @@ export const SchedulerPage: FunctionComponent = () => {
         </div>
       </header>
 
+      <section className="grid gap-3 md:grid-cols-3">
+        {[
+          { label: "Active entries", value: schedulerStats.activeCount, detail: "ready to fire", icon: Play, tone: "text-signal-500" },
+          { label: "Repeating", value: schedulerStats.repeatingCount, detail: "recurrence rules", icon: Repeat, tone: "text-sky-500" },
+          {
+            label: "Next run",
+            value: schedulerStats.nextOccurrence ? formatTimeLabel(schedulerStats.nextOccurrence.startsAt) : "None",
+            detail: schedulerStats.nextOccurrence ? schedulerStats.nextOccurrence.title : "no upcoming work",
+            icon: Clock3,
+            tone: "text-ember-500",
+          },
+        ].map((item) => (
+          <div key={item.label} className="relative overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_14px_38px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-white/[0.045]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-white/18" />
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{item.label}</div>
+                <div className="mt-1 truncate font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{item.value}</div>
+                <div className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{item.detail}</div>
+              </div>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black/[0.035] dark:bg-white/[0.06] ${item.tone}`}>
+                <item.icon className="h-5 w-5" strokeWidth={1.8} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
       <section className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <aside className="rounded-[1.6rem] border border-black/[0.06] bg-white/76 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-void-800/72">
+        <aside className="rounded-[1.6rem] border border-black/[0.06] bg-white/78 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-[#0f141b]/82">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">Add entry</h3>
@@ -357,7 +434,7 @@ export const SchedulerPage: FunctionComponent = () => {
                 onClick={() => setTargetType(option.value)}
                 className={`min-h-[70px] rounded-2xl border p-3 text-left transition ${
                   targetType === option.value
-                    ? "border-signal-500/35 bg-signal-500/10 shadow-[0_12px_30px_rgba(0,224,160,0.10)]"
+                    ? option.activeClassName
                     : "border-black/[0.06] bg-black/[0.025] hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.035] dark:hover:bg-white/[0.06]"
                 }`}
               >
@@ -374,7 +451,7 @@ export const SchedulerPage: FunctionComponent = () => {
                 <select
                   value={selectedSprintId}
                   onChange={(event) => setSelectedSprintId(event.currentTarget.value)}
-                  className="mt-2 min-h-[44px] w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                  className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
                 >
                   <option value="">Choose sprint</option>
                   {incompleteSprints.map((sprint) => (
@@ -391,7 +468,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   <select
                     value={selectedTemplateId}
                     onChange={(event) => setSelectedTemplateId(event.currentTarget.value)}
-                    className="mt-2 min-h-[44px] w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                    className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
                   >
                     <option value="">Choose template</option>
                     {templates.map((template) => (
@@ -407,7 +484,7 @@ export const SchedulerPage: FunctionComponent = () => {
                     max={50}
                     value={taskCount}
                     onInput={(event) => setTaskCount(Number(event.currentTarget.value))}
-                    className="mt-2 min-h-[44px] w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                    className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
                   />
                 </label>
               </div>
@@ -420,7 +497,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   value={chatMessage}
                   onInput={(event) => setChatMessage(event.currentTarget.value)}
                   rows={5}
-                  className="mt-2 w-full resize-none rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                  className={`mt-2 w-full resize-none py-3 font-medium ${SCHEDULER_FIELD_CLASS}`}
                   placeholder="Ask the chat agent to check status, prepare a summary, or start a timed coordination step."
                 />
               </label>
@@ -432,8 +509,24 @@ export const SchedulerPage: FunctionComponent = () => {
                 type="datetime-local"
                 value={scheduledFor}
                 onInput={(event) => setScheduledFor(event.currentTarget.value)}
-                className="mt-2 min-h-[44px] w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-signal-500 dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
               />
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  { label: "In 1h", date: () => { const date = new Date(); date.setHours(date.getHours() + 1, 0, 0, 0); return date; } },
+                  { label: "Tomorrow 9", date: () => { const date = addDays(new Date(), 1); date.setHours(9, 0, 0, 0); return date; } },
+                  { label: "Monday 9", date: () => { const date = startOfWeek(addDays(new Date(), 7)); date.setHours(9, 0, 0, 0); return date; } },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setScheduledFor(toDateInputValue(preset.date()))}
+                    className="min-h-[32px] rounded-full border border-black/[0.06] bg-black/[0.025] px-2 text-[10px] font-black uppercase tracking-[0.11em] text-slate-500 transition hover:border-signal-500/20 hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.035] dark:text-slate-400 dark:hover:text-white"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </label>
 
             <div className="rounded-2xl border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.035]">
@@ -458,12 +551,12 @@ export const SchedulerPage: FunctionComponent = () => {
                       min={1}
                       value={interval}
                       onInput={(event) => setIntervalValue(Number(event.currentTarget.value))}
-                      className="min-h-[40px] rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-bold dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                      className={SCHEDULER_COMPACT_FIELD_CLASS}
                     />
                     <select
                       value={frequency}
                       onChange={(event) => setFrequency(event.currentTarget.value as ScheduleRecurrenceRule["frequency"])}
-                      className="min-h-[40px] rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-bold dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                      className={SCHEDULER_COMPACT_FIELD_CLASS}
                     >
                       <option value="hourly">Hours</option>
                       <option value="daily">Days</option>
@@ -475,7 +568,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   <select
                     value={endMode}
                     onChange={(event) => setEndMode(event.currentTarget.value as ScheduleRecurrenceRule["endMode"])}
-                    className="min-h-[40px] rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-bold dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                    className={SCHEDULER_COMPACT_FIELD_CLASS}
                   >
                     <option value="never">Endless</option>
                     <option value="after_count">Specific iterations</option>
@@ -488,7 +581,7 @@ export const SchedulerPage: FunctionComponent = () => {
                       min={1}
                       value={count}
                       onInput={(event) => setCount(Number(event.currentTarget.value))}
-                      className="min-h-[40px] rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-bold dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                      className={SCHEDULER_COMPACT_FIELD_CLASS}
                     />
                   )}
 
@@ -497,7 +590,7 @@ export const SchedulerPage: FunctionComponent = () => {
                       type="datetime-local"
                       value={until}
                       onInput={(event) => setUntil(event.currentTarget.value)}
-                      className="min-h-[40px] rounded-xl border border-black/[0.08] bg-white px-3 text-sm font-bold dark:border-white/[0.08] dark:bg-void-900 dark:text-white"
+                      className={SCHEDULER_COMPACT_FIELD_CLASS}
                     />
                   )}
                 </div>
@@ -526,14 +619,14 @@ export const SchedulerPage: FunctionComponent = () => {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <section className="rounded-[1.6rem] border border-black/[0.06] bg-white/72 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-void-800/66 md:p-5">
+          <section className="rounded-[1.6rem] border border-black/[0.06] bg-white/74 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-[#0f141b]/72 md:p-5">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                   {view === "calendar" ? "Calendar view" : "24 hour view"}
                 </h3>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {loading ? "Refreshing schedule..." : `${schedule?.occurrences.length || 0} visible occurrences`}
+                  {loading ? "Refreshing schedule..." : `${schedulerStats.visibleCount} visible occurrences · ${formatDayLabel(range.from)} to ${formatDayLabel(range.to)}`}
                 </p>
               </div>
               <button
@@ -552,6 +645,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   const key = startOfDay(day).toISOString();
                   const dayItems = occurrencesByDay.get(key) || [];
                   const selected = key === startOfDay(selectedDate).toISOString();
+                  const isToday = key === startOfDay(new Date()).toISOString();
                   return (
                     <button
                       key={key}
@@ -559,24 +653,27 @@ export const SchedulerPage: FunctionComponent = () => {
                       onClick={() => setSelectedDate(day)}
                       className={`min-h-[13rem] rounded-2xl border p-3 text-left transition ${
                         selected
-                          ? "border-signal-500/35 bg-signal-500/[0.08]"
-                          : "border-black/[0.06] bg-black/[0.02] hover:bg-black/[0.035] dark:border-white/[0.06] dark:bg-white/[0.025] dark:hover:bg-white/[0.045]"
+                          ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_18px_45px_rgba(0,224,160,0.10)]"
+                          : "border-black/[0.06] bg-black/[0.02] hover:-translate-y-0.5 hover:bg-black/[0.035] dark:border-white/[0.06] dark:bg-white/[0.025] dark:hover:bg-white/[0.045]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap text-xs font-black uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">{formatDayLabel(day)}</span>
-                        <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/[0.06] dark:text-slate-400">{dayItems.length}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isToday ? "bg-signal-500 text-void-900" : "bg-white/80 text-slate-500 dark:bg-white/[0.06] dark:text-slate-400"}`}>{dayItems.length}</span>
                       </div>
                       <div className="mt-3 space-y-2">
-                        {dayItems.slice(0, 5).map((occurrence) => (
-                          <div key={occurrence.id} className="rounded-xl border border-white/70 bg-white/78 p-2 text-xs shadow-sm dark:border-white/[0.06] dark:bg-white/[0.05]">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-slate-800 dark:text-white">{formatTimeLabel(occurrence.startsAt)}</span>
-                              <span className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{targetLabel(occurrence.targetType)}</span>
+                        {dayItems.slice(0, 5).map((occurrence) => {
+                          const option = targetOptionByType.get(occurrence.targetType);
+                          return (
+                            <div key={occurrence.id} className="rounded-xl border border-white/70 bg-white/82 p-2 text-xs shadow-sm dark:border-white/[0.06] dark:bg-white/[0.055]">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-slate-800 dark:text-white">{formatTimeLabel(occurrence.startsAt)}</span>
+                                <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] ${option?.chipClassName || "bg-slate-500/10 text-slate-500"}`}>{targetLabel(occurrence.targetType)}</span>
+                              </div>
+                              <div className="mt-1 line-clamp-2 font-semibold text-slate-500 dark:text-slate-400">{occurrence.title}</div>
                             </div>
-                            <div className="mt-1 line-clamp-2 font-semibold text-slate-500 dark:text-slate-400">{occurrence.title}</div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {dayItems.length > 5 && (
                           <div className="text-[10px] font-bold text-slate-400">+{dayItems.length - 5} more</div>
                         )}
@@ -586,27 +683,33 @@ export const SchedulerPage: FunctionComponent = () => {
                 })}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="max-h-[46rem] space-y-2 overflow-y-auto pr-1 dashboard-scrollbar">
                 {Array.from({ length: 24 }, (_item, hour) => {
                   const hourItems = dayOccurrences.filter((occurrence) => new Date(occurrence.startsAt).getHours() === hour);
                   return (
                     <div key={hour} className="grid min-h-[64px] grid-cols-[4.5rem_minmax(0,1fr)] gap-3 rounded-xl border border-black/[0.04] bg-black/[0.015] p-2 dark:border-white/[0.05] dark:bg-white/[0.02]">
                       <div className="pt-2 text-right text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{pad(hour)}:00</div>
-                      <div className="space-y-2">
-                        {hourItems.map((occurrence) => (
-                          <div key={occurrence.id} className="rounded-xl border border-signal-500/16 bg-signal-500/[0.07] p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
-                                <Clock3 className="h-3.5 w-3.5 text-signal-500" />
-                                {formatTimeLabel(occurrence.startsAt)}
-                              </span>
-                              <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 dark:bg-white/[0.08]">
-                                {targetLabel(occurrence.targetType)}
-                              </span>
+                      <div className="space-y-2 border-l border-black/[0.05] pl-3 dark:border-white/[0.06]">
+                        {hourItems.length === 0 && (
+                          <div className="h-full min-h-[42px] rounded-xl border border-dashed border-black/[0.04] bg-white/[0.28] dark:border-white/[0.04] dark:bg-white/[0.018]" />
+                        )}
+                        {hourItems.map((occurrence) => {
+                          const option = targetOptionByType.get(occurrence.targetType);
+                          return (
+                            <div key={occurrence.id} className="rounded-xl border border-white/70 bg-white/82 p-3 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.055]">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
+                                  <Clock3 className={`h-3.5 w-3.5 ${option?.tone || "text-signal-500"}`} />
+                                  {formatTimeLabel(occurrence.startsAt)}
+                                </span>
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${option?.chipClassName || "bg-slate-500/10 text-slate-500"}`}>
+                                  {targetLabel(occurrence.targetType)}
+                                </span>
+                              </div>
+                              <div className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{occurrence.title}</div>
                             </div>
-                            <div className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{occurrence.title}</div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -615,7 +718,7 @@ export const SchedulerPage: FunctionComponent = () => {
             )}
           </section>
 
-          <section className="rounded-[1.6rem] border border-black/[0.06] bg-white/72 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-void-800/66 md:p-5">
+          <section className="rounded-[1.6rem] border border-black/[0.06] bg-white/74 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-[#0f141b]/72 md:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">Scheduled entries</h3>
@@ -631,47 +734,50 @@ export const SchedulerPage: FunctionComponent = () => {
                 </div>
               )}
 
-              {(schedule?.entries || []).map((entry) => (
-                <div key={entry.id} className="grid gap-3 rounded-2xl border border-black/[0.06] bg-white/82 p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.045] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white dark:bg-white dark:text-slate-950">
-                        {targetLabel(entry.targetType)}
-                      </span>
-                      <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400">
-                        {entry.status}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-400">{recurrenceSummary(entry.recurrence)}</span>
+              {(schedule?.entries || []).map((entry) => {
+                const option = targetOptionByType.get(entry.targetType);
+                return (
+                  <div key={entry.id} className="grid gap-3 rounded-2xl border border-black/[0.06] bg-white/84 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)] dark:border-white/[0.06] dark:bg-white/[0.048] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${option?.chipClassName || "bg-slate-500/10 text-slate-500"}`}>
+                          {targetLabel(entry.targetType)}
+                        </span>
+                        <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400">
+                          {entry.status}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-400">{recurrenceSummary(entry.recurrence)}</span>
+                      </div>
+                      <h4 className="mt-2 truncate text-sm font-black text-slate-900 dark:text-white">{entry.title}</h4>
+                      <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Next run: {entry.nextRunAt ? new Date(entry.nextRunAt).toLocaleString() : "complete"} · Runs: {entry.runCount}
+                      </p>
+                      {entry.lastError && (
+                        <p className="mt-2 text-xs font-bold text-status-red">{entry.lastError}</p>
+                      )}
                     </div>
-                    <h4 className="mt-2 truncate text-sm font-black text-slate-900 dark:text-white">{entry.title}</h4>
-                    <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                      Next run: {entry.nextRunAt ? new Date(entry.nextRunAt).toLocaleString() : "complete"} · Runs: {entry.runCount}
-                    </p>
-                    {entry.lastError && (
-                      <p className="mt-2 text-xs font-bold text-status-red">{entry.lastError}</p>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void toggleEntryStatus(entry.id, entry.status === "paused")}
+                        disabled={entry.status === "completed" || entry.status === "cancelled"}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white text-slate-600 transition hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:text-white"
+                        aria-label={entry.status === "paused" ? "Resume schedule entry" : "Pause schedule entry"}
+                      >
+                        {entry.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeEntry(entry.id)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-status-red/15 bg-status-red/10 text-status-red transition hover:bg-status-red/15"
+                        aria-label="Delete schedule entry"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void toggleEntryStatus(entry.id, entry.status === "paused")}
-                      disabled={entry.status === "completed" || entry.status === "cancelled"}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.06] bg-white text-slate-600 transition hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:text-white"
-                      aria-label={entry.status === "paused" ? "Resume schedule entry" : "Pause schedule entry"}
-                    >
-                      {entry.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void removeEntry(entry.id)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-status-red/15 bg-status-red/10 text-status-red transition hover:bg-status-red/15"
-                      aria-label="Delete schedule entry"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </div>
