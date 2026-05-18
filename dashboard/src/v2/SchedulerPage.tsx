@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-preact";
 import { PageContainer } from "./components/ui/PageContainer.js";
+import { AvantgardeSelect } from "./components/ui/AvantgardeSelect.js";
 import { useProjectData } from "./context/project-data.js";
 import { fetchSprints } from "./lib/project-api.js";
 import { fetchQuicksprintTemplates } from "./lib/quicksprint-api.js";
@@ -448,16 +449,15 @@ export const SchedulerPage: FunctionComponent = () => {
             {targetType === "sprint" && (
               <label className="block">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Sprint</span>
-                <select
+                <AvantgardeSelect
                   value={selectedSprintId}
-                  onChange={(event) => setSelectedSprintId(event.currentTarget.value)}
-                  className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
-                >
-                  <option value="">Choose sprint</option>
-                  {incompleteSprints.map((sprint) => (
-                    <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-                  ))}
-                </select>
+                  onChange={setSelectedSprintId}
+                  options={[
+                    { value: "", label: "Choose sprint" },
+                    ...incompleteSprints.map((sprint) => ({ value: sprint.id, label: sprint.name }))
+                  ]}
+                  className="mt-2"
+                />
               </label>
             )}
 
@@ -465,16 +465,15 @@ export const SchedulerPage: FunctionComponent = () => {
               <div className="grid gap-3">
                 <label className="block">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Quicksprint</span>
-                  <select
+                  <AvantgardeSelect
                     value={selectedTemplateId}
-                    onChange={(event) => setSelectedTemplateId(event.currentTarget.value)}
-                    className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
-                  >
-                    <option value="">Choose template</option>
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>{template.name}</option>
-                    ))}
-                  </select>
+                    onChange={setSelectedTemplateId}
+                    options={[
+                      { value: "", label: "Choose template" },
+                      ...templates.map((template) => ({ value: template.id, label: template.name }))
+                    ]}
+                    className="mt-2"
+                  />
                 </label>
                 <label className="block">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Task count</span>
@@ -553,27 +552,27 @@ export const SchedulerPage: FunctionComponent = () => {
                       onInput={(event) => setIntervalValue(Number(event.currentTarget.value))}
                       className={SCHEDULER_COMPACT_FIELD_CLASS}
                     />
-                    <select
+                    <AvantgardeSelect
                       value={frequency}
-                      onChange={(event) => setFrequency(event.currentTarget.value as ScheduleRecurrenceRule["frequency"])}
-                      className={SCHEDULER_COMPACT_FIELD_CLASS}
-                    >
-                      <option value="hourly">Hours</option>
-                      <option value="daily">Days</option>
-                      <option value="weekly">Weeks</option>
-                      <option value="monthly">Months</option>
-                    </select>
+                      onChange={(value) => setFrequency(value as ScheduleRecurrenceRule["frequency"])}
+                      options={[
+                        { value: "hourly", label: "Hours" },
+                        { value: "daily", label: "Days" },
+                        { value: "weekly", label: "Weeks" },
+                        { value: "monthly", label: "Months" },
+                      ]}
+                    />
                   </div>
 
-                  <select
+                  <AvantgardeSelect
                     value={endMode}
-                    onChange={(event) => setEndMode(event.currentTarget.value as ScheduleRecurrenceRule["endMode"])}
-                    className={SCHEDULER_COMPACT_FIELD_CLASS}
-                  >
-                    <option value="never">Endless</option>
-                    <option value="after_count">Specific iterations</option>
-                    <option value="on_date">End date/time</option>
-                  </select>
+                    onChange={(value) => setEndMode(value as ScheduleRecurrenceRule["endMode"])}
+                    options={[
+                      { value: "never", label: "Endless" },
+                      { value: "after_count", label: "Specific iterations" },
+                      { value: "on_date", label: "End date/time" },
+                    ]}
+                  />
 
                   {endMode === "after_count" && (
                     <input
