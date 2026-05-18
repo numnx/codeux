@@ -329,6 +329,22 @@ For key and port configuration, you can optionally provide a local override file
 
 ---
 
+## Development
+
+Node.js 22 is required for CI, while Node.js 20+ is sufficient for local development.
+
+| Command | Description |
+|---|---|
+| `pnpm run dev` | Run the development server from source |
+| `pnpm run build` | Build the project |
+| `pnpm run test` | Run unit tests |
+| `pnpm run test:coverage` | Run tests with coverage |
+| `pnpm run ci` | Full CI gate |
+| `pnpm run typecheck` | Run type checking |
+| `pnpm run lint` | Run the linter |
+
+---
+
 ## Documentation
 
 For a comprehensive index of the project's documentation, please refer to the [Documentation Index](./docs/index.md).
