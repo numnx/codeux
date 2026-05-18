@@ -12,6 +12,7 @@ import { KineticDock } from "./v2/components/KineticDock.js";
 import { Sidebar } from "./v2/components/Sidebar.js";
 import { TopNav } from "./v2/components/TopNav.js";
 import { ProjectDataProvider, useProjectData } from "./v2/context/project-data.js";
+import { ToastProvider } from "./v2/components/feedback/ToastProvider.js";
 import { useProjectEffectiveSettings } from "./v2/hooks/use-project-effective-settings.js";
 import { fetchSystemSettings } from "./v2/lib/settings-api.js";
 import type { SystemSettings } from "./types.js";
@@ -171,9 +172,11 @@ const BrowserPage   = lazy(() => import("./v2/BrowserPage.js").then(m => ({ defa
 const rootRoute = createRootRoute({
   component: () => {
     return (
-      <ProjectDataProvider>
+      <ToastProvider>
+        <ProjectDataProvider>
         <AppLayout />
       </ProjectDataProvider>
+      </ToastProvider>
     );
   },
 });

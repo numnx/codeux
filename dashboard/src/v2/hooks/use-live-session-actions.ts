@@ -13,62 +13,69 @@ import {
 } from "../../lib/api/dashboard-api.js";
 import type { RerunTaskOptions } from "../../lib/api/dashboard-api.js";
 import type { ConfirmDialogOptions } from "./use-confirm-dialog.js";
-
-import type { ActionFeedbackOptions } from "./use-action-feedback.js";
+import { useToast } from "../components/feedback/ToastProvider.js";
 
 export function useLiveSessionActions(
     refreshRuntimeStatus: () => Promise<void>,
     refreshGitStatus: () => Promise<void>,
     requestConfirm: (opts: ConfirmDialogOptions) => Promise<boolean>,
-    feedbackHandlers: {
-        setPending: (msg: string, opts?: ActionFeedbackOptions) => void;
-        setSuccess: (msg: string, opts?: ActionFeedbackOptions) => void;
-        setError: (msg: string, opts?: ActionFeedbackOptions) => void;
-    },
 ) {
     const [rerunningIds, setRerunningIds] = useState<Set<string>>(new Set());
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
+    const { addToast } = useToast();
 
     const handleRerun = useCallback(async (taskId: string, options?: RerunTaskOptions) => {
         setRerunningIds(prev => new Set(prev).add(taskId));
-        feedbackHandlers.setPending("Requesting task rerun...");
         try {
             await rerunTask(taskId, options);
             await refreshRuntimeStatus();
             await refreshGitStatus();
-            feedbackHandlers.setSuccess("Task rerun dispatched successfully.");
+            addToast({
+                type: "success",
+                message: "Task rerun dispatched successfully.",
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to rerun task.";
-            feedbackHandlers.setError(message, {
-                retryAction: () => handleRerun(taskId, options),
-                retryLabel: "Retry Rerun",
-                autoDismiss: false
+            addToast({
+                type: "error",
+                message,
+                action: {
+                    label: "Retry Rerun",
+                    onClick: () => handleRerun(taskId, options),
+                },
+                autoDismissMs: 0,
             });
         } finally {
             setRerunningIds(prev => { const next = new Set(prev); next.delete(taskId); return next; });
         }
-    }, [refreshRuntimeStatus, refreshGitStatus, feedbackHandlers]);
+    }, [refreshRuntimeStatus, refreshGitStatus, addToast]);
 
     const runControlAction = useCallback(async (actionId: string, operation: () => Promise<void>) => {
         setPendingActionIds(prev => new Set(prev).add(actionId));
-        feedbackHandlers.setPending("Executing action...");
         try {
             await operation();
             await new Promise((resolve) => setTimeout(resolve, 150));
             await refreshRuntimeStatus();
             await refreshGitStatus();
-            feedbackHandlers.setSuccess("Action executed successfully.");
+            addToast({
+                type: "success",
+                message: "Action executed successfully.",
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to execute runtime control.";
-            feedbackHandlers.setError(message, {
-                retryAction: () => runControlAction(actionId, operation),
-                retryLabel: "Retry",
-                autoDismiss: false
+            addToast({
+                type: "error",
+                message,
+                action: {
+                    label: "Retry",
+                    onClick: () => runControlAction(actionId, operation),
+                },
+                autoDismissMs: 0,
             });
         } finally {
             setPendingActionIds(prev => { const next = new Set(prev); next.delete(actionId); return next; });
         }
-    }, [refreshRuntimeStatus, refreshGitStatus, feedbackHandlers]);
+    }, [refreshRuntimeStatus, refreshGitStatus, addToast]);
 
     const handleOrchestrateSprint = useCallback(async (projectId: string, sprintId: string) => {
         await runControlAction(`sprint-start:${sprintId}`, async () => {
