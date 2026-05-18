@@ -1,3 +1,7 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import { render } from "@testing-library/preact";
 import { LiveDurationBadge } from "../LiveDurationBadge";
 import { describe, it, expect } from "vitest";
