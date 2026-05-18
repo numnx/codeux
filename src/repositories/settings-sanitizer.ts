@@ -106,6 +106,10 @@ export const cloneDefaults = (externalHints?: ExternalSettingsHints): DashboardS
     githubToken: externalHints?.resolved.githubToken || DEFAULT_DASHBOARD_SETTINGS.git.githubToken,
     gitlabToken: externalHints?.resolved.gitlabToken || DEFAULT_DASHBOARD_SETTINGS.git.gitlabToken,
   },
+  jira: {
+    ...DEFAULT_DASHBOARD_SETTINGS.jira,
+    apiToken: externalHints?.resolved?.jiraToken || DEFAULT_DASHBOARD_SETTINGS.jira.apiToken,
+  },
   ciIntelligence: {
     ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
   },
@@ -190,6 +194,15 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
 
   const aiProvider = sanitizeAiProvider(input, { externalHints });
   const git = sanitizeGit(input, externalHints);
+  const jiraInput = (input.jira && typeof input.jira === "object" ? input.jira : {}) as Partial<DashboardSettings["jira"]>;
+  const jira = {
+    host: readString(jiraInput.host, DEFAULT_DASHBOARD_SETTINGS.jira.host),
+    email: readString(jiraInput.email, DEFAULT_DASHBOARD_SETTINGS.jira.email),
+    apiToken: externalHints?.resolved?.jiraToken || readString(jiraInput.apiToken, DEFAULT_DASHBOARD_SETTINGS.jira.apiToken),
+    autoCloseLinkedIssues: readBoolean(jiraInput.autoCloseLinkedIssues, DEFAULT_DASHBOARD_SETTINGS.jira.autoCloseLinkedIssues),
+    defaultProject: readString(jiraInput.defaultProject, DEFAULT_DASHBOARD_SETTINGS.jira.defaultProject),
+    closeTransitionName: readString(jiraInput.closeTransitionName, DEFAULT_DASHBOARD_SETTINGS.jira.closeTransitionName),
+  };
   const ciIntelligence = sanitizeCiIntelligence(input, git.githubMode);
   const sprintLoopSteps = sanitizeSprintLoopSteps(input);
   const cliWorkflow = sanitizeCliWorkflow(input);
@@ -313,6 +326,7 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
       invocationRouting: aiProvider.invocationRouting,
     },
     git,
+    jira,
     ciIntelligence,
     sprintLoopSteps,
     cliWorkflow,
