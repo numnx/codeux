@@ -1,13 +1,24 @@
-import { h, ComponentChildren } from "preact";
+import { h } from "preact";
+import { useEffect } from "preact/hooks";
 import { ChevronLeft, ChevronRight } from "lucide-preact";
-import { memorySidebarExpandedSignal } from "./memoryState";
+import { memorySidebarExpandedSignal, searchQuerySignal } from "./memoryState.js";
+import { MemorySearch } from "./MemorySearch.js";
+import { MemoryList } from "./MemoryList.js";
+import type { MemNode } from "../../lib/memory-graph.js";
 
 interface MemorySidebarProps {
-  children: ComponentChildren;
+  nodes: MemNode[];
+  onSelectNode: (idx: number) => void;
 }
 
-const MemorySidebar = ({ children }: MemorySidebarProps) => {
+const MemorySidebar = ({ nodes, onSelectNode }: MemorySidebarProps) => {
   const isExpanded = memorySidebarExpandedSignal.value;
+
+  useEffect(() => {
+    if (!isExpanded) {
+      searchQuerySignal.value = "";
+    }
+  }, [isExpanded]);
 
   const toggleSidebar = () => {
     memorySidebarExpandedSignal.value = !memorySidebarExpandedSignal.value;
@@ -49,7 +60,14 @@ const MemorySidebar = ({ children }: MemorySidebarProps) => {
           isExpanded ? "opacity-100" : "opacity-0 pointer-events-none overflow-hidden"
         }`}
       >
-        {children}
+        <div className="flex flex-col h-full">
+          <div className="shrink-0 p-3 border-b border-void-700">
+            <MemorySearch />
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <MemoryList nodes={nodes} onSelectNode={onSelectNode} />
+          </div>
+        </div>
       </div>
     </div>
   );
