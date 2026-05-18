@@ -38,4 +38,14 @@ export function applyAppearanceSettings(appearance: Partial<import('../../types.
       document.documentElement.classList.remove('has-bg-pattern');
     }
   }
+
+  if (appearance.backgroundImage !== undefined) {
+    if (appearance.backgroundImage) {
+      document.documentElement.style.setProperty('--bg-image', `url(${appearance.backgroundImage})`);
+      document.documentElement.classList.add('has-bg-image');
+    } else {
+      document.documentElement.style.removeProperty('--bg-image');
+      document.documentElement.classList.remove('has-bg-image');
+    }
+  }
 }

@@ -23,8 +23,11 @@ import { OnboardingExperience } from "./v2/components/onboarding/OnboardingExper
 import { GuidedDashboardTour } from "./v2/components/onboarding/GuidedDashboardTour.js";
 import "./styles.css";
 
-import { BackgroundManager } from "./v2/components/backgrounds/BackgroundManager.js";
 import { applyAppearanceSettings } from "./v2/lib/apply-appearance.js";
+
+const DeepOceanBackground = lazy(() => import("./v2/components/chat/DeepOceanBackground.js").then((module) => ({
+  default: module.DeepOceanBackground,
+})));
 
 // 0. AppLayout extracted to use context hooks
 const AppLayout = () => {
@@ -66,6 +69,7 @@ const AppLayout = () => {
   const appearanceTheme = appearanceSettings?.theme || "SYSTEM";
   const reducedMotion = appearanceSettings?.reducedMotion || "AUTO";
   const backgroundPattern = appearanceSettings?.backgroundPattern || "NONE";
+  const backgroundImage = appearanceSettings?.backgroundImage;
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === "undefined") return true;
     if (appearanceTheme === "SYSTEM") {
@@ -102,6 +106,10 @@ const AppLayout = () => {
   }, [isDark]);
 
   useEffect(() => {
+    applyAppearanceSettings({ backgroundImage });
+  }, [backgroundImage]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const root = window.document.documentElement;
     if (reducedMotion === "REDUCE" || (reducedMotion === "AUTO" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
@@ -130,14 +138,11 @@ const AppLayout = () => {
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
           Skip to main content
         </a>
-        <Suspense fallback={null}>
-          <BackgroundManager 
-            mode={appearanceSettings?.backgroundMode || "ANIMATED"} 
-            animation={appearanceSettings?.animatedBackground || "deep-ocean"} 
-            staticColor={appearanceSettings?.staticBackgroundColor || "#0d0f12"} 
-            isDark={isDark} 
-          />
-        </Suspense>
+        {!backgroundImage && (
+          <Suspense fallback={null}>
+            <DeepOceanBackground forceDark={isDark} />
+          </Suspense>
+        )}
 
         <div className="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
           <TopNav isDark={isDark} toggleTheme={toggleTheme} onMenuToggle={() => setIsMobileSidebarOpen(prev => !prev)} isMobile={isMobile} />
@@ -169,9 +174,11 @@ const SchedulerPage = lazy(() => import("./v2/SchedulerPage.js").then(m => ({ de
 const SettingsPage  = lazy(() => import("./v2/SettingsPage.js").then(m => ({ default: m.SettingsPage })));
 const MemoryPage    = lazy(() => import("./v2/MemoryPage.js").then(m => ({ default: m.MemoryPage })));
 const BrowserPage   = lazy(() => import("./v2/BrowserPage.js").then(m => ({ default: m.BrowserPage })));
+const ErrorPage     = lazy(() => import("./v2/ErrorPage.js").then(m => ({ default: m.ErrorPage })));
 
 // 1. Root layout route
 const rootRoute = createRootRoute({
+  notFoundComponent: ErrorPage,
   component: () => {
     return (
       <ToastProvider>
@@ -257,7 +264,13 @@ const browserRoute = createRoute({
   component: BrowserPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, sprintsRoute, tasksRoute, projectsRoute, chatRoute, agentsRoute, statsRoute, schedulerRoute, configRoute, memoryRoute, browserRoute, liveRoute]);
+const notFoundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "*",
+  component: ErrorPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, sprintsRoute, tasksRoute, projectsRoute, chatRoute, agentsRoute, statsRoute, schedulerRoute, configRoute, memoryRoute, browserRoute, liveRoute, notFoundRoute]);
 const router = createRouter({ routeTree });
 
 // 4. Entry
