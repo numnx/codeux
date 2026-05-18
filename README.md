@@ -329,6 +329,22 @@ For key and port configuration, you can optionally provide a local override file
 
 ---
 
+## Development
+
+The project uses `pnpm` as its package manager. Local development requires Node.js 20+, and the CI pipeline requires Node.js 22.
+
+Available development scripts:
+
+- `pnpm run dev`: Start the development server from source.
+- `pnpm run build`: Build the project for production.
+- `pnpm run test`: Run the test suite.
+- `pnpm run test:coverage`: Run the test suite with coverage report.
+- `pnpm run typecheck`: Run TypeScript type checking.
+- `pnpm run lint`: Run the linter.
+- `pnpm run ci`: Run the full CI gate (lint, typecheck, build, test).
+
+---
+
 ## Documentation
 
 For a comprehensive index of the project's documentation, please refer to the [Documentation Index](./docs/index.md).
