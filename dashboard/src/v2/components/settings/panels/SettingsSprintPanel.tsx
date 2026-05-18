@@ -3,6 +3,7 @@ import type { SettingsPageState } from "../../../hooks/use-settings-page-state.j
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
 import type { ProjectSettings } from "../../../../types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
+import { SprintKeyEditor } from "../SprintKeyEditor.js";
 import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
 
 export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
@@ -65,24 +66,17 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             mono
           />
         </Row>
-        <Row
-          label="Sprint key prefix"
-          description="Prefix used when generating sprint keys (e.g. SPR-1)."
+        <SprintKeyEditor
+          value={editableSettings.git.sprintKeyPrefix}
+          onChange={(value) => updateEditableSettings((current) => ({
+            ...current,
+            git: {
+              ...current.git,
+              sprintKeyPrefix: value,
+            },
+          }))}
           badge={getFieldBadge("git.sprintKeyPrefix")}
-        >
-          <TextInput
-            value={editableSettings.git.sprintKeyPrefix}
-            onChange={(value) => updateEditableSettings((current) => ({
-              ...current,
-              git: {
-                ...current.git,
-                // Automatically enforce uppercase and limit to 10 chars max
-                sprintKeyPrefix: value.toUpperCase().slice(0, 10),
-              },
-            }))}
-            mono
-          />
-        </Row>
+        />
         <Row
           label="Branch name scheme"
           description="Template used when naming sprint branches."
