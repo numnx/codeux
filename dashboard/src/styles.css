@@ -160,6 +160,7 @@
   input[type="date"].scheduler-field,
   input[type="datetime-local"].scheduler-field,
   input[type="time"].scheduler-field {
+    position: relative;
     background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 2V5M16 2V5M3.5 9H20.5M5 4H19C20.1046 4 21 4.89543 21 6V20C21 21.1046 20.1046 22 19 22H5C3.89543 22 3 21.1046 3 20V6C3 4.89543 3.89543 4 5 4Z' stroke='%2364758B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-position: right 0.95rem center;
     background-repeat: no-repeat;
@@ -173,36 +174,22 @@
     background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 2V5M16 2V5M3.5 9H20.5M5 4H19C20.1046 4 21 4.89543 21 6V20C21 21.1046 20.1046 22 19 22H5C3.89543 22 3 21.1046 3 20V6C3 4.89543 3.89543 4 5 4Z' stroke='%2300E0A0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
+  /* Make the native calendar picker indicator an invisible overlay covering the custom background image icon */
   input[type="date"].scheduler-field::-webkit-calendar-picker-indicator,
   input[type="datetime-local"].scheduler-field::-webkit-calendar-picker-indicator,
   input[type="time"].scheduler-field::-webkit-calendar-picker-indicator {
-    border-radius: 9999px;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 2.8rem;
+    height: auto;
+    margin: 0;
+    padding: 0;
     cursor: pointer;
-    margin-right: -0.3rem;
     opacity: 0;
-    padding: 2px;
-    transition:
-      background-color var(--transition-hover),
-      box-shadow var(--transition-hover),
-      opacity var(--transition-hover),
-      transform var(--transition-hover),
-      filter var(--transition-hover);
-  }
-
-  input[type="date"].scheduler-field::-webkit-calendar-picker-indicator:hover,
-  input[type="datetime-local"].scheduler-field::-webkit-calendar-picker-indicator:hover,
-  input[type="time"].scheduler-field::-webkit-calendar-picker-indicator:hover {
-    opacity: 0;
-    transform: scale(1.06);
-  }
-
-  .dark input[type="date"].scheduler-field::-webkit-calendar-picker-indicator,
-  .dark input[type="datetime-local"].scheduler-field::-webkit-calendar-picker-indicator,
-  .dark input[type="time"].scheduler-field::-webkit-calendar-picker-indicator {
-    background-color: rgba(0, 224, 160, 0.1);
-    box-shadow: 0 0 0 1px rgba(0, 224, 160, 0.16);
-    filter: invert(92%) sepia(16%) saturate(361%) hue-rotate(111deg) brightness(108%) contrast(96%) drop-shadow(0 0 6px rgba(0, 224, 160, 0.26));
-    opacity: 0;
+    color: transparent;
+    background: transparent;
   }
 
   @keyframes qs-picker-in {
