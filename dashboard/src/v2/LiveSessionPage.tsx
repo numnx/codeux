@@ -139,7 +139,7 @@ export const LiveSessionPage: FunctionComponent = () => {
         handleClaimAttentionItem,
         handleResolveAttentionItem,
         handleDismissAttentionItem,
-    } = useLiveSessionActions(refreshRuntimeStatus, refreshGitStatus, requestConfirm, { setPending, setSuccess, setError });
+    } = useLiveSessionActions(refreshRuntimeStatus, refreshGitStatus, requestConfirm);
 
     const [activeFilter, setFilter] = useState<TaskFilter>("All");
     const [headerView, setHeaderView] = useState<HeaderView>("dag");
