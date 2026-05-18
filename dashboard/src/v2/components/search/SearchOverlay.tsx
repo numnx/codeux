@@ -35,7 +35,11 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ isOpen, o
 
     const handleSelect = (selectedItem: SearchItem & { category?: string }) => {
         if (selectedItem) {
-            if (selectedItem.category === 'sprints') navigate({ to: '/sprints', search: { sprintId: selectedItem.id } as any });
+            if (selectedItem.category === 'sprints') {
+                const match = selectedItem.title?.match(/^(SPR-\d+):/);
+                const sprintKey = match ? match[1] : undefined;
+                navigate({ to: '/sprints', search: { sprintId: selectedItem.id, sprintKey } as any });
+            }
             else if (selectedItem.category === 'tasks') navigate({ to: '/tasks', search: { taskId: selectedItem.id } as any });
             else if (selectedItem.category === 'agents') navigate({ to: '/agents', search: { agentId: selectedItem.id } as any });
             else if (selectedItem.category === 'containers') navigate({ to: '/browser', search: { containerId: selectedItem.id } as any });
