@@ -1,9 +1,10 @@
 import type { FunctionComponent } from "preact";
 import { useState } from "preact/hooks";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
-import { PillChoiceGroup } from "../SettingsFormFields.js";
+import { PillChoiceGroup, SelectInput } from "../SettingsFormFields.js";
 import { SectionCard, Row, getFieldBadge } from "./SharedPanelComponents.js";
 import { applyAppearanceSettings } from "../../../lib/apply-appearance.js";
+import type { BackgroundPattern } from "../../../../types.js";
 
 export const SettingsAppearancePanel: FunctionComponent<{
   state: SettingsPageState;
@@ -170,9 +171,7 @@ export const SettingsAppearancePanel: FunctionComponent<{
             )}
           </div>
         </Row>
-      </SectionCard>
 
-      <SectionCard title="Background Settings" watermark="BG">
         <Row
           label="Background Mode"
           description="Choose between animated backgrounds or a static solid color."
@@ -201,7 +200,6 @@ export const SettingsAppearancePanel: FunctionComponent<{
             label="Animation Style"
             description="Select an award-winning background animation."
             badge={getFieldBadge(activeScope, projectSources, "appearance.animatedBackground")}
-            last
           >
             <PillChoiceGroup
               value={appearance.animatedBackground || "deep-ocean"}
@@ -229,7 +227,6 @@ export const SettingsAppearancePanel: FunctionComponent<{
             label="Static Color"
             description="Choose a solid background color."
             badge={getFieldBadge(activeScope, projectSources, "appearance.staticBackgroundColor")}
-            last
           >
             <div className="flex items-center gap-3">
               <input
@@ -252,6 +249,41 @@ export const SettingsAppearancePanel: FunctionComponent<{
             </div>
           </Row>
         )}
+
+        <Row
+          label="Pattern Overlay"
+          description="Stack a pattern over your background."
+          badge={getFieldBadge(activeScope, projectSources, "appearance.backgroundPattern")}
+          last
+        >
+          <SelectInput
+            value={appearance.backgroundPattern || "NONE"}
+            onChange={(val) => {
+              const newPattern = val as BackgroundPattern;
+              state.updateEditableSettings((current) => ({
+                ...current,
+                appearance: {
+                  ...current.appearance,
+                  backgroundPattern: newPattern,
+                },
+              }));
+              applyAppearanceSettings({ backgroundPattern: newPattern });
+            }}
+            options={[
+              { value: "NONE", label: "None" },
+              { value: "DIAGONAL_LINES", label: "Diagonal Lines" },
+              { value: "HORIZONTAL_LINES", label: "Horizontal Lines" },
+              { value: "VERTICAL_LINES", label: "Vertical Lines" },
+              { value: "CROSSHATCH", label: "Crosshatch" },
+              { value: "DOTS", label: "Dots" },
+              { value: "DIAMONDS", label: "Diamonds" },
+              { value: "HEXAGONS", label: "Hexagons" },
+              { value: "TRIANGLES", label: "Triangles" },
+              { value: "WAVES", label: "Waves" },
+              { value: "NOISE", label: "Noise" },
+            ]}
+          />
+        </Row>
       </SectionCard>
     </div>
   );
