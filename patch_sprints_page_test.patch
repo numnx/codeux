@@ -1,0 +1,15 @@
+<<<<<<< SEARCH
+vi.mock("../../../dashboard/src/v2/pages/sprints/use-sprints-page-data");
+=======
+vi.mock("@tanstack/react-router", async () => {
+  const actual = await vi.importActual("@tanstack/react-router");
+  return {
+    ...actual,
+    useSearch: vi.fn(() => ({})),
+    useMatch: vi.fn(() => ({})),
+    Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+  };
+});
+
+vi.mock("../../../dashboard/src/v2/pages/sprints/use-sprints-page-data");
+>>>>>>> REPLACE
