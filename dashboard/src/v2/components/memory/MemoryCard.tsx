@@ -1,7 +1,10 @@
 import { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
-import { activeMemoryIdSignal } from "./memoryState.js";
+import { useState } from "preact/hooks";
+import { activeMemoryIdSignal, lobotomizeModeSignal, memoriesSignal } from "./memoryState.js";
 import { useComputed } from "@preact/signals";
+import { X } from "lucide-preact";
+import { deleteMemory } from "../../lib/memory-api.js";
 
 interface MemoryCardProps {
     id: string;
@@ -29,20 +32,44 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
     strength,
     onClick,
 }) => {
+    const [deleted, setDeleted] = useState(false);
     const cat = CAT[category] || CAT.context;
     const isSelected = useComputed(() => activeMemoryIdSignal.value === id);
+
+    const handleDelete = async (e: Event) => {
+        e.stopPropagation();
+        setDeleted(true);
+        memoriesSignal.value = memoriesSignal.value.filter((m) => m.id !== id);
+        try {
+            await deleteMemory(id);
+        } catch {
+            // Silently fail as per requirements
+        }
+    };
+
+    if (deleted) return null;
 
     return (
         <div
             onClick={onClick}
             className={`
-                cursor-pointer p-4 rounded-[1.25rem] border transition-all duration-200
+                group relative cursor-pointer p-4 rounded-[1.25rem] border transition-all duration-200
                 ${isSelected.value
                     ? "bg-white dark:bg-void-800 border-signal-500 shadow-[0_4px_24px_rgba(0,224,160,0.15)]"
                     : "bg-white/60 dark:bg-void-800/50 border-black/[0.06] dark:border-white/[0.06] hover:bg-white dark:hover:bg-void-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
                 }
             `}
         >
+            {lobotomizeModeSignal.value && (
+                <button
+                    type="button"
+                    aria-label="Delete memory"
+                    onClick={handleDelete}
+                    className="absolute top-1 right-1 z-10 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-150 hover:bg-status-red/10 text-slate-400 hover:text-status-red cursor-pointer"
+                >
+                    <X size={14} />
+                </button>
+            )}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ background: cat.hex, boxShadow: `0 0 8px ${cat.hex}` }} />
