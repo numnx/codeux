@@ -17,6 +17,7 @@ import {
 import { PageContainer } from "./components/ui/PageContainer.js";
 import { AvantgardeSelect } from "./components/ui/AvantgardeSelect.js";
 import { useProjectData } from "./context/project-data.js";
+import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";
 import { fetchSprints } from "./lib/project-api.js";
 import { fetchQuicksprintTemplates } from "./lib/quicksprint-api.js";
 import {
@@ -205,6 +206,15 @@ export const SchedulerPage: FunctionComponent = () => {
     void refresh(controller.signal);
     return () => controller.abort();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedProject?.id) return;
+    return subscribeToDashboardRealtime([`project:${selectedProject.id}`], (message) => {
+      if (message.type === "event" && message.event.eventType === "project.live.updated") {
+        void refresh();
+      }
+    });
+  }, [selectedProject?.id, refresh]);
 
   const incompleteSprints = useMemo(() => sprints.filter((sprint) => sprint.status !== "completed"), [sprints]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_item, index) => addDays(startOfWeek(selectedDate), index)), [selectedDate]);
@@ -452,6 +462,7 @@ export const SchedulerPage: FunctionComponent = () => {
                 <AvantgardeSelect
                   value={selectedSprintId}
                   onChange={setSelectedSprintId}
+                  searchable={true}
                   options={[
                     { value: "", label: "Choose sprint" },
                     ...incompleteSprints.map((sprint) => ({ value: sprint.id, label: sprint.name }))
@@ -468,6 +479,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   <AvantgardeSelect
                     value={selectedTemplateId}
                     onChange={setSelectedTemplateId}
+                    searchable={true}
                     options={[
                       { value: "", label: "Choose template" },
                       ...templates.map((template) => ({ value: template.id, label: template.name }))
