@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "dashboard/tests/**/*.test.tsx", "dashboard/src/**/__tests__/*.test.ts", "dashboard/src/**/__tests__/*.test.tsx"],
     exclude: ["dist/**", "dashboard/dist/**", "node_modules/**"],
-    setupFiles: ["tests/setup/runtime-warning-filter.ts"],
+    setupFiles: ["tests/setup/runtime-warning-filter.ts", "tests/dashboard/setup-jsdom.ts"],
     testTimeout: 15000,
     // Default environment is node, specific UI tests handle this via @vitest-environment jsdom pragmas
     environment: "node",
