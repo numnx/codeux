@@ -708,6 +708,8 @@ export interface AgentSettings {
   qualityAssurance: QualityAssuranceSettings;
 }
 
+export type BackgroundPattern = "NONE" | "DIAGONAL_LINES" | "HORIZONTAL_LINES" | "VERTICAL_LINES" | "CROSSHATCH" | "DOTS" | "DIAMONDS" | "HEXAGONS" | "TRIANGLES" | "WAVES" | "NOISE";
+
 export interface AppearanceSettings {
   navigationMode: "DOCK" | "SIDEBAR";
   theme: "LIGHT" | "DARK" | "SYSTEM";
@@ -715,6 +717,8 @@ export interface AppearanceSettings {
   backgroundMode: "ANIMATED" | "STATIC";
   animatedBackground: string;
   staticBackgroundColor: string;
+  backgroundImage?: string | null;
+  backgroundPattern?: BackgroundPattern | null;
 }
 
 export interface SkillToggle {
