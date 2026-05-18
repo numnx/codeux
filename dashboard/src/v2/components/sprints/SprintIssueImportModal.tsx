@@ -14,6 +14,7 @@ import {
 } from "lucide-preact";
 import type { ProjectSummary, SprintLinkedIssueInput } from "../../types.js";
 import { fetchProjectIssuePromptContexts, searchProjectIssues, type RemoteIssueSummary } from "../../lib/project-api.js";
+import { MultiSelect } from "../ui/MultiSelect.js";
 
 interface SprintIssueImportModalProps {
   project: ProjectSummary;
@@ -42,7 +43,7 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
   );
   const [repository, setRepository] = useState(inferRepository(project));
   const [search, setSearch] = useState("");
-  const [labels, setLabels] = useState("");
+  const [labels, setLabels] = useState<string[]>([]);
   const [state, setState] = useState<"open" | "closed" | "all">("open");
   const [issues, setIssues] = useState<RemoteIssueSummary[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -74,7 +75,7 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
         hostDomain,
         search,
         state,
-        labels: labels.split(",").map((label) => label.trim()).filter(Boolean),
+        labels,
         limit: 40,
       }, controller.signal);
       setIssues(results);
@@ -269,11 +270,10 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
               Search
             </button>
             <div className="lg:col-span-5">
-              <input
+              <MultiSelect
                 value={labels}
-                onInput={(event) => setLabels((event.target as HTMLInputElement).value)}
-                placeholder="Optional labels filter, comma separated"
-                className="h-10 w-full rounded-[0.95rem] border border-black/[0.06] bg-transparent px-3 text-xs text-slate-500 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.07] dark:text-slate-300"
+                onChange={setLabels}
+                placeholder="Optional labels filter, press Enter to add"
               />
             </div>
           </div>
