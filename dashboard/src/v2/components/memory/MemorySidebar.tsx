@@ -1,0 +1,58 @@
+import { h, ComponentChildren } from "preact";
+import { ChevronLeft, ChevronRight } from "lucide-preact";
+import { memorySidebarExpandedSignal } from "./memoryState";
+
+interface MemorySidebarProps {
+  children: ComponentChildren;
+}
+
+const MemorySidebar = ({ children }: MemorySidebarProps) => {
+  const isExpanded = memorySidebarExpandedSignal.value;
+
+  const toggleSidebar = () => {
+    memorySidebarExpandedSignal.value = !memorySidebarExpandedSignal.value;
+  };
+
+  return (
+    <div
+      className={`relative h-full bg-void-900 border-l border-void-700 transition-all duration-300 ease-in-out flex flex-col ${
+        isExpanded ? "w-80" : "w-0"
+      }`}
+    >
+      <style>
+        {`
+          @keyframes pulse-arrow {
+            0%, 100% { transform: scale(0.85); opacity: 0.7; }
+            50% { transform: scale(1.15); opacity: 1; }
+          }
+          .animate-pulse-arrow {
+            animation: pulse-arrow 2s ease-in-out infinite;
+          }
+        `}
+      </style>
+
+      {/* Toggle Button */}
+      <button
+        onClick={toggleSidebar}
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 flex h-10 w-5 items-center justify-center bg-void-800 border border-void-700 rounded-full text-void-300 hover:text-signal hover:border-signal transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-signal"
+        aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        aria-expanded={isExpanded}
+      >
+        <span className="animate-pulse-arrow flex items-center justify-center">
+          {isExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </span>
+      </button>
+
+      {/* Content Area */}
+      <div
+        className={`w-80 flex-1 flex flex-col transition-opacity duration-300 ${
+          isExpanded ? "opacity-100" : "opacity-0 pointer-events-none overflow-hidden"
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+export default MemorySidebar;
