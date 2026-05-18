@@ -3,6 +3,7 @@ import type { SettingsPageState } from "../../../hooks/use-settings-page-state.j
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
 import type { ProjectSettings } from "../../../../types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
+import { SprintKeyEditor } from "../SprintKeyEditor.js";
 import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
 
 export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
@@ -65,6 +66,17 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             mono
           />
         </Row>
+        <SprintKeyEditor
+          value={editableSettings.git.sprintKeyPrefix}
+          onChange={(value) => updateEditableSettings((current) => ({
+            ...current,
+            git: {
+              ...current.git,
+              sprintKeyPrefix: value,
+            },
+          }))}
+          badge={getFieldBadge("git.sprintKeyPrefix")}
+        />
         <Row
           label="Branch name scheme"
           description="Template used when naming sprint branches."
