@@ -8,7 +8,7 @@ import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 
 
-export type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string };
+export type SearchItem = { id: string; title?: string; name?: string; status?: string; sprint?: string; avatarConfig?: any };
 
 export interface SearchResults {
     sprints: SearchItem[];
