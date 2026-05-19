@@ -100,4 +100,9 @@ export class AppDbStorage {
     }
   }
 
+  close(): void {
+    this.cachedStatements.clear();
+    this.db.close();
+  }
+
 }

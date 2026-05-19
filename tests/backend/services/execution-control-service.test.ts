@@ -11,6 +11,7 @@ import { ProjectAttentionService } from "../../../src/domain/workers/project-att
 import { ExecutionControlService } from "../../../src/services/execution-control-service.js";
 
 const tempDirs: string[] = [];
+const storages: AppDbStorage[] = [];
 
 async function createFixture(): Promise<{
   projectRepository: ProjectManagementRepository;
@@ -25,6 +26,7 @@ async function createFixture(): Promise<{
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-execution-control-"));
   tempDirs.push(dir);
   const storage = new AppDbStorage(path.join(dir, "app.db"));
+  storages.push(storage);
   const projectRepository = new ProjectManagementRepository(storage);
   const executionRepository = new ExecutionRepository(storage);
   const projectAttentionRepository = new ProjectAttentionRepository(storage);
@@ -67,7 +69,13 @@ async function createFixture(): Promise<{
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  try {
+    for (const storage of storages.splice(0)) {
+      storage.close();
+    }
+  } finally {
+    await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  }
 });
 
 describe("ExecutionControlService", () => {
