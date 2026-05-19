@@ -68,6 +68,15 @@ describe("AppDbStorage", () => {
     expect(resolveAppDbPath(dbPath)).toBe(dbPath);
   });
 
+  it("closes the underlying sqlite connection", async () => {
+    const dbPath = await createTempDbPath();
+    const storage = new AppDbStorage(dbPath);
+
+    storage.close();
+
+    expect(() => storage.getDatabase().prepare("SELECT 1").get()).toThrow();
+  });
+
   it("backfills estimated Docker CLI usage from persisted character counts", async () => {
     const dbPath = await createTempDbPath();
     const storage = new AppDbStorage(dbPath);

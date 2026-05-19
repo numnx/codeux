@@ -52,6 +52,7 @@ GitHub Actions optimization notes:
 - backend server tests that need a real listener should bind with `port: 0` and reuse `handle.port` instead of reserving a throwaway port first
 - if a backend route suite does not need host routing or upgrade handling, configure the Express app in-process and drive it with `supertest` instead of booting a real TCP listener
 - watch-loop and polling-heavy tests should inject a no-op sleep helper instead of paying the full runtime interval during CI
+- SQLite-backed backend fixtures should close their `AppDbStorage` handles before deleting temp directories so backend coverage runs do not keep file handles alive under CI load
 - split heavy dashboard page tests from their child-component tests so simple component coverage can run under `happy-dom` without importing the full page shell
 - for dashboard page-shell tests, mock chart-heavy or animation-heavy visual subtrees when the assertion only cares about page wiring, headings, scope switching, or save flows
 
