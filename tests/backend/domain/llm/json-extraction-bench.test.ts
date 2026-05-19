@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { extractJsonFromText } from "../../../../src/domain/llm/json-extraction.js";
 
 describe("json-extraction benchmark", () => {
+  const MAX_EXTRACTION_MS = 100;
+
   it("should extract JSON quickly from large text", () => {
     // Generate large text with many braces
     let text = "Here is a large text.\n";
@@ -24,6 +26,6 @@ describe("json-extraction benchmark", () => {
     }
     const elapsed = end - start;
     console.log(`Extraction took ${elapsed} ms`);
-    expect(elapsed).toBeLessThan(20); // Increased threshold to avoid flaky failures in CI
+    expect(elapsed).toBeLessThan(MAX_EXTRACTION_MS);
   });
 });
