@@ -10,6 +10,7 @@ import {
   Sparkles,
   Tag,
   Target,
+  Workflow,
   X,
   Users
 } from "lucide-preact";
@@ -30,6 +31,7 @@ import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import type { ImprovePromptInput, VirtualWorkerProvider } from "../../types.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
 import { JiraIcon } from "../icons/JiraIcon.js";
+import { AgentSelectAvatarIcon } from "../agents/AgentSelectAvatarIcon.js";
 
 interface SprintComposerProps {
   nextId: string;
@@ -112,6 +114,16 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   });
   const visibleLinkedIssues = linkedIssues ?? initialSprint?.linkedIssues ?? [];
   const agentPresetOptions = agentPresets ?? planningPresets;
+  const agentSelectOptions = agentPresetOptions.map((preset) => ({
+    value: preset.id,
+    label: preset.name,
+    icon: <AgentSelectAvatarIcon avatarConfig={preset.avatarConfig} seed={`${preset.id}:${preset.name}`} />,
+  }));
+  const routingSelectIcon = (
+    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-signal-500/18 bg-signal-500/[0.08] text-signal-600 dark:border-signal-400/18 dark:bg-signal-400/[0.08] dark:text-signal-300">
+      <Workflow className="h-3.5 w-3.5" strokeWidth={2.2} />
+    </span>
+  );
 
   const createClientRequestId = (): string => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -671,26 +683,6 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
             <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Planning Agent</div>
-              <div className="mt-3">
-                <AvantgardeSelect
-                  variant="card"
-                  aria-label="Planning Agent"
-                  disabled={isBusy}
-                  value={state.planningAgentPresetId || ""}
-                  onChange={(val) => state.setPlanningAgentPresetId(val || null)}
-                  options={[
-                    { value: "", label: "Built-in Planning agent" },
-                    ...agentPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
-                  ]}
-                  placeholder="Built-in Planning agent"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div data-composer-stagger>
-            <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Agent Routing</div>
               <div className="mt-3">
                 <AvantgardeSelect
@@ -700,10 +692,30 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   value={state.agentRoutingMode}
                   onChange={(val) => state.setAgentRoutingMode(val === "ORCHESTRATOR" ? "ORCHESTRATOR" : "MANUAL")}
                   options={[
-                    { value: "MANUAL", label: "Manual" },
-                    { value: "ORCHESTRATOR", label: "Orchestrator" },
+                    { value: "MANUAL", label: "Manual", icon: routingSelectIcon },
+                    { value: "ORCHESTRATOR", label: "Orchestrator", icon: routingSelectIcon },
                   ]}
                   placeholder="Manual"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div data-composer-stagger>
+            <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Planning Agent</div>
+              <div className="mt-3">
+                <AvantgardeSelect
+                  variant="card"
+                  aria-label="Planning Agent"
+                  disabled={isBusy}
+                  value={state.planningAgentPresetId || ""}
+                  onChange={(val) => state.setPlanningAgentPresetId(val || null)}
+                  options={[
+                    { value: "", label: "Built-in Planning agent", icon: <AgentSelectAvatarIcon seed="built-in:planning" /> },
+                    ...agentSelectOptions,
+                  ]}
+                  placeholder="Built-in Planning agent"
                 />
               </div>
             </div>
@@ -721,8 +733,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                     value={state.workerAgentPresetId || ""}
                     onChange={(val) => state.setWorkerAgentPresetId(val || null)}
                     options={[
-                      { value: "", label: "Built-in Worker agent" },
-                      ...agentPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
+                      { value: "", label: "Built-in Worker agent", icon: <AgentSelectAvatarIcon seed="built-in:worker" /> },
+                      ...agentSelectOptions,
                     ]}
                     placeholder="Built-in Worker agent"
                   />

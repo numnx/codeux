@@ -421,6 +421,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledby}
       >
+        {selected?.icon ? <span className="flex-shrink-0">{selected.icon}</span> : null}
         <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown
           className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}

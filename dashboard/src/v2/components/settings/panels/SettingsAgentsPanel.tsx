@@ -4,6 +4,7 @@ import { Row, Toggle, SelectInput, PillChoiceGroup } from "../SettingsFormFields
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
 import { QAPanel } from "./QAPanel.js";
 import type { ProjectSettings } from "../../../../types.js";
+import { AgentSelectAvatarIcon } from "../../agents/AgentSelectAvatarIcon.js";
 
 const DEFAULT_AGENT_ROUTING: ProjectSettings["agents"]["routing"] = {
   planning: { agentPresetId: null },
@@ -53,7 +54,11 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
 
   const agentRoutingSettings = normalizeAgentRoutingSettings(projectSettings?.agents.routing ?? editableSettings.agents.routing);
   const qaSettings = projectSettings?.agents.qualityAssurance ?? editableSettings.agents.qualityAssurance;
-  const qaPresetOptions = [{ value: "", label: "Built-in QA agent" }, ...projectAgentPresetOptions];
+  const projectAgentSelectOptions = projectAgentPresetOptions.map((option) => ({
+    ...option,
+    icon: <AgentSelectAvatarIcon avatarConfig={option.avatarConfig} seed={`${option.value}:${option.label}`} />,
+  }));
+  const qaPresetOptions = [{ value: "", label: "Built-in QA agent", icon: <AgentSelectAvatarIcon seed="built-in:qa" /> }, ...projectAgentSelectOptions];
   const agentPresetSelectorsDisabled = !selectedProject || !projectSettings;
   const qaPresetSelectorsDisabled = agentPresetSelectorsDisabled;
   const agentSectionBadge = selectedProject
@@ -253,7 +258,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
                         ? { ...current.taskCoding, agentPresetId: value || null }
                         : { agentPresetId: value || null },
                     }))}
-                    options={[{ value: "", label: builtInLabel }, ...projectAgentPresetOptions]}
+                    options={[{ value: "", label: builtInLabel, icon: <AgentSelectAvatarIcon seed={`built-in:${key}:${builtInLabel}`} /> }, ...projectAgentSelectOptions]}
                     disabled={agentPresetSelectorsDisabled}
                   />
                 </div>
