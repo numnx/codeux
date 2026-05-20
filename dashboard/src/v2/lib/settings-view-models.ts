@@ -56,6 +56,19 @@ const cloneInvocationRouting = (
   ) as ProjectSettings["aiProvider"]["invocationRouting"]
 );
 
+const cloneAgentRouting = (
+  routing: ProjectSettings["agents"]["routing"],
+): ProjectSettings["agents"]["routing"] => ({
+  taskCoding: {
+    ...routing.taskCoding,
+    orchestratorAgentPresetIds: [...routing.taskCoding.orchestratorAgentPresetIds],
+  },
+  ciFix: { ...routing.ciFix },
+  mergeConflict: { ...routing.mergeConflict },
+  dashboardReply: { ...routing.dashboardReply },
+  clarificationReply: { ...routing.clarificationReply },
+});
+
 export const dashboardSettingsToProjectSettings = (settings: DashboardSettings): ProjectSettings => ({
   appearance: { ...settings.appearance },
   automationLevel: settings.automationLevel,
@@ -107,6 +120,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
   },
   agents: {
     saveToProjectDirectory: settings.agents.saveToProjectDirectory,
+    routing: cloneAgentRouting(settings.agents.routing),
     instructionTemplates: { ...settings.agents.instructionTemplates },
     qualityAssurance: {
       enabled: settings.agents.qualityAssurance.enabled,
@@ -152,6 +166,7 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
   },
   agents: {
     saveToProjectDirectory: settings.agents.saveToProjectDirectory,
+    routing: cloneAgentRouting(settings.agents.routing),
     instructionTemplates: { ...settings.agents.instructionTemplates },
     qualityAssurance: {
       enabled: settings.agents.qualityAssurance.enabled,

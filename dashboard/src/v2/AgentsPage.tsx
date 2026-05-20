@@ -231,6 +231,41 @@ export const AgentsPage: FunctionComponent = () => {
     }
   };
 
+  const routeTagsByPresetId = useMemo(() => {
+    const tags = new Map<string, string[]>();
+    const add = (agentPresetId: string | null | undefined, label: string) => {
+      if (!agentPresetId) return;
+      const current = tags.get(agentPresetId) ?? [];
+      if (!current.includes(label)) {
+        tags.set(agentPresetId, [...current, label]);
+      }
+    };
+
+    const routing = effectiveSettings?.settings.agents.routing;
+    const qa = effectiveSettings?.settings.agents.qualityAssurance;
+
+    if (routing?.taskCoding.mode === "ORCHESTRATOR") {
+      for (const agentPresetId of routing.taskCoding.orchestratorAgentPresetIds) {
+        add(agentPresetId, "Coding Roster");
+      }
+    } else {
+      add(routing?.taskCoding.agentPresetId, "Coding");
+    }
+
+    add(routing?.ciFix.agentPresetId, "CI Fix");
+    add(routing?.mergeConflict.agentPresetId, "Merge Conflict");
+    add(routing?.dashboardReply.agentPresetId, "Dashboard Reply");
+    add(routing?.clarificationReply.agentPresetId, "Clarification Reply");
+
+    if (qa?.enabled) {
+      if (qa.taskCompletion.enabled) add(qa.taskCompletion.agentPresetId, "QA Task");
+      if (qa.sprintCompletion.enabled) add(qa.sprintCompletion.agentPresetId, "QA Sprint");
+      if (qa.completedTaskWithoutPr.enabled) add(qa.completedTaskWithoutPr.agentPresetId, "QA No PR");
+    }
+
+    return tags;
+  }, [effectiveSettings]);
+
   const selectedPreset = presets.find((p) => p.id === selectedPresetId);
 
   const rosterStats = useMemo(() => {
@@ -313,6 +348,7 @@ export const AgentsPage: FunctionComponent = () => {
                 <AgentPresetShowcaseCard
                   key={preset.id}
                   preset={preset}
+                  routeTags={routeTagsByPresetId.get(preset.id) ?? []}
                   isSelected={selectedPresetId === preset.id}
                   onClick={() => {
                     setSelectedPresetId(preset.id);
@@ -337,6 +373,7 @@ export const AgentsPage: FunctionComponent = () => {
               ) : (
                 <AgentPresetDetailPanel
                   preset={selectedPreset}
+                  routeTags={routeTagsByPresetId.get(selectedPreset.id) ?? []}
                   onEdit={() => setIsEditing(true)}
                   onDelete={handleDelete}
                   onImport={handleImport}

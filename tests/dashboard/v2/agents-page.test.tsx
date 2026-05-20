@@ -24,6 +24,7 @@ import * as agentPresetApi from "../../../dashboard/src/v2/lib/agent-preset-api.
 import * as settingsApi from "../../../dashboard/src/v2/lib/settings-api.js";
 import { ProjectDataProvider } from "../../../dashboard/src/v2/context/project-data.js";
 import { AgentsPage } from "../../../dashboard/src/v2/AgentsPage.js";
+import { clearEffectiveSettingsCacheForTests } from "../../../dashboard/src/v2/hooks/use-project-effective-settings.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
 vi.mock("../../../dashboard/src/v2/lib/agent-preset-api.js");
@@ -77,7 +78,7 @@ vi.mock("../../../dashboard/src/v2/components/agents/AgentPresetShowcaseCard.js"
     AgentPresetShowcaseCard: (props: any) => h("button", {
       "data-testid": "showcase-card",
       onClick: props.onClick
-    }, props.preset.name)
+    }, props.preset.name, ...(props.routeTags || []).map((tag: string) => h("span", { key: tag }, tag)))
   };
 });
 
@@ -86,6 +87,7 @@ vi.mock("../../../dashboard/src/v2/components/agents/AgentPresetDetailPanel.js",
   return {
     AgentPresetDetailPanel: (props: any) => h("div", { "data-testid": "detail-panel" },
       h("h2", null, props.preset.name),
+      ...(props.routeTags || []).map((tag: string) => h("span", { key: tag }, tag)),
       h("div", null, props.preset.instructionMarkdown),
       h("button", { onClick: props.onEdit }, "Edit Agent")
     )
@@ -171,6 +173,7 @@ describe("AgentsPage", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    clearEffectiveSettingsCacheForTests();
 
     if (!window.matchMedia) {
       window.matchMedia = vi.fn().mockImplementation(query => ({
@@ -284,6 +287,30 @@ describe("AgentsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Review code")).toBeInTheDocument();
     });
+  });
+
+  it("shows route assignment tags from effective project settings", async () => {
+    const effective = createEffectiveSettings();
+    effective.settings.agents.routing.taskCoding = {
+      mode: "ORCHESTRATOR",
+      agentPresetId: null,
+      orchestratorAgentPresetIds: ["agent-1"],
+    };
+    effective.settings.agents.routing.ciFix.agentPresetId = "agent-2";
+    effective.settings.agents.qualityAssurance.enabled = true;
+    effective.settings.agents.qualityAssurance.taskCompletion = {
+      enabled: true,
+      agentPresetId: "agent-2",
+    };
+    vi.mocked(settingsApi.fetchProjectEffectiveSettings).mockResolvedValue(effective as any);
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Coding Roster").length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText("CI Fix").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("QA Task").length).toBeGreaterThan(0);
   });
 
   it("creates a new agent with a random avatar and enters edit mode", async () => {

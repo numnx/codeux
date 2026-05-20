@@ -114,6 +114,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   executorType: TaskExecutorType;
+  agentPresetId?: string | null;
   assignee: string;
   time: string;
   createdAt: string;

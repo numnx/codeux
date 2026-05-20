@@ -133,6 +133,7 @@ export interface TaskRecord {
   status: TaskStatus;
   priority: TaskPriority;
   executorType: TaskExecutorType;
+  agentPresetId: string | null;
   sortOrder: number;
   dependsOnTaskIds: string[];
   isIndependent: boolean;
@@ -240,6 +241,7 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   executorType?: TaskExecutorType;
+  agentPresetId?: string | null;
   sortOrder?: number;
   dependsOnTaskIds?: string[];
   isIndependent?: boolean;
@@ -256,6 +258,7 @@ export interface UpdateTaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   executorType?: TaskExecutorType;
+  agentPresetId?: string | null;
   sortOrder?: number;
   dependsOnTaskIds?: string[];
   isIndependent?: boolean;
@@ -293,6 +296,7 @@ export interface PlannedTaskDraft {
   promptMarkdown: string;
   priority?: TaskPriority;
   executorType?: TaskExecutorType;
+  agentPresetId?: string | null;
   dependsOn?: string[];
 }
 

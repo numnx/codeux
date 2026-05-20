@@ -253,10 +253,13 @@ export class PlanningAgentService {
     const learningsInstruction = (runtime.settings.memory?.enabled && runtime.settings.memory?.autoCaptureSprint)
       ? resolveAgentMemoryInstructions(planningAgent, runtime.settings.memory?.workerLearningsInstruction)
       : undefined;
+    const codingAgentRoster = await this.resolveCodingAgentRoster(projectId, runtime.settings);
+    const allowedAgentPresetIds = codingAgentRoster.map((agent) => agent.id);
 
     const prompt = PlanningPromptBuilder.buildPlanPrompt({
       projectName: project.name,
       planningAgent,
+      codingAgentRoster,
       sprintNumber: sprint.number,
       sprintName: sprint.name,
       goal: sprint.goal,
@@ -285,7 +288,7 @@ export class PlanningAgentService {
         rawPrompt: prompt,
         overrides: options.overrides,
         signal,
-        parseFn: (bodyMarkdown) => parsePlannedSprintReply(bodyMarkdown),
+        parseFn: (bodyMarkdown) => parsePlannedSprintReply(bodyMarkdown, { allowedAgentPresetIds }),
         buildRetryPrompt: (lastError) => [
           "Your previous output could not be parsed as valid JSON.",
           `Parse error: ${lastError.message}`,
@@ -404,6 +407,21 @@ export class PlanningAgentService {
       settings,
       connection: null,
     };
+  }
+
+  private async resolveCodingAgentRoster(projectId: string, settings: DashboardSettings): Promise<AgentPresetRecord[]> {
+    const routing = settings.agents?.routing?.taskCoding;
+    if (!routing || routing.mode !== "ORCHESTRATOR") {
+      return [];
+    }
+
+    const selectedIds = new Set(routing.orchestratorAgentPresetIds);
+    if (selectedIds.size === 0) {
+      return [];
+    }
+
+    const presets = await this.deps.agentPresetSyncService.listAgentPresets(projectId);
+    return presets.filter((preset) => selectedIds.has(preset.id));
   }
 
   private async runVirtualPlanningRequest<T>(args: {

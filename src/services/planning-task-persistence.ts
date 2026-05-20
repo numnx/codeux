@@ -39,6 +39,7 @@ export function persistPlannedTasks(
       promptMarkdown: task.promptMarkdown,
       priority: task.priority || "medium",
       executorType: task.executorType || "auto",
+      ...(task.agentPresetId ? { agentPresetId: task.agentPresetId } : {}),
       dependsOnTaskIds,
       sortOrder: index,
       status: "pending",
