@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AxiosInstance } from "axios";
 import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-types.js";
+import type { JulesClient } from "../domain/jules/jules-client.js";
 
 export interface JulesApiClientOptions {
   apiKey?: string | null;
@@ -73,7 +74,7 @@ interface JulesListSourcesQuery extends JulesPageQuery {
   filter?: string;
 }
 
-export class JulesApiClient {
+export class JulesApiClient implements JulesClient {
   private readonly axiosInstance: AxiosInstance;
   private apiKey: string | null;
 
@@ -236,6 +237,10 @@ export class JulesApiClient {
     const params: JulesPageQuery = this.toPageQuery(args);
     const response = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${sessionName}/activities`, { params });
     return response.data;
+  }
+
+  async getFullConversation(sessionId: string): Promise<JulesActivity[]> {
+    return this.listAllActivities(sessionId);
   }
 
   async listAllActivities(sessionId: string): Promise<JulesActivity[]> {
