@@ -30,8 +30,8 @@ import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntim
 import { StatsHeader } from "./components/StatsHeader.js";
 import { SprintProtocol } from "./components/SprintProtocol.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
-import { SkeletonPanel } from "./components/ui/ListSkeletons.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 import {
     EMPTY_RUNTIME_STATS,
 } from "./lib/live-session-config.js";

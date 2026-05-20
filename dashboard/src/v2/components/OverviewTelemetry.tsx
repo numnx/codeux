@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { Activity, AlertTriangle, FolderKanban, Radio } from "lucide-preact";
 import { useMemo } from "preact/hooks";
-import { SkeletonPanel } from "./ui/ListSkeletons.js";
+import { SkeletonPanel } from "./layout/SkeletonLoader.js";
 import { useOverviewTelemetry } from "../../hooks/use-overview-telemetry.js";
 import { formatTime } from "../../lib/time.js";
 import { buildProjectLookup, getEventStyle, getInterventionContent } from "../lib/overview-telemetry-view-models.js";

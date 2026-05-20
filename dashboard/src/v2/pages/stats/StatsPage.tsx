@@ -16,7 +16,7 @@ import { TopCardsModeRenderer } from "../../components/stats/TopCardsModeRendere
 import { STATS_COLORS } from "../../lib/stats/color-tokens.js";
 import { buildMetricSeries } from "../../lib/stats/series-builders.js";
 import { Button } from "../../components/ui/Button.js";
-import { PageContainer } from "../../components/ui/PageContainer.js";
+import { PageContainer } from "../../components/layout/PageContainer.js";
 import styles from "./StatsPage.module.css";
 
 export const StatsPage: FunctionComponent = () => {
