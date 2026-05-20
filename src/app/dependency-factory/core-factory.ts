@@ -22,6 +22,7 @@ import { WorkerAttentionOutcomeService } from "../../domain/workers/worker-atten
 import { AgentPresetSyncService } from "../../services/agent-preset-sync-service.js";
 import { ActivitySummaryService } from "../../domain/sessions/activity-summary.js";
 import { JulesSourceResolver } from "../../services/jules-source-resolver.js";
+import { JulesUsageService } from "../../domain/jules/jules-usage-service.js";
 import { SprintMarkdownService } from "../../services/sprint-markdown-service.js";
 import { SprintIssueService } from "../../services/sprint-issue-service.js";
 import { ActiveDispatchRegistry } from "../../services/active-dispatch-registry.js";
@@ -57,6 +58,7 @@ export interface CoreDependencies {
   instructionService: InstructionService;
   sessionTracking: SessionTrackingRepository;
   julesSourceResolver: JulesSourceResolver;
+  julesUsage: JulesUsageService;
   activitySummary: ActivitySummaryService;
   settingsRepository: SettingsRepository;
   appDbStorage: AppDbStorage;
@@ -205,6 +207,11 @@ export function createCoreDependencies(
   );
   const providerRunner = new ProviderRunner(new DockerRunner());
   const julesSourceResolver = new JulesSourceResolver(julesApi);
+  const julesUsage = new JulesUsageService(
+    julesApi,
+    executionRepository,
+    logger.child({ component: "jules-usage-service" })
+  );
   const activitySummary = new ActivitySummaryService();
   const memoryRepository = new MemoryRepository(appDbStorage);
   const schedulerRepository = new SchedulerRepository(appDbStorage, dashboardRealtimeService);
@@ -239,6 +246,7 @@ export function createCoreDependencies(
     instructionService,
     sessionTracking,
     julesSourceResolver,
+    julesUsage,
     activitySummary,
     settingsRepository,
     appDbStorage,
