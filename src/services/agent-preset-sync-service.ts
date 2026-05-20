@@ -254,7 +254,7 @@ export class AgentPresetSyncService {
 
     if (planningAgentPresetId) {
       const targeted = this.deps.agentPresetRepository.getAgentPreset(planningAgentPresetId);
-      if (targeted && targeted.projectId === projectId && targeted.labels.includes("planning")) {
+      if (targeted && targeted.projectId === projectId) {
         return await this.decorateAgentPreset(targeted);
       }
     }

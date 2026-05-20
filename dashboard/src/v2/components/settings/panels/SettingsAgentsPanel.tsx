@@ -6,12 +6,30 @@ import { QAPanel } from "./QAPanel.js";
 import type { ProjectSettings } from "../../../../types.js";
 
 const DEFAULT_AGENT_ROUTING: ProjectSettings["agents"]["routing"] = {
+  planning: { agentPresetId: null },
   taskCoding: { mode: "MANUAL", agentPresetId: null, orchestratorAgentPresetIds: [] },
   ciFix: { agentPresetId: null },
   mergeConflict: { agentPresetId: null },
   dashboardReply: { agentPresetId: null },
   clarificationReply: { agentPresetId: null },
 };
+
+const normalizeAgentRoutingSettings = (
+  routing: Partial<ProjectSettings["agents"]["routing"]> | undefined,
+): ProjectSettings["agents"]["routing"] => ({
+  planning: { ...DEFAULT_AGENT_ROUTING.planning, ...routing?.planning },
+  taskCoding: {
+    ...DEFAULT_AGENT_ROUTING.taskCoding,
+    ...routing?.taskCoding,
+    orchestratorAgentPresetIds: routing?.taskCoding?.orchestratorAgentPresetIds
+      ? [...routing.taskCoding.orchestratorAgentPresetIds]
+      : [],
+  },
+  ciFix: { ...DEFAULT_AGENT_ROUTING.ciFix, ...routing?.ciFix },
+  mergeConflict: { ...DEFAULT_AGENT_ROUTING.mergeConflict, ...routing?.mergeConflict },
+  dashboardReply: { ...DEFAULT_AGENT_ROUTING.dashboardReply, ...routing?.dashboardReply },
+  clarificationReply: { ...DEFAULT_AGENT_ROUTING.clarificationReply, ...routing?.clarificationReply },
+});
 
 export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
@@ -33,7 +51,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
     return null;
   }
 
-  const agentRoutingSettings = projectSettings?.agents.routing ?? editableSettings.agents.routing ?? DEFAULT_AGENT_ROUTING;
+  const agentRoutingSettings = normalizeAgentRoutingSettings(projectSettings?.agents.routing ?? editableSettings.agents.routing);
   const qaSettings = projectSettings?.agents.qualityAssurance ?? editableSettings.agents.qualityAssurance;
   const qaPresetOptions = [{ value: "", label: "Built-in QA agent" }, ...projectAgentPresetOptions];
   const agentPresetSelectorsDisabled = !selectedProject || !projectSettings;
@@ -82,7 +100,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
         ...current,
         agents: {
           ...current.agents,
-          routing: recipe(current.agents.routing ?? DEFAULT_AGENT_ROUTING),
+          routing: recipe(normalizeAgentRoutingSettings(current.agents.routing)),
         },
       }));
       return;
@@ -92,7 +110,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
       ...current,
       agents: {
         ...current.agents,
-        routing: recipe(current.agents.routing ?? DEFAULT_AGENT_ROUTING),
+        routing: recipe(normalizeAgentRoutingSettings(current.agents.routing)),
       },
     }));
   };
@@ -170,19 +188,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
               />
             </Row>
 
-            {agentRoutingSettings.taskCoding.mode === "MANUAL" ? (
-              <Row label="Coding agent" description="Used for task coding when no task-level orchestrator assignment exists.">
-                <SelectInput
-                  value={agentRoutingSettings.taskCoding.agentPresetId || ""}
-                  onChange={(value) => updateAgentRoutingSettings((current) => ({
-                    ...current,
-                    taskCoding: { ...current.taskCoding, agentPresetId: value || null },
-                  }))}
-                  options={[{ value: "", label: "Built-in Worker agent" }, ...projectAgentPresetOptions]}
-                  disabled={agentPresetSelectorsDisabled}
-                />
-              </Row>
-            ) : (
+            {agentRoutingSettings.taskCoding.mode === "ORCHESTRATOR" ? (
               <div className="py-5">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Available to orchestrator</div>
@@ -218,10 +224,14 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
                   </div>
                 ) : null}
               </div>
-            )}
+            ) : null}
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {([
+                ["planning", "Planning agent", "Used for sprint planning and prompt improvement.", "Built-in Planning agent"],
+                ...(agentRoutingSettings.taskCoding.mode === "MANUAL"
+                  ? [["taskCoding", "Coding agent", "Used for task coding when no task-level orchestrator assignment exists.", "Built-in Worker agent"] as const]
+                  : []),
                 ["ciFix", "CI fix", "Used for automated CI repair loops.", "Built-in Worker agent"],
                 ["mergeConflict", "Merge conflict", "Used for automated conflict resolution.", "Built-in Worker agent"],
                 ["dashboardReply", "Dashboard reply", "Used for generated dashboard chat replies.", "Built-in Worker agent"],
@@ -239,7 +249,9 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
                     value={agentRoutingSettings[key].agentPresetId || ""}
                     onChange={(value) => updateAgentRoutingSettings((current) => ({
                       ...current,
-                      [key]: { agentPresetId: value || null },
+                      [key]: key === "taskCoding"
+                        ? { ...current.taskCoding, agentPresetId: value || null }
+                        : { agentPresetId: value || null },
                     }))}
                     options={[{ value: "", label: builtInLabel }, ...projectAgentPresetOptions]}
                     disabled={agentPresetSelectorsDisabled}

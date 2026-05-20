@@ -724,6 +724,7 @@ export interface ManualAgentRoutingSettings {
 }
 
 export interface AgentRoutingSettings {
+  planning: ManualAgentRoutingSettings;
   taskCoding: CodingAgentRoutingSettings;
   ciFix: ManualAgentRoutingSettings;
   mergeConflict: ManualAgentRoutingSettings;

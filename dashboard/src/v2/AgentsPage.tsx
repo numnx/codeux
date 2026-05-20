@@ -263,6 +263,8 @@ export const AgentsPage: FunctionComponent = () => {
     const routing = effectiveSettings?.settings.agents.routing;
     const qa = effectiveSettings?.settings.agents.qualityAssurance;
 
+    addManualRoute(routing?.planning.agentPresetId, "Planning", "Planning agent");
+
     if (routing?.taskCoding.mode === "ORCHESTRATOR") {
       for (const agentPresetId of routing.taskCoding.orchestratorAgentPresetIds) {
         add(agentPresetId, "Coding Roster");

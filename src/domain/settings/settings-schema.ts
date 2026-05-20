@@ -409,6 +409,12 @@ const validateAgents = (
   if (!isRecord(routing)) {
     issues.push({ path: `${path}.routing`, message: "Expected an object" });
   } else {
+    const planning = routing.planning;
+    if (!isRecord(planning)) {
+      issues.push({ path: `${path}.routing.planning`, message: "Expected an object" });
+    } else if (planning.agentPresetId !== null && planning.agentPresetId !== undefined && typeof planning.agentPresetId !== "string") {
+      issues.push({ path: `${path}.routing.planning.agentPresetId`, message: "Expected null or a string" });
+    }
     const taskCoding = routing.taskCoding;
     if (!isRecord(taskCoding)) {
       issues.push({ path: `${path}.routing.taskCoding`, message: "Expected an object" });

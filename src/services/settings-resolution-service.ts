@@ -94,6 +94,7 @@ function cloneAgentRoutingSettings(
   settings: ProjectSettings["agents"]["routing"],
 ): ProjectSettings["agents"]["routing"] {
   return {
+    planning: { ...settings.planning },
     taskCoding: {
       ...settings.taskCoding,
       orchestratorAgentPresetIds: [...settings.taskCoding.orchestratorAgentPresetIds],
@@ -295,6 +296,7 @@ function sanitizeAgentRoutingSettings(value: unknown): ProjectSettings["agents"]
   const taskCoding = toRecord(input.taskCoding);
 
   return {
+    planning: sanitizeManualAgentRoutingSettings(input.planning),
     taskCoding: {
       mode: taskCoding.mode === "ORCHESTRATOR" ? "ORCHESTRATOR" : "MANUAL",
       agentPresetId: typeof taskCoding.agentPresetId === "string" && taskCoding.agentPresetId.trim().length > 0

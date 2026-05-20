@@ -121,6 +121,7 @@ const sanitizeQualityAssuranceTrigger = (
 };
 
 const cloneAgentRouting = (): DashboardSettings["agents"]["routing"] => ({
+  planning: { ...DEFAULT_DASHBOARD_SETTINGS.agents.routing.planning },
   taskCoding: {
     ...DEFAULT_DASHBOARD_SETTINGS.agents.routing.taskCoding,
     orchestratorAgentPresetIds: [...DEFAULT_DASHBOARD_SETTINGS.agents.routing.taskCoding.orchestratorAgentPresetIds],
@@ -144,6 +145,7 @@ const sanitizeAgentRouting = (value: unknown): DashboardSettings["agents"]["rout
     ? input.taskCoding as Record<string, unknown>
     : {};
   return {
+    planning: sanitizeManualAgentRouting(input.planning),
     taskCoding: {
       mode: taskCoding.mode === "ORCHESTRATOR" ? "ORCHESTRATOR" : "MANUAL",
       agentPresetId: readString(taskCoding.agentPresetId, "").trim() || null,

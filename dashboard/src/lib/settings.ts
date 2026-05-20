@@ -31,6 +31,7 @@ export const cloneDefaultSettings = (): DashboardSettings => ({
   agents: {
     saveToProjectDirectory: DEFAULT_DASHBOARD_SETTINGS.agents.saveToProjectDirectory,
     routing: {
+      planning: { ...DEFAULT_DASHBOARD_SETTINGS.agents.routing.planning },
       taskCoding: {
         ...DEFAULT_DASHBOARD_SETTINGS.agents.routing.taskCoding,
         orchestratorAgentPresetIds: [...DEFAULT_DASHBOARD_SETTINGS.agents.routing.taskCoding.orchestratorAgentPresetIds],

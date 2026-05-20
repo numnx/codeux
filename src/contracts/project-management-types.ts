@@ -1,4 +1,4 @@
-import type { VirtualWorkerProvider } from "./app-types.js";
+import type { AgentRoutingMode, VirtualWorkerProvider } from "./app-types.js";
 import type { ProjectSettingsOverride } from "./settings-scope-types.js";
 import type { ProjectWorkerAssignmentRecord } from "./worker-types.js";
 
@@ -212,6 +212,8 @@ export interface PlanningOverrides {
   virtualProvider?: VirtualWorkerProvider;
   virtualModel?: string;
   planningAgentPresetId?: string;
+  agentRoutingMode?: AgentRoutingMode;
+  workerAgentPresetId?: string;
 }
 
 export interface ImprovePromptInput {

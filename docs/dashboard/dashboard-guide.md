@@ -75,11 +75,11 @@ Project management:
   - Re-imports every out-of-sync linked markdown agent for the selected project
 - `POST /api/projects/:projectId/planning/improve-sprint-prompt`
   - Sends a draft sprint prompt to the Planning agent through the configured virtual worker provider and returns the improved prompt
-  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a virtual CLI provider/model for that one request.
+  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a virtual CLI provider/model for that one request. The composer defaults to the project Agent Routing planning preset.
 - `POST /api/projects/:projectId/sprints/:sprintId/plan`
   - Sends a created sprint to the Planning agent through the configured virtual worker provider, creates subtasks from the reply, and can auto-start the sprint
   - Auto-start orchestration now prepares the local sprint feature branch automatically and attempts to push it to `origin` when that remote exists
-  - Planning overrides may explicitly target a specific `planningAgentPresetId`, as well as a virtual CLI provider/model for that one request.
+  - Planning overrides may explicitly target a specific `planningAgentPresetId`, task coding routing mode, manual worker preset, and virtual CLI provider/model for that one request.
 - `GET /api/projects/:projectId/conversations/threads`
   - Lists project conversation threads
 - `POST /api/projects/:projectId/conversations/threads`

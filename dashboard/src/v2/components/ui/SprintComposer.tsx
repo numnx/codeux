@@ -36,6 +36,10 @@ interface SprintComposerProps {
   initialSprint?: Sprint | null;
   virtualProviders: Array<{ id: VirtualWorkerProvider; label: string }>;
   planningPresets: AgentPreset[];
+  agentPresets?: AgentPreset[];
+  defaultPlanningAgentPresetId?: string | null;
+  defaultAgentRoutingMode?: "MANUAL" | "ORCHESTRATOR";
+  defaultWorkerAgentPresetId?: string | null;
   planningEta: number;
   onClose: () => void;
   onImprovePrompt?: (draft: ImprovePromptInput, signal?: AbortSignal) => Promise<string>;
@@ -47,6 +51,8 @@ interface SprintComposerProps {
     routeOverride: PlanningRouteOption | null;
     modelOverride: string | null;
     planningAgentPresetId: string | null;
+    agentRoutingMode: "MANUAL" | "ORCHESTRATOR";
+    workerAgentPresetId: string | null;
     linkedIssues: SprintLinkedIssueInput[];
     clientRequestId?: string;
     sprintKeyOverride?: string;
@@ -64,6 +70,10 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   initialSprint = null,
   virtualProviders,
   planningPresets,
+  agentPresets,
+  defaultPlanningAgentPresetId = null,
+  defaultAgentRoutingMode = "MANUAL",
+  defaultWorkerAgentPresetId = null,
   planningEta,
   onClose,
   onImprovePrompt,
@@ -81,6 +91,11 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const ignoredRequestIdsRef = useRef<Set<string>>(new Set());
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const isUnmountedRef = useRef(false);
+  const previousDefaultsRef = useRef({
+    planningAgentPresetId: defaultPlanningAgentPresetId || null,
+    agentRoutingMode: defaultAgentRoutingMode,
+    workerAgentPresetId: defaultWorkerAgentPresetId || null,
+  });
   const [isImproving, setIsImproving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { feedback: actionFeedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
@@ -90,8 +105,13 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const defaultSprintKey = initialSprint
     ? (initialSprint.number ? nextId.replace(/\d+$/, String(initialSprint.number)).toUpperCase() : initialSprint.slug.toUpperCase())
     : nextId.toUpperCase();
-  const state = useSprintComposerState(initialSprint, defaultSprintKey);
+  const state = useSprintComposerState(initialSprint, defaultSprintKey, {
+    planningAgentPresetId: defaultPlanningAgentPresetId,
+    agentRoutingMode: defaultAgentRoutingMode,
+    workerAgentPresetId: defaultWorkerAgentPresetId,
+  });
   const visibleLinkedIssues = linkedIssues ?? initialSprint?.linkedIssues ?? [];
+  const agentPresetOptions = agentPresets ?? planningPresets;
 
   const createClientRequestId = (): string => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -107,7 +127,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     state.setSubmitMode("plan_and_start");
     state.setRouteOverride(null);
     state.setModelOverride(null);
-    state.setPlanningAgentPresetId(null);
+    state.setPlanningAgentPresetId(defaultPlanningAgentPresetId || null);
+    state.setAgentRoutingMode(defaultAgentRoutingMode);
+    state.setWorkerAgentPresetId(defaultWorkerAgentPresetId || null);
   };
 
   useEffect(() => {
@@ -118,10 +140,34 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   }, []);
 
   useEffect(() => {
-    if (state.planningAgentPresetId && !planningPresets.find(p => p.id === state.planningAgentPresetId)) {
+    const previous = previousDefaultsRef.current;
+    const next = {
+      planningAgentPresetId: defaultPlanningAgentPresetId || null,
+      agentRoutingMode: defaultAgentRoutingMode,
+      workerAgentPresetId: defaultWorkerAgentPresetId || null,
+    };
+
+    if (state.planningAgentPresetId === previous.planningAgentPresetId) {
+      state.setPlanningAgentPresetId(next.planningAgentPresetId);
+    }
+    if (state.agentRoutingMode === previous.agentRoutingMode) {
+      state.setAgentRoutingMode(next.agentRoutingMode);
+    }
+    if (state.workerAgentPresetId === previous.workerAgentPresetId) {
+      state.setWorkerAgentPresetId(next.workerAgentPresetId);
+    }
+
+    previousDefaultsRef.current = next;
+  }, [defaultPlanningAgentPresetId, defaultAgentRoutingMode, defaultWorkerAgentPresetId]);
+
+  useEffect(() => {
+    if (state.planningAgentPresetId && !agentPresetOptions.find(p => p.id === state.planningAgentPresetId)) {
       state.setPlanningAgentPresetId(null);
     }
-  }, [planningPresets, state.planningAgentPresetId]);
+    if (state.workerAgentPresetId && !agentPresetOptions.find(p => p.id === state.workerAgentPresetId)) {
+      state.setWorkerAgentPresetId(null);
+    }
+  }, [agentPresetOptions, state.planningAgentPresetId, state.workerAgentPresetId]);
 
   const activeMode = state.availableModes.find((mode) => mode.id === state.submitMode) || state.availableModes[0]!;
   const SubmitIcon = activeMode.icon;
@@ -294,6 +340,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         routeOverride: state.routeOverride,
         modelOverride: state.modelOverride,
         planningAgentPresetId: state.planningAgentPresetId,
+        agentRoutingMode: state.agentRoutingMode,
+        workerAgentPresetId: state.agentRoutingMode === "MANUAL" ? state.workerAgentPresetId : null,
         linkedIssues: visibleLinkedIssues,
         clientRequestId,
         sprintKeyOverride: state.sprintKeyOverride.trim() || undefined,
@@ -630,13 +678,55 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   onChange={(val) => state.setPlanningAgentPresetId(val || null)}
                   options={[
                     { value: "", label: "Built-in Planning agent" },
-                    ...planningPresets.map((preset) => ({ value: preset.id, label: preset.name })),
+                    ...agentPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
                   ]}
                   placeholder="Built-in Planning agent"
                 />
               </div>
             </div>
           </div>
+
+          <div data-composer-stagger>
+            <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Agent Routing</div>
+              <div className="mt-3">
+                <AvantgardeSelect
+                  variant="card"
+                  aria-label="Agent Routing"
+                  disabled={isBusy}
+                  value={state.agentRoutingMode}
+                  onChange={(val) => state.setAgentRoutingMode(val === "ORCHESTRATOR" ? "ORCHESTRATOR" : "MANUAL")}
+                  options={[
+                    { value: "MANUAL", label: "Manual" },
+                    { value: "ORCHESTRATOR", label: "Orchestrator" },
+                  ]}
+                  placeholder="Manual"
+                />
+              </div>
+            </div>
+          </div>
+
+          {state.agentRoutingMode === "MANUAL" && (
+            <div data-composer-stagger>
+              <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Worker Agent</div>
+                <div className="mt-3">
+                  <AvantgardeSelect
+                    variant="card"
+                    aria-label="Worker Agent"
+                    disabled={isBusy}
+                    value={state.workerAgentPresetId || ""}
+                    onChange={(val) => state.setWorkerAgentPresetId(val || null)}
+                    options={[
+                      { value: "", label: "Built-in Worker agent" },
+                      ...agentPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
+                    ]}
+                    placeholder="Built-in Worker agent"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div data-composer-stagger>
             <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Execution Mode</div>

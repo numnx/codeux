@@ -59,6 +59,7 @@ const cloneInvocationRouting = (
 const cloneAgentRouting = (
   routing: ProjectSettings["agents"]["routing"],
 ): ProjectSettings["agents"]["routing"] => ({
+  planning: { ...routing.planning },
   taskCoding: {
     ...routing.taskCoding,
     orchestratorAgentPresetIds: [...routing.taskCoding.orchestratorAgentPresetIds],

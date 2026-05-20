@@ -291,6 +291,7 @@ describe("AgentsPage", () => {
 
   it("shows route assignment tags from effective project settings", async () => {
     const effective = createEffectiveSettings();
+    effective.settings.agents.routing.planning.agentPresetId = "agent-1";
     effective.settings.agents.routing.taskCoding = {
       mode: "ORCHESTRATOR",
       agentPresetId: null,
@@ -307,6 +308,7 @@ describe("AgentsPage", () => {
     await renderPage();
 
     await waitFor(() => {
+      expect(screen.getAllByText("Planning").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Coding Roster").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("CI Fix").length).toBeGreaterThan(0);
@@ -315,6 +317,20 @@ describe("AgentsPage", () => {
 
   it("tags built-in fallback agents when route settings use built-in selections", async () => {
     mockPresets = [
+      {
+        id: "planning-agent",
+        projectId: "project-1",
+        name: "Planning agent",
+        labels: ["planning"],
+        instructionMarkdown: "Default planning",
+        syncStatus: "synced",
+        sourcePath: ".code-ux/agents/planning_agent.md",
+        sourceScope: "default",
+        sourceExists: true,
+        avatarConfig: { body: "male" },
+        createdAt: "2023-01-01T00:00:00.000Z",
+        updatedAt: "2023-01-01T00:00:00.000Z",
+      },
       {
         id: "worker-agent",
         projectId: "project-1",
@@ -379,6 +395,7 @@ describe("AgentsPage", () => {
     await renderPage();
 
     await waitFor(() => {
+      expect(screen.getAllByText("Planning").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Coding").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("CI Fix").length).toBeGreaterThan(0);

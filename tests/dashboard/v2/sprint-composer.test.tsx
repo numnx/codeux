@@ -77,6 +77,65 @@ describe("SprintComposer", () => {
     expect(onSubmit.mock.calls[0]?.[0].linkedIssues).toEqual([issue]);
   });
 
+  it("uses default planning and worker agents for new sprint submissions", async () => {
+    const onSubmit = vi.fn();
+    const agentPresets = [
+      {
+        id: "planner-1",
+        projectId: "project-1",
+        name: "Delivery Planner",
+        labels: [],
+        instructionMarkdown: "",
+        syncStatus: "manual" as const,
+        sourcePath: null,
+        sourceScope: null,
+        sourceExists: false,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "worker-1",
+        projectId: "project-1",
+        name: "Frontend Coder",
+        labels: [],
+        instructionMarkdown: "",
+        syncStatus: "manual" as const,
+        sourcePath: null,
+        sourceScope: null,
+        sourceExists: false,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    const { getByPlaceholderText, getAllByText } = render(
+      <SprintComposer
+        {...defaultProps}
+        agentPresets={agentPresets as any}
+        planningPresets={agentPresets as any}
+        defaultPlanningAgentPresetId="planner-1"
+        defaultAgentRoutingMode="MANUAL"
+        defaultWorkerAgentPresetId="worker-1"
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(getAllByText("Delivery Planner").length).toBeGreaterThan(0);
+    expect(getAllByText("Frontend Coder").length).toBeGreaterThan(0);
+
+    fireEvent.input(getByPlaceholderText("Runtime hardening"), { target: { value: "Agent defaults" } });
+    fireEvent.click(getAllByText("Plan & Start").pop()!);
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled();
+    });
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      planningAgentPresetId: "planner-1",
+      agentRoutingMode: "MANUAL",
+      workerAgentPresetId: "worker-1",
+    });
+  });
+
   it("shows planning overlay on submit and allows dismiss without cancel", async () => {
     let resolveSubmit: (val: any) => void;
     const submitPromise = new Promise((resolve) => {
