@@ -12,8 +12,8 @@ import type { MemoryPromotionService } from "../services/memory-promotion-servic
 import type { EmbeddingModelManager } from "../services/embedding-model-manager.js";
 
 import { handlePreviewActions } from "./management/preview-actions.js";
-import { handleTelemetryActions } from "./management/telemetry-actions.js";
-import { handleProjectAction } from "./management/project-actions.js";
+import { TelemetryActions } from "./management/telemetry-actions.js";
+import { ProjectActions } from "./management/project-actions.js";
 import { handleSprintAction } from "./management/sprint-actions.js";
 import { TaskActions } from "./management/task-actions.js";
 import { SettingsActions } from "./management/settings-actions.js";
@@ -35,12 +35,16 @@ export interface ManagementToolHandlerDeps {
 }
 
 export class ManagementToolHandler {
+  private readonly projectActions: ProjectActions;
+  private readonly telemetryActions: TelemetryActions;
   private readonly taskActions: TaskActions;
   private readonly settingsActions: SettingsActions;
   private readonly agentActions: AgentActions;
   private readonly memoryActions: MemoryActions;
 
   constructor(private readonly deps: ManagementToolHandlerDeps) {
+    this.projectActions = new ProjectActions(deps.projectManagementRepository);
+    this.telemetryActions = new TelemetryActions(deps.executionRepository);
     this.taskActions = new TaskActions(
       deps.projectManagementRepository,
       deps.executionControlService,
@@ -57,13 +61,7 @@ export class ManagementToolHandler {
       let envelope: ManagementResponseEnvelope;
 
       if (args.domain === "projects") {
-        envelope = await handleProjectAction(
-          args.action,
-          args.payload,
-          this.deps.projectManagementRepository,
-          args.domain,
-          args.approval
-        );
+        envelope = await this.projectActions.handleProjectAction(args);
       } else if (args.domain === "sprints") {
         envelope = await handleSprintAction(
           args.action,
@@ -86,7 +84,7 @@ export class ManagementToolHandler {
         const currentHost = null; // serverHost is not available on DashboardSettings, we'll fall back to localhost in preview-origin
         envelope = await handlePreviewActions(args, this.deps.sprintPreviewService, currentHost);
       } else if (args.domain === "telemetry") {
-        envelope = await handleTelemetryActions(args, this.deps.executionRepository);
+        envelope = await this.telemetryActions.handleTelemetryAction(args);
       } else {
         const isDestructive = args.action.startsWith("delete_") || args.action.startsWith("reset_") || args.action.startsWith("replace_");
 

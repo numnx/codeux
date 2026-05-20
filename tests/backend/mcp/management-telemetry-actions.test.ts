@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleTelemetryActions } from "../../../src/mcp/management/telemetry-actions.js";
+import { TelemetryActions } from "../../../src/mcp/management/telemetry-actions.js";
 import type { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 
-describe("management-telemetry-actions", () => {
+describe("TelemetryActions", () => {
   let mockExecutionRepository: vi.Mocked<ExecutionRepository>;
+  let telemetryActions: TelemetryActions;
 
   beforeEach(() => {
     mockExecutionRepository = {
@@ -14,13 +15,14 @@ describe("management-telemetry-actions", () => {
       listExecutionInvocations: vi.fn(),
       listExecutionInvocationMessages: vi.fn(),
     } as unknown as vi.Mocked<ExecutionRepository>;
+
+    telemetryActions = new TelemetryActions(mockExecutionRepository);
   });
 
   it("should get_project_execution_snapshot", async () => {
     mockExecutionRepository.getProjectExecutionSnapshot.mockResolvedValueOnce({ sprints: [] } as any);
-    const result = await handleTelemetryActions(
-      { domain: "telemetry", action: "get_project_execution_snapshot", payload: { projectId: "proj-1" } },
-      mockExecutionRepository
+    const result = await telemetryActions.handleTelemetryAction(
+      { domain: "telemetry", action: "get_project_execution_snapshot", payload: { projectId: "proj-1" } }
     );
     expect(mockExecutionRepository.getProjectExecutionSnapshot).toHaveBeenCalledWith("proj-1");
     expect(result.result).toBeDefined();
@@ -33,9 +35,8 @@ describe("management-telemetry-actions", () => {
     ];
     mockExecutionRepository.listSprintRuns.mockResolvedValueOnce(mockRuns as any);
 
-    const result = await handleTelemetryActions(
-      { domain: "telemetry", action: "list_sprint_runs", payload: { projectId: "proj-1", sprintId: "sprint-1" } },
-      mockExecutionRepository
+    const result = await telemetryActions.handleTelemetryAction(
+      { domain: "telemetry", action: "list_sprint_runs", payload: { projectId: "proj-1", sprintId: "sprint-1" } }
     );
     expect(mockExecutionRepository.listSprintRuns).toHaveBeenCalledWith("proj-1", "sprint-1");
     expect(result.result).toBeDefined();
@@ -51,9 +52,8 @@ describe("management-telemetry-actions", () => {
     ];
     mockExecutionRepository.listExecutionInvocations.mockResolvedValueOnce(mockInvocations as any);
 
-    const result = await handleTelemetryActions(
-      { domain: "telemetry", action: "list_execution_invocations", payload: { projectId: "proj-1", sprintId: "sprint-1" } },
-      mockExecutionRepository
+    const result = await telemetryActions.handleTelemetryAction(
+      { domain: "telemetry", action: "list_execution_invocations", payload: { projectId: "proj-1", sprintId: "sprint-1" } }
     );
     expect(mockExecutionRepository.listExecutionInvocations).toHaveBeenCalledWith({ projectId: "proj-1", taskRunId: undefined });
     expect(result.result).toBeDefined();
