@@ -46,6 +46,44 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
   });
 
+  describe("provider invocation usage fields", () => {
+    it("persists julesTokens and invocationSource", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Telemetry Fields Project",
+        sourceType: "local",
+        sourceRef: "/workspace/telemetry-fields",
+      });
+
+      const usage = executionRepository.createProviderInvocationUsage({
+        projectId: project.id,
+        sessionId: "telemetry-session-1",
+        provider: "claude-code",
+        purpose: "task_coding",
+        status: "running",
+        startedAt: new Date().toISOString(),
+        promptChars: 100,
+        julesTokens: 42,
+        invocationSource: "EXTERNAL_API",
+      });
+
+      expect(usage.julesTokens).toBe(42);
+      expect(usage.invocationSource).toBe("EXTERNAL_API");
+
+      const updated = executionRepository.updateProviderInvocationUsage(usage.id, {
+        status: "completed",
+        julesTokens: 84,
+        invocationSource: "internal",
+      });
+
+      expect(updated.julesTokens).toBe(84);
+      expect(updated.invocationSource).toBe("internal");
+
+      const snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+      expect(snapshot).toBeDefined();
+    });
+  });
+
 describe("ExecutionRepository", () => {
 
   it("validates project existence for execution snapshot", async () => {
@@ -727,6 +765,8 @@ describe("ExecutionRepository", () => {
       status: "completed",
       startedAt: "2026-03-09T10:00:00.000Z",
       promptChars: 100,
+      julesTokens: 10,
+      invocationSource: "EXTERNAL_API",
     });
     executionRepository.updateProviderInvocationUsage(invocation.id, {
       status: "completed",
@@ -736,7 +776,9 @@ describe("ExecutionRepository", () => {
       outputTokens: 25,
       reasoningOutputTokens: 0,
       totalTokens: 75,
+      julesTokens: 20,
       usageSource: "reported",
+      invocationSource: "internal",
       rawUsageJson: { provider: "codex" },
     });
 

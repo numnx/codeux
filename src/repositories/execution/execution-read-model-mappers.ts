@@ -64,6 +64,8 @@ export function mapProviderInvocationUsageRow(row: ProviderInvocationUsageRow): 
     outputTokens: toNumber(row.output_tokens),
     reasoningOutputTokens: toNumber(row.reasoning_output_tokens),
     totalTokens: toNumber(row.total_tokens),
+    julesTokens: toNumber(row.jules_tokens),
+    invocationSource: row.invocation_source as any,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     durationMs: row.duration_ms !== null ? toNumber(row.duration_ms) : null,

@@ -890,8 +890,8 @@ export class ExecutionRepository {
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id,
           session_id, provider, purpose, status, model, execution_mode, native_session_id, started_at, finished_at, duration_ms,
           prompt_chars, transcript_chars, input_tokens, cached_input_tokens, output_tokens, reasoning_output_tokens,
-          total_tokens, usage_source, raw_usage_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          total_tokens, jules_tokens, usage_source, invocation_source, raw_usage_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         input.projectId,
@@ -918,7 +918,9 @@ export class ExecutionRepository {
         0,
         0,
         0,
+        input.julesTokens ?? 0,
         "unavailable",
+        input.invocationSource ?? "internal",
         null,
         now,
         now,
@@ -942,7 +944,7 @@ export class ExecutionRepository {
         UPDATE provider_invocations
         SET status = ?, model = ?, execution_mode = ?, native_session_id = ?, finished_at = ?, duration_ms = ?, transcript_chars = ?,
           input_tokens = ?, cached_input_tokens = ?, output_tokens = ?, reasoning_output_tokens = ?, total_tokens = ?,
-          usage_source = ?, raw_usage_json = ?, updated_at = ?
+          jules_tokens = ?, usage_source = ?, invocation_source = ?, raw_usage_json = ?, updated_at = ?
         WHERE id = ?
       `).run(
         input.status || current.status,
@@ -957,7 +959,9 @@ export class ExecutionRepository {
         input.outputTokens === undefined ? current.outputTokens : input.outputTokens,
         input.reasoningOutputTokens === undefined ? current.reasoningOutputTokens : input.reasoningOutputTokens,
         input.totalTokens === undefined ? current.totalTokens : input.totalTokens,
+        input.julesTokens === undefined ? current.julesTokens : input.julesTokens,
         input.usageSource === undefined ? current.usageSource : input.usageSource,
+        input.invocationSource === undefined ? current.invocationSource : input.invocationSource,
         input.rawUsageJson === undefined
           ? JSON.stringify(current.rawUsageJson)
           : (input.rawUsageJson === null ? null : JSON.stringify(input.rawUsageJson)),
