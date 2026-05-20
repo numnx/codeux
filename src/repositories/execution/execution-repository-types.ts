@@ -118,7 +118,9 @@ export interface ProviderInvocationUsageRow {
   output_tokens: number | string;
   reasoning_output_tokens: number | string;
   total_tokens: number | string;
+  jules_tokens: number | string;
   usage_source: string;
+  invocation_source: string;
   cost_cents: number | string | null;
   connection_id: string | null;
   raw_usage_json?: string | null;
