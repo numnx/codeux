@@ -101,6 +101,7 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureColumn(db, "execution_invocations", "last_error_category", "TEXT");
   ensureColumn(db, "execution_invocations", "last_error_message", "TEXT");
   ensureColumn(db, "execution_invocations", "last_retry_after_iso", "TEXT");
+  ensureColumn(db, "execution_invocations", "invocation_source", "TEXT NOT NULL DEFAULT 'internal'");
 
   ensureUniqueIndex(db, "idx_tasks_sprint_key", "tasks", "sprint_id, task_key");
   ensureUniqueIndex(db, "idx_sprint_linked_issues_unique", "sprint_linked_issues", "sprint_id, provider, host_domain, repository, issue_number");

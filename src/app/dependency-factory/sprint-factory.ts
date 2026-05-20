@@ -215,6 +215,7 @@ export function createSprintDependencies(
     executionRepository,
     projectAttentionService,
     sprintExecutionStateService,
+    julesUsage: coreDeps.julesUsage,
     startTask: (task, executionArgs) =>
       sprintTaskDispatchService.startTask({
         task,

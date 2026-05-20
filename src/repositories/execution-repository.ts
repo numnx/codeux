@@ -288,6 +288,7 @@ export class ExecutionRepository {
         lastErrorCategory: input.lastErrorCategory || null,
         lastErrorMessage: input.lastErrorMessage || null,
         lastRetryAfterIso: input.lastRetryAfterIso || null,
+        invocationSource: input.invocationSource || "internal",
         messageCount: 0,
         lastMessageAt: null,
         createdAt: now,
@@ -298,10 +299,10 @@ export class ExecutionRepository {
         INSERT INTO execution_invocations (
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
           type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
-          last_error_category, last_error_message, last_retry_after_iso,
+          last_error_category, last_error_message, last_retry_after_iso, invocation_source,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -327,6 +328,7 @@ export class ExecutionRepository {
           record.lastErrorCategory,
           record.lastErrorMessage,
           record.lastRetryAfterIso,
+          record.invocationSource || "internal",
           record.createdAt,
           record.updatedAt
       );

@@ -119,6 +119,9 @@ export class CycleRunner {
           executionRepository: this.deps.executionRepository,
           sprintRunId: args.sprintRunId,
           logger: this.deps.logger.child({ component: "session-sync-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
+          listAllActivities: this.deps.listAllActivities,
+          getSession: this.deps.getSession,
+          julesUsage: this.deps.julesUsage,
         },
         args.retryFailed,
         {

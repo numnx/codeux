@@ -25,6 +25,7 @@ export interface ExecutionProviderRunArgs {
   dispatchId?: string | null;
   taskRunId?: string | null;
   attentionItemId?: string | null;
+  invocationSource?: "internal" | "EXTERNAL_API";
 
   purpose: ProviderInvocationPurpose;
   type: string;
@@ -92,6 +93,7 @@ export class ProviderExecutionService {
           provider: args.provider,
           model: args.model,
           startedAt,
+          invocationSource: args.invocationSource,
         })?.id || null;
       }
 
