@@ -161,6 +161,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   }, [defaultPlanningAgentPresetId, defaultAgentRoutingMode, defaultWorkerAgentPresetId]);
 
   useEffect(() => {
+    if (agentPresetOptions.length === 0) {
+      return;
+    }
     if (state.planningAgentPresetId && !agentPresetOptions.find(p => p.id === state.planningAgentPresetId)) {
       state.setPlanningAgentPresetId(null);
     }
