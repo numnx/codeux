@@ -11,10 +11,13 @@ import type { MemoryService } from "../services/memory-service.js";
 import type { MemoryPromotionService } from "../services/memory-promotion-service.js";
 import type { EmbeddingModelManager } from "../services/embedding-model-manager.js";
 
+import type { PlanningAgentService } from "../services/planning-agent-service.js";
+import type { SprintIssueService } from "../services/sprint-issue-service.js";
+
 import { handlePreviewActions } from "./management/preview-actions.js";
 import { handleTelemetryActions } from "./management/telemetry-actions.js";
 import { handleProjectAction } from "./management/project-actions.js";
-import { handleSprintAction } from "./management/sprint-actions.js";
+import { SprintActions } from "./management/sprint-actions.js";
 import { TaskActions } from "./management/task-actions.js";
 import { SettingsActions } from "./management/settings-actions.js";
 import { AgentActions } from "./management/agent-actions.js";
@@ -32,15 +35,19 @@ export interface ManagementToolHandlerDeps {
   memoryService: MemoryService;
   memoryPromotionService: MemoryPromotionService;
   embeddingModelManager: EmbeddingModelManager;
+  planningAgentService: PlanningAgentService;
+  sprintIssueService: SprintIssueService;
 }
 
 export class ManagementToolHandler {
+  private readonly sprintActions: SprintActions;
   private readonly taskActions: TaskActions;
   private readonly settingsActions: SettingsActions;
   private readonly agentActions: AgentActions;
   private readonly memoryActions: MemoryActions;
 
   constructor(private readonly deps: ManagementToolHandlerDeps) {
+    this.sprintActions = new SprintActions(deps);
     this.taskActions = new TaskActions(
       deps.projectManagementRepository,
       deps.executionControlService,
@@ -65,15 +72,7 @@ export class ManagementToolHandler {
           args.approval
         );
       } else if (args.domain === "sprints") {
-        envelope = await handleSprintAction(
-          args.action,
-          args.payload,
-          this.deps.projectManagementRepository,
-          this.deps.executionControlService,
-          this.deps.executionRepository,
-          args.domain,
-          args.approval
-        );
+        envelope = await this.sprintActions.handleSprintAction(args);
       } else if (args.domain === "tasks") {
         envelope = await this.taskActions.handleTaskAction(args);
       } else if (args.domain === "settings") {

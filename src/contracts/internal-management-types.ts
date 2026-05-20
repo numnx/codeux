@@ -20,13 +20,19 @@ export interface ManageProjectsArgs {
 }
 
 export interface ManageSprintsArgs {
-  action: "list" | "get" | "create" | "update" | "delete" | "start" | "pause" | "cancel" | "force_cancel" | "inspect_run";
+  action: "list" | "get" | "create" | "update" | "delete" | "start" | "pause" | "cancel" | "force_cancel" | "inspect_run" | "import_issues" | "plan";
   projectId?: string;
   sprintId?: string;
   sprintRunId?: string;
   title?: string;
   goalMarkdown?: string;
   agentPresetId?: string;
+  autoStart?: boolean;
+  replan?: boolean;
+  search?: string;
+  provider?: string;
+  limit?: number;
+  overrides?: Record<string, unknown>;
   approval?: ManagementApproval;
 }
 
