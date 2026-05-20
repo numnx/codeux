@@ -75,6 +75,8 @@ export function createDashboardDependencies(
     memoryService: coreDeps.memoryService,
     memoryPromotionService: coreDeps.memoryPromotionService,
     embeddingModelManager: coreDeps.embeddingModelManager,
+    planningAgentService: {} as any, // Will link below
+    sprintIssueService: coreDeps.sprintIssueService,
   });
 
   const providerExecutionService = new ProviderExecutionService({
@@ -328,6 +330,8 @@ export function createDashboardDependencies(
     memoryService: coreDeps.memoryService,
     logger: logger.child({ component: "planning-agent-service" }),
   });
+
+  (managementToolHandler as any).deps.planningAgentService = planningAgentService;
 
   const quicksprintService = new QuicksprintService(
     (projectId) => {
