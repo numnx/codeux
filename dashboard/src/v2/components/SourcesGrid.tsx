@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { Activity } from "lucide-preact";
 import { SectionHeader } from "./ui/SectionHeader.js";
 import { SourceCell } from "./ui/SourceCell.js";
-import { SkeletonCard } from "./ui/ListSkeletons.js";
+import { SkeletonCard } from "./layout/SkeletonLoader.js";
 import { useProjectData } from "../context/project-data.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 

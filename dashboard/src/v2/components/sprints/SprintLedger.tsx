@@ -8,7 +8,7 @@ import {
   Inbox,
   Square,
 } from "lucide-preact";
-import { SkeletonRow } from "../ui/ListSkeletons.js";
+import { SkeletonRow } from "../layout/SkeletonLoader.js";
 import { resolveListWindow, type ListWindowOption } from "../../lib/list-window.js";
 import { useConfirmDialog } from "../../hooks/use-confirm-dialog.js";
 import { ConfirmDialog } from "../ui/ConfirmDialog.js";

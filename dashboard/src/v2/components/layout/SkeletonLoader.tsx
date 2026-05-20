@@ -1,8 +1,33 @@
-import type { FunctionComponent } from "preact";
+import type { ComponentChildren, FunctionComponent } from "preact";
+import { useEffect, useState } from "preact/hooks";
 
 const Shimmer = () => (
-  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-black/5 to-transparent dark:via-white/5 pointer-events-none" />
+  <div
+    className="absolute inset-0 -translate-x-full animate-[shimmer_1.2s_infinite_linear] pointer-events-none"
+    style={{ background: 'linear-gradient(90deg, #F3F4F6 0%, #E5E7EB 50%, #F3F4F6 100%)' }}
+  />
 );
+
+export const SkeletonLoader: FunctionComponent<{ show: boolean; children: ComponentChildren; className?: string }> = ({ show, children, className }) => {
+  const [shouldRender, setShouldRender] = useState(show);
+
+  useEffect(() => {
+    if (show) {
+      setShouldRender(true);
+    } else {
+      const timeout = setTimeout(() => setShouldRender(false), 200);
+      return () => clearTimeout(timeout);
+    }
+  }, [show]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <div className={`transition-opacity duration-200 ease-in-out pointer-events-none ${show ? 'opacity-100' : 'opacity-0'} ${className || ''}`}>
+      {children}
+    </div>
+  );
+};
 
 export const SkeletonRow: FunctionComponent = () => (
   <div

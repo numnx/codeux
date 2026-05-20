@@ -6,7 +6,7 @@ import { Flip } from "gsap/Flip";
 gsap.registerPlugin(Flip);
 import { TaskRow } from "./ui/TaskRow.js";
 import { FilterStrip } from "./ui/FilterStrip.js";
-import { SkeletonRow } from "./ui/ListSkeletons.js";
+import { SkeletonRow } from "./layout/SkeletonLoader.js";
 import { deriveActiveSprintIds, filterTasksToActiveSprints } from "../lib/overview-streams.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
