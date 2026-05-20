@@ -79,6 +79,7 @@ describe("JulesUsageService", () => {
       inputTokens: expectedInputTokens,
       outputTokens: expectedOutputTokens,
       totalTokens: expectedInputTokens + expectedOutputTokens,
+      julesTokens: expectedInputTokens + expectedOutputTokens,
       usageSource: "estimated",
       transcriptChars: "Hello! How can I help?".length
     });
@@ -107,6 +108,7 @@ describe("JulesUsageService", () => {
       inputTokens: expectedInputTokens,
       outputTokens: 0,
       totalTokens: expectedInputTokens,
+      julesTokens: expectedInputTokens,
       usageSource: "estimated",
       transcriptChars: 0
     });

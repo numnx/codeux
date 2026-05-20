@@ -304,71 +304,22 @@ const syncExecutionRunState = async (
 
       const existingUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
 
-      if (!existingUsage) {
-        const fullSession = await deps.getSession(sessionId || sessionName || "");
-        const fullActivities = await deps.listAllActivities(sessionId || sessionName || "");
-
-        let promptChars = fullSession.prompt ? fullSession.prompt.length : 0;
-        let agentChars = 0;
-        let userChars = 0;
-
-        for (const act of fullActivities) {
-          if (act.userMessaged?.userMessage) userChars += act.userMessaged.userMessage.length;
-          if (act.agentMessaged?.agentMessage) agentChars += act.agentMessaged.agentMessage.length;
-          if (act.planGenerated?.plan) agentChars += JSON.stringify(act.planGenerated.plan).length;
-          if (act.progressUpdated?.description) agentChars += act.progressUpdated.description.length;
-          if (act.progressUpdated?.title) agentChars += act.progressUpdated.title.length;
-        }
-
-        const inputTokens = Math.ceil((promptChars + userChars) / 4);
-        const outputTokens = Math.ceil(agentChars / 4);
-
-        deps.executionRepository.createProviderInvocationUsage({
-          projectId: task.project_id!,
-          sprintId: deps.executionRepository.getTaskRun(taskRun.id)?.sprintId || null,
-          taskId: task.record_id,
-          sprintRunId: deps.sprintRunId || null,
-          dispatchId: taskRun.dispatchId || null,
-          taskRunId: taskRun.id,
-          sessionId: sessionId || sessionName || taskRun.id,
-          provider: "jules",
-          purpose: "task_coding",
-          status: nextRunState === "COMPLETED" ? "completed" : "failed",
-          promptChars: promptChars,
-        });
-
-        // We need to update it immediately to add the transcript info, since createProviderInvocationUsage doesn't accept all token counts in CreateProviderInvocationUsageInput
-        const latestUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
-        if (latestUsage) {
-          deps.executionRepository.updateProviderInvocationUsage(latestUsage.id, {
-            transcriptChars: agentChars + userChars,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens,
-            totalTokens: inputTokens + outputTokens,
-            usageSource: "estimated",
-            finishedAt: nextFinishedAt || now,
-            durationMs: nextDurationMs,
-          });
-
-          for (let i = 0; i < fullActivities.length; i++) {
-             const act = fullActivities[i];
-             const role = act.agentMessaged || act.planGenerated || act.progressUpdated ? "assistant" : act.userMessaged ? "user" : "system";
-             let content = act.agentMessaged?.agentMessage || act.userMessaged?.userMessage || act.description || "";
-             if (!content && act.progressUpdated) content = `[${act.progressUpdated.title}] ${act.progressUpdated.description || ""}`;
-
-             deps.executionRepository.appendExecutionInvocationMessage(latestUsage.id, {
-               role: role,
-               contentMarkdown: content,
-               createdAt: act.createTime || now,
-             });
-          }
-        }
-      } else if (existingUsage.status !== (nextRunState === "COMPLETED" ? "completed" : "failed")) {
+      if (existingUsage && existingUsage.status !== (nextRunState === "COMPLETED" ? "completed" : "failed")) {
           deps.executionRepository.updateProviderInvocationUsage(existingUsage.id, {
             status: nextRunState === "COMPLETED" ? "completed" : "failed",
             finishedAt: nextFinishedAt || now,
             durationMs: nextDurationMs,
           });
+      }
+
+      if (deps.julesUsage && task.project_id && task.record_id && (sessionId || sessionName || taskRun.id)) {
+        deps.julesUsage.calculateAndSaveUsageForTask(
+          task.project_id,
+          task.record_id,
+          sessionId || sessionName || taskRun.id
+        ).catch((err) => {
+          deps.logger.warn("Failed non-blocking token tracking", { error: err });
+        });
       }
     } catch (e) {
       deps.logger.warn("Failed to extract git metrics and token usage from full session", { error: e });

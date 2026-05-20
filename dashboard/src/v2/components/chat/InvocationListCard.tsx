@@ -2,6 +2,7 @@ import type { FunctionComponent } from "preact";
 import type { ExecutionInvocationRecord } from "../../types.js";
 import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { ChatAvatar } from "./ChatAvatar.js";
+import { Activity } from "lucide-preact";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
 
 const formatErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
@@ -59,6 +60,11 @@ export const InvocationListCard: FunctionComponent<{
                   {formatErrorCategory(invocation.lastErrorCategory) && (
                     <div className="shrink-0 rounded border border-status-amber/30 bg-status-amber/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-status-amber">
                       {formatErrorCategory(invocation.lastErrorCategory)}
+                    </div>
+                  )}
+                  {invocation.invocationSource === "EXTERNAL_API" && (
+                    <div className="shrink-0 rounded bg-signal-500/10 px-1 py-0.5" title="External API call">
+                      <Activity className="h-3 w-3 text-signal-500" />
                     </div>
                   )}
                 </div>

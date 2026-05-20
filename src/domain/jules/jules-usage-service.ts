@@ -55,6 +55,7 @@ export class JulesUsageService {
         inputTokens,
         outputTokens,
         totalTokens,
+        julesTokens: totalTokens,
         usageSource: "estimated",
         transcriptChars
       };

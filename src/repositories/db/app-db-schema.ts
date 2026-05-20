@@ -473,6 +473,7 @@ CREATE TABLE IF NOT EXISTS execution_invocations (
         last_retry_after_iso TEXT,
         message_count INTEGER NOT NULL DEFAULT 0,
         last_message_at TEXT,
+        invocation_source TEXT NOT NULL DEFAULT 'internal',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,

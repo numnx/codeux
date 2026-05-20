@@ -195,6 +195,7 @@ export function mapExecutionInvocationRow(row: ExecutionInvocationRow): Executio
     lastRetryAfterIso: row.last_retry_after_iso,
     messageCount: toNumber(row.message_count),
     lastMessageAt: row.last_message_at,
+    invocationSource: row.invocation_source as any,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     startedAt: row.started_at,
