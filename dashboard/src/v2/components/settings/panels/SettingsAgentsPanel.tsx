@@ -56,9 +56,9 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
   const qaSettings = projectSettings?.agents.qualityAssurance ?? editableSettings.agents.qualityAssurance;
   const projectAgentSelectOptions = projectAgentPresetOptions.map((option) => ({
     ...option,
-    icon: <AgentSelectAvatarIcon avatarConfig={option.avatarConfig} seed={`${option.value}:${option.label}`} />,
+    icon: () => <AgentSelectAvatarIcon avatarConfig={option.avatarConfig} seed={`${option.value}:${option.label}`} />,
   }));
-  const qaPresetOptions = [{ value: "", label: "Built-in QA agent", icon: <AgentSelectAvatarIcon seed="built-in:qa" /> }, ...projectAgentSelectOptions];
+  const qaPresetOptions = [{ value: "", label: "Built-in QA agent", icon: () => <AgentSelectAvatarIcon seed="built-in:qa" /> }, ...projectAgentSelectOptions];
   const agentPresetSelectorsDisabled = !selectedProject || !projectSettings;
   const qaPresetSelectorsDisabled = agentPresetSelectorsDisabled;
   const agentSectionBadge = selectedProject
@@ -258,7 +258,7 @@ export const SettingsAgentsPanel: FunctionComponent<{ state: SettingsPageState }
                         ? { ...current.taskCoding, agentPresetId: value || null }
                         : { agentPresetId: value || null },
                     }))}
-                    options={[{ value: "", label: builtInLabel, icon: <AgentSelectAvatarIcon seed={`built-in:${key}:${builtInLabel}`} /> }, ...projectAgentSelectOptions]}
+                    options={[{ value: "", label: builtInLabel, icon: () => <AgentSelectAvatarIcon seed={`built-in:${key}:${builtInLabel}`} /> }, ...projectAgentSelectOptions]}
                     disabled={agentPresetSelectorsDisabled}
                   />
                 </div>

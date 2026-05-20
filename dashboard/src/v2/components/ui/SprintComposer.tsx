@@ -117,9 +117,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const agentSelectOptions = agentPresetOptions.map((preset) => ({
     value: preset.id,
     label: preset.name,
-    icon: <AgentSelectAvatarIcon avatarConfig={preset.avatarConfig} seed={`${preset.id}:${preset.name}`} />,
+    icon: () => <AgentSelectAvatarIcon avatarConfig={preset.avatarConfig} seed={`${preset.id}:${preset.name}`} />,
   }));
-  const routingSelectIcon = (
+  const routingSelectIcon = () => (
     <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-signal-500/18 bg-signal-500/[0.08] text-signal-600 dark:border-signal-400/18 dark:bg-signal-400/[0.08] dark:text-signal-300">
       <Workflow className="h-3.5 w-3.5" strokeWidth={2.2} />
     </span>
@@ -712,7 +712,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   value={state.planningAgentPresetId || ""}
                   onChange={(val) => state.setPlanningAgentPresetId(val || null)}
                   options={[
-                    { value: "", label: "Built-in Planning agent", icon: <AgentSelectAvatarIcon seed="built-in:planning" /> },
+                    { value: "", label: "Built-in Planning agent", icon: () => <AgentSelectAvatarIcon seed="built-in:planning" /> },
                     ...agentSelectOptions,
                   ]}
                   placeholder="Built-in Planning agent"
@@ -733,7 +733,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                     value={state.workerAgentPresetId || ""}
                     onChange={(val) => state.setWorkerAgentPresetId(val || null)}
                     options={[
-                      { value: "", label: "Built-in Worker agent", icon: <AgentSelectAvatarIcon seed="built-in:worker" /> },
+                      { value: "", label: "Built-in Worker agent", icon: () => <AgentSelectAvatarIcon seed="built-in:worker" /> },
                       ...agentSelectOptions,
                     ]}
                     placeholder="Built-in Worker agent"
