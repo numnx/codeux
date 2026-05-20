@@ -3,52 +3,10 @@ import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
 import type { ProviderId } from "../../../types.js";
 
-export const Toggle: FunctionComponent<{
-  value: boolean;
-  onChange: (value: boolean) => void;
-  danger?: boolean;
-  disabled?: boolean;
-}> = ({ value, onChange, danger, disabled }) => (
-  <button
-    type="button"
-    onClick={() => onChange(!value)}
-    disabled={disabled}
-    className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-[background-color,box-shadow,border-color,transform] duration-300 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${danger ? "focus-visible:outline-status-red" : "focus-visible:outline-signal-500"} disabled:cursor-not-allowed disabled:opacity-60 active:scale-95 ${
-      value
-        ? danger
-          ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] hover:bg-status-red/90"
-          : "border-signal-500/40 bg-signal-500 shadow-[0_0_16px_rgba(0,224,160,0.22)] hover:bg-signal-500/90"
-        : "border-black/[0.12] bg-black/[0.08] hover:bg-black/[0.12] hover:border-black/[0.16] dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12] dark:hover:border-white/[0.16]"
-    }`}
-    aria-pressed={value}
-  >
-    <span
-      aria-hidden
-      className={`absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.28),rgba(255,255,255,0))] transition-opacity ${value ? "opacity-100" : "opacity-40"}`}
-    />
-    <span
-      className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-[0_2px_7px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-out ${
-        value ? "translate-x-5" : "translate-x-0"
-      }`}
-    >
-      <svg
-        className={`h-3 w-3 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {value ? (
-          <path d="M5 13l4 4L19 7" />
-        ) : (
-          <path d="M18 6L6 18M6 6l12 12" />
-        )}
-      </svg>
-    </span>
-  </button>
-);
+import { Toggle as UiToggle } from "../ui/Toggle.js";
+import { Input as UiInput } from "../ui/Input.js";
+
+export const Toggle = UiToggle;
 
 export const SelectInput: FunctionComponent<{
   value: string;
@@ -113,15 +71,12 @@ export const TextInput: FunctionComponent<{
   mono?: boolean;
   disabled?: boolean;
 }> = ({ value, onChange, placeholder, mono, disabled }) => (
-  <input
-    type="text"
+  <UiInput
     value={value}
     placeholder={placeholder}
     disabled={disabled}
     onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
-    className={`min-w-[220px] rounded-[1rem] border border-black/[0.06] hover:border-black/[0.12] bg-white/80 px-3.5 py-2.5 text-sm text-slate-700 placeholder-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:bg-white/[0.05] dark:text-slate-200 ${
-      mono ? "font-mono" : "font-sans"
-    }`}
+    className={mono ? "font-mono" : "font-sans"}
   />
 );
 
