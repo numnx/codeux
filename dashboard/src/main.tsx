@@ -16,7 +16,7 @@ import { ToastProvider } from "./v2/components/feedback/ToastProvider.js";
 import { useProjectEffectiveSettings } from "./v2/hooks/use-project-effective-settings.js";
 import { fetchSystemSettings } from "./v2/lib/settings-api.js";
 import type { DashboardSettings, SystemSettings } from "./types.js";
-import { SkeletonPanel } from "./v2/components/ui/ListSkeletons.js";
+import { SkeletonPanel } from "./v2/components/layout/SkeletonLoader.js";
 import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
 import { OnboardingExperience } from "./v2/components/onboarding/OnboardingExperience.js";

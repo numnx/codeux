@@ -19,7 +19,7 @@ import { useSprints } from "../hooks/useSprints.js";
 import { fetchAgentPresets } from "./lib/agent-preset-api.js";
 import { prepareMemoryGraph, type MemNode, type Edge, type GraphMetadata, CLUSTER } from "./lib/memory-graph.js";
 import type { SprintRecord, AgentPreset } from "./types.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 

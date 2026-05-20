@@ -8,8 +8,8 @@ import { StatusDot } from "./components/ui/StatusDot.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { useProjectData } from "./context/project-data.js";
-import { SkeletonPanel } from "./components/ui/ListSkeletons.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { SkeletonPanel, SkeletonLoader } from "./components/layout/SkeletonLoader.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 
 const EMBER_HEX = '#FFB800';
 
@@ -287,39 +287,16 @@ export const ProjectsPage: FunctionComponent = () => {
     } = useProjectData();
 
     const [showSkeletons, setShowSkeletons] = useState(false);
-    const [isFadingOut, setIsFadingOut] = useState(false);
 
     useEffect(() => {
         let timeoutId: number;
         if (loading) {
-            setIsFadingOut(false);
             timeoutId = window.setTimeout(() => setShowSkeletons(true), 200);
         } else {
-            if (showSkeletons && gridRef.current) {
-                setIsFadingOut(true);
-                const skeletonPanels = Array.from(gridRef.current.querySelectorAll(".skeleton-panel-entry"));
-                if (skeletonPanels.length > 0) {
-                    gsap.to(skeletonPanels, {
-                        opacity: 0,
-                        y: -10,
-                        duration: 0.3,
-                        stagger: 0.05,
-                        ease: "power2.in",
-                        onComplete: () => {
-                            setShowSkeletons(false);
-                            setIsFadingOut(false);
-                        }
-                    });
-                } else {
-                    setShowSkeletons(false);
-                    setIsFadingOut(false);
-                }
-            } else {
-                setShowSkeletons(false);
-            }
+            setShowSkeletons(false);
         }
         return () => window.clearTimeout(timeoutId);
-    }, [loading, showSkeletons]);
+    }, [loading]);
 
     useLayoutEffect(() => {
         if (mainRef.current) {
@@ -332,7 +309,7 @@ export const ProjectsPage: FunctionComponent = () => {
     }, []);
 
     useLayoutEffect(() => {
-        if (gridRef.current && !loading && !showSkeletons && !isFadingOut) {
+        if (gridRef.current && !loading && !showSkeletons) {
             const projectCards = Array.from(gridRef.current.querySelectorAll(".project-card-entry"));
             if (projectCards.length > 0) {
                 gsap.fromTo(
@@ -350,7 +327,7 @@ export const ProjectsPage: FunctionComponent = () => {
                 );
             }
         }
-    }, [loading, showSkeletons, isFadingOut, activeFilter]);
+    }, [loading, showSkeletons, activeFilter]);
 
     const handleAddProject = async (project: { name: string; type: 'local' | 'git'; path: string; cloneDir?: string }) => {
         await createProject({
@@ -494,16 +471,15 @@ export const ProjectsPage: FunctionComponent = () => {
                 </div>
 
                 {/* ── Cards Grid ──────────────────────────────────────── */}
-                <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    {showSkeletons ? (
-                        <>
-                            <SkeletonPanel />
-                            <SkeletonPanel />
-                            <SkeletonPanel />
-                            <SkeletonPanel />
-                        </>
-                    ) : !loading && !isFadingOut ? (
-                        <>
+                <div ref={gridRef} className="grid grid-cols-1 grid-rows-1 relative">
+                    <SkeletonLoader show={showSkeletons} className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        <SkeletonPanel />
+                        <SkeletonPanel />
+                        <SkeletonPanel />
+                        <SkeletonPanel />
+                    </SkeletonLoader>
+                    {!loading ? (
+                        <div className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                             {filtered.map(source => (
                                 <div key={source.id} className="project-card-entry h-full">
                                     <ProjectCard
@@ -517,7 +493,7 @@ export const ProjectsPage: FunctionComponent = () => {
                             <div className="project-card-entry h-full">
                                 <AddCard onClick={() => setShowModal(true)} />
                             </div>
-                        </>
+                        </div>
                     ) : null}
                 </div>
             </PageContainer>

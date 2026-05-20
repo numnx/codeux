@@ -29,7 +29,7 @@ import { PreviewWindowChrome } from "./components/browser/PreviewWindowChrome.js
 import { LaunchContainerPanel } from "./components/browser/LaunchContainerPanel.js";
 import { useActionFeedback } from "./hooks/use-action-feedback.js";
 import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 
 const PREVIEW_MESSAGE_TYPE = "sprint-preview:state";
 const PREVIEW_NAVIGATION_TYPE = "sprint-preview:navigate";

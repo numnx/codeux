@@ -34,9 +34,9 @@ import { createTask, deleteTask, updateTask } from "./lib/project-api.js";
 import { deriveTaskBoardState } from "./lib/task-board-state.js";
 import { DEFAULT_LIST_WINDOW, type ListWindowOption } from "./lib/list-window.js";
 import { ListWindowSelector } from "./components/ui/ListWindowSelector.js";
-import { SkeletonCard } from "./components/ui/ListSkeletons.js";
+import { SkeletonCard, SkeletonLoader } from "./components/layout/SkeletonLoader.js";
 import { FilterStrip } from "./components/ui/FilterStrip.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 import { formatSprintDisplay } from "./lib/format-sprint.js";
 import { useProjectEffectiveSettings } from "./hooks/use-project-effective-settings.js";
 import { KanbanTaskCard } from "./components/tasks/KanbanTaskCard.js";
@@ -384,39 +384,16 @@ export const TasksPage: FunctionComponent = () => {
 
   const reducedMotion = useReducedMotion();
   const [showSkeletons, setShowSkeletons] = useState(false);
-  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
     let timeoutId: number;
     if (loading) {
-      setIsFadingOut(false);
       timeoutId = window.setTimeout(() => setShowSkeletons(true), 200);
     } else {
-      if (showSkeletons && boardRef.current) {
-        setIsFadingOut(true);
-        const skeletonCards = Array.from(boardRef.current.querySelectorAll(".skeleton-card-entry"));
-        if (skeletonCards.length > 0) {
-          gsap.to(skeletonCards, {
-            opacity: 0,
-            y: -10,
-            duration: 0.3,
-            stagger: 0.05,
-            ease: "power2.in",
-            onComplete: () => {
-              setShowSkeletons(false);
-              setIsFadingOut(false);
-            }
-          });
-        } else {
-          setShowSkeletons(false);
-          setIsFadingOut(false);
-        }
-      } else {
-        setShowSkeletons(false);
-      }
+      setShowSkeletons(false);
     }
     return () => window.clearTimeout(timeoutId);
-  }, [loading, showSkeletons]);
+  }, [loading]);
 
   useLayoutEffect(() => {
     if (headerRef.current) {
@@ -425,7 +402,7 @@ export const TasksPage: FunctionComponent = () => {
   }, []);
 
   useLayoutEffect(() => {
-    if (boardRef.current && !loading && !showSkeletons && !isFadingOut) {
+    if (boardRef.current && !loading && !showSkeletons) {
       const taskCards = Array.from(boardRef.current.querySelectorAll(".task-card-entry"));
       if (taskCards.length > 0) {
         if (reducedMotion) {
@@ -443,7 +420,7 @@ export const TasksPage: FunctionComponent = () => {
         }
       }
     }
-  }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, isFadingOut, reducedMotion]);
+  }, [selectedProject?.id, statusFilter, priorityFilter, taskScopeSprintId, loading, showSkeletons, reducedMotion]);
 
   useLayoutEffect(() => {
     if (resolvedTaskId && boardRef.current) {
@@ -790,35 +767,36 @@ export const TasksPage: FunctionComponent = () => {
           {columns.map(({ status, count, tasks: columnTasks }) => (
             <div key={status} className="flex flex-col">
               <ColumnHeader status={status} count={count} />
-              <div className="flex-1 flex flex-col gap-4 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03]">
-                {showSkeletons ? (
-                  <>
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                  </>
-                ) : !loading && !isFadingOut && columnTasks.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-[1rem]">
+              <div className="flex-1 grid grid-cols-1 grid-rows-1 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03]">
+                <SkeletonLoader show={showSkeletons} className="col-start-1 row-start-1 flex flex-col gap-4">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </SkeletonLoader>
+                {!loading && columnTasks.length === 0 ? (
+                  <div className="col-start-1 row-start-1 flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-[1rem]">
                     No {status.replace("_", " ")} tasks
                     <br />
                     {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
                   </div>
-                ) : !loading && !isFadingOut ? (
-                  columnTasks.map((task, index) => {
-                    const viewModel = taskViewModels.get(task.recordId);
-                    if (!viewModel) return null;
+                ) : !loading ? (
+                  <div className="col-start-1 row-start-1 flex flex-col gap-4">
+                    {columnTasks.map((task, index) => {
+                      const viewModel = taskViewModels.get(task.recordId);
+                      if (!viewModel) return null;
 
-                    return (
-                      <div key={task.recordId} className="task-card-entry" data-task-id={task.recordId}>
-                        <KanbanTaskCard
-                          viewModel={viewModel}
-                          index={index}
-                          onEdit={handleEditClick}
-                          onDelete={handleDeleteTask}
-                        />
-                      </div>
-                    );
-                  })
+                      return (
+                        <div key={task.recordId} className="task-card-entry" data-task-id={task.recordId}>
+                          <KanbanTaskCard
+                            viewModel={viewModel}
+                            index={index}
+                            onEdit={handleEditClick}
+                            onDelete={handleDeleteTask}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : null}
               </div>
             </div>

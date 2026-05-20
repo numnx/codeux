@@ -5,10 +5,10 @@ import gsap from "gsap";
 import { HeaderStats } from "./components/HeaderStats.js";
 import { SourcesGrid } from "./components/SourcesGrid.js";
 import { TasksList } from "./components/TasksList.js";
-import { SkeletonPanel } from "./components/ui/ListSkeletons.js";
+import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
 import { useOverviewPageData } from "./hooks/use-overview-page-data.js";
 import { useReducedMotion } from "./hooks/use-reduced-motion.js";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 
 const OverviewTelemetry = lazy(() => import("./components/OverviewTelemetry.js").then(m => ({ default: m.OverviewTelemetry })));
 

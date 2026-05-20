@@ -14,7 +14,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-preact";
-import { PageContainer } from "./components/ui/PageContainer.js";
+import { PageContainer } from "./components/layout/PageContainer.js";
 import { AvantgardeSelect } from "./components/ui/AvantgardeSelect.js";
 import { useProjectData } from "./context/project-data.js";
 import { subscribeToDashboardRealtime } from "../lib/realtime/dashboard-realtime-client.js";

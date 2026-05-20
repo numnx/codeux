@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { MessageCircle, RefreshCw, Plus } from "lucide-preact";
 import type { Source } from "../../types.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { PageContainer } from "../ui/PageContainer.js";
+import { PageContainer } from "../layout/PageContainer.js";
 
 export const ChatPageShell: FunctionComponent<{
   selectedProject: Source | null;

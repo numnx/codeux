@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useMemo } from "preact/hooks";
 import gsap from "gsap";
 import { Sparkline } from "./ui/Sparkline.js";
 import { StatsCard } from "../pages/stats/components/StatsCard.js";
-import { SkeletonCard } from "./ui/ListSkeletons.js";
+import { SkeletonCard } from "./layout/SkeletonLoader.js";
 import { computeOverviewStats } from "../lib/overview-stats.js";
 import { formatTokens } from "../pages/stats/stats-utils.js";
 

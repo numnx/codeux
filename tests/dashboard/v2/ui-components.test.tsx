@@ -9,7 +9,7 @@ import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-mo
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/preact";
 import { PlanningProgressOverlay } from "../../../dashboard/src/v2/components/ui/PlanningProgressOverlay.js";
-import { ListSkeleton, StatCardSkeleton, ChatMessageSkeleton } from "../../../dashboard/src/v2/components/ui/ListSkeletons.js";
+import { SkeletonRow, SkeletonCard, SkeletonPanel } from "../../../dashboard/src/v2/components/layout/SkeletonLoader.js";
 import { AvantgardeSelect } from "../../../dashboard/src/v2/components/ui/AvantgardeSelect.js";
 import { FilterStrip } from "../../../dashboard/src/v2/components/ui/FilterStrip.js";
 import { SprintComposer } from "../../../dashboard/src/v2/components/ui/SprintComposer.js";
@@ -296,9 +296,9 @@ describe("UI Components Coverage", () => {
   });
 
   it("renders Skeletons", () => {
-    render(<ListSkeleton count={3} />);
-    render(<StatCardSkeleton />);
-    render(<ChatMessageSkeleton />);
+    render(<SkeletonRow />);
+    render(<SkeletonCard />);
+    render(<SkeletonPanel />);
   });
 
   it("DestructiveConfirmButton handles pointer cancel/leave without firing", () => {
