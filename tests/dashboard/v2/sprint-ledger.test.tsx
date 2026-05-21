@@ -21,7 +21,6 @@ vi.mock("gsap", () => ({
       if (to.onComplete) to.onComplete();
       return { revert: () => {} };
     },
-    killTweensOf: vi.fn(),
     context: (cb: any) => {
       cb();
       return { revert: () => {} };
