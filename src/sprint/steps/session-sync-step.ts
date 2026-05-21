@@ -362,6 +362,20 @@ export const runSessionSyncStep = async (
     if (match) {
       const sessionName = deps.resolveSessionName(match);
       if (sessionName) {
+        // Skip fetching activities if the session is already fully synchronized and terminal locally
+        let isFullySynced = false;
+        if (deps.executionRepository && task.record_id && deps.sprintRunId) {
+          const taskRun = deps.executionRepository.getLatestTaskRun(task.record_id, deps.sprintRunId);
+          if (taskRun && (taskRun.state === "COMPLETED" || taskRun.state === "FAILED")) {
+            isFullySynced = true;
+          }
+        }
+
+        const isRemoteTerminal = match.state === "COMPLETED" || match.state === "FAILED";
+        if (isFullySynced && isRemoteTerminal) {
+          continue;
+        }
+
         uniqueSessionNames.add(sessionName);
       }
     }

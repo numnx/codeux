@@ -16,9 +16,33 @@ export class JulesUsageService {
       const activities = await this.julesClient.getFullConversation(sessionId);
 
       let sessionPrompt = "";
+      let gitInsertions = 0;
+      let gitDeletions = 0;
+      let gitFilesChanged = 0;
       try {
         const session = await this.julesClient.getSession(sessionId);
         sessionPrompt = session.prompt || "";
+
+        const pullRequestOutput = Array.isArray(session.outputs)
+          ? session.outputs.find((entry) => entry && typeof entry === "object" && "pullRequest" in entry)
+          : undefined;
+        const pr = pullRequestOutput && typeof pullRequestOutput.pullRequest === "object"
+          ? pullRequestOutput.pullRequest as Record<string, unknown>
+          : null;
+
+        if (pr) {
+          const parseStat = (val: unknown) => {
+            if (typeof val === "number" && !isNaN(val)) return val;
+            if (typeof val === "string") {
+              const parsed = parseInt(val, 10);
+              if (!isNaN(parsed)) return parsed;
+            }
+            return 0;
+          };
+          gitInsertions = parseStat(pr.insertions);
+          gitDeletions = parseStat(pr.deletions);
+          gitFilesChanged = parseStat(pr.filesChanged);
+        }
       } catch (err) {
         this.logger.warn("Failed to fetch Jules session details", { sessionId, error: err });
       }
@@ -48,6 +72,11 @@ export class JulesUsageService {
         }
       }
 
+      // Add estimated tokens for git code churn (insertions and deletions)
+      // 10 tokens per line of added or deleted code
+      const churnTokens = (gitInsertions + gitDeletions) * 10;
+      outputTokens += churnTokens;
+
       const totalTokens = inputTokens + outputTokens;
 
       let record = this.executionRepository.getLatestProviderInvocationUsageBySession(sessionId, "task_coding");
@@ -73,7 +102,14 @@ export class JulesUsageService {
         julesTokens: totalTokens,
         usageSource: "estimated",
         transcriptChars,
-        invocationSource: "EXTERNAL_API"
+        invocationSource: "EXTERNAL_API",
+        rawUsageJson: {
+          gitMetrics: {
+            insertions: gitInsertions,
+            deletions: gitDeletions,
+            filesChanged: gitFilesChanged
+          }
+        }
       };
 
       this.executionRepository.updateProviderInvocationUsage(record.id, updateInput);

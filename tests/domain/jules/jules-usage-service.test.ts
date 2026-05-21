@@ -107,7 +107,14 @@ describe("JulesUsageService", () => {
       julesTokens: expectedInputTokens + expectedOutputTokens,
       usageSource: "estimated",
       transcriptChars: "Hello! How can I help?".length,
-      invocationSource: "EXTERNAL_API"
+      invocationSource: "EXTERNAL_API",
+      rawUsageJson: {
+        gitMetrics: {
+          insertions: 0,
+          deletions: 0,
+          filesChanged: 0
+        }
+      }
     });
 
     // Check ExecutionInvocationRecord and messages
@@ -157,12 +164,69 @@ describe("JulesUsageService", () => {
       julesTokens: expectedInputTokens,
       usageSource: "estimated",
       transcriptChars: 0,
-      invocationSource: "EXTERNAL_API"
+      invocationSource: "EXTERNAL_API",
+      rawUsageJson: {
+        gitMetrics: {
+          insertions: 0,
+          deletions: 0,
+          filesChanged: 0
+        }
+      }
     });
 
     expect(updateExecutionInvocationMock).toHaveBeenCalledWith("existing-exec-id", expect.objectContaining({
       status: "completed"
     }));
+  });
+
+  it("should extract git code churn and factor it into output tokens and rawUsageJson", async () => {
+    const mockActivities: JulesActivity[] = [
+      { id: "1", name: "1", createTime: "now", userMessaged: { userMessage: "Hello Jules" } },
+    ];
+    julesClientMock.mockResolvedValue(mockActivities);
+
+    julesClientGetSessionMock.mockResolvedValue({
+      prompt: "Initial prompt for testing",
+      outputs: [
+        {
+          pullRequest: {
+            url: "https://example.com/pr/123",
+            workerBranch: "feature-branch",
+            filesChanged: 4,
+            insertions: 50,
+            deletions: 20
+          }
+        }
+      ]
+    });
+
+    await service.calculateAndSaveUsageForTask("proj-1", "task-1", "session-1");
+
+    const encoder = getEncoding("cl100k_base");
+    const expectedInitialTokens = encoder.encode("Initial prompt for testing").length;
+    const expectedInputTokens = expectedInitialTokens + encoder.encode("Hello Jules").length;
+
+    // git insertions (50) + git deletions (20) = 70 lines.
+    // 70 lines * 10 tokens/line = 700 churn tokens.
+    const expectedOutputTokens = 700;
+
+    expect(executionRepositoryUpdateMock).toHaveBeenCalledWith("mock-record-id", {
+      status: "completed",
+      inputTokens: expectedInputTokens,
+      outputTokens: expectedOutputTokens,
+      totalTokens: expectedInputTokens + expectedOutputTokens,
+      julesTokens: expectedInputTokens + expectedOutputTokens,
+      usageSource: "estimated",
+      transcriptChars: 0,
+      invocationSource: "EXTERNAL_API",
+      rawUsageJson: {
+        gitMetrics: {
+          insertions: 50,
+          deletions: 20,
+          filesChanged: 4
+        }
+      }
+    });
   });
 
   it("should handle API failure gracefully and log an error", async () => {
