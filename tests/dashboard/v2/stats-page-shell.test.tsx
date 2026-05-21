@@ -150,10 +150,10 @@ const baseMockValue = {
   customTo: "2023-01-07",
   setCustomFrom: vi.fn(),
   setCustomTo: vi.fn(),
-  visualMode: "trend",
+  visualMode: "composition",
   setVisualMode: vi.fn(),
   chartState: {
-    visualMode: "trend",
+    visualMode: "composition",
     setVisualMode: vi.fn(),
     zoomRange: null,
     setZoomRange: vi.fn(),
@@ -264,8 +264,8 @@ expect(gsap.fromTo).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: /Reliability/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ledgers/i })).toBeInTheDocument();
 
-    // Default mode from mock is "trend"
-    expect(screen.getByText("Trend analysis")).toBeInTheDocument();
+    // Default mode from mock is "composition"
+    expect(screen.getByText("Composition analysis")).toBeInTheDocument();
   });
 
   it("renders ledgers mode when active", () => {

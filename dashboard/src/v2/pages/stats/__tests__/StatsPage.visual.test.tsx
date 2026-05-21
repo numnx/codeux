@@ -75,7 +75,7 @@ describe('StatsPage visual tests', () => {
       setCustomFrom: vi.fn(),
       customTo: '2026-01-02',
       setCustomTo: vi.fn(),
-      visualMode: 'trend',
+      visualMode: 'composition',
       setVisualMode: vi.fn(),
       chartState: { enabledSeries: {} } as any,
       providerSegments: [],

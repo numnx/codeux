@@ -4,7 +4,6 @@ import type { StatsVisualMode } from "./StatsShared.js";
 import type { FunctionComponent } from "preact";
 import { Layers3 } from "lucide-preact";
 import {
-  ViewToggle,
   TrendStudio,
   CompositionStudio,
   ReliabilityStudio,
@@ -58,10 +57,6 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <ViewToggle value={visualMode} onChange={setVisualMode} />
-      </div>
-
       {visualMode === "trend" ? (
         <TrendStudio
           stats={stats}
