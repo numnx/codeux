@@ -7,6 +7,7 @@ import type {
   DashboardSettingsScope,
   JulesSession,
   ProviderId,
+  QwenModelProviderSettings,
   Subtask,
   ThinkingMode,
 } from "../contracts/app-types.js";
@@ -65,7 +66,9 @@ interface StartCliTaskInput {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;

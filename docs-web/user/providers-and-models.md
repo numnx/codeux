@@ -46,17 +46,20 @@ gpt-5-codex, gpt-5-codex-mini, gpt-5
 ```
 qwen3-coder-plus, qwen3.5-plus, qwen3-coder-next,
 qwen3-max, qwen3-max-2026-01-23,
-qwen-plus, qwen-max, local-model
+qwen-plus, qwen-max
 ```
+
+Qwen custom-endpoint instances define their model id in Settings -> Providers. Code UX adds that configured model to the AI Models selector and writes it into Qwen Code `modelProviders` at runtime. The Custom endpoint preset is Ollama-compatible by default: API key `your_api_key`, model `glm-4.7-flash`, environment key `OLLAMA_API_KEY`, and base URL `http://127.0.0.1:11434/v1`. In Docker mode on Docker Desktop, WSL, macOS, or Windows, Code UX rewrites that loopback URL to `host.docker.internal` inside the container.
 
 ### OpenCode
 ```
 anthropic/claude-sonnet-4-5, anthropic/claude-opus-4-1, anthropic/claude-haiku-4-5,
 openai/gpt-5, openai/gpt-5-mini,
 github-copilot/gpt-5,
-openrouter/anthropic/claude-sonnet-4.5,
-custom/model
+openrouter/anthropic/claude-sonnet-4.5
 ```
+
+OpenCode provider-key and custom-endpoint instances generate a per-run OpenCode config. Code UX writes that generated config to a temporary `opencode.json`, sets `OPENCODE_CONFIG`, and maps the saved key to `OPENCODE_API_KEY`. The Custom endpoint preset is Ollama-compatible by default: API key `your_api_key`, provider/model `ollama/glm-4.7-flash`, environment key `OLLAMA_API_KEY`, and base URL `http://127.0.0.1:11434/v1`. In Docker mode on Docker Desktop, WSL, macOS, or Windows, Code UX rewrites that loopback URL to `host.docker.internal` inside the container.
 
 ### Default per provider
 

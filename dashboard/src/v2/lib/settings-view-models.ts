@@ -325,17 +325,18 @@ export const createSystemProviderDraft = (
   ...(providerId === "qwen-code" ? {
     qwenAuthMode: "LOCAL_AUTH" as const,
     qwenRegion: "international" as const,
-    qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    qwenEnvKey: "DASHSCOPE_API_KEY",
+    qwenBaseUrl: "http://127.0.0.1:11434/v1",
+    qwenEnvKey: "OLLAMA_API_KEY",
+    qwenModelId: "glm-4.7-flash",
     qwenProtocol: "openai" as const,
     qwenAdditionalModelProviders: [],
   } : {}),
   ...(providerId === "opencode" ? {
     openCodeAuthMode: "LOCAL_AUTH" as const,
-    openCodeProviderId: "anthropic",
-    openCodeModelId: "claude-sonnet-4-5",
-    openCodeBaseUrl: "https://api.openai.com/v1",
-    openCodeEnvKey: "ANTHROPIC_API_KEY",
+    openCodeProviderId: "ollama",
+    openCodeModelId: "glm-4.7-flash",
+    openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+    openCodeEnvKey: "OLLAMA_API_KEY",
     openCodePackage: "@ai-sdk/openai-compatible",
   } : {}),
 });
@@ -424,7 +425,6 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "qwen3-max-2026-01-23",
     "qwen-plus",
     "qwen-max",
-    "local-model",
   ],
   opencode: [
     "anthropic/claude-sonnet-4-5",
@@ -434,7 +434,6 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "openai/gpt-5-mini",
     "github-copilot/gpt-5",
     "openrouter/anthropic/claude-sonnet-4.5",
-    "custom/model",
   ],
 };
 
@@ -521,17 +520,18 @@ const getSystemIntegrationProviders = (
       ...(providerId === "qwen-code" ? {
         qwenAuthMode: "LOCAL_AUTH" as const,
         qwenRegion: "international" as const,
-        qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        qwenEnvKey: "DASHSCOPE_API_KEY",
+        qwenBaseUrl: "http://127.0.0.1:11434/v1",
+        qwenEnvKey: "OLLAMA_API_KEY",
+        qwenModelId: "glm-4.7-flash",
         qwenProtocol: "openai" as const,
         qwenAdditionalModelProviders: [],
       } : {}),
       ...(providerId === "opencode" ? {
         openCodeAuthMode: "LOCAL_AUTH" as const,
-        openCodeProviderId: "anthropic",
-        openCodeModelId: "claude-sonnet-4-5",
-        openCodeBaseUrl: "https://api.openai.com/v1",
-        openCodeEnvKey: "ANTHROPIC_API_KEY",
+        openCodeProviderId: "ollama",
+        openCodeModelId: "glm-4.7-flash",
+        openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+        openCodeEnvKey: "OLLAMA_API_KEY",
         openCodePackage: "@ai-sdk/openai-compatible",
       } : {}),
     };
@@ -698,6 +698,68 @@ export const getProviderModelOptions = (
     value: model,
     label: labelOverrides[model] || model,
   }));
+};
+
+export const getOpenCodeConfiguredModel = (
+  provider: Pick<SystemProviderCredentialSettings, "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId"> | null | undefined,
+  fallbackModel = "anthropic/claude-sonnet-4-5",
+): string | null => {
+  if (provider?.openCodeAuthMode !== "CUSTOM_PROVIDER") {
+    return null;
+  }
+  const [fallbackProviderId, ...fallbackModelParts] = fallbackModel.split("/");
+  const providerId = (provider.openCodeProviderId || fallbackProviderId || "custom").trim();
+  const modelId = (provider.openCodeModelId || fallbackModelParts.join("/") || "model").trim();
+  return `${providerId}/${modelId}`;
+};
+
+export const getQwenConfiguredModel = (
+  provider: Pick<SystemProviderCredentialSettings, "qwenAuthMode" | "qwenModelId"> | null | undefined,
+  fallbackModel = "glm-4.7-flash",
+): string | null => {
+  if (provider?.qwenAuthMode !== "MODEL_PROVIDER") {
+    return null;
+  }
+  const fallback = fallbackModel === "custom/model" || fallbackModel === "local-model"
+    ? "glm-4.7-flash"
+    : fallbackModel;
+  return (provider.qwenModelId || fallback || "glm-4.7-flash").trim();
+};
+
+export const getProviderInstanceModelOptions = (
+  providerConfigId: ProviderConfigId,
+  provider: Pick<ProjectProviderSettings, "provider" | "model">,
+  systemSettings: SystemSettings | null,
+): Array<{ value: string; label: string }> => {
+  const baseOptions = getProviderModelOptions(provider.provider);
+  const systemProvider = getSystemIntegrationProviders(systemSettings)[providerConfigId];
+  const configuredOpenCodeModel = provider.provider === "opencode"
+    ? getOpenCodeConfiguredModel(systemProvider, provider.model)
+    : null;
+  const configuredQwenModel = provider.provider === "qwen-code"
+    ? getQwenConfiguredModel(systemProvider, provider.model)
+    : null;
+  const selectedModels = [
+    configuredOpenCodeModel,
+    configuredQwenModel,
+    provider.model,
+  ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+  const optionsByValue = new Map<string, { value: string; label: string }>();
+  for (const option of baseOptions) {
+    optionsByValue.set(option.value, option);
+  }
+  for (const selectedModel of selectedModels) {
+    if (!optionsByValue.has(selectedModel)) {
+      optionsByValue.set(selectedModel, {
+        value: selectedModel,
+        label: configuredOpenCodeModel === selectedModel || configuredQwenModel === selectedModel
+          ? `${selectedModel} (configured)`
+          : selectedModel,
+      });
+    }
+  }
+  return [...optionsByValue.values()];
 };
 
 export const PROVIDER_CARD_TOKENS: Record<ProviderId, {

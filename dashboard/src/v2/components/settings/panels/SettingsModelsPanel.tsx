@@ -13,6 +13,7 @@ import {
   getEligibleProviders,
   getProviderInstanceAuthLabel,
   getProviderInstanceLabel,
+  getProviderInstanceModelOptions,
   getProviderModelOptions,
   getProviderTypeLabel,
   isProviderInstanceAvailable,
@@ -61,7 +62,9 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
 
   const workerProviderSettings = editableSettings.aiProvider.providers[editableSettings.workers.virtualWorkerProvider];
   const workerProviderType = workerProviderSettings?.provider || "codex";
-  const workerModelOptions = getProviderModelOptions(workerProviderType);
+  const workerModelOptions = workerProviderSettings
+    ? getProviderInstanceModelOptions(editableSettings.workers.virtualWorkerProvider, workerProviderSettings, systemSettings)
+    : getProviderModelOptions(workerProviderType);
 
   const updateProviderSettings = (
     providerConfigId: ProviderConfigId,
@@ -400,7 +403,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                         <SelectInput
                           value={activeProviderEntry.model}
                           onChange={(value) => updateProviderSettings(activeProviderConfigId, { model: value })}
-                          options={getProviderModelOptions(activeProviderEntry.provider)}
+                          options={getProviderInstanceModelOptions(activeProviderConfigId, activeProviderEntry, systemSettings)}
                         />
                       </div>
                     ) : null}
@@ -599,7 +602,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                           <SelectInput
                             value={override.model || provider.model}
                             onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
-                            options={getProviderModelOptions(provider.provider)}
+                            options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
                           />
                         </Row>
                       ) : null}

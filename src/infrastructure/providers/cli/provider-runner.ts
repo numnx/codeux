@@ -1,9 +1,11 @@
 import { CliWorkflowSettings, ProviderId } from "../../../contracts/app-types.js";
+import type { QwenModelProviderSettings } from "../../../contracts/app-types.js";
 import type { McpConnectionInfo } from "../../../contracts/mcp-connection-types.js";
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import type { IDockerRunner } from "./docker-runner.js";
 import { isDockerWorkspaceMountError } from "../../../services/cli-docker-utils.js";
 import * as fs from "fs/promises";
+import * as os from "os";
 import * as path from "path";
 import * as pathPosix from "path/posix";
 import { randomUUID } from "crypto";
@@ -63,6 +65,16 @@ interface OpenCodeRuntimeSettings {
   openCodePackage?: string;
 }
 
+interface QwenRuntimeSettings {
+  qwenAuthMode?: "LOCAL_AUTH" | "ALIBABA_CODING_PLAN" | "MODEL_PROVIDER";
+  qwenRegion?: "china" | "international";
+  qwenBaseUrl?: string;
+  qwenEnvKey?: string;
+  qwenModelId?: string;
+  qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
+}
+
 export interface ProviderRunInput {
   provider: CliProviderId;
   prompt: string;
@@ -73,7 +85,9 @@ export interface ProviderRunInput {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -179,7 +193,9 @@ export class ProviderRunner implements IProviderRunner {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
     openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
     openCodeProviderId?: string;
     openCodeModelId?: string;
@@ -199,16 +215,25 @@ export class ProviderRunner implements IProviderRunner {
     mcpConnection?: McpConnectionInfo | null;
   }): Promise<ProviderRunResult> {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
-    const providerEnv = this.withProviderEnv(provider, model, apiKey, workflowSettings, githubToken, providerMountAuth, input);
+    const runModel = this.resolveRunModel(provider, model, input);
+    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input);
     const nativeSessionId = input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const continueSession = !!input.continueSessionId;
-    const spec = this.buildCommandSpec(provider, model, prompt, input.codexOutputPath, nativeSessionId, continueSession, !!input.mcpConnection, input.qwenAuthMode, input.qwenProtocol);
+    const spec = this.buildCommandSpec(provider, runModel, prompt, input.codexOutputPath, nativeSessionId, continueSession, !!input.mcpConnection, input.qwenAuthMode, input.qwenProtocol);
     const { command, args } = spec;
 
     const localMcpCleanup: Array<{ path: string; originalContent: string | null }> = [];
-    if (input.mcpConnection && workflowSettings.executionMode !== "DOCKER") {
-      const entries = await this.writeLocalMcpConfig(input.mcpConnection, cwd, provider);
+    const localRuntimeCleanup: Array<string> = [];
+    if (provider === "opencode" && workflowSettings.executionMode !== "DOCKER") {
+      const configPath = await this.writeLocalOpenCodeConfig(providerEnv.OPENCODE_CONFIG_CONTENT, repoPath, sessionId);
+      if (configPath) {
+        providerEnv.OPENCODE_CONFIG = configPath;
+        localRuntimeCleanup.push(configPath);
+      }
+    }
+    if ((input.mcpConnection || (provider === "qwen-code" && providerEnv.QWEN_SETTINGS_CONTENT)) && workflowSettings.executionMode !== "DOCKER") {
+      const entries = await this.writeLocalMcpConfig(input.mcpConnection || null, cwd, provider, providerEnv.QWEN_SETTINGS_CONTENT);
       localMcpCleanup.push(...entries);
     }
 
@@ -253,7 +278,7 @@ export class ProviderRunner implements IProviderRunner {
         : null;
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
-        model,
+        model: runModel,
         prompt,
         cwd,
         stdout: result.stdout,
@@ -275,7 +300,44 @@ export class ProviderRunner implements IProviderRunner {
           await fs.rm(entry.path, { force: true }).catch(() => undefined);
         }
       }
+      for (const cleanupPath of localRuntimeCleanup) {
+        await fs.rm(cleanupPath, { force: true }).catch(() => undefined);
+      }
     }
+  }
+
+  private resolveRunModel(
+    provider: CliProviderId,
+    model: string,
+    config: Pick<ProviderRunInput, "qwenAuthMode" | "qwenModelId" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId">,
+  ): string {
+    if (provider === "qwen-code" && config.qwenAuthMode === "MODEL_PROVIDER") {
+      if (model === "custom/model" || model === "local-model") {
+        return (config.qwenModelId || "glm-4.7-flash").trim();
+      }
+      return (config.qwenModelId || model || "glm-4.7-flash").trim();
+    }
+    if (provider !== "opencode" || config.openCodeAuthMode !== "CUSTOM_PROVIDER") {
+      return model;
+    }
+    const providerId = (config.openCodeProviderId || model.split("/")[0] || "custom").trim();
+    const modelId = (config.openCodeModelId || model.split("/").slice(1).join("/") || "model").trim();
+    return `${providerId}/${modelId}`;
+  }
+
+  private async writeLocalOpenCodeConfig(
+    content: string | undefined,
+    repoPath: string,
+    sessionId: string,
+  ): Promise<string | null> {
+    if (!content) {
+      return null;
+    }
+    const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_.-]/g, "-");
+    const configPath = path.join(getRepoCodeUxPath(repoPath, "tmp"), `opencode-config-${safeSessionId}.json`);
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(configPath, `${content}\n`, "utf8");
+    return configPath;
   }
 
   private async readProviderOutputPath(
@@ -394,7 +456,7 @@ export class ProviderRunner implements IProviderRunner {
     workflowSettings: CliWorkflowSettings,
     githubToken?: string,
     providerMountAuth?: boolean,
-    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenProtocol" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection">,
+    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection">,
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env };
     const useContainerMounts = workflowSettings.executionMode === "DOCKER";
@@ -415,11 +477,13 @@ export class ProviderRunner implements IProviderRunner {
       if (model && model !== "default") env.CODEX_MODEL = model;
       if (apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
     } else if (provider === "qwen-code") {
+      const qwenEnvKeys = new Set<string>();
+      const primaryEnvKey = providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
+        ? "BAILIAN_CODING_PLAN_API_KEY"
+        : providerConfig?.qwenEnvKey || "OLLAMA_API_KEY";
+      qwenEnvKeys.add(primaryEnvKey);
       if (apiKey && !useProviderMount) {
-        const envKey = providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
-          ? "BAILIAN_CODING_PLAN_API_KEY"
-          : providerConfig?.qwenEnvKey || "DASHSCOPE_API_KEY";
-        env[envKey] = apiKey;
+        env[primaryEnvKey] = apiKey;
         env.DASHSCOPE_API_KEY ||= apiKey;
         env.BAILIAN_CODING_PLAN_API_KEY ||= apiKey;
         env.QWEN_API_KEY ||= apiKey;
@@ -431,12 +495,31 @@ export class ProviderRunner implements IProviderRunner {
         ? providerConfig.qwenRegion === "china"
           ? "https://coding.dashscope.aliyuncs.com/v1"
           : "https://coding-intl.dashscope.aliyuncs.com/v1"
-        : providerConfig?.qwenBaseUrl;
+        : providerConfig?.qwenAuthMode === "MODEL_PROVIDER"
+          ? providerConfig.qwenBaseUrl || "http://127.0.0.1:11434/v1"
+          : undefined;
       if (baseUrl) {
-        env.OPENAI_BASE_URL = baseUrl;
+        env.OPENAI_BASE_URL = this.rewriteLoopbackUrlForDocker(baseUrl, this.shouldRewriteDockerLoopbackUrls(workflowSettings));
       }
+      for (const entry of providerConfig?.qwenAdditionalModelProviders || []) {
+        if (entry.envKey) {
+          qwenEnvKeys.add(entry.envKey);
+          if (entry.apiKey && !useProviderMount) {
+            env[entry.envKey] = entry.apiKey;
+          }
+        }
+      }
+      if (qwenEnvKeys.size > 0) {
+        env.CODE_UX_PROVIDER_ENV_KEYS = [...qwenEnvKeys].join(",");
+      }
+      env.QWEN_SETTINGS_CONTENT = this.buildQwenSettingsContent(
+        model,
+        providerConfig,
+        providerConfig?.mcpConnection || null,
+        this.shouldRewriteDockerLoopbackUrls(workflowSettings),
+      );
     } else if (provider === "opencode") {
-      const envKey = providerConfig?.openCodeEnvKey || "ANTHROPIC_API_KEY";
+      const envKey = providerConfig?.openCodeEnvKey || (providerConfig?.openCodeAuthMode === "CUSTOM_PROVIDER" ? "OLLAMA_API_KEY" : "ANTHROPIC_API_KEY");
       const resolvedApiKey = apiKey || process.env[envKey] || "";
       if (resolvedApiKey && !useProviderMount) {
         env[envKey] = resolvedApiKey;
@@ -451,19 +534,97 @@ export class ProviderRunner implements IProviderRunner {
           env.GITHUB_TOKEN ||= resolvedApiKey;
         }
       }
-      env.OPENCODE_CONFIG_CONTENT = this.buildOpenCodeConfigContent(model, providerConfig, providerConfig?.mcpConnection || null);
+      env.OPENCODE_CONFIG_CONTENT = this.buildOpenCodeConfigContent(
+        model,
+        providerConfig,
+        providerConfig?.mcpConnection || null,
+        this.shouldRewriteDockerLoopbackUrls(workflowSettings),
+      );
     }
     return env;
+  }
+
+  private buildQwenSettingsContent(
+    model: string,
+    config?: QwenRuntimeSettings,
+    conn?: McpConnectionInfo | null,
+    rewriteDockerLoopbackUrls = false,
+  ): string {
+    const authMode = config?.qwenAuthMode || "LOCAL_AUTH";
+    const protocol = config?.qwenProtocol || "openai";
+    const envKey = authMode === "ALIBABA_CODING_PLAN"
+      ? "BAILIAN_CODING_PLAN_API_KEY"
+      : config?.qwenEnvKey || "OLLAMA_API_KEY";
+    const baseUrl = authMode === "ALIBABA_CODING_PLAN"
+      ? config?.qwenRegion === "china"
+        ? "https://coding.dashscope.aliyuncs.com/v1"
+        : "https://coding-intl.dashscope.aliyuncs.com/v1"
+      : authMode === "MODEL_PROVIDER"
+        ? config?.qwenBaseUrl || "http://127.0.0.1:11434/v1"
+        : config?.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    const selectedModel = authMode === "MODEL_PROVIDER"
+      ? (config?.qwenModelId || (model === "custom/model" || model === "local-model" ? "glm-4.7-flash" : model) || "glm-4.7-flash").trim()
+      : model && model !== "default"
+        ? model
+        : "qwen3-coder-plus";
+    const headers: Record<string, string> = {};
+    if (conn?.authToken) {
+      headers.Authorization = `Bearer ${conn.authToken}`;
+    }
+
+    const runtimeConfig: Record<string, unknown> = {
+      security: {
+        auth: {
+          selectedType: authMode === "LOCAL_AUTH" ? "qwen-oauth" : protocol,
+        },
+      },
+      model: {
+        name: selectedModel,
+      },
+    };
+
+    if (authMode !== "LOCAL_AUTH") {
+      runtimeConfig.modelProviders = {
+        [protocol]: [
+          {
+            id: selectedModel,
+            name: config?.qwenModelId || selectedModel,
+            baseUrl: this.rewriteLoopbackUrlForDocker(baseUrl, rewriteDockerLoopbackUrls),
+            description: authMode === "ALIBABA_CODING_PLAN" ? "Qwen via Alibaba Cloud Coding Plan" : "Qwen custom model provider",
+            envKey,
+          },
+          ...(config?.qwenAdditionalModelProviders || []).map((entry) => ({
+            id: entry.id,
+            name: entry.name || entry.id,
+            baseUrl: this.rewriteLoopbackUrlForDocker(entry.baseUrl, rewriteDockerLoopbackUrls),
+            description: entry.description,
+            envKey: entry.envKey,
+          })),
+        ],
+      };
+    }
+
+    if (conn) {
+      runtimeConfig.mcpServers = {
+        code_ux: {
+          httpUrl: this.rewriteLoopbackUrlForDocker(conn.url, rewriteDockerLoopbackUrls),
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        },
+      };
+    }
+
+    return JSON.stringify(runtimeConfig);
   }
 
   private buildOpenCodeConfigContent(
     model: string,
     config?: OpenCodeRuntimeSettings,
     conn?: McpConnectionInfo | null,
+    rewriteDockerLoopbackUrls = false,
   ): string {
     const authMode = config?.openCodeAuthMode || "LOCAL_AUTH";
-    const providerId = (config?.openCodeProviderId || model.split("/")[0] || "anthropic").trim();
-    const modelId = (config?.openCodeModelId || model.split("/").slice(1).join("/") || "claude-sonnet-4-5").trim();
+    const providerId = (config?.openCodeProviderId || model.split("/")[0] || (authMode === "CUSTOM_PROVIDER" ? "ollama" : "anthropic")).trim();
+    const modelId = (config?.openCodeModelId || model.split("/").slice(1).join("/") || (authMode === "CUSTOM_PROVIDER" ? "glm-4.7-flash" : "claude-sonnet-4-5")).trim();
     const selectedModel = authMode === "CUSTOM_PROVIDER"
       ? `${providerId}/${modelId}`
       : model && model !== "default"
@@ -489,7 +650,7 @@ export class ProviderRunner implements IProviderRunner {
           npm: config?.openCodePackage || "@ai-sdk/openai-compatible",
           name: providerId,
           options: {
-            baseURL: config?.openCodeBaseUrl || "https://api.openai.com/v1",
+            baseURL: this.rewriteLoopbackUrlForDocker(config?.openCodeBaseUrl || "http://127.0.0.1:11434/v1", rewriteDockerLoopbackUrls),
             apiKey: "{env:OPENCODE_API_KEY}",
           },
           models: {
@@ -509,7 +670,7 @@ export class ProviderRunner implements IProviderRunner {
       runtimeConfig.mcp = {
         code_ux: {
           type: "remote",
-          url: conn.url,
+          url: this.rewriteLoopbackUrlForDocker(conn.url, rewriteDockerLoopbackUrls),
           enabled: true,
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         },
@@ -517,6 +678,38 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     return JSON.stringify(runtimeConfig);
+  }
+
+  private shouldRewriteDockerLoopbackUrls(workflowSettings: CliWorkflowSettings): boolean {
+    if (workflowSettings.executionMode !== "DOCKER") {
+      return false;
+    }
+    const override = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+    if (override === "0" || override === "false") {
+      return false;
+    }
+    if (override === "1" || override === "true") {
+      return true;
+    }
+    return process.platform === "darwin"
+      || process.platform === "win32"
+      || os.release().toLowerCase().includes("microsoft");
+  }
+
+  private rewriteLoopbackUrlForDocker(rawUrl: string, enabled: boolean): string {
+    if (!enabled) {
+      return rawUrl;
+    }
+    try {
+      const url = new URL(rawUrl);
+      if (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1") {
+        url.hostname = "host.docker.internal";
+        return url.toString();
+      }
+    } catch {
+      return rawUrl;
+    }
+    return rawUrl;
   }
 
   private isTransientCodexTransportError(result: CommandResult): boolean {
@@ -541,17 +734,18 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   private async writeLocalMcpConfig(
-    conn: McpConnectionInfo,
+    conn: McpConnectionInfo | null,
     cwd: string,
-    provider: CliProviderId
+    provider: CliProviderId,
+    qwenSettingsContent?: string,
   ): Promise<Array<{ path: string; originalContent: string | null }>> {
     const headers: Record<string, string> = {};
-    if (conn.authToken) {
+    if (conn?.authToken) {
       headers["Authorization"] = `Bearer ${conn.authToken}`;
     }
     const created: Array<{ path: string; originalContent: string | null }> = [];
 
-    if (provider === "claude-code") {
+    if (provider === "claude-code" && conn) {
       const configPath = path.join(cwd, ".mcp.json");
       const config = {
         mcpServers: {
@@ -565,26 +759,35 @@ export class ProviderRunner implements IProviderRunner {
       const originalContent = await fs.readFile(configPath, "utf8").catch(() => null);
       await fs.writeFile(configPath, JSON.stringify(config, null, 2));
       created.push({ path: configPath, originalContent });
-    } else if (provider === "gemini" || provider === "qwen-code") {
+    } else if ((provider === "gemini" && conn) || provider === "qwen-code") {
       const dirPath = path.join(cwd, provider === "gemini" ? ".gemini" : ".qwen");
       await fs.mkdir(dirPath, { recursive: true });
       const configPath = path.join(dirPath, "settings.json");
-      const mcpServers = {
-        "code_ux": {
-          httpUrl: conn.url,
-          ...(Object.keys(headers).length > 0 ? { headers } : {}),
-        },
-      };
       // Merge with existing project-level settings to preserve other config (e.g. general.maxAttempts)
       let existing: Record<string, unknown> = {};
       const originalContent = await fs.readFile(configPath, "utf8").catch(() => null);
       if (originalContent) {
         try { existing = JSON.parse(originalContent); } catch { /* ignore parse errors */ }
       }
-      existing.mcpServers = { ...(existing.mcpServers as Record<string, unknown> || {}), ...mcpServers };
+      if (provider === "qwen-code" && qwenSettingsContent) {
+        try {
+          existing = { ...existing, ...(JSON.parse(qwenSettingsContent) as Record<string, unknown>) };
+        } catch {
+          // ignore parse errors and preserve existing settings
+        }
+      }
+      if (conn) {
+        const mcpServers = {
+          "code_ux": {
+            httpUrl: conn.url,
+            ...(Object.keys(headers).length > 0 ? { headers } : {}),
+          },
+        };
+        existing.mcpServers = { ...(existing.mcpServers as Record<string, unknown> || {}), ...mcpServers };
+      }
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2));
       created.push({ path: configPath, originalContent });
-    } else if (provider === "codex") {
+    } else if (provider === "codex" && conn) {
       const dirPath = path.join(cwd, ".codex");
       await fs.mkdir(dirPath, { recursive: true });
       const configPath = path.join(dirPath, "config.toml");

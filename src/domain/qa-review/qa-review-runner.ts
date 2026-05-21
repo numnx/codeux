@@ -26,7 +26,9 @@ export interface QaReviewRunnerArgs {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: string;
+  qwenAdditionalModelProviders?: import("../../contracts/app-types.js").QwenModelProviderSettings[];
   openCodeAuthMode?: string;
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -66,7 +68,9 @@ export class QaReviewRunner {
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
+        qwenModelId: args.qwenModelId,
         qwenProtocol: args.qwenProtocol as any,
+        qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode as any,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,

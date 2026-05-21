@@ -124,7 +124,6 @@ export const QWEN_MODELS: string[] = [
   "qwen3-max-2026-01-23",
   "qwen-plus",
   "qwen-max",
-  "local-model",
 ];
 
 export const OPENCODE_MODELS: string[] = [
@@ -135,7 +134,6 @@ export const OPENCODE_MODELS: string[] = [
   "openai/gpt-5-mini",
   "github-copilot/gpt-5",
   "openrouter/anthropic/claude-sonnet-4.5",
-  "custom/model",
 ];
 
 export const AI_MODEL_CATALOG: Record<string, string[]> = {

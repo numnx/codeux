@@ -1,11 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
+import { runStreamingCommand } from "../../../../../src/services/cli-process-runner.js";
 import { ProviderRunner } from "../../../../../src/infrastructure/providers/cli/provider-runner.js";
+
+vi.mock("../../../../../src/services/cli-process-runner.js", () => ({
+  runStreamingCommand: vi.fn(async () => ({
+    ok: true,
+    stdout: "provider stdout",
+    stderr: "",
+    code: 0,
+    signal: null,
+  })),
+}));
 
 describe("ProviderRunner", () => {
   let dockerRunner: any;
   let runner: ProviderRunner;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     dockerRunner = {
       ensureWorkspace: vi.fn(async ({ cwd }: { cwd: string }) => ({ cwd: cwd === "/repo" ? "docker-volume://workspace-1" : cwd, cleanup: vi.fn() })),
       runProviderInDocker: vi.fn(async () => ({
@@ -114,6 +129,66 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("uses the configured Qwen custom model and rewrites local Docker endpoints", async () => {
+    const originalRewrite = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+    process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = "1";
+    try {
+      await runner.runProvider({
+        provider: "qwen-code",
+        prompt: "hello",
+        cwd: "/repo",
+        model: "custom/model",
+        apiKey: "sk-qwen-test",
+        qwenAuthMode: "MODEL_PROVIDER",
+        qwenModelId: "glm-4.7-flash",
+        qwenBaseUrl: "http://127.0.0.1:11434/v1",
+        qwenEnvKey: "OLLAMA_API_KEY",
+        qwenProtocol: "openai",
+        sessionId: "session-1",
+        workflowSettings: { executionMode: "DOCKER" } as any,
+        repoPath: "/repo",
+        mcpConnection: { url: "http://127.0.0.1:4445/mcp", authToken: null },
+        onActivity: vi.fn(),
+      });
+    } finally {
+      if (originalRewrite === undefined) {
+        delete process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+      } else {
+        process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = originalRewrite;
+      }
+    }
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "qwen",
+      args: ["--auth-type", "openai", "--yolo", "--model", "glm-4.7-flash", "-p", "hello"],
+      providerEnv: expect.objectContaining({
+        OLLAMA_API_KEY: "sk-qwen-test",
+        OPENAI_BASE_URL: "http://host.docker.internal:11434/v1",
+        CODE_UX_PROVIDER_ENV_KEYS: "OLLAMA_API_KEY",
+      }),
+    }));
+    const env = dockerRunner.runProviderInDocker.mock.calls[0][0].providerEnv;
+    expect(JSON.parse(env.QWEN_SETTINGS_CONTENT)).toMatchObject({
+      modelProviders: {
+        openai: [
+          {
+            id: "glm-4.7-flash",
+            baseUrl: "http://host.docker.internal:11434/v1",
+            envKey: "OLLAMA_API_KEY",
+          },
+        ],
+      },
+      model: {
+        name: "glm-4.7-flash",
+      },
+      mcpServers: {
+        code_ux: {
+          httpUrl: "http://host.docker.internal:4445/mcp",
+        },
+      },
+    });
+  });
+
   it("builds OpenCode run commands with generated config content", async () => {
     await runner.runProvider({
       provider: "opencode",
@@ -141,6 +216,121 @@ describe("ProviderRunner", () => {
         OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"baseURL\":\"https://llm.example.com/v1\""),
       }),
     }));
+  });
+
+  it("uses the configured OpenCode custom provider model instead of a stale placeholder", async () => {
+    const originalRewrite = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+    process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = "1";
+    try {
+      await runner.runProvider({
+        provider: "opencode",
+        prompt: "hello",
+        cwd: "/repo",
+        model: "custom/model",
+        apiKey: "sk-open-test",
+        openCodeAuthMode: "CUSTOM_PROVIDER",
+        openCodeProviderId: "ollama",
+        openCodeModelId: "glm-4.7-flash",
+        openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+        sessionId: "session-1",
+        workflowSettings: { executionMode: "DOCKER" } as any,
+        repoPath: "/repo",
+        mcpConnection: { url: "http://127.0.0.1:4445/mcp", authToken: null },
+        onActivity: vi.fn(),
+      });
+    } finally {
+      if (originalRewrite === undefined) {
+        delete process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+      } else {
+        process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = originalRewrite;
+      }
+    }
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "opencode",
+      args: ["run", "--model", "ollama/glm-4.7-flash", "hello"],
+      providerEnv: expect.objectContaining({
+        OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"model\":\"ollama/glm-4.7-flash\""),
+      }),
+    }));
+    const env = dockerRunner.runProviderInDocker.mock.calls[0][0].providerEnv;
+    expect(JSON.parse(env.OPENCODE_CONFIG_CONTENT)).toMatchObject({
+      provider: {
+        ollama: {
+          options: {
+            baseURL: "http://host.docker.internal:11434/v1",
+          },
+        },
+      },
+      mcp: {
+        code_ux: {
+          url: "http://host.docker.internal:4445/mcp",
+        },
+      },
+    });
+  });
+
+  it("materializes generated OpenCode config for host execution", async () => {
+    const repoPath = await fs.mkdtemp(path.join(os.tmpdir(), "provider-runner-"));
+    let configPath = "";
+    let configContent = "";
+    vi.mocked(runStreamingCommand).mockImplementationOnce(async (_command, _args, _cwd, env) => {
+      configPath = env.OPENCODE_CONFIG || "";
+      configContent = await fs.readFile(configPath, "utf8");
+      return {
+        ok: true,
+        stdout: "host stdout",
+        stderr: "",
+        code: 0,
+        signal: null,
+      };
+    });
+
+    await runner.runProvider({
+      provider: "opencode",
+      prompt: "hello",
+      cwd: repoPath,
+      model: "ollama/glm-4.7-flash",
+      apiKey: "mykey",
+      openCodeAuthMode: "CUSTOM_PROVIDER",
+      openCodeProviderId: "ollama",
+      openCodeModelId: "glm-4.7-flash",
+      openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+      sessionId: "session/with/slash",
+      workflowSettings: { executionMode: "HOST" } as any,
+      repoPath,
+      onActivity: vi.fn(),
+    });
+
+    expect(runStreamingCommand).toHaveBeenCalledWith(
+      "opencode",
+      ["run", "--model", "ollama/glm-4.7-flash", "hello"],
+      repoPath,
+      expect.objectContaining({
+        OPENCODE_API_KEY: "mykey",
+        OPENCODE_CONFIG: expect.stringContaining("opencode-config-session-with-slash.json"),
+      }),
+      expect.any(Object),
+    );
+    expect(configPath).toContain("opencode-config-session-with-slash.json");
+    expect(JSON.parse(configContent)).toMatchObject({
+      model: "ollama/glm-4.7-flash",
+      provider: {
+        ollama: {
+          npm: "@ai-sdk/openai-compatible",
+          options: {
+            baseURL: "http://127.0.0.1:11434/v1",
+            apiKey: "{env:OPENCODE_API_KEY}",
+          },
+          models: {
+            "glm-4.7-flash": {
+              name: "glm-4.7-flash",
+            },
+          },
+        },
+      },
+    });
+    await expect(fs.access(configPath)).rejects.toThrow();
   });
 
   it("captures Codex text output from the isolated workspace", async () => {

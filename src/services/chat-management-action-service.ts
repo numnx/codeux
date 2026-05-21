@@ -1,6 +1,6 @@
 import type { ManageCodeUxArgs, ManagementResponseEnvelope } from "../contracts/internal-management-types.js";
 import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
-import type { DashboardSettings, ProviderId } from "../contracts/app-types.js";
+import type { DashboardSettings, ProviderId, QwenModelProviderSettings } from "../contracts/app-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { ManagementToolHandler } from "../mcp/management-tool-handler.js";
 import type { StructuredProviderResponseService } from "./structured-provider-response-service.js";
@@ -144,7 +144,9 @@ export interface ProcessManagementActionArgs {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -258,7 +260,9 @@ export class ChatManagementActionService {
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
+        qwenModelId: args.qwenModelId,
         qwenProtocol: args.qwenProtocol,
+        qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,
@@ -351,7 +355,9 @@ export class ChatManagementActionService {
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
+        qwenModelId: args.qwenModelId,
         qwenProtocol: args.qwenProtocol,
+        qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,

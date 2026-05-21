@@ -1,4 +1,5 @@
 import type { DashboardSettings } from "../contracts/app-types.js";
+import type { QwenModelProviderSettings } from "../contracts/app-types.js";
 import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -39,7 +40,9 @@ export interface ExecutionProviderRunArgs {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -158,7 +161,9 @@ export class ProviderExecutionService {
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,
         qwenEnvKey: args.qwenEnvKey,
+        qwenModelId: args.qwenModelId,
         qwenProtocol: args.qwenProtocol,
+        qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,

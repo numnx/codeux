@@ -1,4 +1,4 @@
-import type { DashboardSettings, ProviderId, Subtask } from "../contracts/app-types.js";
+import type { DashboardSettings, ProviderId, QwenModelProviderSettings, Subtask } from "../contracts/app-types.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ProjectWorkerAssignmentRepository } from "../repositories/project-worker-assignment-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -45,7 +45,9 @@ export interface ThreadRouteResolution {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -93,7 +95,9 @@ export class ChatThreadRuntimeService {
       qwenRegion: providerSettings.qwenRegion,
       qwenBaseUrl: providerSettings.qwenBaseUrl,
       qwenEnvKey: providerSettings.qwenEnvKey,
+      qwenModelId: providerSettings.qwenModelId,
       qwenProtocol: providerSettings.qwenProtocol,
+      qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -124,7 +128,9 @@ export class ChatThreadRuntimeService {
       qwenRegion: providerSettings.qwenRegion,
       qwenBaseUrl: providerSettings.qwenBaseUrl,
       qwenEnvKey: providerSettings.qwenEnvKey,
+      qwenModelId: providerSettings.qwenModelId,
       qwenProtocol: providerSettings.qwenProtocol,
+      qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -359,7 +365,9 @@ export class ChatThreadRuntimeService {
       qwenRegion: route.qwenRegion,
       qwenBaseUrl: route.qwenBaseUrl,
       qwenEnvKey: route.qwenEnvKey,
+      qwenModelId: route.qwenModelId,
       qwenProtocol: route.qwenProtocol,
+      qwenAdditionalModelProviders: route.qwenAdditionalModelProviders,
       openCodeAuthMode: route.openCodeAuthMode,
       openCodeProviderId: route.openCodeProviderId,
       openCodeModelId: route.openCodeModelId,
@@ -489,7 +497,9 @@ export class ChatThreadRuntimeService {
       qwenRegion: route.qwenRegion,
       qwenBaseUrl: route.qwenBaseUrl,
       qwenEnvKey: route.qwenEnvKey,
+      qwenModelId: route.qwenModelId,
       qwenProtocol: route.qwenProtocol,
+      qwenAdditionalModelProviders: route.qwenAdditionalModelProviders,
         openCodeAuthMode: route.openCodeAuthMode,
         openCodeProviderId: route.openCodeProviderId,
         openCodeModelId: route.openCodeModelId,

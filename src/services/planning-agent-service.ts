@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 import type { MemoryService } from "./memory-service.js";
-import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask } from "../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, ProviderId, QwenModelProviderSettings, Subtask } from "../contracts/app-types.js";
 import type {
   TaskExecutorType,
   TaskPriority,
@@ -75,7 +75,9 @@ interface PlanningResultContext {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   };
   memoryCaptureWorkspacePath: string;
   cleanupWorkspace?: () => Promise<void>;
@@ -523,7 +525,9 @@ export class PlanningAgentService {
         qwenRegion: providerSettings.qwenRegion,
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
+        qwenModelId: providerSettings.qwenModelId,
         qwenProtocol: providerSettings.qwenProtocol,
+        qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         providerMountAuth: providerSettings.mountAuth,
         providerAuthPath: providerSettings.authPath,
         providerPrompt: args.rawPrompt,
@@ -567,7 +571,9 @@ export class PlanningAgentService {
           qwenRegion: providerSettings.qwenRegion,
           qwenBaseUrl: providerSettings.qwenBaseUrl,
           qwenEnvKey: providerSettings.qwenEnvKey,
+          qwenModelId: providerSettings.qwenModelId,
           qwenProtocol: providerSettings.qwenProtocol,
+          qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
           thinkingMode: providerSettings.thinkingMode,
         },
       };

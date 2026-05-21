@@ -577,7 +577,9 @@ export interface ProviderSettings {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -591,6 +593,16 @@ export interface InvocationProviderOverrideSettings {
   model?: string;
   weight?: number;
   thinkingMode?: ThinkingMode;
+}
+
+export interface QwenModelProviderSettings {
+  id: string;
+  name: string;
+  authType: "openai" | "anthropic" | "gemini";
+  envKey: string;
+  apiKey: string;
+  baseUrl: string;
+  description?: string;
 }
 
 export interface InvocationRoutingSettings {

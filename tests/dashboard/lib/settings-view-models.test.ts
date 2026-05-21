@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   getProviderModelOptions,
+  getProviderInstanceModelOptions,
+  getOpenCodeConfiguredModel,
+  getQwenConfiguredModel,
   getFieldSource,
   getFieldSourceLabel,
   providerSupportsModelSelection,
@@ -11,6 +14,7 @@ import {
   sourceLabel,
   thinkingModeOptions,
   providerLabels,
+  createSystemProviderDraft,
 } from "../../../dashboard/src/v2/lib/settings-view-models.js";
 import type { SystemSettings, ProjectSettings, ExternalSettingsHints } from "../../../dashboard/src/types.js";
 
@@ -71,6 +75,90 @@ describe("settings view model source helpers", () => {
       { value: "flash-lite", label: "flash-lite (recent)" },
       { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
     ]));
+  });
+
+  it("adds configured OpenCode custom endpoint models to instance model options", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "opencode-ollama": {
+            provider: "opencode",
+            name: "Ollama",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "~/.local/share/opencode",
+            openCodeAuthMode: "CUSTOM_PROVIDER",
+            openCodeProviderId: "ollama",
+            openCodeModelId: "glm-4.7-flash",
+            openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+            openCodeEnvKey: "ANTHROPIC_API_KEY",
+            openCodePackage: "@ai-sdk/openai-compatible",
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getOpenCodeConfiguredModel(systemSettings.integrations.providers["opencode-ollama"], "custom/model")).toBe("ollama/glm-4.7-flash");
+    expect(getProviderModelOptions("opencode").some((option) => option.value === "custom/model")).toBe(false);
+    expect(getProviderInstanceModelOptions(
+      "opencode-ollama",
+      { provider: "opencode", model: "custom/model" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "ollama/glm-4.7-flash", label: "ollama/glm-4.7-flash (configured)" },
+      { value: "custom/model", label: "custom/model" },
+    ]));
+  });
+
+  it("adds configured Qwen custom endpoint models to instance model options", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "qwen-ollama": {
+            provider: "qwen-code",
+            name: "Qwen Ollama",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "~/.qwen",
+            qwenAuthMode: "MODEL_PROVIDER",
+            qwenRegion: "international",
+            qwenBaseUrl: "http://127.0.0.1:11434/v1",
+            qwenEnvKey: "OLLAMA_API_KEY",
+            qwenModelId: "glm-4.7-flash",
+            qwenProtocol: "openai",
+            qwenAdditionalModelProviders: [],
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getQwenConfiguredModel(systemSettings.integrations.providers["qwen-ollama"], "custom/model")).toBe("glm-4.7-flash");
+    expect(getProviderModelOptions("qwen-code").some((option) => option.value === "local-model")).toBe(false);
+    expect(getProviderInstanceModelOptions(
+      "qwen-ollama",
+      { provider: "qwen-code", model: "custom/model" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "glm-4.7-flash", label: "glm-4.7-flash (configured)" },
+      { value: "custom/model", label: "custom/model" },
+    ]));
+  });
+
+  it("prefills new Qwen and OpenCode custom endpoint settings for local Ollama", () => {
+    expect(createSystemProviderDraft("qwen-code", "Qwen Ollama")).toMatchObject({
+      apiKey: "",
+      qwenBaseUrl: "http://127.0.0.1:11434/v1",
+      qwenEnvKey: "OLLAMA_API_KEY",
+      qwenModelId: "glm-4.7-flash",
+      qwenProtocol: "openai",
+    });
+    expect(createSystemProviderDraft("opencode", "OpenCode Ollama")).toMatchObject({
+      apiKey: "",
+      openCodeProviderId: "ollama",
+      openCodeModelId: "glm-4.7-flash",
+      openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+      openCodeEnvKey: "OLLAMA_API_KEY",
+    });
   });
 });
 
