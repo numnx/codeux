@@ -255,6 +255,7 @@ export function queryProjectStatsSnapshot(
     range: normalized.range,
     generatedAt: nowIso,
     usage,
+    mergeConflictCount: gitTotals.mergeConflictCount,
     git: {
       totals: gitTotals,
       buckets: gitBuckets,
