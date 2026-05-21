@@ -45,181 +45,197 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
 
   const getBadge = (...prefixes: string[]) => getBadgeHelper(activeScope, projectSources, ...prefixes);
   const getFieldBadge = (path: string) => getFieldBadgeHelper(activeScope, projectSources, path);
-    if (activeScope === "system") {
-      return (
-        <div className="flex flex-col gap-5">
-          <SectionCard title="System Runtime" watermark="SYS">
-            <Row label="Dashboard port" description="System-wide HTTP port for the dashboard server.">
-              <NumberInput
-                value={systemSettings?.runtime.dashboardPort ?? 4444}
-                onChange={(value) => updateSystem((current) => ({
-                  ...current,
-                  runtime: {
-                    ...current.runtime,
-                    dashboardPort: value,
-                  },
-                }))}
-                min={1}
-                max={65535}
-              />
-            </Row>
-            <Row label="Debug log file" description="Write extra runtime diagnostics to disk for development and incident analysis.">
-              <Toggle
-                value={systemSettings?.runtime.enableDebugLogFile ?? false}
-                onChange={() => updateSystem((current) => ({
-                  ...current,
-                  runtime: {
-                    ...current.runtime,
-                    enableDebugLogFile: !current.runtime.enableDebugLogFile,
-                  },
-                }))}
-              />
-            </Row>
-            <Row label="Console Log Level" description="Standard keeps important lifecycle and invocation logs visible. Full also prints routine dashboard HTTP requests." last>
-              <PillChoiceGroup
-                value={systemSettings?.runtime.consoleLogLevel ?? "standard"}
-                onChange={(value) => updateSystem((current) => ({
-                  ...current,
-                  runtime: {
-                    ...current.runtime,
-                    consoleLogLevel: value === "full" ? "full" : "standard",
-                  },
-                }))}
-                options={[
-                  { value: "standard", label: "Standard", hint: "Important runtime activity." },
-                  { value: "full", label: "Full", hint: "Includes HTTP requests." },
-                ]}
-              />
-            </Row>
-          </SectionCard>
 
-          <SectionCard title="Onboarding" watermark="ONB">
-            <NoticePanel title="First-run guide" tone="success">
-              Reopen the guided setup flow for Docker checks, provider configuration, AI behaviour, appearance preferences, and dashboard controls. This does not reset saved settings.
-            </NoticePanel>
-            <Row label="Show onboarding again" description="Launch the interactive setup flow from the beginning." last>
-              <ActionButton label="Open Onboarding" tone="primary" onClick={openOnboarding} />
-            </Row>
-          </SectionCard>
+  const renderAutomationCard = (
+    settings: ProjectSettings,
+    update: (updater: (curr: ProjectSettings) => ProjectSettings) => void
+  ) => (
+    <SectionCard title="Automation" watermark="AUTO" badge={getBadge("automationLevel", "automationInterventions")}>
+      <Row label="Automation level" description="Choose how much the project should proceed without a worker stepping in." badge={getFieldBadge("automationLevel")}>
+        <PillChoiceGroup
+          value={settings.automationLevel}
+          onChange={(value) => update((current) => ({ ...current, automationLevel: value as ProjectSettings["automationLevel"] }))}
+          options={[
+            { value: "FULL", label: "Full", hint: "Moves without confirmation gates." },
+            { value: "SEMI_AUTO", label: "Semi-auto", hint: "Automates routine recovery only." },
+            { value: "ALWAYS_ASK", label: "Always ask", hint: "Requires a decision at every gate." },
+          ]}
+        />
+      </Row>
+      <Row label="Auto-approve plans" description="Use the orchestrator path for routine plan confirmations." badge={getFieldBadge("automationInterventions.autoApprovePlan")}>
+        <Toggle
+          value={settings.automationInterventions.autoApprovePlan}
+          onChange={() => update((current) => ({
+            ...current,
+            automationInterventions: {
+              ...current.automationInterventions,
+              autoApprovePlan: !current.automationInterventions.autoApprovePlan,
+            },
+          }))}
+        />
+      </Row>
+      <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
+        <Toggle
+          value={settings.automationInterventions.autoAnswerClarification}
+          onChange={() => update((current) => ({
+            ...current,
+            automationInterventions: {
+              ...current.automationInterventions,
+              autoAnswerClarification: !current.automationInterventions.autoAnswerClarification,
+            },
+          }))}
+        />
+      </Row>
+      {settings.automationInterventions.autoAnswerClarification && (
+        <Row label="Clarification answer mode" description="Choose whether to use a static template or let a worker generate a contextual answer." badge={getFieldBadge("automationInterventions.autoAnswerClarificationMode")}>
+          <PillChoiceGroup
+            value={settings.automationInterventions.autoAnswerClarificationMode}
+            onChange={(value) => update((current) => ({
+              ...current,
+              automationInterventions: {
+                ...current.automationInterventions,
+                autoAnswerClarificationMode: value as ProjectSettings["automationInterventions"]["autoAnswerClarificationMode"],
+              },
+            }))}
+            options={[
+              { value: "TEMPLATE", label: "Template", hint: "Fast static reply." },
+              { value: "WORKER", label: "Worker", hint: "Contextual provider-generated reply." },
+            ]}
+          />
+        </Row>
+      )}
+      {(!settings.automationInterventions.autoAnswerClarification || settings.automationInterventions.autoAnswerClarificationMode === "TEMPLATE") && (
+        <Row label="Clarification answer template" description="Template used when project automation answers a clarification request." badge={getFieldBadge("automationInterventions.clarificationAnswerTemplate")}>
+          <TextInput
+            value={settings.automationInterventions.clarificationAnswerTemplate}
+            onChange={(value) => update((current) => ({
+              ...current,
+              automationInterventions: {
+                ...current.automationInterventions,
+                clarificationAnswerTemplate: value,
+              },
+            }))}
+            placeholder="Respond with the usual clarification template..."
+          />
+        </Row>
+      )}
+      <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
+        <Toggle
+          value={settings.automationInterventions.autoResumePaused}
+          onChange={() => update((current) => ({
+            ...current,
+            automationInterventions: {
+              ...current.automationInterventions,
+              autoResumePaused: !current.automationInterventions.autoResumePaused,
+            },
+          }))}
+        />
+      </Row>
+    </SectionCard>
+  );
 
-          <SectionCard title="Inheritance Model" watermark="SCP">
-            <NoticePanel title="Scope order" tone="success">
-              System settings provide the live baseline. Project settings inherit from that baseline and only persist real overrides. Sprint overrides layer on top from the sprint page.
-            </NoticePanel>
-            <Row label="Selected project" description="Project-specific overrides are edited in the same page by switching scope.">
-              <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
-                {selectedProject ? selectedProject.name : "No project selected"}
-              </div>
-            </Row>
-            <Row label="Project inheritance" description="System defaults stay live until a project explicitly overrides a field." last>
-              <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">
-                Live inheritance
-              </div>
-            </Row>
-          </SectionCard>
-        </div>
-      );
-    }
-
-    if (!selectedProject || !projectSettings) {
-      return (
-        <NoticePanel title="Project scope unavailable">
-          Select a project first to edit inheritable project settings.
-        </NoticePanel>
-      );
-    }
-
+  if (activeScope === "system") {
     return (
       <div className="flex flex-col gap-5">
-        <ProjectContextCard
-          projectName={selectedProject.name}
-          projectId={selectedProject.id}
-          baseDir={selectedProject.baseDir}
-          sourceType={selectedProject.sourceType}
-        />
-
-        <SectionCard title="Automation" watermark="AUTO" badge={getBadge("automationLevel", "automationInterventions")}>
-          <Row label="Automation level" description="Choose how much the project should proceed without a worker stepping in." badge={getFieldBadge("automationLevel")}>
+        <SectionCard title="System Runtime" watermark="SYS">
+          <Row label="Dashboard port" description="System-wide HTTP port for the dashboard server.">
+            <NumberInput
+              value={systemSettings?.runtime.dashboardPort ?? 4444}
+              onChange={(value) => updateSystem((current) => ({
+                ...current,
+                runtime: {
+                  ...current.runtime,
+                  dashboardPort: value,
+                },
+              }))}
+              min={1}
+              max={65535}
+            />
+          </Row>
+          <Row label="Debug log file" description="Write extra runtime diagnostics to disk for development and incident analysis.">
+            <Toggle
+              value={systemSettings?.runtime.enableDebugLogFile ?? false}
+              onChange={() => updateSystem((current) => ({
+                ...current,
+                runtime: {
+                  ...current.runtime,
+                  enableDebugLogFile: !current.runtime.enableDebugLogFile,
+                },
+              }))}
+            />
+          </Row>
+          <Row label="Console Log Level" description="Standard keeps important lifecycle and invocation logs visible. Full also prints routine dashboard HTTP requests." last>
             <PillChoiceGroup
-              value={projectSettings.automationLevel}
-              onChange={(value) => updateProject((current) => ({ ...current, automationLevel: value as ProjectSettings["automationLevel"] }))}
+              value={systemSettings?.runtime.consoleLogLevel ?? "standard"}
+              onChange={(value) => updateSystem((current) => ({
+                ...current,
+                runtime: {
+                  ...current.runtime,
+                  consoleLogLevel: value === "full" ? "full" : "standard",
+                },
+              }))}
               options={[
-                { value: "FULL", label: "Full", hint: "Moves without confirmation gates." },
-                { value: "SEMI_AUTO", label: "Semi-auto", hint: "Automates routine recovery only." },
-                { value: "ALWAYS_ASK", label: "Always ask", hint: "Requires a decision at every gate." },
+                { value: "standard", label: "Standard", hint: "Important runtime activity." },
+                { value: "full", label: "Full", hint: "Includes HTTP requests." },
               ]}
             />
           </Row>
-          <Row label="Auto-approve plans" description="Use the orchestrator path for routine plan confirmations." badge={getFieldBadge("automationInterventions.autoApprovePlan")}>
-            <Toggle
-              value={projectSettings.automationInterventions.autoApprovePlan}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoApprovePlan: !current.automationInterventions.autoApprovePlan,
-                },
-              }))}
-            />
+        </SectionCard>
+
+        {systemSettings && renderAutomationCard(
+          systemSettings.defaults,
+          (updater) => updateSystem((current) => ({
+            ...current,
+            defaults: updater(current.defaults),
+          }))
+        )}
+
+        <SectionCard title="Onboarding" watermark="ONB">
+          <NoticePanel title="First-run guide" tone="success">
+            Reopen the guided setup flow for Docker checks, provider configuration, AI behaviour, appearance preferences, and dashboard controls. This does not reset saved settings.
+          </NoticePanel>
+          <Row label="Show onboarding again" description="Launch the interactive setup flow from the beginning." last>
+            <ActionButton label="Open Onboarding" tone="primary" onClick={openOnboarding} />
           </Row>
-          <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
-            <Toggle
-              value={projectSettings.automationInterventions.autoAnswerClarification}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoAnswerClarification: !current.automationInterventions.autoAnswerClarification,
-                },
-              }))}
-            />
+        </SectionCard>
+
+        <SectionCard title="Inheritance Model" watermark="SCP">
+          <NoticePanel title="Scope order" tone="success">
+            System settings provide the live baseline. Project settings inherit from that baseline and only persist real overrides. Sprint overrides layer on top from the sprint page.
+          </NoticePanel>
+          <Row label="Selected project" description="Project-specific overrides are edited in the same page by switching scope.">
+            <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
+              {selectedProject ? selectedProject.name : "No project selected"}
+            </div>
           </Row>
-          {projectSettings.automationInterventions.autoAnswerClarification && (
-            <Row label="Clarification answer mode" description="Choose whether to use a static template or let a worker generate a contextual answer." badge={getFieldBadge("automationInterventions.autoAnswerClarificationMode")}>
-              <PillChoiceGroup
-                value={projectSettings.automationInterventions.autoAnswerClarificationMode}
-                onChange={(value) => updateProject((current) => ({
-                  ...current,
-                  automationInterventions: {
-                    ...current.automationInterventions,
-                    autoAnswerClarificationMode: value as ProjectSettings["automationInterventions"]["autoAnswerClarificationMode"],
-                  },
-                }))}
-                options={[
-                  { value: "TEMPLATE", label: "Template", hint: "Fast static reply." },
-                  { value: "WORKER", label: "Worker", hint: "Contextual provider-generated reply." },
-                ]}
-              />
-            </Row>
-          )}
-          {(!projectSettings.automationInterventions.autoAnswerClarification || projectSettings.automationInterventions.autoAnswerClarificationMode === "TEMPLATE") && (
-            <Row label="Clarification answer template" description="Template used when project automation answers a clarification request." badge={getFieldBadge("automationInterventions.clarificationAnswerTemplate")}>
-              <TextInput
-                value={projectSettings.automationInterventions.clarificationAnswerTemplate}
-                onChange={(value) => updateProject((current) => ({
-                  ...current,
-                  automationInterventions: {
-                    ...current.automationInterventions,
-                    clarificationAnswerTemplate: value,
-                  },
-                }))}
-                placeholder="Respond with the usual clarification template..."
-              />
-            </Row>
-          )}
-          <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
-            <Toggle
-              value={projectSettings.automationInterventions.autoResumePaused}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoResumePaused: !current.automationInterventions.autoResumePaused,
-                },
-              }))}
-            />
+          <Row label="Project inheritance" description="System defaults stay live until a project explicitly overrides a field." last>
+            <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">
+              Live inheritance
+            </div>
           </Row>
         </SectionCard>
       </div>
     );
-  };
+  }
+
+  if (!selectedProject || !projectSettings) {
+    return (
+      <NoticePanel title="Project scope unavailable">
+        Select a project first to edit inheritable project settings.
+      </NoticePanel>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <ProjectContextCard
+        projectName={selectedProject.name}
+        projectId={selectedProject.id}
+        baseDir={selectedProject.baseDir}
+        sourceType={selectedProject.sourceType}
+      />
+
+      {renderAutomationCard(projectSettings, updateProject)}
+    </div>
+  );
+};

@@ -274,6 +274,15 @@ const IntegrationPill: FunctionComponent<{
   </span>
 );
 
+const getHintApiKey = (providerId: ProviderId, hints: any): string => {
+  if (providerId === "jules") return hints?.resolved.julesApiKey || "";
+  if (providerId === "gemini") return hints?.resolved.geminiApiKey || "";
+  if (providerId === "codex") return hints?.resolved.codexApiKey || "";
+  if (providerId === "claude-code") return hints?.resolved.claudeCodeApiKey || "";
+  if (providerId === "qwen-code") return hints?.resolved.qwenCodeApiKey || "";
+  return hints?.resolved.openCodeApiKey || "";
+};
+
 export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
     activeScope,
@@ -370,25 +379,59 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
   const updateIntegrationProviders = (
     transform: (providers: SystemSettings["integrations"]["providers"]) => SystemSettings["integrations"]["providers"],
   ): void => {
-    updateSystem((current) => {
-      const nextProviders = transform({ ...current.integrations.providers });
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
+    if (activeScope === "system") {
+      updateSystem((current) => {
+        const nextProviders = transform({ ...current.integrations.providers });
+        return {
+          ...current,
+          integrations: {
+            ...current.integrations,
+            providers: nextProviders,
+          },
+          defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
+        };
+      });
+    } else {
+      updateProject((current) => {
+        const currentProviders = current.integrations?.providers || {};
+        const nextProviders = transform({ ...currentProviders } as any);
+        const nextProjectProviders = { ...current.aiProvider.providers };
+        for (const [providerConfigId, provider] of Object.entries(nextProviders)) {
+          if (!nextProjectProviders[providerConfigId]) {
+            nextProjectProviders[providerConfigId] = createProjectProviderDraft(provider.provider, provider.name);
+          } else {
+            nextProjectProviders[providerConfigId] = {
+              ...nextProjectProviders[providerConfigId],
+              provider: provider.provider,
+              name: provider.name,
+            };
+          }
+        }
+        for (const key of Object.keys(nextProjectProviders)) {
+          if (!nextProviders[key]) {
+            delete nextProjectProviders[key];
+          }
+        }
+        return {
+          ...current,
+          aiProvider: {
+            ...current.aiProvider,
+            providers: nextProjectProviders,
+          },
+          integrations: {
+            ...(current.integrations || {}),
+            providers: nextProviders as any,
+          },
+        };
+      });
+    }
   };
 
   const addProviderInstance = (providerId: ProviderId): void => {
-    if (activeScope !== "system") {
-      setSelectedIntegration(providerId);
-      return;
-    }
-    const count = getSystemProvidersByType(systemSettings, providerId).length + 1;
+    const currentProviders = activeScope === "system"
+      ? getSystemProvidersByType(systemSettings, providerId)
+      : Object.entries(editableSettings.aiProvider.providers).filter(([, p]) => p.provider === providerId);
+    const count = currentProviders.length + 1;
     const providerConfigId = buildProviderConfigId(providerId);
     const providerName = `${getProviderTypeLabel(providerId)} ${count}`;
     updateIntegrationProviders((providers) => ({
@@ -402,23 +445,55 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
     providerConfigId: ProviderConfigId,
     updates: Partial<SystemSettings["integrations"]["providers"][ProviderConfigId]>,
   ): void => {
-    updateSystem((current) => {
-      const nextProviders = {
-        ...current.integrations.providers,
-        [providerConfigId]: {
-          ...current.integrations.providers[providerConfigId],
-          ...updates,
-        },
-      };
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
+    if (activeScope === "system") {
+      updateSystem((current) => {
+        const nextProviders = {
+          ...current.integrations.providers,
+          [providerConfigId]: {
+            ...current.integrations.providers[providerConfigId],
+            ...updates,
+          },
+        };
+        return {
+          ...current,
+          integrations: {
+            ...current.integrations,
+            providers: nextProviders,
+          },
+          defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
+        };
+      });
+    } else {
+      updateProject((current) => {
+        const currentIntegrationsProviders = current.integrations?.providers || {};
+        const baseProvider = currentIntegrationsProviders[providerConfigId] || {};
+        const nextProviders = {
+          ...currentIntegrationsProviders,
+          [providerConfigId]: {
+            ...baseProvider,
+            ...updates,
+          },
+        };
+        const nextProjectProviders = { ...current.aiProvider.providers };
+        if (updates.name !== undefined && nextProjectProviders[providerConfigId]) {
+          nextProjectProviders[providerConfigId] = {
+            ...nextProjectProviders[providerConfigId],
+            name: updates.name,
+          };
+        }
+        return {
+          ...current,
+          aiProvider: {
+            ...current.aiProvider,
+            providers: nextProjectProviders,
+          },
+          integrations: {
+            ...(current.integrations || {}),
+            providers: nextProviders as any,
+          },
+        };
+      });
+    }
   };
 
   const removeProviderInstance = (providerConfigId: ProviderConfigId): void => {
@@ -448,25 +523,35 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
         <>
           {backButton}
           <SectionCard title={`${hostLabel} Configuration`} watermark={isGitLab ? "GLB" : "GIT"}>
-            {activeScope === "system" ? (
-              <Row label={`${hostLabel} token`} description={`System token used for ${hostLabel} repository, ${isGitLab ? "merge request" : "pull request"}, and CI integration.`}>
-                <TextInput
-                  value={systemSettings.integrations[tokenKey] || ""}
-                  onChange={(value) => updateSystem((current) => ({
-                    ...current,
-                    integrations: {
-                      ...current.integrations,
-                      [tokenKey]: value,
-                    },
-                  }))}
-                  mono
-                />
-              </Row>
-            ) : (
-              <NoticePanel title="System-owned token">
-                {hostLabel} tokens are stored at system scope. This scope still controls whether Docker copies host git configuration.
-              </NoticePanel>
-            )}
+            <Row
+              label={`${hostLabel} token`}
+              description={`${activeScope === "system" ? "System" : "Project"} token used for ${hostLabel} repository, ${isGitLab ? "merge request" : "pull request"}, and CI integration.`}
+              badge={getFieldBadge(`integrations.${tokenKey}`)}
+            >
+              <TextInput
+                value={(activeScope === "system" ? systemSettings.integrations[tokenKey] : editableSettings.integrations?.[tokenKey]) || ""}
+                onChange={(value) => {
+                  if (activeScope === "system") {
+                    updateSystem((current) => ({
+                      ...current,
+                      integrations: {
+                        ...current.integrations,
+                        [tokenKey]: value,
+                      },
+                    }));
+                  } else {
+                    updateEditableSettings((current) => ({
+                      ...current,
+                      integrations: {
+                        ...(current.integrations || {}),
+                        [tokenKey]: value,
+                      },
+                    }));
+                  }
+                }}
+                mono
+              />
+            </Row>
             {isGitLab ? null : (
               <>
                 <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker for this scope." badge={getFieldBadge("cliWorkflow.containerMountGithubAuth")}>
@@ -515,76 +600,73 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
     }
 
     if (integrationId === "jira") {
-      const jiraSettings = systemSettings.integrations.jira || DEFAULT_JIRA_SETTINGS;
+      const jiraSettings = activeScope === "system"
+        ? (systemSettings.integrations.jira || DEFAULT_JIRA_SETTINGS)
+        : (editableSettings.integrations?.jira || DEFAULT_JIRA_SETTINGS);
+
       const updateJira = (updates: Partial<SystemSettings["integrations"]["jira"]>): void => {
-        updateSystem((current) => ({
-          ...current,
-          integrations: {
-            ...current.integrations,
-            jira: {
-              ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
-              ...updates,
+        if (activeScope === "system") {
+          updateSystem((current) => ({
+            ...current,
+            integrations: {
+              ...current.integrations,
+              jira: {
+                ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
+                ...updates,
+              },
             },
-          },
-        }));
+          }));
+        } else {
+          updateEditableSettings((current) => ({
+            ...current,
+            integrations: {
+              ...(current.integrations || {}),
+              jira: {
+                ...(current.integrations?.jira || DEFAULT_JIRA_SETTINGS),
+                ...updates,
+              },
+            },
+          }));
+        }
       };
 
       return (
         <>
           {backButton}
           <SectionCard title="Jira Configuration" watermark="JRA">
-            {activeScope === "system" ? (
-              <>
-                <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`.">
-                  <TextInput value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
-                </Row>
-                <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments.">
-                  <TextInput value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
-                </Row>
-                <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions.">
-                  <TextInput value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
-                </Row>
-                <Row label="Default project" description="Project key used to prefill the Jira import JQL.">
-                  <TextInput value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
-                </Row>
-                <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion.">
-                  <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
-                </Row>
-                <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." last>
-                  <Toggle
-                    value={jiraSettings.autoCloseLinkedIssues}
-                    onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })}
-                  />
-                </Row>
-              </>
-            ) : (
-              <NoticePanel title="System-owned Jira connection">
-                Jira site, account, API token, import defaults, and close transition are stored at system scope so every project uses the same trusted integration.
-              </NoticePanel>
-            )}
+            <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`." badge={getFieldBadge("integrations.jira.host")}>
+              <TextInput value={jiraSettings.host || ""} onChange={(value) => updateJira({ host: value })} mono />
+            </Row>
+            <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments." badge={getFieldBadge("integrations.jira.email")}>
+              <TextInput value={jiraSettings.email || ""} onChange={(value) => updateJira({ email: value })} mono />
+            </Row>
+            <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions." badge={getFieldBadge("integrations.jira.apiToken")}>
+              <TextInput value={jiraSettings.apiToken || ""} onChange={(value) => updateJira({ apiToken: value })} mono />
+            </Row>
+            <Row label="Default project" description="Project key used to prefill the Jira import JQL." badge={getFieldBadge("integrations.jira.defaultProject")}>
+              <TextInput value={jiraSettings.defaultProject || ""} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
+            </Row>
+            <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion." badge={getFieldBadge("integrations.jira.closeTransitionName")}>
+              <TextInput value={jiraSettings.closeTransitionName || ""} onChange={(value) => updateJira({ closeTransitionName: value })} />
+            </Row>
+            <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." badge={getFieldBadge("integrations.jira.autoCloseLinkedIssues")} last>
+              <Toggle
+                value={Boolean(jiraSettings.autoCloseLinkedIssues)}
+                onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })}
+              />
+            </Row>
           </SectionCard>
         </>
       );
     }
 
     const providerId = integrationId as ProviderId;
-    const providerEntries = sortProviderConfigEntries(getSystemProvidersByType(systemSettings, providerId));
-
-    if (activeScope !== "system") {
-      return (
-        <>
-          {backButton}
-          <SectionCard title={`${getProviderTypeLabel(providerId)} Integration`} watermark={getProviderWatermark(providerId)}>
-            <NoticePanel title="System-owned credentials">
-              Provider credentials and auth-copy mounts are managed per instance at system scope. This keeps multiple named providers independent across every route.
-            </NoticePanel>
-            <NoticePanel title="Scope behavior">
-              Project and sprint scopes still control GitHub auth-copy mounts and git config. Provider-specific key or local-auth choices now live on each named provider instance.
-            </NoticePanel>
-          </SectionCard>
-        </>
-      );
-    }
+    const providerEntries = sortProviderConfigEntries(
+      activeScope === "system"
+        ? getSystemProvidersByType(systemSettings, providerId)
+        : Object.entries(editableSettings.integrations?.providers || {})
+            .filter(([, provider]) => provider.provider === providerId) as Array<[ProviderConfigId, SystemProviderCredentialSettings]>
+    );
 
     return (
       <>
@@ -612,7 +694,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
             </NoticePanel>
           ) : (
             providerEntries.map(([providerConfigId, provider], index) => {
-              const providerModel = systemSettings.defaults.aiProvider.providers[providerConfigId]?.model
+              const providerModel = (activeScope === "system" ? systemSettings.defaults.aiProvider.providers[providerConfigId]?.model : editableSettings.aiProvider.providers[providerConfigId]?.model)
                 || (provider.provider === "opencode" ? "anthropic/claude-sonnet-4-5" : "qwen3-coder-plus");
               return (
               <div key={providerConfigId} className="space-y-3 rounded-[1.45rem] border border-black/[0.06] bg-white/84 p-5 shadow-[0_16px_38px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
@@ -635,37 +717,37 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                     </button>
                   ) : null}
                 </div>
-                <Row label="Display name" description="Used throughout AI Models and runtime route summaries.">
+                <Row label="Display name" description="Used throughout AI Models and runtime route summaries." badge={getFieldBadge(`integrations.providers.${providerConfigId}.name`)}>
                   <TextInput value={provider.name} onChange={(value) => updateProviderInstance(providerConfigId, { name: value })} />
                 </Row>
-                <Row label="API key" description="Stored for this named provider instance.">
+                <Row label="API key" description="Stored for this named provider instance." badge={getFieldBadge(`integrations.providers.${providerConfigId}.apiKey`)}>
                   <TextInput value={provider.apiKey} onChange={(value) => updateProviderInstance(providerConfigId, { apiKey: value })} mono />
                 </Row>
                 {provider.provider === "qwen-code" ? (
                   <>
-                    <Row label="Authentication mode" description="Choose how this Qwen instance should authenticate and generate its runtime settings.">
+                    <Row label="Authentication mode" description="Choose how this Qwen instance should authenticate and generate its runtime settings." badge={getFieldBadge(`integrations.providers.${providerConfigId}.qwenAuthMode`)}>
                       <PillChoiceGroup
                         value={provider.qwenAuthMode || "LOCAL_AUTH"}
-                        onChange={(value) => updateProviderInstance(providerConfigId, { qwenAuthMode: value as SystemSettings["integrations"]["providers"][ProviderConfigId]["qwenAuthMode"] })}
+                        onChange={(value) => updateProviderInstance(providerConfigId, { qwenAuthMode: value as any })}
                         options={qwenAuthModeOptions}
                       />
                     </Row>
                     {(provider.qwenAuthMode || "LOCAL_AUTH") === "LOCAL_AUTH" ? (
                       <>
-                        <Row label="Mount Qwen auth" description="Copy local Qwen OAuth/cache files into Docker for browser-authenticated Qwen Code runs.">
+                        <Row label="Mount Qwen auth" description="Copy local Qwen OAuth/cache files into Docker for browser-authenticated Qwen Code runs." badge={getFieldBadge(`integrations.providers.${providerConfigId}.mountAuth`)}>
                           <Toggle
-                            value={provider.mountAuth}
+                            value={Boolean(provider.mountAuth)}
                             onChange={() => updateProviderInstance(providerConfigId, { mountAuth: !provider.mountAuth })}
                           />
                         </Row>
-                        <Row label="Qwen auth path" description="Usually `~/.qwen`; contains settings.json, .env, and cached OAuth state.">
+                        <Row label="Qwen auth path" description="Usually `~/.qwen`; contains settings.json, .env, and cached OAuth state." badge={getFieldBadge(`integrations.providers.${providerConfigId}.authPath`)}>
                           <TextInput value={provider.authPath} onChange={(value) => updateProviderInstance(providerConfigId, { authPath: value })} disabled={!provider.mountAuth} mono />
                         </Row>
                       </>
                     ) : null}
                     {(provider.qwenAuthMode || "LOCAL_AUTH") === "ALIBABA_CODING_PLAN" ? (
                       <>
-                        <Row label="Coding Plan region" description="Controls the dedicated Alibaba Cloud Coding Plan endpoint.">
+                        <Row label="Coding Plan region" description="Controls the dedicated Alibaba Cloud Coding Plan endpoint." badge={getFieldBadge(`integrations.providers.${providerConfigId}.qwenRegion`)}>
                           <SelectInput
                             value={provider.qwenRegion || "international"}
                             onChange={(value) => updateProviderInstance(providerConfigId, {
@@ -684,17 +766,17 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                     ) : null}
                     {(provider.qwenAuthMode || "LOCAL_AUTH") === "MODEL_PROVIDER" ? (
                       <>
-                        <Row label="Provider protocol" description="Qwen Code groups modelProviders by API protocol.">
+                        <Row label="Provider protocol" description="Qwen Code groups modelProviders by API protocol." badge={getFieldBadge(`integrations.providers.${providerConfigId}.qwenProtocol`)}>
                           <SelectInput
                             value={provider.qwenProtocol || "openai"}
-                            onChange={(value) => updateProviderInstance(providerConfigId, { qwenProtocol: value as "openai" | "anthropic" | "gemini" })}
+                            onChange={(value) => updateProviderInstance(providerConfigId, { qwenProtocol: value as any })}
                             options={qwenProtocolOptions}
                           />
                         </Row>
-                        <Row label="Environment key" description="Variable name Qwen reads for this instance's API key.">
+                        <Row label="Environment key" description="Variable name Qwen reads for this instance's API key." badge={getFieldBadge(`integrations.providers.${providerConfigId}.qwenEnvKey`)}>
                           <TextInput value={provider.qwenEnvKey || "DASHSCOPE_API_KEY"} onChange={(value) => updateProviderInstance(providerConfigId, { qwenEnvKey: value })} mono />
                         </Row>
-                        <Row label="Base URL" description="OpenAI-compatible, Anthropic, Gemini, or local endpoint used by this model entry.">
+                        <Row label="Base URL" description="OpenAI-compatible, Anthropic, Gemini, or local endpoint used by this model entry." badge={getFieldBadge(`integrations.providers.${providerConfigId}.qwenBaseUrl`)}>
                           <TextInput value={provider.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1"} onChange={(value) => updateProviderInstance(providerConfigId, { qwenBaseUrl: value })} mono />
                         </Row>
                       </>
@@ -707,45 +789,45 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                   </>
                 ) : provider.provider === "opencode" ? (
                   <>
-                    <Row label="Authentication mode" description="Choose how this OpenCode instance authenticates and how its runtime opencode.json is generated.">
+                    <Row label="Authentication mode" description="Choose how this OpenCode instance authenticates and how its runtime opencode.json is generated." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodeAuthMode`)}>
                       <PillChoiceGroup
                         value={provider.openCodeAuthMode || "LOCAL_AUTH"}
-                        onChange={(value) => updateProviderInstance(providerConfigId, { openCodeAuthMode: value as SystemSettings["integrations"]["providers"][ProviderConfigId]["openCodeAuthMode"] })}
+                        onChange={(value) => updateProviderInstance(providerConfigId, { openCodeAuthMode: value as any })}
                         options={openCodeAuthModeOptions}
                       />
                     </Row>
                     {(provider.openCodeAuthMode || "LOCAL_AUTH") === "LOCAL_AUTH" ? (
                       <>
-                        <Row label="Mount OpenCode auth" description="Copy OpenCode auth.json and related local auth state into Docker.">
+                        <Row label="Mount OpenCode auth" description="Copy OpenCode auth.json and related local auth state into Docker." badge={getFieldBadge(`integrations.providers.${providerConfigId}.mountAuth`)}>
                           <Toggle
-                            value={provider.mountAuth}
+                            value={Boolean(provider.mountAuth)}
                             onChange={() => updateProviderInstance(providerConfigId, { mountAuth: !provider.mountAuth })}
                           />
                         </Row>
-                        <Row label="OpenCode auth path" description="Usually `~/.local/share/opencode`; contains auth.json created by `/connect` or `opencode auth login`.">
+                        <Row label="OpenCode auth path" description="Usually `~/.local/share/opencode`; contains auth.json created by `/connect` or `opencode auth login`." badge={getFieldBadge(`integrations.providers.${providerConfigId}.authPath`)}>
                           <TextInput value={provider.authPath} onChange={(value) => updateProviderInstance(providerConfigId, { authPath: value })} disabled={!provider.mountAuth} mono />
                         </Row>
                       </>
                     ) : null}
                     {(provider.openCodeAuthMode || "LOCAL_AUTH") !== "LOCAL_AUTH" ? (
                       <>
-                        <Row label="Provider id" description="The provider segment in OpenCode's `provider/model` selector.">
+                        <Row label="Provider id" description="The provider segment in OpenCode's `provider/model` selector." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodeProviderId`)}>
                           <TextInput value={provider.openCodeProviderId || splitOpenCodeModel(providerModel).providerId} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeProviderId: value })} mono />
                         </Row>
-                        <Row label="Environment key" description="Host environment variable to import when the stored API key is empty. Runtime config maps it to OPENCODE_API_KEY.">
+                        <Row label="Environment key" description="Host environment variable to import when the stored API key is empty. Runtime config maps it to OPENCODE_API_KEY." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodeEnvKey`)}>
                           <TextInput value={provider.openCodeEnvKey || "ANTHROPIC_API_KEY"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeEnvKey: value })} mono />
                         </Row>
                       </>
                     ) : null}
                     {(provider.openCodeAuthMode || "LOCAL_AUTH") === "CUSTOM_PROVIDER" ? (
                       <>
-                        <Row label="Model id" description="The model segment registered under the custom provider.">
+                        <Row label="Model id" description="The model segment registered under the custom provider." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodeModelId`)}>
                           <TextInput value={provider.openCodeModelId || splitOpenCodeModel(providerModel).modelId} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeModelId: value })} mono />
                         </Row>
-                        <Row label="Provider package" description="OpenCode provider adapter package. OpenAI-compatible endpoints use the AI SDK compatible adapter.">
+                        <Row label="Provider package" description="OpenCode provider adapter package. OpenAI-compatible endpoints use the AI SDK compatible adapter." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodePackage`)}>
                           <TextInput value={provider.openCodePackage || "@ai-sdk/openai-compatible"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodePackage: value })} mono />
                         </Row>
-                        <Row label="Base URL" description="OpenAI-compatible endpoint for OpenRouter, Ollama, vLLM, LM Studio, LiteLLM, or a private gateway.">
+                        <Row label="Base URL" description="OpenAI-compatible endpoint for OpenRouter, Ollama, vLLM, LM Studio, LiteLLM, or a private gateway." badge={getFieldBadge(`integrations.providers.${providerConfigId}.openCodeBaseUrl`)}>
                           <TextInput value={provider.openCodeBaseUrl || "https://api.openai.com/v1"} onChange={(value) => updateProviderInstance(providerConfigId, { openCodeBaseUrl: value })} mono />
                         </Row>
                       </>
@@ -758,13 +840,13 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                   </>
                 ) : provider.provider !== "jules" ? (
                   <>
-                    <Row label="Mount local auth" description={`Use a copied host auth directory for ${getProviderTypeLabel(provider.provider)} instead of, or alongside, an API key.`}>
+                    <Row label="Mount local auth" description={`Use a copied host auth directory for ${getProviderTypeLabel(provider.provider)} instead of, or alongside, an API key.`} badge={getFieldBadge(`integrations.providers.${providerConfigId}.mountAuth`)}>
                       <Toggle
-                        value={provider.mountAuth}
+                        value={Boolean(provider.mountAuth)}
                         onChange={() => updateProviderInstance(providerConfigId, { mountAuth: !provider.mountAuth })}
                       />
                     </Row>
-                    <Row label="Auth path" description="Host path copied into the Docker runtime for this exact provider instance." last={index === providerEntries.length - 1}>
+                    <Row label="Auth path" description="Host path copied into the Docker runtime for this exact provider instance." badge={getFieldBadge(`integrations.providers.${providerConfigId}.authPath`)} last={index === providerEntries.length - 1}>
                       <TextInput
                         value={provider.authPath}
                         onChange={(value) => updateProviderInstance(providerConfigId, { authPath: value })}
@@ -782,6 +864,13 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               );
             })
           )}
+
+          <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+            Routing uses named provider instances exactly as configured on the AI Models page. If Docker mode is active, a provider instance marked with local auth will copy only that instance’s configured auth path into the runtime.
+          </div>
+        </SectionCard>
+      </>
+    );
 
           <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
             Routing uses named provider instances exactly as configured on the AI Models page. If Docker mode is active, a provider instance marked with local auth will copy only that instance’s configured auth path into the runtime.
@@ -817,11 +906,90 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               </div>
 
               <div className="grid gap-3 xl:grid-cols-2">
+  const getScopeConnectedCount = (provId: ProviderId): number => {
+    if (activeScope === "system") {
+      return countConnectedProviders(provId, systemSettings, externalHints);
+    }
+    const providers = Object.values(editableSettings.integrations?.providers || {});
+    const stored = providers.filter((p) => p.provider === provId && (p.apiKey?.trim().length > 0 || (p.provider !== "jules" && p.mountAuth))).length;
+    return Math.max(stored, externalHints && getHintApiKey(provId, externalHints).trim() ? 1 : 0);
+  };
+
+  const isScopeProviderAvailable = (provId: ProviderId): boolean => {
+    if (activeScope === "system") {
+      return isProviderAvailable(provId, systemSettings, externalHints);
+    }
+    const providers = Object.values(editableSettings.integrations?.providers || {});
+    const hasAnyApiKey = providers.some((p) => p.provider === provId && p.apiKey?.trim().length > 0)
+      || Boolean(getHintApiKey(provId, externalHints).trim());
+    return hasAnyApiKey || (provId !== "jules" && providers.some((p) => p.provider === provId && p.mountAuth));
+  };
+
+  const getScopeProviderAuthLabel = (provId: ProviderId): string | null => {
+    if (activeScope === "system") {
+      return getProviderAuthLabel(provId, systemSettings, externalHints, dockerExecutionEnabled);
+    }
+    const providers = Object.entries(editableSettings.integrations?.providers || {})
+      .filter(([, p]) => p.provider === provId);
+    if (providers.length > 0) {
+      const labels = providers
+        .map(([providerConfigId]) => {
+          const providerConfig = editableSettings.integrations?.providers?.[providerConfigId];
+          if (!providerConfig) return null;
+          const hasApiKey = Boolean(providerConfig.apiKey?.trim());
+          const hasMountedAuth = provId !== "jules" && providerConfig.mountAuth;
+          if (provId === "jules") {
+            return hasApiKey ? "API key" : null;
+          }
+          if (hasMountedAuth && hasApiKey) {
+            return dockerExecutionEnabled ? "Auth mount + API key" : "Mount config + API key";
+          }
+          if (hasMountedAuth) {
+            return dockerExecutionEnabled ? "Auth mount enabled" : "Mount config enabled";
+          }
+          return hasApiKey ? "API key" : null;
+        })
+        .filter((label): label is string => Boolean(label));
+      if (labels.length > 0) {
+        return labels.length === 1 ? labels[0] : `${labels.length} credentials`;
+      }
+    }
+    return externalHints && getHintApiKey(provId, externalHints).trim() ? "API key" : null;
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SectionCard title="Integrations" watermark="INT" badge={getBadge("integrations", "cliWorkflow")}>
+        <div ref={containerRef} className="relative w-full overflow-hidden">
+          <div ref={listRef} className="w-full">
+            <div className="space-y-4">
+              <div className="relative overflow-hidden rounded-[1.55rem] border border-black/[0.06] bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(248,250,252,0.72))] p-5 shadow-[0_18px_44px_rgba(15,23,42,0.055)] dark:border-white/[0.08] dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(15,23,42,0.68))]">
+                <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-signal-500/35 to-transparent" />
+                <div aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-signal-500/[0.075] blur-3xl" />
+                <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
+                  <div className="max-w-2xl">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-signal-700 dark:text-signal-300">Integration catalog</div>
+                    <div className="mt-2 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Provider credentials and source-control auth in one place</div>
+                    <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                      Add named provider credentials, import local auth hints, and keep routing targets aligned with AI Models without leaving this workspace.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <IntegrationPill label={`${integrations.length} integrations`} />
+                    <IntegrationPill label={dockerExecutionEnabled ? "Docker auth copy" : "Host execution"} tone={dockerExecutionEnabled ? "active" : "neutral"} />
+                    <ActionButton label="Import host hints" onClick={() => void handleImportHints()} busy={importingHints} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-2">
                 {integrations.map((integration) => {
                   if (integration.id === "github" || integration.id === "gitlab" || integration.id === "jira") {
                     const isGitLab = integration.id === "gitlab";
                     const isJira = integration.id === "jira";
-                    const jiraConfigured = Boolean(systemSettings.integrations.jira?.host.trim() && systemSettings.integrations.jira?.apiToken.trim());
+                    const jiraConfigured = activeScope === "system"
+                      ? Boolean(systemSettings.integrations.jira?.host.trim() && systemSettings.integrations.jira?.apiToken.trim())
+                      : Boolean(editableSettings.integrations?.jira?.host?.trim() && editableSettings.integrations?.jira?.apiToken?.trim());
                     return (
                       <div key={integration.id} className="group relative min-h-[156px] overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/88 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.035)] transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-black/[0.12] hover:bg-white hover:shadow-[0_18px_42px_rgba(15,23,42,0.07)] dark:border-white/[0.08] dark:bg-void-800/80 dark:hover:border-white/[0.14] dark:hover:bg-void-800/90">
                         <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.12]" />
@@ -858,9 +1026,9 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                   }
 
                   const providerId = integration.id as ProviderId;
-                  const connectedCount = countConnectedProviders(providerId, systemSettings, externalHints);
-                  const active = isProviderAvailable(providerId, systemSettings, externalHints);
-                  const authLabel = getProviderAuthLabel(providerId, systemSettings, externalHints, dockerExecutionEnabled);
+                  const connectedCount = getScopeConnectedCount(providerId);
+                  const active = isScopeProviderAvailable(providerId);
+                  const authLabel = getScopeProviderAuthLabel(providerId);
 
                   return (
                     <div key={integration.id} className={`group relative min-h-[156px] overflow-hidden rounded-[1.35rem] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.035)] transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.07)] ${
@@ -890,7 +1058,6 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                             <CatalogActionButton
                               label="Add"
                               icon={Plus}
-                              disabled={activeScope !== "system"}
                               tone="primary"
                               onClick={() => addProviderInstance(providerId)}
                             />

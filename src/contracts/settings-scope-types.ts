@@ -60,6 +60,13 @@ export interface ProjectGitSettings {
   sprintKeyPrefix: string;
 }
 
+export interface ProjectIntegrationSettings {
+  providers?: Record<ProviderConfigId, Partial<SystemProviderCredentialSettings>>;
+  githubToken?: string;
+  gitlabToken?: string;
+  jira?: Partial<JiraSettings>;
+}
+
 export interface ProjectSettings {
   appearance: AppearanceSettings;
   automationLevel: AutomationLevel;
@@ -74,6 +81,7 @@ export interface ProjectSettings {
   agents: AgentSettings;
   skills: SkillToggle[];
   memory: MemorySettings;
+  integrations?: ProjectIntegrationSettings;
 }
 
 export interface SystemRuntimeSettings {

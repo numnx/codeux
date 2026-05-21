@@ -133,6 +133,38 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
   },
   skills: cloneSkills(settings.skills),
   memory: { ...settings.memory },
+  integrations: {
+    githubToken: settings.git.githubToken,
+    gitlabToken: settings.git.gitlabToken,
+    jira: { ...settings.jira },
+    providers: Object.fromEntries(
+      Object.entries(settings.aiProvider.providers).map(([providerConfigId, provider]) => {
+        const p = provider as any;
+        return [
+          providerConfigId,
+          {
+            provider: p.provider,
+            name: p.name,
+            apiKey: p.apiKey,
+            mountAuth: p.mountAuth,
+            authPath: p.authPath,
+            ...(p.qwenAuthMode !== undefined ? { qwenAuthMode: p.qwenAuthMode } : {}),
+            ...(p.qwenRegion !== undefined ? { qwenRegion: p.qwenRegion } : {}),
+            ...(p.qwenBaseUrl !== undefined ? { qwenBaseUrl: p.qwenBaseUrl } : {}),
+            ...(p.qwenEnvKey !== undefined ? { qwenEnvKey: p.qwenEnvKey } : {}),
+            ...(p.qwenProtocol !== undefined ? { qwenProtocol: p.qwenProtocol } : {}),
+            ...(p.qwenAdditionalModelProviders !== undefined ? { qwenAdditionalModelProviders: p.qwenAdditionalModelProviders } : {}),
+            ...(p.openCodeAuthMode !== undefined ? { openCodeAuthMode: p.openCodeAuthMode } : {}),
+            ...(p.openCodeProviderId !== undefined ? { openCodeProviderId: p.openCodeProviderId } : {}),
+            ...(p.openCodeModelId !== undefined ? { openCodeModelId: p.openCodeModelId } : {}),
+            ...(p.openCodeBaseUrl !== undefined ? { openCodeBaseUrl: p.openCodeBaseUrl } : {}),
+            ...(p.openCodeEnvKey !== undefined ? { openCodeEnvKey: p.openCodeEnvKey } : {}),
+            ...(p.openCodePackage !== undefined ? { openCodePackage: p.openCodePackage } : {}),
+          },
+        ];
+      }),
+    ),
+  },
 });
 
 export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings => ({
@@ -179,6 +211,21 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
   },
   skills: cloneSkills(settings.skills),
   memory: { ...settings.memory },
+  integrations: settings.integrations
+    ? {
+        githubToken: settings.integrations.githubToken,
+        gitlabToken: settings.integrations.gitlabToken,
+        jira: settings.integrations.jira ? { ...settings.integrations.jira } : undefined,
+        providers: settings.integrations.providers
+          ? Object.fromEntries(
+              Object.entries(settings.integrations.providers).map(([providerConfigId, provider]) => [
+                providerConfigId,
+                { ...provider },
+              ]),
+            )
+          : undefined,
+      }
+    : undefined,
 });
 
 export const cloneSystemSettings = (settings: SystemSettings): SystemSettings => ({

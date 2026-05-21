@@ -4,6 +4,8 @@ import type {
   ExternalSettingsHints,
   McpToolToggle,
   SkillToggle,
+  ProviderConfigId,
+  ProviderId,
 } from "../contracts/app-types.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import type {
@@ -13,6 +15,8 @@ import type {
   SprintSettingsOverride,
   SystemSettings,
   SettingsValueSource,
+  ProjectIntegrationSettings,
+  SystemProviderCredentialSettings,
 } from "../contracts/settings-scope-types.js";
 import { sanitizeAiProvider } from "../domain/settings/settings-sanitizers/ai-provider-sanitizer.js";
 import { sanitizeCiIntelligence } from "../domain/settings/settings-sanitizers/ci-sanitizer.js";
@@ -455,6 +459,77 @@ export function buildDefaultSystemSettings(externalHints?: ExternalSettingsHints
   };
 }
 
+function sanitizeProjectIntegrationSettings(value: unknown): ProjectIntegrationSettings | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const input = toRecord(value);
+  const result: ProjectIntegrationSettings = {};
+
+  if (typeof input.githubToken === "string") {
+    result.githubToken = input.githubToken.trim();
+  }
+  if (typeof input.gitlabToken === "string") {
+    result.gitlabToken = input.gitlabToken.trim();
+  }
+  if (input.jira && typeof input.jira === "object") {
+    const jiraInput = toRecord(input.jira);
+    const jira: Partial<SystemSettings["integrations"]["jira"]> = {};
+    if (typeof jiraInput.host === "string") jira.host = jiraInput.host.trim();
+    if (typeof jiraInput.email === "string") jira.email = jiraInput.email.trim();
+    if (typeof jiraInput.apiToken === "string") jira.apiToken = jiraInput.apiToken.trim();
+    if (typeof jiraInput.defaultProject === "string") jira.defaultProject = jiraInput.defaultProject.trim().toUpperCase();
+    if (typeof jiraInput.closeTransitionName === "string") jira.closeTransitionName = jiraInput.closeTransitionName.trim();
+    if (typeof jiraInput.autoCloseLinkedIssues === "boolean") jira.autoCloseLinkedIssues = jiraInput.autoCloseLinkedIssues;
+    result.jira = jira;
+  }
+  if (input.providers && typeof input.providers === "object") {
+    const providersInput = toRecord(input.providers);
+    const providers: Record<ProviderConfigId, Partial<SystemProviderCredentialSettings>> = {};
+    for (const [providerConfigId, providerVal] of Object.entries(providersInput)) {
+      if (providerVal && typeof providerVal === "object") {
+        const pInput = toRecord(providerVal);
+        const provider: Partial<SystemProviderCredentialSettings> = {};
+        if (typeof pInput.provider === "string") provider.provider = pInput.provider as any;
+        if (typeof pInput.name === "string") provider.name = pInput.name.trim();
+        if (typeof pInput.apiKey === "string") provider.apiKey = pInput.apiKey.trim();
+        if (typeof pInput.mountAuth === "boolean") provider.mountAuth = pInput.mountAuth;
+        if (typeof pInput.authPath === "string") provider.authPath = pInput.authPath.trim();
+        if (typeof pInput.qwenAuthMode === "string") provider.qwenAuthMode = pInput.qwenAuthMode as any;
+        if (typeof pInput.qwenRegion === "string") provider.qwenRegion = pInput.qwenRegion as any;
+        if (typeof pInput.qwenBaseUrl === "string") provider.qwenBaseUrl = pInput.qwenBaseUrl.trim();
+        if (typeof pInput.qwenEnvKey === "string") provider.qwenEnvKey = pInput.qwenEnvKey.trim();
+        if (typeof pInput.qwenProtocol === "string") provider.qwenProtocol = pInput.qwenProtocol as any;
+        if (Array.isArray(pInput.qwenAdditionalModelProviders)) {
+          provider.qwenAdditionalModelProviders = pInput.qwenAdditionalModelProviders.map((item: any) => {
+            const i = toRecord(item);
+            return {
+              id: String(i.id || ""),
+              name: String(i.name || ""),
+              authType: (i.authType || "openai") as any,
+              envKey: String(i.envKey || ""),
+              apiKey: String(i.apiKey || ""),
+              baseUrl: String(i.baseUrl || ""),
+              description: i.description ? String(i.description) : undefined,
+            };
+          });
+        }
+        if (typeof pInput.openCodeAuthMode === "string") provider.openCodeAuthMode = pInput.openCodeAuthMode as any;
+        if (typeof pInput.openCodeProviderId === "string") provider.openCodeProviderId = pInput.openCodeProviderId.trim();
+        if (typeof pInput.openCodeModelId === "string") provider.openCodeModelId = pInput.openCodeModelId.trim();
+        if (typeof pInput.openCodeBaseUrl === "string") provider.openCodeBaseUrl = pInput.openCodeBaseUrl.trim();
+        if (typeof pInput.openCodeEnvKey === "string") provider.openCodeEnvKey = pInput.openCodeEnvKey.trim();
+        if (typeof pInput.openCodePackage === "string") provider.openCodePackage = pInput.openCodePackage.trim();
+
+        providers[providerConfigId] = provider;
+      }
+    }
+    result.providers = providers;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 export function sanitizeProjectSettings(value: unknown, externalHints?: ExternalSettingsHints): ProjectSettings {
   const input = toRecord(value);
   const integrationProviders = input.integrations && typeof input.integrations === "object"
@@ -549,6 +624,7 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
     },
     skills: sanitizeSkills(input.skills, git.githubMode),
     memory: sanitizeMemory(input as Partial<DashboardSettings>),
+    integrations: sanitizeProjectIntegrationSettings(input.integrations),
   };
 }
 
@@ -656,6 +732,13 @@ export function resolveDashboardSettings(args: {
   const baseProject = args.systemSettings.defaults;
   const projectSettings = resolveProjectSettings(args.systemSettings, args.projectOverride);
   const sprintSettings = resolveSprintProjectSettings(args.systemSettings, args.projectOverride, args.sprintOverride);
+  const projectIntegrations = projectSettings.integrations;
+  const sprintIntegrations = sprintSettings.integrations;
+  const resolvedIntegrations: SystemSettings["integrations"] = deepMerge(
+    args.systemSettings.integrations,
+    deepMerge(projectIntegrations || {}, sprintIntegrations || {})
+  );
+
   const dashboardSettings: DashboardSettings = {
     dashboardPort: args.systemSettings.runtime.dashboardPort,
     enableDebugLogFile: args.systemSettings.runtime.enableDebugLogFile,
@@ -663,14 +746,14 @@ export function resolveDashboardSettings(args: {
     appearance: { ...sprintSettings.appearance },
     automationLevel: sprintSettings.automationLevel,
     automationInterventions: { ...sprintSettings.automationInterventions },
-    aiProvider: applyIntegrations(sprintSettings, args.systemSettings.integrations),
+    aiProvider: applyIntegrations(sprintSettings, resolvedIntegrations),
     git: {
       ...sprintSettings.git,
-      githubToken: args.systemSettings.integrations.githubToken,
-      gitlabToken: args.systemSettings.integrations.gitlabToken,
+      githubToken: resolvedIntegrations.githubToken,
+      gitlabToken: resolvedIntegrations.gitlabToken,
     },
     jira: {
-      ...args.systemSettings.integrations.jira,
+      ...resolvedIntegrations.jira,
     },
     ciIntelligence: { ...sprintSettings.ciIntelligence },
     sprintLoopSteps: { ...sprintSettings.sprintLoopSteps },
