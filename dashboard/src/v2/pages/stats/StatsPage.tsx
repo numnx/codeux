@@ -71,6 +71,8 @@ export const StatsPage: FunctionComponent = () => {
         setCustomFrom={setCustomFrom}
         setCustomTo={setCustomTo}
         applyCustomRange={applyCustomRange}
+        visualMode={visualMode}
+        setVisualMode={setVisualMode}
       />
 
       {!selectedProject ? (

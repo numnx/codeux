@@ -11,6 +11,8 @@ import {
   PANEL_CLASS,
   CHIP_CLASS,
   RangeToggle,
+  ViewToggle,
+  type StatsVisualMode,
 } from "./StatsShared.js";
 
 export interface StatsPageHeroProps {
@@ -23,6 +25,8 @@ export interface StatsPageHeroProps {
   setCustomFrom: (value: string) => void;
   setCustomTo: (value: string) => void;
   applyCustomRange: () => void;
+  visualMode: StatsVisualMode;
+  setVisualMode: (mode: StatsVisualMode) => void;
 }
 
 export const StatsPageHero: FunctionComponent<StatsPageHeroProps> = ({
@@ -35,6 +39,8 @@ export const StatsPageHero: FunctionComponent<StatsPageHeroProps> = ({
   setCustomFrom,
   setCustomTo,
   applyCustomRange,
+  visualMode,
+  setVisualMode,
 }) => {
   return (
     <section className={`${PANEL_CLASS} rounded-[2.5rem] p-8 md:p-10`}>
@@ -68,8 +74,8 @@ export const StatsPageHero: FunctionComponent<StatsPageHeroProps> = ({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col items-start gap-4 xl:items-end">
-          {/* Range filters are now managed within the Analysis Studio filter menu below */}
+        <div className="flex flex-col items-start gap-4 xl:items-end xl:justify-end">
+          <ViewToggle value={visualMode} onChange={setVisualMode} />
         </div>
       </div>
     </section>
