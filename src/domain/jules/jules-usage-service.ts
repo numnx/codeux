@@ -13,6 +13,12 @@ export class JulesUsageService {
 
   async calculateAndSaveUsageForTask(projectId: string, taskId: string, sessionId: string): Promise<void> {
     try {
+      const existingRecord = this.executionRepository.getLatestProviderInvocationUsageBySession(sessionId, "task_coding");
+      if (existingRecord && existingRecord.totalTokens && existingRecord.totalTokens > 0) {
+        this.logger.info("Jules usage telemetry already calculated and saved for session", { sessionId });
+        return;
+      }
+
       const activities = await this.julesClient.getFullConversation(sessionId);
 
       let sessionPrompt = "";

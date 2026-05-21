@@ -242,4 +242,21 @@ describe("JulesUsageService", () => {
       error: expect.any(Error)
     }));
   });
+
+  it("should skip remote API calls and early-return if a record with totalTokens already exists", async () => {
+    executionRepositoryGetLatestMock.mockReturnValue({
+      id: "existing-record-id",
+      createdAt: "2026-05-21T07:29:52.209Z",
+      totalTokens: 1500
+    });
+
+    await service.calculateAndSaveUsageForTask("proj-1", "task-1", "session-1");
+
+    expect(executionRepositoryGetLatestMock).toHaveBeenCalledWith("session-1", "task_coding");
+    expect(julesClientMock).not.toHaveBeenCalled();
+    expect(julesClientGetSessionMock).not.toHaveBeenCalled();
+    expect(executionRepositoryCreateMock).not.toHaveBeenCalled();
+    expect(executionRepositoryUpdateMock).not.toHaveBeenCalled();
+    expect(loggerInfoMock).toHaveBeenCalledWith("Jules usage telemetry already calculated and saved for session", { sessionId: "session-1" });
+  });
 });
