@@ -144,6 +144,13 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
       [providerConfigId]: !current[providerConfigId],
     }));
   };
+  const [expandedRouteOverrideCards, setExpandedRouteOverrideCards] = useState<Record<string, boolean>>({});
+  const toggleRouteOverrideCard = (key: string): void => {
+    setExpandedRouteOverrideCards((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
 
   if (!editableSettings || !systemSettings) {
     return null;
@@ -281,13 +288,26 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
   const activeRouteDefinition = invocationRouteDefinitions.find((definition) => definition.id === activeInvocationRoute)
     || invocationRouteDefinitions[0];
   const activeRoute = editableSettings.aiProvider.invocationRouting[activeRouteDefinition.id];
-  const routePool = activeRoute.allowedProviders.length > 0
-    ? activeRoute.allowedProviders.filter((providerConfigId) => editableSettings.aiProvider.providers[providerConfigId])
-    : providerEntries.map(([providerConfigId]) => providerConfigId);
-  const routeResolvedDefault = activeRoute.provider
-    ? editableSettings.aiProvider.providers[activeRoute.provider]
-    : activeRoute.profile === "WORKER"
-    ? editableSettings.aiProvider.providers[editableSettings.workers.virtualWorkerProvider]
+  const isManualStrategy = activeRoute.strategy === "MANUAL";
+  const routeResolvedDefaultId: ProviderConfigId | null = activeRoute.provider
+    || (activeRoute.profile === "WORKER"
+      ? editableSettings.workers.virtualWorkerProvider
+      : editableSettings.aiProvider.provider)
+    || null;
+  const routeResolvedDefault = routeResolvedDefaultId
+    ? editableSettings.aiProvider.providers[routeResolvedDefaultId] ?? null
+    : null;
+  const routePool = isManualStrategy && routeResolvedDefaultId
+    ? [routeResolvedDefaultId]
+    : activeRoute.allowedProviders.length > 0
+      ? activeRoute.allowedProviders.filter((providerConfigId) => editableSettings.aiProvider.providers[providerConfigId])
+      : providerEntries.map(([providerConfigId]) => providerConfigId);
+  const allowedPoolEntries = isManualStrategy
+    ? providerEntries.filter(([providerConfigId]) => providerConfigId === routeResolvedDefaultId)
+    : providerEntries;
+  const allowedPoolTotal = isManualStrategy ? 1 : providerEntries.length;
+  const inheritedProviderForActiveRoute = activeRoute.profile === "WORKER"
+    ? workerProviderSettings
     : (editableSettings.aiProvider.provider ? editableSettings.aiProvider.providers[editableSettings.aiProvider.provider] : null);
   const enabledProviderCount = providerEntries.filter(([, provider]) => provider.enabled).length;
 
@@ -652,7 +672,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
               <RouteFlowStep
                 icon={<Network className="h-4 w-4" />}
                 label="Pool"
-                value={`${routePool.length} / ${providerEntries.length}`}
+                value={`${routePool.length} / ${allowedPoolTotal}`}
               />
             </div>
 
@@ -703,7 +723,10 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                     value: INHERIT_VALUE,
                     label: activeRoute.profile === "WORKER"
                       ? `Inherit worker default (${getProviderInstanceLabel(workerProviderSettings)})`
-                      : `Inherit global default (${editableSettings.aiProvider.provider ? getProviderInstanceLabel(editableSettings.aiProvider.providers[editableSettings.aiProvider.provider]) : "None"})`,
+                      : `Inherit global default (${inheritedProviderForActiveRoute ? getProviderInstanceLabel(inheritedProviderForActiveRoute) : "None"})`,
+                    icon: inheritedProviderForActiveRoute
+                      ? providerSelectIcon(inheritedProviderForActiveRoute.provider, !inheritedProviderForActiveRoute.enabled)
+                      : undefined,
                   },
                   ...providerEntries.map(([providerConfigId, provider]) => ({
                     value: providerConfigId,
@@ -721,24 +744,31 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   Allowed pool
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {activeRoute.allowedProviders.length === 0 ? "Using all configured instances" : `${activeRoute.allowedProviders.length} pinned`}
+                  {isManualStrategy
+                    ? "Locked to primary (manual)"
+                    : activeRoute.allowedProviders.length === 0
+                      ? "Using all configured instances"
+                      : `${activeRoute.allowedProviders.length} pinned`}
                 </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {providerEntries.map(([providerConfigId, provider]) => {
-                  const active = activeRoute.allowedProviders.length === 0 || activeRoute.allowedProviders.includes(providerConfigId);
+                {allowedPoolEntries.map(([providerConfigId, provider]) => {
+                  const active = isManualStrategy
+                    || activeRoute.allowedProviders.length === 0
+                    || activeRoute.allowedProviders.includes(providerConfigId);
                   const available = eligibleProviderConfigIds.includes(providerConfigId);
                   return (
                     <button
                       key={`${activeRouteDefinition.id}-${providerConfigId}`}
                       type="button"
                       aria-pressed={active}
-                      onClick={() => toggleAllowedProvider(activeRouteDefinition.id, providerConfigId)}
+                      disabled={isManualStrategy}
+                      onClick={isManualStrategy ? undefined : () => toggleAllowedProvider(activeRouteDefinition.id, providerConfigId)}
                       className={`group flex min-h-[68px] items-center justify-between gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 ${
                         active
                           ? "border-signal-500/30 bg-black/[0.045] text-slate-900 shadow-[0_10px_20px_rgba(15,23,42,0.06)] dark:border-signal-400/30 dark:bg-white/[0.065] dark:text-white"
                           : "border-black/[0.08] bg-black/[0.025] text-slate-500 hover:border-black/[0.12] hover:bg-black/[0.04] dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-400 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.06]"
-                      }`}
+                      } ${isManualStrategy ? "cursor-default" : ""}`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <ProviderBrandIcon id={provider.provider} disabled={!active || !provider.enabled} className="h-7 w-7 rounded-[0.7rem]" imageClassName="h-4 w-4" />
@@ -771,8 +801,15 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   typeof override.thinkingMode === "string",
                   typeof override.weight === "number",
                 ].filter(Boolean).length;
+                const cardKey = `${activeRouteDefinition.id}-${providerConfigId}`;
+                const expanded = !!expandedRouteOverrideCards[cardKey];
+                const detailsId = `route-override-details-${cardKey}`;
+                const effectiveModel = override.model || provider.model;
+                const effectiveThinking = (override.thinkingMode || provider.thinkingMode) as string;
+                const effectiveWeight = override.weight ?? provider.weight;
+                const supportsModel = providerSupportsModelSelection(provider.provider);
                 return (
-                  <div key={`${activeRouteDefinition.id}-${providerConfigId}`} className={`relative overflow-hidden rounded-[1.35rem] border p-4 shadow-[0_14px_32px_rgba(15,23,42,0.035)] dark:shadow-[0_16px_34px_rgba(0,0,0,0.18)] ${
+                  <div key={cardKey} className={`relative overflow-hidden rounded-[1.35rem] border p-4 shadow-[0_14px_32px_rgba(15,23,42,0.035)] dark:shadow-[0_16px_34px_rgba(0,0,0,0.18)] ${
                     participationEnabled
                       ? "border-signal-500/18 bg-black/[0.04] dark:border-signal-400/18 dark:bg-white/[0.055]"
                       : "border-black/[0.06] bg-black/[0.025] opacity-85 dark:border-white/[0.06] dark:bg-white/[0.035]"
@@ -795,42 +832,89 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        title="Reset route overrides"
-                        aria-label={`Reset ${provider.name} route overrides`}
-                        onClick={() => clearRouteProviderOverride(activeRouteDefinition.id, providerConfigId)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.03] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          title="Reset route overrides"
+                          aria-label={`Reset ${provider.name} route overrides`}
+                          onClick={() => clearRouteProviderOverride(activeRouteDefinition.id, providerConfigId)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.03] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleRouteOverrideCard(cardKey)}
+                          aria-expanded={expanded}
+                          aria-controls={detailsId}
+                          aria-label={expanded ? `Collapse ${provider.name} overrides` : `Expand ${provider.name} overrides`}
+                          title={expanded ? "Collapse overrides" : "Expand overrides"}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-500 transition-colors hover:border-signal-500/30 hover:bg-signal-500/[0.06] hover:text-signal-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-signal-300/30 dark:hover:bg-signal-300/[0.08] dark:hover:text-signal-200"
+                        >
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : "rotate-0"}`}
+                            strokeWidth={2.4}
+                          />
+                        </button>
+                      </div>
                     </div>
-                    <div className="grid gap-3">
-                      <Row label="Enabled override" description="Override route participation for this one instance.">
-                        <Toggle value={override.enabled ?? provider.enabled} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { enabled: value })} />
-                      </Row>
-                      {providerSupportsModelSelection(provider.provider) ? (
-                        <Row label="Model override" description={`Inherited: ${provider.model}`}>
-                          <SelectInput
-                            value={override.model || provider.model}
-                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
-                            options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+                    <div className={`grid gap-2 ${expanded ? "mb-3" : ""}`}>
+                      <div className="rounded-xl border border-signal-500/15 bg-signal-500/[0.05] px-3 py-2 dark:border-signal-400/15 dark:bg-signal-400/[0.06]">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700/70 dark:text-signal-200/80">Model</div>
+                          <Cpu className="h-3 w-3 text-signal-600/70 dark:text-signal-300/70" strokeWidth={2.4} />
+                        </div>
+                        <div className="mt-1 truncate font-mono text-sm font-bold text-slate-900 dark:text-white" title={supportsModel ? effectiveModel : undefined}>
+                          {supportsModel ? effectiveModel : "Managed by provider"}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Weight</div>
+                          <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{effectiveWeight}</div>
+                        </div>
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Thinking</div>
+                          <div className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{provider.provider === "jules" ? "n/a" : effectiveThinking}</div>
+                        </div>
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Cap</div>
+                          <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.maxConcurrentTasks || "∞"}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {expanded ? (
+                      <div id={detailsId} className="grid gap-3">
+                        <Row label="Enabled override" description="Override route participation for this one instance.">
+                          <Toggle value={override.enabled ?? provider.enabled} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { enabled: value })} />
+                        </Row>
+                        {supportsModel ? (
+                          <Row label="Model override" description={`Inherited: ${provider.model}`}>
+                            <SelectInput
+                              value={override.model || provider.model}
+                              onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
+                              options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+                            />
+                          </Row>
+                        ) : null}
+                        {providerSupportsThinkingMode(provider.provider) ? (
+                          <Row label="Thinking override" description={`Inherited: ${provider.thinkingMode}`}>
+                            <SelectInput
+                              value={(override.thinkingMode || provider.thinkingMode) as string}
+                              onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { thinkingMode: value as ThinkingMode })}
+                              options={thinkingModeOptions}
+                            />
+                          </Row>
+                        ) : null}
+                        <Row label="Weight override" description={`Inherited: ${provider.weight}`} last>
+                          <WeightSlider
+                            value={override.weight ?? provider.weight}
+                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { weight: value })}
+                            ariaLabel={`${provider.name} weight override`}
                           />
                         </Row>
-                      ) : null}
-                      {providerSupportsThinkingMode(provider.provider) ? (
-                        <Row label="Thinking override" description={`Inherited: ${provider.thinkingMode}`}>
-                          <SelectInput
-                            value={(override.thinkingMode || provider.thinkingMode) as string}
-                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { thinkingMode: value as ThinkingMode })}
-                            options={thinkingModeOptions}
-                          />
-                        </Row>
-                      ) : null}
-                      <Row label="Weight override" description={`Inherited: ${provider.weight}`}>
-                        <NumberInput value={override.weight ?? provider.weight} min={0} max={100} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { weight: value })} />
-                      </Row>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
