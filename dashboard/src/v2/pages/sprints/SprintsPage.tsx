@@ -23,8 +23,9 @@ import {
   XCircle,
   Zap,
 } from "lucide-preact";
-import { SprintBubble } from "../../components/ui/SprintBubble.js";
+import { SprintCell } from "../../components/sprints/SprintCell.js";
 import { SprintLedger } from "../../components/sprints/SprintLedger.js";
+import { SprintActionMenu } from "../../components/sprints/SprintActionMenu.js";
 import { QuicksprintPanel } from "../../components/quicksprint/QuicksprintPanel.js";
 import { AddTaskModal } from "../../components/ui/AddTaskModal.js";
 import { SprintComposer } from "../../components/ui/SprintComposer.js";
@@ -487,7 +488,7 @@ export const SprintsPage: FunctionComponent = () => {
                     const pinActionId = `sprint-showcase:${sprint.id}`;
 
   return (
-                      <SprintBubble
+                      <SprintCell
                         key={sprint.id}
                         sprint={sprint}
                         isEven={index % 2 === 0}
@@ -666,78 +667,35 @@ export const SprintsPage: FunctionComponent = () => {
           onClick={(event) => event.stopPropagation()}
         >
           <div className="min-w-[11.5rem] rounded-[1.2rem] border border-black/[0.08] bg-white p-2 shadow-[0_18px_38px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.03] dark:border-white/[0.08] dark:bg-void-800 dark:ring-white/[0.03]">
-            <button
-              type="button"
-              onClick={() => {
-                setRowMenu(null);
+            <SprintActionMenu
+              sprint={activeRowMenuSprint}
+              isCompleted={activeRowMenuSprint.status === "completed"}
+              showcaseBusy={pendingActionIds.has(`sprint-showcase:${activeRowMenuSprint.id}`)}
+              markCompletedDisabled={pendingActionIds.has(`sprint-mark-completed:${activeRowMenuSprint.id}`)}
+              onEdit={() => {
                 setEditingSprint(activeRowMenuSprint);
                 setLinkedIssues(activeRowMenuSprint.linkedIssues || []);
                 setShowCreateComposer(false);
               }}
-              className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-            >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRowMenu(null);
+              onExport={() => {
                 void handleOpenExport(activeRowMenuSprint.id, activeRowMenuSprint.name);
               }}
-              className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-            >
-              <Download className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Export
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRowMenu(null);
+              onToggleShowcase={() => {
                 void handleToggleShowcase(activeRowMenuSprint);
               }}
-              disabled={pendingActionIds.has(`sprint-showcase:${activeRowMenuSprint.id}`)}
-              className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-            >
-              <Heart className="h-3.5 w-3.5" fill={activeRowMenuSprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
-              {activeRowMenuSprint.showcasePinned ? "Remove" : "Add"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRowMenu(null);
+              onOverrides={() => {
                 setOverrideSprint(activeRowMenuSprint);
               }}
-              className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Overrides
-            </button>
-            {activeRowMenuSprint.status !== "completed" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRowMenu(null);
-                  void handleMarkCompleted(activeRowMenuSprint.id);
-                }}
-                disabled={pendingActionIds.has(`sprint-mark-completed:${activeRowMenuSprint.id}`)}
-                className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-              >
-                <CheckSquare className="h-3.5 w-3.5" strokeWidth={2.1} />
-                Mark Completed
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setRowMenu(null);
+              onMarkCompleted={() => {
+                void handleMarkCompleted(activeRowMenuSprint.id);
+              }}
+              onDelete={() => {
                 void handleDeleteSprint(activeRowMenuSprint.id);
               }}
-              className="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-status-red transition-colors hover:bg-status-red/10"
-            >
-              <XCircle className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Delete
-            </button>
+              onClose={() => setRowMenu(null)}
+              markCompletedIcon="square"
+              buttonClassName="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+            />
           </div>
         </div>
       )}

@@ -12,7 +12,7 @@ interface CellActionsProps {
 }
 
 /**
- * Shared bottom action bar for organic blob cells (SourceCell, SprintBubble).
+ * Shared bottom action bar for organic blob cells (SourceCell, SprintCell).
  * Appears on hover: [play/stop circle] [Action pill] [settings circle]
  */
 export const CellActions: FunctionComponent<CellActionsProps> = ({

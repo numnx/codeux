@@ -19,10 +19,11 @@ import {
   XCircle,
 } from "lucide-preact";
 import type { ExecutionHumanInterventionSummary, Sprint, SprintStatus } from "../../types.js";
-import { WaveFluid } from "./WaveFluid.js";
-import { BorderTrace } from "./BorderTrace.js";
-import { HumanInterventionBadge } from "./HumanInterventionBadge.js";
-import { SprintReviewBadge } from "../sprints/SprintReviewBadge.js";
+import { WaveFluid } from "../ui/WaveFluid.js";
+import { BorderTrace } from "../ui/BorderTrace.js";
+import { HumanInterventionBadge } from "../ui/HumanInterventionBadge.js";
+import { SprintReviewBadge } from "./SprintReviewBadge.js";
+import { SprintActionMenu } from "./SprintActionMenu.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
 
 const CARD_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -45,7 +46,7 @@ const statusMap: Record<SprintStatus, {
   idle: { ring: "", text: "text-signal-600 dark:text-signal-300", icon: Clock3, label: "Draft", accentHex: "#00E0A0" },
 };
 
-interface SprintBubbleProps {
+interface SprintCellProps {
   sprint: Sprint;
   isEven: boolean;
   accentColor: string;
@@ -67,7 +68,7 @@ const formatSprintKey = (sprint: Sprint, prefix: string = "SPR"): string => (
 
 const formatCardDate = (value: string): string => CARD_DATE_FORMATTER.format(new Date(value));
 
-export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
+export const SprintCell: FunctionComponent<SprintCellProps> = ({
   sprint,
   isEven,
   accentColor,
@@ -289,82 +290,23 @@ export const SprintBubble: FunctionComponent<SprintBubbleProps> = ({
           <div
             role="menu"
             ref={menuRef}
-            className={`absolute bottom-12 right-6 z-30 min-w-[10rem] origin-bottom-right rounded-[1.75rem] border border-black/[0.08] bg-white/92 p-2 shadow-[0_16px_36px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all duration-300 dark:border-white/[0.08] dark:bg-void-800/92 ${menuOpen ? "pointer-events-auto translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-95 opacity-0"}`}>
-            <button
-              type="button"
+            className={`absolute bottom-12 right-6 z-30 min-w-[10rem] origin-bottom-right rounded-[1.75rem] border border-black/[0.08] bg-white/92 p-2 shadow-[0_16px_36px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all duration-300 dark:border-white/[0.08] dark:bg-void-800/92 ${menuOpen ? "pointer-events-auto translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-95 opacity-0"}`}
+          >
+            <SprintActionMenu
+              sprint={sprint}
+              isCompleted={isCompleted}
+              showcaseBusy={showcaseBusy}
+              onEdit={onEdit}
+              onExport={onExport}
+              onToggleShowcase={onToggleShowcase}
+              onOverrides={onOverrides}
+              onMarkCompleted={onMarkCompleted}
+              onDelete={onDelete}
+              onClose={() => setMenuOpen(false)}
+              markCompletedIcon="circle"
               role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onEdit?.();
-              }}
-              className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Edit
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onExport?.();
-              }}
-              className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <Download className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Export
-            </button>
-            {!isCompleted && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onMarkCompleted?.();
-                }}
-                className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.1} />
-                Mark Completed
-              </button>
-            )}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onToggleShowcase?.();
-              }}
-              disabled={showcaseBusy}
-              className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
-              {sprint.showcasePinned ? "Remove" : "Add"}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onOverrides?.();
-              }}
-              className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Overrides
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete?.();
-              }}
-              className="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-status-red transition-colors hover:bg-status-red/10 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            >
-              <XCircle className="h-3.5 w-3.5" strokeWidth={2.1} />
-              Delete
-            </button>
+              buttonClassName="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+            />
           </div>
         </div>
       </div>
