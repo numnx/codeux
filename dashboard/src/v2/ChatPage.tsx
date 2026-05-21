@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   ArrowUp,
   RefreshCw,
@@ -41,6 +41,7 @@ const formatInvocationErrorCategory = (value: ExecutionInvocationRecord["lastErr
 export const ChatPage: FunctionComponent = () => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const [workingTimerPhase, setWorkingTimerPhase] = useState<"starting" | "working" | null>(null);
 
   const {
     chatMode,
@@ -91,6 +92,18 @@ export const ChatPage: FunctionComponent = () => {
     if (!messagesRef.current) return;
     messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    if (hasWorkingReply) {
+      setWorkingTimerPhase("starting");
+      const timer = setTimeout(() => {
+        setWorkingTimerPhase("working");
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else {
+      setWorkingTimerPhase(null);
+    }
+  }, [hasWorkingReply]);
 
   const renderRail = () => {
     if (chatMode === "threads") {
@@ -184,7 +197,15 @@ export const ChatPage: FunctionComponent = () => {
             ) : (
               <>
                 {messages.map((message) => <ChatMessageBubble key={message.id} message={message} />)}
-                {hasWorkingReply ? <WorkingBubble displayName={activeConnection?.displayName || null} runtimeState={selectedThread?.runtimeState} /> : null}
+                {hasWorkingReply && workingTimerPhase === "starting" ? (
+                  <InvocationContainerWidget
+                    containerPhase="starting"
+                    providerName={selectedThread?.runtimeState?.virtualProvider ?? null}
+                    agentName={activeConnection?.displayName || null}
+                  />
+                ) : hasWorkingReply && workingTimerPhase === "working" ? (
+                  <WorkingBubble displayName={activeConnection?.displayName || null} runtimeState={selectedThread?.runtimeState} />
+                ) : null}
               </>
             )}
           </div>
