@@ -9,6 +9,8 @@ import { resolveSelectedItemId } from "../lib/chat-page-state-utils.js";
 import { subscribeToDashboardRealtime } from "../../lib/realtime/dashboard-realtime-client.js";
 import { upsertChatThread } from "../lib/chat-thread-utils.js";
 import { removeThread, upsertMessage } from "./use-chat-thread-data.js";
+import { fetchAgentPresets } from "../lib/agent-preset-api.js";
+import type { AgentPresetRecord } from "../types.js";
 
 export const areConnectionsEqual = (left: AgentConnection[], right: AgentConnection[]): boolean => (
   left.length === right.length
@@ -82,6 +84,7 @@ export const useChatPageResources = (options: {
   const { selectedProject, cache, chatMode, threadData, invocationData } = options;
 
   const [connections, setConnections] = useState<AgentConnection[]>([]);
+  const [agentPresets, setAgentPresets] = useState<AgentPresetRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
 
@@ -199,6 +202,26 @@ export const useChatPageResources = (options: {
   ]);
 
   const projectId = selectedProject?.id;
+  useEffect(() => {
+    if (!projectId || !selectedProject) {
+      setAgentPresets([]);
+      return;
+    }
+
+    let isMounted = true;
+    fetchAgentPresets(projectId).then(presets => {
+      if (isMounted) {
+        setAgentPresets(presets);
+      }
+    }).catch(e => {
+      console.error("Failed to fetch agent presets", e);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId]);
+
   useEffect(() => {
     if (!projectId || !selectedProject) {
       return;
@@ -344,6 +367,7 @@ export const useChatPageResources = (options: {
 
   return {
     connections,
+    agentPresets,
     loading,
     manualRefreshing,
     refreshThreads,
