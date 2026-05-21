@@ -259,4 +259,106 @@ describe("JulesUsageService", () => {
     expect(executionRepositoryUpdateMock).not.toHaveBeenCalled();
     expect(loggerInfoMock).toHaveBeenCalledWith("Jules usage telemetry already calculated and saved for session", { sessionId: "session-1" });
   });
+
+  it("should calculate high-fidelity tokens for rich activities (plans, progress, git patches, media)", async () => {
+    const mockActivities: JulesActivity[] = [
+      {
+        id: "1",
+        name: "act-1",
+        createTime: "now",
+        planGenerated: {
+          plan: {
+            steps: [
+              { title: "Fix alignment" },
+              { title: "Run linter" }
+            ]
+          }
+        }
+      },
+      {
+        id: "2",
+        name: "act-2",
+        createTime: "now",
+        planApproved: { planId: "plan-xyz" }
+      },
+      {
+        id: "3",
+        name: "act-3",
+        createTime: "now",
+        progressUpdated: { title: "Step 1 complete", description: "Aligned the buttons nicely" }
+      },
+      {
+        id: "4",
+        name: "act-4",
+        createTime: "now",
+        description: "Executing validation suite"
+      },
+      {
+        id: "5",
+        name: "act-5",
+        createTime: "now",
+        artifacts: [
+          {
+            changeSet: {
+              gitPatch: {
+                unidiffPatch: "diff --git a/file.ts b/file.ts\n+const a = 1;",
+                suggestedCommitMessage: "feat: add a constant"
+              }
+            },
+            media: {
+              data: "base64-image-data-here"
+            }
+          }
+        ]
+      }
+    ];
+
+    julesClientMock.mockResolvedValue(mockActivities);
+
+    await service.calculateAndSaveUsageForTask("proj-1", "task-1", "session-1", "Initial prompt for testing", {
+      insertions: 50,
+      deletions: 20,
+      filesChanged: 4
+    });
+
+    const encoder = getEncoding("cl100k_base");
+    
+    // Input tokens
+    const promptTokenCount = encoder.encode("Initial prompt for testing").length;
+    const approvalTokenCount = encoder.encode("Approved plan (ID: plan-xyz)").length;
+    const expectedInputTokens = promptTokenCount + approvalTokenCount;
+
+    // Output tokens
+    const planText = "Proposed plan:\n\n- Step 1: Fix alignment\n- Step 2: Run linter";
+    const planTokenCount = encoder.encode(planText).length;
+
+    const progressText = "Progress updated: **Step 1 complete**\nAligned the buttons nicely";
+    const progressTokenCount = encoder.encode(progressText).length;
+
+    const descriptionTokenCount = encoder.encode("Executing validation suite").length;
+
+    const patchTokenCount = encoder.encode("diff --git a/file.ts b/file.ts\n+const a = 1;").length;
+    const msgTokenCount = encoder.encode("feat: add a constant").length;
+    const visionTokenCount = 765;
+
+    const expectedOutputTokens = planTokenCount + progressTokenCount + descriptionTokenCount + patchTokenCount + msgTokenCount + visionTokenCount;
+
+    expect(executionRepositoryUpdateMock).toHaveBeenCalledWith("mock-record-id", {
+      status: "completed",
+      inputTokens: expectedInputTokens,
+      outputTokens: expectedOutputTokens,
+      totalTokens: expectedInputTokens + expectedOutputTokens,
+      julesTokens: expectedInputTokens + expectedOutputTokens,
+      usageSource: "estimated",
+      transcriptChars: planText.length + progressText.length + "Executing validation suite".length + "diff --git a/file.ts b/file.ts\n+const a = 1;".length + "feat: add a constant".length,
+      invocationSource: "EXTERNAL_API",
+      rawUsageJson: {
+        gitMetrics: {
+          insertions: 50,
+          deletions: 20,
+          filesChanged: 4
+        }
+      }
+    });
+  });
 });

@@ -74,23 +74,90 @@ export class JulesUsageService {
         inputTokens += encoder.encode(sessionPrompt).length;
       }
 
+      let hasUnidiffPatch = false;
+
       for (const activity of activities) {
         if (activity.userMessaged?.userMessage) {
           const text = activity.userMessaged.userMessage;
           promptChars += text.length;
           inputTokens += encoder.encode(text).length;
         }
+
+        if (activity.planApproved?.planId) {
+          const text = `Approved plan (ID: ${activity.planApproved.planId})`;
+          promptChars += text.length;
+          inputTokens += encoder.encode(text).length;
+        }
+
         if (activity.agentMessaged?.agentMessage) {
           const text = activity.agentMessaged.agentMessage;
           transcriptChars += text.length;
           outputTokens += encoder.encode(text).length;
         }
+
+        if (activity.planGenerated?.plan?.steps) {
+          const steps = activity.planGenerated.plan.steps;
+          const stepsMarkdown = steps
+            .map((step, index) => `- Step ${index + 1}: ${step.title || "Untitled step"}`)
+            .join("\n");
+          const text = `Proposed plan:\n\n${stepsMarkdown}`;
+          transcriptChars += text.length;
+          outputTokens += encoder.encode(text).length;
+        }
+
+        if (activity.progressUpdated?.title || activity.progressUpdated?.description) {
+          const title = activity.progressUpdated.title || "";
+          const desc = activity.progressUpdated.description || "";
+          const text = `Progress updated: **${title}**\n${desc}`;
+          transcriptChars += text.length;
+          outputTokens += encoder.encode(text).length;
+        }
+
+        if (activity.sessionCompleted !== undefined && activity.sessionCompleted !== null) {
+          const text = "Jules session completed successfully.";
+          transcriptChars += text.length;
+          outputTokens += encoder.encode(text).length;
+        }
+
+        if (activity.sessionFailed?.reason) {
+          const text = `Jules session failed: ${activity.sessionFailed.reason}`;
+          transcriptChars += text.length;
+          outputTokens += encoder.encode(text).length;
+        }
+
+        if (activity.description) {
+          const text = activity.description;
+          transcriptChars += text.length;
+          outputTokens += encoder.encode(text).length;
+        }
+
+        if (activity.artifacts && Array.isArray(activity.artifacts)) {
+          for (const art of activity.artifacts) {
+            if (art.changeSet?.gitPatch?.unidiffPatch) {
+              hasUnidiffPatch = true;
+              const patchText = art.changeSet.gitPatch.unidiffPatch;
+              transcriptChars += patchText.length;
+              outputTokens += encoder.encode(patchText).length;
+            }
+            if (art.changeSet?.gitPatch?.suggestedCommitMessage) {
+              const msg = art.changeSet.gitPatch.suggestedCommitMessage;
+              transcriptChars += msg.length;
+              outputTokens += encoder.encode(msg).length;
+            }
+            if (art.media?.data) {
+              // 765 tokens per standard vision model image
+              outputTokens += 765;
+            }
+          }
+        }
       }
 
-      // Add estimated tokens for git code churn (insertions and deletions)
-      // 10 tokens per line of added or deleted code
-      const churnTokens = (gitInsertions + gitDeletions) * 10;
-      outputTokens += churnTokens;
+      if (!hasUnidiffPatch) {
+        // Add estimated tokens for git code churn (insertions and deletions)
+        // 10 tokens per line of added or deleted code
+        const churnTokens = (gitInsertions + gitDeletions) * 10;
+        outputTokens += churnTokens;
+      }
 
       const totalTokens = inputTokens + outputTokens;
 
