@@ -104,14 +104,45 @@ describe("runSessionSyncStep", () => {
       projectManagementRepository: projectRepository,
       sprintRunId: sprintRun.id,
       logger: { warn: vi.fn() },
+      julesUsage: {
+        calculateAndSaveUsageForTask: vi.fn().mockImplementation(async (projectId, taskId, sessionId) => {
+          let record = executionRepository.getLatestProviderInvocationUsageBySession(sessionId, "task_coding");
+          if (!record) {
+            record = executionRepository.createProviderInvocationUsage({
+              projectId,
+              taskId,
+              sessionId,
+              provider: "jules",
+              purpose: "task_coding",
+              status: "completed",
+              inputTokens: 7,
+              outputTokens: 3,
+              totalTokens: 10,
+              usageSource: "estimated",
+            });
+          }
+          executionRepository.updateProviderInvocationUsage(record.id, {
+            status: "completed",
+            inputTokens: 7,
+            outputTokens: 3,
+            totalTokens: 10,
+            usageSource: "estimated",
+          });
+        }),
+      }
     };
 
-    await runSessionSyncStep(
+    // Note: since the new logic doesn't await the tracking service, we await its mock manually here
+    const runSync = runSessionSyncStep(
       subtasks,
       deps as any,
       false,
       { repoPath: "/tmp/my-repo", sprintNumber: 7 }
     );
+    await runSync;
+    // wait for promises to resolve
+    await new Promise(resolve => setTimeout(resolve, 50));
+
 
     const usage = executionRepository.getLatestProviderInvocationUsageBySession("sync-metrics-session");
     expect(usage).toBeDefined();
@@ -127,12 +158,14 @@ describe("runSessionSyncStep", () => {
     expect(gitMetricsEvents[0].payload?.filesChanged).toBe(3);
 
     // Run again to ensure deduplication
-    await runSessionSyncStep(
+    const runSync2 = runSessionSyncStep(
       subtasks,
       deps as any,
       false,
       { repoPath: "/tmp/my-repo", sprintNumber: 7 }
     );
+    await runSync2;
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     const eventsAfterSecondRun = executionRepository.listTaskRunEvents(run.id);
     const gitMetricsEventsAfterSecondRun = eventsAfterSecondRun.filter(e => e.eventType === "git_metrics");

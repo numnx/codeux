@@ -25,6 +25,7 @@ export interface ExecutionInvocationRecord {
   lastRetryAfterIso: string | null;
   messageCount: number;
   lastMessageAt: string | null;
+  invocationSource?: "internal" | "EXTERNAL_API";
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +61,7 @@ export interface CreateExecutionInvocationInput {
   lastErrorCategory?: ProviderErrorCategory | null;
   lastErrorMessage?: string | null;
   lastRetryAfterIso?: string | null;
+  invocationSource?: "internal" | "EXTERNAL_API";
 }
 
 export interface UpdateExecutionInvocationInput {

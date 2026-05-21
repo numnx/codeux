@@ -101,6 +101,7 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureColumn(db, "execution_invocations", "last_error_category", "TEXT");
   ensureColumn(db, "execution_invocations", "last_error_message", "TEXT");
   ensureColumn(db, "execution_invocations", "last_retry_after_iso", "TEXT");
+  ensureColumn(db, "execution_invocations", "invocation_source", "TEXT NOT NULL DEFAULT 'internal'");
 
   ensureUniqueIndex(db, "idx_tasks_sprint_key", "tasks", "sprint_id, task_key");
   ensureUniqueIndex(db, "idx_sprint_linked_issues_unique", "sprint_linked_issues", "sprint_id, provider, host_domain, repository, issue_number");
@@ -114,6 +115,8 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureIndex(db, "idx_task_runs_task_finished", "task_runs", "task_id, finished_at");
   ensureIndex(db, "idx_task_runs_sprint_run_started", "task_runs", "sprint_run_id, started_at DESC");
   ensureColumn(db, "provider_invocations", "execution_mode", "TEXT");
+  ensureColumn(db, "provider_invocations", "jules_tokens", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "provider_invocations", "invocation_source", "TEXT NOT NULL DEFAULT 'internal'");
   ensureIndex(db, "idx_provider_invocations_project_started", "provider_invocations", "project_id, started_at DESC");
   ensureIndex(db, "idx_provider_invocations_sprint_started", "provider_invocations", "sprint_id, started_at DESC");
   ensureIndex(db, "idx_provider_invocations_task_started", "provider_invocations", "task_id, started_at DESC");

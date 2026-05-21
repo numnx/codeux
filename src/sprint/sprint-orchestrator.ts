@@ -40,6 +40,7 @@ import type { TaskService } from "../services/task-service.js";
 import type { HeartbeatService } from "../services/heartbeat-service.js";
 import type { SprintIssueService } from "../services/sprint-issue-service.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
+import type { JulesUsageService } from "../domain/jules/jules-usage-service.js";
 
 
 const SPRINT_ORCHESTRATOR_OWNER_KEY = `sprint_orchestrator:${process.pid}`;
@@ -62,6 +63,7 @@ export interface SprintOrchestratorDependencies {
   executionRepository: ExecutionRepository;
   projectAttentionService: ProjectAttentionService;
   sprintExecutionStateService: SprintExecutionStateService;
+  julesUsage: JulesUsageService;
   startTask: (
     task: Subtask,
     args: {

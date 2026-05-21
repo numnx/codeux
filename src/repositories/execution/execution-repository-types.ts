@@ -118,7 +118,9 @@ export interface ProviderInvocationUsageRow {
   output_tokens: number | string;
   reasoning_output_tokens: number | string;
   total_tokens: number | string;
+  jules_tokens: number | string;
   usage_source: string;
+  invocation_source: string;
   cost_cents: number | string | null;
   connection_id: string | null;
   raw_usage_json?: string | null;
@@ -163,6 +165,7 @@ export interface ExecutionInvocationRow {
   last_retry_after_iso: string | null;
   message_count: number | string;
   last_message_at: string | null;
+  invocation_source?: string;
   created_at: string;
   updated_at: string;
 }

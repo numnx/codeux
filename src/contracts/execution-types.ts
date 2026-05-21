@@ -9,6 +9,7 @@ export type TaskDispatchStatus = "queued" | "claimed" | "running" | "cancel_requ
 export type TaskRunState = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA" | "PAUSED";
 export type ProviderInvocationPurpose = "task_coding" | "ci_fix" | "merge_conflict" | "planning" | "worker_reply" | "qa_review" | "clarification_reply" | "dashboard_reply";
 export type ProviderInvocationStatus = "running" | "completed" | "failed" | "cancelled";
+export type ProviderInvocationSource = "internal" | "EXTERNAL_API";
 export type TokenUsageSource = "reported" | "estimated" | "unsupported" | "unavailable";
 
 export type ExecutionLeaseScopeType = "project" | "sprint" | "sprint_run" | "task_dispatch";
@@ -97,7 +98,9 @@ export interface ProviderInvocationUsageRecord {
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
+  julesTokens: number;
   usageSource: TokenUsageSource;
+  invocationSource: ProviderInvocationSource;
   costCents: number | null;
   rawUsageJson: Record<string, unknown> | null;
   createdAt: string;
@@ -205,11 +208,13 @@ export interface CreateProviderInvocationUsageInput {
   provider: string;
   purpose: ProviderInvocationPurpose;
   status?: ProviderInvocationStatus;
+  invocationSource?: ProviderInvocationSource;
   model?: string | null;
   executionMode?: CliExecutionMode | null;
   nativeSessionId?: string | null;
   startedAt?: string;
   promptChars?: number;
+  julesTokens?: number;
 }
 
 export interface UpdateTaskRunInput {
@@ -239,7 +244,9 @@ export interface UpdateProviderInvocationUsageInput {
   outputTokens?: number;
   reasoningOutputTokens?: number;
   totalTokens?: number;
+  julesTokens?: number;
   usageSource?: TokenUsageSource;
+  invocationSource?: ProviderInvocationSource;
   rawUsageJson?: Record<string, unknown> | null;
 }
 

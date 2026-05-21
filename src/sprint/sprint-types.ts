@@ -34,4 +34,7 @@ export interface SessionSyncDependencies {
   executionRepository?: ExecutionRepository;
   sprintRunId?: string;
   logger: Logger;
+  julesUsage?: {
+    calculateAndSaveUsageForTask: (projectId: string, taskId: string, sessionId: string) => Promise<void>;
+  };
 }
