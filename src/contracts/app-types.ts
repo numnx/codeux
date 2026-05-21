@@ -438,6 +438,7 @@ export interface ProjectExecutionStatsSnapshot {
   generatedAt: string;
   usage: ExecutionUsageTotals;
   git: ExecutionGitStatsSummary;
+  mergeConflictCount?: number;
   activeSprint: {
     sprintId: string;
     sprintName: string;

@@ -138,6 +138,14 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
           sparkline={metricSeries.coreOutputTokens}
           signalLabel="Composition"
         />
+        <StatsMetricCard
+          label="Merge Conflicts"
+          value={String(stats.mergeConflictCount || 0)}
+          detail="Total number of merge conflicts encountered"
+          accentHex="#EF4444"
+          sparkline={[]}
+          signalLabel="Composition"
+        />
       </>
     );
   };
