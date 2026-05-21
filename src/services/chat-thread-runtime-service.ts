@@ -1,4 +1,4 @@
-import type { DashboardSettings, ProviderId, QwenModelProviderSettings, Subtask } from "../contracts/app-types.js";
+import type { DashboardSettings, DashboardSettingsScope, ProviderId, QwenModelProviderSettings, Subtask } from "../contracts/app-types.js";
 import type { ConnectionChatRepository } from "../repositories/connection-chat-repository.js";
 import type { ProjectWorkerAssignmentRepository } from "../repositories/project-worker-assignment-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -25,7 +25,7 @@ interface ChatThreadRuntimeServiceDependencies {
   projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository;
   executionRepository: ExecutionRepository;
   taskService: TaskService;
-  getDashboardSettings: () => DashboardSettings;
+  getDashboardSettings: (scope?: DashboardSettingsScope) => DashboardSettings;
   getGithubToken: () => string | undefined;
   agentPresetSyncService: AgentPresetSyncService;
   projectManagementRepository: ProjectManagementRepository;
@@ -62,12 +62,12 @@ export interface ThreadRouteResolution {
 export class ChatThreadRuntimeService {
   constructor(private readonly deps: ChatThreadRuntimeServiceDependencies) {}
 
-  public resolveThreadRoute(
-    thread: Pick<ConversationThreadRecord, "connectionId" | "runtimeState">,
+  public async resolveThreadRoute(
+    thread: Pick<ConversationThreadRecord, "connectionId" | "projectId" | "runtimeState">,
     liveAssignments: ReturnType<ProjectWorkerAssignmentRepository["listAssignmentsForProject"]>,
     settings: DashboardSettings,
     latestMessageBody: string,
-  ): ThreadRouteResolution {
+  ): Promise<ThreadRouteResolution> {
     const runtimeState = thread.runtimeState || null;
     void liveAssignments;
 
@@ -80,7 +80,22 @@ export class ChatThreadRuntimeService {
       status: "PENDING",
     };
 
-    const route = this.deps.taskService.resolveInvocationProvider("dashboard_reply", pseudoTask, { cliOnly: true });
+    const dashboardReplyAgent = typeof this.deps.agentPresetSyncService.resolveTargetedCodingAgent === "function"
+      ? await this.deps.agentPresetSyncService.resolveTargetedCodingAgent(
+        thread.projectId,
+        settings.agents?.routing?.dashboardReply?.agentPresetId ?? null,
+      ).catch(() => null)
+      : await this.deps.agentPresetSyncService.getWorkerAgent(thread.projectId).catch(() => null);
+    const route = this.deps.taskService.resolveInvocationProvider("dashboard_reply", pseudoTask, {
+      scope: { projectId: thread.projectId },
+      cliOnly: true,
+      agentProvider: dashboardReplyAgent
+        ? {
+          providerConfigId: dashboardReplyAgent.providerConfigId,
+          model: dashboardReplyAgent.model,
+        }
+        : null,
+    });
 
     const providerId = route.provider as Exclude<ProviderId, "jules"> | undefined;
     if (!providerId) {
@@ -167,8 +182,8 @@ export class ChatThreadRuntimeService {
     }
 
     const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(thread.projectId, { activeOnly: true });
-    const settings = this.deps.getDashboardSettings();
-    const route = this.resolveThreadRoute(thread, assignments, settings, messages[messages.length - 1]?.bodyMarkdown || thread.title);
+    const settings = this.deps.getDashboardSettings({ projectId: thread.projectId });
+    const route = await this.resolveThreadRoute(thread, assignments, settings, messages[messages.length - 1]?.bodyMarkdown || thread.title);
     if (!route.providerId || !route.model || typeof route.apiKey !== "string") {
       throw new Error("Failed to resolve a chat worker for thread compaction.");
     }
@@ -196,10 +211,10 @@ export class ChatThreadRuntimeService {
     if (!project) throw new Error(`Project not found: ${projectId}`);
 
     const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true });
-    const settings = this.deps.getDashboardSettings();
+    const settings = this.deps.getDashboardSettings({ projectId });
 
     try {
-      const route = this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
+      const route = await this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
       await this.runVirtualProvider(projectId, thread, userMessage, route);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -237,7 +252,7 @@ export class ChatThreadRuntimeService {
     const model = route.model!;
     const apiKey = route.apiKey!;
     const thinkingMode = route.thinkingMode;
-    const dashboardSettings = this.deps.getDashboardSettings();
+    const dashboardSettings = this.deps.getDashboardSettings({ projectId });
 
     const runtimeState = thread.runtimeState || {};
     const pendingAction = runtimeState.pendingManagementAction;
@@ -311,7 +326,13 @@ export class ChatThreadRuntimeService {
     const allMessages = this.deps.connectionChatRepository.listMessages(thread.id);
 
     if (replayRequired) {
-      const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(projectId)).instructionMarkdown.trim();
+      const workerAgent = typeof this.deps.agentPresetSyncService.resolveTargetedCodingAgent === "function"
+        ? await this.deps.agentPresetSyncService.resolveTargetedCodingAgent(
+          projectId,
+          dashboardSettings.agents?.routing?.dashboardReply?.agentPresetId ?? null,
+        )
+        : await this.deps.agentPresetSyncService.getWorkerAgent(projectId);
+      const workerInstructions = workerAgent.instructionMarkdown.trim();
       promptContent = buildChatReplayPrompt({
         projectId,
         repoPath: project.baseDir,
@@ -429,9 +450,16 @@ export class ChatThreadRuntimeService {
     const model = route.model!;
     const apiKey = route.apiKey!;
     const thinkingMode = route.thinkingMode;
-    const workflowSettings = this.deps.getDashboardSettings().cliWorkflow;
+    const dashboardSettings = this.deps.getDashboardSettings({ projectId });
+    const workflowSettings = dashboardSettings.cliWorkflow;
     const githubToken = this.deps.getGithubToken();
-    const workerInstructions = (await this.deps.agentPresetSyncService.getWorkerAgent(projectId)).instructionMarkdown.trim();
+    const workerAgent = typeof this.deps.agentPresetSyncService.resolveTargetedCodingAgent === "function"
+      ? await this.deps.agentPresetSyncService.resolveTargetedCodingAgent(
+        projectId,
+        dashboardSettings.agents?.routing?.dashboardReply?.agentPresetId ?? null,
+      )
+      : await this.deps.agentPresetSyncService.getWorkerAgent(projectId);
+    const workerInstructions = workerAgent.instructionMarkdown.trim();
     const promptContent = buildChatCompactionPrompt({ projectId, repoPath, projectName, thread, messages, workerInstructions });
     const finalPrompt = buildProviderPrompt(promptContent, thinkingMode as any);
     const execInvocation = this.deps.executionRepository.createExecutionInvocation({
