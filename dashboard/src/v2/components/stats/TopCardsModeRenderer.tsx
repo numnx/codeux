@@ -138,6 +138,14 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
           sparkline={metricSeries.coreOutputTokens}
           signalLabel="Composition"
         />
+        <StatsMetricCard
+          label="Merge Conflicts"
+          value={String(stats.mergeConflictCount || 0)}
+          detail="Total number of merge conflicts encountered"
+          accentHex="#EF4444"
+          sparkline={[]}
+          signalLabel="Composition"
+        />
       </>
     );
   };
@@ -198,6 +206,15 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
           detail="Total commits merged to main"
           accentHex="#8B5CF6"
           sparkline={metricSeries.gitMerges}
+          signalLabel="Git Activity"
+        />
+        {/* Added Files Changed as the 5th metric because it naturally complements Insertions, Deletions, Pull Requests, and Merged Commits as a measure of Git activity scope. */}
+        <StatsMetricCard
+          label="Files Changed"
+          value={formatTokens(stats.git?.totals?.filesChanged || 0)}
+          detail="Files modified across repositories"
+          accentHex="#3B82F6"
+          sparkline={metricSeries.gitFilesChanged}
           signalLabel="Git Activity"
         />
       </>

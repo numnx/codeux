@@ -375,6 +375,7 @@ export interface ExecutionGitMetrics {
   filesChanged: number;
   prCount: number;
   mergedCount: number;
+  mergeConflictCount: number;
 }
 
 export interface ExecutionGitStatsEntitySummary {
@@ -456,6 +457,7 @@ export interface ProjectExecutionStatsSnapshot {
   generatedAt: string;
   usage: ExecutionUsageTotals;
   git: ExecutionGitStatsSummary;
+  mergeConflictCount?: number;
   activeSprint: {
     sprintId: string;
     sprintName: string;
