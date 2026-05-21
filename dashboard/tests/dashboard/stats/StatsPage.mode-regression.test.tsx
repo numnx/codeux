@@ -44,6 +44,17 @@ const mockStats = {
   providers: [
     { name: "provider_a", totalTokens: 1200 }
   ],
+  mergeConflictCount: 3,
+  git: {
+    totals: {
+      insertions: 100,
+      deletions: 50,
+      filesChanged: 12,
+      prCount: 4,
+      mergedCount: 2,
+      mergeConflictCount: 3,
+    }
+  },
   ledgers: {
     tasks: [{}, {}],
     invocations: [{}, {}, {}]
@@ -82,6 +93,7 @@ describe("TopCardsModeRenderer Mode Regression", () => {
     expect(screen.getByText("Provider A")).toBeInTheDocument();
     expect(screen.getByText("Input Tokens")).toBeInTheDocument();
     expect(screen.getByText("Output Tokens")).toBeInTheDocument();
+    expect(screen.getByText("Merge Conflicts")).toBeInTheDocument();
   });
 
   it("renders reliability mode cards correctly", () => {
@@ -104,5 +116,6 @@ describe("TopCardsModeRenderer Mode Regression", () => {
     expect(screen.getByText("Deletions")).toBeInTheDocument();
     expect(screen.getByText("Pull Requests")).toBeInTheDocument();
     expect(screen.getByText("Merged Commits")).toBeInTheDocument();
+    expect(screen.getByText("Files Changed")).toBeInTheDocument();
   });
 });
