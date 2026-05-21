@@ -26,6 +26,7 @@ export interface ExecutionInvocationRecord {
   messageCount: number;
   lastMessageAt: string | null;
   invocationSource?: "internal" | "EXTERNAL_API";
+  agentPresetId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +63,7 @@ export interface CreateExecutionInvocationInput {
   lastErrorMessage?: string | null;
   lastRetryAfterIso?: string | null;
   invocationSource?: "internal" | "EXTERNAL_API";
+  agentPresetId?: string | null;
 }
 
 export interface UpdateExecutionInvocationInput {
