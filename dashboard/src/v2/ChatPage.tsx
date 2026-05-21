@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   ArrowUp,
   RefreshCw,
@@ -13,6 +13,9 @@ import { ChatRailPlaceholder, EmptyChat, LoadingChat } from "./components/chat/C
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
+import { InvocationRoutingWidget } from "./components/chat/widgets/InvocationRoutingWidget.js";
+import { InvocationContainerWidget } from "./components/chat/widgets/InvocationContainerWidget.js";
+import { TruncatedSystemBubble } from "./components/chat/TruncatedSystemBubble.js";
 import { WorkingBubble } from "./components/chat/WorkingBubble.js";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog.js";
 import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
@@ -38,6 +41,7 @@ const formatInvocationErrorCategory = (value: ExecutionInvocationRecord["lastErr
 export const ChatPage: FunctionComponent = () => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const [workingTimerPhase, setWorkingTimerPhase] = useState<"starting" | "working" | null>(null);
 
   const {
     chatMode,
@@ -53,11 +57,11 @@ export const ChatPage: FunctionComponent = () => {
     manualRefreshing,
     deletingThreadId,
     sending,
-    assigningRoute,
     compacting,
     error,
     selectedThread,
     selectedInvocation,
+    selectedAgentPreset,
     activeConnection,
     pendingDashboardMessages,
     hasWorkingReply,
@@ -69,12 +73,10 @@ export const ChatPage: FunctionComponent = () => {
     refreshThreads,
     activateThread,
     activateInvocation,
-    handleAssignRoute,
     handleCompactThread,
     handleSend,
     handleDeleteThread,
     createThreadForCompose,
-    workerOptions,
     threadIndex,
     invocationIndex,
     selectedProject,
@@ -90,6 +92,18 @@ export const ChatPage: FunctionComponent = () => {
     if (!messagesRef.current) return;
     messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    if (hasWorkingReply) {
+      setWorkingTimerPhase("starting");
+      const timer = setTimeout(() => {
+        setWorkingTimerPhase("working");
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else {
+      setWorkingTimerPhase(null);
+    }
+  }, [hasWorkingReply]);
 
   const renderRail = () => {
     if (chatMode === "threads") {
@@ -161,9 +175,6 @@ export const ChatPage: FunctionComponent = () => {
           )}
           <ChatThreadHeader
             thread={selectedThread}
-            workerOptions={workerOptions}
-            isAssigning={assigningRoute}
-            onAssignRoute={(option) => void handleAssignRoute(option)}
             onCompact={() => void handleCompactThread()}
             isCompacting={compacting}
           />
@@ -186,7 +197,15 @@ export const ChatPage: FunctionComponent = () => {
             ) : (
               <>
                 {messages.map((message) => <ChatMessageBubble key={message.id} message={message} />)}
-                {hasWorkingReply ? <WorkingBubble displayName={activeConnection?.displayName || null} runtimeState={selectedThread?.runtimeState} /> : null}
+                {hasWorkingReply && workingTimerPhase === "starting" ? (
+                  <InvocationContainerWidget
+                    containerPhase="starting"
+                    providerName={selectedThread?.runtimeState?.virtualProvider ?? null}
+                    agentName={activeConnection?.displayName || null}
+                  />
+                ) : hasWorkingReply && workingTimerPhase === "working" ? (
+                  <WorkingBubble displayName={activeConnection?.displayName || null} runtimeState={selectedThread?.runtimeState} />
+                ) : null}
               </>
             )}
           </div>
@@ -298,15 +317,50 @@ export const ChatPage: FunctionComponent = () => {
             />
           ) : invocationMessagesLoading ? (
             <LoadingChat label="Loading messages" />
-          ) : invocationMessages.length === 0 ? (
-            <EmptyChat
-              tone="invocations"
-              title="Transcript Is Empty"
-              message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
-            />
           ) : (
             <>
-              {invocationMessages.map((message) => <InvocationMessageBubble key={message.id} message={message} />)}
+              <InvocationRoutingWidget
+                provider={selectedInvocation.provider}
+                model={selectedInvocation.model}
+                routingStatus={
+                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                    ? "routing"
+                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                      ? "active"
+                      : "done"
+                }
+              />
+              <InvocationContainerWidget
+                providerName={selectedInvocation.provider}
+                agentName={selectedAgentPreset?.name ?? null}
+                containerPhase={
+                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                    ? "starting"
+                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                      ? "working"
+                      : selectedInvocation.status === "failed" ? "failed" : "completed"
+                }
+              />
+              {invocationMessages.length === 0 ? (
+                <EmptyChat
+                  tone="invocations"
+                  title="Transcript Is Empty"
+                  message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
+                />
+              ) : (
+                invocationMessages.map((message) => {
+                  if (message.role === "system") {
+                    return <TruncatedSystemBubble key={message.id} content={message.contentMarkdown || ""} />;
+                  }
+                  return (
+                    <InvocationMessageBubble
+                      key={message.id}
+                      message={message}
+                      agentAvatarConfig={message.role === "assistant" ? (selectedAgentPreset?.avatarConfig ?? null) : null}
+                    />
+                  );
+                })
+              )}
             </>
           )}
         </div>

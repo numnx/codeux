@@ -611,6 +611,12 @@ html.has-bg-image {
   66% { transform: translate(-8px, 6px) scale(0.95); opacity: 0.5; }
 }
 
+  /* Container glow */
+  @keyframes container-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
+  }
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
