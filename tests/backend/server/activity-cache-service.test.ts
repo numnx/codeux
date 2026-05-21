@@ -22,6 +22,7 @@ describe('ActivityCacheService', () => {
       resolveGitStatusRepoPath: vi.fn().mockReturnValue('/test/repo'),
       fetchGitStatusForRepo: vi.fn(),
       invalidateGitStatusCache: vi.fn(),
+      isSessionTerminal: vi.fn(),
       logger: {
         info: vi.fn(),
         warn: vi.fn(),
@@ -173,6 +174,19 @@ describe('ActivityCacheService', () => {
 
       expect(result).toEqual({});
       expect(mockDeps.fetchRecentActivities).not.toHaveBeenCalled();
+    });
+
+    it('should skip fetching activities if a session is terminal', async () => {
+      mockDeps.getSubtasks.mockReturnValue([mockTask]);
+      mockDeps.resolveSessionNameFromTask.mockReturnValue('session-1');
+      (mockDeps.isSessionTerminal as any).mockReturnValue(true);
+
+      const result = await service.getLiveActivitiesForActiveTasks();
+
+      expect(mockDeps.getSubtasks).toHaveBeenCalledTimes(1);
+      expect(mockDeps.isSessionTerminal).toHaveBeenCalledWith('session-1');
+      expect(mockDeps.fetchRecentActivities).not.toHaveBeenCalled();
+      expect(result).toEqual({});
     });
 
     it('should handle fetch failures gracefully', async () => {

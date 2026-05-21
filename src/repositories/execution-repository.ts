@@ -1053,6 +1053,22 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
+  isSessionTerminal(sessionName: string): boolean {
+    const normalized = sessionName.trim();
+    if (!normalized) {
+      return false;
+    }
+    const row = this.db.prepare(`
+      SELECT state
+      FROM task_runs
+      WHERE session_name = ? OR session_id = ?
+      ORDER BY rowid DESC
+      LIMIT 1
+    `).get(normalized, normalized) as { state: string } | undefined;
+    return row ? (row.state === "COMPLETED" || row.state === "FAILED") : false;
+  }
+
+
   getTaskDispatch(dispatchId: string): TaskDispatchRecord | null {
     const row = this.db.prepare(`
       SELECT *

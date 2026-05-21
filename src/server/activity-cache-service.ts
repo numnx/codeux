@@ -32,6 +32,7 @@ export interface ActivityCacheServiceDependencies {
   resolveGitStatusRepoPath: () => string;
   fetchGitStatusForRepo: (repoPath: string, cacheTtlMs?: number) => Promise<GitTrackingStatus>;
   invalidateGitStatusCache?: (repoPath: string) => void;
+  isSessionTerminal?: (sessionName: string) => boolean;
   logger?: Logger;
 }
 
@@ -72,7 +73,11 @@ export class ActivityCacheService {
           subtasks
             .filter((task) => task.status === "RUNNING")
             .map((task) => this.deps.resolveSessionNameFromTask(task))
-            .filter((value): value is string => Boolean(value))
+            .filter((value): value is string => {
+              if (!value) return false;
+              if (this.deps.isSessionTerminal?.(value)) return false;
+              return true;
+            })
         )
       );
 

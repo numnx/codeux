@@ -122,6 +122,7 @@ export function createDashboardDependencies(
       resolveGitStatusRepoPath: () => context.resolveGitStatusRepoPath(),
       fetchGitStatusForRepo: (repoPath, cacheTtlMs) => context.fetchGitStatusForRepo(repoPath, cacheTtlMs),
       invalidateGitStatusCache: (repoPath) => context.invalidateGitStatusCache?.(repoPath),
+      isSessionTerminal: (sessionName) => executionRepository.isSessionTerminal(sessionName),
       logger: logger.child({ component: "activity-cache-service" }),
     },
     10_000, // LIVE_ACTIVITY_CACHE_MS
