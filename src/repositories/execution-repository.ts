@@ -263,6 +263,12 @@ export class ExecutionRepository {
         }
       }
 
+      let taskAgentPresetId: string | null = null;
+      if (input.taskId) {
+        const taskRow = this.db.prepare(`SELECT agent_preset_id FROM tasks WHERE id = ?`).get(input.taskId) as { agent_preset_id: string | null } | undefined;
+        taskAgentPresetId = taskRow?.agent_preset_id || null;
+      }
+
       const id = `xi_${randomUUID().replace(/-/g, "")}`;
       const now = new Date().toISOString();
       const startedAt = input.startedAt || now;
@@ -289,6 +295,7 @@ export class ExecutionRepository {
         lastErrorMessage: input.lastErrorMessage || null,
         lastRetryAfterIso: input.lastRetryAfterIso || null,
         invocationSource: input.invocationSource || "internal",
+        agentPresetId: taskAgentPresetId,
         messageCount: 0,
         lastMessageAt: null,
         createdAt: now,
@@ -299,10 +306,10 @@ export class ExecutionRepository {
         INSERT INTO execution_invocations (
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
           type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
-          last_error_category, last_error_message, last_retry_after_iso, invocation_source,
+          last_error_category, last_error_message, last_retry_after_iso, invocation_source, agent_preset_id,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -329,6 +336,7 @@ export class ExecutionRepository {
           record.lastErrorMessage,
           record.lastRetryAfterIso,
           record.invocationSource || "internal",
+          record.agentPresetId,
           record.createdAt,
           record.updatedAt
       );

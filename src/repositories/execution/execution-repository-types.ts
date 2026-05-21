@@ -166,6 +166,7 @@ export interface ExecutionInvocationRow {
   message_count: number | string;
   last_message_at: string | null;
   invocation_source?: string;
+  agent_preset_id?: string | null;
   created_at: string;
   updated_at: string;
 }

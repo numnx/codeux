@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../types.js";
+import type { ExecutionInvocationRecord, ExecutionInvocationMessageRecord, AgentPresetRecord } from "../types.js";
 import { useMessageCache } from "./useMessageCache.js";
 import { fetchInvocationMessages } from "../lib/invocation-api.js";
 import { buildInvocationIndex } from "../lib/chat-entity-index.js";
@@ -30,8 +30,9 @@ export const areInvocationMessagesEqual = (left: ExecutionInvocationMessageRecor
 export const useInvocationPaneData = (options: {
   selectedProject: { id: string } | null;
   cache: ReturnType<typeof useMessageCache>;
+  agentPresets?: AgentPresetRecord[];
 }) => {
-  const { selectedProject, cache } = options;
+  const { selectedProject, cache, agentPresets = [] } = options;
 
   const [invocations, setInvocations] = useState<ExecutionInvocationRecord[]>([]);
   const [selectedInvocationId, setSelectedInvocationId] = useState<string | null>(null);
@@ -52,6 +53,13 @@ export const useInvocationPaneData = (options: {
     () => (selectedInvocationId ? invocationIndex.get(selectedInvocationId) || null : null),
     [invocationIndex, selectedInvocationId]
   );
+
+  const selectedAgentPreset = useMemo(() => {
+    if (selectedInvocation?.agentPresetId) {
+      return agentPresets.find(p => p.id === selectedInvocation.agentPresetId);
+    }
+    return undefined;
+  }, [selectedInvocation?.agentPresetId, agentPresets]);
 
   const setInvocationsSnapshot = useCallback((nextInvocations: ExecutionInvocationRecord[]): void => {
     setInvocations((current) => areInvocationsEqual(current, nextInvocations) ? current : nextInvocations);
@@ -187,6 +195,7 @@ export const useInvocationPaneData = (options: {
     error,
     setError,
     selectedInvocation,
+    selectedAgentPreset,
     invocationIndex,
     activateInvocation,
     refreshInvocationMessages,
