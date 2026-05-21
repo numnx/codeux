@@ -3,6 +3,7 @@ import {
   getProviderModelOptions,
   getProviderInstanceModelOptions,
   getOpenCodeConfiguredModel,
+  getQwenConfiguredModel,
   getFieldSource,
   getFieldSourceLabel,
   providerSupportsModelSelection,
@@ -104,6 +105,40 @@ describe("settings view model source helpers", () => {
       systemSettings,
     )).toEqual(expect.arrayContaining([
       { value: "ollama/glm-4.7-flash", label: "ollama/glm-4.7-flash (configured)" },
+      { value: "custom/model", label: "custom/model" },
+    ]));
+  });
+
+  it("adds configured Qwen custom endpoint models to instance model options", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "qwen-ollama": {
+            provider: "qwen-code",
+            name: "Qwen Ollama",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "~/.qwen",
+            qwenAuthMode: "MODEL_PROVIDER",
+            qwenRegion: "international",
+            qwenBaseUrl: "http://127.0.0.1:11434/v1",
+            qwenEnvKey: "OLLAMA_API_KEY",
+            qwenModelId: "glm-4.7-flash",
+            qwenProtocol: "openai",
+            qwenAdditionalModelProviders: [],
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getQwenConfiguredModel(systemSettings.integrations.providers["qwen-ollama"], "custom/model")).toBe("glm-4.7-flash");
+    expect(getProviderModelOptions("qwen-code").some((option) => option.value === "local-model")).toBe(false);
+    expect(getProviderInstanceModelOptions(
+      "qwen-ollama",
+      { provider: "qwen-code", model: "custom/model" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "glm-4.7-flash", label: "glm-4.7-flash (configured)" },
       { value: "custom/model", label: "custom/model" },
     ]));
   });

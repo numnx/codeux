@@ -183,11 +183,9 @@ export class DockerRunner implements IDockerRunner {
           path: input.providerAuthPath || "",
         },
       );
-      const mcpMounts = input.mcpConnection
-        ? await this.buildProviderMcpMounts(input.mcpConnection, providerLabel, tempRoot)
-        : [];
+      const providerConfigMounts = await this.buildProviderConfigMounts(input.mcpConnection || null, providerLabel, tempRoot, providerEnv);
 
-      for (const mount of [...credentialMounts, ...mcpMounts]) {
+      for (const mount of [...credentialMounts, ...providerConfigMounts]) {
         const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials", onActivity);
         dockerArgs.push("--mount", toDockerMountArg({ ...mount, source }));
       }
@@ -312,17 +310,18 @@ export class DockerRunner implements IDockerRunner {
     return undefined;
   }
 
-  private async buildProviderMcpMounts(
-    conn: McpConnectionInfo,
+  private async buildProviderConfigMounts(
+    conn: McpConnectionInfo | null,
     provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
     tempRoot: string,
+    providerEnv: NodeJS.ProcessEnv,
   ): Promise<ContainerMount[]> {
     const headers: Record<string, string> = {};
-    if (conn.authToken) {
+    if (conn?.authToken) {
       headers.Authorization = `Bearer ${conn.authToken}`;
     }
 
-    if (provider === "claude-code") {
+    if (provider === "claude-code" && conn) {
       const filePath = path.join(tempRoot, "claude-mcp.json");
       await fs.writeFile(filePath, JSON.stringify({
         mcpServers: {
@@ -336,7 +335,7 @@ export class DockerRunner implements IDockerRunner {
       return [{ source: filePath, destination: CLAUDE_CODE_MCP_CONFIG_MOUNT, readonly: true }];
     }
 
-    if (provider === "gemini") {
+    if (provider === "gemini" && conn) {
       const filePath = path.join(tempRoot, "gemini-settings.json");
       await fs.writeFile(filePath, JSON.stringify({
         mcpServers: {
@@ -351,14 +350,28 @@ export class DockerRunner implements IDockerRunner {
 
     if (provider === "qwen-code") {
       const filePath = path.join(tempRoot, "qwen-settings.json");
-      await fs.writeFile(filePath, JSON.stringify({
-        mcpServers: {
-          code_ux: {
+      let settings: Record<string, unknown> = {};
+      if (providerEnv.QWEN_SETTINGS_CONTENT) {
+        try {
+          settings = JSON.parse(providerEnv.QWEN_SETTINGS_CONTENT) as Record<string, unknown>;
+        } catch {
+          settings = {};
+        }
+      }
+      if (conn) {
+        const existingMcpServers = settings.mcpServers as Record<string, unknown> || {};
+        settings.mcpServers = {
+          ...existingMcpServers,
+          code_ux: existingMcpServers.code_ux || {
             httpUrl: conn.url,
             ...(Object.keys(headers).length > 0 ? { headers } : {}),
           },
-        },
-      }, null, 2));
+        };
+      }
+      if (Object.keys(settings).length === 0) {
+        return [];
+      }
+      await fs.writeFile(filePath, JSON.stringify(settings, null, 2));
       return [{ source: filePath, destination: QWEN_CODE_SETTINGS_MOUNT, readonly: true }];
     }
 
@@ -366,6 +379,9 @@ export class DockerRunner implements IDockerRunner {
       return [];
     }
 
+    if (!conn) {
+      return [];
+    }
     const filePath = path.join(tempRoot, "codex-config.toml");
     const lines = ["[mcp_servers.code-ux]", `url = "${conn.url}"`];
     if (conn.authToken) {

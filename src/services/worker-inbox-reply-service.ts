@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import type { DashboardSettings, ProviderId, Subtask } from "../contracts/app-types.js";
+import type { DashboardSettings, ProviderId, QwenModelProviderSettings, Subtask } from "../contracts/app-types.js";
 import type {
   ConversationCompactionSummary,
   ConversationMessageRecord,
@@ -145,7 +145,9 @@ export class WorkerInboxReplyService {
         qwenRegion: providerSettings.qwenRegion,
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
+        qwenModelId: providerSettings.qwenModelId,
         qwenProtocol: providerSettings.qwenProtocol,
+        qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -319,7 +321,9 @@ export class WorkerInboxReplyService {
         qwenRegion: providerSettings.qwenRegion,
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
+        qwenModelId: providerSettings.qwenModelId,
         qwenProtocol: providerSettings.qwenProtocol,
+        qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -427,7 +431,9 @@ export class WorkerInboxReplyService {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -450,7 +456,9 @@ export class WorkerInboxReplyService {
       qwenRegion: input.qwenRegion,
       qwenBaseUrl: input.qwenBaseUrl,
       qwenEnvKey: input.qwenEnvKey,
+      qwenModelId: input.qwenModelId,
       qwenProtocol: input.qwenProtocol,
+      qwenAdditionalModelProviders: input.qwenAdditionalModelProviders,
         openCodeAuthMode: input.openCodeAuthMode,
         openCodeProviderId: input.openCodeProviderId,
         openCodeModelId: input.openCodeModelId,

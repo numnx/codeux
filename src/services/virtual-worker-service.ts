@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, JulesSession, ProviderId, QwenModelProviderSettings, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
 import type { WorkerTaskDispatchClaim } from "../contracts/execution-types.js";
 import type { ProjectAttentionItemRecord } from "../contracts/project-attention-types.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
@@ -307,7 +307,9 @@ export class VirtualWorkerService {
       qwenRegion: providerSettings.qwenRegion,
       qwenBaseUrl: providerSettings.qwenBaseUrl,
       qwenEnvKey: providerSettings.qwenEnvKey,
+      qwenModelId: providerSettings.qwenModelId,
       qwenProtocol: providerSettings.qwenProtocol,
+      qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -628,7 +630,9 @@ export class VirtualWorkerService {
           qwenRegion: providerSettings.qwenRegion,
           qwenBaseUrl: providerSettings.qwenBaseUrl,
           qwenEnvKey: providerSettings.qwenEnvKey,
+          qwenModelId: providerSettings.qwenModelId,
           qwenProtocol: providerSettings.qwenProtocol,
+          qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -871,7 +875,9 @@ export class VirtualWorkerService {
         qwenRegion: providerSettings.qwenRegion,
         qwenBaseUrl: providerSettings.qwenBaseUrl,
         qwenEnvKey: providerSettings.qwenEnvKey,
+        qwenModelId: providerSettings.qwenModelId,
         qwenProtocol: providerSettings.qwenProtocol,
+        qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
         openCodeAuthMode: providerSettings.openCodeAuthMode,
         openCodeProviderId: providerSettings.openCodeProviderId,
         openCodeModelId: providerSettings.openCodeModelId,
@@ -1099,7 +1105,9 @@ export class VirtualWorkerService {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -1128,7 +1136,9 @@ export class VirtualWorkerService {
       qwenRegion: args.qwenRegion,
       qwenBaseUrl: args.qwenBaseUrl,
       qwenEnvKey: args.qwenEnvKey,
+      qwenModelId: args.qwenModelId,
       qwenProtocol: args.qwenProtocol,
+      qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,

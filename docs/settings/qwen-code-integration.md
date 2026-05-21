@@ -46,9 +46,11 @@ The Qwen runner launches with `--auth-type openai` and sets `OPENAI_BASE_URL` to
 - environment key
 - base URL
 - API key
-- model id from the AI Models routing panel
+- model id registered in Qwen Code `modelProviders`
 
 For OpenAI-compatible providers, Code UX also forwards `OPENAI_API_KEY` and `OPENAI_BASE_URL` to the Qwen process. This covers DashScope compatible mode, OpenRouter, Ollama, vLLM, LM Studio, and similar endpoints.
+
+Custom endpoint instances appear on the AI Models page with their configured model id, such as `glm-4.7-flash`, instead of stale placeholders such as `custom/model` or `local-model`.
 
 ## Docker Runtime
 
@@ -57,6 +59,8 @@ Docker execution prepares Qwen in the same bootstrap path as other CLI providers
 - creates `$HOME/.qwen`
 - copies mounted local auth from `/opt/credentials/qwen-code`
 - merges generated MCP/settings fragments from `/opt/provider-config/qwen-settings.json`
+- writes generated `modelProviders`, selected model, and MCP settings into the mounted settings fragment for custom endpoint and Coding Plan runs
+- rewrites loopback URLs in generated Qwen settings from `127.0.0.1` or `localhost` to `host.docker.internal` on Docker Desktop, WSL, macOS, and Windows so local endpoints such as Ollama remain reachable from the provider container
 - installs Qwen Code if `qwen` is missing and fallback installs are enabled
 
 The bootstrap merge is additive and preserves existing `mcpServers` entries.

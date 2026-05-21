@@ -124,7 +124,6 @@ export const QWEN_MODELS: string[] = [
   "qwen3-max-2026-01-23",
   "qwen-plus",
   "qwen-max",
-  "local-model",
 ];
 
 export const OPENCODE_MODELS: string[] = [

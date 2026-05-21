@@ -13,6 +13,7 @@ import {
   createProjectProviderDraft,
   createSystemProviderDraft,
   getOpenCodeConfiguredModel,
+  getQwenConfiguredModel,
   getProviderAuthLabel,
   getProviderTypeLabel,
   getSystemProvidersByType,
@@ -75,6 +76,7 @@ const maskSecret = (value: string): string => value.trim() ? "********" : "";
 const buildQwenSettingsPreview = (
   provider: SystemSettings["integrations"]["providers"][ProviderConfigId],
   model: string,
+  dockerExecutionEnabled: boolean,
 ): string => {
   const authMode = provider.qwenAuthMode || "LOCAL_AUTH";
   const envKey = authMode === "ALIBABA_CODING_PLAN"
@@ -84,17 +86,20 @@ const buildQwenSettingsPreview = (
     ? getQwenEndpointForRegion(provider.qwenRegion)
     : provider.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1";
   const protocol = provider.qwenProtocol || "openai";
+  const modelId = authMode === "MODEL_PROVIDER"
+    ? (provider.qwenModelId || (model === "custom/model" || model === "local-model" ? "qwen3-coder-plus" : model) || "qwen3-coder-plus")
+    : model || "qwen3-coder-plus";
   const primaryProvider = {
-    id: model || "qwen3-coder-plus",
+    id: modelId,
     name: provider.name,
-    baseUrl,
+    baseUrl: rewriteDockerLoopbackUrl(baseUrl, dockerExecutionEnabled),
     description: authMode === "ALIBABA_CODING_PLAN" ? "Qwen via Alibaba Cloud Coding Plan" : "Qwen custom model provider",
     envKey,
   };
   const additional = (provider.qwenAdditionalModelProviders || []).map((entry) => ({
     id: entry.id,
     name: entry.name || entry.id,
-    baseUrl: entry.baseUrl,
+    baseUrl: rewriteDockerLoopbackUrl(entry.baseUrl, dockerExecutionEnabled),
     description: entry.description,
     envKey: entry.envKey,
   }));
@@ -112,7 +117,7 @@ const buildQwenSettingsPreview = (
       },
     },
     model: {
-      name: model || "qwen3-coder-plus",
+      name: modelId,
     },
     ...(authMode === "ALIBABA_CODING_PLAN" ? { codingPlan: { region: provider.qwenRegion || "international" } } : {}),
   }, null, 2);
@@ -208,6 +213,9 @@ const syncProjectProvidersToIntegrationCatalog = (
       const configuredOpenCodeModel = provider.provider === "opencode"
         ? getOpenCodeConfiguredModel(provider, existingProvider?.model)
         : null;
+      const configuredQwenModel = provider.provider === "qwen-code"
+        ? getQwenConfiguredModel(provider, existingProvider?.model)
+        : null;
       return [
         providerConfigId,
         existingProvider
@@ -216,10 +224,12 @@ const syncProjectProvidersToIntegrationCatalog = (
             provider: provider.provider,
             name: provider.name,
             ...(configuredOpenCodeModel ? { model: configuredOpenCodeModel } : {}),
+            ...(configuredQwenModel ? { model: configuredQwenModel } : {}),
           }
           : {
             ...createProjectProviderDraft(provider.provider, provider.name),
             ...(configuredOpenCodeModel ? { model: configuredOpenCodeModel } : {}),
+            ...(configuredQwenModel ? { model: configuredQwenModel } : {}),
           },
       ];
     }),
@@ -722,6 +732,9 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                         <Row label="Environment key" description="Variable name Qwen reads for this instance's API key.">
                           <TextInput value={provider.qwenEnvKey || "DASHSCOPE_API_KEY"} onChange={(value) => updateProviderInstance(providerConfigId, { qwenEnvKey: value })} mono />
                         </Row>
+                        <Row label="Model id" description="The custom model registered in Qwen Code modelProviders and shown on the AI Models page.">
+                          <TextInput value={provider.qwenModelId || providerModel || "qwen3-coder-plus"} onChange={(value) => updateProviderInstance(providerConfigId, { qwenModelId: value })} mono />
+                        </Row>
                         <Row label="Base URL" description="OpenAI-compatible, Anthropic, Gemini, or local endpoint used by this model entry.">
                           <TextInput value={provider.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1"} onChange={(value) => updateProviderInstance(providerConfigId, { qwenBaseUrl: value })} mono />
                         </Row>
@@ -729,7 +742,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                     ) : null}
                     <Row label="Generated settings preview" description="Masked Qwen settings.json fragment produced for Docker runtime." last={index === providerEntries.length - 1}>
                       <pre className="max-h-72 min-w-[280px] overflow-auto rounded-[1rem] border border-black/[0.06] bg-black/[0.04] p-3 text-left font-mono text-[11px] leading-relaxed text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
-                        {buildQwenSettingsPreview(provider, providerModel)}
+                        {buildQwenSettingsPreview(provider, providerModel, dockerExecutionEnabled)}
                       </pre>
                     </Row>
                   </>

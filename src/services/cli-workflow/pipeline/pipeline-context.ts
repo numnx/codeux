@@ -1,4 +1,4 @@
-import type { CliWorkflowSettings, DashboardSettings, ProviderId, Subtask, ThinkingMode } from "../../../contracts/app-types.js";
+import type { CliWorkflowSettings, DashboardSettings, ProviderId, QwenModelProviderSettings, Subtask, ThinkingMode } from "../../../contracts/app-types.js";
 import type { IWorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
 import type { IPrService } from "../../../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../../../infrastructure/providers/cli/provider-runner.js";
@@ -36,7 +36,9 @@ export interface PipelineContext {
     qwenRegion?: "china" | "international";
     qwenBaseUrl?: string;
     qwenEnvKey?: string;
+    qwenModelId?: string;
     qwenProtocol?: "openai" | "anthropic" | "gemini";
+    qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;

@@ -129,6 +129,66 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("uses the configured Qwen custom model and rewrites local Docker endpoints", async () => {
+    const originalRewrite = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+    process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = "1";
+    try {
+      await runner.runProvider({
+        provider: "qwen-code",
+        prompt: "hello",
+        cwd: "/repo",
+        model: "custom/model",
+        apiKey: "sk-qwen-test",
+        qwenAuthMode: "MODEL_PROVIDER",
+        qwenModelId: "glm-4.7-flash",
+        qwenBaseUrl: "http://127.0.0.1:11434/v1",
+        qwenEnvKey: "OLLAMA_API_KEY",
+        qwenProtocol: "openai",
+        sessionId: "session-1",
+        workflowSettings: { executionMode: "DOCKER" } as any,
+        repoPath: "/repo",
+        mcpConnection: { url: "http://127.0.0.1:4445/mcp", authToken: null },
+        onActivity: vi.fn(),
+      });
+    } finally {
+      if (originalRewrite === undefined) {
+        delete process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+      } else {
+        process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = originalRewrite;
+      }
+    }
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "qwen",
+      args: ["--auth-type", "openai", "--yolo", "--model", "glm-4.7-flash", "-p", "hello"],
+      providerEnv: expect.objectContaining({
+        OLLAMA_API_KEY: "sk-qwen-test",
+        OPENAI_BASE_URL: "http://host.docker.internal:11434/v1",
+        CODE_UX_PROVIDER_ENV_KEYS: "OLLAMA_API_KEY",
+      }),
+    }));
+    const env = dockerRunner.runProviderInDocker.mock.calls[0][0].providerEnv;
+    expect(JSON.parse(env.QWEN_SETTINGS_CONTENT)).toMatchObject({
+      modelProviders: {
+        openai: [
+          {
+            id: "glm-4.7-flash",
+            baseUrl: "http://host.docker.internal:11434/v1",
+            envKey: "OLLAMA_API_KEY",
+          },
+        ],
+      },
+      model: {
+        name: "glm-4.7-flash",
+      },
+      mcpServers: {
+        code_ux: {
+          httpUrl: "http://host.docker.internal:4445/mcp",
+        },
+      },
+    });
+  });
+
   it("builds OpenCode run commands with generated config content", async () => {
     await runner.runProvider({
       provider: "opencode",

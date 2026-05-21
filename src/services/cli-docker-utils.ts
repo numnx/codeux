@@ -69,6 +69,12 @@ export const pickContainerEnv = (env: NodeJS.ProcessEnv): Array<{ key: string; v
     "HTTPS_PROXY",
     "NO_PROXY",
   ]);
+  for (const key of (env.CODE_UX_PROVIDER_ENV_KEYS || "").split(",")) {
+    const normalized = key.trim();
+    if (normalized) {
+      allowed.add(normalized);
+    }
+  }
   const result: Array<{ key: string; value: string }> = [];
   for (const [key, value] of Object.entries(env)) {
     if (!allowed.has(key) || typeof value !== "string" || value.length === 0) {

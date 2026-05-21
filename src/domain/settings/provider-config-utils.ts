@@ -89,6 +89,7 @@ export const buildDefaultIntegrationProviders = (
     qwenRegion: "international",
     qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     qwenEnvKey: "DASHSCOPE_API_KEY",
+    qwenModelId: "qwen3-coder-plus",
     qwenProtocol: "openai",
     qwenAdditionalModelProviders: [],
   },
@@ -188,6 +189,7 @@ export const normalizeSystemIntegrationProviders = (
         qwenEnvKey: typeof rawValue.qwenEnvKey === "string" && rawValue.qwenEnvKey.trim().length > 0
           ? rawValue.qwenEnvKey.trim()
           : "DASHSCOPE_API_KEY",
+        qwenModelId: normalizeNonEmptyString(rawValue.qwenModelId, "qwen3-coder-plus"),
         qwenProtocol: normalizeQwenProtocol(rawValue.qwenProtocol),
         qwenAdditionalModelProviders: Array.isArray(rawValue.qwenAdditionalModelProviders)
           ? rawValue.qwenAdditionalModelProviders
@@ -329,7 +331,9 @@ export const buildDashboardProviderSettings = (
             qwenRegion: integrationProviders[providerConfigId]?.qwenRegion,
             qwenBaseUrl: integrationProviders[providerConfigId]?.qwenBaseUrl,
             qwenEnvKey: integrationProviders[providerConfigId]?.qwenEnvKey,
+            qwenModelId: integrationProviders[providerConfigId]?.qwenModelId,
             qwenProtocol: integrationProviders[providerConfigId]?.qwenProtocol,
+            qwenAdditionalModelProviders: integrationProviders[providerConfigId]?.qwenAdditionalModelProviders,
           } : {}),
           ...(providerId === "opencode" ? {
             openCodeAuthMode: integrationProviders[providerConfigId]?.openCodeAuthMode,

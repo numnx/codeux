@@ -46,8 +46,10 @@ gpt-5-codex, gpt-5-codex-mini, gpt-5
 ```
 qwen3-coder-plus, qwen3.5-plus, qwen3-coder-next,
 qwen3-max, qwen3-max-2026-01-23,
-qwen-plus, qwen-max, local-model
+qwen-plus, qwen-max
 ```
+
+Qwen custom-endpoint instances define their model id in Settings -> Providers. Code UX adds that configured model to the AI Models selector and writes it into Qwen Code `modelProviders` at runtime. For local OpenAI-compatible endpoints such as Ollama, use a base URL such as `http://127.0.0.1:11434/v1`; in Docker mode on Docker Desktop, WSL, macOS, or Windows, Code UX rewrites that loopback URL to `host.docker.internal` inside the container.
 
 ### OpenCode
 ```

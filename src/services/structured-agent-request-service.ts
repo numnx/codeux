@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DashboardSettings, ProviderId, VirtualWorkerProvider } from "../contracts/app-types.js";
+import type { DashboardSettings, ProviderId, QwenModelProviderSettings, VirtualWorkerProvider } from "../contracts/app-types.js";
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
@@ -20,7 +20,9 @@ export interface StructuredRequestArgs<T> {
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
   qwenEnvKey?: string;
+  qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
+  qwenAdditionalModelProviders?: QwenModelProviderSettings[];
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -123,7 +125,9 @@ export class StructuredAgentRequestService {
       qwenRegion: args.qwenRegion,
       qwenBaseUrl: args.qwenBaseUrl,
       qwenEnvKey: args.qwenEnvKey,
+      qwenModelId: args.qwenModelId,
       qwenProtocol: args.qwenProtocol,
+      qwenAdditionalModelProviders: args.qwenAdditionalModelProviders,
         openCodeAuthMode: args.openCodeAuthMode,
         openCodeProviderId: args.openCodeProviderId,
         openCodeModelId: args.openCodeModelId,

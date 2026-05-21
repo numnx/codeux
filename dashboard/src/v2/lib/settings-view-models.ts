@@ -327,6 +327,7 @@ export const createSystemProviderDraft = (
     qwenRegion: "international" as const,
     qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     qwenEnvKey: "DASHSCOPE_API_KEY",
+    qwenModelId: "qwen3-coder-plus",
     qwenProtocol: "openai" as const,
     qwenAdditionalModelProviders: [],
   } : {}),
@@ -424,7 +425,6 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "qwen3-max-2026-01-23",
     "qwen-plus",
     "qwen-max",
-    "local-model",
   ],
   opencode: [
     "anthropic/claude-sonnet-4-5",
@@ -522,6 +522,7 @@ const getSystemIntegrationProviders = (
         qwenRegion: "international" as const,
         qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
         qwenEnvKey: "DASHSCOPE_API_KEY",
+        qwenModelId: "qwen3-coder-plus",
         qwenProtocol: "openai" as const,
         qwenAdditionalModelProviders: [],
       } : {}),
@@ -712,6 +713,19 @@ export const getOpenCodeConfiguredModel = (
   return `${providerId}/${modelId}`;
 };
 
+export const getQwenConfiguredModel = (
+  provider: Pick<SystemProviderCredentialSettings, "qwenAuthMode" | "qwenModelId"> | null | undefined,
+  fallbackModel = "qwen3-coder-plus",
+): string | null => {
+  if (provider?.qwenAuthMode !== "MODEL_PROVIDER") {
+    return null;
+  }
+  const fallback = fallbackModel === "custom/model" || fallbackModel === "local-model"
+    ? "qwen3-coder-plus"
+    : fallbackModel;
+  return (provider.qwenModelId || fallback || "qwen3-coder-plus").trim();
+};
+
 export const getProviderInstanceModelOptions = (
   providerConfigId: ProviderConfigId,
   provider: Pick<ProjectProviderSettings, "provider" | "model">,
@@ -722,8 +736,12 @@ export const getProviderInstanceModelOptions = (
   const configuredOpenCodeModel = provider.provider === "opencode"
     ? getOpenCodeConfiguredModel(systemProvider, provider.model)
     : null;
+  const configuredQwenModel = provider.provider === "qwen-code"
+    ? getQwenConfiguredModel(systemProvider, provider.model)
+    : null;
   const selectedModels = [
     configuredOpenCodeModel,
+    configuredQwenModel,
     provider.model,
   ].filter((value): value is string => Boolean(value && value.trim().length > 0));
 
@@ -735,7 +753,9 @@ export const getProviderInstanceModelOptions = (
     if (!optionsByValue.has(selectedModel)) {
       optionsByValue.set(selectedModel, {
         value: selectedModel,
-        label: configuredOpenCodeModel === selectedModel ? `${selectedModel} (configured)` : selectedModel,
+        label: configuredOpenCodeModel === selectedModel || configuredQwenModel === selectedModel
+          ? `${selectedModel} (configured)`
+          : selectedModel,
       });
     }
   }
