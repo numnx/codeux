@@ -12,6 +12,7 @@ import { type RefObject } from "preact";
 import { useChatThreadData, isWorkingMessage } from "./use-chat-thread-data.js";
 import { useInvocationPaneData } from "./use-invocation-pane-data.js";
 import { useChatPageResources } from "./use-chat-page-resources.js";
+import type { AgentPresetRecord } from "../types.js";
 
 export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextAreaElement>; messagesRef?: RefObject<HTMLDivElement> }) => {
   const cache = useMessageCache();
@@ -30,12 +31,15 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     messagesRef: options?.messagesRef,
   });
 
+  const [deferredAgentPresets, setDeferredAgentPresets] = useState<AgentPresetRecord[]>([]);
+
   const invocationData = useInvocationPaneData({
     selectedProject,
     cache,
+    agentPresets: deferredAgentPresets,
   });
 
-  const { connections, loading, manualRefreshing, refreshThreads } = useChatPageResources({
+  const { connections, agentPresets, loading, manualRefreshing, refreshThreads } = useChatPageResources({
     selectedProject,
     cache,
     chatMode,
@@ -44,6 +48,10 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
   });
 
   const connectionIndex = useMemo(() => buildConnectionIndex(connections), [connections]);
+
+  useEffect(() => {
+    setDeferredAgentPresets(agentPresets);
+  }, [agentPresets]);
 
   useEffect(() => {
     if (!options?.messagesRef?.current) return;
@@ -102,6 +110,7 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     error: threadData.error || invocationData.error,
     selectedThread: threadData.selectedThread,
     selectedInvocation: invocationData.selectedInvocation,
+    selectedAgentPreset: invocationData.selectedAgentPreset,
     activeConnection,
     pendingDashboardMessages,
     hasWorkingReply,

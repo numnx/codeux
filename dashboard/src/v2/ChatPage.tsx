@@ -13,6 +13,9 @@ import { ChatRailPlaceholder, EmptyChat, LoadingChat } from "./components/chat/C
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
+import { InvocationRoutingWidget } from "./components/chat/widgets/InvocationRoutingWidget.js";
+import { InvocationContainerWidget } from "./components/chat/widgets/InvocationContainerWidget.js";
+import { TruncatedSystemBubble } from "./components/chat/TruncatedSystemBubble.js";
 import { WorkingBubble } from "./components/chat/WorkingBubble.js";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog.js";
 import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
@@ -57,6 +60,7 @@ export const ChatPage: FunctionComponent = () => {
     error,
     selectedThread,
     selectedInvocation,
+    selectedAgentPreset,
     activeConnection,
     pendingDashboardMessages,
     hasWorkingReply,
@@ -292,15 +296,50 @@ export const ChatPage: FunctionComponent = () => {
             />
           ) : invocationMessagesLoading ? (
             <LoadingChat label="Loading messages" />
-          ) : invocationMessages.length === 0 ? (
-            <EmptyChat
-              tone="invocations"
-              title="Transcript Is Empty"
-              message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
-            />
           ) : (
             <>
-              {invocationMessages.map((message) => <InvocationMessageBubble key={message.id} message={message} />)}
+              <InvocationRoutingWidget
+                provider={selectedInvocation.provider}
+                model={selectedInvocation.model}
+                routingStatus={
+                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                    ? "routing"
+                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                      ? "active"
+                      : "done"
+                }
+              />
+              <InvocationContainerWidget
+                providerName={selectedInvocation.provider}
+                agentName={selectedAgentPreset?.name ?? null}
+                containerPhase={
+                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                    ? "starting"
+                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                      ? "working"
+                      : selectedInvocation.status === "failed" ? "failed" : "completed"
+                }
+              />
+              {invocationMessages.length === 0 ? (
+                <EmptyChat
+                  tone="invocations"
+                  title="Transcript Is Empty"
+                  message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
+                />
+              ) : (
+                invocationMessages.map((message) => {
+                  if (message.role === "system") {
+                    return <TruncatedSystemBubble key={message.id} content={message.contentMarkdown || ""} />;
+                  }
+                  return (
+                    <InvocationMessageBubble
+                      key={message.id}
+                      message={message}
+                      agentAvatarConfig={message.role === "assistant" ? (selectedAgentPreset?.avatarConfig ?? null) : null}
+                    />
+                  );
+                })
+              )}
             </>
           )}
         </div>
