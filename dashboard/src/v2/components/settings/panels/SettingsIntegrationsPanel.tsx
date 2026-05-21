@@ -12,6 +12,7 @@ import {
   countConnectedProviders,
   createProjectProviderDraft,
   createSystemProviderDraft,
+  getOpenCodeConfiguredModel,
   getProviderAuthLabel,
   getProviderTypeLabel,
   getSystemProvidersByType,
@@ -185,16 +186,26 @@ const syncProjectProvidersToIntegrationCatalog = (
   nextIntegrationProviders: SystemSettings["integrations"]["providers"],
 ): ProjectSettings => {
   const nextProjectProviders = Object.fromEntries(
-    Object.entries(nextIntegrationProviders).map(([providerConfigId, provider]) => [
-      providerConfigId,
-      settings.defaults.aiProvider.providers[providerConfigId]
-        ? {
-          ...settings.defaults.aiProvider.providers[providerConfigId],
-          provider: provider.provider,
-          name: provider.name,
-        }
-        : createProjectProviderDraft(provider.provider, provider.name),
-    ]),
+    Object.entries(nextIntegrationProviders).map(([providerConfigId, provider]) => {
+      const existingProvider = settings.defaults.aiProvider.providers[providerConfigId];
+      const configuredOpenCodeModel = provider.provider === "opencode"
+        ? getOpenCodeConfiguredModel(provider, existingProvider?.model)
+        : null;
+      return [
+        providerConfigId,
+        existingProvider
+          ? {
+            ...existingProvider,
+            provider: provider.provider,
+            name: provider.name,
+            ...(configuredOpenCodeModel ? { model: configuredOpenCodeModel } : {}),
+          }
+          : {
+            ...createProjectProviderDraft(provider.provider, provider.name),
+            ...(configuredOpenCodeModel ? { model: configuredOpenCodeModel } : {}),
+          },
+      ];
+    }),
   );
 
   const nextInvocationRouting = Object.fromEntries(

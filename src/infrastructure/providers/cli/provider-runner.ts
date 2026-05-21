@@ -199,11 +199,12 @@ export class ProviderRunner implements IProviderRunner {
     mcpConnection?: McpConnectionInfo | null;
   }): Promise<ProviderRunResult> {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
-    const providerEnv = this.withProviderEnv(provider, model, apiKey, workflowSettings, githubToken, providerMountAuth, input);
+    const runModel = this.resolveRunModel(provider, model, input);
+    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input);
     const nativeSessionId = input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const continueSession = !!input.continueSessionId;
-    const spec = this.buildCommandSpec(provider, model, prompt, input.codexOutputPath, nativeSessionId, continueSession, !!input.mcpConnection, input.qwenAuthMode, input.qwenProtocol);
+    const spec = this.buildCommandSpec(provider, runModel, prompt, input.codexOutputPath, nativeSessionId, continueSession, !!input.mcpConnection, input.qwenAuthMode, input.qwenProtocol);
     const { command, args } = spec;
 
     const localMcpCleanup: Array<{ path: string; originalContent: string | null }> = [];
@@ -261,7 +262,7 @@ export class ProviderRunner implements IProviderRunner {
         : null;
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
-        model,
+        model: runModel,
         prompt,
         cwd,
         stdout: result.stdout,
@@ -287,6 +288,19 @@ export class ProviderRunner implements IProviderRunner {
         await fs.rm(cleanupPath, { force: true }).catch(() => undefined);
       }
     }
+  }
+
+  private resolveRunModel(
+    provider: CliProviderId,
+    model: string,
+    config: Pick<ProviderRunInput, "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId">,
+  ): string {
+    if (provider !== "opencode" || config.openCodeAuthMode !== "CUSTOM_PROVIDER") {
+      return model;
+    }
+    const providerId = (config.openCodeProviderId || model.split("/")[0] || "custom").trim();
+    const modelId = (config.openCodeModelId || model.split("/").slice(1).join("/") || "model").trim();
+    return `${providerId}/${modelId}`;
   }
 
   private async writeLocalOpenCodeConfig(

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getProviderModelOptions,
+  getProviderInstanceModelOptions,
+  getOpenCodeConfiguredModel,
   getFieldSource,
   getFieldSourceLabel,
   providerSupportsModelSelection,
@@ -70,6 +72,39 @@ describe("settings view model source helpers", () => {
       { value: "flash", label: "flash (recent)" },
       { value: "flash-lite", label: "flash-lite (recent)" },
       { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+    ]));
+  });
+
+  it("adds configured OpenCode custom endpoint models to instance model options", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "opencode-ollama": {
+            provider: "opencode",
+            name: "Ollama",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "~/.local/share/opencode",
+            openCodeAuthMode: "CUSTOM_PROVIDER",
+            openCodeProviderId: "ollama",
+            openCodeModelId: "glm-4.7-flash",
+            openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+            openCodeEnvKey: "ANTHROPIC_API_KEY",
+            openCodePackage: "@ai-sdk/openai-compatible",
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getOpenCodeConfiguredModel(systemSettings.integrations.providers["opencode-ollama"], "custom/model")).toBe("ollama/glm-4.7-flash");
+    expect(getProviderModelOptions("opencode").some((option) => option.value === "custom/model")).toBe(false);
+    expect(getProviderInstanceModelOptions(
+      "opencode-ollama",
+      { provider: "opencode", model: "custom/model" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "ollama/glm-4.7-flash", label: "ollama/glm-4.7-flash (configured)" },
+      { value: "custom/model", label: "custom/model" },
     ]));
   });
 });

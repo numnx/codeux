@@ -158,6 +158,32 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("uses the configured OpenCode custom provider model instead of a stale placeholder", async () => {
+    await runner.runProvider({
+      provider: "opencode",
+      prompt: "hello",
+      cwd: "/repo",
+      model: "custom/model",
+      apiKey: "sk-open-test",
+      openCodeAuthMode: "CUSTOM_PROVIDER",
+      openCodeProviderId: "ollama",
+      openCodeModelId: "glm-4.7-flash",
+      openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "opencode",
+      args: ["run", "--model", "ollama/glm-4.7-flash", "hello"],
+      providerEnv: expect.objectContaining({
+        OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"model\":\"ollama/glm-4.7-flash\""),
+      }),
+    }));
+  });
+
   it("materializes generated OpenCode config for host execution", async () => {
     const repoPath = await fs.mkdtemp(path.join(os.tmpdir(), "provider-runner-"));
     let configPath = "";

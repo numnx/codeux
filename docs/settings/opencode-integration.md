@@ -104,4 +104,4 @@ The v2 Integrations page exposes OpenCode-specific setup panels:
 - custom OpenAI-compatible endpoint setup with provider id, model id, package, base URL, and environment-key import hint
 - masked generated config preview
 
-Provider routing remains instance-based: multiple OpenCode instances can coexist, each with its own auth mode, API key, mount path, custom endpoint, model, weight, and route overrides.
+Provider routing remains instance-based: multiple OpenCode instances can coexist, each with its own auth mode, API key, mount path, custom endpoint, model, weight, and route overrides. Custom endpoint instances appear on the AI Models page with their generated `provider/model` selector, such as `ollama/glm-4.7-flash`, instead of the placeholder `custom/model`.

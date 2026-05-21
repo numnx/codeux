@@ -434,7 +434,6 @@ export const AI_MODEL_CATALOG: Record<string, string[]> = {
     "openai/gpt-5-mini",
     "github-copilot/gpt-5",
     "openrouter/anthropic/claude-sonnet-4.5",
-    "custom/model",
   ],
 };
 
@@ -698,6 +697,49 @@ export const getProviderModelOptions = (
     value: model,
     label: labelOverrides[model] || model,
   }));
+};
+
+export const getOpenCodeConfiguredModel = (
+  provider: Pick<SystemProviderCredentialSettings, "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId"> | null | undefined,
+  fallbackModel = "anthropic/claude-sonnet-4-5",
+): string | null => {
+  if (provider?.openCodeAuthMode !== "CUSTOM_PROVIDER") {
+    return null;
+  }
+  const [fallbackProviderId, ...fallbackModelParts] = fallbackModel.split("/");
+  const providerId = (provider.openCodeProviderId || fallbackProviderId || "custom").trim();
+  const modelId = (provider.openCodeModelId || fallbackModelParts.join("/") || "model").trim();
+  return `${providerId}/${modelId}`;
+};
+
+export const getProviderInstanceModelOptions = (
+  providerConfigId: ProviderConfigId,
+  provider: Pick<ProjectProviderSettings, "provider" | "model">,
+  systemSettings: SystemSettings | null,
+): Array<{ value: string; label: string }> => {
+  const baseOptions = getProviderModelOptions(provider.provider);
+  const systemProvider = getSystemIntegrationProviders(systemSettings)[providerConfigId];
+  const configuredOpenCodeModel = provider.provider === "opencode"
+    ? getOpenCodeConfiguredModel(systemProvider, provider.model)
+    : null;
+  const selectedModels = [
+    configuredOpenCodeModel,
+    provider.model,
+  ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+  const optionsByValue = new Map<string, { value: string; label: string }>();
+  for (const option of baseOptions) {
+    optionsByValue.set(option.value, option);
+  }
+  for (const selectedModel of selectedModels) {
+    if (!optionsByValue.has(selectedModel)) {
+      optionsByValue.set(selectedModel, {
+        value: selectedModel,
+        label: configuredOpenCodeModel === selectedModel ? `${selectedModel} (configured)` : selectedModel,
+      });
+    }
+  }
+  return [...optionsByValue.values()];
 };
 
 export const PROVIDER_CARD_TOKENS: Record<ProviderId, {

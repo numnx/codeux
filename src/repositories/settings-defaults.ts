@@ -135,7 +135,6 @@ export const OPENCODE_MODELS: string[] = [
   "openai/gpt-5-mini",
   "github-copilot/gpt-5",
   "openrouter/anthropic/claude-sonnet-4.5",
-  "custom/model",
 ];
 
 export const AI_MODEL_CATALOG: Record<string, string[]> = {
