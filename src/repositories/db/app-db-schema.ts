@@ -357,6 +357,8 @@ CREATE TABLE IF NOT EXISTS agent_presets (
         source_updated_at TEXT,
         source_imported_at TEXT,
         avatar_config_json TEXT,
+        provider_config_id TEXT,
+        model TEXT,
         memory_template_override_enabled INTEGER NOT NULL DEFAULT 0,
         memory_template_markdown TEXT,
         created_at TEXT NOT NULL,
@@ -474,6 +476,7 @@ CREATE TABLE IF NOT EXISTS execution_invocations (
         message_count INTEGER NOT NULL DEFAULT 0,
         last_message_at TEXT,
         invocation_source TEXT NOT NULL DEFAULT 'internal',
+        agent_preset_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -483,7 +486,8 @@ CREATE TABLE IF NOT EXISTS execution_invocations (
         FOREIGN KEY (dispatch_id) REFERENCES task_dispatches(id) ON DELETE CASCADE,
         FOREIGN KEY (task_run_id) REFERENCES task_runs(id) ON DELETE CASCADE,
         FOREIGN KEY (attention_item_id) REFERENCES project_attention_items(id) ON DELETE CASCADE,
-        FOREIGN KEY (provider_invocation_id) REFERENCES provider_invocations(id) ON DELETE SET NULL
+        FOREIGN KEY (provider_invocation_id) REFERENCES provider_invocations(id) ON DELETE SET NULL,
+        FOREIGN KEY (agent_preset_id) REFERENCES agent_presets(id) ON DELETE SET NULL
       );
 
 CREATE TABLE IF NOT EXISTS execution_invocation_messages (

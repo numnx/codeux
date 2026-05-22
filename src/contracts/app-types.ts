@@ -40,6 +40,24 @@ export interface ActivitySummary {
   [key: string]: unknown;
 }
 
+export interface JulesActivityArtifact {
+  changeSet?: {
+    source?: string;
+    gitPatch?: {
+      unidiffPatch?: string;
+      baseCommitId?: string;
+      suggestedCommitMessage?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  media?: {
+    data?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export interface JulesActivity {
   name: string;
   id: string;
@@ -53,6 +71,7 @@ export interface JulesActivity {
   sessionFailed?: { reason?: string };
   sessionCompleted?: unknown;
   description?: string;
+  artifacts?: JulesActivityArtifact[];
   [key: string]: unknown;
 }
 
@@ -60,7 +79,7 @@ export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLE
 export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY" | "QA_PENDING";
 export type ProviderId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
 export type ProviderConfigId = string;
-export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "ORCHESTRATOR";
+export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "AGENT";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
 export type InvocationRoutingProfile = "GLOBAL" | "WORKER";
 export type InvocationRoutingId =
@@ -356,6 +375,7 @@ export interface ExecutionGitMetrics {
   filesChanged: number;
   prCount: number;
   mergedCount: number;
+  mergeConflictCount: number;
 }
 
 export interface ExecutionGitStatsEntitySummary {
@@ -437,6 +457,7 @@ export interface ProjectExecutionStatsSnapshot {
   generatedAt: string;
   usage: ExecutionUsageTotals;
   git: ExecutionGitStatsSummary;
+  mergeConflictCount?: number;
   activeSprint: {
     sprintId: string;
     sprintName: string;

@@ -4,6 +4,7 @@ import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { Activity } from "lucide-preact";
 import { ChatRuntimeBadge } from "./ChatRuntimeBadge.js";
+import { ProviderLogo } from "../ui/ProviderLogo.js";
 
 const formatErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
   switch (value) {
@@ -68,7 +69,8 @@ export const InvocationListCard: FunctionComponent<{
                     </div>
                   )}
                 </div>
-                <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 capitalize">
+                <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 capitalize flex items-center gap-1.5">
+                  <ProviderLogo provider={invocation.provider || ""} size={14} />
                   {invocation.provider} {invocation.model && `· ${invocation.model}`}
                 </div>
               </div>

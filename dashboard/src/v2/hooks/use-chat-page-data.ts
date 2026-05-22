@@ -6,13 +6,13 @@ import {
   isListLoading,
 } from "../lib/chat-page-state-utils.js";
 import { useExecutions } from "../../hooks/useExecutions.js";
-import { getProjectWorkerOptions, type WorkerRoutingPreference } from "../lib/project-worker-options.js";
 import { buildConnectionIndex } from "../lib/chat-entity-index.js";
 import { useProjectEffectiveSettings } from "./use-project-effective-settings.js";
 import { type RefObject } from "preact";
 import { useChatThreadData, isWorkingMessage } from "./use-chat-thread-data.js";
 import { useInvocationPaneData } from "./use-invocation-pane-data.js";
 import { useChatPageResources } from "./use-chat-page-resources.js";
+import type { AgentPresetRecord } from "../types.js";
 
 export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextAreaElement>; messagesRef?: RefObject<HTMLDivElement> }) => {
   const cache = useMessageCache();
@@ -21,30 +21,25 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
   const { data: execution, loading: executionLoading } = useExecutions(selectedProject?.id || null);
   const { data: effectiveSettings, loading: effectiveSettingsLoading } = useProjectEffectiveSettings(selectedProject?.id || null);
 
-  const workerRouting: WorkerRoutingPreference | null = effectiveSettings ? {
-    executionMode: effectiveSettings.settings.workers.executionMode,
-    virtualWorkerProvider: effectiveSettings.settings.workers.virtualWorkerProvider,
-  } : null;
-
-  const { options: workerOptions } = getProjectWorkerOptions(execution, workerRouting, executionLoading);
-
   const [chatMode, setChatMode] = useState<"threads" | "invocations">("threads");
 
   const threadData = useChatThreadData({
     selectedProject,
     cache,
     execution,
-    workerRouting,
     composerRef: options?.composerRef,
     messagesRef: options?.messagesRef,
   });
 
+  const [deferredAgentPresets, setDeferredAgentPresets] = useState<AgentPresetRecord[]>([]);
+
   const invocationData = useInvocationPaneData({
     selectedProject,
     cache,
+    agentPresets: deferredAgentPresets,
   });
 
-  const { connections, loading, manualRefreshing, refreshThreads } = useChatPageResources({
+  const { connections, agentPresets, loading, manualRefreshing, refreshThreads } = useChatPageResources({
     selectedProject,
     cache,
     chatMode,
@@ -53,6 +48,10 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
   });
 
   const connectionIndex = useMemo(() => buildConnectionIndex(connections), [connections]);
+
+  useEffect(() => {
+    setDeferredAgentPresets(agentPresets);
+  }, [agentPresets]);
 
   useEffect(() => {
     if (!options?.messagesRef?.current) return;
@@ -107,11 +106,11 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     manualRefreshing,
     deletingThreadId: threadData.deletingThreadId,
     sending: threadData.sending,
-    assigningRoute: threadData.assigningRoute,
     compacting: threadData.compacting,
     error: threadData.error || invocationData.error,
     selectedThread: threadData.selectedThread,
     selectedInvocation: invocationData.selectedInvocation,
+    selectedAgentPreset: invocationData.selectedAgentPreset,
     activeConnection,
     pendingDashboardMessages,
     hasWorkingReply,
@@ -124,12 +123,10 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     refreshInvocationMessages: invocationData.refreshInvocationMessages,
     activateThread: threadData.activateThread,
     activateInvocation: invocationData.activateInvocation,
-    handleAssignRoute: threadData.handleAssignRoute,
     handleCompactThread: threadData.handleCompactThread,
     handleSend: threadData.handleSend,
     handleDeleteThread: threadData.handleDeleteThread,
     createThreadForCompose: threadData.createThreadForCompose,
-    workerOptions,
     threadIndex: threadData.threadIndex,
     invocationIndex: invocationData.invocationIndex,
     selectedProject,

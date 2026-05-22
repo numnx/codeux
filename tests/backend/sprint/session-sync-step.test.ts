@@ -50,7 +50,7 @@ describe("runSessionSyncStep", () => {
       executorType: "jules",
       status: "running",
       startedAt: "2026-03-09T10:00:00.000Z",
-    });
+    } as any);
     const run = executionRepository.createTaskRun({
       projectId: project.id,
       sprintId: sprint.id,
@@ -119,7 +119,7 @@ describe("runSessionSyncStep", () => {
               outputTokens: 3,
               totalTokens: 10,
               usageSource: "estimated",
-            });
+            } as any);
           }
           executionRepository.updateProviderInvocationUsage(record.id, {
             status: "completed",
@@ -602,7 +602,7 @@ describe("runSessionSyncStep", () => {
       status: "completed",
       startedAt: "2026-03-09T10:00:00.000Z",
       finishedAt: "2026-03-09T10:05:00.000Z",
-    });
+    } as any);
     const run = executionRepository.createTaskRun({
       projectId: project.id,
       sprintId: sprint.id,
@@ -833,7 +833,7 @@ describe("runSessionSyncStep", () => {
       status: "quota",
       startedAt: "2026-03-09T10:00:00.000Z",
       finishedAt: "2026-03-09T10:02:00.000Z",
-    });
+    } as any);
     executionRepository.createTaskRun({
       projectId: project.id,
       sprintId: sprint.id,
@@ -987,5 +987,59 @@ describe("runSessionSyncStep", () => {
     );
 
     expect(result.subtasks[0]?.status).toBe("FAILED");
+  });
+
+  it("does not fetch recent activities for fully synchronized terminal sessions", async () => {
+    const subtasks: Subtask[] = [
+      {
+        id: "task-terminal",
+        record_id: "task-terminal-record",
+        project_id: "project-1",
+        title: "Terminal task",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+      },
+    ];
+
+    const fetchRecentActivities = vi.fn().mockResolvedValue([]);
+    const getLatestTaskRun = vi.fn().mockReturnValue({ state: "COMPLETED" });
+
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "terminal-session",
+            name: "sessions/terminal-session",
+            title: "Sprint 1: [run:my-repo/s1/task-terminal] [task-terminal] Terminal task",
+            state: "COMPLETED",
+          },
+        ],
+      }),
+      resolveSessionName: (session: { name?: string }) => session.name,
+      extractSessionId: (session: { id?: string }) => session.id,
+      fetchRecentActivities,
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      executionRepository: {
+        getLatestTaskRun,
+        updateTaskRun: vi.fn(),
+        getTaskDispatch: vi.fn(),
+        updateTaskDispatch: vi.fn(),
+        appendTaskRunEvent: vi.fn(),
+      },
+      sprintRunId: "sprint-run-123",
+      logger: { warn: vi.fn() },
+    };
+
+    await runSessionSyncStep(
+      subtasks,
+      deps as any,
+      false,
+      { repoPath: "/tmp/my-repo", sprintNumber: 1 }
+    );
+
+    expect(getLatestTaskRun).toHaveBeenCalledWith("task-terminal-record", "sprint-run-123");
+    expect(fetchRecentActivities).not.toHaveBeenCalled();
   });
 });

@@ -263,6 +263,12 @@ export class ExecutionRepository {
         }
       }
 
+      let taskAgentPresetId: string | null = null;
+      if (input.taskId) {
+        const taskRow = this.db.prepare(`SELECT agent_preset_id FROM tasks WHERE id = ?`).get(input.taskId) as { agent_preset_id: string | null } | undefined;
+        taskAgentPresetId = taskRow?.agent_preset_id || null;
+      }
+
       const id = `xi_${randomUUID().replace(/-/g, "")}`;
       const now = new Date().toISOString();
       const startedAt = input.startedAt || now;
@@ -289,6 +295,7 @@ export class ExecutionRepository {
         lastErrorMessage: input.lastErrorMessage || null,
         lastRetryAfterIso: input.lastRetryAfterIso || null,
         invocationSource: input.invocationSource || "internal",
+        agentPresetId: taskAgentPresetId,
         messageCount: 0,
         lastMessageAt: null,
         createdAt: now,
@@ -299,10 +306,10 @@ export class ExecutionRepository {
         INSERT INTO execution_invocations (
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
           type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
-          last_error_category, last_error_message, last_retry_after_iso, invocation_source,
+          last_error_category, last_error_message, last_retry_after_iso, invocation_source, agent_preset_id,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -329,6 +336,7 @@ export class ExecutionRepository {
           record.lastErrorMessage,
           record.lastRetryAfterIso,
           record.invocationSource || "internal",
+          record.agentPresetId,
           record.createdAt,
           record.updatedAt
       );
@@ -441,6 +449,35 @@ export class ExecutionRepository {
   listExecutionInvocationMessages(invocationId: string): ExecutionInvocationMessageRecord[] {
     return queryExecutionInvocationMessages(this.db, invocationId);
   }
+
+  clearExecutionInvocationMessages(invocationId: string): void {
+    try {
+      const invocation = this.getExecutionInvocation(invocationId);
+      if (!invocation) {
+        throw new EntityNotFoundError(`Execution invocation not found: ${invocationId}`);
+      }
+
+      this.db.prepare(`
+        DELETE FROM execution_invocation_messages
+        WHERE invocation_id = ?
+      `).run(invocationId);
+
+      this.db.prepare(`
+        UPDATE execution_invocations
+        SET message_count = 0,
+            last_message_at = null,
+            updated_at = ?
+        WHERE id = ?
+      `).run(new Date().toISOString(), invocationId);
+
+      this.notifyRealtime(invocation.projectId, false);
+    } catch (error) {
+      if (error instanceof RepositoryError) throw error;
+      this.logger.error("Operation failed", { error, invocationId });
+      throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
+    }
+  }
+
 
   appendExecutionInvocationMessage(invocationId: string, input: AppendExecutionInvocationMessageInput): ExecutionInvocationMessageRecord {
     try {
@@ -1023,6 +1060,27 @@ export class ExecutionRepository {
     `).get(normalizedSessionId) as TaskRunRow | undefined;
     return row ? this.mapTaskRunRow(row) : null;
   }
+
+  isSessionTerminal(sessionName: string): boolean {
+    const normalized = sessionName.trim();
+    if (!normalized) {
+      return false;
+    }
+    const rawId = normalized.replace(/^sessions\//, "");
+    const prefixedName = `sessions/${rawId}`;
+
+    const row = this.db.prepare(`
+      SELECT state
+      FROM task_runs
+      WHERE session_name = ? OR session_id = ?
+         OR session_name = ? OR session_id = ?
+      ORDER BY rowid DESC
+      LIMIT 1
+    `).get(normalized, normalized, prefixedName, rawId) as { state: string } | undefined;
+    return row ? (row.state === "COMPLETED" || row.state === "FAILED") : false;
+  }
+
+
 
   getTaskDispatch(dispatchId: string): TaskDispatchRecord | null {
     const row = this.db.prepare(`

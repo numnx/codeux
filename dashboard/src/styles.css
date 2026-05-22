@@ -611,6 +611,12 @@ html.has-bg-image {
   66% { transform: translate(-8px, 6px) scale(0.95); opacity: 0.5; }
 }
 
+  /* Container glow */
+  @keyframes container-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
+  }
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
@@ -692,5 +698,24 @@ html.has-bg-pattern::before {
   .cux-trigger:hover .cux-pulse-on-hover,
   .cux-trigger:hover .cux-glint-on-hover {
     animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes skeleton-card-in {
+    from { opacity: 0; transform: scale(0.98) translateY(6px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0);   }
+  }
+  @keyframes skeleton-panel-in {
+    from { opacity: 0; transform: scale(0.97) translateY(8px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0);   }
+  }
+
+  .skeleton-card-entry  { animation: skeleton-card-in  0.35s cubic-bezier(0.16,1,0.3,1) both; }
+  .skeleton-panel-entry { animation: skeleton-panel-in 0.45s cubic-bezier(0.16,1,0.3,1) both; }
+
+  @keyframes icon-pop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
   }
 }

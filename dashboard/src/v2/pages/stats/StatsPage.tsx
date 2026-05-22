@@ -2,19 +2,11 @@ import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { useProjectData } from "../../context/project-data.js";
-import {
-  formatTokens,
-  formatDuration,
-  createSeries,
-} from "./stats-utils.js";
 import { useStatsPageData } from "./use-stats-page-data.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { StatsPageHero } from "./components/StatsPageHero.js";
 import { AnalysisStudioSection } from "./components/AnalysisStudioSection.js";
-import { StatsMetricCard } from "../../components/stats/StatsMetricCard.js";
 import { TopCardsModeRenderer } from "../../components/stats/TopCardsModeRenderer.js";
-import { STATS_COLORS } from "../../lib/stats/color-tokens.js";
-import { buildMetricSeries } from "../../lib/stats/series-builders.js";
 import { Button } from "../../components/ui/Button.js";
 import { PageContainer } from "../../components/layout/PageContainer.js";
 import styles from "./StatsPage.module.css";
@@ -79,6 +71,8 @@ export const StatsPage: FunctionComponent = () => {
         setCustomFrom={setCustomFrom}
         setCustomTo={setCustomTo}
         applyCustomRange={applyCustomRange}
+        visualMode={visualMode}
+        setVisualMode={setVisualMode}
       />
 
       {!selectedProject ? (
@@ -98,7 +92,6 @@ export const StatsPage: FunctionComponent = () => {
         </div>
       ) : stats ? (
         <>
-
           <TopCardsModeRenderer
             mode={visualMode}
             stats={stats}

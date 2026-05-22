@@ -87,6 +87,8 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureColumn(db, "agent_presets", "source_updated_at", "TEXT");
   ensureColumn(db, "agent_presets", "source_imported_at", "TEXT");
   ensureColumn(db, "agent_presets", "avatar_config_json", "TEXT");
+  ensureColumn(db, "agent_presets", "provider_config_id", "TEXT");
+  ensureColumn(db, "agent_presets", "model", "TEXT");
   ensureColumn(db, "agent_presets", "memory_template_override_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "agent_presets", "memory_template_markdown", "TEXT");
 
@@ -102,6 +104,7 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureColumn(db, "execution_invocations", "last_error_message", "TEXT");
   ensureColumn(db, "execution_invocations", "last_retry_after_iso", "TEXT");
   ensureColumn(db, "execution_invocations", "invocation_source", "TEXT NOT NULL DEFAULT 'internal'");
+  ensureColumn(db, "execution_invocations", "agent_preset_id", "TEXT");
 
   ensureUniqueIndex(db, "idx_tasks_sprint_key", "tasks", "sprint_id, task_key");
   ensureUniqueIndex(db, "idx_sprint_linked_issues_unique", "sprint_linked_issues", "sprint_id, provider, host_domain, repository, issue_number");

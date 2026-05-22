@@ -21,7 +21,7 @@ export function useUsageChartState(
   projectId: string | null,
   stats: ProjectExecutionStatsSnapshot | null
 ): UsageChartState {
-  const [visualMode, setVisualMode] = useState<StatsVisualMode>("trend");
+  const [visualMode, setVisualMode] = useState<StatsVisualMode>("composition");
   const [zoomRange, setZoomRange] = useState<ChartZoomRange | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
