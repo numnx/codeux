@@ -6,9 +6,9 @@ afterEach(() => { cleanup(); });
 import { h } from "preact";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
-import { SprintBubble } from "../../../dashboard/src/v2/components/ui/SprintBubble";
+import { SprintCell } from "../../../dashboard/src/v2/components/sprints/SprintCell";
 
-describe("SprintBubble", () => {
+describe("SprintCell", () => {
   const defaultSprint = {
     id: "sprint-1",
     projectId: "proj-1",
@@ -24,7 +24,7 @@ describe("SprintBubble", () => {
   };
 
   it("renders sprint details correctly", () => {
-    render(<SprintBubble sprint={defaultSprint} isEven={true} accentColor="text-blue-500" />);
+    render(<SprintCell sprint={defaultSprint} isEven={true} accentColor="text-blue-500" />);
     expect(screen.getByText("Feature Alpha")).toBeDefined();
     expect(screen.getByText("5")).toBeDefined();
   });
@@ -32,7 +32,7 @@ describe("SprintBubble", () => {
   it("calls onMarkCompleted when menu action is clicked", async () => {
     const onMarkCompleted = vi.fn();
     render(
-      <SprintBubble
+      <SprintCell
         sprint={defaultSprint}
         isEven={true}
         accentColor="text-blue-500"
@@ -65,7 +65,7 @@ describe("SprintBubble", () => {
     };
 
     render(
-      <SprintBubble
+      <SprintCell
         sprint={sprintWithReview}
         isEven={true}
         accentColor="text-blue-500"
@@ -88,7 +88,7 @@ describe("SprintBubble", () => {
   it("does not show Mark Completed if sprint is already completed", async () => {
     const completedSprint = { ...defaultSprint, status: "completed" as const };
     render(
-      <SprintBubble
+      <SprintCell
         sprint={completedSprint}
         isEven={true}
         accentColor="text-blue-500"

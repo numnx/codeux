@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CheckSquare,
   Heart,
+  Link2,
   Loader2,
   ListChecks,
   Maximize2,
@@ -168,6 +169,20 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         {humanIntervention && isSprintActionable(sprint.status) && humanIntervention.ownerType !== "worker" && (
           <div className="mt-3">
             <HumanInterventionBadge summary={humanIntervention} label="Needs you" compact align="left" />
+          </div>
+        )}
+        {sprint.linkedIssues && sprint.linkedIssues.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {sprint.linkedIssues.map((issue) => (
+              <span
+                key={issue.id}
+                className="inline-flex items-center gap-1.5 rounded-md border border-black/[0.08] bg-black/[0.03] px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-slate-300"
+                title={issue.title}
+              >
+                <Link2 className="h-3 w-3" strokeWidth={2.2} />
+                {issue.issueKey}
+              </span>
+            ))}
           </div>
         )}
         {sprint.goal ? (
