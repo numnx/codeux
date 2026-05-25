@@ -1,5 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from "preact";
-import { CheckCircle2, Cpu, GitBranch, Network, Route, RotateCcw, Settings2, SlidersHorizontal } from "lucide-preact";
+import { useState } from "preact/hooks";
+import { Anchor, CheckCircle2, ChevronDown, Cpu, GitBranch, Layers, Network, Route, RotateCcw, Settings2, SlidersHorizontal } from "lucide-preact";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { NoticePanel } from "../SettingsSurface.js";
 import { NumberInput, PillChoiceGroup, ProviderLogo, Row, SelectInput, Toggle } from "../SettingsFormFields.js";
@@ -49,6 +50,52 @@ const StatusPill: FunctionComponent<{ active: boolean; label?: string }> = ({ ac
   </span>
 );
 
+const WeightSlider: FunctionComponent<{
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  ariaLabel?: string;
+}> = ({ value, onChange, min = 0, max = 100, ariaLabel = "Weight" }) => {
+  const clamped = Math.max(min, Math.min(max, value));
+  const pct = ((clamped - min) / (max - min)) * 100;
+  return (
+    <div className="group/slider flex w-[17rem] items-center gap-3">
+      <div className="relative flex h-6 flex-1 items-center">
+        <div className="absolute inset-x-0 h-2 rounded-full bg-black/[0.07] shadow-[inset_0_1px_2px_rgba(15,23,42,0.08)] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]" />
+        <div
+          className="pointer-events-none absolute left-0 h-2 rounded-full bg-gradient-to-r from-signal-400 via-signal-500 to-signal-600 shadow-[0_0_14px_rgba(56,189,248,0.45)] transition-[width] duration-150 dark:from-signal-300 dark:via-signal-400 dark:to-signal-500"
+          style={{ width: `${pct}%` }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={clamped}
+          aria-label={ariaLabel}
+          aria-valuenow={clamped}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          onInput={(event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
+          className="peer absolute inset-x-0 z-10 h-6 w-full cursor-grab appearance-none bg-transparent opacity-0 focus:outline-none active:cursor-grabbing"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -translate-x-1/2 transition-[transform,box-shadow,left] duration-150 ease-out group-hover/slider:scale-110 peer-active:scale-110"
+          style={{ left: `${pct}%` }}
+        >
+          <div className="relative h-5 w-5 rounded-full border-[1.5px] border-signal-500 bg-white shadow-[0_3px_10px_rgba(15,23,42,0.22)] dark:border-signal-300 dark:bg-void-800">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/80 to-transparent dark:from-white/15" />
+          </div>
+        </div>
+      </div>
+      <span className="inline-flex h-9 min-w-[2.75rem] shrink-0 items-center justify-center rounded-[0.85rem] border border-black/[0.08] bg-white/85 px-2.5 text-sm font-bold tabular-nums text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-100">
+        {clamped}
+      </span>
+    </div>
+  );
+};
+
 const RouteFlowStep: FunctionComponent<{
   icon: ComponentChildren;
   label: string;
@@ -89,6 +136,21 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
 
   const getBadge = (...prefixes: string[]) => getBadgeHelper(activeScope, projectSources, ...prefixes);
   const getFieldBadge = (path: string) => getFieldBadgeHelper(activeScope, projectSources, path);
+
+  const [expandedProviderCards, setExpandedProviderCards] = useState<Record<string, boolean>>({});
+  const toggleProviderCard = (providerConfigId: string): void => {
+    setExpandedProviderCards((current) => ({
+      ...current,
+      [providerConfigId]: !current[providerConfigId],
+    }));
+  };
+  const [expandedRouteOverrideCards, setExpandedRouteOverrideCards] = useState<Record<string, boolean>>({});
+  const toggleRouteOverrideCard = (key: string): void => {
+    setExpandedRouteOverrideCards((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
 
   if (!editableSettings || !systemSettings) {
     return null;
@@ -226,19 +288,32 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
   const activeRouteDefinition = invocationRouteDefinitions.find((definition) => definition.id === activeInvocationRoute)
     || invocationRouteDefinitions[0];
   const activeRoute = editableSettings.aiProvider.invocationRouting[activeRouteDefinition.id];
-  const routePool = activeRoute.allowedProviders.length > 0
-    ? activeRoute.allowedProviders.filter((providerConfigId) => editableSettings.aiProvider.providers[providerConfigId])
-    : providerEntries.map(([providerConfigId]) => providerConfigId);
-  const routeResolvedDefault = activeRoute.provider
-    ? editableSettings.aiProvider.providers[activeRoute.provider]
-    : activeRoute.profile === "WORKER"
-    ? editableSettings.aiProvider.providers[editableSettings.workers.virtualWorkerProvider]
+  const isManualStrategy = activeRoute.strategy === "MANUAL";
+  const routeResolvedDefaultId: ProviderConfigId | null = activeRoute.provider
+    || (activeRoute.profile === "WORKER"
+      ? editableSettings.workers.virtualWorkerProvider
+      : editableSettings.aiProvider.provider)
+    || null;
+  const routeResolvedDefault = routeResolvedDefaultId
+    ? editableSettings.aiProvider.providers[routeResolvedDefaultId] ?? null
+    : null;
+  const routePool = isManualStrategy && routeResolvedDefaultId
+    ? [routeResolvedDefaultId]
+    : activeRoute.allowedProviders.length > 0
+      ? activeRoute.allowedProviders.filter((providerConfigId) => editableSettings.aiProvider.providers[providerConfigId])
+      : providerEntries.map(([providerConfigId]) => providerConfigId);
+  const allowedPoolEntries = isManualStrategy
+    ? providerEntries.filter(([providerConfigId]) => providerConfigId === routeResolvedDefaultId)
+    : providerEntries;
+  const allowedPoolTotal = isManualStrategy ? 1 : providerEntries.length;
+  const inheritedProviderForActiveRoute = activeRoute.profile === "WORKER"
+    ? workerProviderSettings
     : (editableSettings.aiProvider.provider ? editableSettings.aiProvider.providers[editableSettings.aiProvider.provider] : null);
   const enabledProviderCount = providerEntries.filter(([, provider]) => provider.enabled).length;
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-black/[0.035] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.055)] backdrop-blur-2xl dark:border-white/[0.07] dark:bg-white/[0.045] dark:shadow-[0_22px_54px_rgba(0,0,0,0.28)]">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div>
@@ -299,7 +374,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         </div>
       </section>
 
-      <SectionCard title="Default Routing Anchors" watermark="DEF" badge={getBadge("aiProvider", "workers")}>
+      <SectionCard title="Default Routing Anchors" watermark="DEF" badge={getBadge("aiProvider", "workers")} icon={<Anchor strokeWidth={2.4} />}>
         {providerEntries.length === 0 ? (
           <NoticePanel title="No provider credentials">
             Add provider credentials in Integrations before configuring AI routes.
@@ -389,12 +464,15 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         </Row>
       </SectionCard>
 
-      <SectionCard title="Base Provider Configuration" watermark="BASE" badge={getBadge("aiProvider.providers")}>
+      <SectionCard title="Base Provider Configuration" watermark="BASE" badge={getBadge("aiProvider.providers")} icon={<Layers strokeWidth={2.4} />}>
         <div className="mb-4 rounded-[1.25rem] border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
           These values are the inheritance baseline for every route. Route mapping owns manual, weighted, or agent-based selection; this section defines each provider instance’s default model, reasoning depth, weight, and capacity.
         </div>
         <div className="grid gap-3 lg:grid-cols-2">
-          {providerEntries.map(([providerConfigId, provider]) => (
+          {providerEntries.map(([providerConfigId, provider]) => {
+            const expanded = !!expandedProviderCards[providerConfigId];
+            const detailsId = `base-provider-details-${providerConfigId}`;
+            return (
             <div key={`base-${providerConfigId}`} className={`relative overflow-hidden rounded-[1.35rem] border p-4 shadow-[0_14px_32px_rgba(15,23,42,0.035)] transition-colors dark:shadow-[0_16px_34px_rgba(0,0,0,0.18)] ${
               provider.enabled
                 ? "border-signal-500/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,255,255,0.72))] dark:border-signal-400/15 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.075),rgba(255,255,255,0.04))]"
@@ -409,57 +487,91 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                     <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{getProviderTypeLabel(provider.provider)} baseline</div>
                   </div>
                 </div>
-                <StatusPill active={provider.enabled} label={provider.enabled ? "Eligible" : "Paused"} />
+                <div className="flex items-center gap-2">
+                  <StatusPill active={provider.enabled} label={provider.enabled ? "Eligible" : "Paused"} />
+                  <button
+                    type="button"
+                    onClick={() => toggleProviderCard(providerConfigId)}
+                    aria-expanded={expanded}
+                    aria-controls={detailsId}
+                    aria-label={expanded ? `Collapse ${provider.name} settings` : `Expand ${provider.name} settings`}
+                    title={expanded ? "Collapse settings" : "Expand settings"}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-500 transition-colors hover:border-signal-500/30 hover:bg-signal-500/[0.06] hover:text-signal-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-signal-300/30 dark:hover:bg-signal-300/[0.08] dark:hover:text-signal-200"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : "rotate-0"}`}
+                      strokeWidth={2.4}
+                    />
+                  </button>
+                </div>
               </div>
-              <div className="mb-3 grid grid-cols-3 gap-2">
-                <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Weight</div>
-                  <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.weight}</div>
+              <div className={`grid gap-2 ${expanded ? "mb-3" : ""}`}>
+                <div className="rounded-xl border border-signal-500/15 bg-signal-500/[0.05] px-3 py-2 dark:border-signal-400/15 dark:bg-signal-400/[0.06]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700/70 dark:text-signal-200/80">Model</div>
+                    <Cpu className="h-3 w-3 text-signal-600/70 dark:text-signal-300/70" strokeWidth={2.4} />
+                  </div>
+                  <div className="mt-1 truncate font-mono text-sm font-bold text-slate-900 dark:text-white" title={providerSupportsModelSelection(provider.provider) ? provider.model : undefined}>
+                    {providerSupportsModelSelection(provider.provider) ? provider.model : "Managed by provider"}
+                  </div>
                 </div>
-                <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Thinking</div>
-                  <div className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{provider.provider === "jules" ? "n/a" : provider.thinkingMode}</div>
-                </div>
-                <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Cap</div>
-                  <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.maxConcurrentTasks || "∞"}</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Weight</div>
+                    <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.weight}</div>
+                  </div>
+                  <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Thinking</div>
+                    <div className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{provider.provider === "jules" ? "n/a" : provider.thinkingMode}</div>
+                  </div>
+                  <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Cap</div>
+                    <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.maxConcurrentTasks || "∞"}</div>
+                  </div>
                 </div>
               </div>
-              <div className="grid gap-3">
-                <Row label="Eligible by default" description="Controls whether this instance participates before route-specific overrides are applied.">
-                  <Toggle value={provider.enabled} onChange={(value) => updateProviderSettings(providerConfigId, { enabled: value })} />
-                </Row>
-                {providerSupportsModelSelection(provider.provider) ? (
-                  <Row label="Base model" description="Inherited by routes unless a route-specific model override is set.">
-                    <SelectInput
-                      value={provider.model}
-                      onChange={(value) => updateProviderSettings(providerConfigId, { model: value })}
-                      options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+              {expanded ? (
+                <div id={detailsId} className="grid gap-3">
+                  <Row label="Eligible by default" description="Controls whether this instance participates before route-specific overrides are applied.">
+                    <Toggle value={provider.enabled} onChange={(value) => updateProviderSettings(providerConfigId, { enabled: value })} />
+                  </Row>
+                  {providerSupportsModelSelection(provider.provider) ? (
+                    <Row label="Base model" description="Inherited by routes unless a route-specific model override is set.">
+                      <SelectInput
+                        value={provider.model}
+                        onChange={(value) => updateProviderSettings(providerConfigId, { model: value })}
+                        options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+                      />
+                    </Row>
+                  ) : null}
+                  {providerSupportsThinkingMode(provider.provider) ? (
+                    <Row label="Base thinking" description="Inherited reasoning depth for this provider instance.">
+                      <SelectInput
+                        value={provider.thinkingMode}
+                        onChange={(value) => updateProviderSettings(providerConfigId, { thinkingMode: value as ThinkingMode })}
+                        options={thinkingModeOptions}
+                      />
+                    </Row>
+                  ) : null}
+                  <Row label="Base weight" description="Used by weighted route strategies unless overridden.">
+                    <WeightSlider
+                      value={provider.weight}
+                      onChange={(value) => updateProviderSettings(providerConfigId, { weight: value })}
+                      ariaLabel={`${provider.name} base weight`}
                     />
                   </Row>
-                ) : null}
-                {providerSupportsThinkingMode(provider.provider) ? (
-                  <Row label="Base thinking" description="Inherited reasoning depth for this provider instance.">
-                    <SelectInput
-                      value={provider.thinkingMode}
-                      onChange={(value) => updateProviderSettings(providerConfigId, { thinkingMode: value as ThinkingMode })}
-                      options={thinkingModeOptions}
-                    />
+                  <Row label="Max concurrent tasks" description="Provider-level cap; 0 means unlimited." last>
+                    <NumberInput value={provider.maxConcurrentTasks} min={0} max={50} onChange={(value) => updateProviderSettings(providerConfigId, { maxConcurrentTasks: value })} />
                   </Row>
-                ) : null}
-                <Row label="Base weight" description="Used by weighted route strategies unless overridden.">
-                  <NumberInput value={provider.weight} min={0} max={100} onChange={(value) => updateProviderSettings(providerConfigId, { weight: value })} />
-                </Row>
-                <Row label="Max concurrent tasks" description="Provider-level cap; 0 means unlimited." last>
-                  <NumberInput value={provider.maxConcurrentTasks} min={0} max={50} onChange={(value) => updateProviderSettings(providerConfigId, { maxConcurrentTasks: value })} />
-                </Row>
-              </div>
+                </div>
+              ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       </SectionCard>
 
-      <SectionCard title="Route Mapping" watermark="MAP" badge={getBadge("aiProvider.invocationRouting")}>
+      <SectionCard title="Route Mapping" watermark="MAP" badge={getBadge("aiProvider.invocationRouting")} icon={<GitBranch strokeWidth={2.4} />}>
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <div className="rounded-[1.6rem] border border-black/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.028),rgba(15,23,42,0.012))] p-3 dark:border-white/[0.06] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]">
             <div className="mb-3 px-2.5 pt-1">
@@ -560,7 +672,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
               <RouteFlowStep
                 icon={<Network className="h-4 w-4" />}
                 label="Pool"
-                value={`${routePool.length} / ${providerEntries.length}`}
+                value={`${routePool.length} / ${allowedPoolTotal}`}
               />
             </div>
 
@@ -611,7 +723,10 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                     value: INHERIT_VALUE,
                     label: activeRoute.profile === "WORKER"
                       ? `Inherit worker default (${getProviderInstanceLabel(workerProviderSettings)})`
-                      : `Inherit global default (${editableSettings.aiProvider.provider ? getProviderInstanceLabel(editableSettings.aiProvider.providers[editableSettings.aiProvider.provider]) : "None"})`,
+                      : `Inherit global default (${inheritedProviderForActiveRoute ? getProviderInstanceLabel(inheritedProviderForActiveRoute) : "None"})`,
+                    icon: inheritedProviderForActiveRoute
+                      ? providerSelectIcon(inheritedProviderForActiveRoute.provider, !inheritedProviderForActiveRoute.enabled)
+                      : undefined,
                   },
                   ...providerEntries.map(([providerConfigId, provider]) => ({
                     value: providerConfigId,
@@ -629,24 +744,31 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   Allowed pool
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {activeRoute.allowedProviders.length === 0 ? "Using all configured instances" : `${activeRoute.allowedProviders.length} pinned`}
+                  {isManualStrategy
+                    ? "Locked to primary (manual)"
+                    : activeRoute.allowedProviders.length === 0
+                      ? "Using all configured instances"
+                      : `${activeRoute.allowedProviders.length} pinned`}
                 </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {providerEntries.map(([providerConfigId, provider]) => {
-                  const active = activeRoute.allowedProviders.length === 0 || activeRoute.allowedProviders.includes(providerConfigId);
+                {allowedPoolEntries.map(([providerConfigId, provider]) => {
+                  const active = isManualStrategy
+                    || activeRoute.allowedProviders.length === 0
+                    || activeRoute.allowedProviders.includes(providerConfigId);
                   const available = eligibleProviderConfigIds.includes(providerConfigId);
                   return (
                     <button
                       key={`${activeRouteDefinition.id}-${providerConfigId}`}
                       type="button"
                       aria-pressed={active}
-                      onClick={() => toggleAllowedProvider(activeRouteDefinition.id, providerConfigId)}
+                      disabled={isManualStrategy}
+                      onClick={isManualStrategy ? undefined : () => toggleAllowedProvider(activeRouteDefinition.id, providerConfigId)}
                       className={`group flex min-h-[68px] items-center justify-between gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 ${
                         active
                           ? "border-signal-500/30 bg-black/[0.045] text-slate-900 shadow-[0_10px_20px_rgba(15,23,42,0.06)] dark:border-signal-400/30 dark:bg-white/[0.065] dark:text-white"
                           : "border-black/[0.08] bg-black/[0.025] text-slate-500 hover:border-black/[0.12] hover:bg-black/[0.04] dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-400 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.06]"
-                      }`}
+                      } ${isManualStrategy ? "cursor-default" : ""}`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <ProviderBrandIcon id={provider.provider} disabled={!active || !provider.enabled} className="h-7 w-7 rounded-[0.7rem]" imageClassName="h-4 w-4" />
@@ -679,8 +801,15 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   typeof override.thinkingMode === "string",
                   typeof override.weight === "number",
                 ].filter(Boolean).length;
+                const cardKey = `${activeRouteDefinition.id}-${providerConfigId}`;
+                const expanded = !!expandedRouteOverrideCards[cardKey];
+                const detailsId = `route-override-details-${cardKey}`;
+                const effectiveModel = override.model || provider.model;
+                const effectiveThinking = (override.thinkingMode || provider.thinkingMode) as string;
+                const effectiveWeight = override.weight ?? provider.weight;
+                const supportsModel = providerSupportsModelSelection(provider.provider);
                 return (
-                  <div key={`${activeRouteDefinition.id}-${providerConfigId}`} className={`relative overflow-hidden rounded-[1.35rem] border p-4 shadow-[0_14px_32px_rgba(15,23,42,0.035)] dark:shadow-[0_16px_34px_rgba(0,0,0,0.18)] ${
+                  <div key={cardKey} className={`relative overflow-hidden rounded-[1.35rem] border p-4 shadow-[0_14px_32px_rgba(15,23,42,0.035)] dark:shadow-[0_16px_34px_rgba(0,0,0,0.18)] ${
                     participationEnabled
                       ? "border-signal-500/18 bg-black/[0.04] dark:border-signal-400/18 dark:bg-white/[0.055]"
                       : "border-black/[0.06] bg-black/[0.025] opacity-85 dark:border-white/[0.06] dark:bg-white/[0.035]"
@@ -703,42 +832,89 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        title="Reset route overrides"
-                        aria-label={`Reset ${provider.name} route overrides`}
-                        onClick={() => clearRouteProviderOverride(activeRouteDefinition.id, providerConfigId)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.03] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          title="Reset route overrides"
+                          aria-label={`Reset ${provider.name} route overrides`}
+                          onClick={() => clearRouteProviderOverride(activeRouteDefinition.id, providerConfigId)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.03] text-slate-500 transition-colors hover:bg-black/[0.06] hover:text-slate-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleRouteOverrideCard(cardKey)}
+                          aria-expanded={expanded}
+                          aria-controls={detailsId}
+                          aria-label={expanded ? `Collapse ${provider.name} overrides` : `Expand ${provider.name} overrides`}
+                          title={expanded ? "Collapse overrides" : "Expand overrides"}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-500 transition-colors hover:border-signal-500/30 hover:bg-signal-500/[0.06] hover:text-signal-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-signal-300/30 dark:hover:bg-signal-300/[0.08] dark:hover:text-signal-200"
+                        >
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : "rotate-0"}`}
+                            strokeWidth={2.4}
+                          />
+                        </button>
+                      </div>
                     </div>
-                    <div className="grid gap-3">
-                      <Row label="Enabled override" description="Override route participation for this one instance.">
-                        <Toggle value={override.enabled ?? provider.enabled} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { enabled: value })} />
-                      </Row>
-                      {providerSupportsModelSelection(provider.provider) ? (
-                        <Row label="Model override" description={`Inherited: ${provider.model}`}>
-                          <SelectInput
-                            value={override.model || provider.model}
-                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
-                            options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+                    <div className={`grid gap-2 ${expanded ? "mb-3" : ""}`}>
+                      <div className="rounded-xl border border-signal-500/15 bg-signal-500/[0.05] px-3 py-2 dark:border-signal-400/15 dark:bg-signal-400/[0.06]">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700/70 dark:text-signal-200/80">Model</div>
+                          <Cpu className="h-3 w-3 text-signal-600/70 dark:text-signal-300/70" strokeWidth={2.4} />
+                        </div>
+                        <div className="mt-1 truncate font-mono text-sm font-bold text-slate-900 dark:text-white" title={supportsModel ? effectiveModel : undefined}>
+                          {supportsModel ? effectiveModel : "Managed by provider"}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Weight</div>
+                          <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{effectiveWeight}</div>
+                        </div>
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Thinking</div>
+                          <div className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{provider.provider === "jules" ? "n/a" : effectiveThinking}</div>
+                        </div>
+                        <div className="rounded-xl border border-black/[0.05] bg-black/[0.025] px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.035]">
+                          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Cap</div>
+                          <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{provider.maxConcurrentTasks || "∞"}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {expanded ? (
+                      <div id={detailsId} className="grid gap-3">
+                        <Row label="Enabled override" description="Override route participation for this one instance.">
+                          <Toggle value={override.enabled ?? provider.enabled} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { enabled: value })} />
+                        </Row>
+                        {supportsModel ? (
+                          <Row label="Model override" description={`Inherited: ${provider.model}`}>
+                            <SelectInput
+                              value={override.model || provider.model}
+                              onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
+                              options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
+                            />
+                          </Row>
+                        ) : null}
+                        {providerSupportsThinkingMode(provider.provider) ? (
+                          <Row label="Thinking override" description={`Inherited: ${provider.thinkingMode}`}>
+                            <SelectInput
+                              value={(override.thinkingMode || provider.thinkingMode) as string}
+                              onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { thinkingMode: value as ThinkingMode })}
+                              options={thinkingModeOptions}
+                            />
+                          </Row>
+                        ) : null}
+                        <Row label="Weight override" description={`Inherited: ${provider.weight}`} last>
+                          <WeightSlider
+                            value={override.weight ?? provider.weight}
+                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { weight: value })}
+                            ariaLabel={`${provider.name} weight override`}
                           />
                         </Row>
-                      ) : null}
-                      {providerSupportsThinkingMode(provider.provider) ? (
-                        <Row label="Thinking override" description={`Inherited: ${provider.thinkingMode}`}>
-                          <SelectInput
-                            value={(override.thinkingMode || provider.thinkingMode) as string}
-                            onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { thinkingMode: value as ThinkingMode })}
-                            options={thinkingModeOptions}
-                          />
-                        </Row>
-                      ) : null}
-                      <Row label="Weight override" description={`Inherited: ${provider.weight}`}>
-                        <NumberInput value={override.weight ?? provider.weight} min={0} max={100} onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { weight: value })} />
-                      </Row>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
