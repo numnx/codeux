@@ -75,13 +75,26 @@ function registerPackagedNodeModules(): void {
 }
 
 function createMainWindow(url: string): BrowserWindow {
+  const isMac = process.platform === "darwin";
+  const isLinux = process.platform === "linux";
+  // Transparent + frameless gives us full control over the window chrome
+  // (rounded corners, custom title bar). On Linux, transparency is unreliable
+  // outside compositors we control, so we fall back to a solid background.
+  const useTransparent = !isLinux;
+
   const window = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1100,
     minHeight: 720,
     title: "Code UX",
-    backgroundColor: "#0d0f12",
+    frame: false,
+    titleBarStyle: isMac ? "hiddenInset" : "hidden",
+    trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
+    transparent: useTransparent,
+    backgroundColor: useTransparent ? "#00000000" : "#0d0f12",
+    roundedCorners: true,
+    hasShadow: true,
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -91,8 +104,21 @@ function createMainWindow(url: string): BrowserWindow {
     },
   });
 
+  const emitMaximizeState = () => {
+    if (window.isDestroyed()) return;
+    window.webContents.send("codeux:window-state", {
+      isMaximized: window.isMaximized(),
+      isFullScreen: window.isFullScreen(),
+    });
+  };
+  window.on("maximize", emitMaximizeState);
+  window.on("unmaximize", emitMaximizeState);
+  window.on("enter-full-screen", emitMaximizeState);
+  window.on("leave-full-screen", emitMaximizeState);
+
   window.once("ready-to-show", () => {
     window.show();
+    emitMaximizeState();
   });
 
   window.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
@@ -142,6 +168,41 @@ async function stopServer(): Promise<void> {
   server = null;
   await runningServer.close();
 }
+
+function resolveWindow(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
+  return BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+}
+
+ipcMain.handle("codeux:window-minimize", (event) => {
+  resolveWindow(event)?.minimize();
+});
+
+ipcMain.handle("codeux:window-toggle-maximize", (event) => {
+  const target = resolveWindow(event);
+  if (!target) return false;
+  if (target.isMaximized()) {
+    target.unmaximize();
+    return false;
+  }
+  target.maximize();
+  return true;
+});
+
+ipcMain.handle("codeux:window-close", (event) => {
+  resolveWindow(event)?.close();
+});
+
+ipcMain.handle("codeux:window-state", (event) => {
+  const target = resolveWindow(event);
+  if (!target) {
+    return { isMaximized: false, isFullScreen: false, platform: process.platform };
+  }
+  return {
+    isMaximized: target.isMaximized(),
+    isFullScreen: target.isFullScreen(),
+    platform: process.platform,
+  };
+});
 
 ipcMain.handle("codeux:pick-directory", async (event, defaultPath?: string) => {
   const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
