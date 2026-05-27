@@ -4,6 +4,7 @@ import * as fs from "fs";
 import Module from "module";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { createDebouncedSaver, loadWindowState, saveWindowState } from "./window-state.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,9 +83,13 @@ function createMainWindow(url: string): BrowserWindow {
   // outside compositors we control, so we fall back to a solid background.
   const useTransparent = !isLinux;
 
+  const savedState = loadWindowState();
+
   const window = new BrowserWindow({
-    width: 1440,
-    height: 960,
+    x: savedState.x,
+    y: savedState.y,
+    width: savedState.width,
+    height: savedState.height,
     minWidth: 1100,
     minHeight: 720,
     title: "Code UX",
@@ -103,6 +108,21 @@ function createMainWindow(url: string): BrowserWindow {
       preload: preloadPath,
     },
   });
+
+  if (savedState.isFullScreen) {
+    window.setFullScreen(true);
+  } else if (savedState.isMaximized) {
+    window.maximize();
+  }
+
+  const persistState = createDebouncedSaver(window);
+  window.on("resize", persistState);
+  window.on("move", persistState);
+  window.on("maximize", persistState);
+  window.on("unmaximize", persistState);
+  window.on("enter-full-screen", persistState);
+  window.on("leave-full-screen", persistState);
+  window.on("close", () => saveWindowState(window));
 
   const emitMaximizeState = () => {
     if (window.isDestroyed()) return;
