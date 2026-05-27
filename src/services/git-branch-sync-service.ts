@@ -14,7 +14,42 @@ export interface GitBranchSyncOptions extends GitHttpAuthOptions {
   fetchTimeoutMs?: number;
 }
 
-const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
+const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
+
+const getDefaultFetchTimeoutMs = (): number => {
+  const raw = process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_FETCH_TIMEOUT_MS;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_FETCH_TIMEOUT_MS;
+  }
+  return Math.max(10_000, Math.min(parsed, 600_000));
+};
+
+const isSafeBranchRefName = (branch: string): boolean => {
+  if (branch.length === 0 || branch.startsWith("-") || branch.endsWith("/") || branch.endsWith(".")) {
+    return false;
+  }
+  if (branch.includes("..") || branch.includes("//") || branch.includes("@{") || branch.includes("\\")) {
+    return false;
+  }
+  return !/[\x00-\x20\x7f~^:?*\[]/.test(branch);
+};
+
+const buildFetchArgs = (branch?: string): string[] => {
+  const branchName = branch?.trim();
+  if (!branchName || !isSafeBranchRefName(branchName)) {
+    return ["fetch", "origin", "--prune"];
+  }
+  return [
+    "fetch",
+    "origin",
+    "--prune",
+    `+refs/heads/${branchName}:refs/remotes/origin/${branchName}`,
+  ];
+};
 
 const normalizeOptions = (
   runnerOrOptions?: GitBranchSyncRunner | GitBranchSyncOptions,
@@ -51,6 +86,7 @@ const defaultGitRunner: GitBranchSyncRunner = (
 export async function fetchOriginIfAvailable(
   repoPath: string,
   runnerOrOptions?: GitBranchSyncRunner | GitBranchSyncOptions,
+  branch?: string,
 ): Promise<boolean> {
   const options = normalizeOptions(runnerOrOptions);
   const runner = options.runner || defaultGitRunner;
@@ -62,8 +98,8 @@ export async function fetchOriginIfAvailable(
   }
 
   const fetchEnv = await resolveHttpsAuthOrFallback(remoteUrl, options);
-  await runGit(runner, ["fetch", "origin", "--prune"], repoPath, fetchEnv, {
-    timeoutMs: options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
+  await runGit(runner, buildFetchArgs(branch), repoPath, fetchEnv, {
+    timeoutMs: options.fetchTimeoutMs ?? getDefaultFetchTimeoutMs(),
   });
   return true;
 }
@@ -75,8 +111,8 @@ export async function syncRemoteBranchIfAvailable(
 ): Promise<boolean> {
   const options = normalizeOptions(runnerOrOptions);
   const runner = options.runner || defaultGitRunner;
-  const fetched = await fetchOriginIfAvailable(repoPath, options);
   const branchName = branch?.trim();
+  const fetched = await fetchOriginIfAvailable(repoPath, options, branchName);
   if (!fetched || !branchName) {
     return fetched;
   }

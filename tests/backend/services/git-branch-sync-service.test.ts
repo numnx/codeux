@@ -3,11 +3,19 @@ import { syncRemoteBranchIfAvailable } from "../../../src/services/git-branch-sy
 import { setProviderTokenResolverForTests } from "../../../src/services/git-http-auth.js";
 
 describe("git branch sync service", () => {
+  const originalFetchTimeout = process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS;
+
   beforeEach(() => {
     // Disable host CLI fallbacks so tests don't depend on a logged-in gh/glab.
+    delete process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS;
     setProviderTokenResolverForTests(async () => null);
   });
   afterEach(() => {
+    if (originalFetchTimeout === undefined) {
+      delete process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS;
+    } else {
+      process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS = originalFetchTimeout;
+    }
     setProviderTokenResolverForTests(null);
   });
 
@@ -23,7 +31,7 @@ describe("git branch sync service", () => {
 
     expect(runner).toHaveBeenNthCalledWith(1, "git", ["remote", "get-url", "origin"], "/repo");
     expect(runner).toHaveBeenNthCalledWith(2, "git", ["fetch", "origin", "--prune"], "/repo", undefined, {
-      timeoutMs: 30000,
+      timeoutMs: 120000,
     });
   });
 
@@ -48,7 +56,22 @@ describe("git branch sync service", () => {
     expect(env.GIT_ASKPASS).toBe("true");
     expect(env.SSH_ASKPASS).toBe("true");
     expect(env.GCM_INTERACTIVE).toBe("never");
-    expect(options.timeoutMs).toBe(30000);
+    expect(options.timeoutMs).toBe(120000);
+  });
+
+  it("allows deployments to raise the mandatory fetch timeout through the environment", async () => {
+    process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS = "180000";
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+
+    await expect(syncRemoteBranchIfAvailable("/repo", undefined, {
+      runner,
+    })).resolves.toBe(true);
+
+    expect(runner).toHaveBeenNthCalledWith(2, "git", ["fetch", "origin", "--prune"], "/repo", undefined, {
+      timeoutMs: 180000,
+    });
   });
 
   it("fetches HTTPS GitLab remotes with a temporary auth header and non-interactive prompts", async () => {
@@ -116,10 +139,46 @@ describe("git branch sync service", () => {
 
     await expect(syncRemoteBranchIfAvailable("/repo", "feature/sprint-1", runner)).resolves.toBe(true);
 
-    expect(runner).toHaveBeenCalledWith("git", ["fetch", "origin", "--prune"], "/repo", undefined, {
-      timeoutMs: 30000,
+    expect(runner).toHaveBeenCalledWith("git", [
+      "fetch",
+      "origin",
+      "--prune",
+      "+refs/heads/feature/sprint-1:refs/remotes/origin/feature/sprint-1",
+    ], "/repo", undefined, {
+      timeoutMs: 120000,
     });
     expect(runner).toHaveBeenCalledWith("git", ["branch", "--track", "feature/sprint-1", "origin/feature/sprint-1"], "/repo");
+  });
+
+  it("refreshes only the requested remote branch before branch-sensitive work", async () => {
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 })
+      .mockRejectedValueOnce(new Error("missing remote branch"));
+
+    await expect(syncRemoteBranchIfAvailable("/repo", "feature/sprint-2", runner)).resolves.toBe(true);
+
+    expect(runner).toHaveBeenNthCalledWith(2, "git", [
+      "fetch",
+      "origin",
+      "--prune",
+      "+refs/heads/feature/sprint-2:refs/remotes/origin/feature/sprint-2",
+    ], "/repo", undefined, {
+      timeoutMs: 120000,
+    });
+  });
+
+  it("falls back to a whole-origin fetch when the branch name cannot be represented as a refspec", async () => {
+    const runner = vi.fn()
+      .mockResolvedValueOnce({ stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 })
+      .mockRejectedValueOnce(new Error("missing remote branch"));
+
+    await expect(syncRemoteBranchIfAvailable("/repo", "feature/sprint 2", runner)).resolves.toBe(true);
+
+    expect(runner).toHaveBeenNthCalledWith(2, "git", ["fetch", "origin", "--prune"], "/repo", undefined, {
+      timeoutMs: 120000,
+    });
   });
 
   it("fast-forwards a non-current local branch to origin when possible", async () => {

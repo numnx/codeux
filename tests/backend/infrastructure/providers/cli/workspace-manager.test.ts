@@ -73,9 +73,22 @@ describe("WorkspaceManager", () => {
       expect.any(String),
     );
     expect(runCommandStrict).toHaveBeenCalledWith("git", ["bundle", "create", "/tmp/code-ux-bundle-123/repo.bundle", "--all"], "/repo/project");
-    const bootstrapCall = vi.mocked(runCommandStrict).mock.calls.find((call) => call[0] === "bash");
-    const bootstrapCommand = bootstrapCall?.[1]?.join(" ") || "";
-    expect(bootstrapCommand).toContain("--entrypoint sh");
+    const bootstrapCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+      call[0] === "docker" && call[1].includes("--entrypoint") && call[1].includes("sh")
+    );
+    expect(bootstrapCall?.[1]).toEqual(expect.arrayContaining([
+      "run",
+      "--rm",
+      "-i",
+      "--entrypoint",
+      "sh",
+      "alpine/git",
+      "-lc",
+    ]));
+    expect(bootstrapCall?.[4]).toEqual(expect.objectContaining({
+      stdinFile: "/tmp/code-ux-bundle-123/repo.bundle",
+    }));
+    const bootstrapCommand = String(bootstrapCall?.[1]?.at(-1) || "");
     expect(bootstrapCommand).toContain("git init /workspace");
     expect(bootstrapCommand).toContain("git -C /workspace symbolic-ref HEAD refs/heads/code-ux-bootstrap-$$");
     expect(bootstrapCommand).toContain("git -C /workspace fetch origin");
@@ -83,10 +96,38 @@ describe("WorkspaceManager", () => {
     expect(bootstrapCommand).toContain("git -C /workspace config user.name");
     expect(bootstrapCommand).toContain("git -C /workspace config user.email");
     expect(bootstrapCommand).not.toContain("git clone");
+    expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "bash")).toBe(false);
     if (typeof process.getuid === "function" && typeof process.getgid === "function") {
       expect(bootstrapCommand).toContain("chown -R");
       expect(bootstrapCommand).toContain(`${process.getuid()}:${process.getgid()}`);
     }
+  });
+
+  it("streams snapshot bundle files to Docker without shelling through Windows paths", async () => {
+    vi.mocked(fs.mkdtemp).mockResolvedValue("C:\\Users\\pierr\\AppData\\Local\\Temp\\code-ux-bundle-k9Efgd");
+    vi.mocked(runCommandStrict).mockImplementation(async (_command, args) => {
+      if (args[0] === "rev-parse" && args[1] === "--show-toplevel") {
+        return { ok: true, stdout: "/repo/project\n", stderr: "" } as any;
+      }
+      if (args[0] === "docker" && args[1] === "volume" && args[2] === "inspect") {
+        throw new Error("missing");
+      }
+      if (args[0] === "git" && args[1] === "remote") {
+        return { ok: true, stdout: "https://github.com/numnx/test2.git\n", stderr: "" } as any;
+      }
+      return { ok: true, stdout: "", stderr: "" } as any;
+    });
+
+    await manager.createSnapshotWorkspace("/repo/project", "session-1");
+
+    expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "bash")).toBe(false);
+    const bootstrapCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+      call[0] === "docker" && call[1].includes("--entrypoint") && call[1].includes("sh")
+    );
+    expect(bootstrapCall?.[4]).toEqual(expect.objectContaining({
+      stdinFile: expect.stringContaining("C:\\Users\\pierr\\AppData\\Local\\Temp\\code-ux-bundle-k9Efgd"),
+    }));
+    expect(bootstrapCall?.[1].join(" ")).not.toContain("C:\\Users\\pierr\\AppData\\Local\\Temp");
   });
 
   it("builds workspace guidance with in-volume path checks", async () => {

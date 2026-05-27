@@ -350,12 +350,22 @@ export class WorkspaceManager implements IWorkspaceManager {
       ].filter((step): step is string => Boolean(step)).join(" && ");
 
       await runCommandStrict(
-        "bash",
+        "docker",
         [
+          "run",
+          "--rm",
+          "-i",
+          "--mount",
+          `type=volume,source=${volumeName},target=${CONTAINER_WORKSPACE_ROOT}`,
+          "--entrypoint",
+          "sh",
+          WORKSPACE_HELPER_IMAGE,
           "-lc",
-          `cat ${shellQuote(bundlePath)} | docker run --rm -i --mount type=volume,source=${shellQuote(volumeName)},target=${shellQuote(CONTAINER_WORKSPACE_ROOT)} --entrypoint sh ${shellQuote(WORKSPACE_HELPER_IMAGE)} -lc ${shellQuote(initScript)}`,
+          initScript,
         ],
         repoPath,
+        process.env,
+        { stdinFile: bundlePath },
       );
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);

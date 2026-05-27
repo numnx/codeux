@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { createReadStream } from "fs";
 
 export interface CommandResult {
   ok: boolean;
@@ -12,6 +13,7 @@ export interface CommandOptions {
   env?: NodeJS.ProcessEnv;
   timeout?: number;
   signal?: AbortSignal;
+  stdinFile?: string;
   trimOutput?: boolean;
   onStdoutLine?: (line: string) => void;
   onStderrLine?: (line: string) => void;
@@ -34,6 +36,7 @@ export class CommandRunner {
       env = process.env,
       timeout,
       signal,
+      stdinFile,
       trimOutput = true,
       onStdoutLine,
       onStderrLine,
@@ -44,7 +47,7 @@ export class CommandRunner {
       const child = spawn(command, args, {
         cwd,
         env,
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
       });
 
       let stdout = "";
@@ -122,6 +125,22 @@ export class CommandRunner {
         child.kill("SIGTERM");
       } else if (signal && abortHandler) {
         signal.addEventListener("abort", abortHandler, { once: true });
+      }
+
+      if (stdinFile) {
+        const stdinStream = createReadStream(stdinFile);
+        stdinStream.on("error", (error) => {
+          child.kill("SIGTERM");
+          finish(false, null, error.message);
+        });
+        child.stdin?.on("error", () => {
+          // The child may exit before consuming all input; the close handler reports the command result.
+        });
+        if (child.stdin) {
+          stdinStream.pipe(child.stdin);
+        } else {
+          finish(false, null, "Command stdin is unavailable");
+        }
       }
 
       const handleData = (data: Buffer, isStderr: boolean, callback?: (line: string) => void) => {

@@ -72,8 +72,9 @@ Checks:
 ### 3a. Jules task stays at "Started jules dispatch"
 Checks:
 - Inspect the latest task run. If it has `dispatch_started` but no `session_created`, the provider session has not been created yet.
-- Check for a long-running `git fetch origin --prune` child of `node dist/index.js`; Jules dispatch refreshes `origin` before calling the Jules API in remote git mode.
-- HTTPS remotes should fail fast when credentials are missing. Code UX disables interactive Git credential prompts and bounds branch-preflight/fetch checks so orchestration settles instead of waiting indefinitely on a local credential helper. For Jules dispatch, that local refresh is best-effort and a refresh failure should be logged without blocking Jules session creation.
+- Check for a long-running `git fetch` child of `node dist/index.js`; Jules dispatch refreshes `origin` before calling the Jules API in remote git mode.
+- HTTPS remotes should fail fast when credentials are missing. Code UX disables interactive Git credential prompts and bounds branch-preflight/fetch checks so orchestration settles instead of waiting indefinitely on a local credential helper. CLI-backed task dispatch still requires a remote refresh before branch preparation; when the starting branch is known, Code UX fetches that branch's remote-tracking ref instead of every branch on `origin`. Slow GitHub/GitLab smart HTTP connections can still take longer than 30 seconds, so the default fetch timeout is 120 seconds. Set `CODE_UX_GIT_FETCH_TIMEOUT_MS` higher when the network or remote regularly needs more time.
+- For Jules dispatch, that local refresh is best-effort and a refresh failure should be logged without blocking Jules session creation.
 - After a restart, active Jules dispatches that never reached `session_created` are treated as interrupted pre-session dispatches and moved back to a retryable task state. Jules dispatches with a persisted session remain attached for normal sprint recovery.
 - If the dispatch fails with an auth error, fix the dashboard GitHub token or remote URL, then rerun the task.
 
@@ -110,6 +111,7 @@ Checks:
   - Codex uses per-session container home directories under that runtime root to prevent stale state from previous Codex runs.
   - Runtime cleanup prunes stale `home-codex-*` session homes and stale shared runtime temp directories automatically once those sessions are no longer active.
 - Snapshot workspace bootstrap pulls public helper images such as `alpine/git` automatically. If Docker reports a broken host credential helper while pulling a public helper image, Code UX retries that helper pull with an isolated empty Docker client config; provider/container images still use the normal Docker configuration.
+- Snapshot workspace bootstrap streams the temporary Git bundle directly into `docker run` stdin. Packaged Windows Electron builds should not route `C:\...AppData\Local\Temp\code-ux-bundle-*` paths through `bash -lc`; seeing `cat: 'C:\...\repo.bundle': No such file or directory` indicates an older build.
 - If a Git URL project reports "No file changes produced" even though the provider edited files, verify the project `baseDir` is an exact Git checkout root. New Git URL projects are cloned to `~/.code-ux/projects/<repo-name>` by default; older relative paths nested under the Code UX repo should be re-added or updated to the real clone path.
 - GitHub credential sync still copies mount contents into a fixed dir (`~/.config/gh`); Gemini sync is now auth-only to avoid concurrent Docker sessions racing on shared `.gemini/tmp/tool-outputs`.
 - If provider output says "No file changes produced", runtime now still checks for unpushed worker-branch commits and will push/create (or reuse) the feature PR when commits exist.
