@@ -48,6 +48,8 @@ export const runStartReadyTasksStep = async (
       if (limit > 0) {
         const currentCount = currentRunningCounts[provider] || 0;
         if (currentCount >= limit) {
+          task.status = "BLOCKED";
+          options.logger.info("Task blocked: provider concurrency cap reached", { taskId: task.id, provider, limit, currentCount });
           continue;
         }
       }

@@ -36,7 +36,7 @@ describe("runStartReadyTasksStep limits", () => {
 
     expect(startTask).toHaveBeenCalledTimes(1);
     expect(res.subtasks[0].status).toBe("RUNNING");
-    expect(res.subtasks[1].status).toBe("PENDING");
-    expect(res.subtasks[2].status).toBe("PENDING");
+    expect(res.subtasks[1].status).toBe("BLOCKED");
+    expect(res.subtasks[2].status).toBe("BLOCKED");
   });
 });
