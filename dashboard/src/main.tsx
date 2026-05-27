@@ -28,6 +28,14 @@ const isElectron = typeof window !== "undefined" && Boolean(window.codeUxDesktop
 if (isElectron && typeof document !== "undefined") {
   document.documentElement.classList.add("is-electron");
   document.body.classList.add("is-electron");
+
+  const syncWindowClasses = (state: { isMaximized: boolean; isFullScreen: boolean }) => {
+    document.documentElement.classList.toggle("is-maximized", state.isMaximized);
+    document.documentElement.classList.toggle("is-fullscreen", state.isFullScreen);
+  };
+
+  void window.codeUxDesktop!.window!.getState().then(syncWindowClasses);
+  window.codeUxDesktop!.window!.onStateChange(syncWindowClasses);
 }
 
 import { applyAppearanceSettings } from "./v2/lib/apply-appearance.js";

@@ -80,9 +80,14 @@ export const TitleBar: FunctionComponent<TitleBarProps> = ({ appearanceVariant =
     ? "bg-[#F9F8F4]/80 dark:bg-void-900/80 backdrop-blur-2xl"
     : "bg-[#F9F8F4] dark:bg-void-900";
 
+  const handleDoubleClick = () => {
+    void windowApi.toggleMaximize();
+  };
+
   return (
     <div
       data-titlebar="codeux"
+      onDblClick={handleDoubleClick}
       className={`titlebar-drag relative z-[60] flex items-center h-9 w-full ${bgClass} border-b border-black/[0.04] dark:border-white/[0.04] select-none`}
     >
       {trafficLightSpacer}

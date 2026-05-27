@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from "electron";
 import dotenv from "dotenv";
 import * as fs from "fs";
 import Module from "module";
@@ -75,13 +75,27 @@ function registerPackagedNodeModules(): void {
   }
 }
 
+function resolveAppIcon(): Electron.NativeImage | undefined {
+  const candidates = [
+    path.join(projectRoot, "build", "icon-256.png"),
+    path.join(projectRoot, "build", "icon.png"),
+  ];
+  if (app.isPackaged) {
+    candidates.unshift(
+      path.join(process.resourcesPath, "build", "icon-256.png"),
+      path.join(process.resourcesPath, "build", "icon.png"),
+    );
+  }
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return nativeImage.createFromPath(p);
+    }
+  }
+  return undefined;
+}
+
 function createMainWindow(url: string): BrowserWindow {
   const isMac = process.platform === "darwin";
-  const isLinux = process.platform === "linux";
-  // Transparent + frameless gives us full control over the window chrome
-  // (rounded corners, custom title bar). On Linux, transparency is unreliable
-  // outside compositors we control, so we fall back to a solid background.
-  const useTransparent = !isLinux;
 
   const savedState = loadWindowState();
 
@@ -93,11 +107,11 @@ function createMainWindow(url: string): BrowserWindow {
     minWidth: 1100,
     minHeight: 720,
     title: "Code UX",
+    icon: resolveAppIcon(),
     frame: false,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
-    transparent: useTransparent,
-    backgroundColor: useTransparent ? "#00000000" : "#0d0f12",
+    backgroundColor: "#0d0f12",
     roundedCorners: true,
     hasShadow: true,
     show: false,

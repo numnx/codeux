@@ -22,31 +22,13 @@ html.has-bg-image {
 /*
   Electron desktop window chrome
   ------------------------------
-  When running inside the Electron shell, the OS frame is removed and we
-  paint a fully custom title bar. The body becomes transparent so the
-  rounded clip on .app-shell reveals the desktop behind the corners
-  (with a subtle shadow to lift the window off the canvas).
+  When running inside the Electron shell the OS frame is removed and we
+  paint a fully custom title bar.  Rounded corners and the window shadow
+  are handled at the OS level (roundedCorners + hasShadow on BrowserWindow).
 */
 html.is-electron,
 html.is-electron body {
-  background: transparent !important;
   overflow: hidden;
-}
-
-html.is-electron .app-shell {
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow:
-    0 30px 60px -20px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  isolation: isolate;
-}
-
-html.is-electron.light .app-shell,
-html.is-electron:not(.dark) .app-shell {
-  box-shadow:
-    0 24px 60px -24px rgba(15, 23, 42, 0.35),
-    0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 
 .titlebar-drag {

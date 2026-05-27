@@ -14,7 +14,8 @@
     "build": "tsc --incremental --tsBuildInfoFile .cache/tsc/root.tsbuildinfo && tsc -p dashboard/tsconfig.json --noEmit --incremental --tsBuildInfoFile .cache/tsc/dashboard.tsbuildinfo && vite build",
     "start": "node dist/index.js",
     "dev": "node --import ./scripts/tsnode-register.mjs src/index.ts",
-    "electron:prepare-deps": "node scripts/prepare-electron-runtime-deps.mjs",
+    "electron:generate-icons": "node scripts/generate-electron-icons.mjs",
+    "electron:prepare-deps": "node scripts/prepare-electron-runtime-deps.mjs && pnpm run electron:generate-icons",
     "electron:dev": "pnpm run build && electron dist/electron/main.js",
     "electron:pack": "pnpm run build && pnpm run electron:prepare-deps && electron-builder --dir",
     "electron:dist": "pnpm run build && pnpm run electron:prepare-deps && electron-builder",
@@ -48,9 +49,11 @@
     "extraMetadata": {
       "main": "dist/electron/main.js"
     },
+    "icon": "build/icon.png",
     "files": [
       "dist/**",
       "dashboard/dist/**",
+      "build/icon*.png",
       "package.json",
       "!**/*.map",
       "!**/*.tsbuildinfo"
@@ -64,6 +67,11 @@
       {
         "from": ".cache/electron-runtime/node_modules",
         "to": "node_modules"
+      },
+      {
+        "from": "build",
+        "to": "build",
+        "filter": ["icon*.png"]
       }
     ],
     "mac": {
@@ -74,6 +82,7 @@
       ]
     },
     "win": {
+      "icon": "build/icon.png",
       "target": [
         "nsis"
       ]
@@ -110,6 +119,7 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
