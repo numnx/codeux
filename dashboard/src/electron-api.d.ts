@@ -21,6 +21,7 @@ declare global {
         canceled: boolean;
         filePath: string | null;
       }>;
+      setZoom?(factor: number): Promise<number>;
       window?: CodeUxWindowApi;
     };
   }

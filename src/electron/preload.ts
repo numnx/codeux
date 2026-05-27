@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld("codeUxDesktop", {
   pickDirectory: (defaultPath?: string): Promise<PickDirectoryResult> => {
     return ipcRenderer.invoke("codeux:pick-directory", defaultPath);
   },
+  setZoom: (factor: number): Promise<number> => {
+    return ipcRenderer.invoke("codeux:set-zoom", factor);
+  },
   window: {
     minimize: (): Promise<void> => ipcRenderer.invoke("codeux:window-minimize"),
     toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke("codeux:window-toggle-maximize"),

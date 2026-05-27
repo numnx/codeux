@@ -91,6 +91,7 @@ const AppLayout = () => {
   const backgroundMode = appearanceSettings?.backgroundMode || "ANIMATED";
   const animatedBackground = appearanceSettings?.animatedBackground || "deep-ocean";
   const staticBackgroundColor = appearanceSettings?.staticBackgroundColor || "#0d0f12";
+  const zoomLevel = appearanceSettings?.zoomLevel ?? 1;
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === "undefined") return true;
     if (appearanceTheme === "SYSTEM") {
@@ -143,6 +144,10 @@ const AppLayout = () => {
   useEffect(() => {
     applyAppearanceSettings({ backgroundPattern });
   }, [backgroundPattern]);
+
+  useEffect(() => {
+    applyAppearanceSettings({ zoomLevel });
+  }, [zoomLevel]);
 
   const toggleTheme = () => {
     setIsDark((prev) => !prev);

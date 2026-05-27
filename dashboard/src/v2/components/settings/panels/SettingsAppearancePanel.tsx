@@ -75,7 +75,6 @@ export const SettingsAppearancePanel: FunctionComponent<{
           label="Reduced Motion"
           description="Limit interface animations and transitions."
           badge={getFieldBadge(activeScope, projectSources, "appearance.reducedMotion")}
-          last
         >
           <PillChoiceGroup
             value={appearance.reducedMotion}
@@ -94,6 +93,36 @@ export const SettingsAppearancePanel: FunctionComponent<{
               { value: "AUTO", label: "Auto" },
               { value: "REDUCE", label: "Reduce" },
               { value: "NONE", label: "None" },
+            ]}
+          />
+        </Row>
+
+        <Row
+          label="Zoom Level"
+          description="Scale the entire interface up or down."
+          badge={getFieldBadge(activeScope, projectSources, "appearance.zoomLevel")}
+          last
+        >
+          <SelectInput
+            value={String(appearance.zoomLevel ?? 1)}
+            onChange={(val) => {
+              const newZoom = Number(val);
+              state.updateEditableSettings((current) => ({
+                ...current,
+                appearance: {
+                  ...current.appearance,
+                  zoomLevel: newZoom,
+                },
+              }));
+              applyAppearanceSettings({ zoomLevel: newZoom });
+            }}
+            options={[
+              { value: "0.75", label: "75%" },
+              { value: "0.9", label: "90%" },
+              { value: "1", label: "100%" },
+              { value: "1.1", label: "110%" },
+              { value: "1.25", label: "125%" },
+              { value: "1.5", label: "150%" },
             ]}
           />
         </Row>

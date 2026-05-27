@@ -48,4 +48,18 @@ export function applyAppearanceSettings(appearance: Partial<import('../../types.
       document.documentElement.classList.remove('has-bg-image');
     }
   }
+
+  if (appearance.zoomLevel !== undefined && appearance.zoomLevel !== null) {
+    const clamped = Math.min(2, Math.max(0.5, appearance.zoomLevel));
+    const desktop = window.codeUxDesktop;
+    if (desktop?.setZoom) {
+      // Electron: use Chromium's native zoom so the viewport scales and
+      // fixed/absolute elements (sidebar, dock, modals) don't get clipped.
+      void desktop.setZoom(clamped);
+      document.documentElement.style.removeProperty('zoom');
+    } else {
+      // Browser fallback: CSS zoom (less ideal for layout but no IPC available).
+      document.documentElement.style.setProperty('zoom', String(clamped));
+    }
+  }
 }

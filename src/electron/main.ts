@@ -204,6 +204,13 @@ ipcMain.handle("codeux:window-state", (event) => {
   };
 });
 
+ipcMain.handle("codeux:set-zoom", (event, factor: number) => {
+  const numeric = typeof factor === "number" && Number.isFinite(factor) ? factor : 1;
+  const clamped = Math.min(2, Math.max(0.5, numeric));
+  event.sender.setZoomFactor(clamped);
+  return clamped;
+});
+
 ipcMain.handle("codeux:pick-directory", async (event, defaultPath?: string) => {
   const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
   const options: Electron.OpenDialogOptions = {
