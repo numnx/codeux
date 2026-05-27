@@ -76,19 +76,21 @@ function registerPackagedNodeModules(): void {
 }
 
 function resolveAppIcon(): Electron.NativeImage | undefined {
-  const candidates = [
-    path.join(projectRoot, "build", "icon-256.png"),
-    path.join(projectRoot, "build", "icon.png"),
-  ];
+  const candidates: string[] = [];
   if (app.isPackaged) {
-    candidates.unshift(
+    candidates.push(
       path.join(process.resourcesPath, "build", "icon-256.png"),
       path.join(process.resourcesPath, "build", "icon.png"),
     );
   }
+  candidates.push(
+    path.join(projectRoot, "build", "icon-256.png"),
+    path.join(projectRoot, "build", "icon.png"),
+  );
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      return nativeImage.createFromPath(p);
+      const img = nativeImage.createFromPath(p);
+      if (!img.isEmpty()) return img;
     }
   }
   return undefined;
@@ -96,6 +98,7 @@ function resolveAppIcon(): Electron.NativeImage | undefined {
 
 function createMainWindow(url: string): BrowserWindow {
   const isMac = process.platform === "darwin";
+  const appIcon = resolveAppIcon();
 
   const savedState = loadWindowState();
 
@@ -107,7 +110,7 @@ function createMainWindow(url: string): BrowserWindow {
     minWidth: 1100,
     minHeight: 720,
     title: "Code UX",
-    icon: resolveAppIcon(),
+    icon: appIcon,
     frame: false,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
@@ -123,6 +126,13 @@ function createMainWindow(url: string): BrowserWindow {
       preload: preloadPath,
     },
   });
+
+  if (appIcon) {
+    window.setIcon(appIcon);
+    if (isMac && app.dock) {
+      app.dock.setIcon(appIcon);
+    }
+  }
 
   if (savedState.isFullScreen) {
     window.setFullScreen(true);
