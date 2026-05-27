@@ -239,7 +239,7 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
     staticBackgroundColor: typeof appearanceInput.staticBackgroundColor === "string" ? appearanceInput.staticBackgroundColor : "#0d0f12",
     backgroundImage: sanitizeBackgroundImage(appearanceInput.backgroundImage),
     backgroundPattern: sanitizeBackgroundPattern(appearanceInput.backgroundPattern),
-    zoomLevel: Math.min(2, Math.max(0.5, rawZoom)),
+    zoomLevel: Math.min(2.5, Math.max(0.5, rawZoom)),
   };
 
   const automationLevel = input.automationLevel;
