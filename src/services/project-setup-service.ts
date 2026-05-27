@@ -26,6 +26,7 @@ import {
   buildProjectSetupPrompt,
 } from "./project-setup-prompt-builder.js";
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
+import type { DashboardRealtimeMutationNotifier } from "./dashboard-realtime-service.js";
 
 export const PROJECT_SETUP_AGENT_NAME = "Project Setup Agent";
 
@@ -43,6 +44,7 @@ interface ProjectSetupServiceDeps {
   agentPresetSyncService: AgentPresetSyncService;
   quicksprintService?: QuicksprintService;
   providerRunner?: IProviderRunner;
+  realtimeNotifier?: DashboardRealtimeMutationNotifier;
   logger?: Logger;
   getGithubToken?: () => string | undefined;
 }
@@ -62,13 +64,17 @@ interface PreparedProjectSetupRun {
 export class ProjectSetupService {
   private readonly providerExecutionService: ProviderExecutionService;
 
-  constructor(private readonly deps: ProjectSetupServiceDeps) {
+  constructor(private deps: ProjectSetupServiceDeps) {
     this.providerExecutionService = new ProviderExecutionService({
       executionRepository: deps.executionRepository,
       providerRunner: deps.providerRunner || new ProviderRunner(new DockerRunner()),
       logger: deps.logger,
       getGithubToken: deps.getGithubToken,
     });
+  }
+
+  setRealtimeNotifier(notifier: DashboardRealtimeMutationNotifier): void {
+    this.deps.realtimeNotifier = notifier;
   }
 
   async setupProject(
@@ -221,6 +227,8 @@ export class ProjectSetupService {
           finishedAt: new Date().toISOString(),
         });
       }
+
+      this.deps.realtimeNotifier?.scheduleProjectStructureRefresh(projectId, { includeProjects: true });
 
       return {
         ok: true,
