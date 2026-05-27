@@ -1,9 +1,13 @@
 import os from "os";
 import * as path from "path";
+import { createRequire } from "module";
+
+const { version } = createRequire(import.meta.url)("../../../package.json") as { version: string };
 
 export const CODE_UX_DIRNAME = ".code-ux";
 export const CODE_UX_SERVICE_NAME = "code-ux";
 export const CODE_UX_DISPLAY_NAME = "Code UX";
+export const CODE_UX_VERSION: string = version;
 
 export function getRelativeCodeUxPath(...segments: string[]): string {
   return path.join(CODE_UX_DIRNAME, ...segments);

@@ -62,7 +62,7 @@ import { bootDashboard } from "../app/lifecycle/dashboard-lifecycle-service.js";
 import { bootMcpHttpTransport, bootMcpTransport, type McpHttpTransportHandle } from "../app/lifecycle/mcp-lifecycle-service.js";
 import type { DashboardServerHandle } from "./dashboard-server.js";
 import { McpApprovalTracker } from "../services/mcp-approval-tracker.js";
-import { getCodeUxSubtasksDir, CODE_UX_SERVICE_NAME } from "../shared/config/code-ux-paths.js";
+import { getCodeUxSubtasksDir, CODE_UX_SERVICE_NAME, CODE_UX_VERSION } from "../shared/config/code-ux-paths.js";
 import { SprintMarkdownService } from "../services/sprint-markdown-service.js";
 import type { SprintIssueService } from "../services/sprint-issue-service.js";
 import { VirtualWorkerService } from "../services/virtual-worker-service.js";
@@ -323,7 +323,7 @@ export class JulesAgentServer {
     const server = new Server(
       {
         name: CODE_UX_SERVICE_NAME,
-        version: "1.2.0",
+        version: CODE_UX_VERSION,
       },
       {
         capabilities: {

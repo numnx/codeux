@@ -1,7 +1,9 @@
 {
   "name": "code-ux",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "Model Context Protocol server for the Jules Agent API.",
+  "author": "Pierre Voss <p.voss@codeux.ai>",
+  "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "type": "module",
   "main": "dist/index.js",
@@ -78,7 +80,7 @@
     },
     "linux": {
       "category": "Development",
-      "maintainer": "Code UX Maintainers <noreply@github.com>",
+      "maintainer": "Pierre Voss <p.voss@codeux.ai>",
       "target": [
         "AppImage",
         "deb",

@@ -39,7 +39,7 @@ import { DashboardSettings, ExternalSettingsHints } from "../../contracts/app-ty
 import { loadExternalSettingsHints } from "../../config/external-settings.js";
 import { createLogger, type Logger } from "../../shared/logging/logger.js";
 import { ServerContext } from "../dependency-factory.js";
-import { getRepoDebugLogPath, CODE_UX_SERVICE_NAME } from "../../shared/config/code-ux-paths.js";
+import { getRepoDebugLogPath, CODE_UX_SERVICE_NAME, CODE_UX_VERSION } from "../../shared/config/code-ux-paths.js";
 
 import { ProviderRunner } from "../../infrastructure/providers/cli/provider-runner.js";
 import { DockerRunner } from "../../infrastructure/providers/cli/docker-runner.js";
@@ -118,7 +118,7 @@ export function createCoreDependencies(
   const server = new Server(
     {
       name: CODE_UX_SERVICE_NAME,
-      version: "1.2.0",
+      version: CODE_UX_VERSION,
     },
     {
       capabilities: {
