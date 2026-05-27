@@ -25,9 +25,13 @@ import { TitleBar } from "./v2/components/TitleBar.js";
 import "./styles.css";
 
 const isElectron = typeof window !== "undefined" && Boolean(window.codeUxDesktop);
+const electronRenderProfile = isElectron ? window.codeUxDesktop?.renderProfile || "standard" : "standard";
+const preferLowPowerDesktopRendering = isElectron && electronRenderProfile === "low-power";
 if (isElectron && typeof document !== "undefined") {
   document.documentElement.classList.add("is-electron");
   document.body.classList.add("is-electron");
+  document.documentElement.dataset.desktopRenderProfile = electronRenderProfile;
+  document.body.dataset.desktopRenderProfile = electronRenderProfile;
 
   const syncWindowClasses = (state: { isMaximized: boolean; isFullScreen: boolean }) => {
     document.documentElement.classList.toggle("is-maximized", state.isMaximized);
@@ -136,7 +140,7 @@ const AppLayout = () => {
   }, [isDark]);
 
   useEffect(() => {
-    applyAppearanceSettings({ backgroundImage });
+    applyAppearanceSettings({ backgroundImage: preferLowPowerDesktopRendering ? null : backgroundImage });
   }, [backgroundImage]);
 
   useEffect(() => {
@@ -150,7 +154,7 @@ const AppLayout = () => {
   }, [reducedMotion]);
 
   useEffect(() => {
-    applyAppearanceSettings({ backgroundPattern });
+    applyAppearanceSettings({ backgroundPattern: preferLowPowerDesktopRendering ? "NONE" : backgroundPattern });
   }, [backgroundPattern]);
 
   useEffect(() => {
@@ -163,6 +167,9 @@ const AppLayout = () => {
 
   const navMode = appearanceSettings?.navigationMode || "DOCK";
   const showSidebar = isMobile || navMode === "SIDEBAR";
+  const shouldRenderVisualBackground = !preferLowPowerDesktopRendering;
+  const effectiveBackgroundMode = preferLowPowerDesktopRendering ? "STATIC" : backgroundMode;
+  const effectiveBackgroundPattern = preferLowPowerDesktopRendering ? "NONE" : backgroundPattern;
 
   return (
     <div className="app-shell flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
@@ -174,7 +181,7 @@ const AppLayout = () => {
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
           Skip to main content
         </a>
-        {backgroundImage ? (
+        {backgroundImage && shouldRenderVisualBackground ? (
           <div
             aria-hidden="true"
             className="fixed inset-0 bg-cover bg-center bg-no-repeat"
@@ -183,19 +190,19 @@ const AppLayout = () => {
         ) : (
           <Suspense fallback={null}>
             <BackgroundManager
-              mode={backgroundMode}
+              mode={effectiveBackgroundMode}
               animation={animatedBackground}
               staticColor={staticBackgroundColor}
               isDark={isDark}
             />
           </Suspense>
         )}
-        {backgroundPattern !== "NONE" && (
+        {effectiveBackgroundPattern !== "NONE" && (
           <div
             aria-hidden="true"
             className="pointer-events-none fixed inset-0"
             style={{
-              backgroundImage: BACKGROUND_PATTERNS[backgroundPattern] || undefined,
+              backgroundImage: BACKGROUND_PATTERNS[effectiveBackgroundPattern] || undefined,
               backgroundRepeat: "repeat",
               zIndex: 1,
             }}
