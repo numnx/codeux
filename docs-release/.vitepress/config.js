@@ -9,7 +9,7 @@ export default {
       { text: 'Integrations', collapsed: false, items: [{ text: 'Overview', link: '/integrations/overview' }] },
       { text: 'Admin', collapsed: false, items: [{ text: 'Overview', link: '/admin/overview' }] },
       { text: 'Troubleshooting', collapsed: false, items: [{ text: 'Overview', link: '/troubleshooting/overview' }] },
-      { text: 'Reference', collapsed: false, items: [{ text: 'Overview', link: '/reference/overview' }] },
+      { text: 'Reference', collapsed: false, items: [{ text: 'Overview', link: '/reference/overview' }, { text: 'Supported Platforms', link: '/reference/supported-platforms' }] },
       { text: 'Release Notes', collapsed: false, items: [{ text: 'Overview', link: '/release-notes/overview' }] }
     ]
   }
