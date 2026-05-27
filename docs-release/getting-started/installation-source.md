@@ -7,7 +7,6 @@ This guide provides instructions on how to compile the Jules Subagents applicati
 Before beginning, ensure your development environment meets the following requirements:
 
 - **Node.js**: Version 18.x or later.
-- **pnpm**: Version 8.x or later (the primary package manager for this project).
 - **Git**: Installed and accessible from your command line.
 
 ## Installation and Build Steps
@@ -23,10 +22,10 @@ cd jules-subagents-mcp
 
 ### Step 2: Install dependencies
 
-Install all required dependencies using `pnpm`.
+Install all required dependencies using `npm`.
 
 ```bash
-pnpm install
+npm install
 ```
 
 ### Step 3: Build the application
@@ -34,7 +33,7 @@ pnpm install
 Compile the backend services and build the web dashboard. This step ensures that both the Model Context Protocol (MCP) server and the dashboard artifacts are correctly generated.
 
 ```bash
-pnpm run build
+npm run build
 ```
 
 ### Step 4: Run the Web Dashboard Locally
@@ -42,7 +41,7 @@ pnpm run build
 Start the local development server, which runs the MCP server and serves the dashboard simultaneously.
 
 ```bash
-pnpm run dev
+npm run dev
 ```
 
 Once the server has started, you can access the web dashboard locally by opening the following URL in your web browser:
