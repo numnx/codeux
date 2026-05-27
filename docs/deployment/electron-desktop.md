@@ -34,6 +34,20 @@ Renderer Node access remains disabled. The preload exposes only this narrow IPC 
 
 The release output is written to `release/electron/`.
 
+## GitHub Release Builds
+
+Desktop release artifacts are built by `.github/workflows/desktop-release.yml` when a GitHub Release is published. The workflow can also be started manually from GitHub Actions with an optional tag input.
+
+The workflow builds on native runners:
+
+- `ubuntu-latest` runs `pnpm run electron:dist:linux`
+- `windows-latest` runs `pnpm run electron:dist:win`
+- `macos-latest` runs `pnpm run electron:dist:mac`
+
+Each job uploads its generated files as a workflow artifact. For published GitHub Releases, the same generated files are also attached to the release.
+
+Release builds set `CSC_IDENTITY_AUTO_DISCOVERY=false`, so the default workflow produces unsigned desktop artifacts unless signing secrets and Electron Builder signing configuration are added later.
+
 ## Cross-Platform Compatibility Findings
 
 - File and directory selection: browser image upload uses standard `<input type="file">` and `FileReader`, which Electron/Chromium supports on macOS, Linux, and Windows. Project directory selection now uses Electron's native directory dialog in the desktop app and falls back to the existing dashboard directory browser outside Electron.
