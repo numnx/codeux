@@ -6,7 +6,7 @@ export default {
       { text: 'Get Started', collapsed: false, items: [{ text: 'Overview', link: '/getting-started/overview' }] },
       { text: 'Installation', collapsed: false, items: [{ text: 'Overview', link: '/installation/overview' }] },
       { text: 'Guides', collapsed: false, items: [{ text: 'Overview', link: '/guides/overview' }] },
-      { text: 'Integrations', collapsed: false, items: [{ text: 'Overview', link: '/integrations/overview' }] },
+      { text: 'Integrations', collapsed: false, items: [{ text: 'Overview', link: '/integrations/overview' }, { text: 'MCP Setup', link: '/integrations/mcp-setup' }] },
       { text: 'Admin', collapsed: false, items: [{ text: 'Overview', link: '/admin/overview' }] },
       { text: 'Troubleshooting', collapsed: false, items: [{ text: 'Overview', link: '/troubleshooting/overview' }] },
       { text: 'Reference', collapsed: false, items: [{ text: 'Overview', link: '/reference/overview' }] },
