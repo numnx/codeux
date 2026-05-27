@@ -315,6 +315,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     backgroundMode: "ANIMATED",
     animatedBackground: "deep-ocean",
     staticBackgroundColor: "#0d0f12",
+    zoomLevel: 1,
   },
   automationLevel: "SEMI_AUTO",
   automationInterventions: {

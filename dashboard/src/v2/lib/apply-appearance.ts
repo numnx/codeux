@@ -48,4 +48,17 @@ export function applyAppearanceSettings(appearance: Partial<import('../../types.
       document.documentElement.classList.remove('has-bg-image');
     }
   }
+
+  if (appearance.zoomLevel !== undefined && appearance.zoomLevel !== null) {
+    // Electron-only: native Chromium zoom recalculates the viewport so the
+    // sidebar/dock and other fixed elements stay reachable. In a regular
+    // browser we deliberately do nothing — CSS `zoom` breaks layouts and
+    // users have the browser's own Ctrl +/- if they want to scale.
+    const desktop = window.codeUxDesktop;
+    if (desktop?.setZoom) {
+      const clamped = Math.min(2.5, Math.max(0.5, appearance.zoomLevel));
+      void desktop.setZoom(clamped);
+    }
+    document.documentElement.style.removeProperty('zoom');
+  }
 }

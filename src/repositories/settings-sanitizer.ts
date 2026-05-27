@@ -227,6 +227,9 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
     ? input.appearance
     : {}) as Partial<DashboardSettings["appearance"]>;
 
+  const rawZoom = typeof appearanceInput.zoomLevel === "number" && Number.isFinite(appearanceInput.zoomLevel)
+    ? appearanceInput.zoomLevel
+    : DEFAULT_DASHBOARD_SETTINGS.appearance.zoomLevel;
   const appearance = {
     navigationMode: appearanceInput.navigationMode === "SIDEBAR" ? "SIDEBAR" : "DOCK" as "DOCK" | "SIDEBAR",
     theme: appearanceInput.theme === "LIGHT" || appearanceInput.theme === "DARK" ? appearanceInput.theme : "SYSTEM" as "LIGHT" | "DARK" | "SYSTEM",
@@ -236,6 +239,7 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
     staticBackgroundColor: typeof appearanceInput.staticBackgroundColor === "string" ? appearanceInput.staticBackgroundColor : "#0d0f12",
     backgroundImage: sanitizeBackgroundImage(appearanceInput.backgroundImage),
     backgroundPattern: sanitizeBackgroundPattern(appearanceInput.backgroundPattern),
+    zoomLevel: Math.min(2.5, Math.max(0.5, rawZoom)),
   };
 
   const automationLevel = input.automationLevel;

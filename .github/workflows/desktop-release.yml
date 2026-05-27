@@ -1,0 +1,100 @@
+name: Desktop Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, for example v1.2.0. Leave empty to build the selected ref."
+        required: false
+        type: string
+
+concurrency:
+  group: desktop-release-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            script: electron:dist:linux
+            artifact-name: code-ux-linux
+          - name: Windows
+            os: windows-latest
+            script: electron:dist:win
+            artifact-name: code-ux-windows
+          - name: macOS
+            os: macos-latest
+            script: electron:dist:mac
+            artifact-name: code-ux-macos
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libopenjp2-tools
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Rebuild Electron native dependencies
+        run: pnpm run electron:install-deps
+
+      - name: Build desktop package
+        run: pnpm run ${{ matrix.script }}
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            release/electron/**
+            !release/electron/*-unpacked/**
+            !release/electron/builder-debug.yml
+            !release/electron/builder-effective-config.yaml
+          if-no-files-found: error
+
+      - name: Upload files to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            release/electron/**
+            !release/electron/*-unpacked/**
+            !release/electron/builder-debug.yml
+            !release/electron/builder-effective-config.yaml

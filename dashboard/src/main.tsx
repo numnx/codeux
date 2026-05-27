@@ -21,7 +21,14 @@ import { DashboardV2 } from "./v2/DashboardV2.js";
 import { LiveSessionPage } from "./v2/LiveSessionPage.js";
 import { OnboardingExperience } from "./v2/components/onboarding/OnboardingExperience.js";
 import { GuidedDashboardTour } from "./v2/components/onboarding/GuidedDashboardTour.js";
+import { TitleBar } from "./v2/components/TitleBar.js";
 import "./styles.css";
+
+const isElectron = typeof window !== "undefined" && Boolean(window.codeUxDesktop);
+if (isElectron && typeof document !== "undefined") {
+  document.documentElement.classList.add("is-electron");
+  document.body.classList.add("is-electron");
+}
 
 import { applyAppearanceSettings } from "./v2/lib/apply-appearance.js";
 import { BACKGROUND_PATTERNS } from "./v2/lib/background-patterns.js";
@@ -84,6 +91,7 @@ const AppLayout = () => {
   const backgroundMode = appearanceSettings?.backgroundMode || "ANIMATED";
   const animatedBackground = appearanceSettings?.animatedBackground || "deep-ocean";
   const staticBackgroundColor = appearanceSettings?.staticBackgroundColor || "#0d0f12";
+  const zoomLevel = appearanceSettings?.zoomLevel ?? 1;
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === "undefined") return true;
     if (appearanceTheme === "SYSTEM") {
@@ -137,6 +145,10 @@ const AppLayout = () => {
     applyAppearanceSettings({ backgroundPattern });
   }, [backgroundPattern]);
 
+  useEffect(() => {
+    applyAppearanceSettings({ zoomLevel });
+  }, [zoomLevel]);
+
   const toggleTheme = () => {
     setIsDark((prev) => !prev);
   };
@@ -145,7 +157,9 @@ const AppLayout = () => {
   const showSidebar = isMobile || navMode === "SIDEBAR";
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
+    <div className="app-shell flex flex-col h-screen overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
+      {isElectron && <TitleBar />}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {showSidebar && <Sidebar isMobile={isMobile} isOpen={isMobileSidebarOpen} onClose={() => setIsMobileSidebarOpen(false)} />}
 
       <div className="flex flex-col flex-1 h-screen overflow-hidden relative">
@@ -200,6 +214,7 @@ const AppLayout = () => {
         <OnboardingExperience />
         <GuidedDashboardTour />
         <footer className="sr-only">Dashboard Footer</footer>
+      </div>
       </div>
     </div>
   );

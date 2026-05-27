@@ -489,6 +489,9 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
       staticBackgroundColor: typeof appearanceInput.staticBackgroundColor === "string" ? appearanceInput.staticBackgroundColor : "#0d0f12",
       backgroundImage: sanitizeBackgroundImage(appearanceInput.backgroundImage),
       backgroundPattern: sanitizeBackgroundPattern(appearanceInput.backgroundPattern),
+      zoomLevel: typeof appearanceInput.zoomLevel === "number" && Number.isFinite(appearanceInput.zoomLevel)
+        ? Math.min(2.5, Math.max(0.5, appearanceInput.zoomLevel))
+        : DEFAULT_DASHBOARD_SETTINGS.appearance.zoomLevel,
     },
     automationLevel: input.automationLevel === "FULL" || input.automationLevel === "SEMI_AUTO" || input.automationLevel === "ALWAYS_ASK"
       ? input.automationLevel

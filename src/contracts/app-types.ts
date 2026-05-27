@@ -793,6 +793,7 @@ export interface AppearanceSettings {
   staticBackgroundColor: string;
   backgroundImage?: string | null;
   backgroundPattern?: BackgroundPattern | null;
+  zoomLevel: number;
 }
 
 export interface SkillToggle {

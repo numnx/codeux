@@ -4,7 +4,7 @@ Production-grade agentic sprint orchestration via MCP.
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-blue.svg)](https://pnpm.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue.svg)](https://www.typescriptlang.org/)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Protocol: MCP](https://img.shields.io/badge/Protocol-MCP-green.svg)](https://modelcontextprotocol.io/)
 
 Sprint OS is a production-grade MCP server and multi-provider virtual worker engine supporting Jules, Gemini, Codex, Claude Code, and Qwen Code. It exposes a powerful suite of sprint orchestration tools alongside a real-time V2 Preact dashboard. Under the hood, a DB-backed sprint orchestration engine provides dependency-aware DAG scheduling and Git/CI intelligence to automate development workflows.
@@ -358,4 +358,4 @@ We recommend following one of three reading paths based on your needs:
 
 ## License
 
-This project is licensed under the **ISC License**.
+This project is licensed under the **MIT License** — Copyright (c) 2026 Pierre Voss. See [LICENSE](./LICENSE) for the full text.

@@ -7,7 +7,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Logger } from "../../shared/logging/logger.js";
-import { CODE_UX_DISPLAY_NAME } from "../../shared/config/code-ux-paths.js";
+import { CODE_UX_DISPLAY_NAME, CODE_UX_VERSION } from "../../shared/config/code-ux-paths.js";
 import type { RuntimeStartupRecoveryService } from "../../services/runtime-startup-recovery-service.js";
 
 export interface BootMcpTransportDeps {
@@ -88,6 +88,11 @@ function respondBadRequest(res: ServerResponse, message: string): void {
 }
 
 export async function bootMcpTransport(deps: BootMcpTransportDeps): Promise<void> {
+  if (process.env.CODE_UX_DISABLE_MCP_STDIO === "1") {
+    deps.logger.info(`${CODE_UX_DISPLAY_NAME} MCP stdio transport disabled by environment`);
+    return;
+  }
+
   if (process.stdin.isTTY) {
     deps.logger.info(`${CODE_UX_DISPLAY_NAME} running in standalone mode (stdin is a TTY) — MCP stdio transport disabled`);
     return;
@@ -95,7 +100,7 @@ export async function bootMcpTransport(deps: BootMcpTransportDeps): Promise<void
 
   const transport = new StdioServerTransport();
   await deps.server.connect(transport);
-  deps.logger.info(`${CODE_UX_DISPLAY_NAME} MCP server running on stdio`, { version: "1.2.0" });
+  deps.logger.info(`${CODE_UX_DISPLAY_NAME} MCP server running on stdio`, { version: CODE_UX_VERSION });
 }
 
 export async function bootMcpHttpTransport(deps: BootMcpHttpTransportDeps): Promise<McpHttpTransportHandle | null> {
