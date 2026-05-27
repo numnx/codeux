@@ -98,6 +98,7 @@ function resolveAppIcon(): Electron.NativeImage | undefined {
 
 function createMainWindow(url: string): BrowserWindow {
   const isMac = process.platform === "darwin";
+  const isWin = process.platform === "win32";
   const appIcon = resolveAppIcon();
 
   const savedState = loadWindowState();
@@ -113,11 +114,14 @@ function createMainWindow(url: string): BrowserWindow {
     icon: appIcon,
     frame: false,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
+    titleBarOverlay: false,
     trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
     transparent: true,
     backgroundColor: "#00000000",
+    backgroundMaterial: "none",
     roundedCorners: true,
     hasShadow: true,
+    thickFrame: false,
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -162,6 +166,11 @@ function createMainWindow(url: string): BrowserWindow {
   window.on("leave-full-screen", emitMaximizeState);
 
   window.once("ready-to-show", () => {
+    if (isWin) {
+      const [w, h] = window.getSize();
+      window.setSize(w + 1, h + 1);
+      window.setSize(w, h);
+    }
     window.show();
     emitMaximizeState();
   });
