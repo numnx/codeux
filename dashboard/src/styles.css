@@ -22,24 +22,15 @@ html.has-bg-image {
 /*
   Electron desktop window chrome
   ------------------------------
-  When running inside the Electron shell the OS frame is removed and we
-  paint a fully custom title bar.  The window is transparent so the
-  border-radius on .app-shell cleanly reveals the desktop behind the
-  corners.  On macOS, hasShadow provides a native window shadow.
+  The window is fully transparent.  Body padding reserves space for the
+  CSS shadow to render outside the rounded .app-shell.  On Windows and
+  macOS this padding is invisible (shows the desktop); on Linux without
+  a compositor it may fall back to a dark fringe.
 */
 html.is-electron,
 html.is-electron body {
   background: transparent !important;
   overflow: hidden;
-}
-
-html.is-electron body {
-  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.45));
-}
-
-html.is-electron.is-maximized body,
-html.is-electron.is-fullscreen body {
-  filter: none;
 }
 
 html.is-electron .app-shell {
