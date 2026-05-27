@@ -20,7 +20,7 @@ This is invaluable for visually verifying changes a sprint has made (UI work, AP
 4. If no preview script exists yet, the **Preview script editor** opens. Write the startup script (defaults provided per language).
 5. Save and click **Start**. Code UX:
    - Builds a container image based on `node:24-bookworm` (or your override).
-   - Mounts the sprint's worktree.
+   - Exports the sprint branch snapshot into preview runtime storage and mounts it into the container.
    - Runs the script.
    - Maps the configured port to a host port.
 6. The browser pane appears. Logs stream in a side panel.

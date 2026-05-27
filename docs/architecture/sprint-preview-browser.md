@@ -29,6 +29,7 @@ Each preview session is scoped to one `(projectId, sprintId)` pair.
 
 Key rules:
 - every sprint preview runs from a dedicated exported branch snapshot under the preview runtime root, not a registered git worktree
+- host runtime paths and in-container paths are kept separate for cross-platform Docker Desktop support: Windows/macOS/Linux host paths are mounted into the Linux container at `/code-ux-preview-runtime`, and preview `HOME`, `--workdir`, npm cache paths, and `SPRINT_PREVIEW_WORKSPACE` use POSIX container paths only
 - the preview container reuses the same Docker bootstrap and can reuse an already-built cached setup image, but preview startup no longer builds setup-cache images inline or runs the full worker setup script at runtime
 - the app inside the container listens on `sprintPreview.containerAppPort`
 - the host-facing port is allocated from `sprintPreview.hostPortRangeStart..hostPortRangeEnd`
@@ -117,6 +118,7 @@ It supports:
 
 Rebuild behaviors:
 - Preview start and rebuild now use the shared branch-sync rule. In `REMOTE` git mode, Code UX refreshes `origin` before exporting the preview workspace so remote changes (such as those pushed by Jules workers) are reflected in the container. In `LOCAL` git mode, preview export stays local-only.
+- Preview workspace export no longer depends on a host `tar` executable. Code UX writes the Git archive on the host, then extracts it through a small Docker helper container so packaged Windows Electron builds use the same extraction path as Linux/macOS.
 
 These behaviors are controlled through scoped settings under `sprintPreview`.
 

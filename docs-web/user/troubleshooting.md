@@ -92,6 +92,12 @@ A dependency is `COMPLETED` but `is_merged: false`. Code UX gates on merge, not 
 
 **Fix:** open the dependency's PR; merge it. Then set `merged: true` in the subtask file (or use auto-merge so this is automated).
 
+### Task dispatch fails during branch refresh
+
+CLI-backed tasks refresh the remote branch before preparing the worker branch. That refresh is mandatory so local branch state cannot drift from the remote.
+
+**Fix:** verify `git fetch origin <branch>` works in the project repository and that the dashboard GitHub/GitLab token or local SSH setup can read the remote. Slow GitHub/GitLab smart HTTP connections may exceed short local timeouts; Code UX waits 120 seconds by default, and operators can raise it with `CODE_UX_GIT_FETCH_TIMEOUT_MS`.
+
 ### CI autofix loops
 
 A `ci_fix` worker keeps trying and failing.
@@ -123,6 +129,8 @@ The CLI is installed but not logged in.
 The Docker daemon is unreachable, or the worker image cannot be pulled.
 
 **Fix:** verify `docker ps` works. Pre-pull the image: `docker pull node:24-bookworm`.
+
+For packaged Windows builds, Docker errors that show `C:\...` as a container `--workdir`, `HOME`, or mount target indicate an outdated build. Current preview containers mount Windows/macOS/Linux host runtime storage at Linux container paths under `/code-ux-preview-runtime`.
 
 ## Memory & embeddings
 

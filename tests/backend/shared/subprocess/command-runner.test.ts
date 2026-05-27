@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import { CommandRunner } from "../../../../src/shared/subprocess/command-runner.js";
 
 describe("CommandRunner", () => {
@@ -90,6 +93,23 @@ describe("CommandRunner", () => {
     });
 
     expect(result.stdout).toBe("hello\n   \n");
+  });
+
+  it("should stream a file into command stdin", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-command-runner-"));
+    const inputPath = path.join(tempDir, "input.txt");
+    try {
+      await fs.writeFile(inputPath, "from-file-stdin", "utf8");
+
+      const result = await runner.run("node", ["-e", "process.stdin.pipe(process.stdout)"], {
+        stdinFile: inputPath,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.stdout).toBe("from-file-stdin");
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("should clip stderr if too long", async () => {

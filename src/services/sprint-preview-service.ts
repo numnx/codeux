@@ -1,5 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
+import * as pathPosix from "path/posix";
 import * as net from "net";
 import os from "os";
 import { fileURLToPath } from "url";
@@ -48,6 +49,7 @@ const PREVIEW_READINESS_TIMEOUT_MS = 120_000;
 const PREVIEW_LOG_TAIL_LINES = 200;
 const PREVIEW_LOG_DRIVER = "local";
 const ORPHANED_SETUP_CONTAINER_COMMAND = "bash /tmp/code-ux-setup.sh && rm -f /tmp/code-ux-setup.sh";
+const CONTAINER_PREVIEW_RUNTIME_ROOT = "/code-ux-preview-runtime";
 
 export interface SprintPreviewProxyResponse {
   status: number;
@@ -110,6 +112,11 @@ export class SprintPreviewService {
       const runtimeHome = path.join(runtimeRoot, "home-preview");
       const runtimeNpmPrefix = path.join(projectRuntimeRoot, "npm-global");
       const runtimeNpmCache = path.join(projectRuntimeRoot, "npm-cache");
+      const containerRuntimeRoot = pathPosix.join(CONTAINER_PREVIEW_RUNTIME_ROOT, "preview", sprintId);
+      const containerWorkspacePath = pathPosix.join(containerRuntimeRoot, "workspace");
+      const containerRuntimeHome = pathPosix.join(containerRuntimeRoot, "home-preview");
+      const containerNpmPrefix = pathPosix.join(CONTAINER_PREVIEW_RUNTIME_ROOT, "npm-global");
+      const containerNpmCache = pathPosix.join(CONTAINER_PREVIEW_RUNTIME_ROOT, "npm-cache");
       const startupMountPath = "/opt/code-ux/preview-start.sh";
       const startupRuntimePath = path.join(runtimeRoot, "start-preview.sh");
       const containerName = this.buildContainerName(projectId, sprintId);
@@ -219,8 +226,8 @@ export class SprintPreviewService {
         const workflowSettings = effectiveSettings.cliWorkflow;
         const credentialMounts = await new DockerCredentialMountBuilder().build(workflowSettings, project.baseDir, () => undefined);
         const bootstrapScript = new DockerBootstrapBuilder().build({
-          runtimeNpmPrefix,
-          runtimeNpmCache,
+          runtimeNpmPrefix: containerNpmPrefix,
+          runtimeNpmCache: containerNpmCache,
           fallbackProviders: [],
           runSetupScript: shouldRunSetupScriptAtRuntime,
         });
@@ -231,23 +238,23 @@ export class SprintPreviewService {
           "--name", containerName,
           "--log-driver", PREVIEW_LOG_DRIVER,
           "-p", `127.0.0.1:${hostPort}:${CONTAINER_PREVIEW_PROXY_PORT}`,
-          "--workdir", workspacePath,
+          "--workdir", containerWorkspacePath,
           "--label", "code-ux.preview=true",
           "--label", `code-ux.project-id=${projectId}`,
           "--label", `code-ux.sprint-id=${sprintId}`,
           "--label", `code-ux.session-id=${session.id}`,
           "--label", `code-ux.host-port=${hostPort}`,
-          "--mount", toDockerMountArg({ source: projectRuntimeSource, destination: projectRuntimeRoot, readonly: false }),
+          "--mount", toDockerMountArg({ source: projectRuntimeSource, destination: CONTAINER_PREVIEW_RUNTIME_ROOT, readonly: false }),
           "--mount", toDockerMountArg({ source: startupScriptSource, destination: startupMountPath, readonly: true }),
-          "-e", `HOME=${runtimeHome}`,
+          "-e", `HOME=${containerRuntimeHome}`,
           "-e", "HOST=0.0.0.0",
           "-e", `PORT=${settings.containerAppPort}`,
           "-e", "DASHBOARD_HOST=0.0.0.0",
           "-e", `DASHBOARD_PORT=${settings.containerAppPort}`,
           "-e", `SPRINT_PREVIEW_PORT=${settings.containerAppPort}`,
           "-e", `SPRINT_PREVIEW_PROXY_PORT=${CONTAINER_PREVIEW_PROXY_PORT}`,
-          "-e", `SPRINT_PREVIEW_WORKSPACE=${workspacePath}`,
-          "-e", `SPRINT_PREVIEW_WORKTREE=${workspacePath}`,
+          "-e", `SPRINT_PREVIEW_WORKSPACE=${containerWorkspacePath}`,
+          "-e", `SPRINT_PREVIEW_WORKTREE=${containerWorkspacePath}`,
           "-e", `SPRINT_PREVIEW_INSTALL_COMMAND=${effectiveInstallCommand || ""}`,
           "-e", `SPRINT_PREVIEW_BUILD_COMMAND=${preparedScript.buildCommand || ""}`,
           "-e", `SPRINT_PREVIEW_RUN_COMMAND=${preparedScript.runCommand || ""}`,
@@ -977,10 +984,38 @@ export class SprintPreviewService {
 
     try {
       await runCommandStrict("git", ["archive", "--format=tar", "-o", archivePath, exportRef], repoPath);
-      await runCommandStrict("tar", ["-xf", archivePath, "-C", workspacePath], repoPath);
+      await this.extractPreviewArchive(repoPath, workspacePath, archivePath);
     } finally {
       await fs.rm(archivePath, { force: true }).catch(() => undefined);
     }
+  }
+
+  private async extractPreviewArchive(repoPath: string, workspacePath: string, archivePath: string): Promise<void> {
+    const archiveRoot = path.dirname(workspacePath);
+    const archiveFileName = path.basename(archivePath);
+    const workspaceName = path.basename(workspacePath);
+    const source = this.mapDockerSourcePathForDaemon(archiveRoot, repoPath);
+    const userSpec = await this.resolveDockerUserSpec(workspacePath);
+
+    const dockerArgs = [
+      "run",
+      "--rm",
+      "--mount",
+      toDockerMountArg({ source, destination: "/preview-extract", readonly: false }),
+    ];
+    if (userSpec) {
+      dockerArgs.push("--user", userSpec);
+    }
+    dockerArgs.push(
+      "alpine:3.20",
+      "tar",
+      "-xf",
+      pathPosix.join("/preview-extract", archiveFileName),
+      "-C",
+      pathPosix.join("/preview-extract", workspaceName),
+    );
+
+    await runCommandStrict("docker", dockerArgs, repoPath);
   }
 
   private async ensurePreviewBranchExists(

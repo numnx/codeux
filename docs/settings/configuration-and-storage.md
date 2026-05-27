@@ -16,6 +16,7 @@ Additional startup config:
   - if not set, `config.json` is checked (`dashboardPort`, `DASHBOARD_PORT`, `dashboard.port`, `dashboard.dashboardPort`)
 - `JULES_DOCKER_HOST_WORKSPACE_ROOT` (optional path mapping for Docker-in-Docker/remote-daemon setups)
 - `JULES_DOCKER_HOST_HOME_ROOT` (optional home-dir path mapping for Docker credential mounts)
+- `CODE_UX_GIT_FETCH_TIMEOUT_MS` (optional timeout for mandatory Git remote refreshes; default `120000`, clamped between 10 seconds and 10 minutes)
 
 External hint env keys used for dashboard import:
 - `JULES_API_KEY` / `JULES_KEY`
@@ -62,7 +63,7 @@ Runtime resolution:
   4. System setting default (Dashboard)
   5. Hardcoded default (`main`)
 - In remote git mode, Code UX refreshes `origin` before sprint branch preflight and before each task start so branch resolution is based on current remote state instead of stale local refs.
-- HTTPS GitHub remotes use the configured dashboard token as a temporary Git extraheader during origin refresh, remote branch checks, and branch pushes. HTTPS origin refreshes and branch preflight network checks run with interactive credential prompts disabled and a bounded timeout so orchestration cannot remain stuck waiting on local credential helpers. If direct remote inspection is unavailable, branch preflight can use an existing `refs/remotes/origin/<branch>` ref as remote-branch evidence. Local origin-refresh failures remain strict for CLI-backed work that needs local git state, but are best-effort for branch preflight and Jules dispatch because Jules works from the remote source and starting branch. SSH remotes continue to use the local SSH agent/key setup unchanged.
+- HTTPS GitHub remotes use the configured dashboard token as a temporary Git extraheader during origin refresh, remote branch checks, and branch pushes. HTTPS origin refreshes and branch preflight network checks run with interactive credential prompts disabled and a bounded timeout so orchestration cannot remain stuck waiting on local credential helpers. Mandatory CLI task refreshes fetch the requested starting branch's remote-tracking ref when possible, avoiding a whole-origin fetch for every task dispatch. They use a 120 second default fetch timeout, configurable with `CODE_UX_GIT_FETCH_TIMEOUT_MS` for slow Git transports. If direct remote inspection is unavailable, branch preflight can use an existing `refs/remotes/origin/<branch>` ref as remote-branch evidence. Local origin-refresh failures remain strict for CLI-backed work that needs local git state, but are best-effort for branch preflight and Jules dispatch because Jules works from the remote source and starting branch. SSH remotes continue to use the local SSH agent/key setup unchanged.
 - In remote git mode, Code UX also refreshes `origin` before branch-sensitive recovery flows such as QA review, QA follow-up continuation, clarification auto-replies, CI fix runs, and merge-conflict resolution. Clarification auto-replies refresh the recorded task worker branch when available; if the task has no worker branch yet, they refresh the scoped `git.defaultBranch` so project-level default branch overrides are used instead of falling back to `main`.
 - QA review execution uses an isolated snapshot workspace in Docker so review inspection does not mutate the task workspace directly.
 - QA-requested CLI follow-up work continues in the original task workspace when that workspace is still available.
@@ -347,7 +348,7 @@ Container execution notes:
 - merge-conflict resolution remains Docker-only because it must run in an isolated throwaway workspace
 - repo-local `.code-ux/worktrees/*` are no longer used for Docker execution
 - `~/.code-ux/runtime/docker/` should now contain only cache-like artifacts such as reusable setup-image state, not per-session workspaces
-- Docker-volume workspace bootstrap uses public helper images such as `alpine/git`. Code UX verifies or pulls these helpers automatically, and if a stale host Docker credential helper blocks a public pull, retries that helper pull with an isolated empty Docker client config.
+- Docker-volume workspace bootstrap uses public helper images such as `alpine/git`. Code UX verifies or pulls these helpers automatically, and if a stale host Docker credential helper blocks a public pull, retries that helper pull with an isolated empty Docker client config. Bootstrap sends the generated Git bundle to `docker run` through stdin, so packaged Windows Electron builds do not depend on Bash understanding host temp paths such as `C:\Users\...\AppData\Local\Temp\code-ux-bundle-*`.
 - Docker workspace bootstrap now rejects configured project paths that are nested inside a different Git checkout; this prevents Git from walking up to a parent repo and producing misleading no-change task completions.
 - write-back from isolated CLI runs uses a Git patch artifact applied on the host branch, not direct file syncing from the container
 - merge-conflict preparation and CI-fix Git commands must execute through the workspace runner; host-path Git invocations against `docker-volume://...` workspace handles are not valid

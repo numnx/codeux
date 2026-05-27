@@ -81,6 +81,7 @@ vi.mock("fs/promises", async () => {
 import { SprintPreviewService } from "../../../src/services/sprint-preview-service.js";
 import { runCommandStrict } from "../../../src/services/cli-process-runner.js";
 import { fetchOriginIfAvailable } from "../../../src/services/git-branch-sync-service.js";
+import { resolveDockerRuntimeRoot } from "../../../src/infrastructure/providers/cli/docker-runtime-paths.js";
 import { normalizePreviewPath, readOptionalSprintPreviewScript } from "../../../src/services/sprint-preview-utils.js";
 
 function makePreviewSettings(overrides: Record<string, unknown> = {}) {
@@ -324,6 +325,54 @@ describe("SprintPreviewService unit tests", () => {
       expect(fetchOriginIfAvailable).toHaveBeenCalledWith("/repo", {
         githubToken: undefined,
       });
+    });
+
+    it("uses POSIX container paths when host runtime paths are Windows-style", async () => {
+      vi.mocked(resolveDockerRuntimeRoot).mockReturnValue("C:\\Users\\pierr\\AppData\\Roaming\\Code UX\\runtime\\docker\\abc123");
+      deps.projectManagementRepository.getProject.mockReturnValue({
+        id: "proj-1",
+        name: "Test Project",
+        baseDir: "C:\\Users\\pierr\\Projects\\test2",
+        defaultBranch: "main",
+        sourceType: "local",
+        sourceRef: "C:\\Users\\pierr\\Projects\\test2",
+      });
+
+      const service = new SprintPreviewService(deps as any);
+      await service.startSession("proj-1", "sprint-1");
+
+      const previewRunCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+        call[0] === "docker" && call[1][0] === "run" && call[1].includes("-d")
+      );
+      const dockerArgs = previewRunCall?.[1] || [];
+      expect(dockerArgs).toContain("/code-ux-preview-runtime/preview/sprint-1/workspace");
+      expect(dockerArgs).toContain("HOME=/code-ux-preview-runtime/preview/sprint-1/home-preview");
+      expect(dockerArgs).toContain("SPRINT_PREVIEW_WORKSPACE=/code-ux-preview-runtime/preview/sprint-1/workspace");
+      expect(dockerArgs).toContain("SPRINT_PREVIEW_WORKTREE=/code-ux-preview-runtime/preview/sprint-1/workspace");
+
+      const workdirIndex = dockerArgs.indexOf("--workdir");
+      expect(dockerArgs[workdirIndex + 1]).not.toContain("C:\\");
+      const mountArgs = dockerArgs.filter((arg) => arg.startsWith("type=bind"));
+      expect(mountArgs.some((arg) => arg.includes("destination=/code-ux-preview-runtime"))).toBe(true);
+    });
+
+    it("extracts preview archives through a container helper instead of host tar", async () => {
+      const service = new SprintPreviewService(deps as any);
+      await service.startSession("proj-1", "sprint-1");
+
+      expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "tar")).toBe(false);
+      const extractCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+        call[0] === "docker" && call[1][0] === "run" && call[1].includes("alpine:3.20") && call[1].includes("tar")
+      );
+      expect(extractCall?.[1]).toEqual(expect.arrayContaining([
+        "--mount",
+        "alpine:3.20",
+        "tar",
+        "-xf",
+        "/preview-extract/workspace.tar",
+        "-C",
+        "/preview-extract/workspace",
+      ]));
     });
   });
 

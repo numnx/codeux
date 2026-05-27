@@ -31,13 +31,14 @@ export const runCommandStrict = async (
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
-  options: { signal?: AbortSignal; timeout?: number; trimOutput?: boolean } = {},
+  options: { signal?: AbortSignal; timeout?: number; stdinFile?: string; trimOutput?: boolean } = {},
 ): Promise<CommandResult> => {
   return commandRunner.runStrict(command, args, {
     cwd,
     env,
     signal: options.signal,
     timeout: options.timeout,
+    stdinFile: options.stdinFile,
     trimOutput: options.trimOutput,
   });
 };
