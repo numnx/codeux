@@ -134,7 +134,7 @@ For packaged Windows builds, Docker errors that show `C:\...` as a container `--
 
 For packaged Windows builds, `spawn ENAMETOOLONG` during Docker provider launch indicates an outdated build or a launch path still passing a large prompt through the host command line. Current Docker provider runs mount provider arguments from a generated file so large prompts do not become `docker run` arguments.
 
-Chromium `tile_manager.cc` warnings about tile memory limits in the packaged Windows app indicate renderer memory pressure. Current Windows desktop builds use an opaque shell and low-power background rendering to avoid oversized transparent compositor surfaces; if these warnings persist, check whether a custom background image or animated background is still active in an older build.
+Chromium `tile_manager.cc` warnings about tile memory limits in the packaged Windows app indicate renderer memory pressure. Current Windows desktop builds use an opaque shell and GPU memory hints to mitigate this. All animated backgrounds remain enabled. If these warnings persist on older builds, try switching to a lighter animation style or setting background mode to Static in Settings > Appearance.
 
 ## Memory & embeddings
 
