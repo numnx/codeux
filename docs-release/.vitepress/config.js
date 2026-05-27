@@ -5,7 +5,10 @@ export default {
     sidebar: [
       { text: 'Get Started', collapsed: false, items: [{ text: 'Overview', link: '/getting-started/overview' }] },
       { text: 'Installation', collapsed: false, items: [{ text: 'Overview', link: '/installation/overview' }] },
-      { text: 'Guides', collapsed: false, items: [{ text: 'Overview', link: '/guides/overview' }] },
+      { text: 'Guides', collapsed: false, items: [
+        { text: 'Overview', link: '/guides/overview' },
+        { text: 'Search', link: '/guides/search' }
+      ] },
       { text: 'Integrations', collapsed: false, items: [{ text: 'Overview', link: '/integrations/overview' }] },
       { text: 'Admin', collapsed: false, items: [{ text: 'Overview', link: '/admin/overview' }] },
       { text: 'Troubleshooting', collapsed: false, items: [{ text: 'Overview', link: '/troubleshooting/overview' }] },
