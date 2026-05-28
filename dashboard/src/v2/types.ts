@@ -1,5 +1,6 @@
 import type {
   AgentAvatarConfig,
+  AgentMcpAccessConfig,
   AgentPresetRecord,
   CreateAgentPresetInput,
   UpdateAgentPresetInput,
@@ -46,6 +47,9 @@ import type {
   VirtualWorkerProvider,
   LocalDirectoryBrowserEntry,
   LocalDirectoryBrowserResponse,
+  CustomMcpServer,
+  CustomMcpTransport,
+  McpToolToggle,
 } from "../../../src/contracts/app-types.js";
 import type {
   CreateProjectInput,
@@ -138,6 +142,7 @@ export type {
   LocalDirectoryBrowserEntry,
   LocalDirectoryBrowserResponse,
   AgentAvatarConfig,
+  AgentMcpAccessConfig,
   AgentPresetRecord,
   CreateProjectInput,
   CreateAgentPresetInput,
@@ -203,6 +208,9 @@ export type {
   ProviderId,
   AgentRoutingMode,
   VirtualWorkerProvider,
+  CustomMcpServer,
+  CustomMcpTransport,
+  McpToolToggle,
   CreateSchedulerEntryInput,
   SchedulerCollectionResponse,
   SchedulerEntryRecord,

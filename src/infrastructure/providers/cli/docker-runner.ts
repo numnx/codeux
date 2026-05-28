@@ -3,7 +3,9 @@ import * as os from "os";
 import * as path from "path";
 import * as pathPosix from "path/posix";
 import { fileURLToPath } from "url";
-import { CliWorkflowSettings } from "../../../contracts/app-types.js";
+import { CliWorkflowSettings, type CustomMcpServer } from "../../../contracts/app-types.js";
+import { isUsableCustomMcpServer } from "../../../mcp/mcp-tool-availability.js";
+import { buildClaudeMcpServerEntry, buildCodexMcpServerTomlLines, buildGeminiMcpServerEntry, escapeTomlString } from "./mcp-config-format.js";
 import type { McpConnectionInfo } from "../../../contracts/mcp-connection-types.js";
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import {
@@ -56,6 +58,7 @@ export interface IDockerRunner {
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     mcpConnection?: McpConnectionInfo | null;
+    customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
   readLatestWorkspaceFile?(cwd: string, dirPath: string): Promise<string | null>;
@@ -100,6 +103,7 @@ export class DockerRunner implements IDockerRunner {
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     mcpConnection?: McpConnectionInfo | null;
+    customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult> {
     const { command, args, cwd, providerEnv, sessionId, providerLabel, workflowSettings, repoPath, signal, onActivity } = input;
     const workspace = this.resolveWorkspace(cwd);
@@ -198,7 +202,7 @@ export class DockerRunner implements IDockerRunner {
           path: input.providerAuthPath || "",
         },
       );
-      const providerConfigMounts = await this.buildProviderConfigMounts(input.mcpConnection || null, providerLabel, tempRoot, providerEnv);
+      const providerConfigMounts = await this.buildProviderConfigMounts(input.mcpConnection || null, providerLabel, tempRoot, providerEnv, input.customMcpServers || []);
 
       for (const mount of [...credentialMounts, ...providerConfigMounts]) {
         const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials", onActivity);
@@ -374,41 +378,69 @@ export class DockerRunner implements IDockerRunner {
     return undefined;
   }
 
+  private customServersForProvider(
+    servers: CustomMcpServer[],
+    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
+  ): CustomMcpServer[] {
+    return servers.filter((server) =>
+      server.enabled
+      && isUsableCustomMcpServer(server)
+      && (!server.providers || server.providers.length === 0 || server.providers.includes(provider))
+    );
+  }
+
   private async buildProviderConfigMounts(
     conn: McpConnectionInfo | null,
     provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
     tempRoot: string,
     providerEnv: NodeJS.ProcessEnv,
+    customServers: CustomMcpServer[] = [],
   ): Promise<ContainerMount[]> {
     const headers: Record<string, string> = {};
     if (conn?.authToken) {
       headers.Authorization = `Bearer ${conn.authToken}`;
     }
+    if (conn?.agentId) {
+      headers["X-Code-Ux-Agent"] = conn.agentId;
+    }
+    const applicableCustomServers = this.customServersForProvider(customServers, provider);
 
-    if (provider === "claude-code" && conn) {
+    if (provider === "claude-code") {
+      const mcpServers: Record<string, unknown> = {};
+      if (conn) {
+        mcpServers.code_ux = {
+          type: "http",
+          url: conn.url,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+      }
+      for (const server of applicableCustomServers) {
+        mcpServers[server.name] = buildClaudeMcpServerEntry(server);
+      }
+      if (Object.keys(mcpServers).length === 0) {
+        return [];
+      }
       const filePath = path.join(tempRoot, "claude-mcp.json");
-      await fs.writeFile(filePath, JSON.stringify({
-        mcpServers: {
-          code_ux: {
-            type: "http",
-            url: conn.url,
-            ...(Object.keys(headers).length > 0 ? { headers } : {}),
-          },
-        },
-      }, null, 2));
+      await fs.writeFile(filePath, JSON.stringify({ mcpServers }, null, 2));
       return [{ source: filePath, destination: CLAUDE_CODE_MCP_CONFIG_MOUNT, readonly: true }];
     }
 
-    if (provider === "gemini" && conn) {
+    if (provider === "gemini") {
+      const mcpServers: Record<string, unknown> = {};
+      if (conn) {
+        mcpServers.code_ux = {
+          httpUrl: conn.url,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+      }
+      for (const server of applicableCustomServers) {
+        mcpServers[server.name] = buildGeminiMcpServerEntry(server);
+      }
+      if (Object.keys(mcpServers).length === 0) {
+        return [];
+      }
       const filePath = path.join(tempRoot, "gemini-settings.json");
-      await fs.writeFile(filePath, JSON.stringify({
-        mcpServers: {
-          code_ux: {
-            httpUrl: conn.url,
-            ...(Object.keys(headers).length > 0 ? { headers } : {}),
-          },
-        },
-      }, null, 2));
+      await fs.writeFile(filePath, JSON.stringify({ mcpServers }, null, 2));
       return [{ source: filePath, destination: GEMINI_MCP_SETTINGS_MOUNT, readonly: true }];
     }
 
@@ -422,15 +454,19 @@ export class DockerRunner implements IDockerRunner {
           settings = {};
         }
       }
-      if (conn) {
+      if (conn || applicableCustomServers.length > 0) {
         const existingMcpServers = settings.mcpServers as Record<string, unknown> || {};
-        settings.mcpServers = {
-          ...existingMcpServers,
-          code_ux: existingMcpServers.code_ux || {
+        const mcpServers: Record<string, unknown> = { ...existingMcpServers };
+        if (conn) {
+          mcpServers.code_ux = existingMcpServers.code_ux || {
             httpUrl: conn.url,
             ...(Object.keys(headers).length > 0 ? { headers } : {}),
-          },
-        };
+          };
+        }
+        for (const server of applicableCustomServers) {
+          mcpServers[server.name] = buildGeminiMcpServerEntry(server);
+        }
+        settings.mcpServers = mcpServers;
       }
       if (Object.keys(settings).length === 0) {
         return [];
@@ -443,13 +479,26 @@ export class DockerRunner implements IDockerRunner {
       return [];
     }
 
-    if (!conn) {
+    if (!conn && applicableCustomServers.length === 0) {
       return [];
     }
     const filePath = path.join(tempRoot, "codex-config.toml");
-    const lines = ["[mcp_servers.code-ux]", `url = "${conn.url}"`];
-    if (conn.authToken) {
-      lines.push(`http_headers = { "Authorization" = "Bearer ${conn.authToken}" }`);
+    const lines: string[] = [];
+    if (conn) {
+      lines.push("[mcp_servers.code-ux]", `url = "${escapeTomlString(conn.url)}"`);
+      const codexHeaderParts: string[] = [];
+      if (conn.authToken) {
+        codexHeaderParts.push(`"Authorization" = "Bearer ${escapeTomlString(conn.authToken)}"`);
+      }
+      if (conn.agentId) {
+        codexHeaderParts.push(`"X-Code-Ux-Agent" = "${escapeTomlString(conn.agentId)}"`);
+      }
+      if (codexHeaderParts.length > 0) {
+        lines.push(`http_headers = { ${codexHeaderParts.join(", ")} }`);
+      }
+    }
+    for (const server of applicableCustomServers) {
+      lines.push(...buildCodexMcpServerTomlLines(server.name, server));
     }
     await fs.writeFile(filePath, lines.join("\n") + "\n");
     return [{ source: filePath, destination: CODEX_MCP_CONFIG_MOUNT, readonly: true }];

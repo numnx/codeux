@@ -1,6 +1,8 @@
-import type { DashboardSettings } from "../contracts/app-types.js";
+import type { CustomMcpServer, DashboardSettings } from "../contracts/app-types.js";
 import type { QwenModelProviderSettings } from "../contracts/app-types.js";
 import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
+import type { AgentMcpAccessConfig } from "../contracts/agent-preset-types.js";
+import { resolveAgentMcpRuntime } from "./agent-mcp-access.js";
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
@@ -76,6 +78,16 @@ export interface ExecutionProviderRunArgs {
 
   /** MCP server connection info for injecting management tools into the CLI provider. */
   mcpConnection?: McpConnectionInfo | null;
+  /** User-defined custom MCP servers injected into the CLI provider alongside code_ux. */
+  customMcpServers?: CustomMcpServer[];
+  /**
+   * Per-agent MCP access config. When provided (agent-scoped run), custom servers are
+   * narrowed to the agent's linked ids and code_ux is gated by codeUxEnabled. When
+   * undefined the run is not agent-scoped and MCP inputs pass through unchanged.
+   */
+  agentMcpAccess?: AgentMcpAccessConfig | null;
+  /** Agent preset id for the run; used to scope code_ux tool enforcement at the gateway. */
+  mcpAgentId?: string | null;
 }
 
 export class ProviderExecutionService {
@@ -83,6 +95,13 @@ export class ProviderExecutionService {
 
   async executeProvider(args: ExecutionProviderRunArgs): Promise<ProviderRunResult> {
     let execInvocationId: string | null = args.invocationId || null;
+
+    const resolvedMcp = resolveAgentMcpRuntime({
+      access: args.agentMcpAccess,
+      agentId: args.mcpAgentId,
+      customMcpServers: args.customMcpServers ?? [],
+      mcpConnection: args.mcpConnection ?? null,
+    });
 
     const runProviderInner = async (p: string, retrySystemMessage?: string, continueSessionId?: string | null): Promise<ProviderRunResult> => {
       const startedAt = new Date().toISOString();
@@ -213,7 +232,8 @@ export class ProviderExecutionService {
         githubToken: args.githubToken ?? this.deps.getGithubToken?.(),
         signal: args.signal,
         continueSessionId,
-        mcpConnection: args.mcpConnection,
+        mcpConnection: resolvedMcp.mcpConnection,
+        customMcpServers: resolvedMcp.customMcpServers,
         onActivity: (desc: string, originator?: string) => {
           if (args.onActivity) {
             args.onActivity(desc, originator);

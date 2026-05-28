@@ -186,3 +186,102 @@ describe("DockerRunner", () => {
     ]));
   });
 });
+
+describe("DockerRunner custom MCP server injection", () => {
+  let runner: DockerRunner;
+
+  const writtenFor = (filename: string): string | undefined => {
+    const call = vi.mocked(fs.writeFile).mock.calls.find(([target]) => String(target).endsWith(filename));
+    return call ? String(call[1]) : undefined;
+  };
+
+  const build = (provider: any, conn: any, customServers: any[]) =>
+    (runner as any).buildProviderConfigMounts(conn, provider, "/tmp/cfg", {}, customServers);
+
+  beforeEach(() => {
+    runner = new DockerRunner();
+    vi.clearAllMocks();
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+  });
+
+  it("injects custom servers alongside code_ux for claude-code", async () => {
+    await build("claude-code", { url: "http://127.0.0.1:3000/mcp", authToken: "secret" }, [
+      { id: "1", name: "docs", url: "https://docs.example/mcp", enabled: true, headers: { Authorization: "Bearer t" } },
+    ]);
+    const json = JSON.parse(writtenFor("claude-mcp.json")!);
+    expect(json.mcpServers.code_ux).toMatchObject({ type: "http", url: "http://127.0.0.1:3000/mcp" });
+    expect(json.mcpServers.docs).toEqual({ type: "http", url: "https://docs.example/mcp", headers: { Authorization: "Bearer t" } });
+  });
+
+  it("writes gemini config from custom servers even without a code_ux connection", async () => {
+    const mounts = await build("gemini", null, [
+      { id: "1", name: "docs", url: "https://docs.example/mcp", enabled: true },
+    ]);
+    expect(mounts).toHaveLength(1);
+    const json = JSON.parse(writtenFor("gemini-settings.json")!);
+    expect(json.mcpServers.code_ux).toBeUndefined();
+    expect(json.mcpServers.docs).toEqual({ httpUrl: "https://docs.example/mcp" });
+  });
+
+  it("emits codex TOML tables for code_ux and custom servers with headers", async () => {
+    await build("codex", { url: "http://127.0.0.1:3000/mcp", authToken: "secret" }, [
+      { id: "1", name: "docs", url: "https://docs.example/mcp", enabled: true, headers: { "X-Key": "abc" } },
+    ]);
+    const toml = writtenFor("codex-config.toml")!;
+    expect(toml).toContain("[mcp_servers.code-ux]");
+    expect(toml).toContain("[mcp_servers.docs]");
+    expect(toml).toContain('url = "https://docs.example/mcp"');
+    expect(toml).toContain('http_headers = { "X-Key" = "abc" }');
+  });
+
+  it("respects per-server provider restriction and enabled flag", async () => {
+    const mounts = await build("claude-code", null, [
+      { id: "1", name: "geminionly", transport: "http", url: "https://a/mcp", enabled: true, providers: ["gemini"] },
+      { id: "2", name: "disabled", transport: "http", url: "https://b/mcp", enabled: false },
+    ]);
+    expect(mounts).toHaveLength(0);
+    expect(writtenFor("claude-mcp.json")).toBeUndefined();
+  });
+
+  it("emits stdio command/args/env for claude-code", async () => {
+    await build("claude-code", null, [
+      { id: "p", name: "playwright", enabled: true, transport: "stdio", command: "npx", args: ["@playwright/mcp@latest"], env: { TOKEN: "x" } },
+    ]);
+    const json = JSON.parse(writtenFor("claude-mcp.json")!);
+    expect(json.mcpServers.playwright).toEqual({ command: "npx", args: ["@playwright/mcp@latest"], env: { TOKEN: "x" } });
+    expect(json.mcpServers.playwright.type).toBeUndefined();
+  });
+
+  it("emits stdio command/args/env as codex TOML", async () => {
+    await build("codex", null, [
+      { id: "p", name: "playwright", enabled: true, transport: "stdio", command: "npx", args: ["@playwright/mcp@latest"], env: { TOKEN: "x" } },
+    ]);
+    const toml = writtenFor("codex-config.toml")!;
+    expect(toml).toContain("[mcp_servers.playwright]");
+    expect(toml).toContain('command = "npx"');
+    expect(toml).toContain('args = ["@playwright/mcp@latest"]');
+    expect(toml).toContain('env = { "TOKEN" = "x" }');
+  });
+
+  it("advertises the agent id to code_ux via the X-Code-Ux-Agent header (claude JSON)", async () => {
+    await build("claude-code", { url: "http://127.0.0.1:3000/mcp", authToken: "secret", agentId: "agent-9" }, []);
+    const json = JSON.parse(writtenFor("claude-mcp.json")!);
+    expect(json.mcpServers.code_ux.headers).toMatchObject({
+      Authorization: "Bearer secret",
+      "X-Code-Ux-Agent": "agent-9",
+    });
+  });
+
+  it("advertises the agent id to code_ux via http_headers (codex TOML)", async () => {
+    await build("codex", { url: "http://127.0.0.1:3000/mcp", authToken: "secret", agentId: "agent-9" }, []);
+    const toml = writtenFor("codex-config.toml")!;
+    expect(toml).toContain('"X-Code-Ux-Agent" = "agent-9"');
+    expect(toml).toContain('"Authorization" = "Bearer secret"');
+  });
+
+  it("omits the agent header when no agent id is set", async () => {
+    await build("claude-code", { url: "http://127.0.0.1:3000/mcp", authToken: "secret" }, []);
+    const json = JSON.parse(writtenFor("claude-mcp.json")!);
+    expect(json.mcpServers.code_ux.headers["X-Code-Ux-Agent"]).toBeUndefined();
+  });
+});
