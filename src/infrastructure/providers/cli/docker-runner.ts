@@ -58,6 +58,7 @@ export interface IDockerRunner {
     mcpConnection?: McpConnectionInfo | null;
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
+  readLatestWorkspaceFile?(cwd: string, dirPath: string): Promise<string | null>;
 }
 
 export class DockerRunner implements IDockerRunner {
@@ -263,6 +264,39 @@ export class DockerRunner implements IDockerRunner {
         process.env,
       );
       return result.ok ? result.stdout : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async readLatestWorkspaceFile(cwd: string, dirPath: string): Promise<string | null> {
+    const workspace = this.resolveWorkspace(cwd);
+    try {
+      const script = `f=$(ls -1t "${dirPath}"/*.json 2>/dev/null | head -1); [ -n "$f" ] && cat "$f"`;
+      const result = await runStreamingCommand(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-i",
+          "--workdir",
+          CONTAINER_WORKSPACE_ROOT,
+          "--mount",
+          toDockerMountArg({
+            source: workspace.volumeName,
+            destination: CONTAINER_WORKSPACE_ROOT,
+            readonly: false,
+            type: "volume",
+          }),
+          "alpine:3.20",
+          "sh",
+          "-c",
+          script,
+        ],
+        process.cwd(),
+        process.env,
+      );
+      return result.ok && result.stdout.trim() ? result.stdout : null;
     } catch {
       return null;
     }

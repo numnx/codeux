@@ -49,7 +49,7 @@ export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
     return { command: "qwen", args };
   },
   opencode: (model: string, prompt: string) => {
-    const args = ["run"];
+    const args = ["run", "--format", "json"];
     if (model && model !== "default") args.push("--model", model);
     args.push(prompt);
     return { command: "opencode", args };
@@ -276,6 +276,9 @@ export class ProviderRunner implements IProviderRunner {
       const claudeSessionJsonl = provider === "claude-code" && nativeSessionId
         ? await this.readClaudeSessionJsonl(cwd, nativeSessionId, workflowSettings.executionMode)
         : null;
+      const codexSessionJson = provider === "codex"
+        ? await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode)
+        : null;
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
         model: runModel,
@@ -286,6 +289,7 @@ export class ProviderRunner implements IProviderRunner {
         capturedText,
         nativeSessionId,
         claudeSessionJsonl,
+        codexSessionJson,
       });
       return {
         ...result,
@@ -350,6 +354,46 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     return (await fs.readFile(outputPath, "utf8").catch(() => "")).trim();
+  }
+
+  private async readCodexLatestSessionJson(
+    cwd: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+  ): Promise<string | null> {
+    const now = new Date();
+    const year = now.getFullYear().toString();
+    const month = (now.getMonth() + 1).toString().padStart(2, "0");
+    const day = now.getDate().toString().padStart(2, "0");
+
+    if (executionMode === "DOCKER") {
+      const sessionsDir = pathPosix.join(
+        CONTAINER_RUNTIME_HOME,
+        ".codex",
+        "sessions",
+        year,
+        month,
+        day,
+      );
+      return (await this.dockerRunner.readLatestWorkspaceFile?.(cwd, sessionsDir).catch(() => null)) ?? null;
+    }
+
+    const sessionsDir = path.join(os.homedir(), ".codex", "sessions", year, month, day);
+    try {
+      const files = await fs.readdir(sessionsDir);
+      const jsonFiles = files.filter(f => f.endsWith(".json"));
+      if (jsonFiles.length === 0) return null;
+      const withMtimes = await Promise.all(
+        jsonFiles.map(async (f) => {
+          const filePath = path.join(sessionsDir, f);
+          const stat = await fs.stat(filePath).catch(() => null);
+          return { filePath, mtime: stat?.mtimeMs ?? 0 };
+        }),
+      );
+      withMtimes.sort((a, b) => b.mtime - a.mtime);
+      return await fs.readFile(withMtimes[0].filePath, "utf8").catch(() => null);
+    } catch {
+      return null;
+    }
   }
 
   private async readClaudeSessionJsonl(
@@ -432,8 +476,8 @@ export class ProviderRunner implements IProviderRunner {
 
     if (provider === "opencode") {
       const args = continueSession && nativeSessionId
-        ? ["run", "--session", nativeSessionId]
-        : ["run"];
+        ? ["run", "--session", nativeSessionId, "--format", "json"]
+        : ["run", "--format", "json"];
       if (model && model !== "default") {
         args.push("--model", model);
       }
@@ -718,7 +762,7 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {
-    if (provider !== "gemini" && provider !== "codex") {
+    if (provider !== "gemini" && provider !== "codex" && provider !== "opencode") {
       return false;
     }
     const trimmed = line.trim();

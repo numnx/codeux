@@ -20,13 +20,18 @@ else
 fi
 
 # Ensure git + gh CLI exist for workflows that shell out to Git/GitHub.
-if ! command -v git >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
+if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
+  pkgs_needed=()
+  command -v git >/dev/null 2>&1 || pkgs_needed+=(git)
+  command -v gh  >/dev/null 2>&1 || pkgs_needed+=(gh)
+  if [ "${#pkgs_needed[@]}" -gt 0 ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y --no-install-recommends git gh
+    apt-get install -y --no-install-recommends "${pkgs_needed[@]}"
     rm -rf /var/lib/apt/lists/*
-  else
+  fi
+else
+  if ! command -v git >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
     echo "[setup] NOTE: git/gh missing but cannot install automatically (no root/apt-get)."
   fi
 fi
@@ -50,11 +55,53 @@ fi
 
 echo "[setup] pnpm: $(pnpm --version)"
 
-# Provider CLIs are installed lazily by the runtime bootstrap only when the
-# selected command is missing. Avoid eager global installs here so fresh
-# containers can start real work quickly.
-echo "[setup] gemini: $(gemini --version 2>/dev/null || echo missing; true)"
-echo "[setup] codex: $(codex --version 2>/dev/null || echo missing; true)"
+# Pre-install all provider CLIs so the cached image always has them available.
+# The runtime bootstrap still runs per-provider fallback installs as a safety
+# net, but those will be no-ops for any CLI already present here.
+
+# npm-distributed CLIs
+if ! command -v gemini >/dev/null 2>&1; then
+  echo "[setup] Installing @google/gemini-cli..."
+  npm install -g @google/gemini-cli || echo "[setup] WARNING: failed to install @google/gemini-cli"
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "[setup] Installing @openai/codex..."
+  npm install -g @openai/codex || echo "[setup] WARNING: failed to install @openai/codex"
+fi
+
+if ! command -v qwen >/dev/null 2>&1; then
+  echo "[setup] Installing @qwen-code/qwen-code..."
+  npm install -g @qwen-code/qwen-code || echo "[setup] WARNING: failed to install @qwen-code/qwen-code"
+fi
+
+# Claude Code CLI (installs to ~/.local/bin as non-root, /usr/local/bin as root)
+if ! command -v claude >/dev/null 2>&1; then
+  if command -v curl >/dev/null 2>&1; then
+    echo "[setup] Installing Claude Code CLI..."
+    curl -fsSL https://claude.ai/install.sh | bash || echo "[setup] WARNING: failed to install Claude Code CLI"
+    export PATH="$HOME/.local/bin:$PATH"
+  else
+    echo "[setup] NOTE: curl not found; skipping Claude Code CLI install."
+  fi
+fi
+
+# OpenCode CLI
+if ! command -v opencode >/dev/null 2>&1; then
+  if command -v curl >/dev/null 2>&1; then
+    echo "[setup] Installing OpenCode CLI..."
+    curl -fsSL https://opencode.ai/install | bash || echo "[setup] WARNING: failed to install OpenCode CLI"
+    export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+  else
+    echo "[setup] NOTE: curl not found; skipping OpenCode CLI install."
+  fi
+fi
+
+echo "[setup] gemini:   $(gemini --version 2>/dev/null || echo missing; true)"
+echo "[setup] codex:    $(codex --version 2>/dev/null || echo missing; true)"
+echo "[setup] claude:   $(claude --version 2>/dev/null || echo missing; true)"
+echo "[setup] qwen:     $(qwen --version 2>/dev/null || echo missing; true)"
+echo "[setup] opencode: $(opencode --version 2>/dev/null || echo missing; true)"
 
 # Playwright is optional for general Docker task execution. Installing Chromium
 # during every fresh bootstrap adds hundreds of MB of downloads and makes WSL

@@ -171,6 +171,156 @@ describe("collectProviderUsageTelemetry", () => {
     expect(result.transcriptText).toBe("Refactor complete.");
   }, 15000);
 
+  it("uses Codex session file for reported usage when stdout has no token_count events", async () => {
+    const sessionJson = JSON.stringify({
+      id: "sess-abc123",
+      model: "gpt-4o-codex",
+      usage: {
+        input_tokens: 500,
+        cached_input_tokens: 80,
+        output_tokens: 120,
+        reasoning_output_tokens: 10,
+      },
+    });
+
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Write unit tests.",
+      cwd: "/workspace/repo",
+      stdout: "plain text output no json",
+      stderr: "",
+      capturedText: "Tests written.",
+      codexSessionJson: sessionJson,
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 500,
+      cachedInputTokens: 80,
+      outputTokens: 120,
+      reasoningOutputTokens: 10,
+      totalTokens: 620,
+      usageSource: "reported",
+      transcriptText: "Tests written.",
+    });
+  });
+
+  it("uses Codex session file with OpenAI completion_tokens naming convention", async () => {
+    const sessionJson = JSON.stringify({
+      id: "sess-xyz",
+      model: "o4-mini",
+      usage: {
+        prompt_tokens: 800,
+        completion_tokens: 200,
+        prompt_tokens_details: { cached_tokens: 50 },
+        completion_tokens_details: { reasoning_tokens: 30 },
+      },
+    });
+
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "o4-mini",
+      prompt: "Implement the feature.",
+      cwd: "/workspace/repo",
+      stdout: "",
+      stderr: "",
+      codexSessionJson: sessionJson,
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 800,
+      cachedInputTokens: 50,
+      outputTokens: 200,
+      reasoningOutputTokens: 30,
+      totalTokens: 1000,
+      usageSource: "reported",
+    });
+  });
+
+  it("aggregates Codex session usage from per-turn items when no top-level usage", async () => {
+    const sessionJson = JSON.stringify({
+      id: "sess-turns",
+      model: "gpt-4o-codex",
+      turns: [
+        { role: "assistant", content: "First response", usage: { input_tokens: 100, output_tokens: 40, cached_input_tokens: 0 } },
+        { role: "assistant", content: "Second response", usage: { input_tokens: 200, output_tokens: 60, cached_input_tokens: 20 } },
+      ],
+    });
+
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Multi-turn task.",
+      cwd: "/workspace/repo",
+      stdout: "",
+      stderr: "",
+      codexSessionJson: sessionJson,
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 300,
+      cachedInputTokens: 20,
+      outputTokens: 100,
+      totalTokens: 400,
+      usageSource: "reported",
+    });
+  });
+
+  it("prefers stdout token_count events over Codex session file", async () => {
+    const sessionJson = JSON.stringify({
+      id: "sess-override",
+      model: "gpt-4o-codex",
+      usage: { input_tokens: 9999, output_tokens: 9999 },
+    });
+
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Fix the bug.",
+      cwd: "/workspace/repo",
+      stdout: JSON.stringify({
+        type: "token_count",
+        payload: {
+          type: "token_count",
+          info: {
+            total_token_usage: {
+              input_tokens: 210,
+              cached_input_tokens: 35,
+              output_tokens: 84,
+              reasoning_output_tokens: 16,
+            },
+          },
+        },
+      }),
+      stderr: "",
+      capturedText: "Bug fixed.",
+      codexSessionJson: sessionJson,
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 210,
+      cachedInputTokens: 35,
+      outputTokens: 84,
+      usageSource: "reported",
+    });
+  });
+
+  it("falls back to estimation when both Codex stdout and session file lack usage", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Explain the code.",
+      cwd: "/workspace/repo",
+      stdout: "some output",
+      stderr: "",
+      capturedText: "Explanation here.",
+      codexSessionJson: JSON.stringify({ id: "sess-empty", model: "gpt-4o-codex" }),
+    });
+
+    expect(result.usageSource).toBe("estimated");
+    expect(result.inputTokens).toBeGreaterThan(0);
+  }, 15000);
+
   it("parses Claude session artifacts for reported usage", async () => {
     const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), "claude-usage-home-"));
     tempDirs.push(fakeHome);
