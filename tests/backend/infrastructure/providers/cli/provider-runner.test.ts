@@ -210,7 +210,7 @@ describe("ProviderRunner", () => {
 
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       command: "opencode",
-      args: ["run", "--model", "custom/model", "review this"],
+      args: ["run", "--format", "json", "--model", "custom/model", "review this"],
       providerEnv: expect.objectContaining({
         OPENCODE_API_KEY: "sk-open-test",
         OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"baseURL\":\"https://llm.example.com/v1\""),
@@ -248,7 +248,7 @@ describe("ProviderRunner", () => {
 
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       command: "opencode",
-      args: ["run", "--model", "ollama/glm-4.7-flash", "hello"],
+      args: ["run", "--format", "json", "--model", "ollama/glm-4.7-flash", "hello"],
       providerEnv: expect.objectContaining({
         OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"model\":\"ollama/glm-4.7-flash\""),
       }),
@@ -304,7 +304,7 @@ describe("ProviderRunner", () => {
 
     expect(runStreamingCommand).toHaveBeenCalledWith(
       "opencode",
-      ["run", "--model", "ollama/glm-4.7-flash", "hello"],
+      ["run", "--format", "json", "--model", "ollama/glm-4.7-flash", "hello"],
       repoPath,
       expect.objectContaining({
         OPENCODE_API_KEY: "mykey",

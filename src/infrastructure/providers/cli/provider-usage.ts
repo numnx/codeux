@@ -154,6 +154,80 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
   return null;
 }
 
+function parseUsageObject(usage: Record<string, unknown>): { inputTokens: number; cachedInputTokens: number; outputTokens: number; reasoningOutputTokens: number } {
+  const inputTokens = toNumber(usage.input_tokens ?? usage.prompt_tokens ?? 0);
+  const outputTokens = toNumber(usage.output_tokens ?? usage.completion_tokens ?? 0);
+
+  let cachedInputTokens = toNumber(usage.cached_input_tokens ?? 0);
+  if (cachedInputTokens === 0) {
+    const details = (usage.input_token_details ?? usage.prompt_tokens_details ?? usage.input_tokens_details) as Record<string, unknown> | undefined;
+    if (details && typeof details === "object") {
+      cachedInputTokens = toNumber(details.cached_tokens ?? 0);
+    }
+  }
+
+  let reasoningOutputTokens = toNumber(usage.reasoning_output_tokens ?? 0);
+  if (reasoningOutputTokens === 0) {
+    const details = (usage.output_token_details ?? usage.completion_tokens_details ?? usage.output_tokens_details) as Record<string, unknown> | undefined;
+    if (details && typeof details === "object") {
+      reasoningOutputTokens = toNumber(details.reasoning_tokens ?? 0);
+    }
+  }
+
+  return { inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+}
+
+export function parseCodexSessionJson(content: string): ProviderUsageTelemetry | null {
+  const session = parseJsonObject(content.trim());
+  if (!session) return null;
+
+  // Try top-level cumulative usage fields first
+  for (const key of ["total_usage", "usage", "total_token_usage"]) {
+    const usageObj = session[key];
+    if (!usageObj || typeof usageObj !== "object") continue;
+    const parsed = parseUsageObject(usageObj as Record<string, unknown>);
+    if (parsed.inputTokens + parsed.outputTokens > 0) {
+      return {
+        ...emptyTelemetry(),
+        ...parsed,
+        totalTokens: parsed.inputTokens + parsed.outputTokens,
+        usageSource: "reported",
+        rawUsageJson: usageObj as Record<string, unknown>,
+      };
+    }
+  }
+
+  // Walk turns/messages/items and aggregate per-turn usage
+  const itemsKey = (["turns", "messages", "items", "history"] as const).find(k => Array.isArray(session[k]));
+  if (itemsKey) {
+    let inputTokens = 0, cachedInputTokens = 0, outputTokens = 0, reasoningOutputTokens = 0;
+    for (const item of session[itemsKey] as unknown[]) {
+      if (!item || typeof item !== "object") continue;
+      const itemUsage = (item as Record<string, unknown>).usage;
+      if (!itemUsage || typeof itemUsage !== "object") continue;
+      const parsed = parseUsageObject(itemUsage as Record<string, unknown>);
+      inputTokens += parsed.inputTokens;
+      cachedInputTokens += parsed.cachedInputTokens;
+      outputTokens += parsed.outputTokens;
+      reasoningOutputTokens += parsed.reasoningOutputTokens;
+    }
+    if (inputTokens + outputTokens > 0) {
+      return {
+        ...emptyTelemetry(),
+        inputTokens,
+        cachedInputTokens,
+        outputTokens,
+        reasoningOutputTokens,
+        totalTokens: inputTokens + outputTokens,
+        usageSource: "reported",
+        rawUsageJson: session,
+      };
+    }
+  }
+
+  return null;
+}
+
 function parseCodexJsonLines(stdout: string): ProviderUsageTelemetry | null {
   let latestUsage: Record<string, unknown> | null = null;
   for (const line of stdout.split("\n")) {
@@ -189,6 +263,45 @@ function parseCodexJsonLines(stdout: string): ProviderUsageTelemetry | null {
     usageSource: "reported",
     rawUsageJson: latestUsage,
   };
+}
+
+function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; inputTokens: number; outputTokens: number } | null {
+  const textParts: string[] = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let foundEvent = false;
+
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) {
+      continue;
+    }
+    const parsed = parseJsonObject(trimmed);
+    if (!parsed || typeof parsed.type !== "string") {
+      continue;
+    }
+    foundEvent = true;
+
+    const part = parsed.part && typeof parsed.part === "object" ? parsed.part as Record<string, unknown> : null;
+
+    if (parsed.type === "text" && part?.type === "text" && typeof part.text === "string" && part.text.trim()) {
+      textParts.push(part.text.trim());
+    }
+
+    if (parsed.type === "step_finish" && part) {
+      const usage = part.usage && typeof part.usage === "object" ? part.usage as Record<string, unknown> : null;
+      if (usage) {
+        inputTokens += toNumber(usage.promptTokens ?? usage.inputTokens ?? usage.input_tokens ?? 0);
+        outputTokens += toNumber(usage.completionTokens ?? usage.outputTokens ?? usage.output_tokens ?? 0);
+      }
+    }
+  }
+
+  if (!foundEvent) {
+    return null;
+  }
+
+  return { transcriptText: textParts.join("\n\n").trim(), inputTokens, outputTokens };
 }
 
 function extractClaudeTranscript(lines: Array<Record<string, unknown>>): string {
@@ -277,6 +390,7 @@ export async function collectProviderUsageTelemetry(args: {
   capturedText?: string;
   nativeSessionId?: string | null;
   claudeSessionJsonl?: string | null;
+  codexSessionJson?: string | null;
 }): Promise<ProviderUsageTelemetry> {
   const fallbackOutput = [args.capturedText || "", args.stdout || "", args.stderr || ""].filter(Boolean).join("\n").trim();
 
@@ -295,12 +409,41 @@ export async function collectProviderUsageTelemetry(args: {
   }
 
   if (args.provider === "codex") {
+    const transcriptText = args.capturedText?.trim() || fallbackOutput;
     const usage = parseCodexJsonLines(args.stdout);
     if (usage) {
-      usage.transcriptText = args.capturedText?.trim() || fallbackOutput;
+      usage.transcriptText = transcriptText;
       return usage;
     }
-    return estimateTelemetry("codex", args.model, args.prompt, args.capturedText?.trim() || fallbackOutput);
+    if (args.codexSessionJson) {
+      const sessionUsage = parseCodexSessionJson(args.codexSessionJson);
+      if (sessionUsage) {
+        sessionUsage.transcriptText = transcriptText;
+        return sessionUsage;
+      }
+    }
+    return estimateTelemetry("codex", args.model, args.prompt, transcriptText);
+  }
+
+  if (args.provider === "opencode") {
+    const parsed = parseOpenCodeJsonLines(args.stdout);
+    if (parsed) {
+      const transcriptText = parsed.transcriptText || fallbackOutput;
+      if (parsed.inputTokens > 0 || parsed.outputTokens > 0) {
+        return {
+          ...emptyTelemetry(),
+          inputTokens: parsed.inputTokens,
+          outputTokens: parsed.outputTokens,
+          totalTokens: parsed.inputTokens + parsed.outputTokens,
+          usageSource: "reported",
+          rawUsageJson: null,
+          transcriptText,
+          nativeSessionId: null,
+        };
+      }
+      return estimateTelemetry("opencode", args.model, args.prompt, transcriptText);
+    }
+    return estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput);
   }
 
   if (args.nativeSessionId) {
