@@ -171,6 +171,51 @@ describe("collectProviderUsageTelemetry", () => {
     expect(result.transcriptText).toBe("Refactor complete.");
   }, 15000);
 
+  it("parses OpenCode JSON event output and captures the native session id", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "opencode",
+      model: "anthropic/claude-sonnet-4-5",
+      prompt: "Plan the sprint.",
+      cwd: "/workspace/repo",
+      stdout: [
+        JSON.stringify({
+          type: "session.created",
+          properties: {
+            info: {
+              id: "ses_19151020bffeNmMNdnhmFM3fA5",
+            },
+          },
+        }),
+        JSON.stringify({
+          type: "text",
+          part: {
+            type: "text",
+            text: "{\"goal\":\"ok\",\"tasks\":[]}",
+          },
+        }),
+        JSON.stringify({
+          type: "step_finish",
+          part: {
+            usage: {
+              promptTokens: 123,
+              completionTokens: 45,
+            },
+          },
+        }),
+      ].join("\n"),
+      stderr: "",
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 123,
+      outputTokens: 45,
+      totalTokens: 168,
+      usageSource: "reported",
+      transcriptText: "{\"goal\":\"ok\",\"tasks\":[]}",
+      nativeSessionId: "ses_19151020bffeNmMNdnhmFM3fA5",
+    });
+  });
+
   it("uses Codex session file for reported usage when stdout has no token_count events", async () => {
     const sessionJson = JSON.stringify({
       id: "sess-abc123",

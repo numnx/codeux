@@ -24,6 +24,10 @@ const enabledCustomServersFor = (servers: CustomMcpServer[] | undefined, provide
     && (!server.providers || server.providers.length === 0 || server.providers.includes(provider))
   );
 
+const isOpenCodeNativeSessionId = (value: string | null | undefined): boolean => (
+  typeof value === "string" && /^ses_[A-Za-z0-9]+$/.test(value)
+);
+
 export type ProviderCommandSpec = (model: string, prompt: string) => { command: string; args: string[] };
 
 export interface ProviderRunResult extends CommandResult {
@@ -229,7 +233,9 @@ export class ProviderRunner implements IProviderRunner {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
     const runModel = this.resolveRunModel(provider, model, input);
     const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input);
-    const nativeSessionId = input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
+    const nativeSessionId = provider === "opencode"
+      ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
+      : input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const applicableCustomServers = enabledCustomServersFor(input.customMcpServers, provider);
     const hasMcpConfig = !!input.mcpConnection || applicableCustomServers.length > 0;
@@ -490,8 +496,10 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     if (provider === "opencode") {
-      const args = continueSession && nativeSessionId
-        ? ["run", "--session", nativeSessionId, "--format", "json"]
+      const args = continueSession
+        ? nativeSessionId
+          ? ["run", "--session", nativeSessionId, "--format", "json"]
+          : ["run", "--continue", "--format", "json"]
         : ["run", "--format", "json"];
       if (model && model !== "default") {
         args.push("--model", model);
