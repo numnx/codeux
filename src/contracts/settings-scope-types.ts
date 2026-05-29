@@ -104,6 +104,7 @@ export interface SystemProviderCredentialSettings {
   openCodeBaseUrl?: string;
   openCodeEnvKey?: string;
   openCodePackage?: string;
+  openCodeSetCacheKey?: boolean;
 }
 
 export interface SystemIntegrationSettings {

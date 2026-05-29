@@ -235,6 +235,9 @@ describe("ProviderRunner", () => {
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       command: "opencode",
       args: ["run", "--session", "ses_19151020bffeNmMNdnhmFM3fA5", "--format", "json", "--dir", "/workspace", "--model", "anthropic/claude-sonnet-4-5", "retry json"],
+      providerEnv: expect.objectContaining({
+        OPENCODE_CONFIG_CONTENT: expect.stringContaining("\"setCacheKey\":false"),
+      }),
     }));
   });
 
@@ -301,6 +304,7 @@ describe("ProviderRunner", () => {
         ollama: {
           options: {
             baseURL: "http://host.docker.internal:11434/v1",
+            setCacheKey: false,
           },
         },
       },
@@ -364,6 +368,7 @@ describe("ProviderRunner", () => {
           options: {
             baseURL: "http://127.0.0.1:11434/v1",
             apiKey: "{env:OPENCODE_API_KEY}",
+            setCacheKey: false,
           },
           models: {
             "glm-4.7-flash": {

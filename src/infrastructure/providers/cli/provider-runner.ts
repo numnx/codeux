@@ -719,11 +719,24 @@ export class ProviderRunner implements IProviderRunner {
       permission: "allow",
     };
 
+    const setCacheKey = !!config?.openCodeSetCacheKey;
+
+    if (authMode === "LOCAL_AUTH") {
+      runtimeConfig.provider = {
+        [providerId]: {
+          options: {
+            setCacheKey,
+          },
+        },
+      };
+    }
+
     if (authMode === "ENV_KEY") {
       runtimeConfig.provider = {
         [providerId]: {
           options: {
             apiKey: "{env:OPENCODE_API_KEY}",
+            setCacheKey,
           },
         },
       };
@@ -735,6 +748,7 @@ export class ProviderRunner implements IProviderRunner {
           options: {
             baseURL: this.rewriteLoopbackUrlForDocker(config?.openCodeBaseUrl || "http://127.0.0.1:11434/v1", rewriteDockerLoopbackUrls),
             apiKey: "{env:OPENCODE_API_KEY}",
+            setCacheKey,
           },
           models: {
             [modelId]: {

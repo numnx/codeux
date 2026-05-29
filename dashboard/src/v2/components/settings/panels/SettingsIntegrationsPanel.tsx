@@ -163,11 +163,22 @@ const buildOpenCodeConfigPreview = (
     autoupdate: false,
     permission: "allow",
   };
+  const setCacheKey = !!provider.openCodeSetCacheKey;
+  if (authMode === "LOCAL_AUTH") {
+    config.provider = {
+      [providerId]: {
+        options: {
+          setCacheKey,
+        },
+      },
+    };
+  }
   if (authMode === "ENV_KEY") {
     config.provider = {
       [providerId]: {
         options: {
           apiKey: "{env:OPENCODE_API_KEY}",
+          setCacheKey,
         },
       },
     };
@@ -180,6 +191,7 @@ const buildOpenCodeConfigPreview = (
         options: {
           baseURL: rewriteDockerLoopbackUrl(provider.openCodeBaseUrl || "http://127.0.0.1:11434/v1", dockerExecutionEnabled),
           apiKey: "{env:OPENCODE_API_KEY}",
+          setCacheKey,
         },
         models: {
           [modelId]: { name: modelId },
@@ -824,6 +836,12 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                           } : {}),
                         })}
                         options={openCodeAuthModeOptions}
+                      />
+                    </Row>
+                    <Row label="Set cache key" description="Always include a cache key for requests made to this provider. Recommended for Anthropic and OpenAI.">
+                      <Toggle
+                        value={!!provider.openCodeSetCacheKey}
+                        onChange={() => updateProviderInstance(providerConfigId, { openCodeSetCacheKey: !provider.openCodeSetCacheKey })}
                       />
                     </Row>
                     {(provider.openCodeAuthMode || "LOCAL_AUTH") === "LOCAL_AUTH" ? (
