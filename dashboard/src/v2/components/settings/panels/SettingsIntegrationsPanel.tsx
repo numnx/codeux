@@ -404,6 +404,26 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
   }
 
   const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
+  const integrationGroups = [
+    {
+      id: "cli",
+      label: "CLI",
+      purpose: "Provider credentials and local auth-copy settings",
+      items: integrations.filter((integration) => PROVIDER_TYPES.includes(integration.id as ProviderId)),
+    },
+    {
+      id: "git",
+      label: "GIT",
+      purpose: "Source-control tokens, CI, PRs, and git identity",
+      items: integrations.filter((integration) => integration.id === "github" || integration.id === "gitlab"),
+    },
+    {
+      id: "pm",
+      label: "PM",
+      purpose: "Project management and issue tracker connections",
+      items: integrations.filter((integration) => integration.id === "jira"),
+    },
+  ].filter((group) => group.items.length > 0);
 
   const updateIntegrationProviders = (
     transform: (providers: SystemSettings["integrations"]["providers"]) => SystemSettings["integrations"]["providers"],
@@ -535,7 +555,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                 </Row>
               </>
             )}
-            <Row label="Mount git config" description="Share host `.gitconfig` with Docker for repository identity and git defaults." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last>
+            <Row label="Copy local git config" description="Use host `.gitconfig` in Docker instead of the configured Code UX git identity." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last={editableSettings.cliWorkflow.containerMountGitConfig}>
               <Toggle
                 value={editableSettings.cliWorkflow.containerMountGitConfig}
                 onChange={() => updateEditableSettings((current) => ({
@@ -547,6 +567,37 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                 }))}
               />
             </Row>
+            {!editableSettings.cliWorkflow.containerMountGitConfig ? (
+              <>
+                <Row label="Git user name" description="Git author name configured inside provider containers." badge={getFieldBadge("cliWorkflow.containerGitUserName")}>
+                  <TextInput
+                    value={editableSettings.cliWorkflow.containerGitUserName}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      cliWorkflow: {
+                        ...current.cliWorkflow,
+                        containerGitUserName: value,
+                      },
+                    }))}
+                    placeholder="Code UX"
+                  />
+                </Row>
+                <Row label="Git email" description="Git author email configured inside provider containers." badge={getFieldBadge("cliWorkflow.containerGitUserEmail")} last>
+                  <TextInput
+                    value={editableSettings.cliWorkflow.containerGitUserEmail}
+                    onChange={(value) => updateEditableSettings((current) => ({
+                      ...current,
+                      cliWorkflow: {
+                        ...current.cliWorkflow,
+                        containerGitUserEmail: value,
+                      },
+                    }))}
+                    placeholder="agents@codeux.ai"
+                    mono
+                  />
+                </Row>
+              </>
+            ) : null}
           </SectionCard>
         </>
       );
@@ -853,31 +904,34 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionCard title="Integrations" watermark="INT" badge={getBadge("integrations", "cliWorkflow")} icon={<Plug strokeWidth={2.4} />}>
+      <SectionCard
+        title="Integrations"
+        watermark="INT"
+        badge={getBadge("integrations", "cliWorkflow")}
+        icon={<Plug strokeWidth={2.4} />}
+        actions={
+          selectedIntegration ? null : (
+            <>
+              <IntegrationPill label={`${integrations.length} integrations`} />
+              <IntegrationPill label={dockerExecutionEnabled ? "Docker auth copy" : "Host execution"} tone={dockerExecutionEnabled ? "active" : "neutral"} />
+              <ActionButton label="Import host hints" onClick={() => void handleImportHints()} busy={importingHints} />
+            </>
+          )
+        }
+      >
         <div ref={containerRef} className="relative w-full overflow-hidden">
           <div ref={listRef} className="w-full">
             <div className="space-y-4">
-              <div className="relative overflow-hidden rounded-[1.55rem] border border-black/[0.06] bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(248,250,252,0.72))] p-5 shadow-[0_18px_44px_rgba(15,23,42,0.055)] dark:border-white/[0.08] dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(15,23,42,0.68))]">
-                <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-signal-500/35 to-transparent" />
-                <div aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-signal-500/[0.075] blur-3xl" />
-                <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
-                  <div className="max-w-2xl">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-signal-700 dark:text-signal-300">Integration catalog</div>
-                    <div className="mt-2 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Provider credentials and source-control auth in one place</div>
-                    <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                      Add named provider credentials, import local auth hints, and keep routing targets aligned with AI Models without leaving this workspace.
-                    </div>
+              {integrationGroups.map((group, groupIndex) => (
+                <div key={group.id} className="space-y-3">
+                  {groupIndex > 0 ? <div aria-hidden className="h-px bg-black/[0.06] dark:bg-white/[0.06]" /> : null}
+                  <div className="flex flex-wrap items-center gap-3 px-1">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">{group.label}</div>
+                    <div className="h-px min-w-8 flex-1 bg-black/[0.06] dark:bg-white/[0.06]" />
+                    <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{group.purpose}</div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <IntegrationPill label={`${integrations.length} integrations`} />
-                    <IntegrationPill label={dockerExecutionEnabled ? "Docker auth copy" : "Host execution"} tone={dockerExecutionEnabled ? "active" : "neutral"} />
-                    <ActionButton label="Import host hints" onClick={() => void handleImportHints()} busy={importingHints} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 xl:grid-cols-2">
-                {integrations.map((integration) => {
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {group.items.map((integration) => {
                   if (integration.id === "github" || integration.id === "gitlab" || integration.id === "jira") {
                     const isGitLab = integration.id === "gitlab";
                     const isJira = integration.id === "jira";
@@ -960,8 +1014,10 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

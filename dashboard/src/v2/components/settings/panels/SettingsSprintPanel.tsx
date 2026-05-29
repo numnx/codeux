@@ -543,7 +543,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
               },
             }))} />
           </Row>
-          <Row label="Mount git config" description="Share host git config with the task container." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last>
+          <Row label="Copy local git config" description="Use host git config in the task container instead of the configured Code UX git identity." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last={editableSettings.cliWorkflow.containerMountGitConfig}>
             <Toggle value={editableSettings.cliWorkflow.containerMountGitConfig} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
@@ -552,6 +552,37 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
               },
             }))} />
           </Row>
+          {!editableSettings.cliWorkflow.containerMountGitConfig ? (
+            <>
+              <Row label="Git user name" description="Git author name configured inside the task container." badge={getFieldBadge("cliWorkflow.containerGitUserName")}>
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerGitUserName}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerGitUserName: value,
+                    },
+                  }))}
+                  placeholder="Code UX"
+                />
+              </Row>
+              <Row label="Git email" description="Git author email configured inside the task container." badge={getFieldBadge("cliWorkflow.containerGitUserEmail")} last>
+                <TextInput
+                  value={editableSettings.cliWorkflow.containerGitUserEmail}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    cliWorkflow: {
+                      ...current.cliWorkflow,
+                      containerGitUserEmail: value,
+                    },
+                  }))}
+                  placeholder="agents@codeux.ai"
+                  mono
+                />
+              </Row>
+            </>
+          ) : null}
         </SectionCard>
 
     </div>

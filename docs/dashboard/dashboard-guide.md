@@ -218,7 +218,7 @@ Legacy runtime:
 - Settings now expose separate CLI retry controls for quota resets and rate limits, including the rate-limit delay and a max rate-limit retry count (`5` by default). Session sync preserves quota/rate-limit dispatch errors so active retry timers remain visible, while expired or missing cooldown metadata requeues the task instead of leaving it stuck in `QUOTA`.
 - The v2 settings workspace restores the full Git Flow and Git host controls:
   - Git Flow lives in the Sprint tab with default branch, branch prefix, sprint branch scheme, remote/local mode, and auto-create PR
-  - Integrations exposes system GitHub, GitLab, and Jira credentials plus per-scope GitHub auth-copy mounts and gitconfig sharing
+  - Integrations exposes system GitHub, GitLab, and Jira credentials plus per-scope GitHub auth-copy mounts and Docker git identity; local `.gitconfig` copying hides the editable name/email fields when enabled
   - CLI provider credentials are managed per named instance, including optional local auth-copy mounts and custom auth paths for each Gemini, Codex, or Claude entry
 - The first-run onboarding flow guides operators through installation checks, container security basics, provider auth-copy setup, AI behaviour defaults, appearance preferences, and primary dashboard controls. See [Dashboard Onboarding](./onboarding.md).
 - The Docker top-nav control now consumes onboarding readiness data. If Docker is unavailable, it shows a `Cluster not ready` badge with an info icon and explains that Docker is mandatory for containerized CLI execution.
@@ -227,6 +227,7 @@ Legacy runtime:
 - Saved system or project settings invalidate cached effective project settings in mounted dashboard routes, so persisted appearance changes continue applying after navigating away from Settings without requiring a full app reload.
 - The notification center now renders startup-check notifications from real readiness data and persists read/dismissed notification state in browser storage.
 - GitLab support is available from Integrations with dashboard token persistence, backend GitLab host detection, `glab` support, and GitLab CI queries. `GITLAB_TOKEN` / `GLAB_TOKEN` remain supported as external fallbacks.
+- The Integrations catalog is grouped by purpose (`CLI`, `GIT`, `PM`) and keeps host hint import plus runtime auth-copy status in the panel header.
 - Jira support is available from Integrations with system-scoped site URL, account email, API token, default project key, close transition, and Jira-specific auto-close controls. The Sprints page Jira import opens directly from the Import menu and links selected issues into the same composer flow as GitHub/GitLab imports.
 - Sprint data now hydrates cache-first when revisiting the page and refreshes in the background, so the showcase and ledger do not flash empty while the latest data loads. First-hydration uses skeleton placeholders while background refreshes continue, preserving existing data without reintroducing blocking loaders
 - Sprint and task list windows support selectable page size options (`10`, `20`, `50`, `100`, `All`) with a default of `20` (a frontend-only view change with no API contract change)

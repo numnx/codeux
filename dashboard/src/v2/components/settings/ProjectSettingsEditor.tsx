@@ -369,7 +369,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["retryOnQuotaReset", "Retry after quota reset"],
             ["retryOnRateLimit", "Retry on rate limit"],
             ["resumeFailedTaskInSameWorkspace", "Resume failed tasks in same workspace"],
-            ["containerMountGitConfig", "Mount git config"],
+            ["containerMountGitConfig", "Copy local git config"],
             ["containerMountGithubAuth", "Mount GitHub auth"],
             ["containerMountGeminiAuth", "Mount Gemini auth"],
             ["containerMountCodexAuth", "Mount Codex auth"],

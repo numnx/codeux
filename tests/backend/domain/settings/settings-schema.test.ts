@@ -176,6 +176,8 @@ describe("validateSettingsPayload", () => {
         containerSetupScriptPath: 2,
         containerCacheSetupScriptImage: "bad",
         containerMountGitConfig: "bad",
+        containerGitUserName: 7,
+        containerGitUserEmail: 8,
         containerMountGithubAuth: "bad",
         containerMountGeminiAuth: "bad",
         containerMountCodexAuth: "bad",

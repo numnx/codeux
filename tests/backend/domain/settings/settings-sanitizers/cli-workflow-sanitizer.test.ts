@@ -19,7 +19,9 @@ describe("sanitizeCliWorkflow", () => {
     });
 
     expect(result.containerCacheSetupScriptImage).toBe(true);
-    expect(result.containerMountGitConfig).toBe(true);
+    expect(result.containerMountGitConfig).toBe(false);
+    expect(result.containerGitUserName).toBe("Code UX");
+    expect(result.containerGitUserEmail).toBe("agents@codeux.ai");
     expect(result.containerMountGithubAuth).toBe(false);
     expect(result.containerMountGeminiAuth).toBe(true);
     expect(result.containerMountCodexAuth).toBe(false);
@@ -32,6 +34,9 @@ describe("sanitizeCliWorkflow", () => {
     expect(defaults.retryOnRateLimit).toBe(true);
     expect(defaults.rateLimitRetryDelaySeconds).toBe(10);
     expect(defaults.maxRateLimitRetries).toBe(5);
+    expect(defaults.containerMountGitConfig).toBe(false);
+    expect(defaults.containerGitUserName).toBe("Code UX");
+    expect(defaults.containerGitUserEmail).toBe("agents@codeux.ai");
     expect(defaults.containerMountGithubAuth).toBe(false);
     expect(defaults.containerMountGeminiAuth).toBe(false);
     expect(defaults.containerMountCodexAuth).toBe(false);

@@ -122,7 +122,7 @@ System-level integrations are injected into effective dashboard settings at reso
   - for CLI providers, `mountAuth` and `authPath` are instance-specific Docker auth-copy settings, so multiple Codex/Gemini/Claude entries can each point at different local credential directories
 - `git.githubToken` and `git.gitlabToken` are system-scoped
 - runtime fields like `dashboardPort` and `enableDebugLogFile` are system-scoped
-- project and sprint scopes still own `cliWorkflow.containerMountGithubAuth`, `cliWorkflow.containerGithubAuthPath`, and `cliWorkflow.containerMountGitConfig`
+- project and sprint scopes still own `cliWorkflow.containerMountGithubAuth`, `cliWorkflow.containerGithubAuthPath`, `cliWorkflow.containerMountGitConfig`, `cliWorkflow.containerGitUserName`, and `cliWorkflow.containerGitUserEmail`
 
 Backend contract:
 - `src/contracts/app-types.ts`
@@ -170,7 +170,7 @@ Dashboard behavior:
 - common 2-3 option settings such as routing strategy, worker execution mode, execution runtime, and merge mode use pill controls for faster scanning than dropdown-heavy forms
 - the Integrations panel restores the Git host workspace:
   - system scope edits the GitHub token, GitLab token, Jira connection, and per-instance CLI auth sources
-  - project and sprint scopes edit GitHub auth-copy mounts and gitconfig sharing for Docker runs
+  - project and sprint scopes edit GitHub auth-copy mounts plus Docker git identity; copying the local `.gitconfig` is available as an opt-in replacement for the editable identity fields
 - Jira integration settings include the site URL, account email, API token, default project key used by sprint import JQL, close transition name, and a Jira-specific linked-issue auto-close toggle. Effective dashboard settings project this system-owned Jira connection into `settings.jira` for Jira search, issue context loading, and completion transitions.
 - integration and AI model provider tiles use vendored, pinned Lobe Icons SVG brand marks for Jules/Google, Gemini, Codex, Claude, Qwen, OpenCode, GitHub, and GitLab identity; Jira uses the in-app Jira mark.
 
@@ -290,7 +290,9 @@ QA merge-gate notes:
   - `containerCacheSetupScriptImage` (default `false`)
     - when enabled, Docker runtime builds and reuses a derived image keyed by the base image plus setup script contents
     - cache misses fall back to the current per-run setup script path if the image build fails
-  - `containerMountGitConfig` (default `true`)
+  - `containerMountGitConfig` (default `false`): copy the host `.gitconfig` into Docker. When disabled, Docker provider runs configure Git with `containerGitUserName` and `containerGitUserEmail` instead.
+  - `containerGitUserName` (default `Code UX`)
+  - `containerGitUserEmail` (default `agents@codeux.ai`)
   - `containerMountGithubAuth` (default `false`)
   - `containerMountGeminiAuth` (default `false`)
   - `containerMountCodexAuth` (default `false`)
