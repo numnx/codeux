@@ -2,7 +2,6 @@ import type { FunctionComponent } from "preact";
 import { useMemo } from "preact/hooks";
 import { Server, Boxes, BrainCircuit, SlidersHorizontal, Wrench, Plug, X, Check } from "lucide-preact";
 import type { AgentMcpAccessConfig, CustomMcpServer, McpToolToggle } from "../../types.js";
-import { Dialog } from "../ui/Dialog.js";
 import { Toggle } from "../ui/Toggle.js";
 import { TOOL_DEFINITIONS, type McpToolCategory } from "../../../../../src/contracts/mcp-tool-definitions.js";
 
@@ -18,13 +17,16 @@ const CATEGORY_ORDER: McpToolCategory[] = ["orchestration", "agents_memory", "pl
 const buildToolToggles = (resolve: (name: string) => boolean): McpToolToggle[] =>
   TOOL_DEFINITIONS.map((def) => ({ name: def.name, enabled: resolve(def.name), isInternal: true }));
 
-export const AgentMcpManageModal: FunctionComponent<{
-  isOpen: boolean;
+/**
+ * Inner content for the MCP access manager. Rendered inside an anchored
+ * Popover next to the "Manage" button (no longer a centered modal).
+ */
+export const AgentMcpManagePanel: FunctionComponent<{
   onClose: () => void;
   value: AgentMcpAccessConfig;
   onChange: (next: AgentMcpAccessConfig) => void;
   availableServers: CustomMcpServer[];
-}> = ({ isOpen, onClose, value, onChange, availableServers }) => {
+}> = ({ onClose, value, onChange, availableServers }) => {
   const toolEnabledByName = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const toggle of value.codeUxToolToggles) {
@@ -58,37 +60,34 @@ export const AgentMcpManageModal: FunctionComponent<{
   const linkedServerCount = availableServers.filter((server) => isLinked(server.id)).length;
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} className="flex max-h-[88vh] w-[min(640px,94vw)] flex-col overflow-hidden">
+    <div className="flex max-h-[min(78vh,560px)] flex-col">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-6 py-5 dark:border-white/[0.06]">
+      <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06]">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-600 dark:bg-signal-500/15 dark:text-signal-400">
-            <Plug className="h-5 w-5" strokeWidth={2.2} />
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-600 dark:bg-signal-500/15 dark:text-signal-400">
+            <Plug className="h-4.5 w-4.5" strokeWidth={2.2} />
           </span>
           <div>
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-signal-600 dark:text-signal-400">
               MCP Access
             </div>
-            <h2 className="font-display text-xl font-black tracking-tight text-slate-900 dark:text-white">
+            <h2 className="font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Connected Servers
             </h2>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
-              Choose which MCP servers and tools this agent may use when it runs.
-            </p>
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white/60 text-slate-500 transition-colors hover:bg-white hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white/60 text-slate-500 transition-colors hover:bg-white hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
         >
           <X className="h-4 w-4" strokeWidth={2.4} />
         </button>
       </div>
 
       {/* Body */}
-      <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         {/* Built-in code_ux */}
         <section className="rounded-2xl border border-black/[0.06] bg-white/40 p-5 backdrop-blur-md dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div className="flex items-start justify-between gap-4">
@@ -189,7 +188,7 @@ export const AgentMcpManageModal: FunctionComponent<{
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 border-t border-black/[0.06] px-6 py-4 dark:border-white/[0.06]">
+      <div className="flex items-center justify-end gap-3 border-t border-black/[0.06] px-5 py-4 dark:border-white/[0.06]">
         <button
           type="button"
           onClick={onClose}
@@ -199,6 +198,6 @@ export const AgentMcpManageModal: FunctionComponent<{
           Done
         </button>
       </div>
-    </Dialog>
+    </div>
   );
 };
