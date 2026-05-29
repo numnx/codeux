@@ -265,10 +265,11 @@ function parseCodexJsonLines(stdout: string): ProviderUsageTelemetry | null {
   };
 }
 
-function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; inputTokens: number; outputTokens: number } | null {
+function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; inputTokens: number; outputTokens: number; nativeSessionId: string | null } | null {
   const textParts: string[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let nativeSessionId: string | null = null;
   let foundEvent = false;
 
   for (const line of stdout.split("\n")) {
@@ -283,6 +284,15 @@ function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; input
     foundEvent = true;
 
     const part = parsed.part && typeof parsed.part === "object" ? parsed.part as Record<string, unknown> : null;
+    const properties = parsed.properties && typeof parsed.properties === "object" ? parsed.properties as Record<string, unknown> : null;
+    const info = properties?.info && typeof properties.info === "object" ? properties.info as Record<string, unknown> : null;
+
+    if (!nativeSessionId && typeof properties?.sessionID === "string") {
+      nativeSessionId = properties.sessionID;
+    }
+    if (!nativeSessionId && typeof info?.id === "string") {
+      nativeSessionId = info.id;
+    }
 
     if (parsed.type === "text" && part?.type === "text" && typeof part.text === "string" && part.text.trim()) {
       textParts.push(part.text.trim());
@@ -301,7 +311,7 @@ function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; input
     return null;
   }
 
-  return { transcriptText: textParts.join("\n\n").trim(), inputTokens, outputTokens };
+  return { transcriptText: textParts.join("\n\n").trim(), inputTokens, outputTokens, nativeSessionId };
 }
 
 function extractClaudeTranscript(lines: Array<Record<string, unknown>>): string {
@@ -438,10 +448,12 @@ export async function collectProviderUsageTelemetry(args: {
           usageSource: "reported",
           rawUsageJson: null,
           transcriptText,
-          nativeSessionId: null,
+          nativeSessionId: parsed.nativeSessionId,
         };
       }
-      return estimateTelemetry("opencode", args.model, args.prompt, transcriptText);
+      const estimated = estimateTelemetry("opencode", args.model, args.prompt, transcriptText);
+      estimated.nativeSessionId = parsed.nativeSessionId;
+      return estimated;
     }
     return estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput);
   }

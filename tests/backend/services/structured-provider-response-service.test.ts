@@ -139,4 +139,45 @@ describe("StructuredProviderResponseService", () => {
       contentMarkdown: expect.stringContaining("Retrying JSON parse in same Claude session")
     }));
   });
+
+  it("does not promote logical session ids to native OpenCode session ids during retries", async () => {
+    const mockExecution = {
+      executeProvider: vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          text: "invalid json",
+          nativeSessionId: null,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: '{"status":"fixed"}',
+          nativeSessionId: null,
+        })
+    } as unknown as ProviderExecutionService;
+
+    const service = new StructuredProviderResponseService({
+      providerExecutionService: mockExecution,
+    });
+
+    const result = await service.executeAndParse({
+      projectId: "proj-1",
+      purpose: "planning",
+      type: "planning",
+      provider: "opencode",
+      model: "anthropic/claude-sonnet-4-5",
+      apiKey: "123",
+      prompt: "hi",
+      sessionId: "planning-opencode-logical",
+      settings: {} as any,
+      parseFn: (text) => JSON.parse(text),
+      buildRetryPrompt: () => "fix it",
+      providerLabel: "OpenCode"
+    });
+
+    expect(result.parsed).toEqual({ status: "fixed" });
+    expect(result.nativeSessionId).toBeNull();
+    expect(mockExecution.executeProvider).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      continueSessionId: "planning-opencode-logical",
+    }));
+  });
 });

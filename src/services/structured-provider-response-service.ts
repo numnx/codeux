@@ -89,7 +89,7 @@ export class StructuredProviderResponseService {
         );
       }
 
-      nativeSessionId = result.nativeSessionId || continueSessionId || null;
+      nativeSessionId = result.nativeSessionId || (args.provider === "opencode" ? null : continueSessionId) || null;
       continueSessionId = nativeSessionId || args.sessionId;
 
       try {

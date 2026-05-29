@@ -218,6 +218,47 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("continues OpenCode with the native session id when one is available", async () => {
+    await runner.runProvider({
+      provider: "opencode",
+      prompt: "retry json",
+      cwd: "/repo",
+      model: "anthropic/claude-sonnet-4-5",
+      apiKey: "sk-open-test",
+      sessionId: "planning-opencode-logical",
+      continueSessionId: "ses_19151020bffeNmMNdnhmFM3fA5",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "opencode",
+      args: ["run", "--session", "ses_19151020bffeNmMNdnhmFM3fA5", "--format", "json", "--model", "anthropic/claude-sonnet-4-5", "retry json"],
+    }));
+  });
+
+  it("continues the last OpenCode session when only the logical Code UX session id is available", async () => {
+    const result = await runner.runProvider({
+      provider: "opencode",
+      prompt: "retry json",
+      cwd: "/repo",
+      model: "anthropic/claude-sonnet-4-5",
+      apiKey: "sk-open-test",
+      sessionId: "planning-opencode-logical",
+      continueSessionId: "planning-opencode-logical",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "opencode",
+      args: ["run", "--continue", "--format", "json", "--model", "anthropic/claude-sonnet-4-5", "retry json"],
+    }));
+    expect(result.nativeSessionId).toBeNull();
+  });
+
   it("uses the configured OpenCode custom provider model instead of a stale placeholder", async () => {
     const originalRewrite = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
     process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST = "1";

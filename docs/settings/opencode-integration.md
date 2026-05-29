@@ -106,6 +106,8 @@ Docker execution prepares OpenCode in the shared CLI bootstrap path:
 
 Host execution writes the generated config to `.code-ux/tmp/opencode-config-<session>.json` for the duration of the run and sets `OPENCODE_CONFIG` to that path. The generated config is never written into a permanent host OpenCode config file. This keeps one named Code UX provider instance from overwriting another instance's OpenCode settings.
 
+OpenCode JSON retry continuation uses native OpenCode session ids only when the CLI reports one in JSON events such as `session.created` or `session.status`. If a retry only has Code UX's logical session id, Code UX invokes `opencode run --continue` instead of `opencode run --session <logical-id>` so OpenCode resumes the latest session without raising `Session not found`.
+
 ## Dashboard Surface
 
 The v2 Integrations page exposes OpenCode-specific setup panels:
