@@ -72,6 +72,14 @@ export const sanitizeCliWorkflow = (
       cliInput.containerMountGitConfig,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerMountGitConfig
     ),
+    containerGitUserName: readString(
+      cliInput.containerGitUserName,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerGitUserName
+    ).trim() || DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerGitUserName,
+    containerGitUserEmail: readString(
+      cliInput.containerGitUserEmail,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerGitUserEmail
+    ).trim() || DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerGitUserEmail,
     containerMountGithubAuth: readBoolean(
       cliInput.containerMountGithubAuth,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerMountGithubAuth

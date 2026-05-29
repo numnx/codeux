@@ -273,6 +273,10 @@ export class SprintPreviewService {
         for (const variable of pickContainerEnv(process.env)) {
           dockerArgs.push("-e", `${variable.key}=${variable.value}`);
         }
+        dockerArgs.push(
+          "-e", `CODE_UX_GIT_USER_NAME=${workflowSettings.containerGitUserName}`,
+          "-e", `CODE_UX_GIT_USER_EMAIL=${workflowSettings.containerGitUserEmail}`,
+        );
 
         for (const mount of credentialMounts) {
           dockerArgs.push("--mount", toDockerMountArg({

@@ -107,6 +107,70 @@ describe("SettingsIntegrationsPanel", () => {
     expect(detailPane.style.position).toBe("relative");
   });
 
+  it("renders integration purpose groups without the old catalog infobox", async () => {
+    const state = {
+      activeScope: "system",
+      selectedProject: null,
+      editableSettings: {
+        cliWorkflow: {
+          executionMode: "DOCKER",
+          containerMountGithubAuth: false,
+          containerGithubAuthPath: "~/.config/gh",
+          containerMountGitConfig: false,
+          containerGitUserName: "Code UX",
+          containerGitUserEmail: "agents@codeux.ai",
+        },
+        git: {
+          githubMode: "REMOTE",
+          defaultBranch: "main",
+          featureBranchPrefix: "feature/",
+          sprintBranchScheme: "feature/sprint{sprint}",
+          autoCreatePr: true,
+        },
+      },
+      systemSettings: {
+        integrations: {
+          providers: {},
+          githubToken: "",
+          gitlabToken: "",
+        },
+      },
+      projectSources: {},
+      selectedIntegration: null,
+      setSelectedIntegration: vi.fn(),
+      integrations: [
+        { id: "codex", label: "Codex", description: "CLI provider" },
+        { id: "github", label: "GitHub", description: "Git provider" },
+        { id: "jira", label: "Jira", description: "Issue tracker" },
+      ],
+      importingHints: false,
+      externalHints: {
+        resolved: {
+          julesApiKey: "",
+          geminiApiKey: "",
+          codexApiKey: "",
+          claudeCodeApiKey: "",
+          githubToken: "",
+          gitlabToken: "",
+        },
+      },
+      handleImportHints: vi.fn(),
+      updateEditableSettings: vi.fn(),
+      updateSystem: vi.fn(),
+    } as any;
+
+    const { container } = render(<SettingsIntegrationsPanel state={state} />);
+
+    await waitFor(() => {
+      expect(container.textContent).toContain("CLI");
+    });
+    expect(container.textContent).toContain("GIT");
+    expect(container.textContent).toContain("PM");
+    expect(container.textContent).toContain("Import host hints");
+    expect(container.textContent).not.toContain("Integration catalog");
+    expect(container.textContent).not.toContain("Provider credentials and source-control auth in one place");
+  });
+
   it("renders system-owned Jira configuration controls", async () => {
     const state = {
       activeScope: "system",
@@ -176,5 +240,83 @@ describe("SettingsIntegrationsPanel", () => {
     const inputValues = Array.from(container.querySelectorAll("input")).map((input) => input.value);
     expect(inputValues).toContain("https://acme.atlassian.net");
     expect(inputValues).toContain("OPS");
+  });
+
+  it("shows editable git identity only when local git config copying is disabled", async () => {
+    const baseState = {
+      activeScope: "project",
+      selectedProject: null,
+      editableSettings: {
+        cliWorkflow: {
+          executionMode: "DOCKER",
+          containerMountGithubAuth: false,
+          containerGithubAuthPath: "~/.config/gh",
+          containerMountGitConfig: false,
+          containerGitUserName: "Code UX",
+          containerGitUserEmail: "agents@codeux.ai",
+        },
+        git: {
+          githubMode: "REMOTE",
+          defaultBranch: "main",
+          featureBranchPrefix: "feature/",
+          sprintBranchScheme: "feature/sprint{sprint}",
+          autoCreatePr: true,
+        },
+      },
+      systemSettings: {
+        integrations: {
+          providers: {},
+          githubToken: "",
+          gitlabToken: "",
+        },
+      },
+      projectSources: {},
+      selectedIntegration: "github",
+      setSelectedIntegration: vi.fn(),
+      integrations: [
+        { id: "github", label: "GitHub", description: "Git provider" },
+      ],
+      importingHints: false,
+      externalHints: {
+        resolved: {
+          julesApiKey: "",
+          geminiApiKey: "",
+          codexApiKey: "",
+          claudeCodeApiKey: "",
+          githubToken: "",
+          gitlabToken: "",
+        },
+      },
+      handleImportHints: vi.fn(),
+      updateEditableSettings: vi.fn(),
+      updateSystem: vi.fn(),
+    } as any;
+
+    const { container, rerender } = render(<SettingsIntegrationsPanel state={baseState} />);
+
+    await waitFor(() => {
+      expect(container.textContent).toContain("Git user name");
+    });
+    expect(container.textContent).toContain("Git email");
+
+    rerender(
+      <SettingsIntegrationsPanel
+        state={{
+          ...baseState,
+          editableSettings: {
+            ...baseState.editableSettings,
+            cliWorkflow: {
+              ...baseState.editableSettings.cliWorkflow,
+              containerMountGitConfig: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.textContent).not.toContain("Git user name");
+    });
+    expect(container.textContent).not.toContain("Git email");
   });
 });

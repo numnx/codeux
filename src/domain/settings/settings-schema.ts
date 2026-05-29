@@ -334,6 +334,8 @@ const validateCliWorkflow = (
   if (typeof value.containerSetupScriptPath !== "string") issues.push({ path: `${path}.containerSetupScriptPath`, message: "Expected a string" });
   if (typeof value.containerCacheSetupScriptImage !== "boolean") issues.push({ path: `${path}.containerCacheSetupScriptImage`, message: "Expected a boolean" });
   if (typeof value.containerMountGitConfig !== "boolean") issues.push({ path: `${path}.containerMountGitConfig`, message: "Expected a boolean" });
+  if (typeof value.containerGitUserName !== "string") issues.push({ path: `${path}.containerGitUserName`, message: "Expected a string" });
+  if (typeof value.containerGitUserEmail !== "string") issues.push({ path: `${path}.containerGitUserEmail`, message: "Expected a string" });
   if (typeof value.containerMountGithubAuth !== "boolean") issues.push({ path: `${path}.containerMountGithubAuth`, message: "Expected a boolean" });
   if (typeof value.containerMountGeminiAuth !== "boolean") issues.push({ path: `${path}.containerMountGeminiAuth`, message: "Expected a boolean" });
   if (typeof value.containerMountCodexAuth !== "boolean") issues.push({ path: `${path}.containerMountCodexAuth`, message: "Expected a boolean" });

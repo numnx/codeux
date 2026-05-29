@@ -9,7 +9,8 @@ export const SectionCard: FunctionComponent<{
   danger?: boolean;
   badge?: string;
   icon?: ComponentChildren;
-}> = ({ title, children, danger, badge, icon }) => (
+  actions?: ComponentChildren;
+}> = ({ title, children, danger, badge, icon, actions }) => (
   <section className={`relative overflow-hidden rounded-[1.75rem] border p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] ${
     danger
       ? "border-status-red/20 bg-status-red/[0.03] dark:border-status-red/20 dark:bg-status-red/[0.04]"
@@ -22,11 +23,14 @@ export const SectionCard: FunctionComponent<{
         {icon ? <span className="inline-flex h-3.5 w-3.5 items-center justify-center [&_svg]:h-3.5 [&_svg]:w-3.5" aria-hidden>{icon}</span> : null}
         <h3>{title}</h3>
       </div>
-      {badge ? (
-        <span className="rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-signal-600 dark:text-signal-300">
-          {badge}
-        </span>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {actions ? actions : null}
+        {badge ? (
+          <span className="rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-signal-600 dark:text-signal-300">
+            {badge}
+          </span>
+        ) : null}
+      </div>
     </div>
 
     <div className="flex flex-col gap-3">

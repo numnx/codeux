@@ -186,6 +186,10 @@ export class DockerRunner implements IDockerRunner {
       for (const variable of pickContainerEnv(providerEnv)) {
         dockerArgs.push("-e", `${variable.key}=${variable.value}`);
       }
+      dockerArgs.push(
+        "-e", `CODE_UX_GIT_USER_NAME=${workflowSettings.containerGitUserName}`,
+        "-e", `CODE_UX_GIT_USER_EMAIL=${workflowSettings.containerGitUserEmail}`,
+      );
 
       if (setupScriptPath && resolvedImage.runSetupScriptAtRuntime) {
         const setupScriptSource = this.mapDockerSourcePathForDaemon(setupScriptPath, repoPath, sessionId, "setup script", onActivity);

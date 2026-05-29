@@ -705,6 +705,8 @@ export interface CliWorkflowSettings {
   containerSetupScriptPath: string;
   containerCacheSetupScriptImage: boolean;
   containerMountGitConfig: boolean;
+  containerGitUserName: string;
+  containerGitUserEmail: string;
   containerMountGithubAuth: boolean;
   containerMountGeminiAuth: boolean;
   containerMountCodexAuth: boolean;
