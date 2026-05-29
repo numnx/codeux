@@ -52,7 +52,7 @@ export class PrService implements IPrService {
     try {
       const taskSection = args.taskDescription?.trim() ? `**Task Context:**\n${args.taskDescription.trim()}` : `**Task Context:**\nNo task description provided.`;
       const sprintSection = args.sprintDescription?.trim() ? `**Sprint Context:**\n${args.sprintDescription.trim()}` : `**Sprint Context:**\nNo sprint description provided.`;
-      
+
       const bodyLines = [
         `Automated task execution for \`${args.taskId}\` via ${args.provider}.`,
         "",
@@ -64,11 +64,18 @@ export class PrService implements IPrService {
       const prTitle = `${args.title} (${args.provider})`;
       const createResult = await client.ghPrCreate(args.featureBranch, args.workerBranch, prTitle, bodyLines.join("\n"), githubToken);
 
-      if (createResult.ok) {
-        return createResult.stdout.trim().split("\n").find((line) => line.startsWith("http"));
+      if (!createResult.ok) {
+        throw new Error(createResult.stderr || createResult.stdout || "git host CLI returned a non-zero exit code");
       }
-    } catch {
-      return undefined;
+
+      const prUrl = createResult.stdout.trim().split("\n").find((line) => line.startsWith("http"));
+      if (!prUrl) {
+        throw new Error("git host CLI did not return a pull request URL");
+      }
+      return prUrl;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to create feature PR for ${args.workerBranch} into ${args.featureBranch}: ${message}`);
     }
   }
 

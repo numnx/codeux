@@ -73,7 +73,7 @@ describe("PrService", () => {
             );
         });
 
-        it("returns undefined if create fails", async () => {
+        it("throws with context if create fails", async () => {
             const mockClient = {
                 gitRemoteUrl: vi.fn().mockResolvedValue({ ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" }),
                 setProvider: vi.fn(),
@@ -83,8 +83,24 @@ describe("PrService", () => {
             vi.mocked(GitStatusQueryClient).mockImplementation(function() { Object.assign(this, mockClient); } as any);
 
             const service = new PrService();
-            const res = await service.resolveOrCreateFeaturePr(defaultArgs, "/path");
-            expect(res).toBeUndefined();
+            await expect(service.resolveOrCreateFeaturePr(defaultArgs, "/path"))
+                .rejects
+                .toThrow("Failed to create feature PR for worker into feat: fail");
+        });
+
+        it("throws when create exits without a PR url", async () => {
+            const mockClient = {
+                gitRemoteUrl: vi.fn().mockResolvedValue({ ok: true, stdout: "origin\thttps://github.com/owner/repo.git (fetch)\n" }),
+                setProvider: vi.fn(),
+                ghPrListOpenMatching: vi.fn().mockRejectedValue(new Error("not found")),
+                ghPrCreate: vi.fn().mockResolvedValue({ ok: true, stdout: "created\n" })
+            };
+            vi.mocked(GitStatusQueryClient).mockImplementation(function() { Object.assign(this, mockClient); } as any);
+
+            const service = new PrService();
+            await expect(service.resolveOrCreateFeaturePr(defaultArgs, "/path"))
+                .rejects
+                .toThrow("git host CLI did not return a pull request URL");
         });
     });
 

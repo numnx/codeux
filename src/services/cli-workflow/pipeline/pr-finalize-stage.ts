@@ -18,12 +18,17 @@ export async function executePrFinalizeStage(ctx: PipelineContext): Promise<{ pr
       ctx.repoPath,
       ctx.deps.getGithubToken()
     );
+    if (!prUrl) {
+      throw new Error(`Feature PR creation completed without a PR URL for ${ctx.workerBranch}. Check Git host CLI availability and authentication.`);
+    }
   }
 
   ctx.deps.sessionTracking.updateSession(ctx.sessionId, { state: "COMPLETED", prUrl });
   ctx.deps.sessionTracking.appendActivity(ctx.sessionId, {
     originator: "system",
-    description: prUrl ? `Workflow completed. PR: ${prUrl}` : "Workflow completed.",
+    description: prUrl
+      ? `Workflow completed. PR: ${prUrl}`
+      : "Workflow completed without PR because auto-create PRs are disabled.",
   });
 
   ctx.workflowSucceeded = true;

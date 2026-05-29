@@ -519,6 +519,23 @@ describe("executePrFinalizeStage", () => {
 
     expect(ctx.prService.resolveOrCreateFeaturePr).not.toHaveBeenCalled();
     expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED", prUrl: undefined });
+    expect(ctx.deps.sessionTracking.appendActivity).toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
+      description: "Workflow completed without PR because auto-create PRs are disabled.",
+    }));
+  });
+
+  it("fails loudly if autoCreatePr is enabled but no PR URL is returned", async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.prService.resolveOrCreateFeaturePr).mockResolvedValue(undefined);
+
+    await expect(executePrFinalizeStage(ctx))
+      .rejects
+      .toThrow("Feature PR creation completed without a PR URL for worker-branch");
+
+    expect(ctx.workflowSucceeded).toBe(false);
+    expect(ctx.deps.sessionTracking.updateSession).not.toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
+      state: "COMPLETED",
+    }));
   });
 });
 
