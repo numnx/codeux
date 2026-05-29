@@ -61,6 +61,8 @@ Checks:
 - `gh --version`
 - `gh auth status`
 - Token availability in settings/env
+- If a CLI task pushed code but cannot create a PR, the run now fails instead of completing as "without PR" while auto-create PRs are enabled. On Windows packaged builds, confirm `gh` is on the server process `PATH`, the GitHub/GitLab token is available to the built process, and the running build includes the latest `dist/` output.
+- "Workflow completed without PR" is only expected when `git.autoCreatePr` is disabled for the resolved system/project/sprint settings.
 
 ### 3. API-backed tools return key setup instructions
 Checks:
