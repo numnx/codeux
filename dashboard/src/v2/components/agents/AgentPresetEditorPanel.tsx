@@ -23,8 +23,10 @@ import type { AgentMcpAccessConfig, AgentPreset, CustomMcpServer } from "../../t
 import type { AgentAvatarExpression } from "../../lib/agent-avatar.js";
 import { AgentAvatarCustomizer } from "./AgentAvatarCustomizer.js";
 import { AgentAvatarStage } from "./AgentAvatarStage.js";
-import { AgentMcpManageModal } from "./AgentMcpManageModal.js";
+import { AgentMcpManagePanel } from "./AgentMcpManageModal.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
+import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
+import { Popover } from "../ui/Popover.js";
 import { BorderTrace } from "../ui/BorderTrace.js";
 import { ConfirmDialog } from "../ui/ConfirmDialog.js";
 import { getAccentHex, generateRandomAgentAvatar } from "../../lib/agent-avatar.js";
@@ -692,25 +694,29 @@ export const AgentPresetEditorPanel: FunctionComponent<{
                 </div>
 
                 <div className="mt-5 grid gap-4">
-                  <FieldShell icon={Cpu} label="Provider Instance" htmlFor="agent-provider" helper="Leave unset to inherit route, worker, or global defaults.">
-                    <select
-                      id="agent-provider"
+                  <FieldShell icon={Cpu} label="Provider Instance" helper="Leave unset to inherit route, worker, or global defaults.">
+                    <AvantgardeSelect
+                      aria-label="Provider instance"
                       value={providerConfigId}
-                      onChange={(event) => {
-                        const nextProviderConfigId = event.currentTarget.value;
-                        setProviderConfigId(nextProviderConfigId);
+                      onChange={(next) => {
+                        setProviderConfigId(next);
                         setModel("");
                       }}
                       disabled={saving || providerOptions.length === 0}
-                      className="rounded-2xl border border-black/[0.05] bg-white/40 px-4 py-3 text-[13px] font-medium text-slate-900 outline-none backdrop-blur-md transition-all focus:border-signal-500 focus:ring-4 focus:ring-signal-500/10 disabled:opacity-50 dark:border-white/[0.07] dark:bg-white/[0.03] dark:text-white dark:focus:ring-signal-500/15"
-                    >
-                      <option value="">Inherit route default</option>
-                      {providerOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}{option.enabled ? "" : " (paused)"}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Inherit route default"
+                      options={[
+                        {
+                          value: "",
+                          label: "Inherit route default",
+                          icon: <Route className="h-4 w-4 text-slate-400" strokeWidth={2.2} />,
+                        },
+                        ...providerOptions.map((option) => ({
+                          value: option.value,
+                          label: `${option.label}${option.enabled ? "" : " (paused)"}`,
+                          icon: <ProviderBrandIcon id={option.provider} disabled={!option.enabled} className="h-5 w-5 rounded-md" imageClassName="h-3 w-3" />,
+                        })),
+                      ]}
+                    />
                   </FieldShell>
 
                   {selectedProvider ? (
@@ -748,15 +754,28 @@ export const AgentPresetEditorPanel: FunctionComponent<{
                       <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                         MCP Servers
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setMcpModalOpen(true)}
-                        disabled={saving}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-white hover:text-slate-900 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
+                      <Popover
+                        isOpen={mcpModalOpen}
+                        onOpenChange={(open) => { if (!saving) setMcpModalOpen(open); }}
+                        position="bottom"
+                        align="end"
+                        className="w-[min(440px,92vw)] overflow-hidden p-0"
+                        content={(
+                          <AgentMcpManagePanel
+                            value={mcpAccess}
+                            onChange={setMcpAccessNormalized}
+                            availableServers={availableMcpServers}
+                            onClose={() => setMcpModalOpen(false)}
+                          />
+                        )}
                       >
-                        <Settings2 className="h-3 w-3" strokeWidth={2.4} />
-                        Manage
-                      </button>
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-white hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white ${saving ? "pointer-events-none opacity-50" : ""}`}
+                        >
+                          <Settings2 className="h-3 w-3" strokeWidth={2.4} />
+                          Manage
+                        </span>
+                      </Popover>
                     </div>
                     <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
                       Tap to link or unlink. {activeMcpCount} active. Use Manage to configure Code UX tools.
@@ -812,14 +831,6 @@ export const AgentPresetEditorPanel: FunctionComponent<{
           </div>
         </div>
       </form>
-
-      <AgentMcpManageModal
-        isOpen={mcpModalOpen}
-        onClose={() => setMcpModalOpen(false)}
-        value={mcpAccess}
-        onChange={setMcpAccessNormalized}
-        availableServers={availableMcpServers}
-      />
 
       <ConfirmDialog
         isOpen={discardOpen}
