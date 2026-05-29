@@ -31,6 +31,7 @@ export default {
         { text: 'Create First Project', link: '/getting-started/first-project' }
       ] },
       { text: 'Installation', collapsed: false, items: [{ text: 'Overview', link: '/installation/overview' }] },
+<<<<<<< HEAD
       { text: 'Guides', collapsed: false, items: [
         { text: 'Overview', link: '/guides/overview' },
         { text: 'Search', link: '/guides/search' },
@@ -39,7 +40,7 @@ export default {
       ] },
       { text: 'Integrations', collapsed: false, items: [{ text: 'Overview', link: '/integrations/overview' }, { text: 'MCP Setup', link: '/integrations/mcp-setup' }] },
       { text: 'Admin', collapsed: false, items: [{ text: 'Overview', link: '/admin/overview' }, { text: 'Audit Logs', link: '/admin/audit-logs' }] },
-      { text: 'Troubleshooting', collapsed: false, items: [{ text: 'Overview', link: '/troubleshooting/overview' }] },
+      { text: 'Troubleshooting', collapsed: false, items: [{ text: 'Overview', link: '/troubleshooting/overview' }, { text: 'Login Issues', link: '/troubleshooting/login' }] },
       { text: 'Reference', collapsed: false, items: [{ text: 'Overview', link: '/reference/overview' }, { text: 'Supported Platforms', link: '/reference/supported-platforms' }] },
       { text: 'Release Notes', collapsed: false, items: [{ text: 'Overview', link: '/release-notes/overview' }] }
     ]
