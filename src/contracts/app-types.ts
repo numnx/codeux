@@ -675,6 +675,41 @@ export interface CiIntelligenceSettings {
   mainBranchAutoMergeMode: FeaturePrAutoMergeMode;
 }
 
+/**
+ * Agent job types tracked and capped by the unified guardrail layer. A subset of
+ * {@link ProviderInvocationPurpose} (execution-types.ts). `qa_review` is intentionally
+ * excluded: QA review caps are handled by the dedicated `qaRunsCap` to avoid two
+ * competing caps colliding with `agents.qualityAssurance.maxTaskReviewRuns`.
+ */
+export type GuardrailJobType =
+  | "task_coding"
+  | "ci_fix"
+  | "merge_conflict"
+  | "clarification_reply"
+  | "planning";
+
+/** What happens when a task hits an invocation cap for a given job type. */
+export type GuardrailOnLimitAction =
+  | "BLOCK_AND_ESCALATE" // block the task, hand to human, open an attention item
+  | "STOP_AND_WAIT" // stop auto-handling this job type, leave the attention item open
+  | "WARN_ONLY"; // record + log only, do not block
+
+export interface GuardrailJobConfig {
+  /** Max invocations of this job type per task. 0 = unlimited. */
+  cap: number;
+  onLimit: GuardrailOnLimitAction;
+}
+
+export interface GuardrailSettings {
+  enabled: boolean;
+  /** Optional hard cap on total agent invocations per task across all job types. 0 = unlimited. */
+  perTaskTotalCeiling: number;
+  jobs: Record<GuardrailJobType, GuardrailJobConfig>;
+  /** Separate per-task QA-review cap. Distinct from agents.qualityAssurance.maxTaskReviewRuns. 0 = unlimited. */
+  qaRunsCap: number;
+  qaRunsOnLimit: GuardrailOnLimitAction;
+}
+
 export interface SprintLoopStepSettings {
   branchPreflight: boolean;
   planningPreflight: boolean;
@@ -842,6 +877,7 @@ export interface DashboardSettings {
   git: GitSettings;
   jira: JiraSettings;
   ciIntelligence: CiIntelligenceSettings;
+  guardrails: GuardrailSettings;
   sprintLoopSteps: SprintLoopStepSettings;
   cliWorkflow: CliWorkflowSettings;
   sprintPreview: SprintPreviewSettings;

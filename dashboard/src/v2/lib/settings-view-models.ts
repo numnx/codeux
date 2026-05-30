@@ -14,6 +14,7 @@ import type {
   SystemSettings,
   ThinkingMode,
 } from "../../types.js";
+import { cloneGuardrails } from "../../lib/settings.js";
 
 const cloneSkills = (skills: SkillToggle[]): SkillToggle[] => skills.map((skill) => ({ ...skill }));
 const cloneMcpTools = (tools: McpToolToggle[]): McpToolToggle[] => tools.map((tool) => ({ ...tool }));
@@ -113,6 +114,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
   ciIntelligence: {
     ...settings.ciIntelligence,
   },
+  guardrails: cloneGuardrails(settings.guardrails),
   sprintLoopSteps: {
     ...settings.sprintLoopSteps,
   },
@@ -161,6 +163,7 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
   ciIntelligence: {
     ...settings.ciIntelligence,
   },
+  guardrails: cloneGuardrails(settings.guardrails),
   sprintLoopSteps: {
     ...settings.sprintLoopSteps,
   },

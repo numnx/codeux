@@ -1,10 +1,21 @@
 import { getFailedJobLabels, getFailedLogSnippets, summarizeFailedRuns } from "../../../../sprint/ci-status-utils.js";
 import { isJulesManagedTask, resolveTaskSessionId } from "../../../../sprint/action-required-automation.js";
 import type { AutomationLevel, GitCiRunStatus, Subtask } from "../../../../contracts/app-types.js";
+import type { GuardrailScope, GuardrailService } from "../../../../services/guardrail-service.js";
 
 export function getCiAutofixRetryKey(task: Subtask, prNumber: number): string {
   const sessionId = resolveTaskSessionId(task) || task.id;
   return `${sessionId}:${prNumber}`;
+}
+
+/** Resolves the (scope, taskId) needed to track guardrails for a task, or null when unavailable. */
+export function resolveGuardrailTaskRef(task: Subtask): { scope: GuardrailScope; taskId: string } | null {
+  const taskId = task.record_id;
+  const projectId = task.project_id;
+  if (!taskId || !projectId) {
+    return null;
+  }
+  return { scope: { projectId, sprintId: task.sprint_id ?? null }, taskId };
 }
 
 export function resolveCiEscalationOwner(automationLevel: AutomationLevel): "AGENT" | "HUMAN" {
@@ -111,8 +122,7 @@ export interface CiAutofixEscalationArgs {
   failedRuns: GitCiRunStatus[];
   failedJobLabels: string[];
   automationLevel: AutomationLevel;
-  maxRetries: number;
-  ciAutofixRetryCounts: Map<string, number>;
+  guardrailService: GuardrailService;
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   repoPath: string;
@@ -129,26 +139,35 @@ export interface CiAutofixEscalationResult {
 
 export async function handleCiAutofixEscalation(args: CiAutofixEscalationArgs): Promise<CiAutofixEscalationResult> {
   let reportTextAddition = "";
-  const retryKey = getCiAutofixRetryKey(args.task, args.prNumber);
-  const maxRetries = Math.max(0, args.maxRetries);
-  const currentRetries = args.ciAutofixRetryCounts.get(retryKey) || 0;
+  const taskRef = resolveGuardrailTaskRef(args.task);
+  const evaluation = taskRef
+    ? args.guardrailService.evaluate(taskRef.scope, taskRef.taskId, "ci_fix")
+    : { allowed: true, count: 0, cap: 0, action: "BLOCK_AND_ESCALATE" as const };
+  const currentRetries = evaluation.count;
+  const cap = evaluation.cap;
+  const capLabel = cap > 0 ? String(cap) : "∞";
+  const recordCiFix = () => {
+    if (taskRef) {
+      args.guardrailService.record(taskRef.scope, taskRef.taskId, "ci_fix");
+    }
+  };
   const activeWorkerCiFixAttempt = args.hasActiveWorkerCiFixAttempt?.(args.task, args.prNumber) || false;
 
   if (activeWorkerCiFixAttempt) {
-    reportTextAddition += `   - Worker CI fix already running (attempt ${Math.max(1, currentRetries)}/${maxRetries}). Waiting for completion.\n`;
+    reportTextAddition += `   - Worker CI fix already running (attempt ${Math.max(1, currentRetries)}/${capLabel}). Waiting for completion.\n`;
     return { reportTextAddition, workerCiFixRequired: false, workerCiFixPayload: null };
   }
 
-  if (currentRetries >= maxRetries) {
+  if (!evaluation.allowed) {
     const owner = resolveCiEscalationOwner(args.automationLevel);
     args.task.status = "BLOCKED";
     args.task.intervention_owner = owner;
-    args.task.intervention_hint = `CI autofix retry limit reached (${currentRetries}/${maxRetries}) for task ${
+    args.task.intervention_hint = `CI autofix guardrail reached (${currentRetries}/${capLabel}) for task ${
       args.task.id
     } - PR: ${args.prUrl} - Failed checks: ${args.failedChecks.join(", ")} - Failed jobs: ${
       args.failedJobLabels.length > 0 ? args.failedJobLabels.join(", ") : "unknown jobs"
     } - Failed runs: ${summarizeFailedRuns(args.failedRuns)}`;
-    reportTextAddition += `   - 🚨 CI autofix retries exhausted (${currentRetries}/${maxRetries}).\n`;
+    reportTextAddition += `   - 🚨 CI autofix guardrail reached (${currentRetries}/${capLabel}).\n`;
     reportTextAddition += `   - Escalation (${owner}): Task \`${args.task.id}\` has failing CI and cannot be merged yet.\n`;
     reportTextAddition += `   - PR Link: ${args.prUrl}\n`;
     reportTextAddition += `   - Required next action: fix failing checks, then continue merge flow.\n`;
@@ -164,16 +183,16 @@ export async function handleCiAutofixEscalation(args: CiAutofixEscalationArgs): 
     failedChecks: args.failedChecks,
     failedRuns: args.failedRuns,
     attempt: currentRetries + 1,
-    maxRetries,
+    maxRetries: cap,
     isJulesApiConfigured: args.isJulesApiConfigured,
     sendSessionMessage: args.sendSessionMessage,
   });
 
   if (notifyResult.sent) {
-    args.ciAutofixRetryCounts.set(retryKey, currentRetries + 1);
+    recordCiFix();
     reportTextAddition += `   - Jules session notified to fix CI and continue work (attempt ${
       currentRetries + 1
-    }/${maxRetries}).\n`;
+    }/${capLabel}).\n`;
     return { reportTextAddition, workerCiFixRequired: false, workerCiFixPayload: null };
   }
 
@@ -189,8 +208,11 @@ export async function handleCiAutofixEscalation(args: CiAutofixEscalationArgs): 
     featureBranch: args.featureBranch,
     defaultBranch: args.defaultBranch,
   });
-  args.ciAutofixRetryCounts.set(retryKey, currentRetries + 1);
-  reportTextAddition += `   - Worker CI fix dispatched (attempt ${currentRetries + 1}/${maxRetries}).\n`;
+  // NOTE: do NOT record here — the virtual worker records the ci_fix invocation when it
+  // actually resolves the dispatched attention item (see resolveCiFixAttention), so recording
+  // here as well would double-count. The hasActiveWorkerCiFixAttempt guard prevents re-dispatch
+  // while that worker run is in flight.
+  reportTextAddition += `   - Worker CI fix dispatched (attempt ${currentRetries + 1}/${capLabel}).\n`;
 
   return { reportTextAddition, workerCiFixRequired: true, workerCiFixPayload: payload };
 }

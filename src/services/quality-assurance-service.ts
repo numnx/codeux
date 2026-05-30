@@ -15,6 +15,7 @@ import type { ExecutionInvocationRecord } from "../contracts/invocation-types.js
 import type { TaskPriority } from "../contracts/project-management-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { GuardrailService } from "./guardrail-service.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import { QaReviewRepository, type QaReviewRunRecord, type QaReviewTriggerType } from "../repositories/qa-review-repository.js";
 import type { TaskService } from "./task-service.js";
@@ -98,6 +99,7 @@ export interface TaskQaMergeGateStatus {
 interface QualityAssuranceServiceDependencies {
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  guardrailService: GuardrailService;
   sessionTracking: SessionTrackingRepository;
   qaReviewRepository: QaReviewRepository;
   taskService: TaskService;
@@ -204,6 +206,18 @@ export class QualityAssuranceService {
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
 
+    // Separate per-task QA guardrail (independent of the QA agent's own maxTaskReviewRuns).
+    const qaGuardrail = this.deps.guardrailService.evaluateQa(scope, taskId);
+    if (!qaGuardrail.allowed && qaGuardrail.action !== "WARN_ONLY") {
+      await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
+      this.deps.logger?.info("QA review skipped: guardrail cap reached", {
+        taskId,
+        count: qaGuardrail.count,
+        cap: qaGuardrail.cap,
+      });
+      return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
+    }
+
     const taskRun = this.resolveTaskRunForSubtask(args.task, args.sprintRunId);
     const project = this.deps.projectManagementRepository.getProject(args.projectId);
     const sprint = this.deps.projectManagementRepository.getSprint(args.sprintId);
@@ -240,6 +254,9 @@ export class QualityAssuranceService {
         runIndex: existingRuns + 1,
       },
     });
+
+    // Record the QA invocation against the per-task guardrail ledger.
+    this.deps.guardrailService.record(scope, taskId, "qa_review");
 
     try {
       const review = await this.runReview({

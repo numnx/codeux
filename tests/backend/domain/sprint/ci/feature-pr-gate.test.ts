@@ -6,19 +6,49 @@ import { FeaturePrGateService, CiGateContext } from "../../../../../src/domain/s
 import * as prMatcher from "../../../../../src/domain/sprint/ci/feature-pr/pr-matcher.js";
 import type { Subtask, GitTrackingStatus } from "../../../../../src/contracts/app-types.js";
 
+/** Stateful in-memory guardrail double keyed by `${taskId}:${purpose}`, cap fixed at 3. */
+function makeStatefulGuardrail(cap = 3) {
+  const counts = new Map<string, number>();
+  const key = (taskId: string, purpose: string) => `${taskId}:${purpose}`;
+  return {
+    counts,
+    evaluate: (_scope: any, taskId: string, purpose: string) => {
+      const count = counts.get(key(taskId, purpose)) ?? 0;
+      return { allowed: cap === 0 || count < cap, count, cap, action: "BLOCK_AND_ESCALATE" as const };
+    },
+    evaluateQa: () => ({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" as const }),
+    record: (_scope: any, taskId: string, purpose: string) => {
+      const k = key(taskId, purpose);
+      const next = (counts.get(k) ?? 0) + 1;
+      counts.set(k, next);
+      return next;
+    },
+    getCounts: () => ({}),
+    reset: (taskId: string) => {
+      for (const k of [...counts.keys()]) {
+        if (k.startsWith(`${taskId}:`)) counts.delete(k);
+      }
+    },
+  };
+}
+
 describe("FeaturePrGateService", () => {
   let service: FeaturePrGateService;
   let context: CiGateContext;
   let subtasks: Subtask[];
+  let guardrail: ReturnType<typeof makeStatefulGuardrail>;
 
   beforeEach(() => {
     vi.resetAllMocks();
     service = new FeaturePrGateService();
-    
+    guardrail = makeStatefulGuardrail(3);
+
     subtasks = [
       {
         id: "T1",
         record_id: "task-record-1",
+        project_id: "proj-1",
+        sprint_id: "sprint-1",
         title: "Task 1",
         prompt: "Prompt 1",
         depends_on: [],
@@ -69,7 +99,7 @@ describe("FeaturePrGateService", () => {
         ciRuns: [],
         mergedPullRequests: [],
       } as unknown as GitTrackingStatus,
-      ciAutofixRetryCounts: new Map(),
+      guardrailService: guardrail as any,
       isJulesApiConfigured: vi.fn().mockReturnValue(true),
       sendSessionMessage: vi.fn().mockResolvedValue(undefined),
       autoMergeFeaturePr: vi.fn().mockResolvedValue({ ok: true }),
@@ -309,7 +339,7 @@ jobs:
 
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(context.sendSessionMessage).toHaveBeenCalled();
-    expect(context.ciAutofixRetryCounts.get("session-123:101")).toBe(1);
+    expect(guardrail.counts.get("task-record-1:ci_fix")).toBe(1);
     expect(result.reportText).toContain("Jules session notified to fix CI");
   });
 
@@ -317,13 +347,13 @@ jobs:
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "completed", conclusion: "failure" }
     ];
-    context.ciAutofixRetryCounts.set("session-123:101", 3);
+    guardrail.counts.set("task-record-1:ci_fix", 3);
 
     const result = await service.evaluateCiGate(subtasks, context);
 
     expect(result.subtasks[0].status).toBe("BLOCKED");
     expect(result.subtasks[0].intervention_owner).toBe("AGENT");
-    expect(result.reportText).toContain("CI autofix retries exhausted");
+    expect(result.reportText).toContain("CI autofix guardrail reached");
     expect(context.executionRepository?.appendTaskRunEvent).toHaveBeenCalledWith(
       "run-1",
       "ci_gate_status",
@@ -415,7 +445,7 @@ jobs:
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "completed", conclusion: "failure" }
     ];
-    context.ciAutofixRetryCounts.set("T1:101", 1);
+    guardrail.counts.set("task-record-1:ci_fix", 1);
     context.openCiFixAttentionItems = vi.fn();
     context.hasActiveWorkerCiFixAttempt = vi.fn().mockReturnValue(true);
 
@@ -423,7 +453,7 @@ jobs:
 
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(context.openCiFixAttentionItems).not.toHaveBeenCalled();
-    expect(context.ciAutofixRetryCounts.get("T1:101")).toBe(1);
+    expect(guardrail.counts.get("task-record-1:ci_fix")).toBe(1);
     expect(result.reportText).toContain("Worker CI fix already running");
   });
 
@@ -433,7 +463,7 @@ jobs:
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "completed", conclusion: "failure" }
     ];
-    context.ciAutofixRetryCounts.set("T1:101", 3);
+    guardrail.counts.set("task-record-1:ci_fix", 3);
     context.openCiFixAttentionItems = vi.fn();
     context.hasActiveWorkerCiFixAttempt = vi.fn().mockReturnValue(true);
 

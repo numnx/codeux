@@ -10,6 +10,8 @@ import { ProjectManagementRepository } from "../../repositories/project-manageme
 import { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import { ConnectionChatRepository } from "../../repositories/connection-chat-repository.js";
 import { ExecutionRepository } from "../../repositories/execution-repository.js";
+import { GuardrailRepository } from "../../repositories/guardrail-repository.js";
+import { GuardrailService } from "../../services/guardrail-service.js";
 import { AgentPresetRepository } from "../../repositories/agent-preset-repository.js";
 import { DashboardRealtimeEventRepository } from "../../repositories/dashboard-realtime-event-repository.js";
 import { WorkerEndpointRepository } from "../../repositories/worker-endpoint-repository.js";
@@ -76,6 +78,8 @@ export interface CoreDependencies {
   agentPresetRepository: AgentPresetRepository;
   agentPresetSyncService: AgentPresetSyncService;
   executionRepository: ExecutionRepository;
+  guardrailRepository: GuardrailRepository;
+  guardrailService: GuardrailService;
   dashboardRealtimeEventRepository: DashboardRealtimeEventRepository;
   dashboardRealtimeService: DashboardRealtimeService;
   sprintMarkdownService: SprintMarkdownService;
@@ -177,6 +181,12 @@ export function createCoreDependencies(
     logger: logger.child({ component: "agent-preset-sync-service" }),
   });
   const executionRepository = new ExecutionRepository(appDbStorage, dashboardRealtimeService);
+  const guardrailRepository = new GuardrailRepository(appDbStorage);
+  const guardrailService = new GuardrailService(
+    guardrailRepository,
+    (scope) => resolveEffectiveDashboardSettings(settingsRepository, scope.projectId, scope.sprintId).settings.guardrails,
+    logger.child({ component: "guardrail-service" }),
+  );
   const providerConcurrencyService = new ProviderConcurrencyService({
     executionRepository,
     logger: logger.child({ component: "provider-concurrency-service" }),
@@ -269,6 +279,8 @@ export function createCoreDependencies(
     agentPresetRepository,
     agentPresetSyncService,
     executionRepository,
+    guardrailRepository,
+    guardrailService,
     dashboardRealtimeEventRepository,
     dashboardRealtimeService,
     sprintMarkdownService,

@@ -1,5 +1,5 @@
 import { evaluateMergeReadiness } from "./feature-pr/merge-readiness-policy.js";
-import { getCiAutofixRetryKey } from "./feature-pr/ci-autofix-policy.js";
+import type { GuardrailService } from "../../../services/guardrail-service.js";
 import { matchMergedPrForTask, matchPrForTask } from "./feature-pr/pr-matcher.js";
 import { attemptAutoMerge } from "./feature-pr/automerge-policy.js";
 import { evaluateInProgressState } from "./feature-pr/in-progress-policy.js";
@@ -36,7 +36,7 @@ export interface CiGateContext {
   ciIntelligence: CiIntelligenceSettings;
   githubMode: "REMOTE" | "LOCAL";
   gitStatus: GitTrackingStatus | null;
-  ciAutofixRetryCounts: Map<string, number>;
+  guardrailService: GuardrailService;
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
@@ -282,8 +282,9 @@ export class FeaturePrGateService {
       }
 
       if (isMergeReady) {
-        const retryKey = getCiAutofixRetryKey(task, pr.number);
-        context.ciAutofixRetryCounts.delete(retryKey);
+        if (task.record_id) {
+          context.guardrailService.reset(task.record_id);
+        }
 
         if (shouldAutoMergeWhenGreen && context.autoMergeFeaturePr) {
           const mergeAttempt = await attemptAutoMerge({
@@ -341,7 +342,7 @@ export class FeaturePrGateService {
         gitStatus: context.gitStatus as GitTrackingStatus,
         ciIntelligence: context.ciIntelligence,
         automationLevel: context.automationLevel,
-        ciAutofixRetryCounts: context.ciAutofixRetryCounts,
+        guardrailService: context.guardrailService,
         isJulesApiConfigured: context.isJulesApiConfigured,
         sendSessionMessage: context.sendSessionMessage,
         repoPath: context.repoPath,

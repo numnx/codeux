@@ -33,6 +33,13 @@ const buildDeps = () => {
 
   return {
     settings: { maxFailures: 5 },
+    guardrailService: {
+      evaluate: () => ({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" as const }),
+      evaluateQa: () => ({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" as const }),
+      record: () => 1,
+      getCounts: () => ({}),
+      reset: () => {},
+    },
     getDashboardSettings: () => buildMockSettings(),
     renderInstruction: vi.fn().mockResolvedValue(""),
     isJulesApiConfigured: () => true,

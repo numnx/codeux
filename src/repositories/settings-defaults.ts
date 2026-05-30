@@ -2,6 +2,8 @@ import type {
   CliExecutionMode,
   DashboardSettings,
   FeaturePrAutoMergeMode,
+  GuardrailJobType,
+  GuardrailOnLimitAction,
   InvocationRoutingId,
   InvocationRoutingProfile,
   InvocationRoutingSettings,
@@ -158,6 +160,25 @@ export const MIN_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS = 60;
 export const MAX_WATCH_LOOP_OUTPUT_INTERVAL_SECONDS = 3600;
 export const MIN_JULES_CI_AUTOFIX_RETRIES = 0;
 export const MAX_JULES_CI_AUTOFIX_RETRIES = 20;
+
+export const MIN_GUARDRAIL_CAP = 0;
+export const MAX_GUARDRAIL_CAP = 100;
+export const MIN_GUARDRAIL_TOTAL_CEILING = 0;
+export const MAX_GUARDRAIL_TOTAL_CEILING = 500;
+export const GUARDRAIL_JOB_TYPES: GuardrailJobType[] = [
+  "task_coding",
+  "ci_fix",
+  "merge_conflict",
+  "clarification_reply",
+  "planning",
+];
+export const GUARDRAIL_ON_LIMIT_ACTIONS: GuardrailOnLimitAction[] = [
+  "BLOCK_AND_ESCALATE",
+  "STOP_AND_WAIT",
+  "WARN_ONLY",
+];
+/** Fallback cap used when migrating the legacy hardcoded clarification auto-answer limit. */
+export const LEGACY_CLARIFICATION_RETRY_CAP = 3;
 
 export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
   jules: {
@@ -370,6 +391,19 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     julesCiAutofixMaxRetries: 3,
     featurePrAutoMergeMode: "OFF",
     mainBranchAutoMergeMode: "OFF",
+  },
+  guardrails: {
+    enabled: true,
+    perTaskTotalCeiling: 0,
+    jobs: {
+      task_coding: { cap: 8, onLimit: "BLOCK_AND_ESCALATE" },
+      ci_fix: { cap: 3, onLimit: "BLOCK_AND_ESCALATE" },
+      merge_conflict: { cap: 3, onLimit: "BLOCK_AND_ESCALATE" },
+      clarification_reply: { cap: 3, onLimit: "STOP_AND_WAIT" },
+      planning: { cap: 5, onLimit: "BLOCK_AND_ESCALATE" },
+    },
+    qaRunsCap: 10,
+    qaRunsOnLimit: "BLOCK_AND_ESCALATE",
   },
   sprintLoopSteps: {
     branchPreflight: true,

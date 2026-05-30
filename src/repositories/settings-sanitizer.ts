@@ -11,6 +11,7 @@ import { sanitizeAiProvider } from "../domain/settings/settings-sanitizers/ai-pr
 import { sanitizeGit } from "../domain/settings/settings-sanitizers/git-sanitizer.js";
 import { sanitizeJira } from "../domain/settings/settings-sanitizers/jira-sanitizer.js";
 import { sanitizeCiIntelligence } from "../domain/settings/settings-sanitizers/ci-sanitizer.js";
+import { sanitizeGuardrails } from "../domain/settings/settings-sanitizers/guardrails-sanitizer.js";
 import { sanitizeSprintLoopSteps } from "../domain/settings/settings-sanitizers/sprint-loop-sanitizer.js";
 import { sanitizeCliWorkflow } from "../domain/settings/settings-sanitizers/cli-workflow-sanitizer.js";
 import { sanitizeWorkers } from "../domain/settings/settings-sanitizers/worker-sanitizer.js";
@@ -188,6 +189,16 @@ export const cloneDefaults = (externalHints?: ExternalSettingsHints): DashboardS
   ciIntelligence: {
     ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
   },
+  guardrails: {
+    ...DEFAULT_DASHBOARD_SETTINGS.guardrails,
+    jobs: {
+      task_coding: { ...DEFAULT_DASHBOARD_SETTINGS.guardrails.jobs.task_coding },
+      ci_fix: { ...DEFAULT_DASHBOARD_SETTINGS.guardrails.jobs.ci_fix },
+      merge_conflict: { ...DEFAULT_DASHBOARD_SETTINGS.guardrails.jobs.merge_conflict },
+      clarification_reply: { ...DEFAULT_DASHBOARD_SETTINGS.guardrails.jobs.clarification_reply },
+      planning: { ...DEFAULT_DASHBOARD_SETTINGS.guardrails.jobs.planning },
+    },
+  },
   sprintLoopSteps: {
     ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps,
   },
@@ -282,6 +293,7 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
     jira.apiToken = externalHints.resolved.jiraToken;
   }
   const ciIntelligence = sanitizeCiIntelligence(input, git.githubMode);
+  const guardrails = sanitizeGuardrails(input);
   const sprintLoopSteps = sanitizeSprintLoopSteps(input);
   const cliWorkflow = sanitizeCliWorkflow(input);
   const sprintPreviewInput = (input.sprintPreview && typeof input.sprintPreview === "object"
@@ -408,6 +420,7 @@ export const sanitizeSettings = (value: unknown, externalHints?: ExternalSetting
     git,
     jira,
     ciIntelligence,
+    guardrails,
     sprintLoopSteps,
     cliWorkflow,
     sprintPreview,

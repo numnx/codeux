@@ -12,6 +12,15 @@ import { StructuredProviderResponseService } from "../../../src/services/structu
 import { StructuredAgentRequestService } from "../../../src/services/structured-agent-request-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
+/** Permissive guardrail stub: QA review runs are always allowed unless a test overrides it. */
+const qaGuardrailStub = () => ({
+  evaluate: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+  evaluateQa: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+  record: vi.fn(),
+  getCounts: vi.fn(),
+  reset: vi.fn(),
+}) as any;
+
 vi.mock("../../../src/services/git-branch-sync-service.js", () => ({
   fetchOriginIfAvailable: vi.fn(),
   syncRemoteBranchIfAvailable: vi.fn(),
@@ -50,6 +59,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: {} as any,
       executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: {} as any,
       taskService: {
@@ -100,6 +110,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: {} as any,
       executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: {} as any,
       taskService: {} as any,
@@ -172,6 +183,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository: new ExecutionRepository(storage),
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: {} as any,
       taskService: {} as any,
@@ -269,6 +281,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository,
       taskService: {} as any,
@@ -385,6 +398,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository,
       taskService: {} as any,
@@ -548,6 +562,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository,
       taskService: {} as any,
@@ -651,6 +666,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository,
       taskService: {} as any,
@@ -765,16 +781,19 @@ describe("QualityAssuranceService", () => {
         executeProvider: mockProviderRunner.runProvider,
       } as any,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
     });
 
     const structuredAgentRequestService = new StructuredAgentRequestService({
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       structuredProviderResponseService: structuredResponseService,
     });
 
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: new QaReviewRepository(storage),
       taskService: {
@@ -878,16 +897,19 @@ describe("QualityAssuranceService", () => {
         executeProvider: mockProviderRunner.runProvider,
       } as any,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
     });
 
     const structuredAgentRequestService = new StructuredAgentRequestService({
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       structuredProviderResponseService: structuredResponseService,
     });
 
     const service = new QualityAssuranceService({
       projectManagementRepository: projectRepository,
       executionRepository,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: new QaReviewRepository(storage),
       taskService: {
@@ -953,6 +975,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: {} as any,
       executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: {} as any,
       taskService: {} as any,
@@ -1010,6 +1033,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: {} as any,
       executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: {} as any,
       qaReviewRepository: {} as any,
       taskService: {} as any,
@@ -1093,6 +1117,7 @@ describe("QualityAssuranceService", () => {
     const service = new QualityAssuranceService({
       projectManagementRepository: projectManagementRepository as any,
       executionRepository: executionRepository as any,
+      guardrailService: qaGuardrailStub(),
       sessionTracking: sessionTracking as any,
       qaReviewRepository: {} as any,
       taskService: {} as any,

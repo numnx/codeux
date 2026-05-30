@@ -1,7 +1,19 @@
-import type { DashboardSettings, ExternalSettingsHints } from "../types.js";
+import type { DashboardSettings, ExternalSettingsHints, GuardrailSettings } from "../types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
 export { DEFAULT_DASHBOARD_SETTINGS };
+
+/** Deep-clones the guardrails block (including the per-job-type record) so edits never alias defaults. */
+export const cloneGuardrails = (guardrails: GuardrailSettings): GuardrailSettings => ({
+  ...guardrails,
+  jobs: {
+    task_coding: { ...guardrails.jobs.task_coding },
+    ci_fix: { ...guardrails.jobs.ci_fix },
+    merge_conflict: { ...guardrails.jobs.merge_conflict },
+    clarification_reply: { ...guardrails.jobs.clarification_reply },
+    planning: { ...guardrails.jobs.planning },
+  },
+});
 
 export const cloneDefaultSettings = (): DashboardSettings => ({
   dashboardPort: DEFAULT_DASHBOARD_SETTINGS.dashboardPort,
@@ -24,6 +36,7 @@ export const cloneDefaultSettings = (): DashboardSettings => ({
   git: { ...DEFAULT_DASHBOARD_SETTINGS.git },
   jira: { ...DEFAULT_DASHBOARD_SETTINGS.jira },
   ciIntelligence: { ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence },
+  guardrails: cloneGuardrails(DEFAULT_DASHBOARD_SETTINGS.guardrails),
   sprintLoopSteps: { ...DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps },
   cliWorkflow: { ...DEFAULT_DASHBOARD_SETTINGS.cliWorkflow },
   sprintPreview: { ...DEFAULT_DASHBOARD_SETTINGS.sprintPreview },

@@ -192,5 +192,21 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureIndex(db, "idx_scheduler_entries_project_time", "scheduler_entries", "project_id, scheduled_for ASC");
   ensureIndex(db, "idx_scheduler_entries_due", "scheduler_entries", "status, next_run_at ASC");
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS guardrail_ledger (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `);
+  ensureUniqueIndex(db, "idx_guardrail_ledger_task_purpose", "guardrail_ledger", "task_id, purpose");
+  ensureIndex(db, "idx_guardrail_ledger_project", "guardrail_ledger", "project_id, task_id");
+
   backfillEstimatedDockerCliUsage(db);
 }

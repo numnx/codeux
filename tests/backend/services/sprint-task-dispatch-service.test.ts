@@ -21,13 +21,22 @@ async function createFixture() {
     resolveTaskProvider: vi.fn().mockReturnValue("codex"),
     startSprintTask: vi.fn(),
   };
+  const guardrailService = {
+    evaluate: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+    evaluateQa: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+    record: vi.fn(),
+    getCounts: vi.fn(),
+    reset: vi.fn(),
+  };
   const service = new SprintTaskDispatchService(
     executionRepository,
     projectManagementRepository,
     taskService as any,
+    guardrailService as any,
   );
 
   return {
+    guardrailService,
     projectManagementRepository,
     executionRepository,
     taskService,

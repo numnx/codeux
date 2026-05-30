@@ -28,6 +28,8 @@ import {
   INVOCATION_ROUTING_IDS,
   INVOCATION_ROUTING_PROFILES,
   CONSOLE_LOG_LEVELS,
+  GUARDRAIL_JOB_TYPES,
+  GUARDRAIL_ON_LIMIT_ACTIONS,
 } from "../../repositories/settings-defaults.js";
 import { INSTRUCTION_TEMPLATE_IDS } from "../../instructions/instruction-template-catalog.js";
 
@@ -281,6 +283,38 @@ const validateCiIntelligence = (
   }
   if (typeof value.mainBranchAutoMergeMode !== "string" || !FEATURE_PR_AUTOMERGE_MODES.includes(value.mainBranchAutoMergeMode as FeaturePrAutoMergeMode)) {
     issues.push({ path: `${path}.mainBranchAutoMergeMode`, message: `Expected one of: ${FEATURE_PR_AUTOMERGE_MODES.join(", ")}` });
+  }
+};
+
+const validateGuardrails = (
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[]
+) => {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object" });
+    return;
+  }
+  if (typeof value.enabled !== "boolean") issues.push({ path: `${path}.enabled`, message: "Expected a boolean" });
+  if (typeof value.perTaskTotalCeiling !== "number") issues.push({ path: `${path}.perTaskTotalCeiling`, message: "Expected a number" });
+  if (typeof value.qaRunsCap !== "number") issues.push({ path: `${path}.qaRunsCap`, message: "Expected a number" });
+  if (typeof value.qaRunsOnLimit !== "string" || !GUARDRAIL_ON_LIMIT_ACTIONS.includes(value.qaRunsOnLimit as never)) {
+    issues.push({ path: `${path}.qaRunsOnLimit`, message: `Expected one of: ${GUARDRAIL_ON_LIMIT_ACTIONS.join(", ")}` });
+  }
+  if (!isRecord(value.jobs)) {
+    issues.push({ path: `${path}.jobs`, message: "Expected an object" });
+    return;
+  }
+  for (const jobType of GUARDRAIL_JOB_TYPES) {
+    const job = (value.jobs as Record<string, unknown>)[jobType];
+    if (!isRecord(job)) {
+      issues.push({ path: `${path}.jobs.${jobType}`, message: "Expected an object" });
+      continue;
+    }
+    if (typeof job.cap !== "number") issues.push({ path: `${path}.jobs.${jobType}.cap`, message: "Expected a number" });
+    if (typeof job.onLimit !== "string" || !GUARDRAIL_ON_LIMIT_ACTIONS.includes(job.onLimit as never)) {
+      issues.push({ path: `${path}.jobs.${jobType}.onLimit`, message: `Expected one of: ${GUARDRAIL_ON_LIMIT_ACTIONS.join(", ")}` });
+    }
   }
 };
 
@@ -627,6 +661,7 @@ export const validateSettingsPayload = (payload: unknown): ValidationResult<Dash
   validateGitSettings(payload.git, "git", issues);
   validateJiraSettings(payload.jira, "jira", issues);
   validateCiIntelligence(payload.ciIntelligence, "ciIntelligence", issues);
+  validateGuardrails(payload.guardrails, "guardrails", issues);
   validateSprintLoopSteps(payload.sprintLoopSteps, "sprintLoopSteps", issues);
   validateCliWorkflow(payload.cliWorkflow, "cliWorkflow", issues);
   validateSprintPreview(payload.sprintPreview, "sprintPreview", issues);

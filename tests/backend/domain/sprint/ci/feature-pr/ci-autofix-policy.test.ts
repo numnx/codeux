@@ -1,6 +1,34 @@
 import { describe, it, expect, vi } from "vitest";
 import { handleCiAutofixEscalation, buildWorkerCiFixPayload } from "../../../../../../src/domain/sprint/ci/feature-pr/ci-autofix-policy.js";
 import type { Subtask } from "../../../../../../src/contracts/app-types.js";
+import type { GuardrailEvaluation, GuardrailService } from "../../../../../../src/services/guardrail-service.js";
+
+const makeGuardrail = (evaluation: GuardrailEvaluation) => {
+  const record = vi.fn().mockReturnValue(evaluation.count + 1);
+  const service = {
+    evaluate: vi.fn().mockReturnValue(evaluation),
+    evaluateQa: vi.fn(),
+    record,
+    getCounts: vi.fn(),
+    reset: vi.fn(),
+  } as unknown as GuardrailService;
+  return { service, record };
+};
+
+const allow = (count: number, cap: number): GuardrailEvaluation => ({
+  allowed: true,
+  count,
+  cap,
+  action: "BLOCK_AND_ESCALATE",
+});
+
+const block = (count: number, cap: number): GuardrailEvaluation => ({
+  allowed: false,
+  count,
+  cap,
+  action: "BLOCK_AND_ESCALATE",
+  reason: `Reached max ci_fix invocations for this task (${count}/${cap}).`,
+});
 
 const baseArgs = {
   prNumber: 100,
@@ -10,7 +38,6 @@ const baseArgs = {
   failedRuns: [],
   failedJobLabels: [],
   automationLevel: "FULL" as const,
-  maxRetries: 3,
   isJulesApiConfigured: () => true,
   sendSessionMessage: vi.fn(),
   repoPath: "/repo",
@@ -18,54 +45,66 @@ const baseArgs = {
   defaultBranch: "main",
 };
 
+const makeTask = (overrides: Partial<Subtask> = {}): Subtask => ({
+  id: "T1",
+  title: "Task 1",
+  prompt: "Do stuff",
+  status: "RUNNING",
+  record_id: "rec-T1",
+  project_id: "proj-1",
+  sprint_id: "sprint-1",
+  ...overrides,
+} as Subtask);
+
 describe("handleCiAutofixEscalation", () => {
-  it("should trigger escalation if max retries are reached", async () => {
-    const task: Subtask = { id: "T1", status: "RUNNING" } as Subtask;
-    const retryCounts = new Map([["T1:100", 3]]);
+  it("blocks and escalates when the guardrail cap is reached", async () => {
+    const task = makeTask();
+    const { service, record } = makeGuardrail(block(3, 3));
     const sendSessionMessage = vi.fn();
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       sendSessionMessage,
     });
 
     expect(task.status).toBe("BLOCKED");
     expect(task.intervention_owner).toBe("AGENT");
-    expect(result.reportTextAddition).toContain("CI autofix retries exhausted");
+    expect(result.reportTextAddition).toContain("CI autofix guardrail reached");
     expect(result.workerCiFixRequired).toBe(false);
     expect(sendSessionMessage).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
-  it("should send notification and increment retry count if max retries not reached", async () => {
-    const task: Subtask = { id: "T1", status: "RUNNING", session_id: "s1" } as Subtask;
-    const retryCounts = new Map([["s1:100", 1]]);
+  it("notifies Jules and records the ci_fix invocation when under the cap", async () => {
+    const task = makeTask({ session_id: "s1" });
+    const { service, record } = makeGuardrail(allow(1, 3));
     const sendSessionMessage = vi.fn().mockResolvedValue(undefined);
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       sendSessionMessage,
     });
 
     expect(task.status).toBe("RUNNING");
-    expect(retryCounts.get("s1:100")).toBe(2);
+    expect(record).toHaveBeenCalledWith({ projectId: "proj-1", sprintId: "sprint-1" }, "rec-T1", "ci_fix");
     expect(sendSessionMessage).toHaveBeenCalled();
     expect(result.reportTextAddition).toContain("Jules session notified to fix CI");
     expect(result.workerCiFixRequired).toBe(false);
   });
 
-  it("should dispatch to worker when Jules API is not configured", async () => {
-    const task: Subtask = { id: "T1", title: "Task 1", prompt: "Do stuff", status: "RUNNING", session_id: "s1" } as Subtask;
-    const retryCounts = new Map();
+  it("dispatches to a worker (without recording) when Jules API is not configured", async () => {
+    const task = makeTask({ session_id: "s1" });
+    const { service, record } = makeGuardrail(allow(0, 3));
     const sendSessionMessage = vi.fn();
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       isJulesApiConfigured: () => false,
       sendSessionMessage,
     });
@@ -76,18 +115,19 @@ describe("handleCiAutofixEscalation", () => {
     expect(result.workerCiFixPayload!.prNumber).toBe(100);
     expect(result.workerCiFixPayload!.taskKey).toBe("T1");
     expect(result.reportTextAddition).toContain("Worker CI fix dispatched");
-    expect(retryCounts.get("s1:100")).toBe(1);
+    // The virtual worker records the ci_fix when it resolves the dispatched attention item.
+    expect(record).not.toHaveBeenCalled();
   });
 
-  it("should dispatch to worker for non-Jules-managed tasks", async () => {
-    const task: Subtask = { id: "T1", title: "Task 1", prompt: "Do stuff", status: "RUNNING", provider: "gemini" } as Subtask;
-    const retryCounts = new Map();
+  it("dispatches to a worker for non-Jules-managed tasks without recording", async () => {
+    const task = makeTask({ provider: "gemini" });
+    const { service, record } = makeGuardrail(allow(0, 3));
     const sendSessionMessage = vi.fn();
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       sendSessionMessage,
     });
 
@@ -95,37 +135,37 @@ describe("handleCiAutofixEscalation", () => {
     expect(result.workerCiFixRequired).toBe(true);
     expect(result.workerCiFixPayload).toBeTruthy();
     expect(result.reportTextAddition).toContain("Worker CI fix dispatched");
-    expect(retryCounts.get("T1:100")).toBe(1);
+    expect(record).not.toHaveBeenCalled();
   });
 
-  it("waits for an active worker CI fix attempt without incrementing retries", async () => {
-    const task: Subtask = { id: "T1", title: "Task 1", prompt: "Do stuff", status: "RUNNING" } as Subtask;
-    const retryCounts = new Map([["T1:100", 1]]);
+  it("waits for an active worker CI fix attempt without recording", async () => {
+    const task = makeTask();
+    const { service, record } = makeGuardrail(allow(1, 3));
     const sendSessionMessage = vi.fn();
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       sendSessionMessage,
       hasActiveWorkerCiFixAttempt: () => true,
     });
 
     expect(task.status).toBe("RUNNING");
-    expect(retryCounts.get("T1:100")).toBe(1);
+    expect(record).not.toHaveBeenCalled();
     expect(sendSessionMessage).not.toHaveBeenCalled();
     expect(result.workerCiFixRequired).toBe(false);
     expect(result.reportTextAddition).toContain("Worker CI fix already running");
   });
 
-  it("does not block while the active worker CI fix attempt is still running at the retry limit", async () => {
-    const task: Subtask = { id: "T1", title: "Task 1", prompt: "Do stuff", status: "RUNNING" } as Subtask;
-    const retryCounts = new Map([["T1:100", 3]]);
+  it("does not block while the active worker CI fix attempt is still running at the cap", async () => {
+    const task = makeTask();
+    const { service } = makeGuardrail(block(3, 3));
 
     const result = await handleCiAutofixEscalation({
       ...baseArgs,
       task,
-      ciAutofixRetryCounts: retryCounts,
+      guardrailService: service,
       hasActiveWorkerCiFixAttempt: () => true,
     });
 

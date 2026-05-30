@@ -8,14 +8,37 @@ import { buildMockSubtask } from "../../builders/subtask-builder.js";
 import { buildMockSession } from "../../builders/session-builder.js";
 import { buildTaskRunTag } from "../../../src/services/task-run-key.js";
 
+const makeStatefulGuardrail = (cap = 3) => {
+  const counts = new Map<string, number>();
+  const key = (taskId: string, purpose: string) => `${taskId}:${purpose}`;
+  return {
+    counts,
+    evaluate: (_scope: any, taskId: string, purpose: string) => {
+      const count = counts.get(key(taskId, purpose)) ?? 0;
+      return { allowed: cap === 0 || count < cap, count, cap, action: "BLOCK_AND_ESCALATE" as const };
+    },
+    evaluateQa: () => ({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" as const }),
+    record: (_scope: any, taskId: string, purpose: string) => {
+      const k = key(taskId, purpose);
+      const next = (counts.get(k) ?? 0) + 1;
+      counts.set(k, next);
+      return next;
+    },
+    getCounts: () => ({}),
+    reset: () => {},
+  };
+};
+
 const buildDeps = () => {
   const subtaskRepository = {
     loadSubtasks: vi.fn(),
     setMerged: vi.fn().mockResolvedValue(undefined),
   };
+  const guardrailService = makeStatefulGuardrail(3);
 
   return {
     settings: { maxFailures: 5 },
+    guardrailService,
     getDashboardSettings: () => buildMockSettings(),
     renderInstruction: vi.fn().mockResolvedValue(""),
     isJulesApiConfigured: () => true,
@@ -29,6 +52,13 @@ const buildDeps = () => {
     extractSessionId: (s: any) => s.id,
     completedSprints: new Set<string>(),
     projectManagementRepository: { updateTask: vi.fn(), getTasksByIds: vi.fn().mockReturnValue([]) },
+    projectAttentionService: {
+      openItems: vi.fn(),
+      resolveItems: vi.fn(),
+      resolveItemsForTask: vi.fn(),
+      resolveItemsForSprintRun: vi.fn(),
+      listActiveProjectItems: vi.fn().mockReturnValue([]),
+    },
     executionRepository: { updateSprintRun: vi.fn() },
     sprintExecutionStateService: {
       resolveContext: vi.fn((args: any) => ({
@@ -132,6 +162,8 @@ describe("SprintOrchestrator - CI & Merge Gates", () => {
 
   it("escalates CI autofix after max retries", async () => {
     const deps = buildDeps();
+    // Drive the task to the ci_fix guardrail cap so the next failure escalates.
+    deps.guardrailService.counts.set("rec-01-task:ci_fix", 3);
     deps.getDashboardSettings = () => buildMockSettings({
       automationLevel: "FULL",
       ciIntelligence: {
@@ -171,7 +203,7 @@ describe("SprintOrchestrator - CI & Merge Gates", () => {
     await fs.mkdir(subtasksDir, { recursive: true });
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
-    deps.subtaskRepository.loadSubtasks.mockResolvedValue([buildMockSubtask({ id: "01-task" })]);
+    deps.subtaskRepository.loadSubtasks.mockResolvedValue([buildMockSubtask({ id: "01-task", record_id: "rec-01-task", project_id: "proj-1", sprint_id: "sprint-1" })]);
     deps.listSessions.mockResolvedValue({
       sessions: [
         buildMockSession({
@@ -193,7 +225,7 @@ describe("SprintOrchestrator - CI & Merge Gates", () => {
       wait: false,
     });
 
-    expect(result.content[0].text).toContain("CI autofix retries exhausted");
+    expect(result.content[0].text).toContain("CI autofix guardrail reached");
     expect(result.content[0].text).toContain("AGENT INTERVENTION NEEDED");
 
     await fs.rm(tmpRoot, { recursive: true, force: true });
