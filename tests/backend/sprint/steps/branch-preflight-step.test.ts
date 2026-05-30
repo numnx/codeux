@@ -239,6 +239,7 @@ describe("runBranchPreflightStep (Async)", () => {
       createdLocal: true,
       checkedOutLocal: true,
       pushedRemote: true,
+      baseCommitSha: null,
     });
     expect(commandRunner.run).toHaveBeenCalledWith("git", ["branch", "feature/sprint1", "main"], { cwd: "/valid-repo" });
     expect(commandRunner.run).toHaveBeenCalledWith("git", ["push", "-u", "origin", "refs/heads/feature/sprint1:refs/heads/feature/sprint1"], { cwd: "/valid-repo" });
@@ -341,6 +342,7 @@ describe("runBranchPreflightStep (Async)", () => {
       createdLocal: false,
       checkedOutLocal: true,
       pushedRemote: false,
+      baseCommitSha: null,
     });
   });
 
@@ -427,6 +429,7 @@ describe("runBranchPreflightStep (Async)", () => {
       createdLocal: true,
       checkedOutLocal: true,
       pushedRemote: false,
+      baseCommitSha: null,
     });
     expect(commandRunner.run).toHaveBeenCalledWith("git", ["branch", "--track", "feature/sprint1", "origin/feature/sprint1"], { cwd: "/valid-repo" });
   });

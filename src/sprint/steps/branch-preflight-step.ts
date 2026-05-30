@@ -12,6 +12,13 @@ export interface BranchPreparationResult extends BranchAvailability {
   createdLocal: boolean;
   checkedOutLocal: boolean;
   pushedRemote: boolean;
+  /**
+   * The commit the feature branch was forked from, captured only when this call
+   * created the branch. This is the stable diff checkpoint: it must be recorded
+   * now, while the branch still diverges from the default branch, because once the
+   * sprint is merged back the fork point can no longer be recovered from the refs.
+   */
+  baseCommitSha: string | null;
 }
 
 export interface BranchPreflightOptions extends GitHttpAuthOptions {
@@ -110,6 +117,15 @@ const fetchOrigin = async (
     await runGit(repoPath, ["fetch", "origin", "--prune"], options);
   } catch {
     // Branch preflight remains best-effort when origin is temporarily unavailable.
+  }
+};
+
+const resolveCommitSha = async (repoPath: string, ref: string): Promise<string | null> => {
+  try {
+    const result = await commandRunner.run("git", ["rev-parse", "--verify", `${ref}^{commit}`], { cwd: repoPath });
+    return result.ok ? result.stdout.trim() || null : null;
+  } catch {
+    return null;
   }
 };
 
@@ -242,6 +258,7 @@ export const prepareBranchForOrchestration = async (
   let createdLocal = false;
   let checkedOutLocal = false;
   let pushedRemote = false;
+  let baseCommitSha: string | null = null;
 
   if (initial.existsLocal) {
     checkedOutLocal = true;
@@ -259,6 +276,12 @@ export const prepareBranchForOrchestration = async (
     existsRemote = pushedRemote || await hasRemoteBranch(repoPath, branch, resolvedOptions);
   }
 
+  if (createdLocal) {
+    // A freshly created branch tip is the default-branch commit it forked from. No
+    // commits are added during preflight, so this stays the stable fork point.
+    baseCommitSha = await resolveCommitSha(repoPath, branch);
+  }
+
   return {
     existsLocal,
     existsRemote,
@@ -266,5 +289,6 @@ export const prepareBranchForOrchestration = async (
     createdLocal,
     checkedOutLocal,
     pushedRemote,
+    baseCommitSha,
   };
 };
