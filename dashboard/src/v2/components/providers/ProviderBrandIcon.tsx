@@ -14,6 +14,7 @@ const brandIcons: Record<GitHostBrandIconId, { slug: string; fallback: string; l
   "claude-code": { slug: "claude", fallback: "C", label: "Claude Code" },
   "qwen-code": { slug: "qwen-color", fallback: "Q", label: "Qwen Code" },
   opencode: { slug: "opencode", fallback: "O", label: "OpenCode" },
+  antigravity: { slug: "google-color", fallback: "AGY", label: "Antigravity" },
   github: { slug: "github", fallback: "GH", label: "GitHub" },
   gitlab: { slug: "gitlab", fallback: "GL", label: "GitLab" },
 };

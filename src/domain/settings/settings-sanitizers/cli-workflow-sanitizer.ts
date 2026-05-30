@@ -104,6 +104,10 @@ export const sanitizeCliWorkflow = (
       cliInput.containerMountOpenCodeAuth,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerMountOpenCodeAuth
     ),
+    containerMountAntigravityAuth: readBoolean(
+      cliInput.containerMountAntigravityAuth,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerMountAntigravityAuth
+    ),
     containerGithubAuthPath: readString(
       cliInput.containerGithubAuthPath,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerGithubAuthPath
@@ -128,6 +132,10 @@ export const sanitizeCliWorkflow = (
       cliInput.containerOpenCodeAuthPath,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerOpenCodeAuthPath
     ).trim() || DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerOpenCodeAuthPath,
+    containerAntigravityAuthPath: readString(
+      cliInput.containerAntigravityAuthPath,
+      DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerAntigravityAuthPath
+    ).trim() || DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerAntigravityAuthPath,
     maxPlanningJsonRetries: Math.max(0, Math.min(10, readInteger(
       cliInput.maxPlanningJsonRetries,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.maxPlanningJsonRetries

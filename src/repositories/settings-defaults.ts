@@ -34,7 +34,7 @@ export const DEFAULT_SKILLS: SkillToggle[] = INTERNAL_SKILL_NAMES.map((name) => 
   isInternal: true,
 }));
 
-export const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"];
+export const PROVIDER_IDS: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
 export const THINKING_MODES: ThinkingMode[] = ["SMALL", "MEDIUM", "HIGH"];
 export const PROVIDER_STRATEGIES: ProviderStrategy[] = ["MANUAL", "WEIGHTED", "AGENT"];
 export const INVOCATION_ROUTING_PROFILES: InvocationRoutingProfile[] = ["GLOBAL", "WORKER"];
@@ -50,7 +50,7 @@ export const INVOCATION_ROUTING_IDS: InvocationRoutingId[] = [
 export const CLI_EXECUTION_MODES: CliExecutionMode[] = ["DOCKER", "HOST"];
 export const FEATURE_PR_AUTOMERGE_MODES: FeaturePrAutoMergeMode[] = ["OFF", "CREATE_PR", "WHEN_GREEN", "ALWAYS"];
 export const WORKER_EXECUTION_MODES: WorkerExecutionMode[] = ["VIRTUAL"];
-export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code", "qwen-code", "opencode"];
+export const VIRTUAL_WORKER_PROVIDERS: VirtualWorkerProvider[] = ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
 export const CONSOLE_LOG_LEVELS = ["standard", "full"] as const;
 export const DEFAULT_PROVIDER_CONFIG_IDS: Record<ProviderId, ProviderConfigId> = {
   jules: "jules",
@@ -59,6 +59,7 @@ export const DEFAULT_PROVIDER_CONFIG_IDS: Record<ProviderId, ProviderConfigId> =
   "claude-code": "claude-code",
   "qwen-code": "qwen-code",
   opencode: "opencode",
+  antigravity: "antigravity",
 };
 export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   jules: "Jules Primary",
@@ -67,6 +68,7 @@ export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   "claude-code": "Claude Primary",
   "qwen-code": "Qwen Primary",
   opencode: "OpenCode Primary",
+  antigravity: "Antigravity Primary",
 };
 export const DEFAULT_PROVIDER_AUTH_PATHS: Record<ProviderId, string> = {
   jules: "",
@@ -75,6 +77,7 @@ export const DEFAULT_PROVIDER_AUTH_PATHS: Record<ProviderId, string> = {
   "claude-code": "~/.claude",
   "qwen-code": "~/.qwen",
   opencode: "~/.local/share/opencode",
+  antigravity: "~/.antigravity",
 };
 
 // AI Models catalog — available model identifiers per virtual worker provider
@@ -138,12 +141,17 @@ export const OPENCODE_MODELS: string[] = [
   "openrouter/anthropic/claude-sonnet-4.5",
 ];
 
+export const ANTIGRAVITY_MODELS: string[] = [
+  "default"
+];
+
 export const AI_MODEL_CATALOG: Record<string, string[]> = {
   gemini: GEMINI_MODELS,
   "claude-code": CLAUDE_MODELS,
   codex: CODEX_MODELS,
   "qwen-code": QWEN_MODELS,
   opencode: OPENCODE_MODELS,
+  antigravity: ANTIGRAVITY_MODELS,
 };
 
 export const DEFAULT_VIRTUAL_WORKER_MODELS: Record<string, string> = {
@@ -152,6 +160,7 @@ export const DEFAULT_VIRTUAL_WORKER_MODELS: Record<string, string> = {
   codex: "gpt-5.3-codex",
   "qwen-code": "qwen3-coder-plus",
   opencode: "anthropic/claude-sonnet-4-5",
+  antigravity: "default",
 };
 
 export const MIN_WATCH_LOOP_INTERVAL_SECONDS = 1;
@@ -253,6 +262,18 @@ export const DEFAULT_PROVIDER_SETTINGS: Record<ProviderId, ProviderSettings> = {
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.opencode,
     maxConcurrentTasks: 0,
   },
+  antigravity: {
+    provider: "antigravity",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.antigravity,
+    enabled: false,
+    model: "default",
+    weight: 0,
+    thinkingMode: "HIGH",
+    apiKey: "",
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.antigravity,
+    maxConcurrentTasks: 0,
+  },
 };
 
 export const createDefaultProviderSettings = (
@@ -271,6 +292,7 @@ export const buildDefaultProviderSettingsMap = (): Record<ProviderConfigId, Prov
   [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: createDefaultProviderSettings("claude-code"),
   [DEFAULT_PROVIDER_CONFIG_IDS["qwen-code"]]: createDefaultProviderSettings("qwen-code"),
   [DEFAULT_PROVIDER_CONFIG_IDS.opencode]: createDefaultProviderSettings("opencode"),
+  [DEFAULT_PROVIDER_CONFIG_IDS.antigravity]: createDefaultProviderSettings("antigravity"),
 });
 
 export const DEFAULT_INVOCATION_ROUTING: Record<InvocationRoutingId, InvocationRoutingSettings> = {
@@ -442,12 +464,14 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     containerMountClaudeCodeAuth: false,
     containerMountQwenCodeAuth: false,
     containerMountOpenCodeAuth: false,
+    containerMountAntigravityAuth: false,
     containerGithubAuthPath: "~/.config/gh",
     containerGeminiAuthPath: "~/.gemini",
     containerCodexAuthPath: "~/.codex",
     containerClaudeCodeAuthPath: "~/.claude",
     containerQwenCodeAuthPath: "~/.qwen",
     containerOpenCodeAuthPath: "~/.local/share/opencode",
+    containerAntigravityAuthPath: "~/.antigravity",
     maxPlanningJsonRetries: 3,
     maxQuotaRetriesWithoutTimer: 5,
   },

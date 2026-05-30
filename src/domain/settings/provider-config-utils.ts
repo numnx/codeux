@@ -106,6 +106,13 @@ export const buildDefaultIntegrationProviders = (
     openCodeEnvKey: "OLLAMA_API_KEY",
     openCodePackage: "@ai-sdk/openai-compatible",
   },
+  [DEFAULT_PROVIDER_CONFIG_IDS.antigravity]: {
+    provider: "antigravity",
+    name: DEFAULT_PROVIDER_CONFIG_NAMES.antigravity,
+    apiKey: getHintApiKeyForProvider("antigravity", externalHints),
+    mountAuth: false,
+    authPath: DEFAULT_PROVIDER_AUTH_PATHS.antigravity,
+  },
 });
 
 const normalizeProviderId = (value: unknown): ProviderId | null => (
@@ -224,6 +231,7 @@ export const normalizeSystemIntegrationProviders = (
     ["claude-code", input.claudeCodeApiKey],
     ["qwen-code", input.qwenCodeApiKey],
     ["opencode", input.openCodeApiKey],
+    ["antigravity", input.antigravityApiKey],
   ];
 
   for (const [providerId, legacyApiKey] of legacyEntries) {

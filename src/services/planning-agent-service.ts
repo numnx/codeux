@@ -488,7 +488,7 @@ export class PlanningAgentService {
     const route = resolveProviderForInvocation(args.settings, {
       invocation: "planning",
       task: routingTask,
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
       agentProvider: planningAgent
         ? {
           providerConfigId: planningAgent.providerConfigId,

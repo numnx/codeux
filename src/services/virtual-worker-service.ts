@@ -555,7 +555,7 @@ export class VirtualWorkerService {
         is_independent: true,
         status: "PENDING",
       },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
       agentProvider: workerAgent
         ? {
           providerConfigId: workerAgent.providerConfigId,
@@ -813,7 +813,7 @@ export class VirtualWorkerService {
         is_independent: true,
         status: "PENDING",
       },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
       agentProvider: workerAgent
         ? {
           providerConfigId: workerAgent.providerConfigId,

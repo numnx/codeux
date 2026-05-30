@@ -36,7 +36,7 @@ export interface ProviderRunResult extends CommandResult {
   text?: string;
 }
 
-export type CliProviderId = Extract<ProviderId, "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode">;
+export type CliProviderId = Extract<ProviderId, "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity">;
 
 export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
   "gemini": (model: string, prompt: string) => ({
@@ -66,6 +66,12 @@ export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
     if (model && model !== "default") args.push("--model", model);
     args.push(prompt);
     return { command: "opencode", args };
+  },
+  antigravity: (model: string, prompt: string) => {
+    const args = ["--dangerously-skip-permissions"];
+    if (model && model !== "default") args.push("--model", model);
+    args.push("-p", prompt);
+    return { command: "agy", args };
   },
 };
 
@@ -528,6 +534,18 @@ export class ProviderRunner implements IProviderRunner {
       return { command: "opencode", args };
     }
 
+    if (provider === "antigravity") {
+      const args = ["--dangerously-skip-permissions"];
+      if (model && model !== "default") {
+        args.push("--model", model);
+      }
+      if (continueSession && nativeSessionId) {
+        args.push(`--conversation=${nativeSessionId}`);
+      }
+      args.push("-p", prompt);
+      return { command: "agy", args };
+    }
+
     const providerSpec = providerSpecs[provider];
     if (!providerSpec) {
       throw new Error(`Unsupported CLI provider: ${provider}`);
@@ -629,6 +647,10 @@ export class ProviderRunner implements IProviderRunner {
         providerConfig?.mcpConnection || null,
         this.shouldRewriteDockerLoopbackUrls(workflowSettings),
       );
+    } else if (provider === "antigravity") {
+      if (apiKey && !useProviderMount) {
+        env.ANTIGRAVITY_API_KEY = apiKey;
+      }
     }
     return env;
   }

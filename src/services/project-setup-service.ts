@@ -310,7 +310,7 @@ export class ProjectSetupService {
         is_independent: true,
         status: "PENDING",
       },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode"],
+      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
       agentProvider: {
         providerConfigId: setupAgent.providerConfigId,
         model: setupAgent.model,

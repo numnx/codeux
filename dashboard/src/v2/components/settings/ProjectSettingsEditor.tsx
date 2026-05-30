@@ -375,6 +375,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["containerMountCodexAuth", "Mount Codex auth"],
             ["containerMountClaudeCodeAuth", "Mount Claude Code auth"],
             ["containerMountOpenCodeAuth", "Mount OpenCode auth"],
+            ["containerMountAntigravityAuth", "Mount Antigravity auth"],
           ].map(([field, label]) => (
             <Row key={field} label={label} description={`Enable ${label.toLowerCase()} for this scope.`} badge={getBadge(`cliWorkflow.${field}`)}>
               <Toggle
@@ -435,6 +436,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             ["containerCodexAuthPath", "Codex auth path"],
             ["containerClaudeCodeAuthPath", "Claude Code auth path"],
             ["containerOpenCodeAuthPath", "OpenCode auth path"],
+            ["containerAntigravityAuthPath", "Antigravity auth path"],
           ].map(([field, label]) => (
             <Row key={field} label={label} description={`Runtime path mounted for ${label.toLowerCase()}.`} badge={getBadge(`cliWorkflow.${field}`)}>
               <TextInput

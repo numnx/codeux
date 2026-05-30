@@ -26,6 +26,7 @@ const PROVIDER_LOCAL_AUTH_MAP: Record<string, ReadonlyArray<ReadonlyArray<string
   claudeCode: [[".claude", ".credentials.json"], [".claude.json"]],
   qwenCode: [[".qwen", "settings.json"], [".qwen", ".env"]],
   openCode: [[".local", "share", "opencode", "auth.json"], [".config", "opencode", "opencode.json"]],
+  antigravity: [[".antigravity", "settings.json"]],
 };
 
 /**
@@ -38,6 +39,7 @@ const PROVIDER_KEY_MAP = {
   claudeCodeApiKey: ["claudeCodeApiKey", "ANTHROPIC_API_KEY", "claudeApiKey", "CLAUDE_API_KEY"],
   qwenCodeApiKey: ["qwenCodeApiKey", "DASHSCOPE_API_KEY", "BAILIAN_CODING_PLAN_API_KEY", "QWEN_API_KEY"],
   openCodeApiKey: ["openCodeApiKey", "OPENCODE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GITHUB_TOKEN"],
+  antigravityApiKey: ["antigravityApiKey", "ANTIGRAVITY_API_KEY"],
   githubToken: ["githubToken", "GITHUB_TOKEN", "GH_TOKEN"],
   gitlabToken: ["gitlabToken", "GITLAB_TOKEN", "GLAB_TOKEN"],
   jiraToken: ["jiraToken", "JIRA_API_TOKEN", "JIRA_TOKEN"],
@@ -105,6 +107,7 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
     claudeCode: { hasApiKey: false, hasLocalAuth: false },
     qwenCode: { hasApiKey: false, hasLocalAuth: false },
     openCode: { hasApiKey: false, hasLocalAuth: false },
+    antigravity: { hasApiKey: false, hasLocalAuth: false },
   };
 
   const keyToProvider: Record<string, keyof ExternalSettingsHints["providerAvailability"]> = {
@@ -114,6 +117,7 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
     claudeCodeApiKey: "claudeCode",
     qwenCodeApiKey: "qwenCode",
     openCodeApiKey: "openCode",
+    antigravityApiKey: "antigravity",
   };
 
   for (const [key, provider] of Object.entries(keyToProvider)) {
