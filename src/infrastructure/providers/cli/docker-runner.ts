@@ -62,6 +62,8 @@ export interface IDockerRunner {
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
   readLatestWorkspaceFile?(cwd: string, dirPath: string): Promise<string | null>;
+  readWorkspaceJsonArray?(cwd: string, dirPath: string): Promise<string | null>;
+  removeWorkspaceDir?(cwd: string, dirPath: string): Promise<void>;
 }
 
 export class DockerRunner implements IDockerRunner {
@@ -307,6 +309,80 @@ export class DockerRunner implements IDockerRunner {
       return result.ok && result.stdout.trim() ? result.stdout : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Reads every `*.json` file in a workspace-volume directory and returns them
+   * wrapped as a single JSON array string. Each qwen-code OpenAI log file is a
+   * standalone JSON object, so concatenating them inside `[ ... ]` yields valid
+   * JSON the caller can parse and aggregate. Returns null when the directory is
+   * empty or unreadable.
+   */
+  async readWorkspaceJsonArray(cwd: string, dirPath: string): Promise<string | null> {
+    const workspace = this.resolveWorkspace(cwd);
+    try {
+      const script = `first=1; printf '['; for f in "${dirPath}"/*.json; do [ -e "$f" ] || continue; [ "$first" -eq 1 ] || printf ','; cat "$f"; first=0; done; printf ']'`;
+      const result = await runStreamingCommand(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-i",
+          "--workdir",
+          CONTAINER_WORKSPACE_ROOT,
+          "--mount",
+          toDockerMountArg({
+            source: workspace.volumeName,
+            destination: CONTAINER_WORKSPACE_ROOT,
+            readonly: true,
+            type: "volume",
+          }),
+          "alpine:3.20",
+          "sh",
+          "-c",
+          script,
+        ],
+        process.cwd(),
+        process.env,
+      );
+      if (!result.ok) return null;
+      const trimmed = result.stdout.trim();
+      return trimmed && trimmed !== "[]" ? trimmed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Removes a directory inside the workspace volume (used to clear stale provider logs). */
+  async removeWorkspaceDir(cwd: string, dirPath: string): Promise<void> {
+    const workspace = this.resolveWorkspace(cwd);
+    try {
+      await runStreamingCommand(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-i",
+          "--workdir",
+          CONTAINER_WORKSPACE_ROOT,
+          "--mount",
+          toDockerMountArg({
+            source: workspace.volumeName,
+            destination: CONTAINER_WORKSPACE_ROOT,
+            readonly: false,
+            type: "volume",
+          }),
+          "alpine:3.20",
+          "rm",
+          "-rf",
+          dirPath,
+        ],
+        process.cwd(),
+        process.env,
+      );
+    } catch {
+      // best-effort cleanup
     }
   }
 

@@ -12,10 +12,23 @@ import * as path from "path";
 import * as pathPosix from "path/posix";
 import { randomUUID } from "crypto";
 import { getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
-import { collectProviderUsageTelemetry, type ProviderUsageTelemetry } from "./provider-usage.js";
+import {
+  collectProviderUsageTelemetry,
+  parseQwenOpenAiLogs,
+  sumQwenOpenAiUsage,
+  type ProviderUsageTelemetry,
+  type QwenUsageTotals,
+} from "./provider-usage.js";
 
 const CONTAINER_WORKSPACE_ROOT = "/workspace";
 const CONTAINER_RUNTIME_HOME = pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".code-ux-home");
+// qwen-code's OpenAI logger defaults to `<cwd>/logs/openai`, which lands inside the
+// worker's git worktree and gets committed. We redirect it to a controlled location
+// outside the committed tree and read provider-reported usage back from there.
+const QWEN_OPENAI_LOG_DIRNAME = "qwen-openai-logs";
+// Inside the container, logs live under HOME (.code-ux-home) — on the workspace
+// volume (so the host can read them) but excluded from exported patches.
+const CONTAINER_QWEN_OPENAI_LOG_DIR = pathPosix.join(CONTAINER_RUNTIME_HOME, QWEN_OPENAI_LOG_DIRNAME);
 
 const enabledCustomServersFor = (servers: CustomMcpServer[] | undefined, provider: ProviderId): CustomMcpServer[] =>
   (servers || []).filter((server) =>
@@ -243,7 +256,14 @@ export class ProviderRunner implements IProviderRunner {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
     const startedMs = Date.now();
     const runModel = this.resolveRunModel(provider, model, input);
-    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input);
+    // Resolve where qwen-code should write its OpenAI request/response logs, as seen
+    // by the qwen process. Kept outside the committed worktree in both execution modes.
+    const qwenProcessLogDir = provider === "qwen-code"
+      ? (workflowSettings.executionMode === "DOCKER"
+        ? CONTAINER_QWEN_OPENAI_LOG_DIR
+        : this.resolveQwenHostLogDir(sessionId))
+      : undefined;
+    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir);
     const nativeSessionId = provider === "opencode"
       ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
       : input.continueSessionId || (provider === "claude-code" || provider === "qwen-code" ? randomUUID() : null);
@@ -277,6 +297,12 @@ export class ProviderRunner implements IProviderRunner {
     if ((input.mcpConnection || applicableCustomServers.length > 0 || (provider === "qwen-code" && providerEnv.QWEN_SETTINGS_CONTENT)) && workflowSettings.executionMode !== "DOCKER") {
       const entries = await this.writeLocalMcpConfig(input.mcpConnection || null, cwd, provider, providerEnv.QWEN_SETTINGS_CONTENT, applicableCustomServers);
       localMcpCleanup.push(...entries);
+    }
+
+    // Start each qwen run from an empty log directory so usage aggregation only
+    // counts this invocation (the directory is reused across a session's runs).
+    if (provider === "qwen-code") {
+      await this.resetQwenOpenAiLogDir(cwd, workflowSettings.executionMode, sessionId);
     }
 
     const runCmd = async () => {
@@ -322,6 +348,9 @@ export class ProviderRunner implements IProviderRunner {
       const codexSessionJson = provider === "codex"
         ? await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode)
         : null;
+      const qwenReportedUsage = provider === "qwen-code"
+        ? await this.readQwenOpenAiUsage(cwd, workflowSettings.executionMode, sessionId, startedMs)
+        : null;
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
         model: runModel,
@@ -333,6 +362,7 @@ export class ProviderRunner implements IProviderRunner {
         nativeSessionId,
         claudeSessionJsonl,
         codexSessionJson,
+        qwenReportedUsage,
         startTimeMs: startedMs,
         executionMode: workflowSettings.executionMode,
       });
@@ -351,6 +381,9 @@ export class ProviderRunner implements IProviderRunner {
       }
       for (const cleanupPath of localRuntimeCleanup) {
         await fs.rm(cleanupPath, { force: true }).catch(() => undefined);
+      }
+      if (provider === "qwen-code" && workflowSettings.executionMode !== "DOCKER") {
+        await fs.rm(this.resolveQwenHostLogDir(sessionId), { recursive: true, force: true }).catch(() => undefined);
       }
     }
   }
@@ -399,6 +432,47 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     return (await fs.readFile(outputPath, "utf8").catch(() => "")).trim();
+  }
+
+  /** Host-side directory for qwen-code OpenAI logs in non-Docker runs, kept outside the worktree. */
+  private resolveQwenHostLogDir(sessionId: string): string {
+    const safeSession = (sessionId || "session").replace(/[^A-Za-z0-9_-]/g, "_");
+    return path.join(os.tmpdir(), "code-ux-qwen-openai-logs", safeSession);
+  }
+
+  /** Clears stale qwen OpenAI logs before a run so usage aggregation is per-invocation. */
+  private async resetQwenOpenAiLogDir(
+    cwd: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+    sessionId: string,
+  ): Promise<void> {
+    if (executionMode === "DOCKER") {
+      await this.dockerRunner.removeWorkspaceDir?.(cwd, CONTAINER_QWEN_OPENAI_LOG_DIR).catch(() => undefined);
+      return;
+    }
+    const logDir = this.resolveQwenHostLogDir(sessionId);
+    await fs.rm(logDir, { recursive: true, force: true }).catch(() => undefined);
+    await fs.mkdir(logDir, { recursive: true }).catch(() => undefined);
+  }
+
+  /** Aggregates provider-reported usage from qwen-code OpenAI logs for both execution modes. */
+  private async readQwenOpenAiUsage(
+    cwd: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+    sessionId: string,
+    startTimeMs: number,
+  ): Promise<QwenUsageTotals | null> {
+    if (executionMode === "DOCKER") {
+      const arrayJson = await this.dockerRunner.readWorkspaceJsonArray?.(cwd, CONTAINER_QWEN_OPENAI_LOG_DIR).catch(() => null);
+      if (!arrayJson) return null;
+      try {
+        const records = JSON.parse(arrayJson);
+        return Array.isArray(records) ? sumQwenOpenAiUsage(records) : null;
+      } catch {
+        return null;
+      }
+    }
+    return parseQwenOpenAiLogs(this.resolveQwenHostLogDir(sessionId), startTimeMs);
   }
 
   private async readCodexLatestSessionJson(
@@ -566,6 +640,7 @@ export class ProviderRunner implements IProviderRunner {
     githubToken?: string,
     providerMountAuth?: boolean,
     providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection" | "customBaseUrl">,
+    qwenOpenAiLogDir?: string,
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env };
     const useContainerMounts = workflowSettings.executionMode === "DOCKER";
@@ -640,6 +715,7 @@ export class ProviderRunner implements IProviderRunner {
         providerConfig,
         providerConfig?.mcpConnection || null,
         this.shouldRewriteDockerLoopbackUrls(workflowSettings),
+        qwenOpenAiLogDir,
       );
     } else if (provider === "opencode") {
       const envKey = providerConfig?.openCodeEnvKey || (providerConfig?.openCodeAuthMode === "CUSTOM_PROVIDER" ? "OLLAMA_API_KEY" : "ANTHROPIC_API_KEY");
@@ -676,6 +752,7 @@ export class ProviderRunner implements IProviderRunner {
     config?: QwenRuntimeSettings,
     conn?: McpConnectionInfo | null,
     rewriteDockerLoopbackUrls = false,
+    openAiLogDir?: string,
   ): string {
     const authMode = config?.qwenAuthMode || "LOCAL_AUTH";
     const protocol = config?.qwenProtocol || "openai";
@@ -702,17 +779,25 @@ export class ProviderRunner implements IProviderRunner {
       headers["X-Code-Ux-Agent"] = conn.agentId;
     }
 
+    const modelConfig: Record<string, unknown> = {
+      name: selectedModel,
+      enableOpenAILogging: true,
+    };
     const runtimeConfig: Record<string, unknown> = {
       security: {
         auth: {
           selectedType: authMode === "LOCAL_AUTH" ? "qwen-oauth" : protocol,
         },
       },
-      model: {
-        name: selectedModel,
-      },
+      model: modelConfig,
       enableOpenAILogging: true,
     };
+    // Redirect OpenAI request/response logs out of the worktree (default is
+    // `<cwd>/logs/openai`). Set at both nesting levels for schema-version safety.
+    if (openAiLogDir) {
+      modelConfig.openAILoggingDir = openAiLogDir;
+      runtimeConfig.openAILoggingDir = openAiLogDir;
+    }
 
     if (authMode !== "LOCAL_AUTH") {
       runtimeConfig.modelProviders = {

@@ -390,42 +390,88 @@ function parseClaudeSessionJsonl(
   };
 }
 
-async function parseQwenOpenAiLogs(
+export interface QwenUsageTotals {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * Extracts token usage from a single qwen-code OpenAI log record. Each log file
+ * is `{ timestamp, request, response, error, context, system }`, where the
+ * provider-reported usage lives on the OpenAI `response.usage` object. Older
+ * loggers (and our tests) place a bare `usage` at the top level, so we fall back
+ * to that. Returns null when no usage object is present (e.g. error-only logs).
+ */
+export function extractQwenUsageRecord(record: unknown): QwenUsageTotals | null {
+  if (!record || typeof record !== "object") return null;
+  const root = record as Record<string, unknown>;
+  const response = root.response && typeof root.response === "object"
+    ? root.response as Record<string, unknown>
+    : null;
+  const usage = (response?.usage && typeof response.usage === "object")
+    ? response.usage as Record<string, unknown>
+    : (root.usage && typeof root.usage === "object")
+      ? root.usage as Record<string, unknown>
+      : null;
+  if (!usage) return null;
+
+  const cachedDetails = usage.prompt_tokens_details && typeof usage.prompt_tokens_details === "object"
+    ? usage.prompt_tokens_details as Record<string, unknown>
+    : null;
+
+  return {
+    inputTokens: toNumber(usage.prompt_tokens ?? usage.input_tokens ?? 0),
+    outputTokens: toNumber(usage.completion_tokens ?? usage.output_tokens ?? 0),
+    cachedInputTokens: toNumber(cachedDetails?.cached_tokens ?? usage.cached_tokens ?? 0),
+  };
+}
+
+/** Sums usage across many qwen-code log records. Returns null when none report usage. */
+export function sumQwenOpenAiUsage(records: unknown[]): QwenUsageTotals | null {
+  const totals: QwenUsageTotals = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
+  let found = false;
+  for (const record of records) {
+    const usage = extractQwenUsageRecord(record);
+    if (usage) {
+      totals.inputTokens += usage.inputTokens;
+      totals.cachedInputTokens += usage.cachedInputTokens;
+      totals.outputTokens += usage.outputTokens;
+      found = true;
+    }
+  }
+  return found ? totals : null;
+}
+
+/**
+ * Reads qwen-code OpenAI log files from a host-visible directory and aggregates
+ * their usage. Only files modified at/after the invocation start are counted so
+ * stale logs from earlier runs sharing the directory are ignored.
+ */
+export async function parseQwenOpenAiLogs(
   logDir: string,
   startTimeMs: number,
-): Promise<{ inputTokens: number; outputTokens: number } | null> {
+): Promise<QwenUsageTotals | null> {
   try {
     const files = await fs.readdir(logDir);
     const jsonFiles = files.filter(f => f.endsWith(".json"));
     if (jsonFiles.length === 0) return null;
 
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let found = false;
-
+    const records: unknown[] = [];
     for (const file of jsonFiles) {
       const filePath = path.join(logDir, file);
       const stat = await fs.stat(filePath).catch(() => null);
       if (stat && stat.mtimeMs >= startTimeMs - 2000) {
         const content = await fs.readFile(filePath, "utf8").catch(() => "");
         try {
-          const parsed = JSON.parse(content);
-          const usage = parsed?.usage;
-          if (usage && typeof usage === "object") {
-            inputTokens += toNumber(usage.prompt_tokens ?? usage.input_tokens ?? 0);
-            outputTokens += toNumber(usage.completion_tokens ?? usage.output_tokens ?? 0);
-            found = true;
-          }
+          records.push(JSON.parse(content));
         } catch {
-          // ignore
+          // ignore unparseable log files
         }
       }
     }
 
-    if (found) {
-      return { inputTokens, outputTokens };
-    }
-    return null;
+    return sumQwenOpenAiUsage(records);
   } catch {
     return null;
   }
@@ -442,6 +488,7 @@ export async function collectProviderUsageTelemetry(args: {
   nativeSessionId?: string | null;
   claudeSessionJsonl?: string | null;
   codexSessionJson?: string | null;
+  qwenReportedUsage?: QwenUsageTotals | null;
   startTimeMs?: number;
   executionMode?: "HOST" | "DOCKER";
 }): Promise<ProviderUsageTelemetry> {
@@ -506,18 +553,14 @@ export async function collectProviderUsageTelemetry(args: {
   }
 
   if (args.provider === "qwen-code") {
-    let exactUsage: { inputTokens: number; outputTokens: number } | null = null;
-    if (args.startTimeMs) {
-      const logDir = args.executionMode === "DOCKER"
-        ? path.join(args.cwd, ".code-ux-home", ".qwen", "logs", "openai")
-        : path.join(os.homedir(), ".qwen", "logs", "openai");
-      exactUsage = await parseQwenOpenAiLogs(logDir, args.startTimeMs);
-    }
-
-    if (exactUsage) {
+    // Usage is read from the qwen-code OpenAI logs by the caller (provider-runner),
+    // which resolves the host-visible log directory for both HOST and DOCKER modes.
+    const exactUsage = args.qwenReportedUsage;
+    if (exactUsage && (exactUsage.inputTokens > 0 || exactUsage.outputTokens > 0)) {
       return {
         ...emptyTelemetry(),
         inputTokens: exactUsage.inputTokens,
+        cachedInputTokens: exactUsage.cachedInputTokens,
         outputTokens: exactUsage.outputTokens,
         totalTokens: exactUsage.inputTokens + exactUsage.outputTokens,
         usageSource: "reported",
