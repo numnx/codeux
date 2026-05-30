@@ -123,6 +123,7 @@ export function createSprintDependencies(
   const qualityAssuranceService = new QualityAssuranceService({
     projectManagementRepository,
     executionRepository,
+    guardrailService: coreDeps.guardrailService,
     sessionTracking,
     qaReviewRepository: coreDeps.qaReviewRepository,
     taskService,
@@ -145,6 +146,7 @@ export function createSprintDependencies(
     projectWorkerAssignmentRepository: coreDeps.projectWorkerAssignmentRepository,
     projectWorkerAssignmentService: coreDeps.projectWorkerAssignmentService,
     projectAttentionService,
+    guardrailService: coreDeps.guardrailService,
     workerTaskDispatchService: new WorkerTaskDispatchService(
       executionRepository,
       projectManagementRepository,
@@ -183,6 +185,7 @@ export function createSprintDependencies(
     executionRepository,
     projectManagementRepository,
     taskService,
+    coreDeps.guardrailService,
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
 
@@ -217,6 +220,7 @@ export function createSprintDependencies(
     listSessions: () => context.listSessionsForSync(),
     projectManagementRepository,
     executionRepository,
+    guardrailService: coreDeps.guardrailService,
     projectAttentionService,
     sprintExecutionStateService,
     julesUsage: coreDeps.julesUsage,

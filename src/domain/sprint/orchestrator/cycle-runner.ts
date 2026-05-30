@@ -22,6 +22,7 @@ import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orch
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
+import { resolveCiEscalationOwner } from "../ci/feature-pr/ci-autofix-policy.js";
 import type { MemoryCategory, CreateMemoryInput } from "../../../contracts/memory-types.js";
 import { isTaskCodeComplete } from "../task-merge-state.js";
 import pLimit from "p-limit";
@@ -57,7 +58,6 @@ export interface CycleRunnerArgs {
 }
 
 export class CycleRunner {
-  private readonly ciAutofixRetryCounts = new Map<string, number>();
   private readonly featurePrGate = new FeaturePrGateService();
   private readonly lastAutomatedInterventionKeys = new Map<string, string>();
   private readonly stateCoordinator: CycleStateCoordinator;
@@ -215,7 +215,7 @@ export class CycleRunner {
         ciIntelligence: args.ciIntelligence,
         githubMode: args.githubMode,
         gitStatus,
-        ciAutofixRetryCounts: this.ciAutofixRetryCounts,
+        guardrailService: this.deps.guardrailService,
         isJulesApiConfigured: this.deps.isJulesApiConfigured,
         sendSessionMessage: async (sessionId, message) => {
           await this.deps.sendSessionMessage(sessionId, message);
@@ -384,7 +384,49 @@ export class CycleRunner {
       extractSessionId: this.deps.extractSessionId,
       logger: this.deps.logger.child({ component: "start-ready-tasks-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
       shouldSkipTask: (task) => task.status === "QUOTA",
+      applyTaskCodingGuardrail: (task) => this.applyTaskCodingGuardrail(task, args),
     });
+  }
+
+  /**
+   * Evaluates the per-task coding guardrail before a task is (re)dispatched. Returns true
+   * when the task is blocked and should be skipped this cycle. The invocation itself is
+   * recorded by SprintTaskDispatchService after a successful dispatch (record-once).
+   */
+  private applyTaskCodingGuardrail(task: Subtask, args: CycleRunnerArgs): boolean {
+    const taskId = task.record_id;
+    if (!taskId) {
+      return false;
+    }
+    const scope = {
+      projectId: args.executionContext.project.id,
+      sprintId: args.executionContext.sprint.id,
+    };
+    const evaluation = this.deps.guardrailService.evaluate(scope, taskId, "task_coding");
+    if (evaluation.allowed) {
+      return false;
+    }
+    if (evaluation.action === "WARN_ONLY") {
+      this.deps.logger.warn("Task coding guardrail reached (warn only)", {
+        taskId: task.id,
+        count: evaluation.count,
+        cap: evaluation.cap,
+      });
+      return false;
+    }
+    const owner = evaluation.action === "STOP_AND_WAIT" ? "HUMAN" : resolveCiEscalationOwner(args.automationLevel);
+    task.status = "BLOCKED";
+    task.intervention_owner = owner;
+    task.intervention_hint = evaluation.blockedByTotalCeiling
+      ? `Per-task invocation ceiling reached for task ${task.id} (${evaluation.reason ?? ""}).`
+      : `Coding guardrail reached for task ${task.id}: ${evaluation.count}/${evaluation.cap} coding attempts.`;
+    this.deps.logger.info("Task blocked: coding guardrail reached", {
+      taskId: task.id,
+      count: evaluation.count,
+      cap: evaluation.cap,
+      owner,
+    });
+    return true;
   }
 
   private async captureTaskCompletionMemories(

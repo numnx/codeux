@@ -40,6 +40,13 @@ function buildDeps(): SprintOrchestratorDependencies {
       updateTaskDispatchesBatch: vi.fn(),
       appendTaskRunEvent: vi.fn(),
     } as any,
+    guardrailService: {
+      evaluate: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+      evaluateQa: vi.fn().mockReturnValue({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" }),
+      record: vi.fn(),
+      getCounts: vi.fn(),
+      reset: vi.fn(),
+    } as any,
     projectAttentionService: {
       resolveItems: vi.fn(),
       openItems: vi.fn(),

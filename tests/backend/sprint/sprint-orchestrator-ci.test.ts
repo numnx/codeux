@@ -128,7 +128,9 @@ describe("SprintOrchestrator CI logic", () => {
   });
 
   it("escalates CI autofix after max retries with task id and PR link context", async () => {
-    const { deps, listSessions, subtaskRepository } = buildDeps();
+    const { deps, listSessions, subtaskRepository, guardrailService } = buildDeps();
+    // Drive the task to the ci_fix guardrail cap so the next failure escalates.
+    guardrailService.counts.set("rec-01-task:ci_fix", 3);
     deps.getDashboardSettings = () => ({
       ...DEFAULT_DASHBOARD_SETTINGS,
       automationLevel: "FULL",
@@ -176,7 +178,7 @@ describe("SprintOrchestrator CI logic", () => {
     await fs.writeFile(path.join(subtasksDir, "01-task.md"), "title: test\nprompt:\nDo it\n", "utf-8");
 
     subtaskRepository.loadSubtasks.mockResolvedValue([
-      { id: "01-task", title: "Test task", prompt: "Do it", depends_on: [], is_independent: true },
+      { id: "01-task", record_id: "rec-01-task", project_id: "proj-1", sprint_id: "sprint-1", title: "Test task", prompt: "Do it", depends_on: [], is_independent: true },
     ]);
     listSessions.mockResolvedValue({
       sessions: [
@@ -201,7 +203,7 @@ describe("SprintOrchestrator CI logic", () => {
     });
 
     const text = result.content[0].text as string;
-    expect(text).toContain("CI autofix retries exhausted");
+    expect(text).toContain("CI autofix guardrail reached");
     expect(text).toContain("`01-task`");
     expect(text).toContain("https://example.com/pr/42");
     expect(text).toContain("AGENT INTERVENTION NEEDED");

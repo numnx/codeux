@@ -1,9 +1,23 @@
 import type { FunctionComponent } from "preact";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
-import type { ProjectSettings } from "../../../../types.js";
+import type { ProjectSettings, GuardrailJobType, GuardrailOnLimitAction } from "../../../../types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
-import { Cog, Eye, GitBranch, GitMerge, PlayCircle, Sparkles, Wand2, Workflow } from "lucide-preact";
+import { Cog, Eye, GitBranch, GitMerge, PlayCircle, ShieldAlert, Sparkles, Wand2, Workflow } from "lucide-preact";
+
+const GUARDRAIL_JOB_META: Array<{ key: GuardrailJobType; label: string; description: string }> = [
+  { key: "task_coding", label: "Coding attempts", description: "Max times a task is (re)dispatched for coding before it is blocked." },
+  { key: "ci_fix", label: "CI autofix attempts", description: "Max CI autofix attempts (Jules notify or worker) per task." },
+  { key: "merge_conflict", label: "Merge conflict resolutions", description: "Max merge-conflict resolution attempts per task." },
+  { key: "clarification_reply", label: "Clarification auto-answers", description: "Max automatic clarification replies before waiting for a human." },
+  { key: "planning", label: "Planning runs", description: "Max planning invocations attributed to a single task." },
+];
+
+const GUARDRAIL_ACTION_OPTIONS: Array<{ value: GuardrailOnLimitAction; label: string; hint: string }> = [
+  { value: "BLOCK_AND_ESCALATE", label: "Block + escalate", hint: "Block the task and hand it to a human." },
+  { value: "STOP_AND_WAIT", label: "Stop + wait", hint: "Stop auto-handling and wait for a human." },
+  { value: "WARN_ONLY", label: "Warn only", hint: "Log a warning but keep going." },
+];
 import { SprintKeyEditor } from "../SprintKeyEditor.js";
 import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
 
@@ -216,20 +230,6 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
               }))}
             />
           </Row>
-          <Row label="Autofix retries" description="Maximum retries for the Jules CI autofix path." badge={getFieldBadge("ciIntelligence.julesCiAutofixMaxRetries")}>
-            <NumberInput
-              value={editableSettings.ciIntelligence.julesCiAutofixMaxRetries}
-              onChange={(value) => updateEditableSettings((current) => ({
-                ...current,
-                ciIntelligence: {
-                  ...current.ciIntelligence,
-                  julesCiAutofixMaxRetries: value,
-                },
-              }))}
-              min={0}
-              max={20}
-            />
-          </Row>
           <Row label="Feature PR auto-merge mode" description="Controls whether feature PRs stay at PR creation, auto-merge when green, auto-merge immediately when allowed, or stay off." badge={getFieldBadge("ciIntelligence.featurePrAutoMergeMode")}>
             <PillChoiceGroup
               value={editableSettings.ciIntelligence.featurePrAutoMergeMode}
@@ -266,6 +266,104 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
               ]}
             />
           </Row>
+        </SectionCard>
+
+        <SectionCard title="Guardrails" watermark="CAP" badge={getBadge("guardrails")} icon={<ShieldAlert strokeWidth={2.4} />}>
+          <Row label="Guardrails enabled" description="Cap how many times each agent job type runs per task to stop runaway loops. Counts persist per task across restarts." badge={getFieldBadge("guardrails.enabled")}>
+            <Toggle
+              value={editableSettings.guardrails.enabled}
+              onChange={() => updateEditableSettings((current) => ({
+                ...current,
+                guardrails: { ...current.guardrails, enabled: !current.guardrails.enabled },
+              }))}
+            />
+          </Row>
+
+          {editableSettings.guardrails.enabled ? (
+            <>
+              {GUARDRAIL_JOB_META.map((job) => (
+                <Row
+                  key={job.key}
+                  label={job.label}
+                  description={`${job.description} 0 = unlimited.`}
+                  badge={getFieldBadge(`guardrails.jobs.${job.key}.cap`)}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <NumberInput
+                      value={editableSettings.guardrails.jobs[job.key].cap}
+                      min={0}
+                      max={100}
+                      onChange={(value) => updateEditableSettings((current) => ({
+                        ...current,
+                        guardrails: {
+                          ...current.guardrails,
+                          jobs: {
+                            ...current.guardrails.jobs,
+                            [job.key]: { ...current.guardrails.jobs[job.key], cap: value },
+                          },
+                        },
+                      }))}
+                    />
+                    <PillChoiceGroup
+                      value={editableSettings.guardrails.jobs[job.key].onLimit}
+                      onChange={(value) => updateEditableSettings((current) => ({
+                        ...current,
+                        guardrails: {
+                          ...current.guardrails,
+                          jobs: {
+                            ...current.guardrails.jobs,
+                            [job.key]: { ...current.guardrails.jobs[job.key], onLimit: value as GuardrailOnLimitAction },
+                          },
+                        },
+                      }))}
+                      options={GUARDRAIL_ACTION_OPTIONS}
+                    />
+                  </div>
+                </Row>
+              ))}
+
+              <Row
+                label="Per-task total ceiling"
+                description="Optional hard cap on total agent invocations per task across all job types. 0 disables."
+                badge={getFieldBadge("guardrails.perTaskTotalCeiling")}
+              >
+                <NumberInput
+                  value={editableSettings.guardrails.perTaskTotalCeiling}
+                  min={0}
+                  max={500}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    guardrails: { ...current.guardrails, perTaskTotalCeiling: value },
+                  }))}
+                />
+              </Row>
+
+              <Row
+                label="Max QA runs (guardrail)"
+                description="Hard per-task cap on QA review runs. Separate from the QA agent's own max runs. 0 = unlimited."
+                badge={getFieldBadge("guardrails.qaRunsCap")}
+                last
+              >
+                <NumberInput
+                  value={editableSettings.guardrails.qaRunsCap}
+                  min={0}
+                  max={100}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    guardrails: { ...current.guardrails, qaRunsCap: value },
+                  }))}
+                />
+              </Row>
+
+              {editableSettings.guardrails.qaRunsCap > 0
+                && editableSettings.guardrails.qaRunsCap < editableSettings.agents.qualityAssurance.maxTaskReviewRuns ? (
+                <div className="rounded-[1.15rem] border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 text-xs leading-relaxed text-amber-700 dark:border-amber-300/25 dark:bg-amber-300/[0.08] dark:text-amber-200">
+                  The QA guardrail cap ({editableSettings.guardrails.qaRunsCap}) is lower than the QA agent&apos;s configured max runs
+                  ({editableSettings.agents.qualityAssurance.maxTaskReviewRuns}). The guardrail will cut QA short before it completes its configured review passes.
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </SectionCard>
 
         <SectionCard title="Execution Pipeline" watermark="RUN" badge={getBadge("sprintLoopSteps")} icon={<Workflow strokeWidth={2.4} />}>

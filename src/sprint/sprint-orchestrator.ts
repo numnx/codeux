@@ -24,6 +24,7 @@ import type {
 } from "../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
+import type { GuardrailService } from "../services/guardrail-service.js";
 import type { SprintExecutionStateService } from "../services/sprint-execution-state-service.js";
 import type { StartSprintDispatchResult } from "../services/sprint-task-dispatch-service.js";
 import type { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
@@ -62,6 +63,7 @@ export interface SprintOrchestratorDependencies {
   listSessions: () => Promise<{ sessions?: JulesSession[] }>;
   projectManagementRepository: ProjectManagementRepository;
   executionRepository: ExecutionRepository;
+  guardrailService: GuardrailService;
   projectAttentionService: ProjectAttentionService;
   sprintExecutionStateService: SprintExecutionStateService;
   julesUsage: JulesUsageService;

@@ -18,6 +18,7 @@ import { ProviderRunner } from "../infrastructure/providers/cli/provider-runner.
 import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import { ProviderExecutionService } from "./provider-execution-service.js";
+import type { GuardrailService } from "./guardrail-service.js";
 import { runCommandStrict } from "./cli-process-runner.js";
 import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 import { ProjectAttentionService } from "../domain/workers/project-attention-service.js";
@@ -82,6 +83,7 @@ export interface VirtualWorkerServiceDependencies {
   projectWorkerAssignmentRepository: ProjectWorkerAssignmentRepository;
   projectWorkerAssignmentService: ProjectWorkerAssignmentService;
   projectAttentionService: ProjectAttentionService;
+  guardrailService?: GuardrailService;
   workerTaskDispatchService: WorkerTaskDispatchService;
   cliWorkflowService: CliWorkflowService;
   sprintExecutionStateService: SprintExecutionStateService;
@@ -108,9 +110,6 @@ export class VirtualWorkerService {
   private readonly scheduledProjects = new Set<string>();
 
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
-
-  private readonly ciAutofixRetryCounts = new Map<string, number>();
-  private readonly clarificationRetryCounts = new Map<string, number>();
 
   private readonly providerExecutionService: ProviderExecutionService;
 
@@ -474,12 +473,16 @@ export class VirtualWorkerService {
       }
 
       if (sessionState === "AWAITING_USER_FEEDBACK" && settings.automationInterventions.autoAnswerClarification) {
-        const retryKey = item.taskId || item.id;
-        const retryCount = this.clarificationRetryCounts.get(retryKey) || 0;
-        const maxRetries = 3; // Policy: 3 auto-answers before escalation
-
-        if (retryCount >= maxRetries) {
-          this.escalateAttentionToHuman(workerEndpointId, item, `Virtual worker reached maximum clarification auto-answers (${maxRetries}). Escalating to human.`);
+        const guardrailScope = { projectId: item.projectId, sprintId: item.sprintId };
+        const clarificationEval = item.taskId
+          ? this.deps.guardrailService?.evaluate(guardrailScope, item.taskId, "clarification_reply") ?? null
+          : null;
+        if (clarificationEval && !clarificationEval.allowed && clarificationEval.action !== "WARN_ONLY") {
+          this.escalateAttentionToHuman(
+            workerEndpointId,
+            item,
+            `Virtual worker reached the clarification auto-answer guardrail (${clarificationEval.count}/${clarificationEval.cap}). Escalating to human.`,
+          );
           return;
         }
 
@@ -499,7 +502,9 @@ export class VirtualWorkerService {
         });
 
         await this.deps.sendSessionMessage(sessionId, reply);
-        this.clarificationRetryCounts.set(retryKey, retryCount + 1);
+        if (item.taskId) {
+          this.deps.guardrailService?.record(guardrailScope, item.taskId, "clarification_reply");
+        }
 
         this.deps.projectAttentionService.resolveItem(item.id, {
           status: "resolved",
@@ -524,6 +529,18 @@ export class VirtualWorkerService {
 
   private async resolveMergeConflictAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
+    const guardrailScope = { projectId: item.projectId, sprintId: item.sprintId };
+    const mergeConflictEval = item.taskId
+      ? this.deps.guardrailService?.evaluate(guardrailScope, item.taskId, "merge_conflict") ?? null
+      : null;
+    if (mergeConflictEval && !mergeConflictEval.allowed && mergeConflictEval.action !== "WARN_ONLY") {
+      this.escalateAttentionToHuman(
+        workerEndpointId,
+        item,
+        `Virtual worker reached the merge-conflict resolution guardrail (${mergeConflictEval.count}/${mergeConflictEval.cap > 0 ? mergeConflictEval.cap : "∞"}). Escalating to human.`,
+      );
+      return;
+    }
     const workerAgent = await this.deps.agentPresetSyncService?.resolveTargetedCodingAgent(
       item.projectId,
       settings.agents?.routing?.mergeConflict?.agentPresetId ?? null,
@@ -723,6 +740,9 @@ export class VirtualWorkerService {
           ? `Pushed resolved merge conflict to ${sourceBranch} at ${headSha}.`
           : `Resolved merge-conflict run completed on ${sourceBranch} at ${headSha}.`,
       });
+      if (item.taskId) {
+        this.deps.guardrailService?.record(guardrailScope, item.taskId, "merge_conflict");
+      }
       this.deps.projectAttentionService.resolveItem(item.id, {
         status: "resolved",
         reason: "virtual_worker_merge_conflict_resolved",
@@ -818,12 +838,16 @@ export class VirtualWorkerService {
       ? payload.featureBranch.trim()
       : (settings.git.defaultBranch || "main");
 
-    const retryKey = item.taskId || item.id;
-    const retryCount = this.ciAutofixRetryCounts.get(retryKey) || 0;
-    const maxRetries = settings.ciIntelligence.julesCiAutofixMaxRetries || 3;
+    const guardrailScope = { projectId: item.projectId, sprintId: item.sprintId };
+    const ciFixEval = item.taskId
+      ? this.deps.guardrailService?.evaluate(guardrailScope, item.taskId, "ci_fix") ?? null
+      : null;
+    const retryCount = ciFixEval?.count ?? 0;
+    const maxRetries = ciFixEval?.cap ?? 0;
+    const capLabel = maxRetries > 0 ? String(maxRetries) : "∞";
 
-    if (retryCount >= maxRetries) {
-      this.escalateAttentionToHuman(workerEndpointId, item, `Virtual worker reached maximum CI autofix retries (${maxRetries}). Escalating to human.`);
+    if (ciFixEval && !ciFixEval.allowed && ciFixEval.action !== "WARN_ONLY") {
+      this.escalateAttentionToHuman(workerEndpointId, item, `Virtual worker reached the CI autofix guardrail (${retryCount}/${capLabel}). Escalating to human.`);
       return;
     }
 
@@ -980,7 +1004,9 @@ export class VirtualWorkerService {
           : `CI fix run completed on ${branchName} at ${headSha}.`,
       });
 
-      this.ciAutofixRetryCounts.set(retryKey, retryCount + 1);
+      if (item.taskId) {
+        this.deps.guardrailService?.record(guardrailScope, item.taskId, "ci_fix");
+      }
 
       this.deps.projectAttentionService.resolveItem(item.id, {
         status: "resolved",
@@ -991,7 +1017,7 @@ export class VirtualWorkerService {
           `Virtual ${this.getProviderLabel(provider)} worker fixed CI issues and pushed the updated branch.`,
           `Branch: ${branchName}`,
           `Head SHA: ${headSha}`,
-          `Attempt: ${retryCount + 1}/${maxRetries}`,
+          `Attempt: ${retryCount + 1}/${capLabel}`,
         ].join("\n"),
         workerEndpointId,
         payloadPatch: {

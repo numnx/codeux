@@ -1,6 +1,7 @@
 import type { GitTrackingStatus, Subtask, CiIntelligenceSettings, AutomationLevel, GitPullRequestStatus, GitStatusCheck } from "../../../../contracts/app-types.js";
 import { isCiFailure, selectFailedCiRuns, getFailedJobLabels } from "../../../../sprint/ci-status-utils.js";
 import { handleCiAutofixEscalation } from "./ci-autofix-policy.js";
+import type { GuardrailService } from "../../../../services/guardrail-service.js";
 import type { WorkerCiFixPayload } from "./ci-autofix-policy.js";
 import { buildInProgressText, buildFailedChecksText, buildReviewBlockersText } from "./ci-notification-builder.js";
 
@@ -22,7 +23,7 @@ export async function evaluateInProgressState(args: {
   gitStatus: GitTrackingStatus;
   ciIntelligence: CiIntelligenceSettings;
   automationLevel: AutomationLevel;
-  ciAutofixRetryCounts: Map<string, number>;
+  guardrailService: GuardrailService;
   isJulesApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   repoPath: string;
@@ -58,8 +59,7 @@ export async function evaluateInProgressState(args: {
         failedRuns,
         failedJobLabels,
         automationLevel: args.automationLevel,
-        maxRetries: args.ciIntelligence.julesCiAutofixMaxRetries,
-        ciAutofixRetryCounts: args.ciAutofixRetryCounts,
+        guardrailService: args.guardrailService,
         isJulesApiConfigured: args.isJulesApiConfigured,
         sendSessionMessage: args.sendSessionMessage,
         repoPath: args.repoPath,

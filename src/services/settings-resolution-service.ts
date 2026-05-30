@@ -17,6 +17,7 @@ import type {
 } from "../contracts/settings-scope-types.js";
 import { sanitizeAiProvider } from "../domain/settings/settings-sanitizers/ai-provider-sanitizer.js";
 import { sanitizeCiIntelligence } from "../domain/settings/settings-sanitizers/ci-sanitizer.js";
+import { sanitizeGuardrails } from "../domain/settings/settings-sanitizers/guardrails-sanitizer.js";
 import { sanitizeCliWorkflow } from "../domain/settings/settings-sanitizers/cli-workflow-sanitizer.js";
 import { sanitizeGit } from "../domain/settings/settings-sanitizers/git-sanitizer.js";
 import { sanitizeJira } from "../domain/settings/settings-sanitizers/jira-sanitizer.js";
@@ -455,6 +456,7 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
       sprintKeyPrefix: git.sprintKeyPrefix,
     },
     ciIntelligence: sanitizeCiIntelligence(DEFAULT_DASHBOARD_SETTINGS, git.githubMode),
+    guardrails: sanitizeGuardrails(DEFAULT_DASHBOARD_SETTINGS),
     sprintLoopSteps: sanitizeSprintLoopSteps(DEFAULT_DASHBOARD_SETTINGS),
     cliWorkflow: sanitizeCliWorkflow(DEFAULT_DASHBOARD_SETTINGS),
     sprintPreview: { ...DEFAULT_DASHBOARD_SETTINGS.sprintPreview },
@@ -569,6 +571,11 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
       ...DEFAULT_DASHBOARD_SETTINGS,
       ciIntelligence: deepMerge(DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, input.ciIntelligence),
     }, git.githubMode),
+    guardrails: sanitizeGuardrails({
+      ...DEFAULT_DASHBOARD_SETTINGS,
+      ciIntelligence: deepMerge(DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, input.ciIntelligence),
+      guardrails: deepMerge(DEFAULT_DASHBOARD_SETTINGS.guardrails, input.guardrails),
+    }),
     sprintLoopSteps: sanitizeSprintLoopSteps({
       ...DEFAULT_DASHBOARD_SETTINGS,
       sprintLoopSteps: deepMerge(DEFAULT_DASHBOARD_SETTINGS.sprintLoopSteps, input.sprintLoopSteps),
@@ -716,6 +723,16 @@ export function resolveDashboardSettings(args: {
       ...args.systemSettings.integrations.jira,
     },
     ciIntelligence: { ...sprintSettings.ciIntelligence },
+    guardrails: {
+      ...sprintSettings.guardrails,
+      jobs: {
+        task_coding: { ...sprintSettings.guardrails.jobs.task_coding },
+        ci_fix: { ...sprintSettings.guardrails.jobs.ci_fix },
+        merge_conflict: { ...sprintSettings.guardrails.jobs.merge_conflict },
+        clarification_reply: { ...sprintSettings.guardrails.jobs.clarification_reply },
+        planning: { ...sprintSettings.guardrails.jobs.planning },
+      },
+    },
     sprintLoopSteps: { ...sprintSettings.sprintLoopSteps },
     cliWorkflow: { ...sprintSettings.cliWorkflow },
     sprintPreview: { ...sprintSettings.sprintPreview },

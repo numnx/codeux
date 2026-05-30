@@ -6,6 +6,7 @@ import type {
   CiIntelligenceSettings,
   CliWorkflowSettings,
   CustomMcpServer,
+  GuardrailSettings,
   ProviderConfigId,
   DashboardSettings,
   InvocationProviderOverrideSettings,
@@ -68,6 +69,7 @@ export interface ProjectSettings {
   aiProvider: ProjectAiProviderSettings;
   git: ProjectGitSettings;
   ciIntelligence: CiIntelligenceSettings;
+  guardrails: GuardrailSettings;
   sprintLoopSteps: DashboardSettings["sprintLoopSteps"];
   cliWorkflow: CliWorkflowSettings;
   sprintPreview: SprintPreviewSettings;

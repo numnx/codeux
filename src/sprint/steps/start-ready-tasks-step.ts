@@ -11,6 +11,8 @@ interface StartReadyTasksOptions {
   extractSessionId: (session: { id?: string; name?: string }) => string | undefined;
   logger: Logger;
   shouldSkipTask?: (task: Subtask) => boolean;
+  /** Returns true if the task is blocked by a guardrail and should be skipped this cycle. */
+  applyTaskCodingGuardrail?: (task: Subtask) => boolean;
   getProviderForTask: (task: Subtask) => string | null;
   getProviderSettings: (provider: string) => { maxConcurrentTasks?: number };
   getRunningCounts: () => Record<string, number>;
@@ -38,6 +40,10 @@ export const runStartReadyTasksStep = async (
   for (const task of readyTasks) {
     if (options.shouldSkipTask?.(task)) {
       options.logger.info("Skipping task due to active quota cooldown", { taskId: task.id });
+      continue;
+    }
+
+    if (options.applyTaskCodingGuardrail?.(task)) {
       continue;
     }
 

@@ -4,7 +4,34 @@ import * as path from "path";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
 
+/** Stateful in-memory guardrail double keyed by `${taskId}:${purpose}` (cap 3 by default). */
+export const makeStatefulGuardrail = (cap = 3) => {
+  const counts = new Map<string, number>();
+  const key = (taskId: string, purpose: string) => `${taskId}:${purpose}`;
+  return {
+    counts,
+    evaluate: (_scope: any, taskId: string, purpose: string) => {
+      const count = counts.get(key(taskId, purpose)) ?? 0;
+      return { allowed: cap === 0 || count < cap, count, cap, action: "BLOCK_AND_ESCALATE" as const };
+    },
+    evaluateQa: () => ({ allowed: true, count: 0, cap: 0, action: "WARN_ONLY" as const }),
+    record: (_scope: any, taskId: string, purpose: string) => {
+      const k = key(taskId, purpose);
+      const next = (counts.get(k) ?? 0) + 1;
+      counts.set(k, next);
+      return next;
+    },
+    getCounts: () => ({}),
+    reset: (taskId: string) => {
+      for (const k of [...counts.keys()]) {
+        if (k.startsWith(`${taskId}:`)) counts.delete(k);
+      }
+    },
+  };
+};
+
 export const buildDeps = () => {
+  const guardrailService = makeStatefulGuardrail(3);
   const listSessions = vi.fn().mockResolvedValue({ sessions: [] });
   const subtaskRepository = {
     loadSubtasks: vi.fn<() => Promise<Subtask[]>>().mockResolvedValue([]),
@@ -31,6 +58,7 @@ export const buildDeps = () => {
 
   const deps: any = {
     settings: { maxFailures: 5 },
+    guardrailService,
     getDashboardSettings: () => ({ ...DEFAULT_DASHBOARD_SETTINGS }),
     renderInstruction: vi.fn(async (templateId: string, variables: Record<string, unknown>) => {
       if (templateId === "planningMissing" && typeof variables.subtasks_dir === "string") {
@@ -169,5 +197,5 @@ export const buildDeps = () => {
     },
   };
 
-  return { deps, listSessions, subtaskRepository };
+  return { deps, listSessions, subtaskRepository, guardrailService };
 };

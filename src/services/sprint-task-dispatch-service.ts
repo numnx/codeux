@@ -3,6 +3,7 @@ import type { TaskDispatchExecutorType, TaskRunRecord } from "../contracts/execu
 import { ExecutionRepository } from "../repositories/execution-repository.js";
 import { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { TaskService } from "./task-service.js";
+import type { GuardrailService } from "./guardrail-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 export interface StartSprintDispatchArgs {
@@ -29,6 +30,7 @@ export class SprintTaskDispatchService {
     private readonly executionRepository: ExecutionRepository,
     private readonly projectManagementRepository: ProjectManagementRepository,
     private readonly taskService: TaskService,
+    private readonly guardrailService: GuardrailService,
     private readonly logger?: Logger,
   ) {}
 
@@ -115,6 +117,14 @@ export class SprintTaskDispatchService {
         sessionName,
         provider: nextProvider,
       });
+
+      // Record the coding invocation against the per-task guardrail ledger (record-once;
+      // this is the single dispatch entry for both Jules and CLI executors).
+      this.guardrailService.record(
+        { projectId: args.projectId, sprintId: args.sprintId },
+        taskRecordId,
+        "task_coding",
+      );
 
       return {
         id: session.id,
