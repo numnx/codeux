@@ -93,8 +93,8 @@ describe("WorkspaceManager", () => {
     expect(bootstrapCommand).toContain("git -C /workspace symbolic-ref HEAD refs/heads/code-ux-bootstrap-$$");
     expect(bootstrapCommand).toContain("git -C /workspace fetch origin");
     expect(bootstrapCommand).toContain("+refs/*:refs/*");
-    expect(bootstrapCommand).not.toContain("git -C /workspace config user.name");
-    expect(bootstrapCommand).not.toContain("git -C /workspace config user.email");
+    expect(bootstrapCommand).toContain("git -C /workspace config user.name");
+    expect(bootstrapCommand).toContain("git -C /workspace config user.email");
     expect(bootstrapCommand).not.toContain("git clone");
     expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "bash")).toBe(false);
     if (typeof process.getuid === "function" && typeof process.getgid === "function") {
@@ -168,6 +168,14 @@ describe("WorkspaceManager", () => {
     ]));
     expect(call?.[1]).toEqual(expect.arrayContaining([
       "-e",
+      "GIT_AUTHOR_NAME=Code UX",
+      "-e",
+      "GIT_AUTHOR_EMAIL=agents@codeux.ai",
+      "-e",
+      "GIT_COMMITTER_NAME=Code UX",
+      "-e",
+      "GIT_COMMITTER_EMAIL=agents@codeux.ai",
+      "-e",
       "GIT_INDEX_FILE=.code-ux-export.index",
       "-e",
       "GIT_CONFIG_COUNT=1",
@@ -177,6 +185,35 @@ describe("WorkspaceManager", () => {
       "GIT_CONFIG_VALUE_0=Authorization: Basic redacted",
     ]));
     expect(call?.[1]).not.toContain("APP_SECRET_SHOULD_NOT_LEAK=secret");
+  });
+
+  it("allows callers to override Docker workspace Git identity env", async () => {
+    vi.mocked(runCommandStrict).mockResolvedValue({ ok: true, stdout: "", stderr: "" } as any);
+
+    await manager.runWorkspaceCommand("docker-volume://workspace-1", "git", ["merge", "--no-commit", "origin/main"], {
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Custom Author",
+        GIT_AUTHOR_EMAIL: "author@example.com",
+        GIT_COMMITTER_NAME: "Custom Committer",
+        GIT_COMMITTER_EMAIL: "committer@example.com",
+      },
+    });
+
+    const call = vi.mocked(runCommandStrict).mock.calls.find((candidate) =>
+      candidate[0] === "docker" && candidate[1].includes("run")
+    );
+    expect(call?.[1]).toEqual(expect.arrayContaining([
+      "-e",
+      "GIT_AUTHOR_NAME=Custom Author",
+      "-e",
+      "GIT_AUTHOR_EMAIL=author@example.com",
+      "-e",
+      "GIT_COMMITTER_NAME=Custom Committer",
+      "-e",
+      "GIT_COMMITTER_EMAIL=committer@example.com",
+    ]));
+    expect(call?.[1]).not.toContain("GIT_COMMITTER_EMAIL=agents@codeux.ai");
 
     if (typeof process.getuid === "function" && typeof process.getgid === "function") {
       expect(call?.[1]).toEqual(expect.arrayContaining([

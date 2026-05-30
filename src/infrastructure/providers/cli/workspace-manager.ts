@@ -74,9 +74,20 @@ const isDockerCredentialHelperError = (error: unknown): boolean => {
 };
 
 const DOCKER_WORKSPACE_ENV_KEYS = new Set([
+  "GIT_AUTHOR_EMAIL",
+  "GIT_AUTHOR_NAME",
+  "GIT_COMMITTER_EMAIL",
+  "GIT_COMMITTER_NAME",
   "GCM_INTERACTIVE",
   "SSH_ASKPASS",
 ]);
+
+const DEFAULT_WORKSPACE_GIT_IDENTITY: Record<string, string> = {
+  GIT_AUTHOR_NAME: "Code UX",
+  GIT_AUTHOR_EMAIL: "agents@codeux.ai",
+  GIT_COMMITTER_NAME: "Code UX",
+  GIT_COMMITTER_EMAIL: "agents@codeux.ai",
+};
 
 const shouldForwardWorkspaceEnv = (key: string): boolean => (
   key.startsWith("GIT_")
@@ -86,7 +97,11 @@ const shouldForwardWorkspaceEnv = (key: string): boolean => (
 
 const buildWorkspaceDockerEnvArgs = (env: NodeJS.ProcessEnv): string[] => {
   const args: string[] = [];
-  for (const [key, value] of Object.entries(env)) {
+  const dockerEnv = {
+    ...DEFAULT_WORKSPACE_GIT_IDENTITY,
+    ...env,
+  };
+  for (const [key, value] of Object.entries(dockerEnv)) {
     if (typeof value !== "string" || !shouldForwardWorkspaceEnv(key)) {
       continue;
     }
@@ -372,6 +387,8 @@ export class WorkspaceManager implements IWorkspaceManager {
         originUrl
           ? `git -C /workspace remote set-url origin ${shellQuote(originUrl)}`
           : "git -C /workspace remote remove origin >/dev/null 2>&1 || true",
+        "git -C /workspace config user.name \"${CODE_UX_GIT_USER_NAME:-Code UX}\"",
+        "git -C /workspace config user.email \"${CODE_UX_GIT_USER_EMAIL:-agents@codeux.ai}\"",
         "mkdir -p /workspace/.code-ux-home",
         ownerSpec ? `chown -R ${shellQuote(ownerSpec)} /workspace` : null,
       ].filter((step): step is string => Boolean(step)).join(" && ");
