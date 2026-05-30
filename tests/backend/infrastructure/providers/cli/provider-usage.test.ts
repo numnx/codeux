@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import { collectProviderUsageTelemetry } from "../../../../../src/infrastructure/providers/cli/provider-usage.js";
+import {
+  collectProviderUsageTelemetry,
+  parseQwenOpenAiLogs,
+  sumQwenOpenAiUsage,
+} from "../../../../../src/infrastructure/providers/cli/provider-usage.js";
 
 const tempDirs: string[] = [];
 const originalHome = process.env.HOME;
@@ -470,47 +474,74 @@ describe("collectProviderUsageTelemetry", () => {
     });
   });
 
-  it("parses Qwen Code OpenAI log files for exact reported usage", async () => {
-    const cwd = path.join(os.tmpdir(), `code-ux-qwen-${Date.now().toString(36)}`);
-    tempDirs.push(cwd);
-    await fs.mkdir(cwd, { recursive: true });
-
-    const fakeHome = path.join(cwd, "fake-home");
-    await fs.mkdir(fakeHome, { recursive: true });
-    process.env.HOME = fakeHome;
-
-    const logDir = path.join(fakeHome, ".qwen", "logs", "openai");
-    await fs.mkdir(logDir, { recursive: true });
-    const logFile = path.join(logDir, "log-1234.json");
-    await fs.writeFile(
-      logFile,
-      JSON.stringify({
-        usage: {
-          prompt_tokens: 1500,
-          completion_tokens: 450,
-        },
-      }),
-      "utf8",
-    );
-
+  it("reports Qwen Code usage supplied from parsed OpenAI logs", async () => {
     const result = await collectProviderUsageTelemetry({
       provider: "qwen-code",
       model: "qwen3-coder-plus",
       prompt: "Implement binary search.",
-      cwd,
+      cwd: "/workspace",
       stdout: "Here is the binary search implementation.",
       stderr: "",
       nativeSessionId: "qwen-session-123",
-      startTimeMs: Date.now() - 500,
-      executionMode: "HOST",
+      qwenReportedUsage: { inputTokens: 1500, cachedInputTokens: 50, outputTokens: 450 },
     });
 
     expect(result).toMatchObject({
       inputTokens: 1500,
+      cachedInputTokens: 50,
       outputTokens: 450,
       totalTokens: 1950,
       usageSource: "reported",
       nativeSessionId: "qwen-session-123",
     });
+  });
+});
+
+describe("parseQwenOpenAiLogs", () => {
+  it("aggregates usage from response.usage across multiple log files", async () => {
+    const logDir = path.join(os.tmpdir(), `code-ux-qwen-logs-${Date.now().toString(36)}`);
+    tempDirs.push(logDir);
+    await fs.mkdir(logDir, { recursive: true });
+
+    await fs.writeFile(
+      path.join(logDir, "openai-1.json"),
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        request: { model: "qwen3-coder-plus" },
+        response: {
+          usage: {
+            prompt_tokens: 1500,
+            completion_tokens: 450,
+            prompt_tokens_details: { cached_tokens: 50 },
+          },
+        },
+      }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(logDir, "openai-2.json"),
+      JSON.stringify({
+        response: { usage: { prompt_tokens: 200, completion_tokens: 80 } },
+      }),
+      "utf8",
+    );
+
+    const usage = await parseQwenOpenAiLogs(logDir, Date.now() - 500);
+
+    expect(usage).toEqual({ inputTokens: 1700, cachedInputTokens: 50, outputTokens: 530 });
+  });
+
+  it("returns null when no log file reports usage", async () => {
+    const logDir = path.join(os.tmpdir(), `code-ux-qwen-empty-${Date.now().toString(36)}`);
+    tempDirs.push(logDir);
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.writeFile(path.join(logDir, "openai-err.json"), JSON.stringify({ error: { message: "boom" } }), "utf8");
+
+    expect(await parseQwenOpenAiLogs(logDir, Date.now() - 500)).toBeNull();
+  });
+
+  it("falls back to a top-level usage object (legacy logs)", () => {
+    expect(sumQwenOpenAiUsage([{ usage: { input_tokens: 10, output_tokens: 4 } }]))
+      .toEqual({ inputTokens: 10, cachedInputTokens: 0, outputTokens: 4 });
   });
 });
