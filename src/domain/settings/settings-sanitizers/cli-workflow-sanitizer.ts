@@ -1,7 +1,6 @@
 import type { CliExecutionMode, DashboardSettings } from "../../../contracts/app-types.js";
 import { readBoolean, readInteger, readString } from "../../../shared/config/value-readers.js";
 import {
-  CLI_EXECUTION_MODES,
   DEFAULT_DASHBOARD_SETTINGS,
 } from "../../../repositories/settings-defaults.js";
 
@@ -12,9 +11,9 @@ export const sanitizeCliWorkflow = (
     ? input.cliWorkflow
     : {}) as Partial<DashboardSettings["cliWorkflow"]>;
 
-  const normalizedExecutionMode = CLI_EXECUTION_MODES.includes(cliInput.executionMode as CliExecutionMode)
-    ? (cliInput.executionMode as CliExecutionMode)
-    : DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.executionMode;
+  // Execution is Docker-only. HOST persists only as a runtime fallback applied when
+  // Docker is unavailable (see virtual-worker-service), never as a user-selectable setting.
+  const normalizedExecutionMode: CliExecutionMode = "DOCKER";
 
   const containerImage = readString(
     cliInput.containerImage,

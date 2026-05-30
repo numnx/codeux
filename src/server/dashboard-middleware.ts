@@ -32,7 +32,10 @@ export const applyDashboardPreRouteMiddleware = (
   });
 
   app.use(createPreviewHostMiddleware(options));
-  app.use(express.json({ limit: "1mb" }));
+  // Settings payloads can embed a base64 background-image data URL, which the
+  // dashboard warns about past ~5MB. base64 inflates bytes by ~33%, so allow
+  // generous headroom to keep appearance saves from failing with HTTP 413.
+  app.use(express.json({ limit: "25mb" }));
 };
 
 export const applyDashboardPostRouteMiddleware = (

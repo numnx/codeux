@@ -166,7 +166,7 @@ export const Row: FunctionComponent<{
         <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400 group-hover:text-slate-500 dark:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-200">{description}</div>
       ) : null}
     </div>
-    <div className="shrink-0 rounded-[1.15rem] border border-black/[0.05] group-hover:border-black/[0.1] bg-white/75 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-colors duration-200 dark:border-white/[0.05] dark:group-hover:border-white/[0.1] dark:bg-white/[0.04]">
+    <div className="w-full shrink-0 md:w-auto md:max-w-[34rem] lg:max-w-none">
       {children}
     </div>
   </div>
