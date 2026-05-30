@@ -22,7 +22,7 @@ import {
 } from "../../../lib/settings-view-models.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
+const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "codex", "claude-code", "qwen-code", "opencode"];
 
 const DEFAULT_JIRA_SETTINGS: SystemSettings["integrations"]["jira"] = {
   host: "",
@@ -408,10 +408,16 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
   const dockerExecutionEnabled = editableSettings.cliWorkflow.executionMode === "DOCKER";
   const integrationGroups = [
     {
+      id: "api",
+      label: "API",
+      purpose: "Hosted orchestration and provider services",
+      items: integrations.filter((integration) => integration.id === "jules"),
+    },
+    {
       id: "cli",
       label: "CLI",
       purpose: "Provider credentials and local auth-copy settings",
-      items: integrations.filter((integration) => PROVIDER_TYPES.includes(integration.id as ProviderId)),
+      items: integrations.filter((integration) => PROVIDER_TYPES.includes(integration.id as ProviderId) && integration.id !== "jules"),
     },
     {
       id: "git",

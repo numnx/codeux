@@ -78,7 +78,7 @@ const providerLabels: Record<ProviderId, string> = {
   antigravity: "Antigravity",
 };
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
+const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "codex", "claude-code", "qwen-code", "opencode"];
 
 const providerDescriptions: Record<ProviderId, string> = {
   jules: "Hosted Jules Agent API for primary remote coding sessions.",

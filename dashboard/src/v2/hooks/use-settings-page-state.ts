@@ -91,11 +91,11 @@ interface IntegrationDefinition {
 const INTEGRATIONS: IntegrationDefinition[] = [
   { id: "jules", label: "Jules", description: "Primary hosted coding provider and orchestration participant" },
   { id: "gemini", label: "Gemini", description: "Hosted execution provider and future worker endpoint" },
+  { id: "antigravity", label: "Antigravity", description: "Google Antigravity CLI (agy) local container worker execution" },
   { id: "codex", label: "Codex", description: "Hosted execution provider and future worker endpoint" },
   { id: "claude-code", label: "Claude Code", description: "Hosted execution provider and future worker endpoint" },
   { id: "qwen-code", label: "Qwen Code", description: "Qwen CLI with OAuth, Alibaba Coding Plan, and custom model providers" },
   { id: "opencode", label: "OpenCode", description: "OpenCode CLI with local auth, provider keys, and custom OpenAI-compatible endpoints" },
-  { id: "antigravity", label: "Antigravity", description: "Google Antigravity CLI (agy) local container worker execution" },
   { id: "github", label: "GitHub", description: "Repository, pull request, branch, and CI integration" },
   { id: "gitlab", label: "GitLab", description: "GitLab repository, merge request, and CI token integration" },
   { id: "jira", label: "Jira", description: "Atlassian Jira issue search, sprint linking, and completion transitions" },
