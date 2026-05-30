@@ -121,7 +121,7 @@ describe("settings-sanitizer", () => {
     expect(settings.sprintLoopSteps.watchLoopOutputIntervalSeconds).toBe(300);
     expect(settings.cliWorkflow.executionMode).toBe("DOCKER");
     expect(settings.cliWorkflow.containerImage).toBe("node:24-bookworm");
-    expect(settings.cliWorkflow.containerCacheSetupScriptImage).toBe(false);
+    expect(settings.cliWorkflow.containerCacheSetupScriptImage).toBe(true);
     expect(settings.cliWorkflow.containerMountGeminiAuth).toBe(false);
     expect(settings.agents.saveToProjectDirectory).toBe(true);
     expect(settings.agents.instructionTemplates.planningMissing).toContain("Sprint Planning Missing");

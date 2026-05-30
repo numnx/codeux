@@ -463,7 +463,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     executionMode: "DOCKER",
     containerImage: "node:24-bookworm",
     containerSetupScriptPath: "",
-    containerCacheSetupScriptImage: false,
+    containerCacheSetupScriptImage: true,
     containerMountGitConfig: false,
     containerGitUserName: "Code UX",
     containerGitUserEmail: "agents@codeux.ai",

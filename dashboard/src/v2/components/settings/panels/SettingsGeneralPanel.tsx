@@ -33,6 +33,96 @@ const ProjectContextCard: FunctionComponent<{
   </SectionCard>
 );
 
+const AutomationCard: FunctionComponent<{
+  settings: ProjectSettings;
+  update: (recipe: (current: ProjectSettings) => ProjectSettings) => void;
+  getBadge: (...prefixes: string[]) => string | undefined;
+  getFieldBadge: (path: string) => string | undefined;
+}> = ({ settings, update, getBadge, getFieldBadge }) => (
+  <SectionCard title="Automation" watermark="AUTO" badge={getBadge("automationLevel", "automationInterventions")} icon={<Bot strokeWidth={2.4} />}>
+    <Row label="Automation level" description="Choose how much the project should proceed without a worker stepping in." badge={getFieldBadge("automationLevel")}>
+      <PillChoiceGroup
+        value={settings.automationLevel}
+        onChange={(value) => update((current) => ({ ...current, automationLevel: value as ProjectSettings["automationLevel"] }))}
+        options={[
+          { value: "FULL", label: "Full", hint: "Moves without confirmation gates." },
+          { value: "SEMI_AUTO", label: "Semi-auto", hint: "Automates routine recovery only." },
+          { value: "ALWAYS_ASK", label: "Always ask", hint: "Requires a decision at every gate." },
+        ]}
+      />
+    </Row>
+    <Row label="Auto-approve plans" description="Use the orchestrator path for routine plan confirmations." badge={getFieldBadge("automationInterventions.autoApprovePlan")}>
+      <Toggle
+        value={settings.automationInterventions.autoApprovePlan}
+        onChange={() => update((current) => ({
+          ...current,
+          automationInterventions: {
+            ...current.automationInterventions,
+            autoApprovePlan: !current.automationInterventions.autoApprovePlan,
+          },
+        }))}
+      />
+    </Row>
+    <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
+      <Toggle
+        value={settings.automationInterventions.autoAnswerClarification}
+        onChange={() => update((current) => ({
+          ...current,
+          automationInterventions: {
+            ...current.automationInterventions,
+            autoAnswerClarification: !current.automationInterventions.autoAnswerClarification,
+          },
+        }))}
+      />
+    </Row>
+    {settings.automationInterventions.autoAnswerClarification && (
+      <Row label="Clarification answer mode" description="Choose whether to use a static template or let a worker generate a contextual answer." badge={getFieldBadge("automationInterventions.autoAnswerClarificationMode")}>
+        <PillChoiceGroup
+          value={settings.automationInterventions.autoAnswerClarificationMode}
+          onChange={(value) => update((current) => ({
+            ...current,
+            automationInterventions: {
+              ...current.automationInterventions,
+              autoAnswerClarificationMode: value as ProjectSettings["automationInterventions"]["autoAnswerClarificationMode"],
+            },
+          }))}
+          options={[
+            { value: "TEMPLATE", label: "Template", hint: "Fast static reply." },
+            { value: "WORKER", label: "Worker", hint: "Contextual provider-generated reply." },
+          ]}
+        />
+      </Row>
+    )}
+    {(!settings.automationInterventions.autoAnswerClarification || settings.automationInterventions.autoAnswerClarificationMode === "TEMPLATE") && (
+      <Row label="Clarification answer template" description="Template used when project automation answers a clarification request." badge={getFieldBadge("automationInterventions.clarificationAnswerTemplate")}>
+        <TextInput
+          value={settings.automationInterventions.clarificationAnswerTemplate}
+          onChange={(value) => update((current) => ({
+            ...current,
+            automationInterventions: {
+              ...current.automationInterventions,
+              clarificationAnswerTemplate: value,
+            },
+          }))}
+          placeholder="Respond with the usual clarification template..."
+        />
+      </Row>
+    )}
+    <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
+      <Toggle
+        value={settings.automationInterventions.autoResumePaused}
+        onChange={() => update((current) => ({
+          ...current,
+          automationInterventions: {
+            ...current.automationInterventions,
+            autoResumePaused: !current.automationInterventions.autoResumePaused,
+          },
+        }))}
+      />
+    </Row>
+  </SectionCard>
+);
+
 export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
     activeScope,
@@ -40,7 +130,8 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
     projectSettings,
     selectedProject,
     updateSystem,
-    updateProject,
+    editableSettings,
+    updateEditableSettings,
     projectSources,
   } = state;
 
@@ -49,6 +140,14 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
     if (activeScope === "system") {
       return (
         <div className="flex flex-col gap-5">
+          {editableSettings ? (
+            <AutomationCard
+              settings={editableSettings}
+              update={updateEditableSettings}
+              getBadge={getBadge}
+              getFieldBadge={getFieldBadge}
+            />
+          ) : null}
           <SectionCard title="System Runtime" watermark="SYS" icon={<Cog strokeWidth={2.4} />}>
             <Row label="Dashboard port" description="System-wide HTTP port for the dashboard server.">
               <NumberInput
@@ -95,18 +194,12 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
           </SectionCard>
 
           <SectionCard title="Onboarding" watermark="ONB" icon={<Sparkles strokeWidth={2.4} />}>
-            <NoticePanel title="First-run guide" tone="success">
-              Reopen the guided setup flow for Docker checks, provider configuration, AI behaviour, appearance preferences, and dashboard controls. This does not reset saved settings.
-            </NoticePanel>
             <Row label="Show onboarding again" description="Launch the interactive setup flow from the beginning." last>
               <ActionButton label="Open Onboarding" tone="primary" onClick={openOnboarding} />
             </Row>
           </SectionCard>
 
           <SectionCard title="Inheritance Model" watermark="SCP" icon={<Layers strokeWidth={2.4} />}>
-            <NoticePanel title="Scope order" tone="success">
-              System settings provide the live baseline. Project settings inherit from that baseline and only persist real overrides. Sprint overrides layer on top from the sprint page.
-            </NoticePanel>
             <Row label="Selected project" description="Project-specific overrides are edited in the same page by switching scope.">
               <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
                 {selectedProject ? selectedProject.name : "No project selected"}
@@ -139,88 +232,12 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
           sourceType={selectedProject.sourceType}
         />
 
-        <SectionCard title="Automation" watermark="AUTO" badge={getBadge("automationLevel", "automationInterventions")} icon={<Bot strokeWidth={2.4} />}>
-          <Row label="Automation level" description="Choose how much the project should proceed without a worker stepping in." badge={getFieldBadge("automationLevel")}>
-            <PillChoiceGroup
-              value={projectSettings.automationLevel}
-              onChange={(value) => updateProject((current) => ({ ...current, automationLevel: value as ProjectSettings["automationLevel"] }))}
-              options={[
-                { value: "FULL", label: "Full", hint: "Moves without confirmation gates." },
-                { value: "SEMI_AUTO", label: "Semi-auto", hint: "Automates routine recovery only." },
-                { value: "ALWAYS_ASK", label: "Always ask", hint: "Requires a decision at every gate." },
-              ]}
-            />
-          </Row>
-          <Row label="Auto-approve plans" description="Use the orchestrator path for routine plan confirmations." badge={getFieldBadge("automationInterventions.autoApprovePlan")}>
-            <Toggle
-              value={projectSettings.automationInterventions.autoApprovePlan}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoApprovePlan: !current.automationInterventions.autoApprovePlan,
-                },
-              }))}
-            />
-          </Row>
-          <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
-            <Toggle
-              value={projectSettings.automationInterventions.autoAnswerClarification}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoAnswerClarification: !current.automationInterventions.autoAnswerClarification,
-                },
-              }))}
-            />
-          </Row>
-          {projectSettings.automationInterventions.autoAnswerClarification && (
-            <Row label="Clarification answer mode" description="Choose whether to use a static template or let a worker generate a contextual answer." badge={getFieldBadge("automationInterventions.autoAnswerClarificationMode")}>
-              <PillChoiceGroup
-                value={projectSettings.automationInterventions.autoAnswerClarificationMode}
-                onChange={(value) => updateProject((current) => ({
-                  ...current,
-                  automationInterventions: {
-                    ...current.automationInterventions,
-                    autoAnswerClarificationMode: value as ProjectSettings["automationInterventions"]["autoAnswerClarificationMode"],
-                  },
-                }))}
-                options={[
-                  { value: "TEMPLATE", label: "Template", hint: "Fast static reply." },
-                  { value: "WORKER", label: "Worker", hint: "Contextual provider-generated reply." },
-                ]}
-              />
-            </Row>
-          )}
-          {(!projectSettings.automationInterventions.autoAnswerClarification || projectSettings.automationInterventions.autoAnswerClarificationMode === "TEMPLATE") && (
-            <Row label="Clarification answer template" description="Template used when project automation answers a clarification request." badge={getFieldBadge("automationInterventions.clarificationAnswerTemplate")}>
-              <TextInput
-                value={projectSettings.automationInterventions.clarificationAnswerTemplate}
-                onChange={(value) => updateProject((current) => ({
-                  ...current,
-                  automationInterventions: {
-                    ...current.automationInterventions,
-                    clarificationAnswerTemplate: value,
-                  },
-                }))}
-                placeholder="Respond with the usual clarification template..."
-              />
-            </Row>
-          )}
-          <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
-            <Toggle
-              value={projectSettings.automationInterventions.autoResumePaused}
-              onChange={() => updateProject((current) => ({
-                ...current,
-                automationInterventions: {
-                  ...current.automationInterventions,
-                  autoResumePaused: !current.automationInterventions.autoResumePaused,
-                },
-              }))}
-            />
-          </Row>
-        </SectionCard>
+        <AutomationCard
+          settings={projectSettings}
+          update={updateEditableSettings}
+          getBadge={getBadge}
+          getFieldBadge={getFieldBadge}
+        />
       </div>
     );
   };

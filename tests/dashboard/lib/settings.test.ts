@@ -29,7 +29,7 @@ describe("dashboard settings helpers", () => {
     expect(second.cliWorkflow.resumeFailedTaskInSameWorkspace).toBe(true);
     expect(second.cliWorkflow.executionMode).toBe("DOCKER");
     expect(second.cliWorkflow.containerImage).toBe("node:24-bookworm");
-    expect(second.cliWorkflow.containerCacheSetupScriptImage).toBe(false);
+    expect(second.cliWorkflow.containerCacheSetupScriptImage).toBe(true);
     expect(second.mcpTools[0].enabled).toBe(true);
   });
 
