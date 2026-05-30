@@ -81,7 +81,7 @@ const providerLabels: Record<ProviderId, string> = {
 const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "codex", "claude-code", "qwen-code", "opencode"];
 
 const providerDescriptions: Record<ProviderId, string> = {
-  jules: "Hosted Jules Agent API for primary remote coding sessions.",
+  jules: "Google Jules API service for agent session and workspace orchestration.",
   gemini: "Gemini CLI with local OAuth auth-copy or API-key based execution.",
   codex: "Codex CLI for OpenAI-powered local container execution.",
   "claude-code": "Claude Code CLI with local auth-copy or provider API key.",

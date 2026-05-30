@@ -89,7 +89,7 @@ interface IntegrationDefinition {
 }
 
 const INTEGRATIONS: IntegrationDefinition[] = [
-  { id: "jules", label: "Jules", description: "Primary hosted coding provider and orchestration participant" },
+  { id: "jules", label: "Jules", description: "Google Jules API service for agent session and workspace orchestration" },
   { id: "gemini", label: "Gemini", description: "Hosted execution provider and future worker endpoint" },
   { id: "antigravity", label: "Antigravity", description: "Google Antigravity CLI (agy) local container worker execution" },
   { id: "codex", label: "Codex", description: "Hosted execution provider and future worker endpoint" },
