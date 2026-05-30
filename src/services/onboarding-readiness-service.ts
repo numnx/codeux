@@ -17,6 +17,7 @@ const providerLabels: Record<ProviderId, string> = {
   "claude-code": "Claude Code",
   "qwen-code": "Qwen Code",
   opencode: "OpenCode",
+  antigravity: "Antigravity",
 };
 
 const defaultProviderAuthPaths: Record<ProviderId, string> = {
@@ -26,6 +27,7 @@ const defaultProviderAuthPaths: Record<ProviderId, string> = {
   "claude-code": "~/.claude",
   "qwen-code": "~/.qwen",
   opencode: "~/.local/share/opencode",
+  antigravity: "~/.antigravity",
 };
 
 const cliMountFields: Partial<Record<ProviderId, keyof SystemSettings["defaults"]["cliWorkflow"]>> = {
@@ -34,6 +36,7 @@ const cliMountFields: Partial<Record<ProviderId, keyof SystemSettings["defaults"
   "claude-code": "containerMountClaudeCodeAuth",
   "qwen-code": "containerMountQwenCodeAuth",
   opencode: "containerMountOpenCodeAuth",
+  antigravity: "containerMountAntigravityAuth",
 };
 
 const relevantProviderFiles: Record<ProviderId, string[]> = {
@@ -43,6 +46,7 @@ const relevantProviderFiles: Record<ProviderId, string[]> = {
   "claude-code": ["settings.json", "credentials.json", ".credentials.json"],
   "qwen-code": ["settings.json", "auth.json", "oauth_creds.json"],
   opencode: ["auth.json", "config.json", "opencode.json"],
+  antigravity: ["settings.json"],
 };
 
 const runCheck = async (id: string, label: string, command: string, args: string[], required: boolean, resolution: string): Promise<OnboardingDependencyCheck> => {
@@ -106,7 +110,7 @@ const getExistingFiles = async (authPath: string, provider: ProviderId): Promise
 };
 
 const getProviderCredentialStatuses = async (settings: SystemSettings): Promise<OnboardingProviderCredentialStatus[]> => {
-  const providers: ProviderId[] = ["gemini", "codex", "claude-code", "qwen-code", "opencode"];
+  const providers: ProviderId[] = ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
   return Promise.all(providers.map(async (provider) => {
     const instance = Object.values(settings.integrations.providers).find((candidate) => candidate.provider === provider);
     const authPath = instance?.authPath || defaultProviderAuthPaths[provider];

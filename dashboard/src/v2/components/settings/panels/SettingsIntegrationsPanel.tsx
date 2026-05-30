@@ -22,7 +22,7 @@ import {
 } from "../../../lib/settings-view-models.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"];
+const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
 
 const DEFAULT_JIRA_SETTINGS: SystemSettings["integrations"]["jira"] = {
   host: "",
@@ -39,7 +39,8 @@ const getProviderWatermark = (providerId: ProviderId): string => (
       : providerId === "codex" ? "CDX"
         : providerId === "qwen-code" ? "QWN"
           : providerId === "opencode" ? "OPC"
-            : "CLD"
+            : providerId === "antigravity" ? "AGY"
+              : "CLD"
 );
 
 const qwenAuthModeOptions = [

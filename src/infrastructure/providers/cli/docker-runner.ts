@@ -50,7 +50,7 @@ export interface IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
+    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
@@ -95,7 +95,7 @@ export class DockerRunner implements IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
+    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
@@ -384,7 +384,7 @@ export class DockerRunner implements IDockerRunner {
 
   private customServersForProvider(
     servers: CustomMcpServer[],
-    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
+    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity",
   ): CustomMcpServer[] {
     return servers.filter((server) =>
       server.enabled
@@ -395,7 +395,7 @@ export class DockerRunner implements IDockerRunner {
 
   private async buildProviderConfigMounts(
     conn: McpConnectionInfo | null,
-    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode",
+    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity",
     tempRoot: string,
     providerEnv: NodeJS.ProcessEnv,
     customServers: CustomMcpServer[] = [],
@@ -479,7 +479,7 @@ export class DockerRunner implements IDockerRunner {
       return [{ source: filePath, destination: QWEN_CODE_SETTINGS_MOUNT, readonly: true }];
     }
 
-    if (provider === "opencode") {
+    if (provider === "opencode" || provider === "antigravity") {
       return [];
     }
 

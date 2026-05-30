@@ -141,7 +141,7 @@ export class ChatThreadRuntimeService {
       if (!input.virtualProvider) {
         throw new Error("virtualProvider is required for virtual route.");
       }
-      const validProviders = ["gemini", "codex", "claude-code", "qwen-code", "opencode"];
+      const validProviders = ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
       if (!validProviders.includes(input.virtualProvider)) {
         throw new Error(`Virtual provider is not configured or unavailable: ${input.virtualProvider}`);
       }

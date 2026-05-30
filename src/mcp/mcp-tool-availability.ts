@@ -3,7 +3,7 @@ import { TOOL_DEFINITIONS, type McpRuntimeRole, type ToolName } from "../contrac
 
 const CUSTOM_MCP_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const VALID_PROVIDER_IDS: ReadonlySet<ProviderId> = new Set<ProviderId>([
-  "jules", "gemini", "codex", "claude-code", "qwen-code", "opencode",
+  "jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity",
 ]);
 
 const sanitizeStringMap = (value: unknown): Record<string, string> | undefined => {

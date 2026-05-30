@@ -65,6 +65,7 @@ const providerMountFields: Partial<Record<ProviderId, keyof SystemSettings["defa
   "claude-code": "containerMountClaudeCodeAuth",
   "qwen-code": "containerMountQwenCodeAuth",
   opencode: "containerMountOpenCodeAuth",
+  antigravity: "containerMountAntigravityAuth",
 };
 
 const providerLabels: Record<ProviderId, string> = {
@@ -74,9 +75,10 @@ const providerLabels: Record<ProviderId, string> = {
   "claude-code": "Claude Code",
   "qwen-code": "Qwen Code",
   opencode: "OpenCode",
+  antigravity: "Antigravity",
 };
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode"];
+const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
 
 const providerDescriptions: Record<ProviderId, string> = {
   jules: "Hosted Jules Agent API for primary remote coding sessions.",
@@ -85,6 +87,7 @@ const providerDescriptions: Record<ProviderId, string> = {
   "claude-code": "Claude Code CLI with local auth-copy or provider API key.",
   "qwen-code": "Qwen Code CLI with OAuth, Alibaba Coding Plan, or custom model provider config.",
   opencode: "OpenCode CLI with local auth, provider keys, or OpenAI-compatible endpoints.",
+  antigravity: "Antigravity CLI (agy) for Google-powered local container execution.",
 };
 
 const getProviderWatermark = (providerId: ProviderId): string => (
@@ -93,7 +96,8 @@ const getProviderWatermark = (providerId: ProviderId): string => (
       : providerId === "codex" ? "CDX"
         : providerId === "qwen-code" ? "QWN"
           : providerId === "opencode" ? "OPC"
-            : "CLD"
+            : providerId === "antigravity" ? "AGY"
+              : "CLD"
 );
 
 const buildProviderConfigId = (providerId: ProviderId): ProviderConfigId => (

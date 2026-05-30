@@ -294,6 +294,7 @@ export const providerLabels: Record<ProviderId, string> = {
   "claude-code": "Claude Code",
   "qwen-code": "Qwen Code",
   opencode: "OpenCode",
+  antigravity: "Antigravity",
 };
 
 export const getProviderTypeLabel = (providerId: ProviderId): string => providerLabels[providerId];
@@ -833,6 +834,15 @@ export const PROVIDER_CARD_TOKENS: Record<ProviderId, {
   opencode: {
     watermark: "OPC",
     logoLabel: "O",
+    badgeLabel: "CLI",
+    badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+    glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",
+    railClassName: "bg-black/[0.12] dark:bg-white/[0.14]",
+    noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
+  },
+  antigravity: {
+    watermark: "AGY",
+    logoLabel: "AGY",
     badgeLabel: "CLI",
     badgeClassName: "border-black/[0.08] bg-black/[0.035] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
     glowClassName: "bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.03),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.045),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.025),transparent_34%)]",

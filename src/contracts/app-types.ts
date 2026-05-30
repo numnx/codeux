@@ -77,7 +77,7 @@ export interface JulesActivity {
 
 export type SubtaskStatus = "PENDING" | "RUNNING" | "CODING_COMPLETED" | "COMPLETED" | "FAILED" | "BLOCKED" | "QUOTA" | "QA_REVIEW_FAILED";
 export type SubtaskMergeIndicator = "CI" | "AUTOMERGE" | "MERGED" | "MERGE_BLOCKED" | "MERGE_CONFLICT" | "PR_ONLY" | "QA_PENDING";
-export type ProviderId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
+export type ProviderId = "jules" | "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
 export type ProviderConfigId = string;
 export type ProviderStrategy = "MANUAL" | "WEIGHTED" | "AGENT";
 export type ThinkingMode = "SMALL" | "MEDIUM" | "HIGH";
@@ -756,12 +756,14 @@ export interface CliWorkflowSettings {
   containerMountClaudeCodeAuth: boolean;
   containerMountQwenCodeAuth: boolean;
   containerMountOpenCodeAuth: boolean;
+  containerMountAntigravityAuth: boolean;
   containerGithubAuthPath: string;
   containerGeminiAuthPath: string;
   containerCodexAuthPath: string;
   containerClaudeCodeAuthPath: string;
   containerQwenCodeAuthPath: string;
   containerOpenCodeAuthPath: string;
+  containerAntigravityAuthPath: string;
   maxPlanningJsonRetries: number;
   maxQuotaRetriesWithoutTimer: number;
 }
@@ -986,6 +988,7 @@ export interface ExternalSettingsHints {
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
     openCodeApiKey: string;
+    antigravityApiKey: string;
     githubToken: string;
     gitlabToken?: string;
     jiraToken?: string;
@@ -997,6 +1000,7 @@ export interface ExternalSettingsHints {
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
     openCodeApiKey: string;
+    antigravityApiKey: string;
     githubToken: string;
     gitlabToken?: string;
     jiraToken?: string;
@@ -1008,6 +1012,7 @@ export interface ExternalSettingsHints {
     claudeCodeApiKey: string;
     qwenCodeApiKey: string;
     openCodeApiKey: string;
+    antigravityApiKey: string;
     githubToken: string;
     gitlabToken?: string;
     jiraToken?: string;
@@ -1019,6 +1024,7 @@ export interface ExternalSettingsHints {
     claudeCode: { hasApiKey: boolean; hasLocalAuth: boolean };
     qwenCode: { hasApiKey: boolean; hasLocalAuth: boolean };
     openCode: { hasApiKey: boolean; hasLocalAuth: boolean };
+    antigravity: { hasApiKey: boolean; hasLocalAuth: boolean };
   };
 }
 

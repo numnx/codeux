@@ -10,6 +10,7 @@ import {
   CLAUDE_CODE_AUTH_JSON_MOUNT,
   QWEN_CODE_CREDENTIALS_MOUNT,
   OPENCODE_CREDENTIALS_MOUNT,
+  ANTIGRAVITY_CREDENTIALS_MOUNT,
   GITCONFIG_CREDENTIALS_MOUNT,
 } from "./docker-bootstrap-builder.js";
 
@@ -19,7 +20,7 @@ export class DockerCredentialMountBuilder {
     repoPath: string,
     onActivity: (desc: string) => void,
     providerAuthOverride?: {
-      provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode";
+      provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
       enabled: boolean;
       path: string;
     },
@@ -90,6 +91,12 @@ export class DockerCredentialMountBuilder {
       providerAuthOverride?.provider === "opencode" ? providerAuthOverride.path : workflowSettings.containerOpenCodeAuthPath,
       OPENCODE_CREDENTIALS_MOUNT,
       "OpenCode",
+    );
+    await addMount(
+      providerAuthOverride?.provider === "antigravity" ? providerAuthOverride.enabled : workflowSettings.containerMountAntigravityAuth,
+      providerAuthOverride?.provider === "antigravity" ? providerAuthOverride.path : workflowSettings.containerAntigravityAuthPath,
+      ANTIGRAVITY_CREDENTIALS_MOUNT,
+      "Antigravity",
     );
 
     if (mounts.length === 0) {
