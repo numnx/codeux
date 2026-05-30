@@ -68,6 +68,7 @@ interface SprintRow {
   start_date: string | null;
   end_date: string | null;
   feature_branch: string | null;
+  base_commit_sha: string | null;
   created_at: string;
   updated_at: string;
   tasks_count: number | string | null;
@@ -324,8 +325,8 @@ export class ProjectManagementRepository {
 
       this.db.prepare(`
         INSERT INTO sprints (
-          id, project_id, number, slug, name, original_prompt, goal, status, showcase_pinned, start_date, end_date, feature_branch, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, project_id, number, slug, name, original_prompt, goal, status, showcase_pinned, start_date, end_date, feature_branch, base_commit_sha, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         projectId,
@@ -339,6 +340,7 @@ export class ProjectManagementRepository {
         input.startDate || null,
         input.endDate || null,
         input.featureBranch || null,
+        input.baseCommitSha || null,
         now,
         now
       );
@@ -371,7 +373,7 @@ export class ProjectManagementRepository {
 
       this.db.prepare(`
         UPDATE sprints
-        SET number = ?, slug = ?, name = ?, original_prompt = ?, goal = ?, status = ?, showcase_pinned = ?, start_date = ?, end_date = ?, feature_branch = ?, updated_at = ?
+        SET number = ?, slug = ?, name = ?, original_prompt = ?, goal = ?, status = ?, showcase_pinned = ?, start_date = ?, end_date = ?, feature_branch = ?, base_commit_sha = ?, updated_at = ?
         WHERE id = ?
       `).run(
         input.number === undefined ? current.number : input.number,
@@ -384,6 +386,7 @@ export class ProjectManagementRepository {
         input.startDate === undefined ? current.startDate : input.startDate,
         input.endDate === undefined ? current.endDate : input.endDate,
         input.featureBranch === undefined ? current.featureBranch : input.featureBranch,
+        input.baseCommitSha === undefined ? current.baseCommitSha : input.baseCommitSha,
         now,
         sprintId
       );
@@ -1034,6 +1037,7 @@ export class ProjectManagementRepository {
       startDate: row.start_date,
       endDate: row.end_date,
       featureBranch: row.feature_branch,
+      baseCommitSha: row.base_commit_sha,
       tasksCount,
       completion: tasksCount > 0 ? Math.round((completedTasks / tasksCount) * 100) : 0,
       linkedIssues: this.listSprintLinkedIssuesUnchecked(row.project_id, row.id),

@@ -114,6 +114,7 @@ export interface SprintRecord {
   startDate: string | null;
   endDate: string | null;
   featureBranch: string | null;
+  baseCommitSha: string | null;
   tasksCount: number;
   completion: number;
   linkedIssues: SprintLinkedIssueRecord[];
@@ -192,6 +193,7 @@ export interface CreateSprintInput {
   startDate?: string | null;
   endDate?: string | null;
   featureBranch?: string | null;
+  baseCommitSha?: string | null;
 }
 
 export interface UpdateSprintInput {
@@ -206,6 +208,7 @@ export interface UpdateSprintInput {
   startDate?: string | null;
   endDate?: string | null;
   featureBranch?: string | null;
+  baseCommitSha?: string | null;
 }
 
 export interface PlanningOverrides {

@@ -509,9 +509,30 @@ export class SprintOrchestrator {
         }
       }
 
-      const branchAvailability = args.action === "orchestrate"
+      const branchPreparation = args.action === "orchestrate"
         ? await prepareBranchForOrchestration(repoPath, defaultFeatureBranch, defaultBranch, gitAuthOptions)
-        : await runBranchPreflightStep(repoPath, defaultFeatureBranch, gitAuthOptions);
+        : null;
+      const branchAvailability = branchPreparation
+        ?? await runBranchPreflightStep(repoPath, defaultFeatureBranch, gitAuthOptions);
+
+      // Record the fork point the first time the branch is created. This is the stable
+      // checkpoint the file browser diffs against, and it must be captured now — once the
+      // sprint merges back, the fork point can no longer be recovered from the branch refs.
+      if (branchPreparation?.baseCommitSha && !executionContext.sprint.baseCommitSha) {
+        try {
+          this.deps.projectManagementRepository.updateSprint(executionContext.sprint.id, {
+            baseCommitSha: branchPreparation.baseCommitSha,
+          });
+        } catch (error) {
+          this.deps.logger.warn("Failed to record sprint base commit SHA during branch preflight.", {
+            projectId: executionContext.project.id,
+            sprintId: executionContext.sprint.id,
+            featureBranch: defaultFeatureBranch,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
       const { existsLocal, existsRemote } = branchAvailability;
       const requiresRemoteBranch = args.action === "plan"
         || ("hasRemoteOrigin" in branchAvailability && branchAvailability.hasRemoteOrigin);

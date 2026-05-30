@@ -284,12 +284,10 @@ export class SprintFileBrowserService {
     if (!featureRef) {
       return unavailable(`Feature branch ${featureBranch} was not found locally or on origin.`);
     }
-    const baseRef = await this.resolveExistingRef(project.baseDir, defaultBranch);
-    if (!baseRef) {
+    const compareRef = await this.resolveDiffBaseRef(project.baseDir, session.projectId, session.sprintId, defaultBranch, featureRef);
+    if (!compareRef) {
       return unavailable(`Default branch ${defaultBranch} was not found locally or on origin.`);
     }
-
-    const compareRef = await this.resolveMergeBase(project.baseDir, baseRef, featureRef) || baseRef;
 
     const nameStatus = await this.runGit(project.baseDir, ["diff", "--name-status", "-M", `${compareRef}`, `${featureRef}`]);
     if (!nameStatus.ok) {
@@ -324,11 +322,13 @@ export class SprintFileBrowserService {
     });
 
     const featureRef = await this.resolveExistingRef(project.baseDir, featureBranch);
-    const baseRef = await this.resolveExistingRef(project.baseDir, defaultBranch);
-    if (!featureRef || !baseRef) {
-      throw new Error("Cannot compute diff: feature or default branch reference is unavailable.");
+    if (!featureRef) {
+      throw new Error("Cannot compute diff: feature branch reference is unavailable.");
     }
-    const compareRef = await this.resolveMergeBase(project.baseDir, baseRef, featureRef) || baseRef;
+    const compareRef = await this.resolveDiffBaseRef(project.baseDir, session.projectId, session.sprintId, defaultBranch, featureRef);
+    if (!compareRef) {
+      throw new Error("Cannot compute diff: base reference is unavailable.");
+    }
 
     const changeSet = await this.getChangeSet(sessionId);
     const change = changeSet.files.find((entry) => entry.path === relPath)
@@ -612,6 +612,46 @@ export class SprintFileBrowserService {
       return null;
     }
     return result.stdout;
+  }
+
+  /**
+   * Resolves the ref the feature branch is diffed against. Prefers the fork point
+   * recorded on the sprint when its branch was created, so diffs keep showing the
+   * sprint's changes even after it merges back into the default branch (at which
+   * point merge-base(default, feature) collapses onto the feature tip → empty diff).
+   * Falls back to the live merge-base for sprints created before the checkpoint was
+   * tracked.
+   */
+  private async resolveDiffBaseRef(
+    repoPath: string,
+    projectId: string,
+    sprintId: string,
+    defaultBranch: string,
+    featureRef: string,
+  ): Promise<string | null> {
+    const recordedBase = this.resolveRecordedBaseCommit(projectId, sprintId);
+    if (recordedBase && await this.commitExists(repoPath, recordedBase)) {
+      return recordedBase;
+    }
+    const baseRef = await this.resolveExistingRef(repoPath, defaultBranch);
+    if (!baseRef) {
+      return null;
+    }
+    return (await this.resolveMergeBase(repoPath, baseRef, featureRef)) || baseRef;
+  }
+
+  private resolveRecordedBaseCommit(projectId: string, sprintId: string): string | null {
+    try {
+      const sprint = this.requireSprint(projectId, sprintId);
+      return sprint.baseCommitSha?.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async commitExists(repoPath: string, sha: string): Promise<boolean> {
+    const result = await this.runGit(repoPath, ["rev-parse", "--verify", "--quiet", `${sha}^{commit}`]);
+    return result.ok && result.stdout.trim().length > 0;
   }
 
   private async resolveMergeBase(repoPath: string, baseRef: string, featureRef: string): Promise<string | null> {

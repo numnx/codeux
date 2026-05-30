@@ -13,6 +13,7 @@ export const sprintSummaryQuery = {
         s.start_date,
         s.end_date,
         s.feature_branch,
+        s.base_commit_sha,
         s.created_at,
         s.updated_at,
         COUNT(t.id) AS tasks_count,

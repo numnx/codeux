@@ -18,3 +18,4 @@ release/
 *.cjs
 *.log
 .code-ux/data.db
+.claude/
