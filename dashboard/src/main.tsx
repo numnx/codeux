@@ -174,21 +174,29 @@ const AppLayout = () => {
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
           Skip to main content
         </a>
-        {backgroundImage ? (
-          <div
-            aria-hidden="true"
-            className="fixed inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${backgroundImage})`, zIndex: 0, contain: "strict" }}
-          />
-        ) : (
-          <Suspense fallback={null}>
+        {/*
+          Keep the Suspense boundary permanently mounted and only toggle its
+          child. Replacing the boundary with a plain <div> when a background
+          image is set tears down the Suspense node, which makes Preact remount
+          the sibling <Outlet> — that reset wiped in-progress edits (e.g. an
+          uploaded background image) and looked like a full page reload.
+        */}
+        <Suspense fallback={null}>
+          {!backgroundImage && (
             <BackgroundManager
               mode={backgroundMode}
               animation={animatedBackground}
               staticColor={staticBackgroundColor}
               isDark={isDark}
             />
-          </Suspense>
+          )}
+        </Suspense>
+        {backgroundImage && (
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${backgroundImage})`, zIndex: 0, contain: "strict" }}
+          />
         )}
         {backgroundPattern !== "NONE" && (
           <div
