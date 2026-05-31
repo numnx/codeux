@@ -1,5 +1,7 @@
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 import type { ProjectSetupOptions, ProjectSummary } from "../contracts/project-management-types.js";
+import { buildGeneratedSprintPreviewScript } from "./sprint-preview-utils.js";
+
 
 export interface ProjectSetupPromptArgs {
   project: ProjectSummary;
@@ -266,6 +268,10 @@ export function buildProjectSetupPrompt(args: ProjectSetupPromptArgs): string {
       "",
       "- For previewScript, produce a POSIX shell script for `.code-ux/browser/start-preview.sh` that installs dependencies only when needed, uses the detected package manager, binds to `${PORT:-3000}`, and starts the correct dev/preview server.",
       "- The script must work in a Code UX preview container. Use HOST=0.0.0.0 and respect SPRINT_PREVIEW_PORT, PORT, SPRINT_PREVIEW_WORKSPACE, and SPRINT_PREVIEW_RUN_COMMAND when relevant.",
+      "- CRITICAL: Use the following full default startup script template as a baseline and build on top of it, customizing it for this repository's specific architecture, install commands, build commands, and dev servers:",
+      "```bash",
+      buildGeneratedSprintPreviewScript(),
+      "```",
       "",
     ] : ["- Set `previewScript` to null.", ""]),
     ...(args.options.ci ? [
