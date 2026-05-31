@@ -558,6 +558,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
       return result;
     },
     pauseSprintRun: async (sprintRunId) => deps.executionControlService.pauseSprintRun(sprintRunId),
+    resumeSprintRun: async (sprintRunId) => deps.executionControlService.resumeSprintRun(sprintRunId),
     cancelSprintRun: async (sprintRunId) => deps.executionControlService.cancelSprintRun(sprintRunId),
     forceCancelSprintRun: async (sprintRunId) => deps.executionControlService.forceCancelSprintRun(sprintRunId),
     cancelTaskDispatch: async (dispatchId) => deps.executionControlService.cancelTaskDispatch(dispatchId),
@@ -579,6 +580,9 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
     listDockerContainers: deps.listDockerContainers,
     getOnboardingRuntimeReadiness: deps.getOnboardingRuntimeReadiness
       ?? (() => getOnboardingRuntimeReadiness(deps.settingsRepository.getSystemSettings())),
+    getOnboardingState: () => deps.settingsRepository.getOnboardingState(),
+    markOnboardingCompleted: () => deps.settingsRepository.markOnboardingCompleted(),
+    resetOnboardingState: () => deps.settingsRepository.resetOnboardingState(),
     listSprintPreviewSessions: deps.listSprintPreviewSessions,
     getSprintPreviewSession: deps.getSprintPreviewSession,
     startSprintPreviewSession: deps.startSprintPreviewSession,

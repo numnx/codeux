@@ -11,7 +11,6 @@ import {
   ListChecks,
   Maximize2,
   MoreVertical,
-  Play,
   Square,
 } from "lucide-preact";
 import { HumanInterventionBadge } from "../ui/HumanInterventionBadge.js";
@@ -20,6 +19,7 @@ import type { Sprint, SprintStatus } from "../../types.js";
 import type { ExecutionHumanInterventionSummary } from "../../../../../src/contracts/app-types.js";
 import { formatSprintKey, STATUS_LABELS } from "../../lib/sprint-ledger-state.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
+import { SprintControls } from "./SprintControls.js";
 
 // Polished badge tones: increased contrast for backgrounds and borders where appropriate
 const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
@@ -61,12 +61,14 @@ export interface SprintLedgerRowProps {
   isSelected: boolean;
   isEven: boolean;
   activeRun: { id: string; status: string } | undefined;
+  pauseResumeRun: { id: string; status: string } | undefined;
   humanIntervention: ExecutionHumanInterventionSummary | null;
   pendingActionIds: Set<string>;
   isAnyBulkPending?: boolean;
   onToggleRow: (id: string) => void;
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
+  onSprintPauseResume: (sprintId: string) => void;
   onOpenRowMenu: (event: MouseEvent, sprintId: string) => void;
 }
 
@@ -75,26 +77,32 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   isSelected,
   isEven,
   activeRun,
+  pauseResumeRun,
   humanIntervention,
   pendingActionIds,
   isAnyBulkPending,
   onToggleRow,
   onToggleShowcase,
   onSprintToggle,
+  onSprintPauseResume,
   onOpenRowMenu,
 }) => {
   const settings = useProjectEffectiveSettings(sprint.projectId);
   const sprintKeyPrefix = settings.data?.settings.git.sprintKeyPrefix || "SPR";
 
   const pendingToggleActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
+  const pendingPauseResumeActionId = sprint.status === "paused"
+    ? (pauseResumeRun ? `sprint-resume:${pauseResumeRun.id}` : "")
+    : (pauseResumeRun ? `sprint-pause:${pauseResumeRun.id}` : "");
   const pinActionId = `sprint-showcase:${sprint.id}`;
   const deleteActionId = `sprint-delete:${sprint.id}`;
   const isCompleted = sprint.status === "completed";
 
   const isTogglePending = pendingActionIds.has(pendingToggleActionId);
+  const isPauseResumePending = pendingPauseResumeActionId.length > 0 && pendingActionIds.has(pendingPauseResumeActionId);
   const isPinPending = pendingActionIds.has(pinActionId);
   const isDeletePending = pendingActionIds.has(deleteActionId);
-  const isRowPending = isTogglePending || isPinPending || isDeletePending;
+  const isRowPending = isTogglePending || isPauseResumePending || isPinPending || isDeletePending;
 
   const rowTone = isSelected
     ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_18px_44px_rgba(0,224,160,0.12)]"
@@ -145,12 +153,14 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         </button>
       </td>
       <td className={`block px-4 py-3 align-middle lg:table-cell lg:min-w-[8rem] lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint ID</span>
         <div className="font-mono text-sm font-bold text-slate-800 dark:text-white truncate">{formatSprintKey(sprint, sprintKeyPrefix)}</div>
         <div className="mt-1 text-[10px] font-bold text-slate-400 truncate">
           {shortenId(sprint.id)}
         </div>
       </td>
       <td className={`block min-w-0 max-w-full px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint</span>
         <div className="flex flex-wrap items-center gap-2">
           <div className={`font-display text-lg font-black leading-tight break-words ${isCompleted ? "text-slate-700 dark:text-slate-300" : "text-slate-900 dark:text-white"}`}>{sprint.name}</div>
           {sprint.latestReview && (
@@ -206,6 +216,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         </div>
       </td>
       <td className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Tasks</span>
         <div className="flex items-center gap-3 lg:block">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/70 text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.04] lg:hidden">
             <ListChecks className="h-4 w-4" strokeWidth={2.2} />
@@ -217,6 +228,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         </div>
       </td>
       <td className={`block px-4 py-3 align-middle lg:table-cell lg:min-w-[12rem] lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Completion</span>
         <div className="flex items-center gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-black/10 ring-1 ring-black/[0.03] dark:bg-white/[0.08] dark:ring-white/[0.04]">
             <div
@@ -228,6 +240,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         </div>
       </td>
       <td className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Created</span>
         <div className="font-medium text-slate-700 dark:text-slate-200">{formatTableDate(sprint.createdAt)}</div>
         <div className="mt-1 text-[11px] text-slate-400">created</div>
         <div className="mt-1.5 inline-flex items-center gap-1">
@@ -247,26 +260,16 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         </div>
       </td>
       <td className={`block px-4 pb-4 pt-3 align-middle lg:table-cell lg:rounded-r-[1.5rem] lg:border-y lg:border-r lg:px-4 lg:py-4 lg:pr-6 ${desktopCellTone}`}>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Controls</span>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => onSprintToggle(sprint.id)}
-            disabled={isTogglePending}
-            className={`inline-flex h-10 min-w-[6rem] flex-1 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30 sm:flex-none ${
-              activeRun
-                ? "border-status-red/20 bg-status-red/[0.1] text-status-red hover:bg-status-red/[0.14]"
-                : "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 hover:bg-signal-500/[0.12] dark:text-signal-300"
-            } disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            {isTogglePending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.2} />
-            ) : activeRun ? (
-              <Square className="h-3.5 w-3.5" fill="currentColor" />
-            ) : (
-              <Play className="h-3.5 w-3.5" fill="currentColor" />
-            )}
-            {isTogglePending ? (activeRun ? "Stopping" : "Starting") : activeRun ? "Stop" : "Start"}
-          </button>
+          <SprintControls
+            isActive={Boolean(activeRun)}
+            isPaused={sprint.status === "paused"}
+            isStartStopPending={isTogglePending}
+            isPauseResumePending={isPauseResumePending}
+            onStartStop={() => onSprintToggle(sprint.id)}
+            onPauseResume={() => onSprintPauseResume(sprint.id)}
+          />
           <a
             href={`/tasks?sprint=${encodeURIComponent(sprint.id)}`}
             className="inline-flex h-10 min-w-[5rem] flex-1 items-center justify-center gap-2 rounded-xl border border-black/[0.06] bg-white/80 px-4 text-xs font-bold text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white sm:flex-none"

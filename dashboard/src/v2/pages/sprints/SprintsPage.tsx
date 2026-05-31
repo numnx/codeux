@@ -165,6 +165,7 @@ export const SprintsPage: FunctionComponent = () => {
     inWorkCount,
     pendingActionIds,
     activeRunsBySprintId,
+    pauseResumeRunsBySprintId,
     interventionBySprintId,
     rowMenu, setRowMenu,
     showCreateComposer, setShowCreateComposer,
@@ -193,6 +194,7 @@ export const SprintsPage: FunctionComponent = () => {
     refreshSprints,
     refreshExecution,
     handleSprintToggle,
+    handleSprintPauseResume,
     handleMarkCompleted,
     handleSubmitSprint,
     handleImprovePrompt,
@@ -630,10 +632,12 @@ export const SprintsPage: FunctionComponent = () => {
                 listWindow={listWindow}
                 onListWindowChange={setListWindow}
                 activeRunsBySprintId={activeRunsBySprintId}
+                pauseResumeRunsBySprintId={pauseResumeRunsBySprintId}
                 interventionBySprintId={interventionBySprintId}
                 pendingActionIds={pendingActionIds}
                 onToggleShowcase={handleToggleShowcaseWithSprint}
                 onSprintToggle={handleSprintToggle}
+                onSprintPauseResume={handleSprintPauseResume}
                 onOpenRowMenu={openRowActionsMenu}
                 onBulkStart={handleBulkStart}
                 onBulkDelete={handleBulkDelete}

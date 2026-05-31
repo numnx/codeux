@@ -40,10 +40,12 @@ export interface SprintLedgerProps {
   listWindow: ListWindowOption;
   onListWindowChange: (value: ListWindowOption) => void;
   activeRunsBySprintId: Map<string, { id: string; status: string }>;
+  pauseResumeRunsBySprintId: Map<string, { id: string; status: string }>;
   interventionBySprintId: Map<string, ExecutionHumanInterventionSummary>;
   pendingActionIds: Set<string>;
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
+  onSprintPauseResume: (sprintId: string) => void;
   onOpenRowMenu: (event: MouseEvent, sprintId: string) => void;
   onBulkStart: (sprintIds: string[]) => void;
   onBulkDelete: (sprintIds: string[]) => void;
@@ -58,10 +60,12 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
   listWindow,
   onListWindowChange,
   activeRunsBySprintId,
+  pauseResumeRunsBySprintId,
   interventionBySprintId,
   pendingActionIds,
   onToggleShowcase,
   onSprintToggle,
+  onSprintPauseResume,
   onOpenRowMenu,
   onBulkStart,
   onBulkDelete,
@@ -232,6 +236,10 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
     (sprintId: string) => onSprintToggle(sprintId),
     [onSprintToggle]
   );
+  const stableOnSprintPauseResume = useCallback(
+    (sprintId: string) => onSprintPauseResume(sprintId),
+    [onSprintPauseResume]
+  );
   const stableOnOpenRowMenu = useCallback(
     (event: MouseEvent, sprintId: string) => onOpenRowMenu(event, sprintId),
     [onOpenRowMenu]
@@ -282,7 +290,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
       />
 
       <div className="min-h-[20rem] px-3 py-4 sm:px-4 lg:px-5">
-        <div className="overflow-visible">
+        <div className="overflow-x-hidden lg:overflow-visible">
           <table className="block w-full border-separate border-spacing-y-3 text-left lg:table">
             <thead className="hidden lg:table-header-group">
             <tr className="text-[11px] font-bold text-slate-400">
@@ -409,12 +417,14 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                   isSelected={selectedIds.has(sprint.id)}
                   isEven={index % 2 === 0}
                   activeRun={activeRunsBySprintId.get(sprint.id)}
+                  pauseResumeRun={pauseResumeRunsBySprintId.get(sprint.id)}
                   humanIntervention={actionableInterventionBySprintId.get(sprint.id) || null}
                   pendingActionIds={pendingActionIds}
                   isAnyBulkPending={isAnyBulkPending}
                   onToggleRow={handleToggleRow}
                   onToggleShowcase={stableOnToggleShowcase}
                   onSprintToggle={stableOnSprintToggle}
+                  onSprintPauseResume={stableOnSprintPauseResume}
                   onOpenRowMenu={stableOnOpenRowMenu}
                 />
               ))

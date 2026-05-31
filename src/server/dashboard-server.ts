@@ -31,6 +31,7 @@ import type {
   FileBrowserChangeSet,
   FileBrowserDiff,
 } from "../contracts/app-types.js";
+import type { OnboardingStateRecord } from "../domain/user/onboarding-state.js";
 import type {
   EffectiveSettingsResponse,
   ProjectSettings,
@@ -215,6 +216,7 @@ export interface DashboardServerOptions {
   sprintIssueService?: SprintIssueService;
 
   pauseSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
+  resumeSprintRun?: (sprintRunId: string) => Promise<unknown> | unknown;
   cancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   forceCancelSprintRun: (sprintRunId: string) => Promise<unknown> | unknown;
   cancelTaskDispatch: (dispatchId: string) => Promise<unknown> | unknown;
@@ -226,6 +228,9 @@ export interface DashboardServerOptions {
   isHealthy?: () => ReadinessProbeStatus;
   listDockerContainers: () => Promise<DockerContainer[]>;
   getOnboardingRuntimeReadiness?: () => Promise<OnboardingRuntimeReadiness> | OnboardingRuntimeReadiness;
+  getOnboardingState?: () => OnboardingStateRecord;
+  markOnboardingCompleted?: () => OnboardingStateRecord;
+  resetOnboardingState?: () => OnboardingStateRecord;
   listSprintPreviewSessions?: (projectId: string) => Promise<SprintPreviewSession[]> | SprintPreviewSession[];
   getSprintPreviewSession?: (sessionId: string) => Promise<SprintPreviewSession | null> | SprintPreviewSession | null;
   startSprintPreviewSession?: (projectId: string, sprintId: string) => Promise<SprintPreviewSession> | SprintPreviewSession;

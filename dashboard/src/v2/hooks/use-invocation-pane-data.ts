@@ -35,6 +35,7 @@ export const useInvocationPaneData = (options: {
   const { selectedProject, cache, agentPresets = [] } = options;
 
   const [invocations, setInvocations] = useState<ExecutionInvocationRecord[]>([]);
+  const [optimisticInvocations, setOptimisticInvocations] = useState<ExecutionInvocationRecord[]>([]);
   const [selectedInvocationId, setSelectedInvocationId] = useState<string | null>(null);
   const [invocationMessages, setInvocationMessages] = useState<ExecutionInvocationMessageRecord[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -48,7 +49,23 @@ export const useInvocationPaneData = (options: {
     selectedInvocationIdRef.current = selectedInvocationId;
   }, [selectedInvocationId]);
 
-  const invocationIndex = useMemo(() => buildInvocationIndex(invocations), [invocations]);
+  const mergedInvocations = useMemo(() => {
+    if (optimisticInvocations.length === 0) {
+      return invocations;
+    }
+    const serverIds = new Set(invocations.map((invocation) => invocation.id));
+    const nowMs = Date.now();
+    const optimistic = optimisticInvocations.filter((invocation) => {
+      if (serverIds.has(invocation.id)) {
+        return false;
+      }
+      const createdAtMs = Date.parse(invocation.createdAt);
+      return Number.isFinite(createdAtMs) && nowMs - createdAtMs < 30_000;
+    });
+    return [...optimistic, ...invocations];
+  }, [invocations, optimisticInvocations]);
+
+  const invocationIndex = useMemo(() => buildInvocationIndex(mergedInvocations), [mergedInvocations]);
   const selectedInvocation = useMemo(
     () => (selectedInvocationId ? invocationIndex.get(selectedInvocationId) || null : null),
     [invocationIndex, selectedInvocationId]
@@ -63,6 +80,55 @@ export const useInvocationPaneData = (options: {
 
   const setInvocationsSnapshot = useCallback((nextInvocations: ExecutionInvocationRecord[]): void => {
     setInvocations((current) => areInvocationsEqual(current, nextInvocations) ? current : nextInvocations);
+    setOptimisticInvocations((current) => current.filter((optimistic) => {
+      const optimisticCreatedAtMs = Date.parse(optimistic.createdAt);
+      return !nextInvocations.some((confirmed) => {
+        if (confirmed.id === optimistic.id) {
+          return true;
+        }
+        if (confirmed.type !== optimistic.type) {
+          return false;
+        }
+        const confirmedCreatedAtMs = Date.parse(confirmed.createdAt);
+        if (!Number.isFinite(optimisticCreatedAtMs) || !Number.isFinite(confirmedCreatedAtMs)) {
+          return false;
+        }
+        return Math.abs(confirmedCreatedAtMs - optimisticCreatedAtMs) <= 15_000;
+      });
+    }));
+  }, []);
+
+  const addOptimisticInvocation = useCallback((input: { projectId: string; createdAt?: string }): void => {
+    const createdAt = input.createdAt || new Date().toISOString();
+    const nextInvocation: ExecutionInvocationRecord = {
+      id: `optimistic:${input.projectId}:${Date.now()}:${Math.random().toString(16).slice(2, 8)}`,
+      projectId: input.projectId,
+      sprintId: null,
+      taskId: null,
+      sprintRunId: null,
+      dispatchId: null,
+      taskRunId: null,
+      attentionItemId: null,
+      providerInvocationId: null,
+      type: "dashboard_reply",
+      status: "running",
+      provider: null,
+      model: null,
+      systemPrompt: null,
+      startedAt: createdAt,
+      finishedAt: null,
+      errorMessage: null,
+      lastErrorCategory: null,
+      lastErrorMessage: null,
+      lastRetryAfterIso: null,
+      messageCount: 0,
+      lastMessageAt: createdAt,
+      invocationSource: "internal",
+      agentPresetId: null,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    setOptimisticInvocations((current) => [nextInvocation, ...current]);
   }, []);
 
   const setInvocationMessagesSnapshot = useCallback((nextMessages: ExecutionInvocationMessageRecord[]): void => {
@@ -184,8 +250,9 @@ export const useInvocationPaneData = (options: {
   }, [cache, ensureInvocationMessagesLoaded, setInvocationMessagesSnapshot]);
 
   return {
-    invocations,
+    invocations: mergedInvocations,
     setInvocationsSnapshot,
+    addOptimisticInvocation,
     selectedInvocationId,
     setSelectedInvocationId,
     selectedInvocationIdRef,

@@ -7,6 +7,7 @@ import { useSettingsPageState } from "./hooks/use-settings-page-state.js";
 import { SettingsCategoryRail, CATEGORIES, CATEGORY_SEARCH_HINTS } from "./components/settings/SettingsCategoryRail.js";
 import { SettingsContentPanels } from "./components/settings/SettingsContentPanels.js";
 import { useReducedMotion } from "./hooks/use-reduced-motion.js";
+import { useUnsavedChangesGuard } from "./hooks/useUnsavedChangesGuard.js";
 import { PageContainer } from "./components/layout/PageContainer.js";
 
 export const SettingsPage: FunctionComponent = () => {
@@ -33,6 +34,8 @@ export const SettingsPage: FunctionComponent = () => {
     handleSave,
     handleResetProject,
   } = state;
+
+  useUnsavedChangesGuard(activeDirty);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
