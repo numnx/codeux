@@ -172,6 +172,14 @@ Legacy runtime:
   - Git branch, PR, CI, merge history, warnings
 - `POST /api/tasks/:taskId/rerun`
   - Resets a selected-project runtime task and creates a fresh DB-backed task dispatch/task run for that task
+- `POST /api/projects/:projectId/sprints/:sprintId/orchestrate`
+  - Starts sprint orchestration for the selected sprint
+- `POST /api/sprint-runs/:sprintRunId/pause`
+  - Pauses an active sprint run
+- `POST /api/sprint-runs/:sprintRunId/resume`
+  - Resumes a paused sprint run
+- `POST /api/sprint-runs/:sprintRunId/cancel`
+  - Stops an active sprint run
 
 ## UI Sections
 
@@ -255,9 +263,12 @@ Legacy runtime:
 - The in-page sprint composer collapses into a stacked single-column layout on smaller screens, and both create and edit now use that same inline flow. The Quicksprint panel and the Sprint Composer are mutually exclusive; opening one automatically dismisses the other to maintain focus.
 - The Quicksprint panel now separates `Default Templates` from custom templates and includes a purpose selector for built-in template sets. The first shipped built-in purpose is `Fullstack JS App`, which groups six project-agnostic engineering and UI quicksprint templates. See [Quicksprint Templates](./quicksprint-templates.md).
 - The refreshed sprint ledger below the showcase renders as a responsive card/table hybrid: mobile rows collapse into touch-friendly sprint cards, desktop keeps sortable table scanning, and the header includes live visible/pinned/active/completed counters.
+- Sprint ledger rows now include dedicated mobile field labels (`Sprint ID`, `Sprint`, `Status`, `Tasks`, `Completion`, `Created`, `Controls`) so narrow viewports keep critical values readable without clipping.
 - Ledger controls include real-time search, dropdown filters for status, showcase, and QA state, page-size selection, a filtered/total counter, and a clear action that resets the full filter set.
 - Ledger search integrates with selection: the header select-all checkbox operates on the currently filtered set only, and the selection is automatically pruned when the filter changes so stale hidden selections cannot accumulate
 - When one or more ledger rows are selected, a bulk action bar appears with `Start` and `Delete` controls that operate on all selected sprints, plus a `Clear` button to deselect
+- Sprint ledger row controls now expose pause/resume in addition to existing start/stop semantics, and each runtime action shows pending/disabled state while the control request is in flight.
+- Sending a chat message now inserts an optimistic invocation row immediately in the invocations rail and reconciles it when the server returns the persisted invocation record.
 - Sortable column headers cycle through unsorted, ascending, and descending for showcasePinned, sprintKey, name, status, tasksCount, completion, and createdAt (default: newest-first)
 - Ledger rows expose: pinned/showcase state, sprint key, review and human-intervention badges, task count, gradient progress, created/updated metadata, a primary start/stop button, an `Open Subtasks` deep link (`/tasks?sprint=<id>`) that navigates to the Tasks page pre-filtered to that sprint, and a compact settings menu for edit/export/showcase/overrides/delete
 - The sprint page no longer runs a full-page entrance fade on mount, which keeps initial navigation more immediate and avoids perceived flashing

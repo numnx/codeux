@@ -35,7 +35,7 @@ import { buildTaskBundle, mergePromptWithLinkedIssues, parseTaskBundle } from ".
 import { toTaskViewModel } from "../../lib/view-models.js";
 import { derivePlanningETA } from "../../lib/planning-telemetry.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
-import { cancelSprintRun, orchestrateSprint } from "../../../lib/api/dashboard-api.js";
+import { cancelSprintRun, orchestrateSprint, pauseSprintRun, resumeSprintRun } from "../../../lib/api/dashboard-api.js";
 import { getSprintHumanInterventionBySprintId } from "../../../lib/execution-intervention.js";
 import { filterShowcaseSprints, sortSprintsByRecency } from "../../lib/sprint-gallery.js";
 import { toPlanningOverrides, type SprintSubmitMode, type PlanningRouteOption } from "../../lib/sprint-composer-state.js";
@@ -245,6 +245,19 @@ export function useSprintsPageData() {
     return map;
   }, [actualActiveRunsBySprintId, suppressedRunningSprintIds]);
 
+  const pauseResumeRunsBySprintId = useMemo(() => {
+    const map = new Map<string, { id: string; status: string }>();
+    for (const run of execution.sprintRuns) {
+      if (run.status !== "running" && run.status !== "queued" && run.status !== "paused") {
+        continue;
+      }
+      if (!map.has(run.sprintId)) {
+        map.set(run.sprintId, { id: run.id, status: run.status });
+      }
+    }
+    return map;
+  }, [execution.sprintRuns]);
+
   const interventionBySprintId = useMemo(
     () => getSprintHumanInterventionBySprintId(execution),
     [execution],
@@ -441,6 +454,32 @@ export function useSprintsPageData() {
       await orchestrateSprint(selectedProject.id, sprintId);
     }, { waitForActiveRun: true });
   }, [activeRunsBySprintId, pendingActionIds, runSprintAction, selectedProject]);
+
+  const handleSprintPauseResume = useCallback((sprintId: string) => {
+    const run = pauseResumeRunsBySprintId.get(sprintId);
+    if (!run) {
+      return;
+    }
+
+    if (run.status === "paused") {
+      const actionId = `sprint-resume:${run.id}`;
+      if (pendingActionIds.has(actionId)) {
+        return;
+      }
+      void runSprintAction(actionId, sprintId, async () => {
+        await resumeSprintRun(run.id);
+      }, { waitForActiveRun: true });
+      return;
+    }
+
+    const actionId = `sprint-pause:${run.id}`;
+    if (pendingActionIds.has(actionId)) {
+      return;
+    }
+    void runSprintAction(actionId, sprintId, async () => {
+      await pauseSprintRun(run.id);
+    }, { optimisticStatus: "paused" });
+  }, [pauseResumeRunsBySprintId, pendingActionIds, runSprintAction]);
 
   const handleSubmitSprint = useCallback(async (payload: {
     name: string;
@@ -736,6 +775,7 @@ export function useSprintsPageData() {
     inWorkCount,
     pendingActionIds,
     activeRunsBySprintId,
+    pauseResumeRunsBySprintId,
     interventionBySprintId,
     rowMenu, setRowMenu,
     showCreateComposer, setShowCreateComposer,
@@ -764,6 +804,7 @@ export function useSprintsPageData() {
     refreshSprints: refresh,
     refreshExecution,
     handleSprintToggle,
+    handleSprintPauseResume,
     handleMarkCompleted,
     handleSubmitSprint,
     handleImprovePrompt,

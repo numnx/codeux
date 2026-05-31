@@ -83,8 +83,9 @@ export const useChatThreadData = (options: {
   execution: ExecutionDashboardSnapshot | null;
   composerRef?: RefObject<HTMLTextAreaElement>;
   messagesRef?: RefObject<HTMLDivElement>;
+  onMessageSent?: (message: ChatMessageRecord) => void;
 }) => {
-  const { selectedProject, cache, execution, composerRef, messagesRef } = options;
+  const { selectedProject, cache, execution, composerRef, messagesRef, onMessageSent } = options;
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -308,6 +309,7 @@ export const useChatThreadData = (options: {
         threadId: thread.id,
         bodyMarkdown,
       });
+      onMessageSent?.(created);
       setInput("");
       if (composerRef?.current) {
         composerRef.current.style.height = "auto";
@@ -326,7 +328,7 @@ export const useChatThreadData = (options: {
     } finally {
       setSending(false);
     }
-  }, [cache, composerRef, createThreadForCompose, execution, input, selectedProject, selectedThread, setMessagesSnapshot]);
+  }, [cache, composerRef, createThreadForCompose, execution, input, onMessageSent, selectedProject, selectedThread, setMessagesSnapshot]);
 
   const handleDeleteThread = useCallback(async (threadId: string): Promise<void> => {
     const nextThreads = removeThread(cache.getThreads(selectedProject?.id || "") || threadsRef.current, threadId);

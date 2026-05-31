@@ -24,20 +24,29 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
   const [chatMode, setChatMode] = useState<"threads" | "invocations">("threads");
   const routedInvocationIdRef = useRef<string | null>(null);
 
-  const threadData = useChatThreadData({
-    selectedProject,
-    cache,
-    execution,
-    composerRef: options?.composerRef,
-    messagesRef: options?.messagesRef,
-  });
-
   const [deferredAgentPresets, setDeferredAgentPresets] = useState<AgentPresetRecord[]>([]);
 
   const invocationData = useInvocationPaneData({
     selectedProject,
     cache,
     agentPresets: deferredAgentPresets,
+  });
+
+  const threadData = useChatThreadData({
+    selectedProject,
+    cache,
+    execution,
+    composerRef: options?.composerRef,
+    messagesRef: options?.messagesRef,
+    onMessageSent: (message) => {
+      if (!selectedProject) {
+        return;
+      }
+      invocationData.addOptimisticInvocation({
+        projectId: selectedProject.id,
+        createdAt: message.createdAt,
+      });
+    },
   });
 
   const { connections, agentPresets, loading, manualRefreshing, refreshThreads } = useChatPageResources({
