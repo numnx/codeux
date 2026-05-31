@@ -1,5 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 import { AlertCircle, Check, RefreshCw, Terminal, X } from "lucide-preact";
 import { useInteractiveLoginSession } from "../../hooks/useInteractiveLoginSession.js";
 
@@ -555,10 +556,10 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
         </div>
       </div>
 
-      {contextMenu && (
+      {contextMenu && typeof document !== "undefined" && createPortal(
         <div 
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-[100] min-w-[160px] overflow-hidden rounded-xl border border-white/[0.08] bg-void-900 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
+          className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-xl border border-white/[0.08] bg-void-900 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -577,7 +578,8 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
           >
             📋 Paste Clipboard Text
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
