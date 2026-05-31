@@ -25,6 +25,7 @@ import { HumanInterventionBadge } from "../ui/HumanInterventionBadge.js";
 import { SprintReviewBadge } from "./SprintReviewBadge.js";
 import { SprintActionMenu } from "./SprintActionMenu.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
+import { getSprintStatusPresentation } from "../../lib/sprint-status-presentation.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
 
@@ -126,6 +127,14 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
   const StatusIcon = state.icon;
   const isCompleted = sprint.status === "completed";
   const isRunning = sprint.status === "running";
+  const statusPresentation = getSprintStatusPresentation({
+    state: sprint.status,
+    humanInterventionTitle: humanIntervention?.title ?? null,
+    humanInterventionReason: humanIntervention?.reason ?? null,
+    humanInterventionInstructions: humanIntervention?.instructions ?? null,
+    humanInterventionOwnerType: humanIntervention?.ownerType ?? null,
+  });
+  const showInterventionBadge = Boolean(humanIntervention) && statusPresentation.showHumanInterventionBadge;
   const animationClass = isCompleted ? "" : isEven ? "animate-organic" : "animate-organic-reverse";
   const interventionPulseStyle = reducedMotion
     ? undefined
@@ -239,12 +248,12 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
           {formatCardDate(sprint.createdAt)}
         </div>
 
-        {(humanIntervention || sprint.latestReview) && (
+{(showInterventionBadge || sprint.latestReview) && (
           <div className="absolute right-4 top-4 z-[60] flex items-center gap-2 lg:right-5 lg:top-5">
             {sprint.latestReview && (
               <SprintReviewBadge summary={sprint.latestReview} compact align="right" />
             )}
-            {humanIntervention && (
+            {showInterventionBadge && humanIntervention && (
               <div className={reducedMotion ? "" : "animate-pulse"} style={interventionPulseStyle}>
                 <HumanInterventionBadge summary={humanIntervention} label="Needs you" compact align="right" />
               </div>
