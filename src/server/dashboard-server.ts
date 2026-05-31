@@ -101,6 +101,7 @@ import { applyDashboardPreRouteMiddleware, applyDashboardPostRouteMiddleware } f
 
 
 import { bootDashboardRealtimeWebSocketServer } from "./dashboard-realtime-websocket-server.js";
+import { bootDashboardTerminalWebSocketServer } from "./terminal-routes.js";
 import type { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
 import { asyncRoute, parseTrimmedString, requireTrimmedString, syncRoute, toErrorResponse } from "./route-utils.js";
 import { parsePreviewSessionIdFromHost, pipePreviewUpgradeRequest } from "./preview-host-utils.js";
@@ -400,6 +401,12 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
       shouldHandleRequest: (req) => parsePreviewSessionIdFromHost(req.headers.host) === null,
     });
   }
+
+  bootDashboardTerminalWebSocketServer({
+    server: handle.server,
+    pathName: "/api/terminal/ws",
+    logger: dashboardLogger.child({ component: "dashboard-terminal-websocket" }),
+  });
 
   dashboardLogger.info("Dashboard server started", {
     port: handle.port,

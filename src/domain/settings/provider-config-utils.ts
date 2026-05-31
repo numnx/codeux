@@ -57,6 +57,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("jules", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.jules,
+    authType: "apiKey",
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.gemini]: {
     provider: "gemini",
@@ -64,6 +65,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("gemini", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.gemini,
+    authType: "apiKey",
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.codex]: {
     provider: "codex",
@@ -71,6 +73,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("codex", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.codex,
+    authType: "apiKey",
   },
   [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: {
     provider: "claude-code",
@@ -78,6 +81,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("claude-code", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS["claude-code"],
+    authType: "apiKey",
   },
   [DEFAULT_PROVIDER_CONFIG_IDS["qwen-code"]]: {
     provider: "qwen-code",
@@ -85,6 +89,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("qwen-code", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS["qwen-code"],
+    authType: "apiKey",
     qwenAuthMode: "LOCAL_AUTH",
     qwenRegion: "international",
     qwenBaseUrl: "http://127.0.0.1:11434/v1",
@@ -99,6 +104,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("opencode", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.opencode,
+    authType: "apiKey",
     openCodeAuthMode: "LOCAL_AUTH",
     openCodeProviderId: "ollama",
     openCodeModelId: "glm-4.7-flash",
@@ -112,6 +118,7 @@ export const buildDefaultIntegrationProviders = (
     apiKey: getHintApiKeyForProvider("antigravity", externalHints),
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.antigravity,
+    authType: "apiKey",
   },
 });
 
@@ -181,12 +188,29 @@ export const normalizeSystemIntegrationProviders = (
     if (!providerId) {
       continue;
     }
+
+    const rawAuthType = rawValue.authType;
+    let authType: "apiKey" | "localAuth" | "dashboardAuth" = "apiKey";
+    if (rawAuthType === "apiKey" || rawAuthType === "localAuth" || rawAuthType === "dashboardAuth") {
+      authType = rawAuthType;
+    } else if (rawValue.mountAuth === true) {
+      const pathStr = String(rawValue.authPath || "");
+      if (pathStr.includes(".code-ux") && pathStr.includes("credentials")) {
+        authType = "dashboardAuth";
+      } else {
+        authType = "localAuth";
+      }
+    }
+
     result[providerConfigId] = {
       provider: providerId,
       name: normalizeProviderName(providerId, rawValue.name),
       apiKey: typeof rawValue.apiKey === "string" ? rawValue.apiKey : "",
-      mountAuth: providerId === "jules" ? false : typeof rawValue.mountAuth === "boolean" ? rawValue.mountAuth : false,
-      authPath: normalizeProviderAuthPath(providerId, rawValue.authPath),
+      mountAuth: providerId === "jules" ? false : (authType === "apiKey" ? false : true),
+      authPath: authType === "dashboardAuth"
+        ? `~/.code-ux/credentials/${providerId}`
+        : normalizeProviderAuthPath(providerId, rawValue.authPath),
+      authType,
       ...(typeof rawValue.customBaseUrl === "string" && rawValue.customBaseUrl.trim().length > 0
         ? { customBaseUrl: rawValue.customBaseUrl.trim() }
         : {}),
@@ -249,6 +273,7 @@ export const normalizeSystemIntegrationProviders = (
       apiKey: legacyApiKey,
       mountAuth: result[defaultId]?.mountAuth ?? false,
       authPath: result[defaultId]?.authPath || DEFAULT_PROVIDER_AUTH_PATHS[providerId],
+      authType: result[defaultId]?.authType || (result[defaultId]?.mountAuth ? "localAuth" : "apiKey"),
     };
   }
 

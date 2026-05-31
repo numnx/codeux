@@ -945,6 +945,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                           return (
                             <ProviderInstanceCard
                               key={providerConfigId}
+                              providerConfigId={providerConfigId}
                               provider={integrationProvider}
                               providerModel={providerModel}
                               dockerExecutionEnabled={dockerExecutionEnabled}

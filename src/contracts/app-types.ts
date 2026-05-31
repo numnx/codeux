@@ -1021,13 +1021,13 @@ export interface ExternalSettingsHints {
     jiraToken?: string;
   };
   providerAvailability: {
-    jules: { hasApiKey: boolean; hasLocalAuth: boolean };
-    gemini: { hasApiKey: boolean; hasLocalAuth: boolean };
-    codex: { hasApiKey: boolean; hasLocalAuth: boolean };
-    claudeCode: { hasApiKey: boolean; hasLocalAuth: boolean };
-    qwenCode: { hasApiKey: boolean; hasLocalAuth: boolean };
-    openCode: { hasApiKey: boolean; hasLocalAuth: boolean };
-    antigravity: { hasApiKey: boolean; hasLocalAuth: boolean };
+    jules: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    gemini: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    codex: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    claudeCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    qwenCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    openCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
+    antigravity: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };
   };
 }
 
