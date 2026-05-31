@@ -10,6 +10,8 @@ import { ChatRail } from "./components/chat/ChatRail.js";
 import { ThreadListCard } from "./components/chat/ThreadListCard.js";
 import { InvocationListCard } from "./components/chat/InvocationListCard.js";
 import { ChatRailPlaceholder, EmptyChat, LoadingChat } from "./components/chat/ChatEmptyState.js";
+import { EmptyState } from "./components/ui/EmptyState.js";
+import { MessageCircle } from "lucide-preact";
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
