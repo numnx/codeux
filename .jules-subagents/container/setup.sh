@@ -14,14 +14,23 @@ echo "[setup] npm: $(npm --version)"
 npm install -g npm@latest
 echo "[setup] npm (updated): $(npm --version)"
 
-# Ensure git + gh CLI exist for workflows that shell out to Git/GitHub.
-if ! command -v git >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
+# Ensure git + gh + keyring CLI exist for workflows that shell out to Git/GitHub.
+if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
+  pkgs_needed=()
+  command -v git >/dev/null 2>&1 || pkgs_needed+=(git)
+  command -v gh  >/dev/null 2>&1 || pkgs_needed+=(gh)
+  command -v dbus-daemon >/dev/null 2>&1 || pkgs_needed+=(dbus)
+  command -v gnome-keyring-daemon >/dev/null 2>&1 || pkgs_needed+=(gnome-keyring)
+  dpkg -s libsecret-1-0 >/dev/null 2>&1 || pkgs_needed+=(libsecret-1-0)
+  command -v xdg-open >/dev/null 2>&1 || pkgs_needed+=(xdg-utils)
+  if [ "${#pkgs_needed[@]}" -gt 0 ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y --no-install-recommends git gh
+    apt-get install -y --no-install-recommends "${pkgs_needed[@]}"
     rm -rf /var/lib/apt/lists/*
-  else
+  fi
+else
+  if ! command -v git >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
     echo "[setup] NOTE: git/gh missing but cannot install automatically (no root/apt-get)."
   fi
 fi
@@ -49,6 +58,18 @@ echo "[setup] pnpm: $(pnpm --version)"
 npm install -g @google/gemini-cli @openai/codex
 echo "[setup] gemini: $(gemini --version 2>/dev/null || true)"
 echo "[setup] codex: $(codex --version 2>/dev/null || true)"
+
+# Antigravity CLI
+if ! command -v agy >/dev/null 2>&1; then
+  if command -v curl >/dev/null 2>&1; then
+    echo "[setup] Installing Antigravity CLI..."
+    curl -fsSL https://antigravity.google/cli/install.sh | bash || echo "[setup] WARNING: failed to install Antigravity CLI"
+    export PATH="$HOME/.local/bin:$PATH"
+  else
+    echo "[setup] NOTE: curl not found; skipping Antigravity CLI install."
+  fi
+fi
+echo "[setup] antigravity: $(agy --version 2>/dev/null || true)"
 
 # Cache browsers at a stable path for image layer reuse.
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}"

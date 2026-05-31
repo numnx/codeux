@@ -24,6 +24,10 @@ if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" -eq 0 ]; then
   pkgs_needed=()
   command -v git >/dev/null 2>&1 || pkgs_needed+=(git)
   command -v gh  >/dev/null 2>&1 || pkgs_needed+=(gh)
+  command -v dbus-daemon >/dev/null 2>&1 || pkgs_needed+=(dbus)
+  command -v gnome-keyring-daemon >/dev/null 2>&1 || pkgs_needed+=(gnome-keyring)
+  dpkg -s libsecret-1-0 >/dev/null 2>&1 || pkgs_needed+=(libsecret-1-0)
+  command -v xdg-open >/dev/null 2>&1 || pkgs_needed+=(xdg-utils)
   if [ "${#pkgs_needed[@]}" -gt 0 ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
@@ -97,11 +101,23 @@ if ! command -v opencode >/dev/null 2>&1; then
   fi
 fi
 
-echo "[setup] gemini:   $(gemini --version 2>/dev/null || echo missing; true)"
-echo "[setup] codex:    $(codex --version 2>/dev/null || echo missing; true)"
-echo "[setup] claude:   $(claude --version 2>/dev/null || echo missing; true)"
-echo "[setup] qwen:     $(qwen --version 2>/dev/null || echo missing; true)"
-echo "[setup] opencode: $(opencode --version 2>/dev/null || echo missing; true)"
+# Antigravity CLI
+if ! command -v agy >/dev/null 2>&1; then
+  if command -v curl >/dev/null 2>&1; then
+    echo "[setup] Installing Antigravity CLI..."
+    curl -fsSL https://antigravity.google/cli/install.sh | bash || echo "[setup] WARNING: failed to install Antigravity CLI"
+    export PATH="$HOME/.local/bin:$PATH"
+  else
+    echo "[setup] NOTE: curl not found; skipping Antigravity CLI install."
+  fi
+fi
+
+echo "[setup] gemini:      $(gemini --version 2>/dev/null || echo missing; true)"
+echo "[setup] codex:       $(codex --version 2>/dev/null || echo missing; true)"
+echo "[setup] claude:      $(claude --version 2>/dev/null || echo missing; true)"
+echo "[setup] qwen:        $(qwen --version 2>/dev/null || echo missing; true)"
+echo "[setup] opencode:    $(opencode --version 2>/dev/null || echo missing; true)"
+echo "[setup] antigravity: $(agy --version 2>/dev/null || echo missing; true)"
 
 # Playwright is optional for general Docker task execution. Installing Chromium
 # during every fresh bootstrap adds hundreds of MB of downloads and makes WSL
