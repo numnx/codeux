@@ -20,6 +20,7 @@ interface TerminalSession {
   createdAt: number;
   lastHeartbeatAt: number;
   finalized: boolean;
+  lastDisconnectAt?: number;
 }
 
 const activeTerminalSessions = new Map<string, TerminalSession>();
@@ -27,6 +28,7 @@ const LOGIN_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
 const LOGIN_SESSION_HEARTBEAT_TTL_MS = 20 * 1000;
 const LOGIN_SESSION_SWEEP_INTERVAL_MS = 5 * 1000;
 const LOGIN_SESSION_DISCONNECT_GRACE_MS = 1000;
+const DISCONNECT_GRACE_PERIOD_MS = 30 * 1000;
 let loginSessionSweepStarted = false;
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -228,10 +230,18 @@ function maybeStartLoginSessionSweeper(): void {
         continue;
       }
       const sessionAgeMs = now - session.createdAt;
-      const heartbeatAgeMs = now - session.lastHeartbeatAt;
       const shouldExpireByAge = sessionAgeMs > LOGIN_SESSION_MAX_AGE_MS;
       const hasNoClients = session.clients.size === 0;
-      const shouldExpireByHeartbeat = hasNoClients && heartbeatAgeMs > LOGIN_SESSION_HEARTBEAT_TTL_MS;
+      let shouldExpireByHeartbeat = false;
+
+      if (hasNoClients) {
+        if (session.lastDisconnectAt) {
+          shouldExpireByHeartbeat = (now - session.lastDisconnectAt) > DISCONNECT_GRACE_PERIOD_MS;
+        } else {
+          session.lastDisconnectAt = now;
+        }
+      }
+
       if (shouldExpireByAge || shouldExpireByHeartbeat) {
         terminateSession(id, shouldExpireByAge ? "max-age" : "stale-heartbeat");
       }
@@ -310,6 +320,8 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
       let proxyCmd = "";
       if (providerId === "codex") {
         proxyCmd = "node -e \"const net = require('net'), os = require('os'); let ip = '0.0.0.0'; const ifs = os.networkInterfaces(); for (const n of Object.keys(ifs)) { for (const netIf of ifs[n]) { if (netIf.family === 'IPv4' && !netIf.internal) { ip = netIf.address; break; } } } const s = net.createServer((c) => { const p = net.connect(1455, '127.0.0.1', () => { c.pipe(p).pipe(c); }); p.on('error', () => c.destroy()); c.on('error', () => p.destroy()); }); s.on('error', () => {}); s.listen(1455, ip);\" &";
+      } else if (providerId === "claude-code") {
+        proxyCmd = "node -e \"const net = require('net'), os = require('os'); let ip = '0.0.0.0'; const ifs = os.networkInterfaces(); for (const n of Object.keys(ifs)) { for (const netIf of ifs[n]) { if (netIf.family === 'IPv4' && !netIf.internal) { ip = netIf.address; break; } } } const s = net.createServer((c) => { const p = net.connect(36573, '127.0.0.1', () => { c.pipe(p).pipe(c); }); p.on('error', () => c.destroy()); c.on('error', () => p.destroy()); }); s.on('error', () => {}); s.listen(36573, ip);\" &";
       }
 
       const containerCmd = [
@@ -325,18 +337,56 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         "mkdir -p /tmp/.npm-global",
         "export NPM_CONFIG_PREFIX=/tmp/.npm-global",
         "export PATH=/tmp/.npm-global/bin:$PATH",
+        "export BROWSER=xdg-open",
+        "mkdir -p /tmp/.npm-global/bin",
+        "cat << 'EOF' > /tmp/.npm-global/bin/xdg-open",
+        "#!/bin/sh",
+        "printf \"[DEBUG] xdg-open called with args: %s\\n\" \"$*\"",
+        "URL=\"\"",
+        "for arg in \"$@\"; do",
+        "  case \"$arg\" in",
+        "    http://*|https://*)",
+        "      URL=\"$arg\"",
+        "      break",
+        "      ;;",
+        "  esac",
+        "done",
+        "if [ -n \"$URL\" ]; then",
+        "  printf \"\\n\"",
+        "  printf \"\\033[32m============================================================\\033[0m\\n\"",
+        "  printf \"\\033[32m   🔗 CONTAINER BROWSER REDIRECT\\033[0m\\n\"",
+        "  printf \"\\033[32m============================================================\\033[0m\\n\"",
+        "  printf \"\\033[32m  Claude Code requested to open a browser window for login.\\033[0m\\n\"",
+        "  printf \"\\033[32m  Please open the following URL on your local machine:\\033[0m\\n\"",
+        "  printf \"\\n\"",
+        "  printf \"  \\033[36m%s\\033[0m\\n\" \"$URL\"",
+        "  printf \"\\n\"",
+        "  printf \"  [CONTAINER_OPEN_URL]: %s\\n\" \"$URL\"",
+        "  printf \"\\033[32m============================================================\\033[0m\\n\"",
+        "  printf \"\\n\"",
+        "  printf \"%s\" \"$URL\" > /tmp/.credentials/login_url.txt",
+        "fi",
+        "exit 0",
+        "EOF",
+        "chmod +x /tmp/.npm-global/bin/xdg-open",
+        "ln -sf /tmp/.npm-global/bin/xdg-open /tmp/.npm-global/bin/sensible-browser",
+        "ln -sf /tmp/.npm-global/bin/xdg-open /tmp/.npm-global/bin/x-www-browser",
+        "ln -sf /tmp/.npm-global/bin/xdg-open /tmp/.npm-global/bin/open",
         `if ! command -v ${binaryName} >/dev/null 2>&1; then`,
         `  echo 'Installing provider CLI fallback in container...'`,
         `  ${installCmd || "echo 'No installation command configured'"};`,
         "fi",
         proxyCmd,
-        `script -q -c "stty cols 80 rows 24 && ${loginCmd}" /dev/null`,
+        `script -q -c "export NPM_CONFIG_PREFIX=/tmp/.npm-global && export PATH=/tmp/.npm-global/bin:/tmp/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && export BROWSER=xdg-open && stty cols 80 rows 24 && ${loginCmd}" /dev/null`,
       ].filter(Boolean).join("\n");
 
       const userSpec = getDockerUserSpec();
-      const networkArgs = providerId === "codex"
-        ? ["-p", "1455:1455"]
-        : ["--network", "host"];
+      let networkArgs = ["--network", "host"];
+      if (providerId === "codex") {
+        networkArgs = ["-p", "1455:1455"];
+      } else if (providerId === "claude-code") {
+        networkArgs = ["-p", "36573:36573"];
+      }
 
       const dockerArgs = [
         "run",
@@ -382,6 +432,30 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
       };
 
       activeTerminalSessions.set(sessionId, session);
+
+      // Watch for the login URL file written by our custom xdg-open wrapper
+      const urlFilePath = path.join(tempCredsDir, "login_url.txt");
+      const watchInterval = setInterval(async () => {
+        if (session.finalized) {
+          clearInterval(watchInterval);
+          return;
+        }
+        try {
+          const content = await fs.readFile(urlFilePath, "utf8");
+          const url = content.trim();
+          if (url && url.startsWith("http")) {
+            for (const client of session.clients) {
+              sendJson(client, { type: "login_url", url });
+            }
+            await fs.rm(urlFilePath, { force: true }).catch(() => {});
+          }
+        } catch {
+          // File doesn't exist yet, ignore
+        }
+      }, 500);
+      if (typeof watchInterval.unref === "function") {
+        watchInterval.unref();
+      }
 
       let loginSucceeded = false;
 
@@ -550,6 +624,7 @@ export function bootDashboardTerminalWebSocketServer(args: {
     );
 
     session.clients.add(socket);
+    session.lastDisconnectAt = undefined;
 
     // Stream existing buffer history to client immediately on connection
     if (session.outputBuffer) {
@@ -584,19 +659,20 @@ export function bootDashboardTerminalWebSocketServer(args: {
 
     const handleDisconnect = (): void => {
       session.clients.delete(socket);
+      if (session.clients.size === 0 && !session.lastDisconnectAt) {
+        session.lastDisconnectAt = Date.now();
+      }
+
       const finalizeIfStale = (): void => {
         if (session.clients.size > 0 || !activeTerminalSessions.has(sessionId)) {
           return;
         }
-        const heartbeatAgeMs = Date.now() - session.lastHeartbeatAt;
-        if (heartbeatAgeMs > LOGIN_SESSION_HEARTBEAT_TTL_MS) {
+        const ageMs = session.lastDisconnectAt ? (Date.now() - session.lastDisconnectAt) : 0;
+        if (ageMs > DISCONNECT_GRACE_PERIOD_MS) {
           terminateSession(sessionId, "disconnect-stale-heartbeat");
-          return;
         }
-        const nextDelayMs = Math.max(250, LOGIN_SESSION_HEARTBEAT_TTL_MS - heartbeatAgeMs + 250);
-        setTimeout(finalizeIfStale, nextDelayMs);
       };
-      setTimeout(finalizeIfStale, LOGIN_SESSION_DISCONNECT_GRACE_MS);
+      setTimeout(finalizeIfStale, DISCONNECT_GRACE_PERIOD_MS + 250);
     };
 
     socket.on("close", handleDisconnect);

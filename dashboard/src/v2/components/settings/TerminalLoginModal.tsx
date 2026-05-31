@@ -55,10 +55,12 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
   const [terminalOutput, setTerminalOutput] = useState<string>("");
   const [exitCode, setExitCode] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [detectedLoginUrl, setDetectedLoginUrl] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
+  const hasOpenedUrlRef = useRef<string | null>(null);
 
   // Close context menu on any global click
   useEffect(() => {
@@ -262,7 +264,28 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
       return safeLine;
     });
     
-    setTerminalOutput(renderedLines.join("\n"));
+    const outputText = renderedLines.join("\n");
+    setTerminalOutput(outputText);
+
+    // Scan for container browser redirect URL
+    const match = outputText.match(/\[CONTAINER_OPEN_URL\]:\s*(https?:\/\/[^\s\]]+)/);
+    if (match && match[1]) {
+      let url = match[1].trim();
+      // Remove any ANSI escape/color sequences
+      url = url.replace(/\x1b\[[0-9;]*m/g, "");
+      url = url.replace(/[)\s\x1b]+$/, ""); // strip trailing spaces, parens, or ESC chars
+      
+      setDetectedLoginUrl(url);
+      
+      if (hasOpenedUrlRef.current !== url) {
+        hasOpenedUrlRef.current = url;
+        try {
+          window.open(url, "_blank");
+        } catch (e) {
+          // Ignore popup blocker errors
+        }
+      }
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -324,6 +347,17 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
     onSessionMessage: (msg) => {
       if (msg.type === "output" && typeof msg.data === "string") {
         processChunk(msg.data);
+      } else if (msg.type === "login_url" && typeof msg.url === "string") {
+        const url = msg.url.trim();
+        setDetectedLoginUrl(url);
+        if (hasOpenedUrlRef.current !== url) {
+          hasOpenedUrlRef.current = url;
+          try {
+            window.open(url, "_blank");
+          } catch (e) {
+            // Ignore popup blocker errors
+          }
+        }
       } else if (msg.type === "exit" && typeof msg.code === "number") {
         setStatus("exited");
         setExitCode(msg.code);
@@ -467,6 +501,32 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
             )}
             <div ref={terminalEndRef} />
           </div>
+
+          {detectedLoginUrl && status === "active" && (
+            <div className="mt-4 shrink-0 rounded-2xl border border-signal-500/30 bg-signal-500/5 p-4 backdrop-blur-sm transition-all duration-300">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-signal-500/10 text-signal-400">
+                    <Terminal className="h-5 w-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Browser Authentication Requested</h4>
+                    <p className="mt-1 text-[11px] text-slate-400 leading-normal">
+                      Claude Code is waiting for authentication. Please log in using the button below.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={detectedLoginUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-signal-500 px-4 py-2.5 text-xs font-bold text-void-950 hover:bg-signal-400 transition-all duration-200 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_4px_30px_rgba(0,224,160,0.4)] cursor-pointer"
+                >
+                  Authorize Claude Code
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Sleek status hint */}
           {status === "active" && (
