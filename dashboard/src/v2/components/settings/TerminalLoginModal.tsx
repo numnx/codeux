@@ -36,13 +36,24 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
   const processChunk = (chunk: string) => {
     const grid = [...gridRef.current.map(row => [...row])];
     const cursor = { ...cursorRef.current };
+
+    const scrollUp = () => {
+      for (let r = 0; r < numRows - 1; r++) {
+        grid[r] = [...grid[r + 1]];
+      }
+      grid[numRows - 1] = Array(numCols).fill(" ");
+    };
     
     let i = 0;
     while (i < chunk.length) {
       const char = chunk[i];
       
       if (char === "\n") {
-        cursor.y = Math.min(numRows - 1, cursor.y + 1);
+        if (cursor.y === numRows - 1) {
+          scrollUp();
+        } else {
+          cursor.y++;
+        }
         cursor.x = 0;
         i++;
       } else if (char === "\r") {
@@ -51,6 +62,15 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
       } else if (char === "\x08" || char === "\x7f") {
         cursor.x = Math.max(0, cursor.x - 1);
         grid[cursor.y][cursor.x] = " ";
+        i++;
+      } else if (char === "\t") {
+        const tabSpaces = 8 - (cursor.x % 8);
+        for (let s = 0; s < tabSpaces; s++) {
+          if (cursor.x < numCols) {
+            grid[cursor.y][cursor.x] = " ";
+            cursor.x++;
+          }
+        }
         i++;
       } else if (char === "\x1b") {
         if (chunk[i + 1] === "[") {
@@ -109,13 +129,17 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
         }
       } else {
         const code = char.charCodeAt(0);
-        if (code >= 32 || char === "\t") {
+        if (code >= 32) {
           if (cursor.x < numCols && cursor.y < numRows) {
             grid[cursor.y][cursor.x] = char;
             cursor.x++;
             if (cursor.x >= numCols) {
               cursor.x = 0;
-              cursor.y = Math.min(numRows - 1, cursor.y + 1);
+              if (cursor.y === numRows - 1) {
+                scrollUp();
+              } else {
+                cursor.y++;
+              }
             }
           }
         }
