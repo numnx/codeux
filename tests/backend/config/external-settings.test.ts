@@ -110,12 +110,12 @@ describe("external-settings", () => {
 
     const hints = loadExternalSettingsHints(MOCK_PROJECT_ROOT);
 
-    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
+    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
   });
 
   it("should correctly report hasApiKey when keys are available", () => {
@@ -127,12 +127,12 @@ describe("external-settings", () => {
 
     const hints = loadExternalSettingsHints(MOCK_PROJECT_ROOT);
 
-    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: true, hasLocalAuth: false });
-    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
-    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
-    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: true, hasLocalAuth: false });
+    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: true, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: true, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: true, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: true, hasLocalAuth: false, hasDashboardAuth: false });
   });
 
   it("should correctly report hasLocalAuth when auth files exist", () => {
@@ -152,11 +152,11 @@ describe("external-settings", () => {
 
     const hints = loadExternalSettingsHints(MOCK_PROJECT_ROOT);
 
-    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: true });
-    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false });
-    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: true });
-    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: true });
+    expect(hints.providerAvailability.jules).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.gemini).toEqual({ hasApiKey: false, hasLocalAuth: true, hasDashboardAuth: false });
+    expect(hints.providerAvailability.codex).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.claudeCode).toEqual({ hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false });
+    expect(hints.providerAvailability.qwenCode).toEqual({ hasApiKey: false, hasLocalAuth: true, hasDashboardAuth: false });
+    expect(hints.providerAvailability.openCode).toEqual({ hasApiKey: false, hasLocalAuth: true, hasDashboardAuth: false });
   });
 });

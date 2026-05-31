@@ -116,10 +116,10 @@ Runtime resolution:
 
 System-level integrations are injected into effective dashboard settings at resolution time:
 - provider credentials are system-scoped under `integrations.providers`
-  - each entry is a named provider instance with `{ provider, name, apiKey, mountAuth, authPath }`
+  - each entry is a named provider instance with `{ provider, name, apiKey, mountAuth, authPath, authType }`
   - default instance ids intentionally match the base provider ids (`jules`, `gemini`, `codex`, `claude-code`) for compatibility with older settings payloads
   - additional instances can coexist under the same CLI type
-  - for CLI providers, `mountAuth` and `authPath` are instance-specific Docker auth-copy settings, so multiple Codex/Gemini/Claude entries can each point at different local credential directories
+  - for CLI providers, `mountAuth`, `authPath`, and `authType` are instance-specific Docker auth-copy/login settings. The `authType` property can be set to `"apiKey"` (uses API key text override), `"localAuth"` (mounts a custom local directory like `~/.gemini`), or `"dashboardAuth"` (launches an interactive terminal inside the container and saves tokens directly to a dedicated `~/.code-ux/credentials/<provider-name>` folder on the host).
 - `git.githubToken` and `git.gitlabToken` are system-scoped
 - runtime fields like `dashboardPort` and `enableDebugLogFile` are system-scoped
 - project and sprint scopes still own `cliWorkflow.containerMountGithubAuth`, `cliWorkflow.containerGithubAuthPath`, `cliWorkflow.containerMountGitConfig`, `cliWorkflow.containerGitUserName`, and `cliWorkflow.containerGitUserEmail`

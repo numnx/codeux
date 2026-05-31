@@ -561,6 +561,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               return (
                 <ProviderInstanceCard
                   key={providerConfigId}
+                  providerConfigId={providerConfigId}
                   provider={provider}
                   providerModel={providerModel}
                   dockerExecutionEnabled={dockerExecutionEnabled}

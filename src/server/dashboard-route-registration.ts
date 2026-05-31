@@ -18,6 +18,7 @@ import { registerExecutionInvocationRoutes } from "./execution-invocation-routes
 import { registerQuicksprintRoutes } from "./quicksprint-routes.js";
 import { registerLocalDirectoryRoutes } from "./local-directory-routes.js";
 import { registerSchedulerRoutes } from "./scheduler-routes.js";
+import { registerTerminalRoutes } from "./terminal-routes.js";
 
 export const registerDashboardRoutes = (
   app: Express,
@@ -41,4 +42,5 @@ export const registerDashboardRoutes = (
   registerExecutionInvocationRoutes(app, deps);
   registerQuicksprintRoutes(app, deps);
   registerSchedulerRoutes(app, deps);
+  registerTerminalRoutes(app, deps);
 };

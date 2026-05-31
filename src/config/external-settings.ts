@@ -101,13 +101,13 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
 
   const homedir = os.homedir();
   const providerAvailability: ExternalSettingsHints["providerAvailability"] = {
-    jules: { hasApiKey: false, hasLocalAuth: false },
-    gemini: { hasApiKey: false, hasLocalAuth: false },
-    codex: { hasApiKey: false, hasLocalAuth: false },
-    claudeCode: { hasApiKey: false, hasLocalAuth: false },
-    qwenCode: { hasApiKey: false, hasLocalAuth: false },
-    openCode: { hasApiKey: false, hasLocalAuth: false },
-    antigravity: { hasApiKey: false, hasLocalAuth: false },
+    jules: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    gemini: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    codex: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    claudeCode: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    qwenCode: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    openCode: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
+    antigravity: { hasApiKey: false, hasLocalAuth: false, hasDashboardAuth: false },
   };
 
   const keyToProvider: Record<string, keyof ExternalSettingsHints["providerAvailability"]> = {
@@ -120,6 +120,13 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
     antigravityApiKey: "antigravity",
   };
 
+  const getDashboardFolder = (p: string): string => {
+    if (p === "claudeCode") return "claude-code";
+    if (p === "qwenCode") return "qwen-code";
+    if (p === "openCode") return "opencode";
+    return p;
+  };
+
   for (const [key, provider] of Object.entries(keyToProvider)) {
     providerAvailability[provider].hasApiKey = !!resolvedHints[key];
 
@@ -127,6 +134,20 @@ export const loadExternalSettingsHints = (projectRoot: string): ExternalSettings
     providerAvailability[provider].hasLocalAuth = localAuthFiles.some((segments) =>
       fs.existsSync(path.join(homedir, ...segments))
     );
+
+    if (provider !== "jules") {
+      const dashboardCredsDir = path.join(homedir, ".code-ux", "credentials", getDashboardFolder(provider));
+      let hasDashboardAuth = false;
+      try {
+        if (fs.existsSync(dashboardCredsDir)) {
+          const files = fs.readdirSync(dashboardCredsDir);
+          hasDashboardAuth = files.length > 0;
+        }
+      } catch {
+        // Ignore
+      }
+      providerAvailability[provider].hasDashboardAuth = hasDashboardAuth;
+    }
   }
 
   return {

@@ -659,6 +659,10 @@ export const getProviderInstanceAuthLabel = (
     return hasApiKey ? "API key" : null;
   }
 
+  if (providerConfig.authType === "dashboardAuth") {
+    return "Dashboard login";
+  }
+
   if (hasMountedAuth && hasApiKey) {
     return dockerExecutionEnabled ? "Auth mount + API key" : "Mount config + API key";
   }

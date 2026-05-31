@@ -171,6 +171,10 @@ export function bootDashboardRealtimeWebSocketServer(args: {
     if (args.shouldHandleRequest && !args.shouldHandleRequest(req)) {
       return;
     }
+    const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
+    if (requestUrl.pathname !== args.pathName) {
+      return;
+    }
     if (!isRealtimeUpgradeRequest(req, args.pathName)) {
       socket.destroy();
       return;
