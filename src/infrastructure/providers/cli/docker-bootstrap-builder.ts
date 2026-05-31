@@ -122,7 +122,7 @@ export class DockerBootstrapBuilder {
       `  if [ -d "${OPENCODE_CREDENTIALS_MOUNT}" ]; then sync_dir_contents "${OPENCODE_CREDENTIALS_MOUNT}" "$HOME/.local/share/opencode" "opencode"; fi`,
       "  materialize_opencode_config",
       "fi",
-      "if [ \"$1\" = \"antigravity\" ]; then",
+      "if [ \"$1\" = \"antigravity\" ] || [ \"$1\" = \"agy\" ]; then",
       `  if [ -d "${ANTIGRAVITY_CREDENTIALS_MOUNT}" ]; then`,
       `    mkdir -p "$HOME/.local/share/keyrings"`,
       `    sync_dir_contents "${ANTIGRAVITY_CREDENTIALS_MOUNT}" "$HOME/.local/share/keyrings" "antigravity-keyrings"`,

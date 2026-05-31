@@ -46,7 +46,7 @@ if [ "$1" = "opencode" ]; then
   if [ -d "/opt/credentials/opencode" ]; then sync_dir_contents "/opt/credentials/opencode" "$HOME/.local/share/opencode" "opencode"; fi
   materialize_opencode_config
 fi
-if [ "$1" = "antigravity" ]; then
+if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
   if [ -d "/opt/credentials/antigravity" ]; then
     mkdir -p "$HOME/.local/share/keyrings"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.local/share/keyrings" "antigravity-keyrings"
@@ -123,7 +123,7 @@ if [ "$1" = "opencode" ]; then
   if [ -d "/opt/credentials/opencode" ]; then sync_dir_contents "/opt/credentials/opencode" "$HOME/.local/share/opencode" "opencode"; fi
   materialize_opencode_config
 fi
-if [ "$1" = "antigravity" ]; then
+if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
   if [ -d "/opt/credentials/antigravity" ]; then
     mkdir -p "$HOME/.local/share/keyrings"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.local/share/keyrings" "antigravity-keyrings"
@@ -200,7 +200,7 @@ if [ "$1" = "opencode" ]; then
   if [ -d "/opt/credentials/opencode" ]; then sync_dir_contents "/opt/credentials/opencode" "$HOME/.local/share/opencode" "opencode"; fi
   materialize_opencode_config
 fi
-if [ "$1" = "antigravity" ]; then
+if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
   if [ -d "/opt/credentials/antigravity" ]; then
     mkdir -p "$HOME/.local/share/keyrings"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.local/share/keyrings" "antigravity-keyrings"
@@ -276,7 +276,7 @@ if [ "$1" = "opencode" ]; then
   if [ -d "/opt/credentials/opencode" ]; then sync_dir_contents "/opt/credentials/opencode" "$HOME/.local/share/opencode" "opencode"; fi
   materialize_opencode_config
 fi
-if [ "$1" = "antigravity" ]; then
+if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
   if [ -d "/opt/credentials/antigravity" ]; then
     mkdir -p "$HOME/.local/share/keyrings"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.local/share/keyrings" "antigravity-keyrings"
