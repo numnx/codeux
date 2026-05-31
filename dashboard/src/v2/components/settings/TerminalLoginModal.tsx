@@ -59,50 +59,38 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Simulated terminal screen buffer state (24 rows x 80 columns)
-  const numRows = 24;
-  const numCols = 80;
-  const gridRef = useRef<string[][]>(Array.from({ length: 24 }, () => Array(80).fill(" ")));
-  const cursorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Simulated infinite scrollback terminal buffer state
+  const linesRef = useRef<string[]>([""]);
+  const cursorRef = useRef<{ row: number; col: number }>({ row: 0, col: 0 });
 
   const processChunk = (chunk: string) => {
-    const grid = [...gridRef.current.map(row => [...row])];
-    const cursor = { ...cursorRef.current };
-
-    const scrollUp = () => {
-      for (let r = 0; r < numRows - 1; r++) {
-        grid[r] = [...grid[r + 1]];
-      }
-      grid[numRows - 1] = Array(numCols).fill(" ");
-    };
+    let lines = [...linesRef.current];
+    let cursor = { ...cursorRef.current };
     
     let i = 0;
     while (i < chunk.length) {
       const char = chunk[i];
       
       if (char === "\n") {
-        if (cursor.y === numRows - 1) {
-          scrollUp();
-        } else {
-          cursor.y++;
+        cursor.row++;
+        if (cursor.row >= lines.length) {
+          lines.push("");
         }
-        cursor.x = 0;
+        cursor.col = 0;
         i++;
       } else if (char === "\r") {
-        cursor.x = 0;
+        cursor.col = 0;
         i++;
       } else if (char === "\x08" || char === "\x7f") {
-        cursor.x = Math.max(0, cursor.x - 1);
-        grid[cursor.y][cursor.x] = " ";
+        cursor.col = Math.max(0, cursor.col - 1);
+        const currentLine = lines[cursor.row] || "";
+        lines[cursor.row] = currentLine.slice(0, cursor.col) + currentLine.slice(cursor.col + 1);
         i++;
       } else if (char === "\t") {
-        const tabSpaces = 8 - (cursor.x % 8);
-        for (let s = 0; s < tabSpaces; s++) {
-          if (cursor.x < numCols) {
-            grid[cursor.y][cursor.x] = " ";
-            cursor.x++;
-          }
-        }
+        const spaces = "        ";
+        const currentLine = lines[cursor.row] || "";
+        lines[cursor.row] = currentLine.slice(0, cursor.col) + spaces + currentLine.slice(cursor.col);
+        cursor.col += 8;
         i++;
       } else if (char === "\x1b") {
         if (chunk[i + 1] === "[") {
@@ -121,38 +109,43 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
           if (action === "J") {
             const mode = params[0] || 0;
             if (mode === 2 || mode === 3) {
-              for (let r = 0; r < numRows; r++) {
-                grid[r].fill(" ");
-              }
-              cursor.x = 0;
-              cursor.y = 0;
+              lines = [""];
+              cursor.row = 0;
+              cursor.col = 0;
             }
           } else if (action === "H" || action === "f") {
             const r = (params[0] || 1) - 1;
             const c = (params[1] || 1) - 1;
-            cursor.y = Math.max(0, Math.min(numRows - 1, r));
-            cursor.x = Math.max(0, Math.min(numCols - 1, c));
+            cursor.row = r;
+            while (cursor.row >= lines.length) {
+              lines.push("");
+            }
+            cursor.col = c;
           } else if (action === "K") {
             const mode = params[0] || 0;
+            const currentLine = lines[cursor.row] || "";
             if (mode === 0) {
-              for (let c = cursor.x; c < numCols; c++) grid[cursor.y][c] = " ";
+              lines[cursor.row] = currentLine.slice(0, cursor.col);
             } else if (mode === 1) {
-              for (let c = 0; c <= cursor.x; c++) grid[cursor.y][c] = " ";
+              lines[cursor.row] = " ".repeat(cursor.col) + currentLine.slice(cursor.col);
             } else if (mode === 2) {
-              grid[cursor.y].fill(" ");
+              lines[cursor.row] = "";
             }
           } else if (action === "A") {
             const count = params[0] || 1;
-            cursor.y = Math.max(0, cursor.y - count);
+            cursor.row = Math.max(0, cursor.row - count);
           } else if (action === "B") {
             const count = params[0] || 1;
-            cursor.y = Math.min(numRows - 1, cursor.y + count);
+            cursor.row = cursor.row + count;
+            while (cursor.row >= lines.length) {
+              lines.push("");
+            }
           } else if (action === "C") {
             const count = params[0] || 1;
-            cursor.x = Math.min(numCols - 1, cursor.x + count);
+            cursor.col = cursor.col + count;
           } else if (action === "D") {
             const count = params[0] || 1;
-            cursor.x = Math.max(0, cursor.x - count);
+            cursor.col = Math.max(0, cursor.col - count);
           }
           
           i = j + 1;
@@ -162,39 +155,40 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
       } else {
         const code = char.charCodeAt(0);
         if (code >= 32) {
-          if (cursor.x < numCols && cursor.y < numRows) {
-            grid[cursor.y][cursor.x] = char;
-            cursor.x++;
-            if (cursor.x >= numCols) {
-              cursor.x = 0;
-              if (cursor.y === numRows - 1) {
-                scrollUp();
-              } else {
-                cursor.y++;
-              }
-            }
+          const currentLine = lines[cursor.row] || "";
+          let paddedLine = currentLine;
+          if (cursor.col > currentLine.length) {
+            paddedLine += " ".repeat(cursor.col - currentLine.length);
           }
+          lines[cursor.row] = paddedLine.slice(0, cursor.col) + char + paddedLine.slice(cursor.col + 1);
+          cursor.col++;
         }
         i++;
       }
     }
+
+    // Limit scrollback buffer to 1000 lines to optimize performance
+    if (lines.length > 1000) {
+      const diff = lines.length - 1000;
+      lines = lines.slice(diff);
+      cursor.row = Math.max(0, cursor.row - diff);
+    }
     
-    gridRef.current = grid;
+    linesRef.current = lines;
     cursorRef.current = cursor;
     
     // Format screen grid as clean lines and add cursor character ▊
-    const renderedLines = grid.map((row, rIdx) => {
-      const line = row.join("");
-      if (rIdx === cursor.y) {
-        const left = line.slice(0, cursor.x);
+    const renderedLines = lines.map((line, rIdx) => {
+      if (rIdx === cursor.row) {
+        const left = line.slice(0, cursor.col);
         const cursorChar = "▊";
-        const right = line.slice(cursor.x + 1);
-        return (left + cursorChar + right).trimEnd();
+        const right = line.slice(cursor.col + 1);
+        return left + cursorChar + right;
       }
-      return line.trimEnd();
+      return line;
     });
     
-    setTerminalOutput(renderedLines.join("\n").trimEnd());
+    setTerminalOutput(renderedLines.join("\n"));
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
