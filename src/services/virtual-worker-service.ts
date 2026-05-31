@@ -37,7 +37,7 @@ import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import { LEARNINGS_FILENAME } from "../contracts/memory-types.js";
 import { DockerService } from "./docker-service.js";
 
-const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
+const VIRTUAL_WORKER_RECONCILE_MS = 60_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
 
 function sleep(ms: number): Promise<void> {
@@ -111,6 +111,8 @@ export class VirtualWorkerService {
 
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
 
+  private readonly projectActiveBitCache = new Map<string, boolean>();
+
   private readonly providerExecutionService: ProviderExecutionService;
 
   constructor(private readonly deps: VirtualWorkerServiceDependencies) {
@@ -129,10 +131,17 @@ export class VirtualWorkerService {
       || item.summaryMarkdown.includes("Resume instruction already sent");
   }
 
+  private handleProjectStateChanged = (projectId: string) => {
+    this.projectActiveBitCache.set(projectId, true);
+    this.scheduleProject(projectId, "project_state_changed");
+  };
+
   start(): void {
     if (this.reconcileTimer) {
       return;
     }
+
+    this.deps.projectManagementRepository.events.on("project_state_changed", this.handleProjectStateChanged);
 
     this.cleanupOrphanedVirtualWorkers();
     void this.reconcile();
@@ -149,6 +158,7 @@ export class VirtualWorkerService {
       clearInterval(this.reconcileTimer);
       this.reconcileTimer = null;
     }
+    this.deps.projectManagementRepository.events.off("project_state_changed", this.handleProjectStateChanged);
   }
 
   scheduleProject(projectId: string, reason: string): void {
@@ -183,7 +193,7 @@ export class VirtualWorkerService {
 
   async reconcile(): Promise<void> {
     for (const project of this.deps.projectManagementRepository.listProjects().projects) {
-      if (this.projectNeedsVirtualWorker(project.id)) {
+      if (this.projectNeedsVirtualWorker(project.id, true)) {
         this.scheduleProject(project.id, "reconcile");
       }
     }
@@ -201,15 +211,25 @@ export class VirtualWorkerService {
     return resolveEffectiveDashboardSettings(this.deps.settingsRepository, projectId, sprintId).settings;
   }
 
-  private projectNeedsVirtualWorker(projectId: string): boolean {
+  private projectNeedsVirtualWorker(projectId: string, isGlobalReconcile = false): boolean {
     if (!this.projectUsesVirtualWorkers(projectId)) {
+      this.projectActiveBitCache.set(projectId, false);
       return false;
     }
     if (this.activeCycles.has(projectId)) {
+      this.projectActiveBitCache.set(projectId, true);
       return false;
     }
 
-    return this.pickNextWorkerAttention(projectId) !== null;
+    if (!isGlobalReconcile && this.projectActiveBitCache.has(projectId)) {
+      if (!this.projectActiveBitCache.get(projectId)) {
+        return false;
+      }
+    }
+
+    const needsAttention = this.pickNextWorkerAttention(projectId) !== null;
+    this.projectActiveBitCache.set(projectId, needsAttention);
+    return needsAttention;
   }
 
   private async runProjectCycle(projectId: string, reason: string): Promise<void> {
