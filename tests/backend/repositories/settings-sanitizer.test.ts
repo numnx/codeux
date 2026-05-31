@@ -127,11 +127,11 @@ describe("settings-sanitizer", () => {
     expect(settings.agents.instructionTemplates.planningMissing).toContain("Sprint Planning Missing");
     expect(settings.agents.qualityAssurance.enabled).toBe(false);
     expect(settings.agents.qualityAssurance.maxTaskReviewRuns).toBe(1);
-    expect(settings.agents.qualityAssurance.taskCompletion.enabled).toBe(true);
+    expect(settings.agents.qualityAssurance.taskCompletion.enabled).toBe(false);
     expect(settings.agents.qualityAssurance.taskCompletion.agentPresetId).toBe(null);
-    expect(settings.agents.qualityAssurance.sprintCompletion.enabled).toBe(true);
+    expect(settings.agents.qualityAssurance.sprintCompletion.enabled).toBe(false);
     expect(settings.agents.qualityAssurance.sprintCompletion.agentPresetId).toBe(null);
-    expect(settings.agents.qualityAssurance.completedTaskWithoutPr.enabled).toBe(true);
+    expect(settings.agents.qualityAssurance.completedTaskWithoutPr.enabled).toBe(false);
     expect(settings.agents.qualityAssurance.completedTaskWithoutPr.agentPresetId).toBe(null);
     expect(settings.skills.find((skill) => skill.name === "git_manager_remote")?.enabled).toBe(true);
     expect(settings.skills.find((skill) => skill.name === "git_manager_local")?.enabled).toBe(false);
