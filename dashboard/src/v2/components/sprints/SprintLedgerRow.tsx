@@ -127,7 +127,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
 
   return (
     <TableRow
-      className={`${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-gradient-to-r hover:from-white/50 hover:to-transparent dark:hover:from-white/5`}
+      className={`group transition-all duration-300 hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
     >
       <TableCell isFirst className={`w-12 ${desktopCellTone}`}>
         <button
@@ -163,7 +163,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       </TableCell>
       <TableCell className={`min-w-[8rem] ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint ID</span>
-        <div className="font-mono text-sm font-bold text-slate-800 dark:text-white truncate">{formatSprintKey(sprint, sprintKeyPrefix)}</div>
+        <div className="font-mono text-sm font-bold text-[var(--text-primary)] truncate">{formatSprintKey(sprint, sprintKeyPrefix)}</div>
         <div className="mt-1 text-[10px] font-bold text-slate-400 truncate">
           {shortenId(sprint.id)}
         </div>
@@ -171,7 +171,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       <TableCell className={`min-w-0 max-w-full ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint</span>
         <div className="flex flex-wrap items-center gap-2">
-          <div className={`font-display text-lg font-black leading-tight break-words ${isCompleted ? "text-slate-700 dark:text-slate-300" : "text-slate-900 dark:text-white"}`}>{sprint.name}</div>
+          <div className={`font-display text-lg font-black leading-tight break-words ${isCompleted ? "text-slate-700 dark:text-slate-300" : "text-[var(--text-primary)]"}`}>{sprint.name}</div>
           {sprint.latestReview && (
             <SprintReviewBadge summary={sprint.latestReview} compact align="left" />
           )}
@@ -206,7 +206,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       <TableCell className={desktopCellTone}>
         <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-start">
           <span className="text-[10px] font-bold text-slate-400 lg:hidden">Status</span>
-          <span className={`inline-flex rounded-full border px-3 py-1.5 text-[11px] font-bold ${STATUS_BADGE_TONES[sprint.status]}`}>
+          <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${STATUS_BADGE_TONES[sprint.status]}`}>
             {STATUS_LABELS[sprint.status]}
           </span>
           {humanIntervention && isSprintActionable(sprint.status) && humanIntervention.ownerType !== "worker" && (
@@ -224,7 +224,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             <ListChecks className="h-4 w-4" strokeWidth={2.2} />
           </div>
           <div>
-            <div className="font-mono text-lg font-bold text-slate-800 dark:text-white">{sprint.tasksCount}</div>
+            <div className="font-mono text-lg font-bold text-[var(--text-primary)]">{sprint.tasksCount}</div>
             <div className="text-[11px] text-slate-400">planned tasks</div>
           </div>
         </div>
@@ -238,12 +238,12 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
               style={{ width: `${sprint.completion}%` }}
             />
           </div>
-          <span className="font-mono text-sm font-bold text-slate-800 dark:text-white">{sprint.completion}%</span>
+          <span className="font-mono text-sm font-bold text-[var(--text-primary)]">{sprint.completion}%</span>
         </div>
       </TableCell>
       <TableCell className={desktopCellTone}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Created</span>
-        <div className="font-medium text-slate-700 dark:text-slate-200">{formatTableDate(sprint.createdAt)}</div>
+        <div className="font-medium text-[var(--text-primary)]">{formatTableDate(sprint.createdAt)}</div>
         <div className="mt-1 text-[11px] text-slate-400">created</div>
         <div className="mt-1.5 inline-flex items-center gap-1">
           {sprint.latestReview?.status === 'running' ? (

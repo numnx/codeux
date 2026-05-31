@@ -2,7 +2,9 @@
   :root {
     --bg-primary: #ffffff;
     --bg-secondary: #f1f5f9;
+    --text-primary: #0f172a;
     --text-secondary: #334155;
+    --bg-hover-subtle: #f8fafc;
     --color-border-muted: rgba(0, 0, 0, 0.06);
     --border-muted: var(--color-border-muted);
     --accent-primary: #007352;
@@ -17,7 +19,9 @@
   .dark {
     --bg-primary: #080605;
     --bg-secondary: #181411;
+    --text-primary: #f8fafc;
     --text-secondary: #a1a1aa;
+    --bg-hover-subtle: rgba(255, 255, 255, 0.05);
     --color-border-muted: #27272a;
     --border-muted: var(--color-border-muted);
     --accent-primary: #00e0a0;
