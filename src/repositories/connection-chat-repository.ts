@@ -122,60 +122,11 @@ export class ConnectionChatRepository {
     this.db = storage.getDatabase();
   }
 
-  listConnections(projectId: string): McpConnectionRecord[] {
+    listConnections(projectId: string): McpConnectionRecord[] {
     requireRecord(this.db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId), "Project", projectId);
     const rows = this.db.prepare(`
-      WITH
-      task_runs_stats AS (
-        SELECT connection_id, COUNT(*) AS cnt
-        FROM task_runs
-        WHERE project_id = ?
-        GROUP BY connection_id
-      ),
-      threads_stats AS (
-        SELECT connection_id, COUNT(*) AS cnt
-        FROM conversation_threads
-        WHERE project_id = ? AND connection_id IS NOT NULL
-        GROUP BY connection_id
-      ),
-      messages_stats AS (
-        SELECT ct.connection_id, COUNT(*) AS cnt
-        FROM conversation_messages cm
-        INNER JOIN conversation_threads ct ON ct.id = cm.thread_id
-        WHERE ct.project_id = ? AND ct.connection_id IS NOT NULL
-          AND ${visibleConversationMessageFilter("cm")}
-        GROUP BY ct.connection_id
-      ),
-      pending_messages_stats AS (
-        SELECT COALESCE(ct.connection_id, 'null_conn') as conn_id, COUNT(*) AS cnt
-        FROM conversation_messages cm
-        INNER JOIN conversation_threads ct ON ct.id = cm.thread_id
-        WHERE ct.project_id = ?
-          AND cm.direction = 'dashboard_to_connection'
-          AND cm.delivery_status = 'pending'
-          AND ${visibleConversationMessageFilter("cm")}
-        GROUP BY COALESCE(ct.connection_id, 'null_conn')
-      ),
-      dispatches_stats AS (
-        SELECT td.connection_id, COUNT(*) AS cnt
-        FROM task_dispatches td
-        WHERE td.project_id = ? AND td.status IN ('claimed', 'running', 'cancel_requested')
-        GROUP BY td.connection_id
-      )
-      SELECT
-        c.*,
-        COALESCE(trs.cnt, 0) AS tasks_run_count,
-        COALESCE(ts.cnt, 0) AS thread_count,
-        COALESCE(ms.cnt, 0) AS message_count,
-        (COALESCE(pms.cnt, 0) + COALESCE(pms_null.cnt, 0)) AS pending_inbox_count,
-        COALESCE(ds.cnt, 0) AS active_dispatch_count
+      SELECT c.*
       FROM mcp_connections c
-      LEFT JOIN task_runs_stats trs ON trs.connection_id = c.id
-      LEFT JOIN threads_stats ts ON ts.connection_id = c.id
-      LEFT JOIN messages_stats ms ON ms.connection_id = c.id
-      LEFT JOIN pending_messages_stats pms ON pms.conn_id = c.id
-      LEFT JOIN pending_messages_stats pms_null ON pms_null.conn_id = 'null_conn'
-      LEFT JOIN dispatches_stats ds ON ds.connection_id = c.id
       WHERE EXISTS (
         SELECT 1
         FROM connection_project_bindings b
@@ -183,7 +134,80 @@ export class ConnectionChatRepository {
           AND b.project_id = ?
       )
       ORDER BY COALESCE(c.last_heartbeat_at, c.updated_at) DESC, c.display_name ASC
-    `).all(projectId, projectId, projectId, projectId, projectId, projectId) as unknown as ConnectionRow[];
+    `).all(projectId) as unknown as ConnectionRow[];
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const connectionIds = rows.map((r) => r.id);
+    const placeholders = connectionIds.map(() => "?").join(",");
+
+    const taskRunsStats = this.db.prepare(`
+      SELECT connection_id, COUNT(*) AS cnt
+      FROM task_runs
+      WHERE project_id = ? AND connection_id IN (${placeholders})
+      GROUP BY connection_id
+    `).all(projectId, ...connectionIds) as { connection_id: string; cnt: number }[];
+
+    const threadsStats = this.db.prepare(`
+      SELECT connection_id, COUNT(*) AS cnt
+      FROM conversation_threads
+      WHERE project_id = ? AND connection_id IN (${placeholders})
+      GROUP BY connection_id
+    `).all(projectId, ...connectionIds) as { connection_id: string; cnt: number }[];
+
+    const messagesStats = this.db.prepare(`
+      SELECT ct.connection_id, COUNT(*) AS cnt
+      FROM conversation_messages cm
+      INNER JOIN conversation_threads ct ON ct.id = cm.thread_id
+      WHERE ct.project_id = ? AND ct.connection_id IN (${placeholders})
+        AND ${visibleConversationMessageFilter("cm")}
+      GROUP BY ct.connection_id
+    `).all(projectId, ...connectionIds) as { connection_id: string; cnt: number }[];
+
+    const pendingMessagesStats = this.db.prepare(`
+      SELECT ct.connection_id, COUNT(*) AS cnt
+      FROM conversation_messages cm
+      INNER JOIN conversation_threads ct ON ct.id = cm.thread_id
+      WHERE ct.project_id = ? AND ct.connection_id IN (${placeholders})
+        AND cm.direction = 'dashboard_to_connection'
+        AND cm.delivery_status = 'pending'
+        AND ${visibleConversationMessageFilter("cm")}
+      GROUP BY ct.connection_id
+    `).all(projectId, ...connectionIds) as { connection_id: string; cnt: number }[];
+
+    const pendingMessagesNullStatsRow = this.db.prepare(`
+      SELECT COUNT(*) AS cnt
+      FROM conversation_messages cm
+      INNER JOIN conversation_threads ct ON ct.id = cm.thread_id
+      WHERE ct.project_id = ? AND ct.connection_id IS NULL
+        AND cm.direction = 'dashboard_to_connection'
+        AND cm.delivery_status = 'pending'
+        AND ${visibleConversationMessageFilter("cm")}
+    `).get(projectId) as { cnt: number } | undefined;
+
+    const dispatchesStats = this.db.prepare(`
+      SELECT td.connection_id, COUNT(*) AS cnt
+      FROM task_dispatches td
+      WHERE td.project_id = ? AND td.connection_id IN (${placeholders}) AND td.status IN ('claimed', 'running', 'cancel_requested')
+      GROUP BY td.connection_id
+    `).all(projectId, ...connectionIds) as { connection_id: string; cnt: number }[];
+
+    const taskRunsMap = new Map(taskRunsStats.map(r => [r.connection_id, r.cnt]));
+    const threadsMap = new Map(threadsStats.map(r => [r.connection_id, r.cnt]));
+    const messagesMap = new Map(messagesStats.map(r => [r.connection_id, r.cnt]));
+    const pendingMessagesMap = new Map(pendingMessagesStats.map(r => [r.connection_id, r.cnt]));
+    const dispatchesMap = new Map(dispatchesStats.map(r => [r.connection_id, r.cnt]));
+    const pendingNullCnt = pendingMessagesNullStatsRow?.cnt || 0;
+
+    for (const row of rows) {
+      row.tasks_run_count = taskRunsMap.get(row.id) || 0;
+      row.thread_count = threadsMap.get(row.id) || 0;
+      row.message_count = messagesMap.get(row.id) || 0;
+      row.pending_inbox_count = (pendingMessagesMap.get(row.id) || 0) + pendingNullCnt;
+      row.active_dispatch_count = dispatchesMap.get(row.id) || 0;
+    }
 
     return this.sortConnections(this.inflateConnections(rows));
   }
