@@ -15,6 +15,12 @@ import type {
   ThinkingMode,
 } from "../../types.js";
 import { cloneGuardrails } from "../../lib/settings.js";
+import {
+  BRANCH_NAME_TOKENS,
+  BRANCH_NAME_TOKEN_ALIASES,
+  type BranchNameToken,
+} from "../../../../src/domain/settings/branch-name-tokens.js";
+
 
 const cloneSkills = (skills: SkillToggle[]): SkillToggle[] => skills.map((skill) => ({ ...skill }));
 const cloneMcpTools = (tools: McpToolToggle[]): McpToolToggle[] => tools.map((tool) => ({ ...tool }));
@@ -863,3 +869,32 @@ export const PROVIDER_CARD_TOKENS: Record<ProviderId, {
     noteClassName: "border-black/[0.08] bg-black/[0.03] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300",
   },
 };
+
+export interface BranchSchemeOption {
+  value: string;
+  label: string;
+}
+
+export const BRANCH_NAME_TOKEN_LABELS: Record<BranchNameToken, string> = {
+  sprint_key_prefix: "Sprint Key Prefix",
+  sprint_number: "Sprint Number",
+  sprint_name: "Sprint Name",
+  sprint_id: "Sprint ID",
+  planning_agent: "Planning Agent",
+  agent_routing: "Agent Routing",
+  worker_agent: "Worker Agent",
+};
+
+export const getCanonicalBranchNameToken = (tokenOrScheme: string): BranchNameToken => {
+  const match = tokenOrScheme.match(/\{([^}]+)\}/);
+  const token = match ? match[1] : tokenOrScheme;
+  return BRANCH_NAME_TOKEN_ALIASES[token] || (BRANCH_NAME_TOKENS.includes(token as any) ? (token as BranchNameToken) : "sprint_id");
+};
+
+export const getBranchSchemeOptions = (): BranchSchemeOption[] => {
+  return BRANCH_NAME_TOKENS.map((token) => ({
+    value: `{${token}}`,
+    label: BRANCH_NAME_TOKEN_LABELS[token],
+  }));
+};
+
