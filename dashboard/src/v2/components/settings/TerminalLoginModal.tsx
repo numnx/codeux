@@ -62,6 +62,7 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
   // Simulated infinite scrollback terminal buffer state
   const linesRef = useRef<string[]>([""]);
   const cursorRef = useRef<{ row: number; col: number }>({ row: 0, col: 0 });
+  const savedCursorRef = useRef<{ row: number; col: number }>({ row: 0, col: 0 });
 
   const processChunk = (chunk: string) => {
     let lines = [...linesRef.current];
@@ -108,7 +109,20 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
           
           if (action === "J") {
             const mode = params[0] || 0;
-            if (mode === 2 || mode === 3) {
+            if (mode === 0) {
+              // Clear from cursor to end of screen
+              lines[cursor.row] = (lines[cursor.row] || "").slice(0, cursor.col);
+              for (let r = cursor.row + 1; r < lines.length; r++) {
+                lines[r] = "";
+              }
+            } else if (mode === 1) {
+              // Clear from start of screen to cursor
+              lines[cursor.row] = " ".repeat(cursor.col) + (lines[cursor.row] || "").slice(cursor.col);
+              for (let r = 0; r < cursor.row; r++) {
+                lines[r] = "";
+              }
+            } else if (mode === 2 || mode === 3) {
+              // Clear entire screen
               lines = [""];
               cursor.row = 0;
               cursor.col = 0;
@@ -146,9 +160,55 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
           } else if (action === "D") {
             const count = params[0] || 1;
             cursor.col = Math.max(0, cursor.col - count);
+          } else if (action === "G") {
+            // Cursor Horizontal Absolute (CHA)
+            const col = (params[0] || 1) - 1;
+            cursor.col = Math.max(0, col);
+          } else if (action === "d") {
+            // Vertical Line Position Absolute (VPA)
+            const row = (params[0] || 1) - 1;
+            cursor.row = Math.max(0, row);
+            while (cursor.row >= lines.length) {
+              lines.push("");
+            }
+          } else if (action === "E") {
+            // Cursor Next Line (CNL)
+            const count = params[0] || 1;
+            cursor.row += count;
+            cursor.col = 0;
+            while (cursor.row >= lines.length) {
+              lines.push("");
+            }
+          } else if (action === "F") {
+            // Cursor Previous Line (CPL)
+            const count = params[0] || 1;
+            cursor.row = Math.max(0, cursor.row - count);
+            cursor.col = 0;
+          } else if (action === "s") {
+            // Save cursor position (ANSI.SYS)
+            savedCursorRef.current = { row: cursor.row, col: cursor.col };
+          } else if (action === "u") {
+            // Restore cursor position (ANSI.SYS)
+            cursor.row = savedCursorRef.current.row;
+            cursor.col = savedCursorRef.current.col;
+            while (cursor.row >= lines.length) {
+              lines.push("");
+            }
           }
           
           i = j + 1;
+        } else if (chunk[i + 1] === "7") {
+          // Save cursor (DEC)
+          savedCursorRef.current = { row: cursor.row, col: cursor.col };
+          i += 2;
+        } else if (chunk[i + 1] === "8") {
+          // Restore cursor (DEC)
+          cursor.row = savedCursorRef.current.row;
+          cursor.col = savedCursorRef.current.col;
+          while (cursor.row >= lines.length) {
+            lines.push("");
+          }
+          i += 2;
         } else {
           i++;
         }
@@ -179,13 +239,14 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
     
     // Format screen grid as clean lines and add cursor character ▊
     const renderedLines = lines.map((line, rIdx) => {
+      const safeLine = line || "";
       if (rIdx === cursor.row) {
-        const left = line.slice(0, cursor.col);
+        const left = safeLine.slice(0, cursor.col);
         const cursorChar = "▊";
-        const right = line.slice(cursor.col + 1);
+        const right = safeLine.slice(cursor.col + 1);
         return left + cursorChar + right;
       }
-      return line;
+      return safeLine;
     });
     
     setTerminalOutput(renderedLines.join("\n"));

@@ -278,7 +278,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         `  echo 'Installing provider CLI fallback in container...'`,
         `  ${installCmd || "echo 'No installation command configured'"};`,
         "fi",
-        `script -q -c "${loginCmd}" /dev/null`,
+        `script -q -c "stty cols 80 rows 24 && ${loginCmd}" /dev/null`,
       ].join("\n");
 
       const userSpec = getDockerUserSpec();
