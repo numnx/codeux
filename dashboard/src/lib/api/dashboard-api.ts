@@ -96,6 +96,12 @@ export const pauseSprintRun = async (sprintRunId: string): Promise<void> => {
   });
 };
 
+export const resumeSprintRun = async (sprintRunId: string): Promise<void> => {
+  await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/resume`, {
+    method: "POST",
+  });
+};
+
 export const cancelSprintRun = async (sprintRunId: string): Promise<void> => {
   await fetchJson(`/api/sprint-runs/${encodeURIComponent(sprintRunId)}/cancel`, {
     method: "POST",
