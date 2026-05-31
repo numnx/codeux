@@ -379,7 +379,7 @@ Legacy runtime:
   - the task list now comes from the selected sprint inside the unified `/api/live` snapshot instead of being reconstructed from separate task, status, and activity endpoints in the browser
   - task ordering, dependency edges, visible phase, and task activities all come from that same selected-sprint snapshot
   - execution dispatches and runtime events still enrich cards with session, provider, branch, PR, attention, and timing metadata without becoming a second visual source of truth for task identity
-- Live Session now shows a clear paused-for-human-intervention banner, repeats the reason/instructions in the hero state, and surfaces the same guidance inside paused sprint run cards
+- Live Session status copy now comes from the shared sprint status presentation mapper, so manual pauses render manual-attention messaging while worker/system pauses render system-stop messaging; the human-intervention badge appears at most once in the status area and is suppressed for system stops
 - The Live page no longer shows the timer-based `Stale Data` transport infobox while connected; reconnecting, recovering, and explicit transport errors still surface through the live transport banner.
 - worker-owned merge conflicts are now excluded from that human-intervention projection; they remain visible in the attention queue and realtime runtime feed, but they no longer tell the operator to merge or resume while the worker is handling them
 - Worker mode is now explicit in settings:

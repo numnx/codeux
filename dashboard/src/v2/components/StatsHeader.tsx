@@ -48,6 +48,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
     const pausedIntervention = pausedInterventionRun?.humanIntervention || null;
     const sprintStatusPresentation = getSprintStatusPresentation({
       state: hasLiveSprint ? "running" : pausedInterventionRun?.status ?? "unknown",
+      pauseSource: pausedIntervention?.ownerType ?? null,
       humanInterventionTitle: pausedIntervention?.title ?? null,
       humanInterventionReason: pausedIntervention?.reason ?? null,
       humanInterventionInstructions: pausedIntervention?.instructions ?? null,
@@ -98,7 +99,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             ? scopedFeatureBranch
                                 ? <>Monitoring <span className="font-mono text-signal-600 dark:text-signal-400">{scopedFeatureBranch}</span> in real-time.</>
                                 : `Monitoring ${liveSprintRun?.sprintName || "the active sprint"} in real-time.`
-                            : pausedIntervention
+                            : showStatusPanel
                                 ? sprintStatusPresentation.detail
                                 : hasSprintContext
                                     ? "Viewing the latest sprint telemetry snapshot."
@@ -141,8 +142,8 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                             </button>
                         </div>
 
-                        <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/10 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/25 dark:border-signal-500/25 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : pausedIntervention ? "bg-status-amber/10 text-status-amber border-status-amber/25" : "bg-black/10 dark:bg-white/10 text-slate-500 border-black/25 dark:border-white/25"}`}>
-                            <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : pausedIntervention ? "bg-status-amber" : "bg-slate-400"}`}>
+                        <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/10 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/25 dark:border-signal-500/25 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : showStatusPanel ? "bg-status-amber/10 text-status-amber border-status-amber/25" : "bg-black/10 dark:bg-white/10 text-slate-500 border-black/25 dark:border-white/25"}`}>
+                            <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : showStatusPanel ? "bg-status-amber" : "bg-slate-400"}`}>
                                 {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
                             </span>
                             {hasLiveSprint ? `${visibleStats.running} Running` : showStatusPanel ? sprintStatusPresentation.statusLabel : hasSprintContext ? "Snapshot loaded" : !initialLoadComplete ? "Connecting" : "Waiting"}
@@ -182,11 +183,6 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                                 {sprintStatusPresentation.detail}
                             </p>
                         </div>
-                        {pausedIntervention && sprintStatusPresentation.showHumanInterventionBadge && (
-                          <div className="shrink-0">
-                            <HumanInterventionBadge summary={pausedIntervention} label="Details" align="right" />
-                          </div>
-                        )}
                     </div>
                 </div>
             )}
