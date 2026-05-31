@@ -289,7 +289,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
         onCancel={handleCancel}
       />
 
-      <div className="min-h-[20rem] px-3 py-4 sm:px-4 lg:px-5">
+      <div className="min-h-[20rem] px-4 py-4 sm:px-4 lg:px-5">
         <div className="overflow-x-hidden lg:overflow-visible">
           <table className="block w-full border-separate border-spacing-y-3 text-left lg:table">
             <thead className="hidden lg:table-header-group">
