@@ -100,10 +100,10 @@ export class CycleRunner {
         }
         return 0;
       },
-      getRunningCounts: () => this.deps.providerConcurrencyService.getGlobalRunningCounts(),
+      getRunningCounts: () => this.deps.providerConcurrencyService?.getGlobalRunningCounts() || {},
       automationLevel: args.automationLevel,
       maxFailures: this.deps.settings.maxFailures || 5,
-      consecutiveFailures: this.deps.getConsecutiveFailures(),
+      consecutiveFailures: this.deps.getConsecutiveFailures ? this.deps.getConsecutiveFailures() : 0,
       shouldSkipTask: (task: Subtask) => task.status === "QUOTA"
     });
 
@@ -147,10 +147,10 @@ export class CycleRunner {
           }
           const providerLabel = session.runtimeLabel || (session.provider ? String(session.provider).toUpperCase() : "JULES");
           reportText += `🚀 **Started ${providerLabel} Session** for task \`${task.id}\`: [${session.id}](${session.id})\n`;
-          this.deps.setConsecutiveFailures(0);
+          this.deps.setConsecutiveFailures?.(0);
         } catch (error: unknown) {
-          const currentFails = this.deps.getConsecutiveFailures() + 1;
-          this.deps.setConsecutiveFailures(currentFails);
+          const currentFails = (this.deps.getConsecutiveFailures ? this.deps.getConsecutiveFailures() : 0) + 1;
+          this.deps.setConsecutiveFailures?.(currentFails);
           const message = error instanceof Error ? error.message : String(error);
           this.deps.logger.error("Error starting task", {
             taskId: task.id,
