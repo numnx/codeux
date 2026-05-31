@@ -1,0 +1,17 @@
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f1f5f9;
+  --text-secondary: #334155;
+  --border-muted: #64748b;
+  --accent-primary: #007352;
+  --accent-hover: #006644;
+}
+
+.dark {
+  --bg-primary: #080605;
+  --bg-secondary: #181411;
+  --text-secondary: #a1a1aa;
+  --border-muted: #27272a;
+  --accent-primary: #00e0a0;
+  --accent-hover: #33ffb8;
+}
