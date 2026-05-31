@@ -22,6 +22,8 @@ interface TerminalSession {
   lastHeartbeatAt: number;
   finalized: boolean;
   lastDisconnectAt?: number;
+  hostProxyServer?: net.Server | null;
+  watchInterval?: NodeJS.Timeout;
 }
 
 const activeTerminalSessions = new Map<string, TerminalSession>();
@@ -204,6 +206,16 @@ function terminateSession(sessionId: string, reason: string): void {
     return;
   }
   session.finalized = true;
+
+  if (session.watchInterval) {
+    clearInterval(session.watchInterval);
+  }
+  if (session.hostProxyServer) {
+    try {
+      session.hostProxyServer.close();
+    } catch (_) {}
+  }
+
   try {
     session.childProcess.kill("SIGKILL");
   } catch {
@@ -253,10 +265,50 @@ function maybeStartLoginSessionSweeper(): void {
   }
 }
 
+async function cleanupAllRunningLoginSessions(logger?: Logger): Promise<void> {
+  for (const [id] of activeTerminalSessions.entries()) {
+    try {
+      terminateSession(id, "preemptive-cleanup");
+    } catch (_) {}
+  }
+
+  // 2. Clean up any leftover docker containers labeled code-ux.login=true
+  try {
+    const cp = await import("child_process");
+    if (!cp || typeof cp.exec !== "function") {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      cp.exec("docker ps -a -q --filter 'label=code-ux.login=true'", (err, stdout) => {
+        if (err) {
+          logger?.error(`[DEBUG] Failed to query leftover login containers: ${String(err)}`);
+          resolve();
+          return;
+        }
+        const containerIds = stdout.trim().split(/\s+/).filter(Boolean);
+        if (containerIds.length > 0) {
+          logger?.info(`[DEBUG] Preemptively removing active/stray login containers: ${containerIds.join(", ")}`);
+          cp.exec(`docker rm -f ${containerIds.join(" ")}`, (rmErr) => {
+            if (rmErr) {
+              logger?.error(`[DEBUG] Failed to force-remove leftover login containers: ${String(rmErr)}`);
+            }
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
+    });
+  } catch (_) {
+    // Ignore in environments where child_process dynamic import or exec is unavailable
+  }
+}
+
 export function registerTerminalRoutes(app: Express, options: DashboardDependencies): void {
   maybeStartLoginSessionSweeper();
   app.post("/api/terminal/start", asyncRoute(async (req, res) => {
     try {
+      await cleanupAllRunningLoginSessions(options.logger);
       const { providerConfigId, providerId: requestProviderId } = req.body as {
         providerConfigId?: string;
         providerId?: string;
@@ -462,12 +514,12 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
 
       // Watch for the login URL file written by our custom xdg-open wrapper
       const urlFilePath = path.join(tempCredsDir, "login_url.txt");
-      let hostProxyServer: net.Server | null = null;
+      session.hostProxyServer = null;
       const watchInterval = setInterval(async () => {
         if (session.finalized) {
           clearInterval(watchInterval);
-          if (hostProxyServer) {
-            hostProxyServer.close();
+          if (session.hostProxyServer) {
+            session.hostProxyServer.close();
           }
           return;
         }
@@ -482,21 +534,21 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
               const targetPort = 36573;
               if (targetPort !== randomPort) {
                 try {
-                  if (hostProxyServer) {
-                    try { hostProxyServer.close(); } catch (_) {}
+                  if (session.hostProxyServer) {
+                    try { session.hostProxyServer.close(); } catch (_) {}
                   }
-                  hostProxyServer = net.createServer((clientSocket) => {
+                  session.hostProxyServer = net.createServer((clientSocket) => {
                     const serverSocket = net.connect(targetPort, "127.0.0.1", () => {
                       clientSocket.pipe(serverSocket).pipe(clientSocket);
                     });
                     clientSocket.on("error", () => serverSocket.destroy());
                     serverSocket.on("error", () => clientSocket.destroy());
                   });
-                  hostProxyServer.listen(randomPort, "127.0.0.1", () => {
+                  session.hostProxyServer.listen(randomPort, "127.0.0.1", () => {
                     options.logger?.info(`[DEBUG] Host Proxy listening on 127.0.0.1:${randomPort} -> 127.0.0.1:${targetPort}`);
                   });
-                  if (typeof hostProxyServer.unref === "function") {
-                    hostProxyServer.unref();
+                  if (typeof session.hostProxyServer.unref === "function") {
+                    session.hostProxyServer.unref();
                   }
                 } catch (err) {
                   options.logger?.error(`[DEBUG] Failed to start host proxy on port ${randomPort}: ${String(err)}`);
@@ -513,6 +565,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
           // File doesn't exist yet, ignore
         }
       }, 500);
+      session.watchInterval = watchInterval;
       if (typeof watchInterval.unref === "function") {
         watchInterval.unref();
       }
