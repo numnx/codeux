@@ -113,6 +113,16 @@ describe("Terminal Routes", () => {
     expect(response.body.error).toContain("not found");
   });
 
+  it("should successfully resolve and start a dynamically-generated unsaved provider ID prefix", async () => {
+    const response = await request(app)
+      .post("/api/terminal/start")
+      .send({ providerConfigId: "gemini-mptfvpkk-u1fui" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.sessionId).toBeDefined();
+    expect(response.body.providerId).toBe("gemini");
+  });
+
   it("should successfully stop an active session", async () => {
     // Start session first
     const startResponse = await request(app)

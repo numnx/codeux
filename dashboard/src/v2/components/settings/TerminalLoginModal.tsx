@@ -251,7 +251,7 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
         const response = await fetch("/api/terminal/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ providerConfigId }),
+          body: JSON.stringify({ providerConfigId, providerId }),
         });
 
         if (!response.ok) {

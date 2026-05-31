@@ -191,20 +191,44 @@ function getFallbackInstallKey(providerId: string): string {
 export function registerTerminalRoutes(app: Express, options: DashboardDependencies): void {
   app.post("/api/terminal/start", asyncRoute(async (req, res) => {
     try {
-      const { providerConfigId } = req.body as { providerConfigId: string };
-      if (!providerConfigId) {
-        res.status(400).json({ error: "Missing providerConfigId parameter." });
+      const { providerConfigId, providerId: requestProviderId } = req.body as {
+        providerConfigId?: string;
+        providerId?: string;
+      };
+
+      if (!providerConfigId && !requestProviderId) {
+        res.status(400).json({ error: "Missing providerConfigId or providerId parameter." });
         return;
       }
 
+      let providerId = requestProviderId;
       const systemSettings = options.getSystemSettings();
-      const providerConfig = systemSettings.integrations.providers[providerConfigId];
-      if (!providerConfig) {
-        res.status(404).json({ error: `Provider configuration '${providerConfigId}' not found.` });
-        return;
+
+      if (!providerId && providerConfigId) {
+        const providerConfig = systemSettings.integrations.providers[providerConfigId];
+        if (providerConfig) {
+          providerId = providerConfig.provider;
+        } else {
+          // Fallback to parsing provider prefix for unsaved/dynamically-generated IDs
+          const knownProviders = ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"];
+          for (const known of knownProviders) {
+            if (providerConfigId === known || providerConfigId.startsWith(`${known}-`)) {
+              providerId = known;
+              break;
+            }
+          }
+
+          if (!providerId) {
+            res.status(404).json({ error: `Provider configuration '${providerConfigId}' not found.` });
+            return;
+          }
+        }
       }
 
-      const providerId = providerConfig.provider;
+      if (!providerId) {
+        res.status(400).json({ error: "Unable to resolve a valid provider type from the request." });
+        return;
+      }
       const baseImage = systemSettings.defaults.cliWorkflow.containerImage.trim() || "node:24-bookworm";
 
       // Clean old sessions
@@ -218,8 +242,15 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
 
       const sessionId = Math.random().toString(36).substring(2, 15);
       const hostCredsDir = path.join(os.homedir(), ".code-ux", "credentials", providerId);
+      const tempCredsDir = path.join(os.homedir(), ".code-ux", "credentials", `${providerId}-temp-${sessionId}`);
 
-      await fs.mkdir(hostCredsDir, { recursive: true });
+      // Ensure the temp credentials folder starts completely empty
+      try {
+        await fs.rm(tempCredsDir, { recursive: true, force: true });
+      } catch (err) {
+        // Ignore if it doesn't exist
+      }
+      await fs.mkdir(tempCredsDir, { recursive: true });
 
       const binaryName = getBinaryName(providerId);
       let loginCmd = binaryName;
@@ -262,7 +293,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         "--user",
         userSpec,
         "-v",
-        `${hostCredsDir}:/tmp/.credentials`,
+        `${tempCredsDir}:/tmp/.credentials`,
         baseImage,
         "bash",
         "-c",
@@ -300,6 +331,26 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
       childProcess.stderr?.on("data", handleOutput);
 
       childProcess.on("exit", (code) => {
+        // Asynchronously copy newly generated credentials to the active host path on success
+        void (async () => {
+          if (code === 0) {
+            try {
+              await fs.rm(hostCredsDir, { recursive: true, force: true }).catch(() => {});
+              await fs.mkdir(hostCredsDir, { recursive: true });
+              await fs.cp(tempCredsDir, hostCredsDir, { recursive: true });
+            } catch (err) {
+              // Ignore copy error
+            }
+          }
+
+          // Always clean up the temporary directory
+          try {
+            await fs.rm(tempCredsDir, { recursive: true, force: true });
+          } catch (err) {
+            // Ignore cleanup error
+          }
+        })();
+
         for (const client of session.clients) {
           sendJson(client, { type: "exit", code: code ?? 0 });
           closeSocket(client);
