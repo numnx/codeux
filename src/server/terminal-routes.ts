@@ -261,6 +261,11 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
       const fallbackKey = getFallbackInstallKey(providerId);
       const installCmd = getProviderFallbackInstallCommand(fallbackKey);
 
+      let proxyCmd = "";
+      if (providerId === "codex") {
+        proxyCmd = "node -e \"const net = require('net'); const s = net.createServer((c) => { const p = net.connect(1455, '127.0.0.1', () => { c.pipe(p).pipe(c); }); p.on('error', () => c.destroy()); c.on('error', () => p.destroy()); }); s.on('error', () => {}); s.listen(1455, '::1');\" &";
+      }
+
       const containerCmd = [
         "set -e",
         "mkdir -p /tmp/.local/share /tmp/.config",
@@ -278,8 +283,9 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         `  echo 'Installing provider CLI fallback in container...'`,
         `  ${installCmd || "echo 'No installation command configured'"};`,
         "fi",
+        proxyCmd,
         `script -q -c "stty cols 80 rows 24 && ${loginCmd}" /dev/null`,
-      ].join("\n");
+      ].filter(Boolean).join("\n");
 
       const userSpec = getDockerUserSpec();
       const dockerArgs = [
