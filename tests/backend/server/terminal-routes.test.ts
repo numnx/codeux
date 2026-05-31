@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 import { EventEmitter } from "events";
-import { registerTerminalRoutes } from "../../../src/server/terminal-routes.js";
+import { registerTerminalRoutes, bootDashboardTerminalWebSocketServer } from "../../../src/server/terminal-routes.js";
 import type { DashboardDependencies } from "../../../src/server/dashboard-server.js";
 
 // Mock child_process.spawn
@@ -140,5 +140,61 @@ describe("Terminal Routes", () => {
     expect(stopResponse.status).toBe(200);
     expect(stopResponse.body.success).toBe(true);
     expect(mockChildProcess.kill).toHaveBeenCalledWith("SIGKILL");
+  });
+
+  it("should terminate the terminal session and container when all WebSocket clients disconnect", async () => {
+    vi.useFakeTimers();
+
+    // Start session
+    const startResponse = await request(app)
+      .post("/api/terminal/start")
+      .send({ providerConfigId: "gemini" });
+
+    const sessionId = startResponse.body.sessionId;
+    expect(sessionId).toBeDefined();
+
+    // Mock HttpServer upgrade emitter
+    const mockServer = new EventEmitter() as any;
+    const mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), child: vi.fn() } as any;
+
+    bootDashboardTerminalWebSocketServer({
+      server: mockServer,
+      pathName: "/ws/terminal",
+      logger: mockLogger,
+    });
+
+    // Simulate connection
+    const mockSocket = new EventEmitter() as any;
+    mockSocket.write = vi.fn();
+    mockSocket.destroy = vi.fn();
+
+    const mockReq = {
+      url: `/ws/terminal?sessionId=${sessionId}`,
+      headers: {
+        "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==",
+      },
+    };
+
+    // Trigger upgrade
+    mockServer.emit("upgrade", mockReq, mockSocket, Buffer.alloc(0));
+
+    // WebSocket handshake response should be written
+    expect(mockSocket.write).toHaveBeenCalledWith(
+      expect.stringContaining("HTTP/1.1 101 Switching Protocols")
+    );
+
+    // Simulate socket disconnect (e.g. close)
+    mockSocket.emit("close");
+
+    // Before 1s grace period, childProcess should NOT be killed
+    expect(mockChildProcess.kill).not.toHaveBeenCalled();
+
+    // Advance time by 1000ms
+    vi.advanceTimersByTime(1000);
+
+    // Now childProcess should be SIGKILL'ed
+    expect(mockChildProcess.kill).toHaveBeenCalledWith("SIGKILL");
+
+    vi.useRealTimers();
   });
 });

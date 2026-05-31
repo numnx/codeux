@@ -1,3 +1,6 @@
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import { runCommandStrict } from "./cli-process-runner.js";
 import { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
@@ -5,6 +8,8 @@ import type { Logger } from "../shared/logging/logger.js";
 export interface DockerAssetPruneResult {
   prunedWorkspaceVolumes: string[];
   prunedSetupImages: string[];
+  prunedLoginContainers: string[];
+  prunedTempCredentialsDirs?: string[];
 }
 
 const WORKSPACE_VOLUME_PREFIX = "code-ux-";
@@ -26,17 +31,28 @@ export class DockerAssetPruneService {
 
     const prunedWorkspaceVolumes = await this.pruneWorkspaceVolumes(activeSessionIds);
     const prunedSetupImages = await this.pruneSetupImages();
+    const prunedLoginContainers = await this.pruneOrphanedLoginContainers();
+    const prunedTempCredentialsDirs = await this.pruneTemporaryCredentialsDirectories();
 
-    if (prunedWorkspaceVolumes.length > 0 || prunedSetupImages.length > 0) {
-      this.logger?.info("Pruned stale Docker assets on startup", {
+    if (
+      prunedWorkspaceVolumes.length > 0 ||
+      prunedSetupImages.length > 0 ||
+      prunedLoginContainers.length > 0 ||
+      prunedTempCredentialsDirs.length > 0
+    ) {
+      this.logger?.info("Pruned stale Docker and credential assets on startup", {
         prunedWorkspaceVolumes: prunedWorkspaceVolumes.length,
         prunedSetupImages: prunedSetupImages.length,
+        prunedLoginContainers: prunedLoginContainers.length,
+        prunedTempCredentialsDirs: prunedTempCredentialsDirs.length,
       });
     }
 
     return {
       prunedWorkspaceVolumes,
       prunedSetupImages,
+      prunedLoginContainers,
+      prunedTempCredentialsDirs,
     };
   }
 
@@ -89,6 +105,53 @@ export class DockerAssetPruneService {
     }
 
     return pruned;
+  }
+
+  private async pruneOrphanedLoginContainers(): Promise<string[]> {
+    const result = await this.runDocker(["ps", "-aq", "--filter", "label=code-ux.login=true"]);
+    if (!result) {
+      return [];
+    }
+
+    const containerIds = result.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const pruned: string[] = [];
+
+    for (const containerId of containerIds) {
+      const removed = await this.runDocker(["rm", "-f", containerId]);
+      if (removed?.ok) {
+        pruned.push(containerId);
+      }
+    }
+
+    return pruned;
+  }
+
+  private async pruneTemporaryCredentialsDirectories(): Promise<string[]> {
+    const credentialsParentDir = path.join(os.homedir(), ".code-ux", "credentials");
+    try {
+      const files = await fs.readdir(credentialsParentDir, { withFileTypes: true });
+      const tempDirsToPrune = files
+        .filter((file) => file.isDirectory() && /-temp-[a-z0-9]+$/.test(file.name))
+        .map((file) => file.name);
+
+      const pruned: string[] = [];
+      for (const tempDir of tempDirsToPrune) {
+        const fullPath = path.join(credentialsParentDir, tempDir);
+        try {
+          await fs.rm(fullPath, { recursive: true, force: true });
+          pruned.push(tempDir);
+        } catch (e) {
+          // Ignore deletion errors on individual directories
+        }
+      }
+      return pruned;
+    } catch {
+      // If credentials directory doesn't exist or is not readable, just return empty array
+      return [];
+    }
   }
 
   private async runDocker(args: string[]) {

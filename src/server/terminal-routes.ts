@@ -288,6 +288,16 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         "-i",
         "--network",
         "host",
+        "--name",
+        `code-ux-login-${providerId}-${sessionId}`,
+        "--label",
+        "code-ux.login=true",
+        "--label",
+        `code-ux.session-id=${sessionId}`,
+        "--label",
+        `code-ux.provider-id=${providerId}`,
+        "--label",
+        `code-ux.command=${loginCmd}`,
         "-e",
         "HOME=/tmp",
         "--user",
@@ -297,7 +307,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         baseImage,
         "bash",
         "-c",
-        containerCmd,
+        containerCmd
       ];
 
       const childProcess = spawn("docker", dockerArgs, {
@@ -456,15 +466,26 @@ export function bootDashboardTerminalWebSocketServer(args: {
       }
     });
 
-    socket.on("close", () => {
+    const handleDisconnect = (): void => {
       session.clients.delete(socket);
-    });
-    socket.on("end", () => {
-      session.clients.delete(socket);
-    });
-    socket.on("error", () => {
-      session.clients.delete(socket);
-    });
+      setTimeout(() => {
+        if (session.clients.size === 0 && activeTerminalSessions.has(sessionId)) {
+          try {
+            session.childProcess.kill("SIGKILL");
+            spawn("docker", ["rm", "-f", `code-ux-login-${session.providerId}-${session.sessionId}`], {
+              stdio: "ignore",
+            }).unref();
+          } catch (e) {
+            // Ignore error if already dead
+          }
+          activeTerminalSessions.delete(sessionId);
+        }
+      }, 1000);
+    };
+
+    socket.on("close", handleDisconnect);
+    socket.on("end", handleDisconnect);
+    socket.on("error", handleDisconnect);
   };
 
   args.server.on("upgrade", (req, socket, head) => {

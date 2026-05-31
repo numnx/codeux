@@ -53,11 +53,24 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [terminalOutput, setTerminalOutput] = useState<string>("");
   const [exitCode, setExitCode] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close context menu on any global click
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    return () => window.removeEventListener("click", closeMenu);
+  }, []);
+
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
 
   // Simulated infinite scrollback terminal buffer state
   const linesRef = useRef<string[]>([""]);
@@ -484,6 +497,7 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
           {/* Terminal output console */}
           <div 
             onClick={focusTerminal}
+            onContextMenu={handleContextMenu}
             className="flex-1 overflow-y-auto rounded-xl border border-white/5 bg-black/40 p-4 scrollbar-thin scrollbar-thumb-white/10 cursor-text select-text focus-within:border-signal-500/50"
           >
             {/* Hidden textarea to capture keystrokes and paste operations */}
@@ -531,6 +545,31 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
                 className="mt-3 inline-flex items-center justify-center rounded-xl bg-signal-500 px-4 py-2 text-xs font-bold text-void-950 hover:bg-signal-400 transition-colors"
               >
                 Done
+              </button>
+            </div>
+          )}
+
+          {contextMenu && (
+            <div 
+              style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+              className="fixed z-[100] min-w-[160px] overflow-hidden rounded-xl border border-white/[0.08] bg-void-900 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={async () => {
+                  setContextMenu(null);
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                      wsRef.current.send(JSON.stringify({ type: "input", data: text }));
+                    }
+                  } catch (err) {
+                    // Fallback / ignore if blocked
+                  }
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                📋 Paste Clipboard Text
               </button>
             </div>
           )}
