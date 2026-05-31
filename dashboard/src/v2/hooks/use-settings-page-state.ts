@@ -606,6 +606,8 @@ export const useSettingsPageState = (
     };
   }, []);
 
+  const activeDirty = activeScope === "system" ? systemDirty : projectDirty;
+
   useEffect(() => {
     if (typeof window === "undefined" || !activeDirty) {
       return;
