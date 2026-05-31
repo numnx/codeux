@@ -225,6 +225,7 @@ Legacy runtime:
 - The Docker top-nav control now consumes onboarding readiness data. If Docker is unavailable, it shows a `Cluster not ready` badge with an info icon and explains that Docker is mandatory for containerized CLI execution.
 - Settings -> General includes `Open Onboarding`, which reopens the setup flow without clearing saved settings.
 - Settings -> Appearance previews unsaved edits immediately in the active dashboard shell. Theme, motion, navigation mode, animated/static background selection, static color, uploaded background image, and pattern overlay all update before Save Changes; leaving Settings clears the preview back to the persisted effective settings.
+- Settings now guard unsaved edits during route transitions and browser refresh/close events. Internal navigation prompts only when the active settings scope is dirty, and listeners are removed immediately after save, explicit reset/discard flows, or Settings page unmount.
 - Saved system or project settings invalidate cached effective project settings in mounted dashboard routes, so persisted appearance changes continue applying after navigating away from Settings without requiring a full app reload.
 - The notification center now renders startup-check notifications from real readiness data and persists read/dismissed notification state in browser storage.
 - GitLab support is available from Integrations with dashboard token persistence, backend GitLab host detection, `glab` support, and GitLab CI queries. `GITLAB_TOKEN` / `GLAB_TOKEN` remain supported as external fallbacks.
