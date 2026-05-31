@@ -634,6 +634,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
           if (
             (providerId === "gemini" && session.outputBuffer.includes("Signed in")) ||
             (providerId === "codex" && session.outputBuffer.includes("Successfully logged in")) ||
+            (providerId === "antigravity" && session.outputBuffer.includes("Choose your color scheme")) ||
             (providerId === "claude-code" && (
               session.outputBuffer.includes("Logged in") ||
               session.outputBuffer.includes("Login successful") ||
