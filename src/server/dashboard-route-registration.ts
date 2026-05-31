@@ -20,6 +20,7 @@ import { registerQuicksprintRoutes } from "./quicksprint-routes.js";
 import { registerLocalDirectoryRoutes } from "./local-directory-routes.js";
 import { registerSchedulerRoutes } from "./scheduler-routes.js";
 import { registerTerminalRoutes } from "./terminal-routes.js";
+import { registerSprintComposerRoutes } from "./routes/sprint-composer.js";
 
 export const registerDashboardRoutes = (
   app: Express,
@@ -28,6 +29,7 @@ export const registerDashboardRoutes = (
 ): void => {
   registerProjectRoutes(app, deps);
   registerSprintRoutes(app, deps);
+  registerSprintComposerRoutes(app, deps);
   registerTaskRoutes(app, deps);
   registerLiveTaskRoutes(app, deps);
   registerConversationRoutes(app, deps);
