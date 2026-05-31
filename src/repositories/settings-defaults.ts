@@ -486,11 +486,11 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     maxQuotaRetriesWithoutTimer: 5,
   },
   sprintPreview: {
-    enabled: true,
-    showInAppBrowser: true,
-    autoStartOnRunningSprint: true,
-    rebuildOnTaskCompletion: true,
-    rebuildOnSprintCompletion: true,
+    enabled: false,
+    showInAppBrowser: false,
+    autoStartOnRunningSprint: false,
+    rebuildOnTaskCompletion: false,
+    rebuildOnSprintCompletion: false,
     autoStopOnTerminalSprint: false,
     maxConcurrentContainers: 5,
     hostPortRangeStart: 5555,
@@ -578,3 +578,4 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     ].join("\n"),
   },
 };
+;
