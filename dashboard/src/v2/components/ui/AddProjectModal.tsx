@@ -1,7 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState, useMemo } from "preact/hooks";
 import gsap from "gsap";
-import { AlertCircle, Bot, Check, ChevronUp, FolderOpen, GitBranch, FolderInput, Home, Link2, Loader2, PlaySquare, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow, X } from "lucide-preact";
+import { AlertCircle, Bot, Check, ChevronUp, FolderOpen, GitBranch, FolderInput, Home, Info, Link2, Loader2, PlaySquare, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow, X } from "lucide-preact";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
@@ -52,7 +52,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const [setupOptions, setSetupOptions] = useState({
         agents: true,
         quicksprints: true,
-        previewScript: true,
+        previewScript: false,
         ci: true,
     });
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -598,8 +598,17 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${checked ? "bg-ember-500 text-void-900" : "bg-black/[0.04] text-slate-400 dark:bg-white/[0.06]"}`}>
                                                         <Icon className="h-4 w-4" />
                                                     </span>
-                                                    <span className="min-w-0">
-                                                        <span className="block text-xs font-black uppercase tracking-[0.12em]">{label}</span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em]">
+                                                            {label}
+                                                            {key === "previewScript" && (
+                                                                <Info 
+                                                                    className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 cursor-help" 
+                                                                    title="This is only needed when the container struggles to startup with the default script"
+                                                                    onClick={(e) => e.stopPropagation()} 
+                                                                />
+                                                            )}
+                                                        </span>
                                                         <span className="mt-1 block text-[11px] font-medium leading-snug opacity-75">{description}</span>
                                                     </span>
                                                 </button>
