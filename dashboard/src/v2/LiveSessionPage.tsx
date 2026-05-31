@@ -186,11 +186,13 @@ export const LiveSessionPage: FunctionComponent = () => {
     const hasLiveSprint = runtimeState.hasActiveSprint;
     const sprintStatusPresentation = useMemo(() => getSprintStatusPresentation({
         state: hasLiveSprint ? "running" : pausedInterventionRun?.status ?? "unknown",
+        pauseSource: pausedIntervention?.ownerType ?? null,
         humanInterventionTitle: pausedIntervention?.title ?? null,
         humanInterventionReason: pausedIntervention?.reason ?? null,
         humanInterventionInstructions: pausedIntervention?.instructions ?? null,
         humanInterventionOwnerType: pausedIntervention?.ownerType ?? null,
     }), [hasLiveSprint, pausedIntervention?.instructions, pausedIntervention?.ownerType, pausedIntervention?.reason, pausedIntervention?.title, pausedInterventionRun?.status]);
+    const showStatusPanel = !hasLiveSprint && (sprintStatusPresentation.isManualPause || sprintStatusPresentation.isSystemStop);
 
     const rawHasSprintContext = runtimeState.hasSprintContext;
     const sprintDispatches = useMemo(() => {
@@ -458,8 +460,8 @@ export const LiveSessionPage: FunctionComponent = () => {
                         null
                     ) : !hasSprintContext ? (
                         <IdleRuntimeState
-                            title={pausedIntervention ? sprintStatusPresentation.title : "Waiting for Sprint Start"}
-                            subtitle={pausedIntervention
+                            title={showStatusPanel ? sprintStatusPresentation.title : "Waiting for Sprint Start"}
+                            subtitle={showStatusPanel
                                 ? sprintStatusPresentation.detail
                                 : "Launch a sprint to activate live task telemetry, protocol output, and runtime activity for this project."}
                         />
