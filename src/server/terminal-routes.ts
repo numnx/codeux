@@ -501,7 +501,7 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         `  ${installCmd || "echo 'No installation command configured'"};`,
         "fi",
         proxyCmd,
-        `script -q -c "export NPM_CONFIG_PREFIX=/tmp/.npm-global && export PATH=/tmp/.npm-global/bin:/tmp/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && export BROWSER=xdg-open && stty cols 80 rows 24 && ${loginCmd}" /dev/null`,
+        `script -q -c "export NPM_CONFIG_PREFIX=/tmp/.npm-global && export PATH=/tmp/.npm-global/bin:/tmp/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && export BROWSER=xdg-open && stty cols 80 rows 100 && ${loginCmd}" /dev/null`,
       ].filter(Boolean).join("\n");
 
       const userSpec = getDockerUserSpec();

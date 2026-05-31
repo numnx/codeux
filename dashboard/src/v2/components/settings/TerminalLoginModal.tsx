@@ -552,33 +552,33 @@ export const TerminalLoginModal: FunctionComponent<TerminalLoginModalProps> = ({
               </button>
             </div>
           )}
-
-          {contextMenu && (
-            <div 
-              style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-              className="fixed z-[100] min-w-[160px] overflow-hidden rounded-xl border border-white/[0.08] bg-void-900 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={async () => {
-                  setContextMenu(null);
-                  try {
-                    const text = await navigator.clipboard.readText();
-                    if (text && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                      wsRef.current.send(JSON.stringify({ type: "input", data: text }));
-                    }
-                  } catch (err) {
-                    // Fallback / ignore if blocked
-                  }
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition-colors"
-              >
-                📋 Paste Clipboard Text
-              </button>
-            </div>
-          )}
         </div>
       </div>
+
+      {contextMenu && (
+        <div 
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          className="fixed z-[100] min-w-[160px] overflow-hidden rounded-xl border border-white/[0.08] bg-void-900 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={async () => {
+              setContextMenu(null);
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: "input", data: text }));
+                }
+              } catch (err) {
+                // Fallback / ignore if blocked
+              }
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            📋 Paste Clipboard Text
+          </button>
+        </div>
+      )}
     </div>
   );
 };
