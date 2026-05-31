@@ -4,6 +4,7 @@ import type { DashboardDependencies } from "./dashboard-server.js";
 import { registerProjectRoutes } from "./project-routes.js";
 import { registerSprintRoutes } from "./sprint-routes.js";
 import { registerTaskRoutes } from "./task-routes.js";
+import { registerLiveTaskRoutes } from "./routes/live-tasks.js";
 import { registerConversationRoutes } from "./conversation-routes.js";
 import { registerPlanningRoutes } from "./planning-routes.js";
 import { registerPreviewRoutes } from "./preview-routes.js";
@@ -28,6 +29,7 @@ export const registerDashboardRoutes = (
   registerProjectRoutes(app, deps);
   registerSprintRoutes(app, deps);
   registerTaskRoutes(app, deps);
+  registerLiveTaskRoutes(app, deps);
   registerConversationRoutes(app, deps);
   registerPlanningRoutes(app, deps);
   registerPreviewRoutes(app, deps);
