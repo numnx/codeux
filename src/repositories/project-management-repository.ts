@@ -1,5 +1,6 @@
 import * as path from "path";
 import { randomUUID } from "crypto";
+import { EventEmitter } from "events";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 import { ValidationError, EntityNotFoundError, RepositoryError } from "./repository-utils.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
@@ -133,6 +134,7 @@ interface LinkedIssueRow {
 }
 
 export class ProjectManagementRepository {
+  public readonly events = new EventEmitter();
   private readonly db: DatabaseAdapter;
 
   constructor(
@@ -1283,6 +1285,7 @@ export class ProjectManagementRepository {
   }
 
   private publishProjectStructureRefresh(projectId: string): void {
+    this.events.emit("project_state_changed", projectId);
     this.realtimeNotifier?.scheduleProjectStructureRefresh(projectId, { includeProjects: true });
   }
 
