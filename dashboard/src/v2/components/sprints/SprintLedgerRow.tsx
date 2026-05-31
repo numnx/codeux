@@ -72,6 +72,11 @@ export interface SprintLedgerRowProps {
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
   onSprintPauseResume: (sprintId: string) => void;
+  onEdit: () => void;
+  onExport: () => void;
+  onOverrides: () => void;
+  onMarkCompleted: () => void;
+  onDelete: () => void;
 }
 
 const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
