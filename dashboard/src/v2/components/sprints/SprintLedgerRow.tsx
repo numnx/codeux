@@ -13,13 +13,18 @@ import {
   MoreVertical,
   Square,
 } from "lucide-preact";
+import { useState } from "preact/hooks";
 import { HumanInterventionBadge } from "../ui/HumanInterventionBadge.js";
 import { SprintReviewBadge } from "./SprintReviewBadge.js";
+import { SprintActionMenu } from "./SprintActionMenu.js";
+import { DropdownMenu } from "../ui/DropdownMenu.js";
+import { LinkedIssueTag } from "../sprint/LinkedIssueTag.js";
 import type { Sprint, SprintStatus } from "../../types.js";
 import type { ExecutionHumanInterventionSummary } from "../../../../../src/contracts/app-types.js";
 import { formatSprintKey, STATUS_LABELS } from "../../lib/sprint-ledger-state.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
 import { SprintControls } from "./SprintControls.js";
+import { TableRow, TableCell } from "../ui/Table.js";
 
 // Polished badge tones: increased contrast for backgrounds and borders where appropriate
 const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
@@ -69,7 +74,11 @@ export interface SprintLedgerRowProps {
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
   onSprintPauseResume: (sprintId: string) => void;
-  onOpenRowMenu: (event: MouseEvent, sprintId: string) => void;
+  onEdit: () => void;
+  onExport: () => void;
+  onOverrides: () => void;
+  onMarkCompleted: () => void;
+  onDelete: () => void;
 }
 
 const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
@@ -85,9 +94,9 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   onToggleShowcase,
   onSprintToggle,
   onSprintPauseResume,
-  onOpenRowMenu,
 }) => {
   const settings = useProjectEffectiveSettings(sprint.projectId);
+  const [menuOpen, setMenuOpen] = useState(false);
   const sprintKeyPrefix = settings.data?.settings.git.sprintKeyPrefix || "SPR";
 
   const pendingToggleActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
@@ -117,10 +126,10 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   const progressTone = PROGRESS_TONES[sprint.status];
 
   return (
-    <tr
-      className={`group mb-3 block overflow-hidden rounded-[1.5rem] border shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_48px_rgba(15,23,42,0.08)] focus-within:ring-2 focus-within:ring-signal-500/20 dark:shadow-[0_16px_40px_rgba(0,0,0,0.18)] lg:table-row lg:overflow-visible lg:rounded-none lg:border-0 lg:shadow-none lg:hover:translate-y-0 lg:hover:shadow-none ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
+    <TableRow
+      className={`group transition-all duration-300 hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
     >
-      <td className={`block px-4 pb-0 pt-4 align-middle lg:table-cell lg:w-12 lg:rounded-l-[1.5rem] lg:border-y lg:border-l lg:px-4 lg:py-4 lg:pl-6 ${desktopCellTone}`}>
+      <TableCell isFirst className={`w-12 ${desktopCellTone}`}>
         <button
           type="button"
           onClick={() => onToggleRow(sprint.id)}
@@ -132,8 +141,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             ? <CheckSquare className="h-4 w-4 text-signal-500" strokeWidth={2.2} />
             : <Square className="h-4 w-4" strokeWidth={2.2} />}
         </button>
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:w-20 lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell className={`w-20 ${desktopCellTone}`}>
         <button
           type="button"
           onClick={() => onToggleShowcase(sprint)}
@@ -151,15 +160,15 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             <Heart className="h-3.5 w-3.5" fill={sprint.showcasePinned ? "currentColor" : "none"} strokeWidth={2.1} />
           )}
         </button>
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:min-w-[8rem] lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell className={`min-w-[8rem] ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint ID</span>
         <div className="font-mono text-sm font-bold text-[var(--text-primary)] truncate">{formatSprintKey(sprint, sprintKeyPrefix)}</div>
         <div className="mt-1 text-[10px] font-bold text-slate-400 truncate">
           {shortenId(sprint.id)}
         </div>
-      </td>
-      <td className={`block min-w-0 max-w-full px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell className={`min-w-0 max-w-full ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Sprint</span>
         <div className="flex flex-wrap items-center gap-2">
           <div className={`font-display text-lg font-black leading-tight break-words ${isCompleted ? "text-slate-700 dark:text-slate-300" : "text-[var(--text-primary)]"}`}>{sprint.name}</div>
@@ -184,14 +193,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         {sprint.linkedIssues && sprint.linkedIssues.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {sprint.linkedIssues.map((issue) => (
-              <span
-                key={issue.id}
-                className="inline-flex items-center gap-1.5 rounded-md border border-black/[0.08] bg-black/[0.03] px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-slate-300"
-                title={issue.title}
-              >
-                <Link2 className="h-3 w-3" strokeWidth={2.2} />
-                {issue.issueKey}
-              </span>
+              <LinkedIssueTag key={issue.id} issue={issue} />
             ))}
           </div>
         )}
@@ -200,8 +202,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             {sprint.goal}
           </p>
         ) : null}
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell className={desktopCellTone}>
         <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-start">
           <span className="text-[10px] font-bold text-slate-400 lg:hidden">Status</span>
           <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${STATUS_BADGE_TONES[sprint.status]}`}>
@@ -214,10 +216,10 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             </div>
           )}
         </div>
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell align="right" className={desktopCellTone}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Tasks</span>
-        <div className="flex items-center gap-3 lg:block">
+        <div className="flex items-center gap-3 justify-end lg:block">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/70 text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.04] lg:hidden">
             <ListChecks className="h-4 w-4" strokeWidth={2.2} />
           </div>
@@ -226,10 +228,10 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             <div className="text-[11px] text-slate-400">planned tasks</div>
           </div>
         </div>
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:min-w-[12rem] lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell align="right" className={`min-w-[12rem] ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Completion</span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-end gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-black/10 ring-1 ring-black/[0.03] dark:bg-white/[0.08] dark:ring-white/[0.04]">
             <div
               className={`h-full rounded-full bg-gradient-to-r ${progressTone} transition-[width] duration-500 ease-out`}
@@ -238,8 +240,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
           </div>
           <span className="font-mono text-sm font-bold text-[var(--text-primary)]">{sprint.completion}%</span>
         </div>
-      </td>
-      <td className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-4 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell className={desktopCellTone}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Created</span>
         <div className="font-medium text-[var(--text-primary)]">{formatTableDate(sprint.createdAt)}</div>
         <div className="mt-1 text-[11px] text-slate-400">created</div>
@@ -258,8 +260,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             <span className="text-[11px] font-bold text-slate-400">Not reviewed</span>
           )}
         </div>
-      </td>
-      <td className={`block px-4 pb-4 pt-3 align-middle lg:table-cell lg:rounded-r-[1.5rem] lg:border-y lg:border-r lg:px-4 lg:py-4 lg:pr-6 ${desktopCellTone}`}>
+      </TableCell>
+      <TableCell align="right" isLast className={desktopCellTone}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Controls</span>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:whitespace-nowrap">
           <SprintControls
@@ -277,22 +279,44 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             Open
             <Maximize2 className="h-3.5 w-3.5" />
           </a>
-          <button
-            type="button"
-            onClick={(event) => onOpenRowMenu(event, sprint.id)}
-            disabled={isRowPending}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            title="Open sprint actions"
+          <DropdownMenu
+            isOpen={menuOpen}
+            onOpenChange={setMenuOpen}
+            position="bottom"
+            align="end"
+            className="min-w-[11.5rem]"
+            content={
+              <SprintActionMenu
+                sprint={sprint}
+                isCompleted={isCompleted}
+                showcaseBusy={isPinPending}
+                markCompletedDisabled={false}
+                onToggleShowcase={() => onToggleShowcase(sprint)}
+                onClose={() => setMenuOpen(false)}
+                markCompletedIcon="square"
+                role="menuitem"
+                buttonClassName="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+              />
+            }
           >
-            {isRowPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />
-            ) : (
-              <MoreVertical className="h-3.5 w-3.5" />
-            )}
-          </button>
+            <button
+              type="button"
+              disabled={isRowPending}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              title="Open sprint actions"
+            >
+              {isRowPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />
+              ) : (
+                <MoreVertical className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </DropdownMenu>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 };
 
