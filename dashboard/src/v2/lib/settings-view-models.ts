@@ -15,6 +15,7 @@ import type {
   ThinkingMode,
 } from "../../types.js";
 import { cloneGuardrails } from "../../lib/settings.js";
+import { DEFAULT_PROVIDER_WEIGHT } from "../../../../src/repositories/settings-defaults.js";
 
 const cloneSkills = (skills: SkillToggle[]): SkillToggle[] => skills.map((skill) => ({ ...skill }));
 const cloneMcpTools = (tools: McpToolToggle[]): McpToolToggle[] => tools.map((tool) => ({ ...tool }));
@@ -313,7 +314,7 @@ export const createProjectProviderDraft = (
       : providerId === "opencode"
         ? "anthropic/claude-sonnet-4-5"
         : "default",
-  weight: providerId === "jules" ? 60 : providerId === "claude-code" || providerId === "qwen-code" || providerId === "opencode" ? 0 : 20,
+  weight: DEFAULT_PROVIDER_WEIGHT,
   thinkingMode: providerId === "codex" || providerId === "claude-code" || providerId === "qwen-code" || providerId === "opencode" ? "HIGH" : "MEDIUM",
   maxConcurrentTasks: providerId === "jules" ? 15 : 0,
 });
