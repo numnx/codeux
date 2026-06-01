@@ -357,9 +357,18 @@ export const LiveSessionPage: FunctionComponent = () => {
             // When `retryOnQuotaReset` is on, the provider sleeps in-process and the dispatch
             // stays "running"; detect that wait from runtime events so the card still shows
             // QUOTA + a countdown rather than a misleading "Running" while we wait on quota.
+            // IMPORTANT: Only look at events belonging to the *current* dispatch to prevent
+            // stale quota-wait events from a previous run (which may still have a future
+            // retryAfterIso) from incorrectly showing QUOTA during a fresh rerun.
+            const currentDispatchEvents = latestDispatch
+                ? taskEvents.filter((e) =>
+                    (latestDispatch.taskRunId && e.taskRunId === latestDispatch.taskRunId)
+                    || (latestDispatch.id && e.dispatchId === latestDispatch.id),
+                  )
+                : [];
             const activeQuotaWait = ["FAILED", "BLOCKED", "QUOTA", "COMPLETED"].includes(dispatchPhase)
                 ? null
-                : findActiveQuotaWait(taskEvents);
+                : findActiveQuotaWait(currentDispatchEvents);
             const taskPhase = activeQuotaWait ? "QUOTA" as const : dispatchPhase;
             const showDispatchError = activeQuotaWait
                 ? `Provider quota exhausted — waiting for reset. [RETRY_AFTER:${activeQuotaWait.retryAfterIso}]`
