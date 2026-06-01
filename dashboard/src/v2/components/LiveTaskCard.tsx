@@ -128,6 +128,7 @@ export interface RerunOptions {
     model?: string;
     clearWorktree?: boolean;
     resetDependents?: boolean;
+    undoMerge?: boolean;
 }
 
 export interface LiveTaskCardProps {
@@ -196,7 +197,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     const handleEditClick = useCallback(() => onEdit(task), [onEdit, task]);
     const handleForceCompleteClick = useCallback(() => onForceComplete(task), [onForceComplete, task]);
 
-    const handleRerunConfirm = useCallback((options: { provider?: string; providerConfigId?: string; model?: string; clearWorktree: boolean; resetDependents: boolean }) => {
+    const handleRerunConfirm = useCallback((options: { provider?: string; providerConfigId?: string; model?: string; clearWorktree: boolean; resetDependents: boolean; undoMerge?: boolean }) => {
         setShowRerunModal(false);
         onRerun(task.record_id || task.id, {
             provider: options.provider,
@@ -204,6 +205,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
             model: options.model,
             clearWorktree: options.clearWorktree,
             resetDependents: options.resetDependents,
+            undoMerge: options.undoMerge,
         });
     }, [task.id, task.record_id, onRerun]);
 
