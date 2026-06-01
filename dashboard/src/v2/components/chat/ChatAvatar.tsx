@@ -114,20 +114,7 @@ export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({
 
       case "agent":
       default: {
-        // Provider-branded icon takes priority when provider is recognized
-        if (matchedProviderId) {
-          return (
-            <ProviderLogo
-              provider={matchedProviderId}
-              size={20}
-              title={providerLabels[matchedProviderId]}
-            />
-          );
-        }
-
-        // Logo-faithful mini robot. If we have a config use it, otherwise
-        // pick a deterministic variant from the agent's name so different
-        // agents are visually distinct in the chat.
+        // Logo-faithful mini robot. If we have a config use it first.
         if (avatarConfig) {
           try {
             const config = normalizeAgentAvatarConfig(avatarConfig);
@@ -140,6 +127,18 @@ export const ChatAvatar: FunctionComponent<ChatAvatarProps> = ({
             // Fall back to Bot icon if config is invalid
           }
         }
+
+        // Provider-branded icon takes priority when provider is recognized
+        if (matchedProviderId) {
+          return (
+            <ProviderLogo
+              provider={matchedProviderId}
+              size={20}
+              title={providerLabels[matchedProviderId]}
+            />
+          );
+        }
+
         return <Bot class="w-5 h-5 text-slate-400" aria-hidden="true" />;
       }
     }

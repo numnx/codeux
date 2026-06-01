@@ -73,6 +73,34 @@ describe("Chat Message Bubbles", () => {
       expect(getByText("My special plan")).toBeInTheDocument();
       expect(getByText("Navigating solutions...")).toBeInTheDocument();
     });
+
+    it("renders AgentAvatarSvg when an agent preset avatar config is supplied", () => {
+      const message: ChatMessageRecord = {
+        id: "msg_preset_avatar",
+        threadId: "thread_1",
+        direction: "connection_to_dashboard",
+        authorType: "connection",
+        authorConnectionId: "conn_1",
+        bodyMarkdown: "Hello preset agent",
+        deliveryStatus: "delivered",
+        createdAt: new Date().toISOString(),
+        metadata: null,
+      };
+
+      const avatarConfig = { chassis: 'classic', accent: 'jade', eyes: 'happy' } as any;
+      const { container } = render(
+        <ChatMessageBubble
+          message={message}
+          agentAvatarConfig={avatarConfig}
+          agentName="MyAgent"
+        />
+      );
+
+      const svg = container.querySelector('svg[data-testid="agent-avatar-svg"]');
+      expect(svg).toBeInTheDocument();
+      expect(container.innerHTML).toContain('data-cux-agent-name="MyAgent"');
+      expect(container.textContent).toContain("MyAgent");
+    });
   });
 
   describe("InvocationMessageBubble", () => {
@@ -142,6 +170,33 @@ describe("Chat Message Bubbles", () => {
       const { getByText } = render(<InvocationMessageBubble message={message} />);
       expect(getByText("Rate limit")).toBeInTheDocument();
       expect(getByText("default")).toBeInTheDocument();
+    });
+
+    it("renders AgentAvatarSvg when a linked preset avatar config is supplied for assistant", () => {
+      const message: ExecutionInvocationMessageRecord = {
+        id: "msg_inv_preset",
+        invocationId: "inv_1",
+        role: "assistant",
+        contentMarkdown: "Assistant with preset avatar",
+        toolCallsJson: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      const avatarConfig = { chassis: 'square', accent: 'amber', eyes: 'smile' } as any;
+      const { container } = render(
+        <InvocationMessageBubble
+          message={message}
+          agentAvatarConfig={avatarConfig}
+          agentName="PresetAssistant"
+        />
+      );
+
+      const svg = container.querySelector('svg[data-testid="agent-avatar-svg"]');
+      expect(svg).toBeInTheDocument();
+
+      const nameElement = container.querySelector('.font-semibold.text-slate-300');
+      expect(nameElement).toBeInTheDocument();
+      expect(nameElement?.textContent).toBe("PresetAssistant");
     });
   });
 
