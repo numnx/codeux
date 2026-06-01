@@ -5,39 +5,8 @@ import { RobotLogo } from "../brand/RobotLogo.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 /*
-  Onboarding intro — "Ignition" boot sequence.
-
-  The screen opens on deep black (macOS-boot feel). A single seed of light
-  ignites at center, the Code UX logo materialises out of the void, and thin
-  colored glowing filaments draw themselves outward across the background like
-  generative line art — each curve blooming from behind the logo and lighting
-  a node at its tip. The wordmark resolves, then the whole stage hands off to
-  the onboarding shell.
-
-  TIMELINE (~5.85s total):
-    0.00  black backdrop fades up                              (0.40s)
-    0.18  center seed of light ignites                         (0.40s, back.out)
-    0.50  logo materialises — scale-up + de-blur               (1.00s, expo.out)
-          atmosphere + halo bloom behind it
-    0.62  ignition ring pulses outward once                    (1.10s, power3.out)
-    0.78  forehead jewel ignites, eyes snap open
-    0.70  ── FILAMENT BLOOM ──
-          ~36 glowing curves draw outward at a steady pen-pace
-          (stroke dash + sine.inOut), each with a comet head
-          riding the draw front and a node lighting at the tip (~4.0s cascade)
-    1.05  antennae snap outward
-    3.00  "WELCOME TO" small-caps reveals
-    3.35  CodeUX wordmark — letter-spacing collapse + de-blur
-    4.00  "Agentic Runtime" tagline
-    5.00  ── HANDOFF: onExitStart fires ──
-          stage scales 1 → 1.05 and fades, field fades, void fades
-    5.85  onComplete fires — intro unmounts
-
-  CONTINUOUS AMBIENT:
-    - logo floats vertically (4.0s yoyo)
-    - atmosphere breathes (3.4s yoyo)
-    - filament field rotates a few degrees back and forth (very slow)
-    - each filament shimmers in opacity once drawn (never in sync)
+  Onboarding intro — Immersive generative line-art boot sequence.
+  Centered perfectly around the logo on absolute black, with sweeping vibrant filaments.
 */
 
 interface OnboardingIntroProps {
@@ -45,9 +14,6 @@ interface OnboardingIntroProps {
     onComplete?: () => void;
 }
 
-// ── Generative filament field ────────────────────────────────────────────────
-// Full-screen SVG uses a 1000×1000 viewBox sliced to cover. Everything radiates
-// from the center (500,500), emerging from behind the logo's halo.
 const C = 500;
 const TAU = Math.PI * 2;
 
@@ -57,7 +23,14 @@ const seeded = (n: number): number => {
     return x - Math.floor(x);
 };
 
-const JADE_PALETTE = ["#00E0A0", "#33FFB8", "#80FFD6", "#00C68F"];
+const NEON_PALETTE = [
+  "#00E0A0", // Signal Jade (Primary Accent)
+  "#00F0FF", // Neon Cyan
+  "#7B2CBF", // Electric Purple
+  "#FF007F", // Neon Rose
+  "#FFB800", // Warm Ember
+  "#39FF14", // Neon Green
+];
 
 interface Filament {
     d: string;
@@ -71,48 +44,72 @@ interface Filament {
 }
 
 const buildFilaments = (): Filament[] => {
-    const COUNT = 36;
+    const COUNT = 48; // Detailed canvas of sweeping tendrils
     const list: Filament[] = [];
     for (let i = 0; i < COUNT; i++) {
         const s1 = seeded(i + 1);
         const s2 = seeded(i + 101);
         const s3 = seeded(i + 211);
         const s4 = seeded(i + 331);
-        const angle = (i / COUNT) * TAU + (s1 - 0.5) * 0.2;
-        // Alternating curl direction reads as organic, intentional art.
-        const sweep = (0.32 + s2 * 0.55) * (i % 2 === 0 ? 1 : -1);
-        const r0 = 30 + s1 * 52;
-        const r1 = 320 + s3 * 340;
+        
+        // Even distribution around the center point
+        const angle = (i / COUNT) * TAU + (s1 - 0.5) * 0.15;
+        
+        // Alternating sweep direction creates beautiful overlapping curves
+        const sweep = (0.45 + s2 * 0.95) * (i % 2 === 0 ? 1 : -1);
+        
+        // Start radius hidden under the logo
+        const r0 = 40 + s1 * 40;
+        
+        // End radius sweeping far across the screen
+        const r1 = 380 + s3 * 420;
+        
         const endAngle = angle + sweep;
+        
         const sx = C + Math.cos(angle) * r0;
         const sy = C + Math.sin(angle) * r0;
         const ex = C + Math.cos(endAngle) * r1;
         const ey = C + Math.sin(endAngle) * r1;
-        const c1r = r0 + (r1 - r0) * 0.34;
-        const c2r = r0 + (r1 - r0) * 0.7;
-        const c1a = angle + sweep * 0.26;
-        const c2a = angle + sweep * 0.64;
+        
+        // Sweeping Bezier control paths for high elegance
+        const c1r = r0 + (r1 - r0) * 0.38;
+        const c2r = r0 + (r1 - r0) * 0.72;
+        const c1a = angle + sweep * 0.3;
+        const c2a = angle + sweep * 0.7;
+        
         const c1x = C + Math.cos(c1a) * c1r;
         const c1y = C + Math.sin(c1a) * c1r;
         const c2x = C + Math.cos(c2a) * c2r;
         const c2y = C + Math.sin(c2a) * c2r;
-        const isGold = i % 9 === 4; // sparse warm accents for contrast
-        const color = isGold ? "#FFC24A" : JADE_PALETTE[i % JADE_PALETTE.length]!;
+        
+        const isAccent = i % 7 === 3;
+        const color = isAccent ? "#FFB800" : NEON_PALETTE[i % NEON_PALETTE.length]!;
+        
         list.push({
             d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${ex.toFixed(1)} ${ey.toFixed(1)}`,
             color,
-            width: 0.65 + s4 * 0.95,
-            baseOpacity: 0.45 + s2 * 0.4,
-            node: { x: ex, y: ey, r: 1.4 + s4 * 1.9 },
-            drawDelay: 0.7 + i * 0.04,
-            drawDur: 1.6 + s3 * 0.9,
-            shimmer: 2.2 + s1 * 2.4,
+            width: 0.35 + s4 * 0.65, // super fine lines
+            baseOpacity: 0.55 + s2 * 0.35,
+            node: { x: ex, y: ey, r: 1.2 + s4 * 1.5 },
+            drawDelay: 0.6 + i * 0.07, // elegant progressive draw
+            drawDur: 3.2 + s3 * 1.8, // beautiful slow build
+            shimmer: 3.0 + s1 * 3.0,
         });
     }
     return list;
 };
 
 const FILAMENTS = buildFilaments();
+
+function primePathForDraw(path: SVGPathElement): number {
+    const length = Math.max(1, path.getTotalLength());
+    gsap.set(path, {
+        strokeDasharray: length,
+        strokeDashoffset: length,
+        opacity: 0,
+    });
+    return length;
+}
 
 export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExitStart, onComplete }) => {
     const backdropRef = useRef<HTMLDivElement>(null);
@@ -149,10 +146,10 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
             const glows = glowRefs.current.filter(Boolean) as SVGPathElement[];
             const nodes = nodeRefs.current.filter(Boolean) as SVGCircleElement[];
 
-            // Prime every filament as an undrawn, full-length dash.
-            [...cores, ...glows].forEach((path) => {
-                gsap.set(path, { strokeDasharray: 1, strokeDashoffset: 1 });
-            });
+            // Prime filaments with real SVG path lengths so they draw from the
+            // center outward instead of appearing as already-painted lines.
+            const coreLengths = cores.map(primePathForDraw);
+            const glowLengths = glows.map(primePathForDraw);
 
             const robot = robotRef.current;
             const eyeLeft = robot?.querySelector<SVGGElement>("[data-cux-eye='left']") ?? null;
@@ -171,8 +168,8 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                     letterSpacing: "-0.02em",
                 });
                 gsap.set(taglineRef.current, { opacity: 0.78 });
-                cores.forEach((path, i) => gsap.set(path, { strokeDashoffset: 0, opacity: FILAMENTS[i]!.baseOpacity }));
-                glows.forEach((path, i) => gsap.set(path, { strokeDashoffset: 0, opacity: FILAMENTS[i]!.baseOpacity * 0.5 }));
+                cores.forEach((path, i) => gsap.set(path, { strokeDasharray: coreLengths[i], strokeDashoffset: 0, opacity: FILAMENTS[i]!.baseOpacity }));
+                glows.forEach((path, i) => gsap.set(path, { strokeDasharray: glowLengths[i], strokeDashoffset: 0, opacity: FILAMENTS[i]!.baseOpacity * 0.5 }));
                 nodes.forEach((node, i) => gsap.set(node, { opacity: 0.9, attr: { r: FILAMENTS[i]!.node.r } }));
                 gsap.set([eyeLeft, eyeRight, jewel, antBall, antLeft, antRight].filter(Boolean), { opacity: 1, scale: 1, scaleY: 1 });
                 gsap.delayedCall(1.2, () => onExitStartRef.current?.());
@@ -180,7 +177,7 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 return;
             }
 
-            // ===== Continuous ambient motion =====
+            // ===== Ambient animations =====
             gsap.to(atmosphereRef.current, { scale: 1.06, duration: 3.4, ease: "sine.inOut", yoyo: true, repeat: -1 });
             gsap.to(logoWrapperRef.current, { y: -7, duration: 4.0, ease: "sine.inOut", yoyo: true, repeat: -1 });
             if (fieldGroupRef.current) {
@@ -191,24 +188,23 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 );
             }
 
-            // Hide the "alive" parts of the robot up front.
+            // Hide raw robot components
             gsap.set([eyeLeft, eyeRight].filter(Boolean), { transformOrigin: "50% 50%", svgOrigin: "627 690", scaleY: 0, opacity: 0.92 });
             if (jewel) gsap.set(jewel, { transformOrigin: "50% 50%", svgOrigin: "628 400", scale: 0, opacity: 0 });
             if (antBall) gsap.set(antBall, { transformOrigin: "50% 50%", svgOrigin: "628 280", scaleY: 0, opacity: 0 });
             if (antLeft) gsap.set(antLeft, { transformOrigin: "50% 50%", svgOrigin: "525 326", scale: 0, opacity: 0 });
             if (antRight) gsap.set(antRight, { transformOrigin: "50% 50%", svgOrigin: "731 326", scale: 0, opacity: 0 });
 
-            // ===== Master timeline =====
             const tl = gsap.timeline();
 
-            // Void fades up
+            // Void black overlay reveal
             tl.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0);
             tl.fromTo(vignetteRef.current, { opacity: 0 }, { opacity: 1, duration: 1.1, ease: "power3.out" }, 0.05);
 
-            // Seed of light ignites
+            // Light seed ignition
             tl.fromTo(seedRef.current, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2.6)" }, 0.18);
 
-            // ===== 0.50s — Logo materialises out of the void =====
+            // Logo materialisation
             tl.fromTo(
                 logoWrapperRef.current,
                 { opacity: 0, scale: 0.8, filter: "blur(16px)" },
@@ -218,11 +214,11 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
             tl.fromTo(atmosphereRef.current, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 1.1, ease: "power3.out" }, 0.5);
             tl.fromTo(haloRef.current, { opacity: 0, scale: 0.9 }, { opacity: 0.9, scale: 1, duration: 0.9, ease: "power3.out" }, 0.7);
 
-            // Ignition ring pulse + seed dissolves into the logo
+            // Seed merges & ignition pulse
             tl.fromTo(ignitionRingRef.current, { scale: 0.3, opacity: 0.9 }, { scale: 2.5, opacity: 0, duration: 1.1, ease: "power3.out" }, 0.62);
             tl.to(seedRef.current, { opacity: 0, duration: 0.5, ease: "power2.in" }, 0.72);
 
-            // ===== 0.78s — Jewel ignition + eyes awaken =====
+            // Awake eyes & forehead jewel
             if (jewel) {
                 tl.to(jewel, { scale: 1.16, opacity: 1, duration: 0.3, ease: "back.out(3)" }, 0.78);
                 tl.to(jewel, { scale: 1, duration: 0.42, ease: "power2.out" }, 1.08);
@@ -231,31 +227,28 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 tl.to([eyeLeft, eyeRight], { scaleY: 1, opacity: 1, duration: 0.5, ease: "back.out(2.4)", stagger: 0.06 }, 0.9);
             }
 
-            // ===== 1.05s — Antennae snap outward =====
+            // Antennas snap
             if (antBall) tl.to(antBall, { scaleY: 1, opacity: 1, duration: 0.42, ease: "back.out(2.6)" }, 1.05);
             if (antLeft) tl.to(antLeft, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.4)" }, 1.1);
             if (antRight) tl.to(antRight, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.4)" }, 1.1);
 
-            // ===== 0.70s — FILAMENT BLOOM — glowing lines draw across the void =====
-            // Each curve is drawn at a steady pen-pace (no front-loaded easing, so it
-            // travels rather than pops), with a bright comet head riding the draw front
-            // and a node lighting up where it lands.
+            // Draw line-art filaments
             FILAMENTS.forEach((filament, i) => {
                 const core = coreRefs.current[i];
                 const glow = glowRefs.current[i];
                 const node = nodeRefs.current[i];
                 const comet = cometRefs.current[i];
-                const targets = [core, glow].filter(Boolean) as SVGPathElement[];
                 const totalLength = core?.getTotalLength() ?? 0;
 
                 if (node) gsap.set(node, { opacity: 0, attr: { r: 0 } });
                 if (comet) gsap.set(comet, { opacity: 0, cx: filament.node.x, cy: filament.node.y });
 
-                if (targets.length) {
-                    tl.to(targets, {
+                if (core) {
+                    tl.to(core, {
                         strokeDashoffset: 0,
+                        opacity: filament.baseOpacity,
                         duration: filament.drawDur,
-                        ease: "sine.inOut",
+                        ease: "none",
                         onStart() {
                             if (comet) gsap.to(comet, { opacity: 1, duration: 0.25, ease: "power2.out" });
                         },
@@ -270,6 +263,14 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         },
                     }, filament.drawDelay);
                 }
+                if (glow) {
+                    tl.to(glow, {
+                        strokeDashoffset: 0,
+                        opacity: filament.baseOpacity * 0.35,
+                        duration: filament.drawDur,
+                        ease: "none",
+                    }, filament.drawDelay);
+                }
                 if (node) {
                     tl.fromTo(
                         node,
@@ -278,7 +279,6 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         filament.drawDelay + filament.drawDur - 0.28,
                     );
                 }
-                // Once drawn, each line breathes — never in sync.
                 if (core) {
                     gsap.to(core, {
                         opacity: filament.baseOpacity * 0.5,
@@ -291,27 +291,27 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 }
             });
 
-            // ===== Wordmark reveal =====
+            // Wordmark reveal timings
             tl.fromTo(
                 welcomeLabelRef.current,
                 { opacity: 0, y: 14, letterSpacing: "0.45em" },
                 { opacity: 1, y: 0, letterSpacing: "0.32em", duration: 0.55, ease: "power2.out" },
-                3.0,
+                3.8,
             );
             tl.fromTo(
                 wordmarkRef.current,
                 { opacity: 0, y: 24, letterSpacing: "0.18em", filter: "blur(10px)" },
                 { opacity: 1, y: 0, letterSpacing: "-0.02em", filter: "blur(0px)", duration: 0.95, ease: "expo.out" },
-                3.35,
+                4.25,
             );
-            tl.fromTo(taglineRef.current, { opacity: 0, y: 8 }, { opacity: 0.78, y: 0, duration: 0.5, ease: "power2.out" }, 4.0);
+            tl.fromTo(taglineRef.current, { opacity: 0, y: 8 }, { opacity: 0.78, y: 0, duration: 0.5, ease: "power2.out" }, 5.0);
 
-            // ===== 5.00s — Handoff =====
-            tl.call(() => onExitStartRef.current?.(), undefined, 5.0);
-            tl.to(stageRef.current, { opacity: 0, scale: 1.05, duration: 0.75, ease: "power2.inOut" }, 5.0);
-            tl.to(fieldGroupRef.current, { opacity: 0, duration: 0.7, ease: "power2.inOut" }, 5.0);
-            tl.to(backdropRef.current, { opacity: 0, duration: 0.65, ease: "power2.inOut" }, 5.15);
-            tl.call(() => onCompleteRef.current?.(), undefined, 5.85);
+            // Immersive clean exit and dashboard handoff
+            tl.call(() => onExitStartRef.current?.(), undefined, 7.2);
+            tl.to(stageRef.current, { opacity: 0, scale: 1.05, duration: 0.75, ease: "power2.inOut" }, 7.2);
+            tl.to(fieldGroupRef.current, { opacity: 0, duration: 0.7, ease: "power2.inOut" }, 7.2);
+            tl.to(backdropRef.current, { opacity: 0, duration: 0.65, ease: "power2.inOut" }, 7.35);
+            tl.call(() => onCompleteRef.current?.(), undefined, 8.0);
         });
         return () => ctx.revert();
     }, [reducedMotion]);
@@ -324,15 +324,15 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
     return (
         <div
             ref={backdropRef}
-            className="fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-[#020407]"
+            className="fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-[#000000]"
             style={{ opacity: 0 }}
             aria-hidden="true"
         >
-            {/* Deep-space ground glow + vignette */}
+            {/* Deep-space ambient ground glow & vignette */}
             <div ref={vignetteRef} aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ opacity: 0 }}>
                 <div
                     className="absolute inset-0"
-                    style={{ background: "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(0,224,160,0.10) 0%, rgba(0,224,160,0.02) 38%, transparent 66%)" }}
+                    style={{ background: "radial-gradient(ellipse 70% 55% at 50% 50%, rgba(0,224,160,0.12) 0%, rgba(0,224,160,0.02) 40%, transparent 70%)" }}
                 />
                 <div
                     className="absolute inset-0"
@@ -340,11 +340,11 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 />
                 <div
                     className="absolute inset-0"
-                    style={{ background: "radial-gradient(circle at 50% 50%, transparent 42%, rgba(0,0,0,0.72) 100%)" }}
+                    style={{ background: "radial-gradient(circle at 50% 50%, transparent 35%, rgba(0,0,0,0.85) 100%)" }}
                 />
             </div>
 
-            {/* Generative filament field — draws across the background like line art */}
+            {/* Generative filament field - perfect absolute centering */}
             <svg
                 viewBox="0 0 1000 1000"
                 preserveAspectRatio="xMidYMid slice"
@@ -352,27 +352,25 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 className="pointer-events-none absolute inset-0 h-full w-full"
             >
                 <g ref={fieldGroupRef}>
-                    {/* Soft blurred underlay for bloom */}
+                    {/* Soft blurred underlay for immersive glow */}
                     {FILAMENTS.map((filament, i) => (
                         <path
                             key={`glow-${i}`}
                             ref={setGlowRef(i)}
                             d={filament.d}
-                            pathLength={1}
                             fill="none"
                             stroke={filament.color}
-                            strokeWidth={filament.width * 3.4}
+                            strokeWidth={filament.width * 5.0}
                             strokeLinecap="round"
-                            style={{ opacity: filament.baseOpacity * 0.42, filter: "blur(3.5px)", mixBlendMode: "screen" }}
+                            style={{ opacity: filament.baseOpacity * 0.35, filter: "blur(6px)", mixBlendMode: "screen" }}
                         />
                     ))}
-                    {/* Crisp core line */}
+                    {/* Crisp core lines */}
                     {FILAMENTS.map((filament, i) => (
                         <path
                             key={`core-${i}`}
                             ref={setCoreRef(i)}
                             d={filament.d}
-                            pathLength={1}
                             fill="none"
                             stroke={filament.color}
                             strokeWidth={filament.width}
@@ -392,7 +390,7 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                             style={{ filter: `drop-shadow(0 0 5px ${filament.color})`, opacity: 0, mixBlendMode: "screen" }}
                         />
                     ))}
-                    {/* Comet heads ride the draw front of each line */}
+                    {/* Comet heads riding the draw front */}
                     {FILAMENTS.map((filament, i) => (
                         <circle
                             key={`comet-${i}`}
@@ -407,14 +405,14 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                 </g>
             </svg>
 
-            {/* Center stage */}
-            <div ref={stageRef} className="relative z-10 flex flex-col items-center" style={{ willChange: "transform, opacity" }}>
+            {/* Centered stage */}
+            <div ref={stageRef} className="relative z-10 flex flex-col items-center justify-center" style={{ willChange: "transform, opacity" }}>
                 <div
                     ref={logoWrapperRef}
-                    className="relative mb-14 flex h-[280px] w-[280px] items-center justify-center"
+                    className="relative flex h-[280px] w-[280px] items-center justify-center animate-pulse-slow"
                     style={{ willChange: "transform, opacity, filter", opacity: 0 }}
                 >
-                    {/* Atmosphere — large soft jade halo */}
+                    {/* Atmosphere halo */}
                     <div
                         ref={atmosphereRef}
                         aria-hidden="true"
@@ -422,13 +420,13 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         style={{
                             width: 460,
                             height: 460,
-                            background: "radial-gradient(circle, rgba(0,224,160,0.40) 0%, rgba(0,224,160,0.13) 30%, rgba(0,224,160,0.04) 55%, transparent 75%)",
+                            background: "radial-gradient(circle, rgba(0,224,160,0.42) 0%, rgba(0,224,160,0.13) 30%, rgba(0,224,160,0.04) 55%, transparent 75%)",
                             filter: "blur(8px)",
                             opacity: 0,
                         }}
                     />
 
-                    {/* Inner halo — tighter ring around the head */}
+                    {/* Inner tighter halo */}
                     <div
                         ref={haloRef}
                         aria-hidden="true"
@@ -442,7 +440,7 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         }}
                     />
 
-                    {/* Ignition ring — single clean pulse at logo reveal */}
+                    {/* Pulse Ring */}
                     <div
                         ref={ignitionRingRef}
                         aria-hidden="true"
@@ -455,7 +453,7 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         }}
                     />
 
-                    {/* Seed of light */}
+                    {/* Central seed of light */}
                     <div
                         ref={seedRef}
                         aria-hidden="true"
@@ -469,10 +467,9 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                         }}
                     />
 
-                    {/* Robot logo */}
+                    {/* Robot logo - perfectly aligned at 0,0 center of screen */}
                     <div ref={robotRef} className="relative z-10">
                         <RobotLogo size={220} idle={false} active={false} rounded={true} withGlow={false} title="Code UX" />
-                        {/* Thin signal beam at antenna ball */}
                         <div
                             className="pointer-events-none absolute left-1/2 -translate-x-1/2"
                             style={{ top: -28, width: 1, height: 32, background: "linear-gradient(to bottom, transparent 0%, rgba(0,224,160,0.6) 100%)" }}
@@ -481,7 +478,8 @@ export const OnboardingIntro: FunctionComponent<OnboardingIntroProps> = ({ onExi
                     </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-3 text-center">
+                {/* Absolutely positioned text block to prevent logo offset shift */}
+                <div className="absolute top-[190px] flex flex-col items-center gap-2 text-center w-[400px] min-w-[320px]">
                     <span
                         ref={welcomeLabelRef}
                         className="font-mono text-[11px] font-bold uppercase text-signal-500"
