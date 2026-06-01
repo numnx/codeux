@@ -6,7 +6,7 @@ import type {
   GitMergeStatus,
   AutoMergeFeaturePrResult,
 } from "../contracts/app-types.js";
-import { resolveRepositoryHost } from "../infrastructure/git/repository-host-resolver.js";
+import { resolveRepositoryHost, selectHostToken, type GitHostTokens, type GitProvider } from "../infrastructure/git/repository-host-resolver.js";
 import {
   GitStatusQueryClient,
   CommandRunner,
@@ -55,11 +55,19 @@ function detectMergeConflictMessage(message: string | null | undefined): boolean
 }
 
 export class GitStatusService {
-  private async resolveProvider(effectiveToken?: string): Promise<void> {
-    const remoteUrlRes = await this.queryClient.gitRemoteUrl("origin", effectiveToken);
+  /**
+   * Reads the origin remote, resolves which host it belongs to, configures the
+   * query client for that provider, and returns the token that matches it. GitHub
+   * repos only ever receive the GitHub token and GitLab repos only the GitLab
+   * token, so cross-host token contamination cannot happen.
+   */
+  private async resolveProviderAndToken(tokens: GitHostTokens): Promise<{ provider: GitProvider; token?: string }> {
+    const remoteUrlRes = await this.queryClient.gitRemoteUrl("origin");
     const remoteUrl = remoteUrlRes.ok ? remoteUrlRes.stdout.trim() : null;
     const { provider, hostDomain, repoTarget } = resolveRepositoryHost(remoteUrl);
-    this.queryClient.setProvider(provider, hostDomain, repoTarget, this.preferApi && !!effectiveToken);
+    const token = selectHostToken(provider, tokens);
+    this.queryClient.setProvider(provider, hostDomain, repoTarget, this.preferApi && !!token);
+    return { provider, token };
   }
   private static statusCache = new Map<string, { timestamp: number; promise: Promise<GitTrackingStatus> }>();
 
@@ -215,9 +223,14 @@ export class GitStatusService {
     return { runs: enrichedRuns, warnings };
   }
 
-  async getStatus(mode: "REMOTE" | "LOCAL", ghToken?: string, trackingRequest?: GitTrackingRequest, cacheTtlMs?: number): Promise<GitTrackingStatus> {
-    const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
-    const cacheKey = JSON.stringify({ repoPath: this.repoPath, mode, token: effectiveToken, trackingRequest });
+  async getStatus(mode: "REMOTE" | "LOCAL", tokens: GitHostTokens = {}, trackingRequest?: GitTrackingRequest, cacheTtlMs?: number): Promise<GitTrackingStatus> {
+    const cacheKey = JSON.stringify({
+      repoPath: this.repoPath,
+      mode,
+      githubToken: tokens.githubToken?.trim() || undefined,
+      gitlabToken: tokens.gitlabToken?.trim() || undefined,
+      trackingRequest,
+    });
 
     if (cacheTtlMs && cacheTtlMs > 0) {
       const cached = GitStatusService.statusCache.get(cacheKey);
@@ -230,6 +243,9 @@ export class GitStatusService {
       const warnings: string[] = [];
     const now = new Date().toISOString();
     const tracking = buildTrackingTarget(trackingRequest);
+    // Resolved once the origin remote is read in the REMOTE branch below; the
+    // local git plumbing calls do not require a host token.
+    let effectiveToken: string | undefined;
 
     const gitRepoCheck = await this.queryClient.gitRevParseIsInsideWorkTree(effectiveToken);
     if (!gitRepoCheck.ok || gitRepoCheck.stdout.trim() !== "true") {
@@ -264,7 +280,8 @@ export class GitStatusService {
     }
 
     if (mode === "REMOTE") {
-      await this.resolveProvider(effectiveToken);
+      const resolved = await this.resolveProviderAndToken(tokens);
+      effectiveToken = resolved.token;
     }
 
     if (mode === "LOCAL") {
@@ -362,9 +379,8 @@ export class GitStatusService {
     return fetchPromise;
   }
 
-  async mergePullRequest(prNumber: number, ghToken?: string): Promise<AutoMergeFeaturePrResult> {
-    const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
-    await this.resolveProvider(effectiveToken);
+  async mergePullRequest(prNumber: number, tokens: GitHostTokens = {}): Promise<AutoMergeFeaturePrResult> {
+    const { token: effectiveToken } = await this.resolveProviderAndToken(tokens);
     const result = await this.queryClient.ghPrMerge(prNumber, effectiveToken);
     if (!result.ok) {
       const message = result.stderr.trim() || result.stdout.trim() || "Failed to merge PR via gh CLI.";
@@ -413,9 +429,8 @@ export class GitStatusService {
     headBranch: string;
     title: string;
     body: string;
-  }, ghToken?: string): Promise<ResolvePullRequestResult | null> {
-    const effectiveToken = ghToken && ghToken.trim().length > 0 ? ghToken.trim() : undefined;
-    await this.resolveProvider(effectiveToken);
+  }, tokens: GitHostTokens = {}): Promise<ResolvePullRequestResult | null> {
+    const { token: effectiveToken } = await this.resolveProviderAndToken(tokens);
 
     const existing = await this.findMatchingOpenPr(args.baseBranch, args.headBranch, effectiveToken);
     if (existing) {

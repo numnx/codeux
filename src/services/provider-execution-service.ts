@@ -64,6 +64,7 @@ export interface ExecutionProviderRunArgs {
   workflowSettings: DashboardSettings["cliWorkflow"];
   repoPath: string;
   githubToken?: string;
+  gitlabToken?: string;
 
   onActivity?: (description: string, originator?: string) => void;
   signal?: AbortSignal;
@@ -232,6 +233,7 @@ export class ProviderExecutionService {
         workflowSettings: args.workflowSettings,
         repoPath: args.repoPath,
         githubToken: args.githubToken ?? this.deps.getGithubToken?.(),
+        gitlabToken: args.gitlabToken,
         signal: args.signal,
         continueSessionId,
         mcpConnection: resolvedMcp.mcpConnection,

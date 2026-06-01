@@ -110,6 +110,8 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
   },
   git: {
     githubMode: settings.git.githubMode,
+    githubToken: settings.git.githubToken,
+    gitlabToken: settings.git.gitlabToken ?? "",
     defaultBranch: settings.git.defaultBranch,
     autoCreatePr: settings.git.autoCreatePr,
     autoCloseLinkedIssues: settings.git.autoCloseLinkedIssues,
@@ -117,6 +119,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
     sprintBranchScheme: settings.git.sprintBranchScheme,
     sprintKeyPrefix: settings.git.sprintKeyPrefix,
   },
+  jira: { ...settings.jira },
   ciIntelligence: {
     ...settings.ciIntelligence,
   },
@@ -166,6 +169,7 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
   git: {
     ...settings.git,
   },
+  jira: { ...settings.jira },
   ciIntelligence: {
     ...settings.ciIntelligence,
   },

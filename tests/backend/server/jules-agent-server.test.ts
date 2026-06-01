@@ -430,13 +430,13 @@ describe("JulesAgentServer", () => {
           git: { githubMode: "LOCAL" }
         };
 
-        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGithubToken").mockReturnValue("token");
+        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGitHostTokens").mockReturnValue({ githubToken: "token", gitlabToken: "" });
         const resolveGitTrackingRequestSpy = vi.spyOn(server as any, "resolveGitTrackingRequest").mockReturnValue({ scope: "MAIN_BRANCH_CI" });
 
         const result = await (server as any).fetchGitStatusForRepo("/repo", 100);
 
         expect(result).toEqual({ status: "ok" });
-        expect(mockGetStatus).toHaveBeenCalledWith("LOCAL", "token", { scope: "MAIN_BRANCH_CI" }, 100);
+        expect(mockGetStatus).toHaveBeenCalledWith("LOCAL", { githubToken: "token", gitlabToken: "" }, { scope: "MAIN_BRANCH_CI" }, 100);
 
         getEffectiveGithubTokenSpy.mockRestore();
         resolveGitTrackingRequestSpy.mockRestore();
@@ -637,13 +637,13 @@ describe("JulesAgentServer", () => {
         const mockGetStatus = vi.fn().mockResolvedValue({ status: "remote-ok" });
         vi.spyOn(GitStatusService.prototype, "getStatus").mockImplementation(mockGetStatus);
 
-        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGithubToken").mockReturnValue("token");
+        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGitHostTokens").mockReturnValue({ githubToken: "token", gitlabToken: "" });
 
         const args = { repoPath: "/repo", scope: "MAIN_BRANCH_CI", featureBranch: "feat", defaultBranch: "main", featureBranchPrefix: "feat/" };
         const result = await (server as any).getCiStatusForScope(args as any);
 
         expect(result).toEqual({ status: "remote-ok" });
-        expect(mockGetStatus).toHaveBeenCalledWith("REMOTE", "token", {
+        expect(mockGetStatus).toHaveBeenCalledWith("REMOTE", { githubToken: "token", gitlabToken: "" }, {
           scope: "MAIN_BRANCH_CI",
           featureBranch: "feat",
           defaultBranch: "main",
@@ -661,11 +661,11 @@ describe("JulesAgentServer", () => {
         const mockMerge = vi.fn().mockResolvedValue({ ok: true });
         vi.spyOn(GitStatusService.prototype, "mergePullRequest").mockImplementation(mockMerge);
 
-        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGithubToken").mockReturnValue("token");
+        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGitHostTokens").mockReturnValue({ githubToken: "token", gitlabToken: "" });
 
         const result = await (server as any).autoMergeFeaturePr({ repoPath: "/repo", prNumber: 123 });
         expect(result).toEqual({ ok: true });
-        expect(mockMerge).toHaveBeenCalledWith(123, "token");
+        expect(mockMerge).toHaveBeenCalledWith(123, { githubToken: "token", gitlabToken: "" });
 
         getEffectiveGithubTokenSpy.mockRestore();
         vi.restoreAllMocks();
@@ -708,7 +708,7 @@ describe("JulesAgentServer", () => {
         });
         vi.spyOn(GitStatusService.prototype, "resolveOrCreatePullRequest").mockImplementation(mockResolve);
 
-        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGithubToken").mockReturnValue("token");
+        const getEffectiveGithubTokenSpy = vi.spyOn(server as any, "getEffectiveGitHostTokens").mockReturnValue({ githubToken: "token", gitlabToken: "" });
 
         const result = await (server as any).resolveOrCreateMainBranchPr({
           repoPath: "/repo",
@@ -728,7 +728,7 @@ describe("JulesAgentServer", () => {
           headBranch: "feature/sprint1",
           title: "Sprint 1",
           body: "body",
-        }, "token");
+        }, { githubToken: "token", gitlabToken: "" });
 
         getEffectiveGithubTokenSpy.mockRestore();
         vi.restoreAllMocks();
