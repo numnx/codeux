@@ -215,6 +215,9 @@ export class WorkspaceManager implements IWorkspaceManager {
         return;
       }
       const { volumeName } = parseWorkspaceHandle(worktreePath);
+      if (!await this.isCodeUxManagedVolume(volumeName)) {
+        return;
+      }
       await runCommandStrict("docker", ["volume", "rm", "-f", volumeName], process.cwd()).catch(() => undefined);
       return;
     }
@@ -379,6 +382,22 @@ export class WorkspaceManager implements IWorkspaceManager {
       ],
       process.cwd(),
     );
+  }
+
+  private async isCodeUxManagedVolume(volumeName: string): Promise<boolean> {
+    if (!volumeName.startsWith("code-ux-")) {
+      return false;
+    }
+    try {
+      const inspected = await runCommandStrict(
+        "docker",
+        ["volume", "inspect", "--format", "{{ index .Labels \"code-ux.workspace\" }}", volumeName],
+        process.cwd(),
+      );
+      return inspected.stdout.trim() === "true";
+    } catch {
+      return false;
+    }
   }
 
   private async seedWorkspaceFromBundle(repoPath: string, worktreePath: string): Promise<void> {
