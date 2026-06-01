@@ -351,12 +351,12 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                                     <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${cfg.dot}`} />
                                     {cfg.label}
                                 </span>
-                                {mergeCfg && (
+                                {mergeCfg && taskPhase !== "RUNNING" && taskPhase !== "PENDING" && (
                                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.14em] ${mergeCfg.bg} ${mergeCfg.text} border ${mergeCfg.border}`}>
                                         {mergeCfg.label}
                                     </span>
                                 )}
-                                {task.latestReview && (
+                                {task.latestReview && taskPhase !== "RUNNING" && taskPhase !== "PENDING" && (
                                     <SprintReviewBadge summary={task.latestReview} compact showCompactLabel align="right" />
                                 )}
                             </div>
