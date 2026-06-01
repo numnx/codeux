@@ -20,7 +20,7 @@ const GUARDRAIL_ACTION_OPTIONS: Array<{ value: GuardrailOnLimitAction; label: st
 ];
 import { SprintKeyEditor } from "../SprintKeyEditor.js";
 import { InfoIconPopover } from "../../ui/InfoIconPopover.js";
-import { BranchNameSchemeEditor } from "../BranchNameSchemeEditor.js";
+
 
 
 export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
@@ -108,8 +108,9 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             { key: "{worker_agent}", desc: "Worker Agent" },
           ]} />}
         >
-          <BranchNameSchemeEditor
+          <TextInput
             value={editableSettings.git.sprintBranchScheme}
+            placeholder="feature/{sprintNumber}-{sprintName}"
             onChange={(value) => updateEditableSettings((current) => ({
               ...current,
               git: {
@@ -117,6 +118,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
                 sprintBranchScheme: value,
               },
             }))}
+            mono
           />
         </Row>
 

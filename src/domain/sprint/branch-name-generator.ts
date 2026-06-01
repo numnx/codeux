@@ -11,7 +11,7 @@ export interface SprintBranchMetadata {
   tasksCount: number;
 }
 
-export const DEFAULT_SPRINT_BRANCH_SCHEME = "feature/sprint{sprint_id}-implementation";
+export const DEFAULT_SPRINT_BRANCH_SCHEME = "feature/{sprintNumber}-{sprintName}";
 
 const sanitizeBranchName = (name: string): string => {
   return (name || "")

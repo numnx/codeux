@@ -19,7 +19,7 @@ import { AutomationPanel } from "./panels/AutomationPanel.js";
 import { ProviderPanel } from "./panels/ProviderPanel.js";
 import { WorkerPanel } from "./panels/WorkerPanel.js";
 import { InfoIconPopover } from "../ui/InfoIconPopover.js";
-import { BranchNameSchemeEditor } from "./BranchNameSchemeEditor.js";
+
 
 
 export interface ProjectSettingsEditorProps {
@@ -134,14 +134,16 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             { key: "{agent_routing}", desc: "Agent Routing" },
             { key: "{worker_agent}", desc: "Worker Agent" },
           ]} />}>
-            <BranchNameSchemeEditor
+            <TextInput
               value={settings.git.sprintBranchScheme}
+              placeholder="feature/{sprintNumber}-{sprintName}"
               onChange={(value) => update({
                 git: {
                   ...settings.git,
                   sprintBranchScheme: value,
                 },
               })}
+              mono
             />
           </Row>
 
