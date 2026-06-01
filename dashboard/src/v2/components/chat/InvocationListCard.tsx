@@ -1,5 +1,6 @@
 import type { FunctionComponent } from "preact";
-import type { ExecutionInvocationRecord, AgentPreset, EffectiveSettingsResponse } from "../../types.js";
+import type { ExecutionInvocationRecord, AgentPreset } from "../../types.js";
+import type { EffectiveSettingsResponse } from "../../../types.js";
 import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { Activity, Loader2, MessageSquare } from "lucide-preact";
 import { ProviderLogo } from "../ui/ProviderLogo.js";
