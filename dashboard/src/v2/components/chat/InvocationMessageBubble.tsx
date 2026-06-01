@@ -5,8 +5,13 @@ import { renderMarkdown } from "../../../lib/markdown.js";
 import { getInvocationWidgetData } from "../../lib/chat-widget-view-models.js";
 import { formatChatTime } from "../../lib/chat-time.js";
 import { PlanningRequestWidget } from "./widgets/PlanningRequestWidget.js";
+import { ToolCallWidget } from "./widgets/ToolCallWidget.js";
+import { ReasoningWidget } from "./widgets/ReasoningWidget.js";
 import { ChatAvatar, type AvatarRole } from "./ChatAvatar.js";
+import type { ParsedTurnTokens } from "../../lib/chat-widget-view-models.js";
 import type { AgentAvatarConfig } from "../../types.js";
+
+const asString = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 const formatErrorCategory = (value: unknown): string | null => {
   switch (value) {
@@ -40,6 +45,41 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
   const fromTool = message.role === "tool";
   const fromSystem = message.role === "system";
   const widgetData = getInvocationWidgetData(message);
+  const kind = asString(message.metadata?.kind);
+
+  // Reasoning and tool turns render as compact, full-width activity cards
+  // rather than chat bubbles, so the transcript reads like the real session.
+  if (kind === "reasoning") {
+    return (
+      <div class="flex justify-start">
+        <div class="w-full max-w-[760px] pl-11">
+          <ReasoningWidget text={message.contentMarkdown || ""} />
+        </div>
+      </div>
+    );
+  }
+
+  if (kind === "tool_call" || kind === "tool_result") {
+    const tool = (message.toolCallsJson ?? {}) as Record<string, unknown>;
+    const args = asString(tool.arguments);
+    const output = asString(tool.output);
+    const status = asString(message.metadata?.toolStatus) ?? asString(tool.resultStatus);
+    const tokens = (message.metadata?.tokens ?? null) as ParsedTurnTokens | null;
+    return (
+      <div class="flex justify-start">
+        <div class="w-full max-w-[760px] pl-11">
+          <ToolCallWidget
+            toolName={asString(message.metadata?.toolName)}
+            status={status}
+            args={args}
+            output={output}
+            tokens={tokens}
+            callId={asString(message.metadata?.toolCallId)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   let role: AvatarRole = "agent";
   if (fromUser || fromTool) {
@@ -111,7 +151,7 @@ export const InvocationMessageBubble: FunctionComponent<InvocationMessageBubbleP
             dangerouslySetInnerHTML={{ __html: renderMarkdown(message.contentMarkdown || "*(No message content)*") }}
           />
 
-          {message.toolCallsJson && (
+          {message.toolCallsJson && !kind && (
             <div className="mt-4 rounded border border-white/10 bg-black/20 p-3 text-xs">
               <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-slate-400">
                 {JSON.stringify(message.toolCallsJson, null, 2)}

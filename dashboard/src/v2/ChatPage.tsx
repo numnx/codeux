@@ -30,7 +30,8 @@ import {
   formatProviderInstanceLabel,
   formatStatusContext,
   formatTokenCount,
-  shortenIdentifier
+  shortenIdentifier,
+  mergeInvocationToolMessages
 } from "./lib/chat-widget-view-models.js";
 
 
@@ -501,7 +502,7 @@ export const ChatPage: FunctionComponent = () => {
                   message="This invocation has no stored messages yet. New provider activity will appear here as the runtime records it."
                 />
               ) : (
-                invocationMessages.map((message) => {
+                mergeInvocationToolMessages(invocationMessages).map((message) => {
                   if (message.role === "system") {
                     return <TruncatedSystemBubble key={message.id} content={message.contentMarkdown || ""} />;
                   }

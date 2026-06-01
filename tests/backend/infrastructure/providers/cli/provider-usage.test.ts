@@ -6,6 +6,7 @@ import {
   collectProviderUsageTelemetry,
   parseQwenOpenAiLogs,
   sumQwenOpenAiUsage,
+  buildQwenConversation,
 } from "../../../../../src/infrastructure/providers/cli/provider-usage.js";
 
 const tempDirs: string[] = [];
@@ -250,18 +251,45 @@ describe("collectProviderUsageTelemetry", () => {
     });
   });
 
-  it("uses Codex session file for reported usage when stdout has no token_count events", async () => {
-    const sessionJson = JSON.stringify({
-      id: "sess-abc123",
-      model: "gpt-4o-codex",
-      usage: {
-        input_tokens: 500,
-        cached_input_tokens: 80,
-        output_tokens: 120,
-        reasoning_output_tokens: 10,
-      },
+  it("extracts OpenCode tool calls and reasoning into the conversation", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "opencode",
+      model: "anthropic/claude-sonnet-4-5",
+      prompt: "Run the tests.",
+      cwd: "/workspace/repo",
+      stdout: [
+        JSON.stringify({ type: "reasoning", part: { type: "reasoning", text: "I should run the suite." } }),
+        // Tool part emitted twice (running, then completed) — collapsed by callID.
+        JSON.stringify({ type: "tool", part: { type: "tool", tool: "bash", callID: "c1", state: { status: "running", input: { command: "npm test" } } } }),
+        JSON.stringify({ type: "tool", part: { type: "tool", tool: "bash", callID: "c1", state: { status: "completed", input: { command: "npm test" }, output: "ok" } } }),
+        JSON.stringify({ type: "text", part: { type: "text", text: "Tests pass." } }),
+        JSON.stringify({ type: "step_finish", part: { usage: { promptTokens: 10, completionTokens: 5 } } }),
+      ].join("\n"),
+      stderr: "",
     });
 
+    expect(result.conversation.map((t) => t.kind)).toEqual(["user", "reasoning", "tool_call", "assistant"]);
+    const toolCall = result.conversation[2];
+    expect(toolCall).toMatchObject({ kind: "tool_call", toolName: "bash", toolCallId: "c1", toolStatus: "completed" });
+    expect(toolCall.toolArguments).toContain("npm test");
+    expect(toolCall.toolOutput).toBe("ok");
+  });
+
+  const buildCodexRollout = (lines: Array<{ timestamp?: string; type: string; payload: Record<string, unknown> }>): string =>
+    lines.map((line) => JSON.stringify({ timestamp: line.timestamp ?? "2026-06-02T10:00:00.000Z", type: line.type, payload: line.payload })).join("\n");
+
+  const realisticCodexRollout = buildCodexRollout([
+    { timestamp: "2026-06-02T10:00:00.000Z", type: "session_meta", payload: { id: "0199codex-uuid", cwd: "/workspace/repo" } },
+    { timestamp: "2026-06-02T10:00:01.000Z", type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: "permissions scaffolding" }] } },
+    { timestamp: "2026-06-02T10:00:02.000Z", type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Write unit tests." }] } },
+    { timestamp: "2026-06-02T10:00:03.000Z", type: "response_item", payload: { type: "reasoning", summary: [{ type: "summary_text", text: "Plan the test layout." }], encrypted_content: "xxx" } },
+    { timestamp: "2026-06-02T10:00:04.000Z", type: "response_item", payload: { type: "function_call", name: "exec_command", arguments: "{\"cmd\":\"npm test\"}", call_id: "call_1" } },
+    { timestamp: "2026-06-02T10:00:04.500Z", type: "response_item", payload: { type: "function_call_output", call_id: "call_1", output: "All tests passed" } },
+    { timestamp: "2026-06-02T10:00:05.000Z", type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 500, cached_input_tokens: 80, output_tokens: 120, reasoning_output_tokens: 10, total_tokens: 620 } } } },
+    { timestamp: "2026-06-02T10:00:06.000Z", type: "response_item", payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "Tests written." }] } },
+  ]);
+
+  it("parses reported usage and the full conversation from a Codex rollout JSONL file", async () => {
     const result = await collectProviderUsageTelemetry({
       provider: "codex",
       model: "gpt-4o-codex",
@@ -270,7 +298,7 @@ describe("collectProviderUsageTelemetry", () => {
       stdout: "plain text output no json",
       stderr: "",
       capturedText: "Tests written.",
-      codexSessionJson: sessionJson,
+      codexSessionJson: realisticCodexRollout,
     });
 
     expect(result).toMatchObject({
@@ -281,99 +309,53 @@ describe("collectProviderUsageTelemetry", () => {
       totalTokens: 620,
       usageSource: "reported",
       transcriptText: "Tests written.",
+      nativeSessionId: "0199codex-uuid",
     });
+
+    // Developer scaffolding is excluded; the rest of the turns are ordered.
+    expect(result.conversation.map((t) => t.kind)).toEqual([
+      "user",
+      "reasoning",
+      "tool_call",
+      "tool_result",
+      "assistant",
+    ]);
+    expect(result.conversation[0]).toMatchObject({ kind: "user", text: "Write unit tests." });
+    expect(result.conversation[1]).toMatchObject({ kind: "reasoning", text: "Plan the test layout." });
+    expect(result.conversation[2]).toMatchObject({ kind: "tool_call", toolName: "exec_command", toolCallId: "call_1", toolArguments: "{\"cmd\":\"npm test\"}" });
+    expect(result.conversation[3]).toMatchObject({ kind: "tool_result", toolCallId: "call_1", toolOutput: "All tests passed" });
+    expect(result.conversation[4]).toMatchObject({ kind: "assistant", text: "Tests written." });
   });
 
-  it("uses Codex session file with OpenAI completion_tokens naming convention", async () => {
-    const sessionJson = JSON.stringify({
-      id: "sess-xyz",
-      model: "o4-mini",
-      usage: {
-        prompt_tokens: 800,
-        completion_tokens: 200,
-        prompt_tokens_details: { cached_tokens: 50 },
-        completion_tokens_details: { reasoning_tokens: 30 },
-      },
-    });
-
-    const result = await collectProviderUsageTelemetry({
-      provider: "codex",
-      model: "o4-mini",
-      prompt: "Implement the feature.",
-      cwd: "/workspace/repo",
-      stdout: "",
-      stderr: "",
-      codexSessionJson: sessionJson,
-    });
-
-    expect(result).toMatchObject({
-      inputTokens: 800,
-      cachedInputTokens: 50,
-      outputTokens: 200,
-      reasoningOutputTokens: 30,
-      totalTokens: 1000,
-      usageSource: "reported",
-    });
-  });
-
-  it("aggregates Codex session usage from per-turn items when no top-level usage", async () => {
-    const sessionJson = JSON.stringify({
-      id: "sess-turns",
-      model: "gpt-4o-codex",
-      turns: [
-        { role: "assistant", content: "First response", usage: { input_tokens: 100, output_tokens: 40, cached_input_tokens: 0 } },
-        { role: "assistant", content: "Second response", usage: { input_tokens: 200, output_tokens: 60, cached_input_tokens: 20 } },
-      ],
-    });
-
-    const result = await collectProviderUsageTelemetry({
-      provider: "codex",
-      model: "gpt-4o-codex",
-      prompt: "Multi-turn task.",
-      cwd: "/workspace/repo",
-      stdout: "",
-      stderr: "",
-      codexSessionJson: sessionJson,
-    });
-
-    expect(result).toMatchObject({
-      inputTokens: 300,
-      cachedInputTokens: 20,
-      outputTokens: 100,
-      totalTokens: 400,
-      usageSource: "reported",
-    });
-  });
-
-  it("prefers stdout token_count events over Codex session file", async () => {
-    const sessionJson = JSON.stringify({
-      id: "sess-override",
-      model: "gpt-4o-codex",
-      usage: { input_tokens: 9999, output_tokens: 9999 },
-    });
-
+  it("prefers Codex rollout usage over the exec stdout stream", async () => {
     const result = await collectProviderUsageTelemetry({
       provider: "codex",
       model: "gpt-4o-codex",
       prompt: "Fix the bug.",
       cwd: "/workspace/repo",
-      stdout: JSON.stringify({
-        type: "token_count",
-        payload: {
-          type: "token_count",
-          info: {
-            total_token_usage: {
-              input_tokens: 210,
-              cached_input_tokens: 35,
-              output_tokens: 84,
-              reasoning_output_tokens: 16,
-            },
-          },
-        },
-      }),
+      stdout: JSON.stringify({ type: "turn.completed", usage: { input_tokens: 9999, cached_input_tokens: 9999, output_tokens: 9999 } }),
       stderr: "",
       capturedText: "Bug fixed.",
-      codexSessionJson: sessionJson,
+      codexSessionJson: realisticCodexRollout,
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 500,
+      cachedInputTokens: 80,
+      outputTokens: 120,
+      usageSource: "reported",
+    });
+  });
+
+  it("falls back to the exec stdout turn.completed usage when no rollout file is available", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Fix the bug.",
+      cwd: "/workspace/repo",
+      stdout: JSON.stringify({ type: "turn.completed", usage: { input_tokens: 210, cached_input_tokens: 35, output_tokens: 84, reasoning_output_tokens: 16 } }),
+      stderr: "",
+      capturedText: "Bug fixed.",
     });
 
     expect(result).toMatchObject({
@@ -382,6 +364,29 @@ describe("collectProviderUsageTelemetry", () => {
       outputTokens: 84,
       usageSource: "reported",
     });
+  });
+
+  it("isolates the current run's conversation turns using startTimeMs", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "codex",
+      model: "gpt-4o-codex",
+      prompt: "Latest follow-up.",
+      cwd: "/workspace/repo",
+      stdout: "",
+      stderr: "",
+      capturedText: "Resumed answer.",
+      codexSessionJson: realisticCodexRollout,
+      // After all the rollout turns above; only the prompt should remain.
+      startTimeMs: Date.parse("2026-06-02T11:00:00.000Z"),
+    });
+
+    // Prior-session turns are filtered out; with no turns from this run the
+    // conversation stays empty (the caller then keeps its single assistant
+    // message rather than storing a user-only transcript).
+    expect(result.conversation).toEqual([]);
+    // Cumulative usage is still read from the last token_count event.
+    expect(result.usageSource).toBe("reported");
+    expect(result.inputTokens).toBe(500);
   });
 
   it("parses Codex token_count usage with camelCase fields", async () => {
@@ -635,5 +640,60 @@ describe("parseQwenOpenAiLogs", () => {
   it("falls back to a top-level usage object (legacy logs)", () => {
     expect(sumQwenOpenAiUsage([{ usage: { input_tokens: 10, output_tokens: 4 } }]))
       .toEqual({ inputTokens: 10, cachedInputTokens: 0, outputTokens: 4 });
+  });
+});
+
+describe("buildQwenConversation", () => {
+  it("builds a conversation from the newest record's request history plus its response", () => {
+    const records = [
+      {
+        timestamp: "2026-06-02T10:00:00.000Z",
+        request: { messages: [{ role: "system", content: "scaffolding" }, { role: "user", content: "Add a test." }] },
+        response: { usage: { prompt_tokens: 10, completion_tokens: 3 } },
+      },
+      {
+        timestamp: "2026-06-02T10:00:05.000Z",
+        request: {
+          messages: [
+            { role: "system", content: "scaffolding" },
+            { role: "user", content: "Add a test." },
+            { role: "assistant", content: "", tool_calls: [{ id: "t1", function: { name: "run_shell", arguments: "{\"cmd\":\"npm test\"}" } }] },
+            { role: "tool", tool_call_id: "t1", content: "passed" },
+          ],
+        },
+        response: {
+          usage: { prompt_tokens: 200, completion_tokens: 60 },
+          choices: [{ message: { role: "assistant", content: "Test added." } }],
+        },
+      },
+    ];
+
+    const conversation = buildQwenConversation(records);
+    // System scaffolding is skipped; tool call/result and final answer are included.
+    expect(conversation.map((t) => t.kind)).toEqual(["user", "tool_call", "tool_result", "assistant"]);
+    expect(conversation[1]).toMatchObject({ kind: "tool_call", toolName: "run_shell", toolCallId: "t1" });
+    expect(conversation[2]).toMatchObject({ kind: "tool_result", toolCallId: "t1", toolOutput: "passed" });
+    expect(conversation[3]).toMatchObject({ kind: "assistant", text: "Test added." });
+    expect(conversation[3].tokens).toMatchObject({ input: 200, output: 60 });
+  });
+
+  it("threads qwen conversation through collectProviderUsageTelemetry", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "qwen-code",
+      model: "qwen3-coder-plus",
+      prompt: "Add a test.",
+      cwd: "/workspace/repo",
+      stdout: "",
+      stderr: "",
+      qwenReportedUsage: { inputTokens: 200, cachedInputTokens: 0, outputTokens: 60 },
+      qwenConversation: [
+        { kind: "assistant", text: "Test added." },
+      ],
+    });
+
+    expect(result.usageSource).toBe("reported");
+    // The prompt is prepended since the parsed conversation lacks a leading user turn.
+    expect(result.conversation.map((t) => t.kind)).toEqual(["user", "assistant"]);
+    expect(result.conversation[0]).toMatchObject({ kind: "user", text: "Add a test." });
   });
 });
