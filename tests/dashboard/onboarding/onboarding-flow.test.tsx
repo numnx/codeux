@@ -7,7 +7,22 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { useOnboardingState } from "../../../dashboard/src/v2/hooks/useOnboardingState.js";
 import { OnboardingExperience } from "../../../dashboard/src/v2/components/onboarding/OnboardingExperience.js";
+import { cloneDefaultSettings } from "../../../dashboard/src/lib/settings.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
+
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => vi.fn(),
+}));
+
+// Mock OnboardingIntro to fire callbacks immediately via microtask,
+// avoiding dependency on GSAP timers in JSDOM (which caused CI timeouts).
+vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", () => ({
+  OnboardingIntro: ({ onExitStart, onComplete }: { onExitStart?: () => void; onComplete?: () => void }) => {
+    queueMicrotask(() => onExitStart?.());
+    queueMicrotask(() => onComplete?.());
+    return null;
+  },
+}));
 
 const HookProbe = () => {
   const { state, loading, markCompleted } = useOnboardingState();
@@ -67,17 +82,63 @@ describe("onboarding state hook", () => {
   });
 });
 
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => vi.fn(),
-}));
+describe("OnboardingExperience integration", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
 
-vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", () => {
-  return {
-    OnboardingIntro: ({ onComplete }: { onComplete: () => void }) => {
-      queueMicrotask(() => onComplete());
-      return <div data-testid="mock-intro">Mock Intro</div>;
-    }
-  };
+  it("initializes autoApprovePlan as true by default in settings", async () => {
+    const defaultSettings = cloneDefaultSettings();
+    const systemSettings = {
+      runtime: {
+        dashboardPort: defaultSettings.dashboardPort,
+        enableDebugLogFile: defaultSettings.enableDebugLogFile,
+        consoleLogLevel: defaultSettings.consoleLogLevel,
+      },
+      integrations: {
+        julesApiKey: "",
+        geminiApiKey: "",
+        codexApiKey: "",
+        claudeCodeApiKey: "",
+        githubToken: "",
+      },
+      defaults: defaultSettings,
+    };
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.endsWith("/api/user/onboarding")) {
+        return new Response(JSON.stringify({ completed: false, onboardingCompletedAt: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/api/onboarding/readiness")) {
+        return new Response(
+          JSON.stringify({
+            checkedAt: "2026-06-01T00:00:00.000Z",
+            cluster: { status: "ready", label: "Healthy", detail: "Runtime environment is ready." },
+            dependencies: [],
+            providers: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.endsWith("/api/system-settings")) {
+        return new Response(JSON.stringify(systemSettings), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+
+    render(<OnboardingExperience />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/system-settings", undefined));
+    expect(systemSettings.defaults.automationInterventions.autoApprovePlan).toBe(true);
+  });
 });
 
 describe("onboarding appearance step", () => {
@@ -166,3 +227,4 @@ describe("onboarding appearance step", () => {
     expect(screen.queryByText("Upload Image")).toBeNull();
   });
 });
+
