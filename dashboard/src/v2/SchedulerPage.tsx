@@ -344,8 +344,8 @@ export const SchedulerPage: FunctionComponent = () => {
   }
 
   return (
-    <PageContainer padding="standard" className="gap-8">
-      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+    <PageContainer padding="standard" className="gap-8" data-testid="scheduler-page-root">
+      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8" data-testid="scheduler-primary-header">
         <div className="flex flex-col gap-5">
           <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
             <CalendarDays className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -435,7 +435,7 @@ export const SchedulerPage: FunctionComponent = () => {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <aside className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+        <aside data-testid="scheduler-form-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">Add entry</h3>
@@ -640,7 +640,7 @@ export const SchedulerPage: FunctionComponent = () => {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <section className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
+          <section data-testid="scheduler-calendar-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">

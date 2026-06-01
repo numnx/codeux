@@ -148,12 +148,19 @@ describe("FileBrowserPage", () => {
 
     render(<FileBrowserPage />);
 
+    const pageRoot = screen.getByTestId("file-browser-page-root");
+    expect(pageRoot.className).toContain("px-8");
+    expect(pageRoot.className).toContain("py-12");
+    expect(pageRoot.className).toContain("md:px-20");
+    expect(screen.getByTestId("file-browser-page-header")).toBeInTheDocument();
     expect(screen.getByText("Sprint File Browser")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: /Browse and Diff the Sprint Branch/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: /Launch the file browser/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open file browser/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Refresh/i })).toBeInTheDocument();
+    expect(pageRoot.innerHTML).not.toContain("#f5f1e8");
+    expect(pageRoot.innerHTML).not.toContain("#f7f3ea");
   });
 
   it("renders running workspace controls and viewer region", () => {
@@ -173,6 +180,9 @@ describe("FileBrowserPage", () => {
 
     render(<FileBrowserPage />);
 
+    const mainPanel = screen.getByTestId("file-browser-main-tool-panel");
+    expect(mainPanel).toBeInTheDocument();
+    expect(mainPanel.className).toContain("gap-5");
     expect(screen.getByText("Running")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Files" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Changes" }).length).toBeGreaterThan(0);
@@ -181,5 +191,7 @@ describe("FileBrowserPage", () => {
     expect(screen.getByPlaceholderText("Filter files…")).toBeInTheDocument();
     expect(screen.getByText("Mock File Viewer")).toBeInTheDocument();
     expect(screen.getByText("No file selected")).toBeInTheDocument();
+    expect(screen.getByText("Sprint File Browser").className).toContain("text-signal-600");
+    expect(screen.getByPlaceholderText("Filter files…").className).toContain("text-slate-700");
   });
 });
