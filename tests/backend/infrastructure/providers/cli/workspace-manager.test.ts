@@ -273,4 +273,44 @@ describe("WorkspaceManager", () => {
       expect.any(String),
     );
   });
+
+  it("does not remove Docker volumes that are not Code UX-managed", async () => {
+    vi.mocked(runCommandStrict).mockImplementation(async (_command, args) => {
+      if (args[0] === "volume" && args[1] === "inspect") {
+        return { ok: true, stdout: "[]", stderr: "" } as any;
+      }
+      throw new Error("unexpected");
+    });
+
+    await manager.removeWorktree("/repo/project", "docker-volume://external-workspace");
+
+    expect(runCommandStrict).not.toHaveBeenCalledWith(
+      "docker",
+      expect.arrayContaining(["volume", "rm", "-f", "external-workspace"]),
+      expect.any(String),
+    );
+  });
+
+  it("removes Code UX-managed Docker workspace volumes", async () => {
+    vi.mocked(runCommandStrict).mockImplementation(async (_command, args) => {
+      if (args[0] === "volume" && args[1] === "inspect" && !args.includes("--format")) {
+        return { ok: true, stdout: "[]", stderr: "" } as any;
+      }
+      if (args[0] === "volume" && args[1] === "inspect" && args.includes("--format")) {
+        return { ok: true, stdout: "true\n", stderr: "" } as any;
+      }
+      if (args[0] === "volume" && args[1] === "rm") {
+        return { ok: true, stdout: "", stderr: "" } as any;
+      }
+      return { ok: true, stdout: "", stderr: "" } as any;
+    });
+
+    await manager.removeWorktree("/repo/project", "docker-volume://code-ux-project-abcd1234ef56-session-1");
+
+    expect(runCommandStrict).toHaveBeenCalledWith(
+      "docker",
+      ["volume", "rm", "-f", "code-ux-project-abcd1234ef56-session-1"],
+      expect.any(String),
+    );
+  });
 });
