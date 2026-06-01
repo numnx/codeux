@@ -913,3 +913,39 @@ export const getBranchSchemeOptions = (): BranchSchemeOption[] => {
   }));
 };
 
+export interface ResolvedProviderInfo {
+  providerType: string;
+  displayName: string;
+  model: string | null;
+}
+
+export const resolveProviderInfo = (
+  providerIdOrConfigId: string | null,
+  modelFromInvocation: string | null,
+  effectiveSettings: EffectiveSettingsResponse | null
+): ResolvedProviderInfo => {
+  const defaultInfo: ResolvedProviderInfo = {
+    providerType: providerIdOrConfigId || "",
+    displayName: providerIdOrConfigId || "",
+    model: modelFromInvocation,
+  };
+
+  if (!providerIdOrConfigId) {
+    return defaultInfo;
+  }
+
+  // Look up in effectiveSettings
+  const providers = effectiveSettings?.settings?.aiProvider?.providers;
+  if (providers && providers[providerIdOrConfigId]) {
+    const config = providers[providerIdOrConfigId];
+    return {
+      providerType: config.provider || providerIdOrConfigId,
+      displayName: config.name || providerIdOrConfigId,
+      model: modelFromInvocation || config.model || null,
+    };
+  }
+
+  return defaultInfo;
+};
+
+

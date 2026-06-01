@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState, useMemo } from "preact/hooks";
 import {
   ArrowUp,
   RefreshCw,
@@ -25,6 +25,7 @@ import { ProviderLogo } from "./components/ui/ProviderLogo.js";
 import { AgentAvatarSvg } from "./components/agents/AgentAvatarSvg.js";
 import { generateRandomAgentAvatar } from "./lib/agent-avatar.js";
 import type { ExecutionInvocationRecord } from "./types.js";
+import { resolveProviderInfo } from "./lib/settings-view-models.js";
 
 const formatInvocationErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
   switch (value) {
@@ -47,6 +48,7 @@ export const ChatPage: FunctionComponent = () => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [workingTimerPhase, setWorkingTimerPhase] = useState<"starting" | "working" | null>(null);
+  const [invocationTypeFilter, setInvocationTypeFilter] = useState<string>("All");
 
   const {
     chatMode,
@@ -92,7 +94,37 @@ export const ChatPage: FunctionComponent = () => {
     confirmOptions,
     handleConfirm,
     handleCancel,
+    effectiveSettings,
   } = useChatPageData({ composerRef, messagesRef });
+
+  const INVOCATION_TYPE_MAP: Record<string, string> = {
+    task_coding: "Coding",
+    planning: "Planning",
+    ci_fix: "Fix",
+    dashboard_reply: "Reply",
+    clarification_reply: "Reply",
+    qa_review: "QA",
+    merge_conflict: "Merge",
+  };
+
+  const getInvocationTypeLabel = (type: string): string => {
+    return INVOCATION_TYPE_MAP[type] || type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const availableFilters = useMemo(() => {
+    const labels = new Set<string>();
+    invocations.forEach((inv) => {
+      labels.add(getInvocationTypeLabel(inv.type));
+    });
+    return ["All", ...Array.from(labels)];
+  }, [invocations]);
+
+  const filteredInvocations = useMemo(() => {
+    if (invocationTypeFilter === "All") {
+      return invocations;
+    }
+    return invocations.filter((inv) => getInvocationTypeLabel(inv.type) === invocationTypeFilter);
+  }, [invocations, invocationTypeFilter]);
 
   useEffect(() => {
     if (!messagesRef.current) return;
@@ -145,7 +177,7 @@ export const ChatPage: FunctionComponent = () => {
     return (
       <ChatRail
         title="Invocations"
-        count={invocations.length}
+        count={filteredInvocations.length}
       >
         {invocationsLoading ? (
           <LoadingChat label="Loading invocations" />
@@ -156,15 +188,35 @@ export const ChatPage: FunctionComponent = () => {
             actionLabel="Awaiting Runtime"
           />
         ) : (
-          <InvocationListCard
-            invocations={invocations}
-            selectedInvocationId={selectedInvocationId}
-            agentPresets={agentPresets}
-            onSelect={(invocationId) => {
-              const preferredInvocation = invocationIndex.get(invocationId) || null;
-              void activateInvocation(invocationId, { preferredInvocation });
-            }}
-          />
+          <div className="flex flex-col gap-4">
+            {/* Compact filter controls */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-black/[0.05] dark:border-white/[0.05]">
+              {availableFilters.map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setInvocationTypeFilter(filter)}
+                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] transition-all border ${
+                    invocationTypeFilter === filter
+                      ? "bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-void-900 shadow-sm"
+                      : "border-black/[0.06] bg-white/70 text-slate-500 hover:text-slate-900 hover:border-slate-300 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:text-white dark:hover:border-white/[0.12]"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+            <InvocationListCard
+              invocations={filteredInvocations}
+              selectedInvocationId={selectedInvocationId}
+              agentPresets={agentPresets}
+              effectiveSettings={effectiveSettings}
+              onSelect={(invocationId) => {
+                const preferredInvocation = invocationIndex.get(invocationId) || null;
+                void activateInvocation(invocationId, { preferredInvocation });
+              }}
+            />
+          </div>
         )}
       </ChatRail>
     );
@@ -262,6 +314,10 @@ export const ChatPage: FunctionComponent = () => {
       );
     }
 
+    const resolvedProvider = selectedInvocation
+      ? resolveProviderInfo(selectedInvocation.provider, selectedInvocation.model, effectiveSettings)
+      : null;
+
     return (
       <>
         <div className="shrink-0 border-b border-black/[0.05] px-6 py-6 dark:border-white/[0.05]">
@@ -272,9 +328,9 @@ export const ChatPage: FunctionComponent = () => {
                 <div className="w-11 h-11 rounded-[0.875rem] overflow-hidden border border-black/[0.06] dark:border-white/[0.06] bg-white/75 dark:bg-white/[0.04] flex items-center justify-center shrink-0">
                   <AgentAvatarSvg config={selectedAgentPreset.avatarConfig || generateRandomAgentAvatar(selectedAgentPreset.name)} size={44} static />
                 </div>
-              ) : selectedInvocation?.provider ? (
+              ) : resolvedProvider?.providerType ? (
                 <div className="w-11 h-11 rounded-[0.875rem] flex items-center justify-center shrink-0 bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.06]">
-                  <ProviderLogo provider={selectedInvocation.provider} size={24} />
+                  <ProviderLogo provider={resolvedProvider.providerType} size={24} />
                 </div>
               ) : null}
 
@@ -302,16 +358,16 @@ export const ChatPage: FunctionComponent = () => {
                       {selectedInvocation.id.slice(0, 8)}
                     </span>
                     {/* Provider badge with icon */}
-                    {selectedInvocation.provider && (
+                    {resolvedProvider?.displayName && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-black/[0.08] bg-black/[0.04] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
-                        <ProviderLogo provider={selectedInvocation.provider} size={12} />
-                        {selectedInvocation.provider}
+                        <ProviderLogo provider={resolvedProvider.providerType} size={12} />
+                        {resolvedProvider.displayName}
                       </span>
                     )}
                     {/* Model badge */}
-                    {selectedInvocation.model && (
+                    {resolvedProvider?.model && (
                       <span className="rounded-full border border-black/[0.08] bg-black/[0.04] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-400">
-                        {selectedInvocation.model}
+                        {resolvedProvider.model}
                       </span>
                     )}
                     {/* Status badge */}
@@ -357,28 +413,33 @@ export const ChatPage: FunctionComponent = () => {
             <LoadingChat label="Loading messages" />
           ) : (
             <>
-              <InvocationRoutingWidget
-                provider={selectedInvocation.provider}
-                model={selectedInvocation.model}
-                routingStatus={
-                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
-                    ? "routing"
-                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
-                      ? "active"
-                      : "done"
-                }
-              />
-              <InvocationContainerWidget
-                providerName={selectedInvocation.provider}
-                agentName={selectedAgentPreset?.name ?? null}
-                containerPhase={
-                  selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
-                    ? "starting"
-                    : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
-                      ? "working"
-                      : selectedInvocation.status === "failed" ? "failed" : "completed"
-                }
-              />
+              {resolvedProvider && (
+                <InvocationRoutingWidget
+                  provider={resolvedProvider.providerType}
+                  model={resolvedProvider.model}
+                  cliName={resolvedProvider.displayName}
+                  routingStatus={
+                    selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                      ? "routing"
+                      : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                        ? "active"
+                        : "done"
+                  }
+                />
+              )}
+              {resolvedProvider && (
+                <InvocationContainerWidget
+                  providerName={resolvedProvider.displayName}
+                  agentName={selectedAgentPreset?.name ?? null}
+                  containerPhase={
+                    selectedInvocation.status === "running" && selectedInvocation.messageCount === 0
+                      ? "starting"
+                      : selectedInvocation.status === "running" && selectedInvocation.messageCount > 0
+                        ? "working"
+                        : selectedInvocation.status === "failed" ? "failed" : "completed"
+                  }
+                />
+              )}
               {invocationMessages.length === 0 ? (
                 <EmptyChat
                   tone="invocations"
