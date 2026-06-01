@@ -12,6 +12,11 @@ describe("branch-name-generator", () => {
       tasksCount: 42,
     };
 
+    it("formats using the new default DEFAULT_SPRINT_BRANCH_SCHEME when scheme is empty or undefined", () => {
+      expect(formatSprintBranch(undefined, mockMetadata)).toBe("feature/100-q3-optimization-bugfixes");
+      expect(formatSprintBranch("", mockMetadata)).toBe("feature/100-q3-optimization-bugfixes");
+    });
+
     it("formats using {sprint_id} (canonical for slug)", () => {
       expect(formatSprintBranch("feature/{sprint_id}", mockMetadata)).toBe("feature/SPR-100");
     });
