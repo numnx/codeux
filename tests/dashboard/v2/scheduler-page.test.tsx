@@ -130,6 +130,18 @@ describe("SchedulerPage", () => {
       expect(screen.getByText("Runtime Scheduler")).toBeInTheDocument();
     });
 
+    const pageRoot = screen.getByTestId("scheduler-page-root");
+    expect(pageRoot.className).toContain("px-8");
+    expect(pageRoot.className).toContain("py-24");
+    expect(pageRoot.className).toContain("md:px-20");
+    expect(screen.getByTestId("scheduler-primary-header")).toBeInTheDocument();
+    const calendarPanel = screen.getByTestId("scheduler-calendar-panel");
+    const formPanel = screen.getByTestId("scheduler-form-panel");
+    expect(calendarPanel.className).toContain("bg-white/70");
+    expect(calendarPanel.className).toContain("dark:bg-void-800/60");
+    expect(formPanel.className).toContain("bg-white/70");
+    expect(formPanel.className).toContain("dark:bg-void-800/60");
+
     expect(screen.getByRole("heading", { level: 1, name: /Schedule/i })).toBeInTheDocument();
     expect(screen.getByText("Events.")).toBeInTheDocument();
 
@@ -147,6 +159,8 @@ describe("SchedulerPage", () => {
     // Verify scheduled entries section
     expect(screen.getByText("Scheduled entries")).toBeInTheDocument();
     expect(screen.getAllByText("Scheduled Run Sprint 1").length).toBeGreaterThan(0);
+    expect(pageRoot.innerHTML).not.toContain("#f5f1e8");
+    expect(pageRoot.innerHTML).not.toContain("#f7f3ea");
   });
 
   it("handles switching target types and scheduler submissions", async () => {
@@ -185,6 +199,8 @@ describe("SchedulerPage", () => {
     fireEvent.click(dayViewToggle);
 
     expect(screen.getByText("24 hour view")).toBeInTheDocument();
+    expect(dayViewToggle.className).toContain("bg-signal-500");
+    expect(dayViewToggle.className).toContain("text-void-900");
   });
 
   it("handles scheduled entry toggle pause/resume and delete", async () => {

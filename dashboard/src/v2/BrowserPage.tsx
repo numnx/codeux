@@ -376,8 +376,8 @@ export const BrowserPage: FunctionComponent = () => {
   }
 
   return (
-    <PageContainer padding="workbench" className="min-h-full">
-      <div className="mb-8 flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+    <PageContainer padding="workbench" className="min-h-full" data-testid="browser-page-root">
+      <div className="mb-8 flex flex-col justify-between gap-8 lg:flex-row lg:items-end" data-testid="browser-page-header">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
             <Compass className="h-3.5 w-3.5" strokeWidth={2} />
@@ -461,7 +461,7 @@ export const BrowserPage: FunctionComponent = () => {
       )}
 
       {showInAppBrowser && previewEnabled && (
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
         <PreviewWindowChrome
           session={visibleSelectedSession}
           onNavigateBack={() => postNavigationCommand("back")}

@@ -302,8 +302,8 @@ export const FileBrowserPage: FunctionComponent = () => {
   const changeCount = changes?.files.length ?? 0;
 
   return (
-    <PageContainer padding="workbench" className="min-h-full">
-      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <PageContainer padding="workbench" className="min-h-full" data-testid="file-browser-page-root">
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-4" data-testid="file-browser-page-header">
         <div>
           <div class="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-signal-600 dark:text-signal-400">
             <FolderTree class="h-3.5 w-3.5" strokeWidth={2} />
@@ -421,7 +421,7 @@ export const FileBrowserPage: FunctionComponent = () => {
           lastError={selectedSession?.status === "error" ? selectedSession.lastError : null}
         />
       ) : (
-        <div class="grid h-[calc(100vh-340px)] min-h-[520px] grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div class="grid h-[calc(100vh-340px)] min-h-[520px] grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]" data-testid="file-browser-main-tool-panel">
           {/* Sidebar panel */}
           <div class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
             {mode === "files" ? (
