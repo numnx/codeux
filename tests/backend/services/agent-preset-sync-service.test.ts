@@ -393,4 +393,79 @@ describe("AgentPresetSyncService", () => {
       expect(resolved.name).toBe("Just a Worker");
     });
   });
+
+  it("imports default agents once and does not recreate them if deleted, while project-local markdown agents still sync", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-default-provision-"));
+    tempDirs.push(dir);
+
+    // Set up project and default agents directories
+    const repoPath = path.join(dir, "repo");
+    const defaultAgentsDir = path.join(dir, ".code-ux", "agents");
+    await fs.mkdir(defaultAgentsDir, { recursive: true });
+    await fs.mkdir(path.join(repoPath, ".code-ux", "agents"), { recursive: true });
+
+    // Write a default planning agent
+    const defaultPlanningPath = path.join(defaultAgentsDir, "planning_agent.md");
+    await fs.writeFile(defaultPlanningPath, "Default planning instructions.\n", "utf8");
+
+    // Write a project-local agent
+    const projectLocalPath = path.join(repoPath, ".code-ux", "agents", "my_custom_agent.md");
+    await fs.writeFile(projectLocalPath, "Project local instructions.\n", "utf8");
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Provisioning Project",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    // 1. Initial list/sync should import default agent and project agent
+    let presets = await syncService.listAgentPresets(project.id);
+    expect(presets).toHaveLength(2);
+
+    const planning = presets.find((p) => p.name.toLowerCase() === "planning agent");
+    const custom = presets.find((p) => p.name.toLowerCase() === "my custom agent");
+
+    expect(planning).toBeDefined();
+    expect(planning!.sourceScope).toBe("default");
+    expect(custom).toBeDefined();
+    expect(custom!.sourceScope).toBe("project");
+
+    // 2. The project provisioning flag should now be true
+    const updatedProject = projectRepository.getProject(project.id);
+    expect(updatedProject?.defaultAgentPresetsProvisioned).toBe(true);
+
+    // 3. Delete the default planning agent preset from the database
+    await syncService.deleteAgentPreset(planning!.id);
+
+    // Verify it is gone
+    let currentPresets = agentPresetRepository.listAgentPresets(project.id);
+    expect(currentPresets.find((p) => p.name.toLowerCase() === "planning agent")).toBeUndefined();
+
+    // 4. Run sync again. The deleted default agent preset should NOT be recreated
+    presets = await syncService.listAgentPresets(project.id);
+    expect(presets.find((p) => p.name.toLowerCase() === "planning agent")).toBeUndefined();
+    expect(presets.find((p) => p.name.toLowerCase() === "my custom agent")).toBeDefined();
+
+    // 5. Add a new project-local markdown agent after default provisioning is true
+    const projectLocalPath2 = path.join(repoPath, ".code-ux", "agents", "another_custom_agent.md");
+    await fs.writeFile(projectLocalPath2, "Another project local instructions.\n", "utf8");
+
+    // Sync again. The new project agent should import successfully, but default agent still stays deleted
+    presets = await syncService.listAgentPresets(project.id);
+    const anotherCustom = presets.find((p) => p.name.toLowerCase() === "another custom agent");
+    expect(anotherCustom).toBeDefined();
+    expect(anotherCustom!.sourceScope).toBe("project");
+    expect(presets.find((p) => p.name.toLowerCase() === "planning agent")).toBeUndefined();
+  });
 });

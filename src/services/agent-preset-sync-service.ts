@@ -170,7 +170,8 @@ export class AgentPresetSyncService {
     const existingPresets = this.deps.agentPresetRepository.listAgentPresets(projectId);
     const presetsById = new Map(existingPresets.map((preset) => [preset.id, preset]));
     const presetsByName = new Map(existingPresets.map((preset) => [this.normalizeName(preset.name), preset]));
-    const sourceFiles = await this.readAgentSources(project.baseDir);
+    const includeDefault = !project.defaultAgentPresetsProvisioned;
+    const sourceFiles = await this.readAgentSources(project.baseDir, includeDefault);
 
     for (const source of sourceFiles) {
       const existing = existingPresets.find((preset) => preset.sourcePath === source.sourcePath)
@@ -238,6 +239,10 @@ export class AgentPresetSyncService {
         presetsById.set(imported.id, imported);
         presetsByName.set(source.normalizedName, imported);
       }
+    }
+
+    if (includeDefault) {
+      this.deps.projectManagementRepository.markDefaultAgentPresetsProvisioned(projectId);
     }
   }
 
@@ -396,7 +401,7 @@ export class AgentPresetSyncService {
     }
   }
 
-  private async readAgentSources(repoPath: string): Promise<AgentSourceFile[]> {
+  private async readAgentSources(repoPath: string, includeDefault: boolean): Promise<AgentSourceFile[]> {
     await ensureDefaultCodeUxAssetsInstalled({
       projectRoot: this.deps.projectRoot,
       logger: this.deps.logger,
@@ -405,7 +410,7 @@ export class AgentPresetSyncService {
     const collected = new Map<string, AgentSourceFile>();
     const roots: Array<{ directory: string; scope: AgentSourceScope }> = [
       { directory: getRepoCodeUxPath(repoPath, "agents"), scope: "project" },
-      { directory: getRepoCodeUxPath(this.deps.projectRoot, "agents"), scope: "default" },
+      ...(includeDefault ? [{ directory: getRepoCodeUxPath(this.deps.projectRoot, "agents"), scope: "default" as const }] : []),
       { directory: getHomeCodeUxPath("agents"), scope: "home" },
     ];
 
