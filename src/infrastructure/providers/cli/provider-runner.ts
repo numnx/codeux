@@ -743,12 +743,22 @@ export class ProviderRunner implements IProviderRunner {
       if (apiKey && !useProviderMount) env.GEMINI_API_KEY = apiKey;
       env.GEMINI_CLI_TRUST_WORKSPACE = "true";
     } else if (provider === "claude-code") {
-      if (apiKey && !useProviderMount) env.ANTHROPIC_API_KEY = apiKey;
       if (providerConfig?.customBaseUrl) {
         env.ANTHROPIC_BASE_URL = this.rewriteLoopbackUrlForDocker(
           providerConfig.customBaseUrl,
           this.shouldRewriteDockerLoopbackUrls(workflowSettings),
         );
+        // Gateways (OpenRouter, LiteLLM, etc.) authenticate with `Authorization: Bearer`,
+        // which Claude Code only sends via ANTHROPIC_AUTH_TOKEN. ANTHROPIC_API_KEY would be
+        // sent as an `x-api-key` header the gateway rejects, so route the key to the Bearer
+        // token and clear the api key to avoid credential conflicts. Mirrors the OpenRouter
+        // Claude Code integration guidance.
+        if (apiKey && !useProviderMount) {
+          env.ANTHROPIC_AUTH_TOKEN = apiKey;
+          env.ANTHROPIC_API_KEY = "";
+        }
+      } else if (apiKey && !useProviderMount) {
+        env.ANTHROPIC_API_KEY = apiKey;
       }
       if (providerConfig?.customModel && providerConfig.customModel.trim().length > 0) {
         // A custom (gateway) model usually exposes a single slug, so point every Claude

@@ -210,12 +210,33 @@ describe("ProviderRunner", () => {
       command: "claude",
       args: expect.arrayContaining(["--model", "anthropic/claude-sonnet-4.5", "-p", "build it"]),
       providerEnv: expect.objectContaining({
-        ANTHROPIC_API_KEY: "sk-anthropic",
+        // Gateway auth uses a Bearer token; ANTHROPIC_API_KEY is cleared to avoid conflicts.
+        ANTHROPIC_AUTH_TOKEN: "sk-anthropic",
+        ANTHROPIC_API_KEY: "",
         ANTHROPIC_BASE_URL: "https://openrouter.ai/api/v1",
         ANTHROPIC_MODEL: "anthropic/claude-sonnet-4.5",
         ANTHROPIC_SMALL_FAST_MODEL: "anthropic/claude-sonnet-4.5",
       }),
     }));
+  });
+
+  it("uses the standard Anthropic API key header when no custom base URL is set", async () => {
+    await runner.runProvider({
+      provider: "claude-code",
+      prompt: "build it",
+      cwd: "/repo",
+      model: "sonnet",
+      apiKey: "sk-anthropic",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    const env = dockerRunner.runProviderInDocker.mock.calls[0][0].providerEnv;
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-anthropic");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
   });
 
   it("routes Codex through a custom base URL, model, and chat wire API by default", async () => {
