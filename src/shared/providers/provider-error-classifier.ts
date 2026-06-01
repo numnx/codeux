@@ -209,6 +209,7 @@ const ANTIGRAVITY_QUOTA_PATTERNS: RegExp[] = [
   /Individual quota reached/i,
   /Contact your administrator to enable overages/i,
   /enable overages/i,
+  /RESOURCE_EXHAUSTED/i,
 ];
 
 const ANTIGRAVITY_PATTERNS: ErrorPattern[] = [

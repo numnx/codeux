@@ -133,10 +133,11 @@ describe("classifyProviderError", () => {
   });
 
   describe("antigravity", () => {
-    it("detects quota exhaustion with reset time from the agy message", () => {
+    it("detects quota exhaustion with reset time from the real agy log line", () => {
+      // The exact line agy writes to its log file (RESOURCE_EXHAUSTED wrapper included).
       const result = makeResult(
-        "Individual quota reached. Contact your administrator to enable overages. Resets in 3h4m52s.",
         "",
+        "RESOURCE_EXHAUSTED (code 429): Individual quota reached. Contact your administrator to enable overages. Resets in 3h4m52s.",
       );
       const classification = classifyProviderError("antigravity", result);
       expect(classification.category).toBe("QUOTA_EXHAUSTED");
