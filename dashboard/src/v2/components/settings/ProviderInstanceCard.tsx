@@ -310,8 +310,8 @@ export const ProviderInstanceCard: FunctionComponent<{
             label={provider.provider === "claude-code" ? "Anthropic base URL" : "OpenAI base URL"}
             description={
               provider.provider === "claude-code"
-                ? "Override ANTHROPIC_BASE_URL. Use an OpenRouter or compatible endpoint (e.g. https://openrouter.ai/api/v1). Leave empty to use the default Anthropic API."
-                : "Override OPENAI_BASE_URL. Route Codex through a custom OpenAI-compatible endpoint. Leave empty to use the default OpenAI API."
+                ? "Override ANTHROPIC_BASE_URL. Claude Code speaks the Anthropic Messages API and appends /v1/messages itself, so use an Anthropic-compatible endpoint WITHOUT a /v1 suffix — for OpenRouter that is https://openrouter.ai/api (not .../api/v1, which is the OpenAI URL used by Codex/Qwen). The API key is sent as a Bearer token. Leave empty to use the default Anthropic API."
+                : "Override OPENAI_BASE_URL. Route Codex through a custom OpenAI-compatible endpoint, e.g. https://openrouter.ai/api/v1. Leave empty to use the default OpenAI API."
             }
           >
             <TextInput value={provider.customBaseUrl || ""} onChange={(value) => onUpdate({ customBaseUrl: value || undefined })} mono />

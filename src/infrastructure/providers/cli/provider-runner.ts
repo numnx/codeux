@@ -744,8 +744,13 @@ export class ProviderRunner implements IProviderRunner {
       env.GEMINI_CLI_TRUST_WORKSPACE = "true";
     } else if (provider === "claude-code") {
       if (providerConfig?.customBaseUrl) {
+        // Claude Code speaks the Anthropic Messages API and always appends `/v1/messages`
+        // to ANTHROPIC_BASE_URL. A base ending in `/v1` (e.g. the OpenAI-format URL used by
+        // Codex/Qwen, https://openrouter.ai/api/v1) would produce `/v1/v1/messages` and fail
+        // auth, so normalize it off — the Anthropic-compatible base is e.g. .../api.
+        const normalizedBaseUrl = providerConfig.customBaseUrl.trim().replace(/\/v1\/?$/, "");
         env.ANTHROPIC_BASE_URL = this.rewriteLoopbackUrlForDocker(
-          providerConfig.customBaseUrl,
+          normalizedBaseUrl,
           this.shouldRewriteDockerLoopbackUrls(workflowSettings),
         );
         // Gateways (OpenRouter, LiteLLM, etc.) authenticate with `Authorization: Bearer`,

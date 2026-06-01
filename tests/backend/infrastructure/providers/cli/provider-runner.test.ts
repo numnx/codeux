@@ -213,11 +213,31 @@ describe("ProviderRunner", () => {
         // Gateway auth uses a Bearer token; ANTHROPIC_API_KEY is cleared to avoid conflicts.
         ANTHROPIC_AUTH_TOKEN: "sk-anthropic",
         ANTHROPIC_API_KEY: "",
-        ANTHROPIC_BASE_URL: "https://openrouter.ai/api/v1",
+        // Trailing /v1 is normalized off so Claude Code's appended /v1/messages resolves.
+        ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
         ANTHROPIC_MODEL: "anthropic/claude-sonnet-4.5",
         ANTHROPIC_SMALL_FAST_MODEL: "anthropic/claude-sonnet-4.5",
       }),
     }));
+  });
+
+  it("strips a trailing /v1 from the Claude Code base URL so Messages API paths resolve", async () => {
+    await runner.runProvider({
+      provider: "claude-code",
+      prompt: "build it",
+      cwd: "/repo",
+      model: "sonnet",
+      apiKey: "sk-anthropic",
+      customBaseUrl: "https://openrouter.ai/api/v1",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    const env = dockerRunner.runProviderInDocker.mock.calls[0][0].providerEnv;
+    expect(env.ANTHROPIC_BASE_URL).toBe("https://openrouter.ai/api");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("sk-anthropic");
   });
 
   it("uses the standard Anthropic API key header when no custom base URL is set", async () => {
