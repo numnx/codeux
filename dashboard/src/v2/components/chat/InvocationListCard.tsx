@@ -1,11 +1,13 @@
 import type { FunctionComponent } from "preact";
 import type { ExecutionInvocationRecord, AgentPreset } from "../../types.js";
+import type { EffectiveSettingsResponse } from "../../../types.js";
 import { formatRelativeChatTime } from "../../lib/chat-time.js";
 import { Activity, Loader2, MessageSquare } from "lucide-preact";
 import { ProviderLogo } from "../ui/ProviderLogo.js";
 import { WaveFluid } from "../ui/WaveFluid.js";
 import { BorderTrace } from "../ui/BorderTrace.js";
 import { AgentSelectAvatarIcon } from "../agents/AgentSelectAvatarIcon.js";
+import { resolveProviderInfo } from "../../lib/settings-view-models.js";
 
 const formatErrorCategory = (value: ExecutionInvocationRecord["lastErrorCategory"]): string | null => {
   switch (value) {
@@ -44,15 +46,26 @@ const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string; bor
 
 const DEFAULT_STATUS_STYLE = { dot: "bg-slate-400", text: "text-slate-500", bg: "bg-slate-500/[0.08]", border: "border-slate-500/20" };
 
+const INVOCATION_TYPE_MAP: Record<string, string> = {
+  task_coding: "Coding",
+  planning: "Planning",
+  ci_fix: "Fix",
+  dashboard_reply: "Reply",
+  clarification_reply: "Reply",
+  qa_review: "QA",
+  merge_conflict: "Merge",
+};
+
 const formatInvocationType = (type: string): string =>
-  type.replace(/_/g, " ");
+  INVOCATION_TYPE_MAP[type] || type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export const InvocationListCard: FunctionComponent<{
   invocations: ExecutionInvocationRecord[];
   selectedInvocationId: string | null;
   onSelect: (invocationId: string) => void;
   agentPresets?: AgentPreset[];
-}> = ({ invocations, selectedInvocationId, onSelect, agentPresets }) => (
+  effectiveSettings?: EffectiveSettingsResponse | null;
+}> = ({ invocations, selectedInvocationId, onSelect, agentPresets, effectiveSettings }) => (
   <div className="space-y-3">
     {invocations.map((invocation) => {
       const accentHex = getInvocationAccent(invocation.status);
@@ -63,6 +76,12 @@ export const InvocationListCard: FunctionComponent<{
       const agentPreset = invocation.agentPresetId
         ? agentPresets?.find(p => p.id === invocation.agentPresetId)
         : undefined;
+
+      const resolvedProvider = resolveProviderInfo(
+        invocation.provider,
+        invocation.model,
+        effectiveSettings || null
+      );
 
       return (
         <div key={invocation.id} className="group relative overflow-hidden rounded-[1.75rem]">
@@ -100,7 +119,7 @@ export const InvocationListCard: FunctionComponent<{
                     {agentPreset ? (
                       <AgentSelectAvatarIcon avatarConfig={agentPreset.avatarConfig} seed={`${agentPreset.id}:${agentPreset.name}`} />
                     ) : (
-                      <ProviderLogo provider={invocation.provider || ""} size={20} />
+                      <ProviderLogo provider={resolvedProvider.providerType} size={20} />
                     )}
                   </div>
 
@@ -145,10 +164,10 @@ export const InvocationListCard: FunctionComponent<{
 
                     {/* Provider + agent line */}
                     <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                      <ProviderLogo provider={invocation.provider || ""} size={16} />
-                      <span className="font-medium">{invocation.provider}</span>
-                      {invocation.model && (
-                        <span className="text-slate-400 dark:text-slate-500">{invocation.model}</span>
+                      <ProviderLogo provider={resolvedProvider.providerType} size={16} />
+                      <span className="font-medium">{resolvedProvider.displayName}</span>
+                      {resolvedProvider.model && (
+                        <span className="text-slate-400 dark:text-slate-500">{resolvedProvider.model}</span>
                       )}
                       {agentPreset && (
                         <>

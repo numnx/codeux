@@ -204,5 +204,6 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     confirmOptions: threadData.confirmOptions,
     handleConfirm: threadData.handleConfirm,
     handleCancel: threadData.handleCancel,
+    effectiveSettings,
   };
 };
