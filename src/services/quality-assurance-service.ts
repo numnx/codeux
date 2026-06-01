@@ -1160,7 +1160,18 @@ export class QualityAssuranceService {
       ...DEFAULT_CLI_WORKFLOW_SETTINGS,
       ...settings.cliWorkflow,
     };
-    const workerBranch = args.task.worker_branch?.trim() || args.taskRun?.workerBranch?.trim();
+    const resumeWorkspacePath = await this.workspaceManager.resolveResumeWorktreePath(
+      args.repoPath,
+      args.sessionId,
+      workflowSettings.executionMode,
+    );
+    const expectedWorkspacePath = resumeWorkspacePath
+      || this.workspaceManager.buildWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode);
+    const resolvedWorkspaceBranch = await this.workspaceManager.resolveCurrentBranch(expectedWorkspacePath);
+    const workerBranch = args.task.worker_branch?.trim()
+      || args.taskRun?.workerBranch?.trim()
+      || resolvedWorkspaceBranch
+      || undefined;
     if (!workerBranch) {
       throw new Error(`Cannot continue CLI QA fixes for ${args.task.id}: worker branch is missing.`);
     }
@@ -1177,8 +1188,7 @@ export class QualityAssuranceService {
       gitlabToken: settings.git.gitlabToken,
     };
 
-    const worktreePath = await this.workspaceManager.resolveResumeWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode)
-      || this.workspaceManager.buildWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode);
+    const worktreePath = expectedWorkspacePath;
     const existed = await this.workspacePathExists(worktreePath);
     if (!existed) {
       await this.workspaceManager.prepareWorktree(args.repoPath, worktreePath, workerBranch, args.featureBranch, undefined, gitAuth);
