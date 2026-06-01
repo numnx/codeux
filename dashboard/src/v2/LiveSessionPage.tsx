@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState, useEffect, useMemo } from "preact/ho
 import gsap from "gsap";
 import {
     Zap, Clock, CheckCircle2, XCircle,
-    Activity, ChevronDown, Radio,
+    ChevronDown, Radio,
     Play, RotateCcw, Bot, Workflow, PauseCircle,
     Ship, BarChart3,
 } from "lucide-preact";
@@ -20,14 +20,13 @@ import type { Subtask, ExecutionRuntimeEventSummary } from "../types.js";
 import { deriveLiveSessionRuntimeState } from "./lib/live-session-runtime.js";
 import { getTaskProgressPhase, getLiveTaskProgressPhase } from "../lib/task-progress.js";
 import { pickLatestTaskDispatch, projectLiveTask, findActiveQuotaWait } from "./lib/live-task-runtime.js";
-
-import { IntelPanel } from "./components/ui/IntelPanel.js";
 import { CollapsiblePanel } from "./components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider, useExecutionTimeline } from "../hooks/ExecutionTimelineContext.js";
 import { ExecutionTimeline } from "./components/ExecutionTimeline.js";
 import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { AttentionQueuePanel } from "./components/live-session/AttentionQueuePanel.js";
+import { LiveConnectionsCard } from "./components/live-session/LiveConnectionsCard.js";
 import { StatsHeader } from "./components/StatsHeader.js";
-import { SprintProtocol } from "./components/SprintProtocol.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
 import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
 import { PageContainer } from "./components/layout/PageContainer.js";
@@ -53,6 +52,14 @@ import { getSprintStatusPresentation } from "./lib/sprint-status-presentation.js
 
 const SprintBoatRace = lazy(() => import("./components/SprintBoatRace.js").then(m => ({ default: m.SprintBoatRace })));
 const SprintDag = lazy(() => import("./components/SprintDag.js").then(m => ({ default: m.SprintDag })));
+
+const LiveConnectionsSidebarCard: FunctionComponent = () => {
+    const { execution } = useExecutionTimeline();
+    if (!execution) {
+        return null;
+    }
+    return <LiveConnectionsCard snapshot={execution} />;
+};
 
 
 
@@ -576,21 +583,8 @@ export const LiveSessionPage: FunctionComponent = () => {
                     )}
                 </div>
 
-                {/* Sidebar — Reordered: Latest Activity & Git at top, collapsible panels */}
+                {/* Sidebar */}
                 <div className="xl:col-span-4 flex flex-col gap-5">
-                    {/* 1. Latest Activity — always visible at top */}
-                    <IntelPanel
-                        title="Latest Activity"
-                        icon={Activity}
-                        accentHex="#00E0A0"
-                        content={hasSprintContext ? status.reportText : undefined}
-                        fallback={hasSprintContext ? "Waiting for activity..." : !initialLoadComplete ? "Connecting..." : "Waiting for sprint to start."}
-                    />
-
-                    {/* 2. Git/CI — moved to top, always visible */}
-                    <GitCIStatusPanel status={gitStatus} error={gitStatusError} />
-
-                    {/* 3. Execution Runtime — collapsible */}
                     <ExecutionTimelineProvider
                         execution={execution}
                         onOrchestrateSprint={handleOrchestrateSprint}
@@ -605,17 +599,14 @@ export const LiveSessionPage: FunctionComponent = () => {
                         onDismissAttentionItem={handleDismissAttentionItem}
                         pendingActionIds={pendingActionIds}
                     >
+                        <LiveConnectionsSidebarCard />
+                        <GitCIStatusPanel status={gitStatus} error={gitStatusError} />
+                        <AttentionQueuePanel />
                         <ExecutionRuntimePanel
                             collapsible
                             defaultOpen={hasSprintContext}
                         />
                     </ExecutionTimelineProvider>
-
-                    {/* 4. Protocol — collapsible */}
-                    <SprintProtocol
-                        hasSprintContext={hasSprintContext}
-                        instructions={status.instructions}
-                    />
                 </div>
             </div>
         </PageContainer>
