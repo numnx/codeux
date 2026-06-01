@@ -448,6 +448,8 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
     },
     git: {
       githubMode: git.githubMode,
+      githubToken: git.githubToken,
+      gitlabToken: git.gitlabToken ?? "",
       defaultBranch: git.defaultBranch,
       autoCreatePr: git.autoCreatePr,
       autoCloseLinkedIssues: git.autoCloseLinkedIssues,
@@ -455,6 +457,10 @@ export function buildDefaultProjectSettings(externalHints?: ExternalSettingsHint
       sprintBranchScheme: git.sprintBranchScheme,
       sprintKeyPrefix: git.sprintKeyPrefix,
     },
+    jira: sanitizeJira(undefined, {
+      ...DEFAULT_DASHBOARD_SETTINGS.jira,
+      apiToken: externalHints?.resolved.jiraToken || DEFAULT_DASHBOARD_SETTINGS.jira.apiToken,
+    }),
     ciIntelligence: sanitizeCiIntelligence(DEFAULT_DASHBOARD_SETTINGS, git.githubMode),
     guardrails: sanitizeGuardrails(DEFAULT_DASHBOARD_SETTINGS),
     sprintLoopSteps: sanitizeSprintLoopSteps(DEFAULT_DASHBOARD_SETTINGS),
@@ -497,6 +503,7 @@ export function buildDefaultSystemSettings(externalHints?: ExternalSettingsHints
 
 export function sanitizeProjectSettings(value: unknown, externalHints?: ExternalSettingsHints): ProjectSettings {
   const input = toRecord(value);
+  const integrationsInput = toRecord(input.integrations);
   const integrationProviders = input.integrations && typeof input.integrations === "object"
     ? normalizeSystemIntegrationProviders(input.integrations, externalHints)
     : buildDefaultIntegrationProviders(externalHints);
@@ -509,6 +516,13 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
     git: deepMerge(DEFAULT_DASHBOARD_SETTINGS.git, input.git),
   };
   const git = sanitizeGit(gitInput, externalHints);
+  // GitHub/GitLab/Jira are scoped settings: a project may override them, otherwise
+  // they inherit the system integration values seeded into the base by
+  // sanitizeSystemSettings. The integrations block is used as a last-resort fallback.
+  const jira = sanitizeJira(input.jira ?? integrationsInput.jira, {
+    ...DEFAULT_DASHBOARD_SETTINGS.jira,
+    apiToken: externalHints?.resolved.jiraToken || DEFAULT_DASHBOARD_SETTINGS.jira.apiToken,
+  });
   const aiProvider = sanitizeAiProvider(aiInput, {
     externalHints,
     integrationProviders,
@@ -561,6 +575,8 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
     },
     git: {
       githubMode: git.githubMode,
+      githubToken: git.githubToken,
+      gitlabToken: git.gitlabToken ?? "",
       defaultBranch: git.defaultBranch,
       autoCreatePr: git.autoCreatePr,
       autoCloseLinkedIssues: git.autoCloseLinkedIssues,
@@ -568,6 +584,7 @@ export function sanitizeProjectSettings(value: unknown, externalHints?: External
       sprintBranchScheme: git.sprintBranchScheme,
       sprintKeyPrefix: git.sprintKeyPrefix,
     },
+    jira,
     ciIntelligence: sanitizeCiIntelligence({
       ...DEFAULT_DASHBOARD_SETTINGS,
       ciIntelligence: deepMerge(DEFAULT_DASHBOARD_SETTINGS.ciIntelligence, input.ciIntelligence),
@@ -622,16 +639,27 @@ export function sanitizeSystemSettings(value: unknown, externalHints?: ExternalS
     : defaults.runtime.consoleLogLevel;
   const lastActiveScope = runtime.lastActiveScope === "project" ? "project" : "system";
 
+  const systemGithubToken = typeof integrationInput.githubToken === "string"
+    ? integrationInput.githubToken
+    : defaults.integrations.githubToken;
+  const systemGitlabToken = typeof integrationInput.gitlabToken === "string"
+    ? integrationInput.gitlabToken
+    : defaults.integrations.gitlabToken;
+
+  // Seed the project-settings base (defaults) with the resolved system GitHub/GitLab
+  // tokens and Jira connection so every project inherits them unless it overrides.
   const defaultsInput = sanitizeProjectSettings({
     ...toRecord(input.defaults),
+    git: {
+      ...toRecord(toRecord(input.defaults).git),
+      githubToken: systemGithubToken,
+      gitlabToken: systemGitlabToken,
+    },
+    jira: jiraSettings,
     integrations: {
       providers: integrations,
-      githubToken: typeof toRecord(input.integrations).githubToken === "string"
-        ? toRecord(input.integrations).githubToken
-        : defaults.integrations.githubToken,
-      gitlabToken: typeof toRecord(input.integrations).gitlabToken === "string"
-        ? toRecord(input.integrations).gitlabToken
-        : defaults.integrations.gitlabToken,
+      githubToken: systemGithubToken,
+      gitlabToken: systemGitlabToken,
       jira: jiraSettings,
     },
   }, externalHints);
@@ -645,12 +673,8 @@ export function sanitizeSystemSettings(value: unknown, externalHints?: ExternalS
     },
     integrations: {
       providers: integrations,
-      githubToken: typeof toRecord(input.integrations).githubToken === "string"
-        ? toRecord(input.integrations).githubToken as string
-        : defaults.integrations.githubToken,
-      gitlabToken: typeof toRecord(input.integrations).gitlabToken === "string"
-        ? toRecord(input.integrations).gitlabToken as string
-        : defaults.integrations.gitlabToken,
+      githubToken: systemGithubToken,
+      gitlabToken: systemGitlabToken,
       jira: jiraSettings,
     },
     defaults: defaultsInput,
@@ -721,6 +745,9 @@ export function resolveDashboardSettings(args: {
   const baseProject = args.systemSettings.defaults;
   const projectSettings = resolveProjectSettings(args.systemSettings, args.projectOverride);
   const sprintSettings = resolveSprintProjectSettings(args.systemSettings, args.projectOverride, args.sprintOverride);
+  const systemGithubToken = args.systemSettings.integrations.githubToken || "";
+  const systemGitlabToken = args.systemSettings.integrations.gitlabToken || "";
+  const systemJira = args.systemSettings.integrations.jira ?? DEFAULT_DASHBOARD_SETTINGS.jira;
   const dashboardSettings: DashboardSettings = {
     dashboardPort: args.systemSettings.runtime.dashboardPort,
     enableDebugLogFile: args.systemSettings.runtime.enableDebugLogFile,
@@ -729,13 +756,21 @@ export function resolveDashboardSettings(args: {
     automationLevel: sprintSettings.automationLevel,
     automationInterventions: { ...sprintSettings.automationInterventions },
     aiProvider: applyIntegrations(sprintSettings, args.systemSettings.integrations),
+    // GitHub/GitLab/Jira resolve through the scoped project/sprint settings, which
+    // inherit the system integration values unless a project or sprint overrides
+    // them. A blank scoped value falls back to the system integration value.
     git: {
       ...sprintSettings.git,
-      githubToken: args.systemSettings.integrations.githubToken,
-      gitlabToken: args.systemSettings.integrations.gitlabToken,
+      githubToken: sprintSettings.git.githubToken || systemGithubToken,
+      gitlabToken: sprintSettings.git.gitlabToken || systemGitlabToken,
     },
     jira: {
-      ...args.systemSettings.integrations.jira,
+      host: sprintSettings.jira.host || systemJira.host,
+      email: sprintSettings.jira.email || systemJira.email,
+      apiToken: sprintSettings.jira.apiToken || systemJira.apiToken,
+      defaultProject: sprintSettings.jira.defaultProject || systemJira.defaultProject,
+      closeTransitionName: sprintSettings.jira.closeTransitionName || systemJira.closeTransitionName,
+      autoCloseLinkedIssues: sprintSettings.jira.autoCloseLinkedIssues,
     },
     ciIntelligence: { ...sprintSettings.ciIntelligence },
     guardrails: {

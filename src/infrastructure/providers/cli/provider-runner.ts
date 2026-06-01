@@ -136,6 +136,7 @@ export interface ProviderRunInput {
   workflowSettings: CliWorkflowSettings;
   repoPath: string;
   githubToken?: string;
+  gitlabToken?: string;
   signal?: AbortSignal;
   onActivity: (desc: string, originator?: string) => void;
   /** Pass a previous nativeSessionId to continue an existing CLI session.
@@ -272,6 +273,7 @@ export class ProviderRunner implements IProviderRunner {
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     githubToken?: string;
+    gitlabToken?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     codexOutputPath?: string | null;
@@ -279,7 +281,7 @@ export class ProviderRunner implements IProviderRunner {
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
   }): Promise<ProviderRunResult> {
-    const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, signal, onActivity } = input;
+    const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, gitlabToken, signal, onActivity } = input;
     const startedMs = Date.now();
     const runModel = this.resolveRunModel(provider, model, input);
     // Resolve where qwen-code should write its OpenAI request/response logs, as seen
@@ -289,7 +291,7 @@ export class ProviderRunner implements IProviderRunner {
         ? CONTAINER_QWEN_OPENAI_LOG_DIR
         : this.resolveQwenHostLogDir(sessionId))
       : undefined;
-    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir);
+    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir, gitlabToken);
     const nativeSessionId = provider === "opencode"
       ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
       : input.continueSessionId || (provider === "claude-code" || provider === "qwen-code" ? randomUUID() : null);
@@ -667,6 +669,7 @@ export class ProviderRunner implements IProviderRunner {
     providerMountAuth?: boolean,
     providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection" | "customBaseUrl">,
     qwenOpenAiLogDir?: string,
+    gitlabToken?: string,
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env };
     const useContainerMounts = workflowSettings.executionMode === "DOCKER";
@@ -676,6 +679,10 @@ export class ProviderRunner implements IProviderRunner {
     if (githubToken && !useGithubMount) {
       env.GH_TOKEN = githubToken;
       env.GITHUB_TOKEN = githubToken;
+    }
+    if (gitlabToken) {
+      env.GITLAB_TOKEN = gitlabToken;
+      env.GLAB_TOKEN = gitlabToken;
     }
     if (provider === "gemini") {
       if (model && model !== "default") env.GEMINI_MODEL = model;

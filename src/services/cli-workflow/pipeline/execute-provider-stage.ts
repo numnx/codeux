@@ -60,6 +60,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
     workflowSettings: ctx.workflowSettings,
     repoPath: ctx.repoPath,
     githubToken: ctx.deps.getGithubToken(),
+    gitlabToken: ctx.settings.git.gitlabToken,
     signal: ctx.abortSignal,
     customMcpServers: ctx.settings.customMcpServers,
     agentMcpAccess: ctx.agentMcpAccess,

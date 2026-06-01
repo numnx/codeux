@@ -1,7 +1,9 @@
 import { runCommandStrict, CommandResult } from "../../../services/cli-process-runner.js";
 import { ProviderId } from "../../../contracts/app-types.js";
 import { GitStatusQueryClient } from "../../git/git-status-query-client.js";
-import { resolveRepositoryHost } from "../../git/repository-host-resolver.js";
+import { resolveRepositoryHost, selectHostToken, type GitHostTokens, type GitProvider } from "../../git/repository-host-resolver.js";
+
+export type { GitHostTokens };
 
 export type Runner = (command: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv) => Promise<CommandResult>;
 
@@ -20,13 +22,8 @@ export interface IPrService {
   hasWorkerBranchCommitsAgainstFeature(repoPath: string, workerBranch: string, featureBranch: string, runner?: Runner): Promise<boolean>;
 }
 
-export interface GitHostTokens {
-  githubToken?: string;
-  gitlabToken?: string;
-}
-
 const tokenForProvider = (
-  provider: ReturnType<typeof resolveRepositoryHost>["provider"],
+  provider: GitProvider,
   hostToken: string | GitHostTokens | undefined,
 ): string | undefined => {
   if (typeof hostToken === "string") {
@@ -35,13 +32,7 @@ const tokenForProvider = (
   if (!hostToken) {
     return undefined;
   }
-  if (provider === "gitlab") {
-    return hostToken.gitlabToken?.trim() || undefined;
-  }
-  if (provider === "github") {
-    return hostToken.githubToken?.trim() || undefined;
-  }
-  return undefined;
+  return selectHostToken(provider, hostToken);
 };
 
 export class PrService implements IPrService {

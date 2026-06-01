@@ -54,6 +54,8 @@ export interface ProjectInvocationRoutingSettings {
 
 export interface ProjectGitSettings {
   githubMode: DashboardSettings["git"]["githubMode"];
+  githubToken: string;
+  gitlabToken: string;
   defaultBranch: string;
   autoCreatePr: boolean;
   autoCloseLinkedIssues: boolean;
@@ -68,6 +70,7 @@ export interface ProjectSettings {
   automationInterventions: AutomationInterventionsSettings;
   aiProvider: ProjectAiProviderSettings;
   git: ProjectGitSettings;
+  jira: JiraSettings;
   ciIntelligence: CiIntelligenceSettings;
   guardrails: GuardrailSettings;
   sprintLoopSteps: DashboardSettings["sprintLoopSteps"];

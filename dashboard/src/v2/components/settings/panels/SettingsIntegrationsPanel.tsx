@@ -381,25 +381,35 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
         <>
           {backButton}
           <SectionCard title={`${hostLabel} Configuration`} watermark={isGitLab ? "GLB" : "GIT"} icon={<Settings2 strokeWidth={2.4} />}>
-            {activeScope === "system" ? (
-              <Row label={`${hostLabel} token`} description={`System token used for ${hostLabel} repository, ${isGitLab ? "merge request" : "pull request"}, and CI integration.`}>
-                <TextInput
-                  value={systemSettings.integrations[tokenKey] || ""}
-                  onChange={(value) => updateSystem((current) => ({
+            <Row
+              label={`${hostLabel} token`}
+              description={activeScope === "system"
+                ? `System token used for ${hostLabel} repository, ${isGitLab ? "merge request" : "pull request"}, and CI integration. Projects inherit this unless they override it.`
+                : `Override the ${hostLabel} token for this scope. Leave blank to inherit the system token.`}
+              badge={activeScope === "system" ? undefined : getFieldBadge(`git.${tokenKey}`)}
+            >
+              <TextInput
+                value={activeScope === "system"
+                  ? (systemSettings.integrations[tokenKey] || "")
+                  : (editableSettings.git[tokenKey] || "")}
+                onChange={(value) => activeScope === "system"
+                  ? updateSystem((current) => ({
                     ...current,
                     integrations: {
                       ...current.integrations,
                       [tokenKey]: value,
                     },
+                  }))
+                  : updateEditableSettings((current) => ({
+                    ...current,
+                    git: {
+                      ...current.git,
+                      [tokenKey]: value,
+                    },
                   }))}
-                  mono
-                />
-              </Row>
-            ) : (
-              <NoticePanel title="System-owned token">
-                {hostLabel} tokens are stored at system scope. This scope still controls whether Docker copies host git configuration.
-              </NoticePanel>
-            )}
+                mono
+              />
+            </Row>
             {isGitLab ? null : (
               <>
                 <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker for this scope." badge={getFieldBadge("cliWorkflow.containerMountGithubAuth")}>
@@ -479,16 +489,28 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
     }
 
     if (integrationId === "jira") {
-      const jiraSettings = systemSettings.integrations.jira || DEFAULT_JIRA_SETTINGS;
+      const jiraSettings = activeScope === "system"
+        ? (systemSettings.integrations.jira || DEFAULT_JIRA_SETTINGS)
+        : (editableSettings.jira || DEFAULT_JIRA_SETTINGS);
       const updateJira = (updates: Partial<SystemSettings["integrations"]["jira"]>): void => {
-        updateSystem((current) => ({
-          ...current,
-          integrations: {
-            ...current.integrations,
-            jira: {
-              ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
-              ...updates,
+        if (activeScope === "system") {
+          updateSystem((current) => ({
+            ...current,
+            integrations: {
+              ...current.integrations,
+              jira: {
+                ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
+                ...updates,
+              },
             },
+          }));
+          return;
+        }
+        updateEditableSettings((current) => ({
+          ...current,
+          jira: {
+            ...(current.jira || DEFAULT_JIRA_SETTINGS),
+            ...updates,
           },
         }));
       };
@@ -497,35 +519,32 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
         <>
           {backButton}
           <SectionCard title="Jira Configuration" watermark="JRA" icon={<Settings2 strokeWidth={2.4} />}>
-            {activeScope === "system" ? (
-              <>
-                <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`.">
-                  <TextInput value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
-                </Row>
-                <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments.">
-                  <TextInput value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
-                </Row>
-                <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions.">
-                  <TextInput value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
-                </Row>
-                <Row label="Default project" description="Project key used to prefill the Jira import JQL.">
-                  <TextInput value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
-                </Row>
-                <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion.">
-                  <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
-                </Row>
-                <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." last>
-                  <Toggle
-                    value={jiraSettings.autoCloseLinkedIssues}
-                    onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })}
-                  />
-                </Row>
-              </>
-            ) : (
-              <NoticePanel title="System-owned Jira connection">
-                Jira site, account, API token, import defaults, and close transition are stored at system scope so every project uses the same trusted integration.
+            {activeScope === "system" ? null : (
+              <NoticePanel title="Project-scope Jira override">
+                These fields override the system Jira connection for this scope. Cleared fields fall back to the system values.
               </NoticePanel>
             )}
+            <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`." badge={activeScope === "system" ? undefined : getFieldBadge("jira.host")}>
+              <TextInput value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
+            </Row>
+            <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments." badge={activeScope === "system" ? undefined : getFieldBadge("jira.email")}>
+              <TextInput value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
+            </Row>
+            <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions." badge={activeScope === "system" ? undefined : getFieldBadge("jira.apiToken")}>
+              <TextInput value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
+            </Row>
+            <Row label="Default project" description="Project key used to prefill the Jira import JQL." badge={activeScope === "system" ? undefined : getFieldBadge("jira.defaultProject")}>
+              <TextInput value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
+            </Row>
+            <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion." badge={activeScope === "system" ? undefined : getFieldBadge("jira.closeTransitionName")}>
+              <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
+            </Row>
+            <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." badge={activeScope === "system" ? undefined : getFieldBadge("jira.autoCloseLinkedIssues")} last>
+              <Toggle
+                value={jiraSettings.autoCloseLinkedIssues}
+                onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })}
+              />
+            </Row>
           </SectionCard>
         </>
       );
@@ -636,7 +655,10 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
                   if (integration.id === "github" || integration.id === "gitlab" || integration.id === "jira") {
                     const isGitLab = integration.id === "gitlab";
                     const isJira = integration.id === "jira";
-                    const jiraConfigured = Boolean(systemSettings.integrations.jira?.host.trim() && systemSettings.integrations.jira?.apiToken.trim());
+                    const effectiveJira = activeScope === "system"
+                      ? systemSettings.integrations.jira
+                      : editableSettings.jira;
+                    const jiraConfigured = Boolean(effectiveJira?.host?.trim() && effectiveJira?.apiToken?.trim());
                     return (
                       <div key={integration.id} className="group relative min-h-[156px] overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/88 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.035)] transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-black/[0.12] hover:bg-white hover:shadow-[0_18px_42px_rgba(15,23,42,0.07)] dark:border-white/[0.08] dark:bg-void-800/80 dark:hover:border-white/[0.14] dark:hover:bg-void-800/90">
                         <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.12]" />

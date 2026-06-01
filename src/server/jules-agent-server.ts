@@ -30,6 +30,7 @@ import { ExecutionRepository } from "../repositories/execution-repository.js";
 import { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
 import { GitStatusService, type GitTrackingRequest } from "../services/git-status-service.js";
 import { defaultRunner } from "../infrastructure/git/git-status-query-client.js";
+import type { GitHostTokens } from "../infrastructure/git/repository-host-resolver.js";
 import { loadExternalSettingsHints } from "../config/external-settings.js";
 import { InstructionService } from "../instructions/instruction-template-service.js";
 import { buildMissingJulesApiKeyMessage } from "../mcp/api-key-guidance.js";
@@ -530,20 +531,38 @@ export class JulesAgentServer {
     if (uiToken && uiToken.length > 0) {
       return uiToken;
     }
-    const liveEnvToken = process.env.GITHUB_TOKEN?.trim();
+    const liveEnvToken = process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim();
     if (liveEnvToken && liveEnvToken.length > 0) {
       return liveEnvToken;
     }
-    const uiGitlabToken = settings.git?.gitlabToken?.trim();
-    if (uiGitlabToken && uiGitlabToken.length > 0) {
-      return uiGitlabToken;
-    }
-    const gitlabToken = process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim();
-    if (gitlabToken && gitlabToken.length > 0) {
-      return gitlabToken;
-    }
     const fallback = this.externalSettingsHints?.resolved?.githubToken?.trim();
     return (fallback && fallback.length > 0) ? fallback : undefined;
+  }
+
+  private getEffectiveGitlabToken(): string | undefined {
+    const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
+    const uiToken = settings.git?.gitlabToken?.trim();
+    if (uiToken && uiToken.length > 0) {
+      return uiToken;
+    }
+    const liveEnvToken = process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim();
+    if (liveEnvToken && liveEnvToken.length > 0) {
+      return liveEnvToken;
+    }
+    const fallback = this.externalSettingsHints?.resolved?.gitlabToken?.trim();
+    return (fallback && fallback.length > 0) ? fallback : undefined;
+  }
+
+  /**
+   * Both host tokens, each resolved independently. The git status service picks
+   * the one matching the repository's host, so a GitHub repo never receives the
+   * GitLab token and vice versa.
+   */
+  private getEffectiveGitHostTokens(): GitHostTokens {
+    return {
+      githubToken: this.getEffectiveGithubToken(),
+      gitlabToken: this.getEffectiveGitlabToken(),
+    };
   }
 
   private resolveGitTrackingRequest(): GitTrackingRequest {
@@ -714,7 +733,7 @@ export class JulesAgentServer {
     const settings = this.runtimeContext.dashboardSettings || DEFAULT_DASHBOARD_SETTINGS;
     return await gitStatusService.getStatus(
       settings.git.githubMode,
-      this.getEffectiveGithubToken(),
+      this.getEffectiveGitHostTokens(),
       this.resolveGitTrackingRequest(),
       cacheTtlMs
     );
@@ -775,7 +794,7 @@ export class JulesAgentServer {
       const gitStatusService = new GitStatusService(this.resolveGitStatusRepoPath(), defaultRunner, true);
       return await gitStatusService.getStatus(
         "REMOTE",
-        this.getEffectiveGithubToken(),
+        this.getEffectiveGitHostTokens(),
         { scope: "REPOSITORY" },
         JulesAgentServer.GIT_STATUS_CACHE_MS,
       );
@@ -852,13 +871,13 @@ export class JulesAgentServer {
       return typeof args.cacheTtlMs === "number"
         ? await gitStatusService.getStatus(
             "REMOTE",
-            this.getEffectiveGithubToken(),
+            this.getEffectiveGitHostTokens(),
             trackingRequest,
             args.cacheTtlMs,
           )
         : await gitStatusService.getStatus(
             "REMOTE",
-            this.getEffectiveGithubToken(),
+            this.getEffectiveGitHostTokens(),
             trackingRequest,
           );
     } catch {
@@ -869,7 +888,7 @@ export class JulesAgentServer {
   private async autoMergeFeaturePr(args: AutoMergeFeaturePrArgs): Promise<AutoMergeFeaturePrResult> {
     const gitStatusService = new GitStatusService(args.repoPath, defaultRunner, true);
     try {
-      const result = await gitStatusService.mergePullRequest(args.prNumber, this.getEffectiveGithubToken());
+      const result = await gitStatusService.mergePullRequest(args.prNumber, this.getEffectiveGitHostTokens());
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -895,7 +914,7 @@ export class JulesAgentServer {
         headBranch: args.featureBranch,
         title: args.title,
         body: args.body,
-      }, this.getEffectiveGithubToken());
+      }, this.getEffectiveGitHostTokens());
     } catch {
       return null;
     }
