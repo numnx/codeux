@@ -15,10 +15,12 @@ import { randomUUID } from "crypto";
 import { getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
 import {
   collectProviderUsageTelemetry,
-  parseQwenOpenAiLogs,
+  readQwenOpenAiLogRecords,
+  buildQwenConversation,
   sumQwenOpenAiUsage,
   type ProviderUsageTelemetry,
   type QwenUsageTotals,
+  type ParsedConversationTurn,
 } from "./provider-usage.js";
 
 const CONTAINER_WORKSPACE_ROOT = "/workspace";
@@ -414,8 +416,8 @@ export class ProviderRunner implements IProviderRunner {
       const codexSessionJson = provider === "codex"
         ? await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode)
         : null;
-      const qwenReportedUsage = provider === "qwen-code"
-        ? await this.readQwenOpenAiUsage(cwd, workflowSettings.executionMode, sessionId, startedMs)
+      const qwenLog = provider === "qwen-code"
+        ? await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs)
         : null;
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
@@ -428,7 +430,8 @@ export class ProviderRunner implements IProviderRunner {
         nativeSessionId,
         claudeSessionJsonl,
         codexSessionJson,
-        qwenReportedUsage,
+        qwenReportedUsage: qwenLog?.usage ?? null,
+        qwenConversation: qwenLog?.conversation ?? null,
         startTimeMs: startedMs,
         executionMode: workflowSettings.executionMode,
       });
@@ -587,24 +590,32 @@ export class ProviderRunner implements IProviderRunner {
     await fs.mkdir(logDir, { recursive: true }).catch(() => undefined);
   }
 
-  /** Aggregates provider-reported usage from qwen-code OpenAI logs for both execution modes. */
-  private async readQwenOpenAiUsage(
+  /** Aggregates provider-reported usage and the conversation from qwen-code
+   *  OpenAI logs for both execution modes. Reads the log records once so usage
+   *  and the parsed conversation come from the same set of files. */
+  private async readQwenLogData(
     cwd: string,
     executionMode: CliWorkflowSettings["executionMode"],
     sessionId: string,
     startTimeMs: number,
-  ): Promise<QwenUsageTotals | null> {
+  ): Promise<{ usage: QwenUsageTotals | null; conversation: ParsedConversationTurn[] } | null> {
+    let records: unknown[] = [];
     if (executionMode === "DOCKER") {
       const arrayJson = await this.dockerRunner.readWorkspaceJsonArray?.(cwd, CONTAINER_QWEN_OPENAI_LOG_DIR).catch(() => null);
       if (!arrayJson) return null;
       try {
-        const records = JSON.parse(arrayJson);
-        return Array.isArray(records) ? sumQwenOpenAiUsage(records) : null;
+        const parsed = JSON.parse(arrayJson);
+        records = Array.isArray(parsed) ? parsed : [];
       } catch {
         return null;
       }
+    } else {
+      records = await readQwenOpenAiLogRecords(this.resolveQwenHostLogDir(sessionId), startTimeMs);
     }
-    return parseQwenOpenAiLogs(this.resolveQwenHostLogDir(sessionId), startTimeMs);
+    if (records.length === 0) {
+      return null;
+    }
+    return { usage: sumQwenOpenAiUsage(records), conversation: buildQwenConversation(records) };
   }
 
   private async readCodexLatestSessionJson(
@@ -625,13 +636,14 @@ export class ProviderRunner implements IProviderRunner {
         month,
         day,
       );
-      return (await this.dockerRunner.readLatestWorkspaceFile?.(cwd, sessionsDir).catch(() => null)) ?? null;
+      return (await this.dockerRunner.readLatestWorkspaceFile?.(cwd, sessionsDir, "*.jsonl").catch(() => null)) ?? null;
     }
 
     const sessionsDir = path.join(os.homedir(), ".codex", "sessions", year, month, day);
     try {
       const files = await fs.readdir(sessionsDir);
-      const jsonFiles = files.filter(f => f.endsWith(".json"));
+      // Codex writes rollout transcripts as `rollout-<ts>-<uuid>.jsonl`.
+      const jsonFiles = files.filter(f => f.endsWith(".jsonl"));
       if (jsonFiles.length === 0) return null;
       const withMtimes = await Promise.all(
         jsonFiles.map(async (f) => {

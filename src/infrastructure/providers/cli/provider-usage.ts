@@ -4,6 +4,29 @@ import * as path from "path";
 import { countTokens as countAnthropicTokens } from "@anthropic-ai/tokenizer";
 import { encodingForModel } from "js-tiktoken";
 import type { TokenUsageSource } from "../../../contracts/execution-types.js";
+import type { ParsedConversationTurn } from "./provider-logs/provider-conversation-types.js";
+import { parseCodexRolloutJsonl, parseCodexExecStdout } from "./provider-logs/codex-log-parser.js";
+import { parseOpenCodeJsonLines } from "./provider-logs/opencode-log-parser.js";
+import {
+  buildQwenConversation,
+  parseQwenOpenAiLogs,
+  readQwenOpenAiLogRecords,
+  sumQwenOpenAiUsage,
+  extractQwenUsageRecord,
+  type QwenUsageTotals,
+} from "./provider-logs/qwen-log-parser.js";
+
+// Re-export the qwen log helpers so existing importers (provider-runner, tests)
+// keep their import paths. The implementations now live in provider-logs/.
+export {
+  parseQwenOpenAiLogs,
+  readQwenOpenAiLogRecords,
+  sumQwenOpenAiUsage,
+  extractQwenUsageRecord,
+  buildQwenConversation,
+};
+export type { QwenUsageTotals };
+export type { ParsedConversationTurn };
 
 export interface ProviderUsageTelemetry {
   inputTokens: number;
@@ -15,6 +38,10 @@ export interface ProviderUsageTelemetry {
   rawUsageJson: Record<string, unknown> | null;
   transcriptText: string;
   nativeSessionId: string | null;
+  /** Ordered conversation parsed from the provider's JSON logs (codex / qwen /
+   *  opencode). Empty when the provider does not support structured parsing or
+   *  the logs were unavailable (estimated usage). */
+  conversation: ParsedConversationTurn[];
 }
 
 function emptyTelemetry(): ProviderUsageTelemetry {
@@ -28,7 +55,24 @@ function emptyTelemetry(): ProviderUsageTelemetry {
     rawUsageJson: null,
     transcriptText: "",
     nativeSessionId: null,
+    conversation: [],
   };
+}
+
+/** Ensures the conversation starts with the user prompt so every provider
+ *  yields a complete, uniform transcript even when its logs omit the prompt. */
+function withLeadingUserTurn(conversation: ParsedConversationTurn[], prompt: string): ParsedConversationTurn[] {
+  if (conversation.length === 0) {
+    return conversation;
+  }
+  if (conversation[0]?.kind === "user") {
+    return conversation;
+  }
+  const trimmed = prompt.trim();
+  if (!trimmed) {
+    return conversation;
+  }
+  return [{ kind: "user", text: trimmed }, ...conversation];
 }
 
 function toNumber(value: unknown): number {
@@ -116,6 +160,7 @@ function estimateTelemetry(provider: "gemini" | "codex" | "claude-code" | "qwen-
     rawUsageJson: null,
     transcriptText: outputText,
     nativeSessionId: null,
+    conversation: [],
   };
 }
 
@@ -187,177 +232,6 @@ function parseGeminiTokens(stats: Record<string, unknown> | null): ProviderUsage
   }
 
   return null;
-}
-
-function parseUsageObject(usage: Record<string, unknown>): { inputTokens: number; cachedInputTokens: number; outputTokens: number; reasoningOutputTokens: number } {
-  const normalized = normalizeUsageCounts(usage, {
-    promptKeys: ["input_tokens", "prompt_tokens", "inputTokens", "promptTokens", "input"],
-    completionKeys: ["output_tokens", "completion_tokens", "outputTokens", "completionTokens", "output", "completion"],
-    totalKeys: ["total_tokens", "totalTokens", "totalTokenCount", "total"],
-  });
-  const inputTokens = normalized.promptTokens;
-  let outputTokens = normalized.completionTokens;
-
-  let cachedInputTokens = toNumber(usage.cached_input_tokens ?? 0);
-  if (cachedInputTokens === 0) {
-    const details = (usage.input_token_details ?? usage.prompt_tokens_details ?? usage.input_tokens_details) as Record<string, unknown> | undefined;
-    if (details && typeof details === "object") {
-      cachedInputTokens = toNumber(details.cached_tokens ?? 0);
-    }
-  }
-
-  let reasoningOutputTokens = toNumber(usage.reasoning_output_tokens ?? 0);
-  if (reasoningOutputTokens === 0) {
-    const details = (usage.output_token_details ?? usage.completion_tokens_details ?? usage.output_tokens_details) as Record<string, unknown> | undefined;
-    if (details && typeof details === "object") {
-      reasoningOutputTokens = toNumber(details.reasoning_tokens ?? 0);
-    }
-  }
-
-  // When providers report only total+prompt, infer completion safely.
-  if (outputTokens <= 0 && normalized.totalTokens > inputTokens) {
-    outputTokens = Math.max(0, normalized.totalTokens - inputTokens);
-  }
-
-  return { inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
-}
-
-export function parseCodexSessionJson(content: string): ProviderUsageTelemetry | null {
-  const session = parseJsonObject(content.trim());
-  if (!session) return null;
-
-  // Try top-level cumulative usage fields first
-  for (const key of ["total_usage", "usage", "total_token_usage"]) {
-    const usageObj = session[key];
-    if (!usageObj || typeof usageObj !== "object") continue;
-    const parsed = parseUsageObject(usageObj as Record<string, unknown>);
-    if (parsed.inputTokens + parsed.outputTokens > 0) {
-      return {
-        ...emptyTelemetry(),
-        ...parsed,
-        totalTokens: parsed.inputTokens + parsed.outputTokens,
-        usageSource: "reported",
-        rawUsageJson: usageObj as Record<string, unknown>,
-      };
-    }
-  }
-
-  // Walk turns/messages/items and aggregate per-turn usage
-  const itemsKey = (["turns", "messages", "items", "history"] as const).find(k => Array.isArray(session[k]));
-  if (itemsKey) {
-    let inputTokens = 0, cachedInputTokens = 0, outputTokens = 0, reasoningOutputTokens = 0;
-    for (const item of session[itemsKey] as unknown[]) {
-      if (!item || typeof item !== "object") continue;
-      const itemUsage = (item as Record<string, unknown>).usage;
-      if (!itemUsage || typeof itemUsage !== "object") continue;
-      const parsed = parseUsageObject(itemUsage as Record<string, unknown>);
-      inputTokens += parsed.inputTokens;
-      cachedInputTokens += parsed.cachedInputTokens;
-      outputTokens += parsed.outputTokens;
-      reasoningOutputTokens += parsed.reasoningOutputTokens;
-    }
-    if (inputTokens + outputTokens > 0) {
-      return {
-        ...emptyTelemetry(),
-        inputTokens,
-        cachedInputTokens,
-        outputTokens,
-        reasoningOutputTokens,
-        totalTokens: inputTokens + outputTokens,
-        usageSource: "reported",
-        rawUsageJson: session,
-      };
-    }
-  }
-
-  return null;
-}
-
-function parseCodexJsonLines(stdout: string): ProviderUsageTelemetry | null {
-  let latestUsage: Record<string, unknown> | null = null;
-  for (const line of stdout.split("\n")) {
-    const parsed = parseJsonObject(line.trim());
-    if (!parsed) {
-      continue;
-    }
-    const payload = parsed.payload && typeof parsed.payload === "object" ? parsed.payload as Record<string, unknown> : null;
-    const type = typeof parsed.type === "string" ? parsed.type : typeof payload?.type === "string" ? payload.type : null;
-    if (type !== "token_count" || !payload) {
-      continue;
-    }
-    const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : null;
-    const totalUsage = info?.total_token_usage && typeof info.total_token_usage === "object"
-      ? info.total_token_usage as Record<string, unknown>
-      : null;
-    if (totalUsage) {
-      latestUsage = totalUsage;
-    }
-  }
-
-  if (!latestUsage) {
-    return null;
-  }
-  const parsedUsage = parseUsageObject(latestUsage);
-
-  return {
-    ...emptyTelemetry(),
-    inputTokens: parsedUsage.inputTokens,
-    cachedInputTokens: parsedUsage.cachedInputTokens,
-    outputTokens: parsedUsage.outputTokens,
-    reasoningOutputTokens: parsedUsage.reasoningOutputTokens,
-    totalTokens: parsedUsage.inputTokens + parsedUsage.outputTokens,
-    usageSource: "reported",
-    rawUsageJson: latestUsage,
-  };
-}
-
-function parseOpenCodeJsonLines(stdout: string): { transcriptText: string; inputTokens: number; outputTokens: number; nativeSessionId: string | null } | null {
-  const textParts: string[] = [];
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let nativeSessionId: string | null = null;
-  let foundEvent = false;
-
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{")) {
-      continue;
-    }
-    const parsed = parseJsonObject(trimmed);
-    if (!parsed || typeof parsed.type !== "string") {
-      continue;
-    }
-    foundEvent = true;
-
-    const part = parsed.part && typeof parsed.part === "object" ? parsed.part as Record<string, unknown> : null;
-    const properties = parsed.properties && typeof parsed.properties === "object" ? parsed.properties as Record<string, unknown> : null;
-    const info = properties?.info && typeof properties.info === "object" ? properties.info as Record<string, unknown> : null;
-
-    if (!nativeSessionId && typeof properties?.sessionID === "string") {
-      nativeSessionId = properties.sessionID;
-    }
-    if (!nativeSessionId && typeof info?.id === "string") {
-      nativeSessionId = info.id;
-    }
-
-    if (parsed.type === "text" && part?.type === "text" && typeof part.text === "string" && part.text.trim()) {
-      textParts.push(part.text.trim());
-    }
-
-    if (parsed.type === "step_finish" && part) {
-      const usage = part.usage && typeof part.usage === "object" ? part.usage as Record<string, unknown> : null;
-      if (usage) {
-        inputTokens += toNumber(usage.promptTokens ?? usage.inputTokens ?? usage.input_tokens ?? 0);
-        outputTokens += toNumber(usage.completionTokens ?? usage.outputTokens ?? usage.output_tokens ?? 0);
-      }
-    }
-  }
-
-  if (!foundEvent) {
-    return null;
-  }
-
-  return { transcriptText: textParts.join("\n\n").trim(), inputTokens, outputTokens, nativeSessionId };
 }
 
 function extractClaudeTranscript(lines: Array<Record<string, unknown>>): string {
@@ -436,93 +310,6 @@ function parseClaudeSessionJsonl(
   };
 }
 
-export interface QwenUsageTotals {
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-}
-
-/**
- * Extracts token usage from a single qwen-code OpenAI log record. Each log file
- * is `{ timestamp, request, response, error, context, system }`, where the
- * provider-reported usage lives on the OpenAI `response.usage` object. Older
- * loggers (and our tests) place a bare `usage` at the top level, so we fall back
- * to that. Returns null when no usage object is present (e.g. error-only logs).
- */
-export function extractQwenUsageRecord(record: unknown): QwenUsageTotals | null {
-  if (!record || typeof record !== "object") return null;
-  const root = record as Record<string, unknown>;
-  const response = root.response && typeof root.response === "object"
-    ? root.response as Record<string, unknown>
-    : null;
-  const usage = (response?.usage && typeof response.usage === "object")
-    ? response.usage as Record<string, unknown>
-    : (root.usage && typeof root.usage === "object")
-      ? root.usage as Record<string, unknown>
-      : null;
-  if (!usage) return null;
-
-  const cachedDetails = usage.prompt_tokens_details && typeof usage.prompt_tokens_details === "object"
-    ? usage.prompt_tokens_details as Record<string, unknown>
-    : null;
-
-  return {
-    inputTokens: toNumber(usage.prompt_tokens ?? usage.input_tokens ?? 0),
-    outputTokens: toNumber(usage.completion_tokens ?? usage.output_tokens ?? 0),
-    cachedInputTokens: toNumber(cachedDetails?.cached_tokens ?? usage.cached_tokens ?? 0),
-  };
-}
-
-/** Sums usage across many qwen-code log records. Returns null when none report usage. */
-export function sumQwenOpenAiUsage(records: unknown[]): QwenUsageTotals | null {
-  const totals: QwenUsageTotals = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
-  let found = false;
-  for (const record of records) {
-    const usage = extractQwenUsageRecord(record);
-    if (usage) {
-      totals.inputTokens += usage.inputTokens;
-      totals.cachedInputTokens += usage.cachedInputTokens;
-      totals.outputTokens += usage.outputTokens;
-      found = true;
-    }
-  }
-  return found ? totals : null;
-}
-
-/**
- * Reads qwen-code OpenAI log files from a host-visible directory and aggregates
- * their usage. Only files modified at/after the invocation start are counted so
- * stale logs from earlier runs sharing the directory are ignored.
- */
-export async function parseQwenOpenAiLogs(
-  logDir: string,
-  startTimeMs: number,
-): Promise<QwenUsageTotals | null> {
-  try {
-    const files = await fs.readdir(logDir);
-    const jsonFiles = files.filter(f => f.endsWith(".json"));
-    if (jsonFiles.length === 0) return null;
-
-    const records: unknown[] = [];
-    for (const file of jsonFiles) {
-      const filePath = path.join(logDir, file);
-      const stat = await fs.stat(filePath).catch(() => null);
-      if (stat && stat.mtimeMs >= startTimeMs - 2000) {
-        const content = await fs.readFile(filePath, "utf8").catch(() => "");
-        try {
-          records.push(JSON.parse(content));
-        } catch {
-          // ignore unparseable log files
-        }
-      }
-    }
-
-    return sumQwenOpenAiUsage(records);
-  } catch {
-    return null;
-  }
-}
-
 export async function collectProviderUsageTelemetry(args: {
   provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
   model: string;
@@ -535,6 +322,7 @@ export async function collectProviderUsageTelemetry(args: {
   claudeSessionJsonl?: string | null;
   codexSessionJson?: string | null;
   qwenReportedUsage?: QwenUsageTotals | null;
+  qwenConversation?: ParsedConversationTurn[] | null;
   startTimeMs?: number;
   executionMode?: "HOST" | "DOCKER";
 }): Promise<ProviderUsageTelemetry> {
@@ -556,25 +344,41 @@ export async function collectProviderUsageTelemetry(args: {
 
   if (args.provider === "codex") {
     const transcriptText = args.capturedText?.trim() || fallbackOutput;
-    const usage = parseCodexJsonLines(args.stdout);
+    // The rollout JSONL session file is the richest source (usage + full
+    // conversation). Fall back to the exec stdout stream for usage only.
+    const rollout = args.codexSessionJson
+      ? parseCodexRolloutJsonl(args.codexSessionJson, args.startTimeMs)
+      : null;
+    const stdoutUsage = parseCodexExecStdout(args.stdout);
+    const usage = rollout?.usage ?? stdoutUsage.usage;
+    const rawUsageJson = rollout?.usage ? rollout.rawUsageJson : stdoutUsage.rawUsageJson;
+    const conversation = withLeadingUserTurn(rollout?.conversation ?? [], args.prompt);
     if (usage) {
-      usage.transcriptText = transcriptText;
-      return usage;
+      return {
+        ...emptyTelemetry(),
+        inputTokens: usage.inputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
+        outputTokens: usage.outputTokens,
+        reasoningOutputTokens: usage.reasoningOutputTokens,
+        totalTokens: usage.inputTokens + usage.outputTokens,
+        usageSource: "reported",
+        rawUsageJson,
+        transcriptText,
+        nativeSessionId: rollout?.nativeSessionId ?? stdoutUsage.nativeSessionId ?? args.nativeSessionId ?? null,
+        conversation,
+      };
     }
-    if (args.codexSessionJson) {
-      const sessionUsage = parseCodexSessionJson(args.codexSessionJson);
-      if (sessionUsage) {
-        sessionUsage.transcriptText = transcriptText;
-        return sessionUsage;
-      }
-    }
-    return estimateTelemetry("codex", args.model, args.prompt, transcriptText);
+    const estimated = estimateTelemetry("codex", args.model, args.prompt, transcriptText);
+    estimated.nativeSessionId = rollout?.nativeSessionId ?? stdoutUsage.nativeSessionId ?? args.nativeSessionId ?? null;
+    estimated.conversation = conversation;
+    return estimated;
   }
 
   if (args.provider === "opencode") {
     const parsed = parseOpenCodeJsonLines(args.stdout);
     if (parsed) {
       const transcriptText = parsed.transcriptText || fallbackOutput;
+      const conversation = withLeadingUserTurn(parsed.conversation, args.prompt);
       if (parsed.inputTokens > 0 || parsed.outputTokens > 0) {
         return {
           ...emptyTelemetry(),
@@ -585,10 +389,12 @@ export async function collectProviderUsageTelemetry(args: {
           rawUsageJson: null,
           transcriptText,
           nativeSessionId: parsed.nativeSessionId,
+          conversation,
         };
       }
       const estimated = estimateTelemetry("opencode", args.model, args.prompt, transcriptText);
       estimated.nativeSessionId = parsed.nativeSessionId;
+      estimated.conversation = conversation;
       return estimated;
     }
     return estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput);
@@ -599,8 +405,10 @@ export async function collectProviderUsageTelemetry(args: {
   }
 
   if (args.provider === "qwen-code") {
-    // Usage is read from the qwen-code OpenAI logs by the caller (provider-runner),
-    // which resolves the host-visible log directory for both HOST and DOCKER modes.
+    // Usage and conversation are read from the qwen-code OpenAI logs by the
+    // caller (provider-runner), which resolves the host-visible log directory
+    // for both HOST and DOCKER modes.
+    const conversation = withLeadingUserTurn(args.qwenConversation ?? [], args.prompt);
     const exactUsage = args.qwenReportedUsage;
     if (exactUsage && (exactUsage.inputTokens > 0 || exactUsage.outputTokens > 0)) {
       return {
@@ -613,11 +421,13 @@ export async function collectProviderUsageTelemetry(args: {
         rawUsageJson: null,
         transcriptText: fallbackOutput,
         nativeSessionId: args.nativeSessionId || null,
+        conversation,
       };
     }
 
     const telemetry = estimateTelemetry("qwen-code", args.model, args.prompt, fallbackOutput);
     telemetry.nativeSessionId = args.nativeSessionId || null;
+    telemetry.conversation = conversation;
     return telemetry;
   }
 

@@ -7,6 +7,8 @@ import type { ProviderInvocationPurpose } from "../contracts/execution-types.js"
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
 import type { CliProviderId, IProviderRunner, ProviderRunResult } from "../infrastructure/providers/cli/provider-runner.js";
+import type { ParsedConversationTurn } from "../infrastructure/providers/cli/provider-usage.js";
+import type { AppendExecutionInvocationMessageInput } from "../contracts/invocation-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 import type { ProviderConcurrencyService } from "./provider-concurrency-service.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
@@ -91,6 +93,50 @@ export interface ExecutionProviderRunArgs {
   agentMcpAccess?: AgentMcpAccessConfig | null;
   /** Agent preset id for the run; used to scope code_ux tool enforcement at the gateway. */
   mcpAgentId?: string | null;
+}
+
+/**
+ * Maps a parsed provider conversation turn to an invocation message. Reasoning
+ * and tool turns stay within the existing role union (assistant / tool) and are
+ * distinguished by `metadata.kind`, which the dashboard uses to pick a rich
+ * widget. No DB/schema change is required.
+ */
+function conversationTurnToMessage(
+  turn: ParsedConversationTurn,
+  provider: string,
+  model: string | null,
+): AppendExecutionInvocationMessageInput {
+  const base: Record<string, unknown> = { provider, model };
+  if (turn.toolCallId) base.toolCallId = turn.toolCallId;
+
+  switch (turn.kind) {
+    case "user":
+      return { role: "user", contentMarkdown: turn.text, metadata: base };
+    case "assistant":
+      return { role: "assistant", contentMarkdown: turn.text, metadata: base };
+    case "reasoning":
+      return { role: "assistant", contentMarkdown: turn.text, metadata: { ...base, kind: "reasoning" } };
+    case "tool_call":
+      return {
+        role: "tool",
+        contentMarkdown: turn.text || "",
+        toolCallsJson: { arguments: turn.toolArguments ?? null, callId: turn.toolCallId ?? null },
+        metadata: {
+          ...base,
+          kind: "tool_call",
+          toolName: turn.toolName ?? null,
+          toolStatus: turn.toolStatus ?? null,
+          ...(turn.tokens ? { tokens: turn.tokens } : {}),
+        },
+      };
+    case "tool_result":
+      return {
+        role: "tool",
+        contentMarkdown: turn.text || "",
+        toolCallsJson: { output: turn.toolOutput ?? null },
+        metadata: { ...base, kind: "tool_result", toolName: turn.toolName ?? null },
+      };
+  }
 }
 
 export class ProviderExecutionService {
@@ -369,10 +415,23 @@ export class ProviderExecutionService {
             });
           }
           if (args.trackAssistantInInvocation !== false) {
-            this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
-              role: "assistant",
-              contentMarkdown: args.expectTextOutput ? (providerResult as any).text : providerResult.usageTelemetry.transcriptText,
-            });
+            const conversation = providerResult.usageTelemetry.conversation;
+            if (!args.expectTextOutput && conversation && conversation.length > 0) {
+              // Replace the placeholder message(s) with the full parsed agent
+              // session (user prompt, reasoning, tool calls/results, assistant).
+              this.deps.executionRepository?.clearExecutionInvocationMessages(execInvocationId);
+              for (const turn of conversation) {
+                this.deps.executionRepository?.appendExecutionInvocationMessage(
+                  execInvocationId,
+                  conversationTurnToMessage(turn, args.provider, args.model),
+                );
+              }
+            } else {
+              this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+                role: "assistant",
+                contentMarkdown: args.expectTextOutput ? (providerResult as any).text : providerResult.usageTelemetry.transcriptText,
+              });
+            }
           }
         }
         return providerResult;

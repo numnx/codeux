@@ -61,7 +61,7 @@ export interface IDockerRunner {
     customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
-  readLatestWorkspaceFile?(cwd: string, dirPath: string): Promise<string | null>;
+  readLatestWorkspaceFile?(cwd: string, dirPath: string, glob?: string): Promise<string | null>;
   readWorkspaceJsonArray?(cwd: string, dirPath: string): Promise<string | null>;
   removeWorkspaceDir?(cwd: string, dirPath: string): Promise<void>;
 }
@@ -279,10 +279,10 @@ export class DockerRunner implements IDockerRunner {
     }
   }
 
-  async readLatestWorkspaceFile(cwd: string, dirPath: string): Promise<string | null> {
+  async readLatestWorkspaceFile(cwd: string, dirPath: string, glob = "*.json"): Promise<string | null> {
     const workspace = this.resolveWorkspace(cwd);
     try {
-      const script = `f=$(ls -1t "${dirPath}"/*.json 2>/dev/null | head -1); [ -n "$f" ] && cat "$f"`;
+      const script = `f=$(ls -1t "${dirPath}"/${glob} 2>/dev/null | head -1); [ -n "$f" ] && cat "$f"`;
       const result = await runStreamingCommand(
         "docker",
         [

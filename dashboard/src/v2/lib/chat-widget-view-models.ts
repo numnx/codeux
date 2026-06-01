@@ -4,6 +4,16 @@ import type { ExecutionStatus } from "../components/chat/widgets/ChatWidgetFrame
 
 export type ChatWidgetType = "planning" | "none";
 
+/** Per-turn token usage carried on tool-call invocation messages (mirrors the
+ *  backend ParsedConversationTurn.tokens shape). */
+export interface ParsedTurnTokens {
+  input?: number;
+  cached?: number;
+  output?: number;
+  reasoning?: number;
+  total?: number;
+}
+
 export interface ChatWidgetState {
   type: ChatWidgetType;
   status: ExecutionStatus;
@@ -62,6 +72,55 @@ export const getChatWidgetData = (message: ChatMessageRecord): ChatWidgetState =
 
 export const getInvocationWidgetData = (message: ExecutionInvocationMessageRecord): ChatWidgetState => {
   return extractWidgetStateFromMetadata(message.metadata, message.contentMarkdown);
+};
+
+const metaKind = (message: ExecutionInvocationMessageRecord): string | undefined =>
+  typeof message.metadata?.kind === "string" ? message.metadata.kind : undefined;
+
+const metaCallId = (message: ExecutionInvocationMessageRecord): string | undefined =>
+  typeof message.metadata?.toolCallId === "string" ? message.metadata.toolCallId : undefined;
+
+/**
+ * Collapses a `tool_call` message and its matching `tool_result` (correlated by
+ * `metadata.toolCallId`) into a single message so the chat renders one rich
+ * tool card carrying both the invocation arguments and its output. The result
+ * message is dropped once merged; unmatched messages pass through unchanged.
+ */
+export const mergeInvocationToolMessages = (
+  messages: ExecutionInvocationMessageRecord[],
+): ExecutionInvocationMessageRecord[] => {
+  const consumed = new Set<string>();
+  const merged: ExecutionInvocationMessageRecord[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (consumed.has(message.id)) {
+      continue;
+    }
+    const callId = metaCallId(message);
+    if (metaKind(message) === "tool_call" && callId) {
+      const result = messages.slice(i + 1).find(
+        (candidate) => metaKind(candidate) === "tool_result" && metaCallId(candidate) === callId,
+      );
+      if (result) {
+        consumed.add(result.id);
+        const callTool = (message.toolCallsJson ?? {}) as Record<string, unknown>;
+        const resultTool = (result.toolCallsJson ?? {}) as Record<string, unknown>;
+        merged.push({
+          ...message,
+          toolCallsJson: {
+            ...callTool,
+            output: resultTool.output ?? null,
+            resultStatus: typeof result.metadata?.toolStatus === "string" ? result.metadata.toolStatus : null,
+          },
+        });
+        continue;
+      }
+    }
+    merged.push(message);
+  }
+
+  return merged;
 };
 
 export const getWorkingBubbleData = (runtimeState: ConversationRuntimeState | null | undefined): WorkingBubbleState => {
