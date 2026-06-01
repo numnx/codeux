@@ -25,6 +25,8 @@ import { AgentPresetEditorPanel } from "./components/agents/AgentPresetEditorPan
 import { InstructionFileCard } from "./components/agents/InstructionFileCard.js";
 import { InstructionFileEditorPanel } from "./components/agents/InstructionFileEditorPanel.js";
 import { PageContainer } from "./components/layout/PageContainer.js";
+import { EmptyState } from "./components/ui/EmptyState.js";
+import { SectionDivider } from "./components/ui/SectionDivider.js";
 
 /* ── Roster summary stat ── */
 type RosterStatProps = {
@@ -65,37 +67,6 @@ const normalizeAgentName = (value: string): string => (
   value.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLowerCase()
 );
 
-/* ── Empty State ── */
-const EmptyState: FunctionComponent<{ hasProject: boolean; onCreate?: () => void }> = ({ hasProject, onCreate }) => (
-  <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-[2rem] border border-dashed border-signal-500/20 bg-white/55 px-8 py-24 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)] backdrop-blur-2xl dark:border-signal-500/20 dark:bg-void-800/50 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-    <WaveFluid accentHex="#00E0A0" />
-    <BorderTrace accentHex="#00E0A0" />
-
-    <div className="relative z-10 flex flex-col items-center gap-5">
-      <div className="agent-float flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-signal-500/10 shadow-[0_0_40px_rgba(0,224,160,0.18)] dark:bg-signal-500/15 dark:shadow-[0_0_48px_rgba(0,224,160,0.22)]">
-        <Bot className="h-10 w-10 text-signal-600 dark:text-signal-400" strokeWidth={1.2} />
-      </div>
-      <h3 className="font-display text-3xl font-black tracking-tight text-slate-900 md:text-4xl dark:text-white">
-        {hasProject ? "The Workshop Is Quiet" : "Pick A Project To Begin"}
-      </h3>
-      <p className="max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-        {hasProject
-          ? "Spin up your first specialist. Give it a name, a personality, an avatar — and operator-grade system instructions."
-          : "Choose a project from the top navigation and your roster of agents will load here."}
-      </p>
-      {hasProject && onCreate && (
-        <button
-          type="button"
-          onClick={onCreate}
-          className="group mt-2 inline-flex items-center gap-2 rounded-full bg-signal-500 px-6 py-3 text-sm font-bold text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:scale-[1.03] hover:bg-signal-400 hover:shadow-[0_0_32px_rgba(0,224,160,0.36)] focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-        >
-          <Plus className="h-4.5 w-4.5 transition-transform group-hover:rotate-90" strokeWidth={2.5} />
-          Create First Agent
-        </button>
-      )}
-    </div>
-  </div>
-);
 
 /* ── Main Page ── */
 export const AgentsPage: FunctionComponent = () => {
@@ -391,19 +362,14 @@ export const AgentsPage: FunctionComponent = () => {
 
       {/* Section divider — pure overview-style */}
       {selectedProject && presets.length > 0 && (
-        <div className="relative flex w-full items-center justify-center py-1 md:py-2">
-          <div className="absolute inset-y-1/2 inset-x-0 h-px bg-gradient-to-r from-transparent via-black/[0.06] to-transparent dark:via-white/[0.06]" />
-          <div className="relative z-10 rounded-full border border-black/[0.06] bg-[#F9F8F4] px-5 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 shadow-sm dark:border-white/[0.06] dark:bg-void-900 dark:text-slate-500">
-            Roster
-          </div>
-        </div>
+        <SectionDivider label="Roster" className="py-1 md:py-2" />
       )}
 
       {/* Content */}
       {!selectedProject ? (
-        <EmptyState hasProject={false} />
+        <EmptyState title="Pick A Project To Begin" description="Choose a project from the top navigation and your roster of agents will load here." icon={<Bot className="h-8 w-8 text-signal-600 dark:text-signal-400" strokeWidth={1.2} />} />
       ) : presets.length === 0 && instructionFiles.length === 0 && !loading ? (
-        <EmptyState hasProject onCreate={() => void handleCreate()} />
+        <EmptyState title="The Workshop Is Quiet" description="Spin up your first specialist. Give it a name, a personality, an avatar — and operator-grade system instructions." icon={<Bot className="h-8 w-8 text-signal-600 dark:text-signal-400" strokeWidth={1.2} />}><button type="button" onClick={() => void handleCreate()} className="group mt-2 inline-flex items-center gap-2 rounded-full bg-signal-500 px-6 py-3 text-sm font-bold text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:scale-[1.03] hover:bg-signal-400 hover:shadow-[0_0_32px_rgba(0,224,160,0.36)] focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"><Plus className="h-4.5 w-4.5 transition-transform group-hover:rotate-90" strokeWidth={2.5} />Create First Agent</button></EmptyState>
       ) : presets.length > 0 || instructionFiles.length > 0 ? (
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start">
           {/* Sidebar rail */}

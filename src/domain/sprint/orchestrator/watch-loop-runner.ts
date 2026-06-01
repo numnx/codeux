@@ -804,7 +804,6 @@ function collectActiveMainMergeAttentionItems(
   id: string;
   sprintRunId: string | null;
   attentionType: string;
-  ownerType?: string;
   summaryMarkdown: string;
   payload: Record<string, unknown> | null;
 }> {

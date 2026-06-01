@@ -43,14 +43,7 @@ function encodeFrame(payload: string): Buffer {
 }
 
 function sendJson(socket: Socket, payload: DashboardRealtimeServerMessage): void {
-  if (socket.destroyed === true || socket.writable === false) {
-    return;
-  }
-  try {
-    socket.write(encodeFrame(JSON.stringify(payload)));
-  } catch {
-    // Ignore synchronous write errors on closed/broken sockets
-  }
+  socket.write(encodeFrame(JSON.stringify(payload)));
 }
 
 function closeSocket(socket: Socket): void {

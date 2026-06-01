@@ -25,6 +25,7 @@ import { HumanInterventionBadge } from "../ui/HumanInterventionBadge.js";
 import { SprintReviewBadge } from "./SprintReviewBadge.js";
 import { SprintActionMenu } from "./SprintActionMenu.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
+import { DropdownMenu } from "../ui/DropdownMenu.js";
 import { getSprintStatusPresentation } from "../../lib/sprint-status-presentation.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
@@ -47,7 +48,6 @@ const statusMap: Record<SprintStatus, {
   failed: { ring: "border-status-red/55 shadow-[0_0_34px_rgba(227,0,15,0.3)]", text: "text-status-red", icon: XCircle, label: "Failed", accentHex: "#E3000F" },
   cancelled: { ring: "border-slate-300/35 shadow-[0_0_24px_rgba(148,163,184,0.16)]", text: "text-slate-400 dark:text-slate-500", icon: XCircle, label: "Cancelled", accentHex: "#94A3B8" },
   idle: { ring: "", text: "text-signal-600 dark:text-signal-300", icon: Clock3, label: "Draft", accentHex: "#00E0A0" },
-  quota: { ring: "border-status-amber/45 shadow-[0_0_34px_rgba(245,158,11,0.24)]", text: "text-status-amber", icon: AlertTriangle, label: "Quota Reached", accentHex: "#F59E0B" },
 };
 
 interface SprintCellProps {
@@ -64,8 +64,6 @@ interface SprintCellProps {
   onOverrides?: () => void;
   onToggleShowcase?: () => void;
   onMarkCompleted?: () => void;
-  onRunQaReview?: () => void;
-  onStopQaReview?: () => void;
 }
 
 const formatSprintKey = (sprint: Sprint, prefix: string = "SPR"): string => (
@@ -88,8 +86,6 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
   onOverrides,
   onToggleShowcase,
   onMarkCompleted,
-  onRunQaReview,
-  onStopQaReview,
 }) => {
   const settings = useProjectEffectiveSettings(sprint.projectId);
   const reducedMotion = useReducedMotion();
@@ -97,37 +93,6 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
 
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && menuOpen) {
-        setMenuOpen(false);
-      }
-    };
-
-    if (menuOpen) {
-      document.addEventListener("mousedown", handleOutsideClick);
-      document.addEventListener("keydown", handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [menuOpen]);
-
-  useEffect(() => {
-    if (menuRef.current) {
-        gsap.killTweensOf(menuRef.current);
-    }
-  }, [menuOpen]);
   const state = statusMap[sprint.status];
   const StatusIcon = state.icon;
   const isCompleted = sprint.status === "completed";
@@ -266,25 +231,25 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
           </div>
         )}
 
-        <div className={`inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.14em] transition-transform duration-300 group-hover:-translate-y-3 dark:border-white/[0.06] dark:bg-white/[0.03] ${accentColor}`}>
+        <div className={`inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-black/[0.03] px-4 py-1.5 font-mono text-[11px] font-bold tracking-[0.14em] transition-transform duration-300 group-hover:-translate-y-3 dark:border-white/[0.06] dark:bg-white/[0.03] ${accentColor}`}>
           <Sparkles className="h-3.5 w-3.5" strokeWidth={2.2} />
           {formatSprintKey(sprint, sprintKeyPrefix)}
         </div>
 
         <div className="mt-4 flex w-full flex-col items-center justify-center gap-3 px-4 transition-transform duration-300 group-hover:-translate-y-3">
-          <h3 className="font-display text-2xl font-black leading-tight tracking-tight text-slate-900 dark:text-white">
+          <h3 className="font-display text-2xl font-black leading-tight tracking-tight text-[var(--text-primary)]">
             {sprint.name}
           </h3>
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-7 text-center transition-transform duration-300 group-hover:-translate-y-3">
           <div className="flex flex-col items-center">
-            <div className="font-mono text-[2rem] font-black text-slate-900 dark:text-white">{sprint.tasksCount}</div>
+            <div className="font-mono text-[2rem] font-black text-[var(--text-primary)]">{sprint.tasksCount}</div>
             <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Tasks</div>
           </div>
           <div className="h-10 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
           <div className="flex flex-col items-center">
-            <div className="font-mono text-[2rem] font-black text-slate-900 dark:text-white">{sprint.completion}%</div>
+            <div className="font-mono text-[2rem] font-black text-[var(--text-primary)]">{sprint.completion}%</div>
             <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Done</div>
           </div>
         </div>
@@ -316,43 +281,40 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
             View Tasks
             <Maximize2 className="h-2.5 w-2.5" />
           </a>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setMenuOpen((current) => !current);
-            }}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-slate-800 transition-colors hover:bg-black/10 dark:bg-white/[0.07] dark:text-white dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-            title="Settings"
+          <DropdownMenu
+            isOpen={menuOpen}
+            onOpenChange={setMenuOpen}
+            position="top"
+            align="end"
+            className="min-w-[10rem]"
+            content={
+              <SprintActionMenu
+                sprint={sprint}
+                isCompleted={isCompleted}
+                showcaseBusy={showcaseBusy}
+                onEdit={onEdit}
+                onExport={onExport}
+                onToggleShowcase={onToggleShowcase}
+                onOverrides={onOverrides}
+                onMarkCompleted={onMarkCompleted}
+                onDelete={onDelete}
+                onClose={() => setMenuOpen(false)}
+                markCompletedIcon="circle"
+                role="menuitem"
+                buttonClassName="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+              />
+            }
           >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </button>
-
-          <div
-            role="menu"
-            ref={menuRef}
-            className={`absolute bottom-12 right-6 z-30 min-w-[10rem] origin-bottom-right rounded-[1.75rem] border border-black/[0.08] bg-white/92 p-2 shadow-[0_16px_36px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all duration-300 dark:border-white/[0.08] dark:bg-void-800/92 ${menuOpen ? "pointer-events-auto translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-95 opacity-0"}`}
-          >
-            <SprintActionMenu
-              sprint={sprint}
-              isCompleted={isCompleted}
-              showcaseBusy={showcaseBusy}
-              onEdit={onEdit}
-              onExport={onExport}
-              onToggleShowcase={onToggleShowcase}
-              onOverrides={onOverrides}
-              onMarkCompleted={onMarkCompleted}
-              onDelete={onDelete}
-              onClose={() => setMenuOpen(false)}
-              markCompletedIcon="circle"
-              role="menuitem"
-              buttonClassName="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-              onRunQaReview={onRunQaReview}
-              onStopQaReview={onStopQaReview}
-            />
-          </div>
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-slate-800 transition-colors hover:bg-black/10 dark:bg-white/[0.07] dark:text-white dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+              title="Settings"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenu>
         </div>
       </div>
     </div>

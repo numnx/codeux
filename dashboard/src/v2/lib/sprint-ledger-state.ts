@@ -32,7 +32,6 @@ const STATUS_LABELS: Record<SprintStatus, string> = {
   failed: "Failed",
   cancelled: "Cancelled",
   idle: "Draft",
-  quota: "Quota Reached",
 };
 
 const STATUS_ORDER: Record<SprintStatus, number> = {
@@ -42,7 +41,6 @@ const STATUS_ORDER: Record<SprintStatus, number> = {
   completed: 3,
   failed: 4,
   cancelled: 5,
-  quota: 6,
 };
 
 export { STATUS_LABELS, STATUS_ORDER };
