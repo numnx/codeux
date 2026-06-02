@@ -22,6 +22,8 @@ The native picker is exposed through the isolated preload bridge:
 
 Renderer Node access remains disabled. The preload exposes only this narrow IPC surface.
 
+The desktop BrowserWindow is frameless and transparent on every supported platform so the renderer-level `.app-shell` clip can expose real rounded window corners. The shell uses a fixed corner radius in normal windowed mode and removes that radius when Electron reports maximized or fullscreen state, matching the host operating system's square maximized-window behavior. Keep the native BrowserWindow `backgroundColor` transparent when changing package settings; an opaque native background will make the corners appear square even if the renderer content is clipped.
+
 ## Installer Experience
 
 Windows release builds use an assisted NSIS installer instead of a one-click installer. The installer:
