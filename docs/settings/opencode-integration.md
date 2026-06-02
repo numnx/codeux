@@ -68,7 +68,7 @@ The generated config sets `permission` to `"allow"` for headless Code UX runs so
 
 This covers OpenRouter, LiteLLM, Ollama, vLLM, LM Studio, private gateways, and other OpenAI-compatible services.
 
-OpenCode provider failures use the shared CLI provider error classifier. OpenRouter key exhaustion messages such as `API Error: 403 Key limit exceeded (weekly limit)` are treated as `QUOTA_EXHAUSTED`, so affected runs enter the same quota handling path as Codex, Claude Code, Qwen Code, Gemini, and other CLI providers. When the gateway does not include a concrete reset time, Code UX records the task as quota-limited without an active retry timestamp.
+OpenCode provider failures use the shared CLI provider error classifier. OpenRouter key exhaustion messages such as `API Error: 403 Key limit exceeded (weekly limit)` are treated as `QUOTA_EXHAUSTED`, so affected runs enter the same quota handling path as other CLI providers. When the gateway does not include a concrete reset time, Code UX records the task as quota-limited without an active retry timestamp.
 
 When Custom endpoint is selected for a fresh OpenCode instance, the settings form pre-fills an Ollama-compatible local endpoint:
 

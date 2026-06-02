@@ -93,12 +93,13 @@ interface ErrorPattern {
 
 type ResetTimeExtractor = NonNullable<ErrorPattern["resetTimeExtractor"]>;
 
-interface GatewayProviderPatternOptions {
+interface CliProviderPatternOptions {
   quotaExtras?: RegExp[];
   authEnvKeys?: RegExp[];
   authExtras?: RegExp[];
   rateLimitExtras?: RegExp[];
-  resetTimeExtractor?: ResetTimeExtractor;
+  quotaResetTimeExtractor?: ResetTimeExtractor;
+  rateLimitResetTimeExtractor?: ResetTimeExtractor;
 }
 
 const OPENROUTER_KEY_LIMIT_PATTERNS: RegExp[] = [
@@ -107,7 +108,7 @@ const OPENROUTER_KEY_LIMIT_PATTERNS: RegExp[] = [
   /\bmonthly limit\b/i,
 ];
 
-const COMMON_GATEWAY_QUOTA_PATTERNS: RegExp[] = [
+const COMMON_CLI_PROVIDER_QUOTA_PATTERNS: RegExp[] = [
   /quota.*exceeded/i,
   /billing.*limit/i,
   /insufficient.*quota/i,
@@ -120,7 +121,7 @@ const COMMON_GATEWAY_QUOTA_PATTERNS: RegExp[] = [
   ...OPENROUTER_KEY_LIMIT_PATTERNS,
 ];
 
-const COMMON_GATEWAY_AUTH_PATTERNS: RegExp[] = [
+const COMMON_CLI_PROVIDER_AUTH_PATTERNS: RegExp[] = [
   /invalid.*api.?key/i,
   /authentication.*failed/i,
   /unauthorized/i,
@@ -129,20 +130,20 @@ const COMMON_GATEWAY_AUTH_PATTERNS: RegExp[] = [
   /authentication_error/i,
 ];
 
-const COMMON_GATEWAY_RATE_LIMIT_PATTERNS: RegExp[] = [
+const COMMON_CLI_PROVIDER_RATE_LIMIT_PATTERNS: RegExp[] = [
   /rate.?limit/i,
   /too many requests/i,
   /code:\s*429\b/,
   /requests per minute/i,
 ];
 
-function createGatewayProviderPatterns(options: GatewayProviderPatternOptions = {}): ErrorPattern[] {
+function createCliProviderPatterns(options: CliProviderPatternOptions = {}): ErrorPattern[] {
   const quotaPatterns = [
-    ...COMMON_GATEWAY_QUOTA_PATTERNS,
+    ...COMMON_CLI_PROVIDER_QUOTA_PATTERNS,
     ...(options.quotaExtras ?? []),
   ];
   const authPatterns = [
-    ...COMMON_GATEWAY_AUTH_PATTERNS,
+    ...COMMON_CLI_PROVIDER_AUTH_PATTERNS,
     ...(options.authEnvKeys ?? []),
     ...(options.authExtras ?? []),
   ];
@@ -150,7 +151,7 @@ function createGatewayProviderPatterns(options: GatewayProviderPatternOptions = 
     {
       category: "QUOTA_EXHAUSTED",
       patterns: quotaPatterns,
-      ...(options.resetTimeExtractor ? { resetTimeExtractor: options.resetTimeExtractor } : {}),
+      ...(options.quotaResetTimeExtractor ? { resetTimeExtractor: options.quotaResetTimeExtractor } : {}),
     },
     {
       category: "AUTH_FAILURE",
@@ -159,56 +160,45 @@ function createGatewayProviderPatterns(options: GatewayProviderPatternOptions = 
     {
       category: "RATE_LIMITED",
       patterns: [
-        ...COMMON_GATEWAY_RATE_LIMIT_PATTERNS,
+        ...COMMON_CLI_PROVIDER_RATE_LIMIT_PATTERNS,
         ...(options.rateLimitExtras ?? []),
       ],
+      ...(options.rateLimitResetTimeExtractor ? { resetTimeExtractor: options.rateLimitResetTimeExtractor } : {}),
     },
   ];
 }
 
-const GEMINI_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /TerminalQuotaError/i,
-      /QUOTA_EXHAUSTED/i,
-      /quota will reset after/i,
-      /exhausted your capacity/i,
-      /reason:\s*'QUOTA_EXHAUSTED'/i,
-    ],
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
-      return match?.[1] ?? null;
-    },
+const GEMINI_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  quotaExtras: [
+    /TerminalQuotaError/i,
+    /QUOTA_EXHAUSTED/i,
+    /quota will reset after/i,
+    /exhausted your capacity/i,
+    /reason:\s*'QUOTA_EXHAUSTED'/i,
+  ],
+  authExtras: [
+    /HybridTokenStorage/i,
+    /FileTokenStorage/i,
+    /uv_os_get_passwd/i,
+    /apiKeyCredentialStorage/i,
+    /Config\.refreshAuth/i,
+    /invalid api key/i,
+  ],
+  rateLimitExtras: [
+    /no capacity available for model/i,
+    /Resource has been exhausted/i,
+  ],
+  quotaResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
+    return match?.[1] ?? null;
   },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /HybridTokenStorage/i,
-      /FileTokenStorage/i,
-      /uv_os_get_passwd/i,
-      /apiKeyCredentialStorage/i,
-      /Config\.refreshAuth/i,
-      /invalid api key/i,
-    ],
+  rateLimitResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/retry.?after[:\s]+(\d+)/i);
+    return match ? `${match[1]}s` : null;
   },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /no capacity available for model/i,
-      /code:\s*429\b/,
-      /Resource has been exhausted/i,
-    ],
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/retry.?after[:\s]+(\d+)/i);
-      return match ? `${match[1]}s` : null;
-    },
-  },
-];
+});
 
-const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   authEnvKeys: [/ANTHROPIC_API_KEY/i],
   authExtras: [/credentials.*expired/i],
   rateLimitExtras: [/overloaded/i],
@@ -222,25 +212,25 @@ const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
 // The reset hint is a wall-clock time ("try again at 3:54 AM"), not a duration,
 // so it needs its own extractor (computeResetAfterFromClockTime) rather than the
 // shared HhMmSs parser used by the other providers.
-const CODEX_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+const CODEX_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   quotaExtras: [/Upgrade to Pro/i],
   authEnvKeys: [/OPENAI_API_KEY/i],
-  resetTimeExtractor: computeResetAfterFromClockTime,
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
 });
 
-const QWEN_CODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+const QWEN_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   authEnvKeys: [
     /OPENAI_API_KEY/i,
     /DASHSCOPE_API_KEY/i,
     /BAILIAN_CODING_PLAN_API_KEY/i,
     /QWEN_API_KEY/i,
   ],
-  resetTimeExtractor: computeResetAfterFromClockTime,
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
 });
 
-const OPENCODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+const OPENCODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   authEnvKeys: [/OPENCODE_API_KEY/i],
-  resetTimeExtractor: computeResetAfterFromClockTime,
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
 });
 
 // Antigravity's `agy` CLI surfaces an exhausted allowance with a message like:
@@ -255,35 +245,14 @@ const ANTIGRAVITY_QUOTA_PATTERNS: RegExp[] = [
   /RESOURCE_EXHAUSTED/i,
 ];
 
-const ANTIGRAVITY_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: ANTIGRAVITY_QUOTA_PATTERNS,
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
-      return match?.[1] ?? null;
-    },
+const ANTIGRAVITY_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  quotaExtras: ANTIGRAVITY_QUOTA_PATTERNS,
+  authEnvKeys: [/ANTIGRAVITY_API_KEY/i],
+  quotaResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
+    return match?.[1] ?? null;
   },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /ANTIGRAVITY_API_KEY/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /code:\s*429\b/,
-    ],
-  },
-];
+});
 
 const PROVIDER_PATTERNS: Record<string, ErrorPattern[]> = {
   gemini: GEMINI_PATTERNS,

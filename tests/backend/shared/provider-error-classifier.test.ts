@@ -80,6 +80,18 @@ describe("classifyProviderError", () => {
       expect(classification.category).toBe("RATE_LIMITED");
     });
 
+    it("detects OpenRouter key-limit exhaustion as quota", () => {
+      const result = makeResult(
+        "",
+        "API Error: 403 Key limit exceeded (weekly limit). Manage it using https://openrouter.ai/workspaces/default/keys/a3a82d5bc13549c52b8ace84d8d0c08bdff407f730571d434b916d49bcf5d3fb",
+      );
+      const classification = classifyProviderError("gemini", result);
+      expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      expect(classification.resetAfter).toBeNull();
+      expect(classification.resetAtIso).toBeNull();
+      expect(classification.userMessage).toContain("Gemini quota exhausted");
+    });
+
     it("prioritizes quota over auth when both present", () => {
       const result = makeResult(
         "MCP issues detected.",
@@ -255,6 +267,18 @@ describe("classifyProviderError", () => {
       const classification = classifyProviderError("antigravity", result);
       expect(classification.category).toBe("QUOTA_EXHAUSTED");
       expect(classification.resetAfter).toBeNull();
+    });
+
+    it("detects OpenRouter key-limit exhaustion as quota", () => {
+      const result = makeResult(
+        "",
+        "API Error: 403 Key limit exceeded (weekly limit). Manage it using https://openrouter.ai/workspaces/default/keys/a3a82d5bc13549c52b8ace84d8d0c08bdff407f730571d434b916d49bcf5d3fb",
+      );
+      const classification = classifyProviderError("antigravity", result);
+      expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      expect(classification.resetAfter).toBeNull();
+      expect(classification.resetAtIso).toBeNull();
+      expect(classification.userMessage).toContain("Antigravity quota exhausted");
     });
 
     it("detects auth failure", () => {
