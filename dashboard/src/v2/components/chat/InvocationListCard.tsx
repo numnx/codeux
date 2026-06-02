@@ -184,15 +184,15 @@ export const InvocationListCard: FunctionComponent<{
                   return (
                     <div
                       key={cell.label}
-                      className={`flex items-center justify-between gap-3 px-3 py-2
+                      className={`flex items-center justify-between gap-2 px-2.5 py-1.5
                         ${full ? "col-span-2" : ""}
                         ${!full && idx % 2 === 1 ? "border-l border-black/[0.05] dark:border-white/[0.06]" : ""}
                         ${idx >= 2 ? "border-t border-black/[0.05] dark:border-white/[0.06]" : ""}`}
                     >
-                      <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                      <span className="truncate text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
                         {cell.label}
                       </span>
-                      <span className={`truncate font-mono text-[12px] font-semibold tabular-nums ${cell.tone || "text-slate-700 dark:text-slate-200"}`}>
+                      <span className={`shrink-0 whitespace-nowrap font-mono text-[10px] font-semibold tabular-nums ${cell.tone || "text-slate-700 dark:text-slate-200"}`}>
                         {cell.value}
                       </span>
                     </div>
