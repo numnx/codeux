@@ -23,7 +23,19 @@ const mockChildProcess = {
 
 vi.mock("child_process", () => {
   return {
-    spawn: vi.fn().mockImplementation(() => {
+    spawn: vi.fn().mockImplementation((_cmd: string, args?: string[]) => {
+      const argv = Array.isArray(args) ? args : [];
+      // ensureLoginBaseImage probes/builds the pinned login image. Resolve the
+      // `docker image inspect` immediately as "exists" (code 0) so no build runs
+      // and the start handler proceeds to spawn the container.
+      if (argv.includes("inspect") || argv.includes("build")) {
+        const proc: any = new EventEmitter();
+        proc.stdin = { write: vi.fn(), end: vi.fn() };
+        proc.stdout = new EventEmitter();
+        proc.stderr = new EventEmitter();
+        process.nextTick(() => proc.emit("close", 0));
+        return proc;
+      }
       return mockChildProcess;
     }),
   };
