@@ -514,6 +514,7 @@ export const SprintsPage: FunctionComponent = () => {
                         onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
                         onOverrides={() => { setOverrideSprint(sprint); }}
                         onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
+                        onOpenMenu={(e) => openRowActionsMenu(e as MouseEvent, sprint.id)}
                       />
                     );
                   })}

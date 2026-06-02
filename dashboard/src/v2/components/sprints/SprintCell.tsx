@@ -303,45 +303,57 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
             View Tasks
             <Maximize2 className="h-2.5 w-2.5" />
           </a>
-          <DropdownMenu
-            isOpen={menuOpen}
-            onOpenChange={setMenuOpen}
-            position="top"
-            align="end"
-            className="min-w-[10rem]"
-            computePosition={({ triggerRect, menuRect, viewport }) => computeSprintActionMenuPosition(
-              triggerRect,
-              viewport,
-              { width: menuRect.width, height: menuRect.height },
-            )}
-            content={
-              <SprintActionMenu
-                sprint={sprint}
-                isCompleted={isCompleted}
-                showcaseBusy={showcaseBusy}
-                onEdit={onEdit}
-                onExport={onExport}
-                onToggleShowcase={onToggleShowcase}
-                onOverrides={onOverrides}
-                onMarkCompleted={onMarkCompleted}
-                onDelete={onDelete}
-                onClose={() => setMenuOpen(false)}
-                markCompletedIcon="circle"
-                role="menuitem"
-                buttonClassName="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
-              />
-            }
-          >
+          {onOpenMenu ? (
             <button
               type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenMenu(e as unknown as MouseEvent); }}
               aria-haspopup="menu"
-              aria-expanded={menuOpen}
               className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-slate-800 transition-colors hover:bg-black/10 dark:bg-white/[0.07] dark:text-white dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
               title="Settings"
             >
               <MoreVertical className="h-3.5 w-3.5" />
             </button>
-          </DropdownMenu>
+          ) : (
+            <DropdownMenu
+              isOpen={menuOpen}
+              onOpenChange={setMenuOpen}
+              position="top"
+              align="end"
+              className="min-w-[10rem]"
+              computePosition={({ triggerRect, menuRect, viewport }) => computeSprintActionMenuPosition(
+                triggerRect,
+                viewport,
+                { width: menuRect.width, height: menuRect.height },
+              )}
+              content={
+                <SprintActionMenu
+                  sprint={sprint}
+                  isCompleted={isCompleted}
+                  showcaseBusy={showcaseBusy}
+                  onEdit={onEdit}
+                  onExport={onExport}
+                  onToggleShowcase={onToggleShowcase}
+                  onOverrides={onOverrides}
+                  onMarkCompleted={onMarkCompleted}
+                  onDelete={onDelete}
+                  onClose={() => setMenuOpen(false)}
+                  markCompletedIcon="circle"
+                  role="menuitem"
+                  buttonClassName="flex w-full items-center gap-2 rounded-[1rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+                />
+              }
+            >
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="touch-target flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-slate-800 transition-colors hover:bg-black/10 dark:bg-white/[0.07] dark:text-white dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2"
+                title="Settings"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenu>
+          )}
         </div>
       </div>
     </div>
