@@ -30,12 +30,11 @@ Windows release builds use an assisted NSIS installer instead of a one-click ins
 
 - Shows the MIT open source license from `build/installer-license.txt` and requires acceptance before installation continues.
 - Allows the user to choose the installation directory.
-- Shows a dedicated beta acknowledgement page after directory selection with the copy: "Code UX is still in beta. Things may not work as expected, and some behavior can change between releases."
-- Requires checking "I understand this software is still in beta." before installation starts.
+- Shows a dedicated beta notice page after directory selection with the copy: "Code UX is still in beta. Things may not work as expected, and some behavior can change between releases."
 
-The beta acknowledgement is intentionally installer UI copy only. It is not added to the license text.
+The beta notice is intentionally installer UI copy only. It is not added to the license text and does not require a separate acknowledgement checkbox.
 
-macOS DMG builds include the MIT license resource through `build/license_en.txt` where supported by Electron Builder. Linux package formats currently include the packaged `LICENSE.txt` resource but do not provide an equivalent required checkbox flow.
+macOS DMG builds include the MIT license resource through `build/license_en.txt` where supported by Electron Builder. Linux package formats currently include the packaged `LICENSE.txt` resource but do not provide an equivalent required license checkbox flow.
 
 ## Build Commands
 
