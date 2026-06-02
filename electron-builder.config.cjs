@@ -84,7 +84,7 @@ module.exports = {
     ],
   },
   win: {
-    icon: "build/icon.png",
+    icon: "build/icon.ico",
     target: [
       "nsis",
     ],
@@ -99,6 +99,12 @@ module.exports = {
     createStartMenuShortcut: true,
     license: "build/installer-license.txt",
     include: "build/installer.nsh",
+    installerIcon: "build/icon.ico",
+    uninstallerIcon: "build/icon.ico",
+    installerHeaderIcon: "build/icon.ico",
+    installerHeader: "build/installerHeader.bmp",
+    installerSidebar: "build/installerSidebar.bmp",
+    uninstallerSidebar: "build/uninstallerSidebar.bmp",
   },
   linux: {
     category: "Development",

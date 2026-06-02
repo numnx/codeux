@@ -31,6 +31,7 @@ Windows release builds use an assisted NSIS installer instead of a one-click ins
 - Shows the MIT open source license from `build/installer-license.txt` and requires acceptance before installation continues.
 - Allows the user to choose the installation directory.
 - Shows a dedicated beta notice page after directory selection with the copy: "Code UX is still in beta. Things may not work as expected, and some behavior can change between releases."
+- Uses generated Code UX Windows icon and NSIS wizard bitmap assets from `build/icon.ico`, `build/installerHeader.bmp`, and `build/installerSidebar.bmp`.
 
 The beta notice is intentionally installer UI copy only. It is not added to the license text and does not require a separate acknowledgement checkbox.
 
@@ -49,7 +50,7 @@ macOS DMG builds include the MIT license resource through `build/license_en.txt`
 
 The release output is written to `release/electron/`.
 
-Electron package builds run `pnpm run electron:prepare-deps` before Electron Builder. That script creates a production-only, hoisted runtime dependency tree in `.cache/electron-runtime/node_modules`, prunes non-runtime package files, and Electron Builder copies it to `resources/node_modules` so ASAR-packaged builds can resolve pnpm transitive dependencies at runtime.
+Electron package builds run `pnpm run electron:prepare-deps` before Electron Builder. That script creates a production-only, hoisted runtime dependency tree in `.cache/electron-runtime/node_modules`, prunes non-runtime package files, generates deterministic PNG/ICO/BMP desktop artwork, and Electron Builder copies it to `resources/node_modules` so ASAR-packaged builds can resolve pnpm transitive dependencies at runtime.
 
 The runtime dependency tree is fingerprinted from production dependencies and the lockfile. If the fingerprint matches a previous run, `electron:prepare-deps` reuses the existing tree instead of deleting and reinstalling it.
 
