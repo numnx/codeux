@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 import { EventEmitter } from "events";
-import { registerTerminalRoutes, bootDashboardTerminalWebSocketServer } from "../../../src/server/terminal-routes.js";
+import { spawn } from "child_process";
+import { registerTerminalRoutes, bootDashboardTerminalWebSocketServer, buildLoginDockerfile } from "../../../src/server/terminal-routes.js";
 import type { DashboardDependencies } from "../../../src/server/dashboard-server.js";
 
 // Mock child_process.spawn
@@ -26,7 +27,19 @@ const mockChildProcess = {
 
 vi.mock("child_process", () => {
   return {
-    spawn: vi.fn().mockImplementation(() => {
+    spawn: vi.fn().mockImplementation((_cmd: string, args?: string[]) => {
+      const argv = Array.isArray(args) ? args : [];
+      // ensureLoginBaseImage probes/builds the pinned login image. Resolve the
+      // `docker image inspect` immediately as "exists" (code 0) so no build runs
+      // and the start handler proceeds to spawn the container.
+      if (argv.includes("inspect") || argv.includes("build")) {
+        const proc: any = new EventEmitter();
+        proc.stdin = { write: vi.fn(), end: vi.fn() };
+        proc.stdout = new EventEmitter();
+        proc.stderr = new EventEmitter();
+        process.nextTick(() => proc.emit("close", 0));
+        return proc;
+      }
       return mockChildProcess;
     }),
   };
@@ -93,6 +106,44 @@ describe("Terminal Routes", () => {
       expect(response.status).toBe(200);
       expect(response.body.sessionId).toBeDefined();
     }
+  });
+
+  it("should run the login container on the pinned login image, not the configured image", async () => {
+    systemSettings.defaults.cliWorkflow.containerImage = "some/custom-image:latest";
+
+    const response = await request(app)
+      .post("/api/terminal/start")
+      .send({ providerConfigId: "claude" });
+
+    expect(response.status).toBe(200);
+
+    const runCall = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([cmd, args]) => cmd === "docker" && Array.isArray(args) && args.includes("run")
+    );
+    expect(runCall).toBeDefined();
+    const runArgs = runCall![1] as string[];
+    expect(runArgs).not.toContain("some/custom-image:latest");
+    expect(runArgs).not.toContain("node:24-bookworm");
+    expect(runArgs.some((arg) => arg.startsWith("code-ux-login-base:") || arg === "node:24-bookworm-slim")).toBe(true);
+
+    // The login container command defines ensure_curl so the curl-based provider
+    // installers resolve instead of failing with "ensure_curl: command not found".
+    const containerCmd = runArgs[runArgs.length - 1];
+    expect(containerCmd).toContain("ensure_curl()");
+  });
+
+  it("should bake all provider CLIs into the login image so none install at runtime", () => {
+    const dockerfile = buildLoginDockerfile();
+    expect(dockerfile).toContain("FROM node:24-bookworm-slim");
+    // npm-based providers installed globally
+    expect(dockerfile).toContain("@google/gemini-cli");
+    expect(dockerfile).toContain("@openai/codex");
+    expect(dockerfile).toContain("@qwen-code/qwen-code");
+    // curl-based providers installed under a fixed HOME, then exposed on PATH
+    expect(dockerfile).toContain("https://claude.ai/install.sh");
+    expect(dockerfile).toContain("https://opencode.ai/install");
+    expect(dockerfile).toContain("https://antigravity.google/cli/install.sh");
+    expect(dockerfile).toContain("/usr/local/bin/");
   });
 
   it("should return 400 if providerConfigId is missing", async () => {
