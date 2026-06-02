@@ -21,7 +21,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
 
   if (error) {
     return (
-      <aside className="sticky top-24 flex flex-col h-[760px] overflow-hidden group rounded-[1.75rem] border border-status-red/20 bg-white/80 dark:bg-void-800/75 backdrop-blur-sm p-8">
+      <aside className="sticky top-24 flex flex-col min-h-[480px] h-[calc(100vh-8rem)] overflow-hidden group rounded-[1.75rem] border border-status-red/20 bg-white/80 dark:bg-void-800/75 backdrop-blur-sm p-8">
         <div className="flex items-center gap-3">
           <Radio className="w-5 h-5 text-status-red" strokeWidth={1.5} />
           <div>
@@ -34,7 +34,7 @@ export const OverviewTelemetry: FunctionComponent = () => {
   }
 
   return (
-    <aside className="sticky top-24 flex flex-col h-[760px] overflow-hidden group">
+    <aside className="sticky top-24 flex flex-col min-h-[480px] h-[calc(100vh-8rem)] overflow-hidden group">
       <h3 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white mb-12 flex items-center gap-4 font-display">
         <div className="relative flex items-center justify-center">
           <div className={`absolute inset-0 rounded-full blur-[10px] animate-[pulse_2s_ease-in-out_infinite] ${
@@ -99,8 +99,8 @@ export const OverviewTelemetry: FunctionComponent = () => {
                   <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.1} />
                   Human Intervention Needed
                 </div>
-                <div className="mt-3 space-y-3">
-                  {telemetry.attentionProjects.slice(0, 3).map((project) => (
+                <div className="mt-3 max-h-48 overflow-y-auto dashboard-scrollbar space-y-3">
+                  {telemetry.attentionProjects.map((project) => (
                     <div key={project.sprintRunId} className="rounded-2xl border border-status-amber/15 bg-white/75 p-4 dark:bg-void-800/55">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -128,8 +128,8 @@ export const OverviewTelemetry: FunctionComponent = () => {
             )}
 
             {telemetry?.activeProjects?.length > 0 && (
-              <div className="space-y-2 mb-6">
-              {telemetry?.activeProjects?.slice(0, 4).map((project) => (
+              <div className="max-h-40 overflow-y-auto dashboard-scrollbar space-y-2 mb-6">
+              {telemetry?.activeProjects?.map((project) => (
                 <div key={project.sprintRunId} className="rounded-2xl border border-black/[0.05] dark:border-white/[0.06] bg-black/[0.02] dark:bg-white/[0.02] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
