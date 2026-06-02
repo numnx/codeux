@@ -132,18 +132,16 @@ describe("Terminal Routes", () => {
     expect(containerCmd).toContain("ensure_curl()");
   });
 
-  it("should bake all provider CLIs into the login image so none install at runtime", () => {
+  it("should bake only the apt prerequisites into the login image, not the providers", () => {
     const dockerfile = buildLoginDockerfile();
     expect(dockerfile).toContain("FROM node:24-bookworm-slim");
-    // npm-based providers installed globally
-    expect(dockerfile).toContain("@google/gemini-cli");
-    expect(dockerfile).toContain("@openai/codex");
-    expect(dockerfile).toContain("@qwen-code/qwen-code");
-    // curl-based providers installed under a fixed HOME, then exposed on PATH
-    expect(dockerfile).toContain("https://claude.ai/install.sh");
-    expect(dockerfile).toContain("https://opencode.ai/install");
-    expect(dockerfile).toContain("https://antigravity.google/cli/install.sh");
-    expect(dockerfile).toContain("/usr/local/bin/");
+    // curl + keyring stack are baked in (can't be installed at runtime non-root)
+    expect(dockerfile).toContain("curl");
+    expect(dockerfile).toContain("gnome-keyring");
+    // Provider CLIs are NOT baked in — they install at runtime for faster feedback
+    expect(dockerfile).not.toContain("@google/gemini-cli");
+    expect(dockerfile).not.toContain("claude.ai/install.sh");
+    expect(dockerfile).not.toContain("opencode.ai/install");
   });
 
   it("should return 400 if providerConfigId is missing", async () => {

@@ -55,13 +55,6 @@ const LOGIN_BASE_IMAGE = "node:24-bookworm-slim";
 // antigravity requires. These must be baked in at build time because the login
 // container runs as a non-root user and cannot apt-get install at runtime.
 const LOGIN_IMAGE_PACKAGES = "curl ca-certificates dbus gnome-keyring libsecret-1-0 xdg-utils";
-// Provider CLIs distributed via npm — installed globally (on /usr/local/bin) so
-// they are on the login container's PATH without any runtime install.
-const LOGIN_NPM_PROVIDERS = "@google/gemini-cli @openai/codex @qwen-code/qwen-code";
-// HOME used during the build-time curl installs (claude/opencode/antigravity).
-// Their binaries land under here and are symlinked onto /usr/local/bin so the
-// non-root login user finds them at runtime.
-const LOGIN_TOOLS_HOME = "/opt/login-tools";
 // Memoized tag of the most recently verified/built login base image.
 let cachedLoginImageTag: string | null = null;
 
@@ -343,29 +336,15 @@ async function cleanupAllRunningLoginSessions(logger?: Logger): Promise<void> {
 }
 
 export function buildLoginDockerfile(): string {
-  // Symlink the curl-installed provider binaries (claude/opencode/antigravity)
-  // from LOGIN_TOOLS_HOME onto /usr/local/bin and make the tree world-readable
-  // so the non-root login user can execute them.
-  const exposeCurlTools =
-    `for d in "${LOGIN_TOOLS_HOME}/.local/bin" "${LOGIN_TOOLS_HOME}/.opencode/bin"; do ` +
-    `if [ -d "$d" ]; then for f in "$d"/*; do [ -e "$f" ] && ln -sf "$f" "/usr/local/bin/$(basename "$f")"; done; fi; ` +
-    `done; chmod -R a+rX "${LOGIN_TOOLS_HOME}"`;
-
+  // Keep this image cheap to build: only the apt packages the login flow can't
+  // install at runtime under a non-root user (curl + the keyring stack). The
+  // provider CLIs themselves are installed at runtime inside the login
+  // container — that path now works because curl is baked in here, and it gives
+  // the user live, faster feedback about what's being installed.
   return [
     `FROM ${LOGIN_BASE_IMAGE}`,
     "USER root",
-    // System packages: curl + keyring stack the login flow depends on.
     `RUN if command -v apt-get >/dev/null 2>&1; then apt-get update -qy && apt-get install -qy --no-install-recommends ${LOGIN_IMAGE_PACKAGES} && rm -rf /var/lib/apt/lists/*; fi`,
-    // npm-based providers, installed globally onto /usr/local/bin.
-    `RUN npm install -g ${LOGIN_NPM_PROVIDERS} || true`,
-    // curl-based providers, installed under a fixed HOME then exposed on PATH.
-    // Each installer is best-effort so a single transient failure does not abort
-    // the whole image build (the runtime fallback install path remains as a net).
-    `RUN mkdir -p "${LOGIN_TOOLS_HOME}" && ` +
-      `(HOME="${LOGIN_TOOLS_HOME}" curl -fsSL https://claude.ai/install.sh | bash || true) && ` +
-      `(HOME="${LOGIN_TOOLS_HOME}" curl -fsSL https://opencode.ai/install | bash || true) && ` +
-      `(HOME="${LOGIN_TOOLS_HOME}" curl -fsSL https://antigravity.google/cli/install.sh | bash || true) && ` +
-      `${exposeCurlTools}`,
   ].join("\n");
 }
 
