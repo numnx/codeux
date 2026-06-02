@@ -213,6 +213,51 @@ const CODEX_PATTERNS: ErrorPattern[] = [
   },
 ];
 
+const QWEN_CODE_PATTERNS: ErrorPattern[] = [
+  {
+    category: "QUOTA_EXHAUSTED",
+    patterns: [
+      /quota.*exceeded/i,
+      /billing.*limit/i,
+      /insufficient.*quota/i,
+      /insufficient_quota/i,
+      /usage limit/i,
+      /hit your.*limit/i,
+      /purchase more credits/i,
+      /Key limit exceeded/i,
+      /weekly limit/i,
+      /monthly limit/i,
+      /credit.*exhausted/i,
+      /Out of funds/i,
+    ],
+    resetTimeExtractor: computeResetAfterFromClockTime,
+  },
+  {
+    category: "AUTH_FAILURE",
+    patterns: [
+      /invalid.*api.?key/i,
+      /authentication.*failed/i,
+      /unauthorized/i,
+      /OPENAI_API_KEY/i,
+      /DASHSCOPE_API_KEY/i,
+      /BAILIAN_CODING_PLAN_API_KEY/i,
+      /QWEN_API_KEY/i,
+      /Incorrect API key/i,
+      /invalid_api_key/i,
+      /authentication_error/i,
+    ],
+  },
+  {
+    category: "RATE_LIMITED",
+    patterns: [
+      /rate.?limit/i,
+      /too many requests/i,
+      /code:\s*429\b/,
+      /requests per minute/i,
+    ],
+  },
+];
+
 // Antigravity's `agy` CLI surfaces an exhausted allowance with a message like:
 //   "Individual quota reached. Contact your administrator to enable overages. Resets in 3h4m52s."
 // Critically, it prints this to its normal output and exits 0, so it must be matched
@@ -259,7 +304,7 @@ const PROVIDER_PATTERNS: Record<string, ErrorPattern[]> = {
   gemini: GEMINI_PATTERNS,
   "claude-code": CLAUDE_CODE_PATTERNS,
   codex: CODEX_PATTERNS,
-  "qwen-code": CODEX_PATTERNS,
+  "qwen-code": QWEN_CODE_PATTERNS,
   antigravity: ANTIGRAVITY_PATTERNS,
 };
 
