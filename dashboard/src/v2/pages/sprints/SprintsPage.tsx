@@ -151,6 +151,12 @@ export const SprintsPage: FunctionComponent = () => {
   const [showIssueImportModal, setShowIssueImportModal] = useState(false);
   const [isJiraModalOpen, setIsJiraModalOpen] = useState(false);
   const [linkedIssues, setLinkedIssues] = useState<SprintLinkedIssueInput[]>([]);
+  const [rowMenu, setRowMenu] = useState<{
+    sprintId: string;
+    top: number;
+    left: number;
+    openUp: boolean;
+  } | null>(null);
 
   const {
     projects = [],
@@ -208,6 +214,29 @@ export const SprintsPage: FunctionComponent = () => {
     handleAddProject = async () => undefined,
   } = useSprintsPageData();
 
+  const activeRowMenuSprint = useMemo(() => rowMenu
+    ? sortedSprints.find((sprint) => sprint.id === rowMenu.sprintId) || null
+    : null, [rowMenu, sortedSprints]);
+
+  const openRowActionsMenu = useCallback((event: MouseEvent, sprintId: string) => {
+    event.stopPropagation();
+    const trigger = event.currentTarget as HTMLElement;
+    const rect = trigger.getBoundingClientRect();
+    const estimatedMenuHeight = 228;
+    const openUp = rect.bottom + estimatedMenuHeight > window.innerHeight - 16;
+
+    setRowMenu((current) => (
+      current?.sprintId === sprintId
+        ? null
+        : {
+          sprintId,
+          top: openUp ? rect.top - 8 : rect.bottom + 8,
+          left: rect.right,
+          openUp,
+        }
+    ));
+  }, [setRowMenu]);
+
   const progressiveSprints = useProgressiveList(sortedSprints);
   const [listWindow, setListWindow] = useState<ListWindowOption>(DEFAULT_LIST_WINDOW);
 
@@ -234,6 +263,30 @@ export const SprintsPage: FunctionComponent = () => {
   useEffect(() => {
     storeSprintGalleryVisibility(showSprintGallery);
   }, [showSprintGallery]);
+
+  useEffect(() => {
+    if (!rowMenu) {
+      return;
+    }
+    const closeMenu = () => setRowMenu(null);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      document.removeEventListener("click", closeMenu);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [rowMenu, setRowMenu]);
 
   const animateLatestCell = useCallback(() => {
     requestAnimationFrame(() => {
@@ -589,6 +642,7 @@ export const SprintsPage: FunctionComponent = () => {
                 onToggleShowcase={handleToggleShowcaseWithSprint}
                 onSprintToggle={handleSprintToggle}
                 onSprintPauseResume={handleSprintPauseResume}
+                onOpenRowMenu={openRowActionsMenu}
                 onEditSprint={(sprint) => {
                   setEditingSprint(sprint);
                   setLinkedIssues(sprint.linkedIssues || []);
@@ -697,6 +751,51 @@ export const SprintsPage: FunctionComponent = () => {
           }}
           onSubmit={handleAppendTask}
         />
+      )}
+
+      {rowMenu && activeRowMenuSprint && createPortal(
+        <div
+          className="fixed z-[220]"
+          style={{
+            top: `${rowMenu.top}px`,
+            left: `${rowMenu.left}px`,
+            transform: rowMenu.openUp ? "translate(-100%, -100%)" : "translateX(-100%)",
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="min-w-[11.5rem] rounded-[1.2rem] border border-black/[0.08] bg-white p-2 shadow-[0_18px_38px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.03] dark:border-white/[0.08] dark:bg-void-800 dark:ring-white/[0.03]">
+            <SprintActionMenu
+              sprint={activeRowMenuSprint}
+              isCompleted={activeRowMenuSprint.status === "completed"}
+              showcaseBusy={pendingActionIds.has(`sprint-showcase:${activeRowMenuSprint.id}`)}
+              markCompletedDisabled={pendingActionIds.has(`sprint-mark-completed:${activeRowMenuSprint.id}`)}
+              onEdit={() => {
+                setEditingSprint(activeRowMenuSprint);
+                setLinkedIssues(activeRowMenuSprint.linkedIssues || []);
+                setShowCreateComposer(false);
+              }}
+              onExport={() => {
+                void handleOpenExport(activeRowMenuSprint.id, activeRowMenuSprint.name);
+              }}
+              onToggleShowcase={() => {
+                void handleToggleShowcase(activeRowMenuSprint);
+              }}
+              onOverrides={() => {
+                setOverrideSprint(activeRowMenuSprint);
+              }}
+              onMarkCompleted={() => {
+                void handleMarkCompleted(activeRowMenuSprint.id);
+              }}
+              onDelete={() => {
+                void handleDeleteSprint(activeRowMenuSprint.id);
+              }}
+              onClose={() => setRowMenu(null)}
+              markCompletedIcon="square"
+              buttonClassName="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+            />
+          </div>
+        </div>,
+        document.body
       )}
     </ExecutionTimelineProvider>
   );

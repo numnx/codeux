@@ -96,7 +96,6 @@ describe("SprintLedger Component", () => {
     onToggleShowcase: vi.fn(),
     onSprintToggle: vi.fn(),
     onSprintPauseResume: vi.fn(),
-    onOpenRowMenu: vi.fn(),
     onBulkStart: vi.fn(),
     onBulkDelete: vi.fn(),
   };
