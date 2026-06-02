@@ -52,6 +52,8 @@ For OpenAI-compatible providers, Code UX also forwards `OPENAI_API_KEY` and `OPE
 
 Custom endpoint instances appear on the AI Models page with their configured model id, such as `glm-4.7-flash`, instead of stale placeholders such as `custom/model` or `local-model`.
 
+Qwen Code custom provider failures use the shared CLI provider error classifier. OpenRouter key exhaustion messages such as `API Error: 403 Key limit exceeded (weekly limit)` are treated as `QUOTA_EXHAUSTED`, so affected runs enter the same quota handling path as Codex, Gemini, Claude Code, and other CLI providers. When the gateway does not include a concrete reset time, Code UX records the task as quota-limited without an active retry timestamp.
+
 When Custom endpoint is selected for a fresh Qwen instance, the settings form pre-fills an Ollama-compatible local endpoint:
 
 - API key: `your_api_key`

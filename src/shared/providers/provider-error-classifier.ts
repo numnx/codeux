@@ -91,82 +91,118 @@ interface ErrorPattern {
   resetTimeExtractor?: (text: string) => string | null;
 }
 
-const GEMINI_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /TerminalQuotaError/i,
-      /QUOTA_EXHAUSTED/i,
-      /quota will reset after/i,
-      /exhausted your capacity/i,
-      /reason:\s*'QUOTA_EXHAUSTED'/i,
-    ],
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
-      return match?.[1] ?? null;
-    },
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /HybridTokenStorage/i,
-      /FileTokenStorage/i,
-      /uv_os_get_passwd/i,
-      /apiKeyCredentialStorage/i,
-      /Config\.refreshAuth/i,
-      /invalid api key/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /no capacity available for model/i,
-      /code:\s*429\b/,
-      /Resource has been exhausted/i,
-    ],
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/retry.?after[:\s]+(\d+)/i);
-      return match ? `${match[1]}s` : null;
-    },
-  },
+type ResetTimeExtractor = NonNullable<ErrorPattern["resetTimeExtractor"]>;
+
+interface CliProviderPatternOptions {
+  quotaExtras?: RegExp[];
+  authEnvKeys?: RegExp[];
+  authExtras?: RegExp[];
+  rateLimitExtras?: RegExp[];
+  quotaResetTimeExtractor?: ResetTimeExtractor;
+  rateLimitResetTimeExtractor?: ResetTimeExtractor;
+}
+
+const OPENROUTER_KEY_LIMIT_PATTERNS: RegExp[] = [
+  /Key limit exceeded/i,
+  /\bweekly limit\b/i,
+  /\bmonthly limit\b/i,
 ];
 
-const CLAUDE_CODE_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /usage limit/i,
-      /quota.*exceeded/i,
-      /billing.*limit/i,
-      /credit.*exhausted/i,
-      /insufficient_quota/i,
-      /Out of funds/i,
-    ],
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /ANTHROPIC_API_KEY/i,
-      /credentials.*expired/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /overloaded/i,
-      /code:\s*429\b/,
-    ],
-  },
+const COMMON_CLI_PROVIDER_QUOTA_PATTERNS: RegExp[] = [
+  /quota.*exceeded/i,
+  /billing.*limit/i,
+  /insufficient.*quota/i,
+  /insufficient_quota/i,
+  /usage limit/i,
+  /hit your.*limit/i,
+  /purchase more credits/i,
+  /credit.*exhausted/i,
+  /Out of funds/i,
+  ...OPENROUTER_KEY_LIMIT_PATTERNS,
 ];
+
+const COMMON_CLI_PROVIDER_AUTH_PATTERNS: RegExp[] = [
+  /invalid.*api.?key/i,
+  /authentication.*failed/i,
+  /unauthorized/i,
+  /Incorrect API key/i,
+  /invalid_api_key/i,
+  /authentication_error/i,
+];
+
+const COMMON_CLI_PROVIDER_RATE_LIMIT_PATTERNS: RegExp[] = [
+  /rate.?limit/i,
+  /too many requests/i,
+  /code:\s*429\b/,
+  /requests per minute/i,
+];
+
+function createCliProviderPatterns(options: CliProviderPatternOptions = {}): ErrorPattern[] {
+  const quotaPatterns = [
+    ...COMMON_CLI_PROVIDER_QUOTA_PATTERNS,
+    ...(options.quotaExtras ?? []),
+  ];
+  const authPatterns = [
+    ...COMMON_CLI_PROVIDER_AUTH_PATTERNS,
+    ...(options.authEnvKeys ?? []),
+    ...(options.authExtras ?? []),
+  ];
+  return [
+    {
+      category: "QUOTA_EXHAUSTED",
+      patterns: quotaPatterns,
+      ...(options.quotaResetTimeExtractor ? { resetTimeExtractor: options.quotaResetTimeExtractor } : {}),
+    },
+    {
+      category: "AUTH_FAILURE",
+      patterns: authPatterns,
+    },
+    {
+      category: "RATE_LIMITED",
+      patterns: [
+        ...COMMON_CLI_PROVIDER_RATE_LIMIT_PATTERNS,
+        ...(options.rateLimitExtras ?? []),
+      ],
+      ...(options.rateLimitResetTimeExtractor ? { resetTimeExtractor: options.rateLimitResetTimeExtractor } : {}),
+    },
+  ];
+}
+
+const GEMINI_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  quotaExtras: [
+    /TerminalQuotaError/i,
+    /QUOTA_EXHAUSTED/i,
+    /quota will reset after/i,
+    /exhausted your capacity/i,
+    /reason:\s*'QUOTA_EXHAUSTED'/i,
+  ],
+  authExtras: [
+    /HybridTokenStorage/i,
+    /FileTokenStorage/i,
+    /uv_os_get_passwd/i,
+    /apiKeyCredentialStorage/i,
+    /Config\.refreshAuth/i,
+    /invalid api key/i,
+  ],
+  rateLimitExtras: [
+    /no capacity available for model/i,
+    /Resource has been exhausted/i,
+  ],
+  quotaResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
+    return match?.[1] ?? null;
+  },
+  rateLimitResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/retry.?after[:\s]+(\d+)/i);
+    return match ? `${match[1]}s` : null;
+  },
+});
+
+const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  authEnvKeys: [/ANTHROPIC_API_KEY/i],
+  authExtras: [/credentials.*expired/i],
+  rateLimitExtras: [/overloaded/i],
+});
 
 // Codex's `codex exec` prints its usage cap as a single ERROR line, e.g.:
 //   "ERROR: You've hit your usage limit. Upgrade to Pro (...), visit
@@ -176,42 +212,26 @@ const CLAUDE_CODE_PATTERNS: ErrorPattern[] = [
 // The reset hint is a wall-clock time ("try again at 3:54 AM"), not a duration,
 // so it needs its own extractor (computeResetAfterFromClockTime) rather than the
 // shared HhMmSs parser used by the other providers.
-const CODEX_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /quota.*exceeded/i,
-      /billing.*limit/i,
-      /insufficient.*quota/i,
-      /usage limit/i,
-      /hit your.*limit/i,
-      /purchase more credits/i,
-      /Upgrade to Pro/i,
-    ],
-    resetTimeExtractor: computeResetAfterFromClockTime,
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /OPENAI_API_KEY/i,
-      /Incorrect API key/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /code:\s*429\b/,
-      /requests per minute/i,
-    ],
-  },
-];
+const CODEX_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  quotaExtras: [/Upgrade to Pro/i],
+  authEnvKeys: [/OPENAI_API_KEY/i],
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
+});
+
+const QWEN_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  authEnvKeys: [
+    /OPENAI_API_KEY/i,
+    /DASHSCOPE_API_KEY/i,
+    /BAILIAN_CODING_PLAN_API_KEY/i,
+    /QWEN_API_KEY/i,
+  ],
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
+});
+
+const OPENCODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  authEnvKeys: [/OPENCODE_API_KEY/i],
+  quotaResetTimeExtractor: computeResetAfterFromClockTime,
+});
 
 // Antigravity's `agy` CLI surfaces an exhausted allowance with a message like:
 //   "Individual quota reached. Contact your administrator to enable overages. Resets in 3h4m52s."
@@ -225,41 +245,21 @@ const ANTIGRAVITY_QUOTA_PATTERNS: RegExp[] = [
   /RESOURCE_EXHAUSTED/i,
 ];
 
-const ANTIGRAVITY_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: ANTIGRAVITY_QUOTA_PATTERNS,
-    resetTimeExtractor: (text: string): string | null => {
-      const match = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
-      return match?.[1] ?? null;
-    },
+const ANTIGRAVITY_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
+  quotaExtras: ANTIGRAVITY_QUOTA_PATTERNS,
+  authEnvKeys: [/ANTIGRAVITY_API_KEY/i],
+  quotaResetTimeExtractor: (text: string): string | null => {
+    const match = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
+    return match?.[1] ?? null;
   },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /ANTIGRAVITY_API_KEY/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /code:\s*429\b/,
-    ],
-  },
-];
+});
 
 const PROVIDER_PATTERNS: Record<string, ErrorPattern[]> = {
   gemini: GEMINI_PATTERNS,
   "claude-code": CLAUDE_CODE_PATTERNS,
   codex: CODEX_PATTERNS,
-  "qwen-code": CODEX_PATTERNS,
+  "qwen-code": QWEN_CODE_PATTERNS,
+  opencode: OPENCODE_PATTERNS,
   antigravity: ANTIGRAVITY_PATTERNS,
 };
 
