@@ -270,6 +270,13 @@ export class QualityAssuranceService {
         taskRun,
         sprintRunId: args.sprintRunId || null,
         agentPresetId: agent.id,
+        // Task QA reviews the task's own feature/worker branch, falling back to
+        // the sprint base branch when the worker branch metadata is missing.
+        reviewBranch: args.task.worker_branch?.trim()
+          || taskRun?.workerBranch?.trim()
+          || sprint.featureBranch?.trim()
+          || settings.git.defaultBranch,
+        baseBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
       });
 
       if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
@@ -489,6 +496,10 @@ export class QualityAssuranceService {
         taskRun: null,
         sprintRunId: args.sprintRunId,
         agentPresetId: agent.id,
+        // Sprint QA reviews the integrated base branch (where all task work is
+        // merged), falling back to the configured default branch.
+        reviewBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
+        baseBranch: settings.git.defaultBranch,
       });
 
       if (review.verdict === "pass") {
@@ -710,11 +721,13 @@ export class QualityAssuranceService {
     taskRun: TaskRunRecord | null;
     sprintRunId: string | null;
     agentPresetId: string | null;
+    reviewBranch: string | undefined;
+    baseBranch: string;
   }): Promise<NormalizedQaReviewResult> {
     return await this.withSprintRunKeepAlive(args.sprintRunId, args.scope.sprintId, async () => {
       await this.syncRemoteBranchesIfNeeded(
         args.repoPath,
-        args.currentTask?.worker_branch || args.taskRun?.workerBranch || undefined,
+        args.reviewBranch,
         args.scope,
         "running QA review",
       );
@@ -755,6 +768,7 @@ export class QualityAssuranceService {
           snapshotWorkspace = await this.workspaceManager.createSnapshotWorkspace(
             args.repoPath,
             `qa-review-${provider}-${Date.now().toString(36)}`,
+            { branch: args.reviewBranch, fallbackBranch: args.baseBranch },
           );
           shouldCleanupSnapshot = true;
         } catch (error) {

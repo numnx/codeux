@@ -25,10 +25,23 @@ export interface WorkspaceCommandOptions {
   trimOutput?: boolean;
 }
 
+/**
+ * Branch selection for a review snapshot workspace. `branch` is the preferred
+ * branch to check out (the task's worker/feature branch, or the sprint base
+ * branch); `fallbackBranch` is used when `branch` does not exist on origin or
+ * locally. When omitted entirely the snapshot is checked out onto the
+ * repository's current HEAD branch so the working tree is never left empty on
+ * the bootstrap branch.
+ */
+export interface SnapshotCheckout {
+  branch?: string;
+  fallbackBranch?: string;
+}
+
 export interface IWorkspaceManager {
   buildWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): string;
   buildWorkspaceRef(repoPath: string, workspaceKey: string, executionMode: CliWorkflowSettings["executionMode"]): string;
-  createSnapshotWorkspace(repoPath: string, sessionId: string): Promise<string>;
+  createSnapshotWorkspace(repoPath: string, sessionId: string, checkout?: SnapshotCheckout): Promise<string>;
   resolveResumeWorktreePath(repoPath: string, sessionId: string, executionMode: CliWorkflowSettings["executionMode"]): Promise<string | undefined>;
   resolveCurrentBranch(worktreePath: string): Promise<string | null>;
   prepareWorktree(repoPath: string, worktreePath: string, workerBranch: string, featureBranch: string, resumeSessionId?: string, gitAuth?: GitHttpAuthOptions): Promise<{ worktreePath: string; resumed: boolean }>;
@@ -131,13 +144,93 @@ export class WorkspaceManager implements IWorkspaceManager {
     return `${WORKSPACE_HANDLE_PREFIX}${volumeName}`;
   }
 
-  async createSnapshotWorkspace(repoPath: string, sessionId: string): Promise<string> {
+  async createSnapshotWorkspace(repoPath: string, sessionId: string, checkout?: SnapshotCheckout): Promise<string> {
     await this.assertExactGitWorktreeRoot(repoPath);
     const workspaceRef = this.buildWorktreePath(repoPath, `${sessionId}-snapshot`, "DOCKER");
     await this.removeWorktree(repoPath, workspaceRef).catch(() => undefined);
     await this.createVolume(workspaceRef);
     await this.seedWorkspaceFromBundle(repoPath, workspaceRef);
+    await this.checkoutSnapshotBranch(repoPath, workspaceRef, checkout);
     return workspaceRef;
+  }
+
+  /**
+   * Check out the requested branch inside a freshly seeded snapshot workspace.
+   *
+   * `seedWorkspaceFromBundle` leaves HEAD on an unborn `code-ux-bootstrap-*`
+   * branch with an empty working tree (it only copies refs, it never checks one
+   * out). Without this step the agent running in the snapshot — e.g. a QA review
+   * — sees an empty repository or the wrong branch even though the work exists on
+   * the requested branch. Resolve the desired branch against the (already
+   * fetched) repository refs and check it out so the snapshot reflects the right
+   * code. Falls back to the repository HEAD so the working tree is never empty.
+   */
+  private async checkoutSnapshotBranch(
+    repoPath: string,
+    workspaceRef: string,
+    checkout?: SnapshotCheckout,
+  ): Promise<void> {
+    const requested = [checkout?.branch, checkout?.fallbackBranch]
+      .map((branch) => branch?.trim())
+      .filter((branch): branch is string => Boolean(branch));
+
+    for (const branch of requested) {
+      // The pushed origin tip is authoritative for review (the worker/base work
+      // is pushed there), so prefer it over any local ref.
+      const startRef = (await this.refExists(repoPath, `refs/remotes/origin/${branch}`))
+        ? `origin/${branch}`
+        : (await this.refExists(repoPath, `refs/heads/${branch}`))
+          ? branch
+          : null;
+      if (startRef) {
+        await this.runWorkspaceCommand(workspaceRef, "git", ["checkout", "-B", branch, startRef]);
+        return;
+      }
+    }
+
+    // No explicit branch resolved — mirror the repository's current checkout so
+    // the snapshot is never left on the empty bootstrap branch. Prefer the local
+    // ref here since it matches what the host has checked out.
+    const headBranch = await this.resolveRepoCurrentBranch(repoPath);
+    if (headBranch) {
+      const startRef = (await this.refExists(repoPath, `refs/heads/${headBranch}`))
+        ? headBranch
+        : (await this.refExists(repoPath, `refs/remotes/origin/${headBranch}`))
+          ? `origin/${headBranch}`
+          : null;
+      if (startRef) {
+        await this.runWorkspaceCommand(workspaceRef, "git", ["checkout", "-B", headBranch, startRef]);
+        return;
+      }
+    }
+
+    const headSha = await this.resolveRepoHeadSha(repoPath);
+    if (headSha) {
+      await this.runWorkspaceCommand(workspaceRef, "git", ["checkout", headSha]);
+    }
+  }
+
+  private async resolveRepoCurrentBranch(repoPath: string): Promise<string | null> {
+    try {
+      const result = await runCommandStrict("git", ["rev-parse", "--abbrev-ref", "HEAD"], repoPath);
+      const branch = result.stdout.trim();
+      if (!branch || branch === "HEAD" || branch === "(unknown)") {
+        return null;
+      }
+      return branch;
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveRepoHeadSha(repoPath: string): Promise<string | null> {
+    try {
+      const result = await runCommandStrict("git", ["rev-parse", "HEAD"], repoPath);
+      const sha = result.stdout.trim();
+      return sha.length > 0 ? sha : null;
+    } catch {
+      return null;
+    }
   }
 
   async resolveResumeWorktreePath(

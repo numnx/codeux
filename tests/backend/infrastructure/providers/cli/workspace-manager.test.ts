@@ -156,6 +156,80 @@ describe("WorkspaceManager", () => {
     }
   });
 
+  it("checks out the requested branch in a snapshot workspace", async () => {
+    vi.mocked(runCommandStrict).mockImplementation(async (command, args) => {
+      if (args[0] === "rev-parse" && args[1] === "--show-toplevel") {
+        return { ok: true, stdout: "/repo/project\n", stderr: "" } as any;
+      }
+      if (args[0] === "docker" && args[1] === "volume" && args[2] === "inspect") {
+        throw new Error("missing");
+      }
+      if (args[0] === "git" && args[1] === "remote") {
+        return { ok: true, stdout: "git@github.com:example/repo.git\n", stderr: "" } as any;
+      }
+      // The requested worker branch exists on origin.
+      if (args[0] === "show-ref" && args.includes("refs/remotes/origin/feature/task-1")) {
+        return { ok: true, stdout: "", stderr: "" } as any;
+      }
+      if (args[0] === "show-ref") {
+        throw new Error("missing ref");
+      }
+      return { ok: true, stdout: "", stderr: "" } as any;
+    });
+
+    await manager.createSnapshotWorkspace("/repo/project", "session-1", {
+      branch: "feature/task-1",
+      fallbackBranch: "main",
+    });
+
+    const checkoutCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+      call[0] === "docker"
+      && call[1].includes("--entrypoint")
+      && call[1].includes("git")
+      && call[1].includes("checkout")
+    );
+    expect(checkoutCall?.[1].slice(-4)).toEqual([
+      "checkout",
+      "-B",
+      "feature/task-1",
+      "origin/feature/task-1",
+    ]);
+  });
+
+  it("falls back to the repository HEAD branch when no snapshot branch is requested", async () => {
+    vi.mocked(runCommandStrict).mockImplementation(async (_command, args) => {
+      if (args[0] === "rev-parse" && args[1] === "--show-toplevel") {
+        return { ok: true, stdout: "/repo/project\n", stderr: "" } as any;
+      }
+      if (args[0] === "docker" && args[1] === "volume" && args[2] === "inspect") {
+        throw new Error("missing");
+      }
+      if (args[0] === "git" && args[1] === "remote") {
+        return { ok: true, stdout: "git@github.com:example/repo.git\n", stderr: "" } as any;
+      }
+      if (args[0] === "rev-parse" && args[1] === "--abbrev-ref") {
+        return { ok: true, stdout: "main\n", stderr: "" } as any;
+      }
+      if (args[0] === "show-ref" && args.includes("refs/heads/main")) {
+        return { ok: true, stdout: "", stderr: "" } as any;
+      }
+      if (args[0] === "show-ref") {
+        throw new Error("missing ref");
+      }
+      return { ok: true, stdout: "", stderr: "" } as any;
+    });
+
+    await manager.createSnapshotWorkspace("/repo/project", "session-1");
+
+    const checkoutCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
+      call[0] === "docker"
+      && call[1].includes("--entrypoint")
+      && call[1].includes("git")
+      && call[1].includes("checkout")
+    );
+    expect(checkoutCall?.[1].slice(-4)).toEqual(["checkout", "-B", "main", "main"]);
+  });
+
   it("streams snapshot bundle files to Docker without shelling through Windows paths", async () => {
     vi.mocked(fs.mkdtemp).mockResolvedValue("C:\\Users\\pierr\\AppData\\Local\\Temp\\code-ux-bundle-k9Efgd");
     vi.mocked(runCommandStrict).mockImplementation(async (_command, args) => {
