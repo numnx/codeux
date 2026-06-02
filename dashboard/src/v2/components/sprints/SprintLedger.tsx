@@ -47,6 +47,7 @@ export interface SprintLedgerProps {
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
   onSprintPauseResume: (sprintId: string) => void;
+  onOpenRowMenu?: (event: MouseEvent, sprintId: string) => void;
   onBulkStart: (sprintIds: string[]) => void;
   onBulkDelete: (sprintIds: string[]) => void;
   onEditSprint: (sprint: Sprint) => void;
@@ -71,6 +72,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
   onToggleShowcase,
   onSprintToggle,
   onSprintPauseResume,
+  onOpenRowMenu,
   onEditSprint,
   onExportSprint,
   onOverridesSprint,
@@ -427,6 +429,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                   onToggleShowcase={stableOnToggleShowcase}
                   onSprintToggle={stableOnSprintToggle}
                   onSprintPauseResume={stableOnSprintPauseResume}
+                  onOpenRowMenu={onOpenRowMenu}
                   onEdit={() => onEditSprint(sprint)}
                   onExport={() => onExportSprint(sprint)}
                   onOverrides={() => onOverridesSprint(sprint)}

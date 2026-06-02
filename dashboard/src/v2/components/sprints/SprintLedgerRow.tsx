@@ -38,6 +38,21 @@ const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
   idle: "border-signal-500/25 bg-signal-500/10 text-signal-700 dark:text-signal-300",
 };
 
+const ATTENTION_BADGE_OVERRIDES: Partial<Record<string, { tone: string; label: string }>> = {
+  merge_required: {
+    tone: "border-purple-500/25 bg-purple-500/10 text-purple-600 dark:text-purple-300",
+    label: "Merge",
+  },
+  merge_conflict: {
+    tone: "border-status-red/25 bg-status-red/10 text-status-red",
+    label: "Conflict",
+  },
+  ci_fix_required: {
+    tone: "border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+    label: "CI",
+  },
+};
+
 const PROGRESS_TONES: Record<SprintStatus, string> = {
   running: "from-status-green to-signal-500",
   paused: "from-ember-500 to-ember-400",
@@ -56,10 +71,16 @@ const TABLE_META_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const TABLE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 const shortenId = (value: string): string => value.slice(0, 8);
 const formatTableDate = (value: string): string => TABLE_DATE_FORMATTER.format(new Date(value));
 const formatMetaDate = (value: string): string => TABLE_META_DATE_FORMATTER.format(new Date(value));
+const formatTableTime = (value: string): string => TABLE_TIME_FORMATTER.format(new Date(value));
 
 const isSprintActionable = (status: SprintStatus): boolean => status === "running" || status === "paused";
 
@@ -76,6 +97,7 @@ export interface SprintLedgerRowProps {
   onToggleShowcase: (sprint: Sprint) => void;
   onSprintToggle: (sprintId: string) => void;
   onSprintPauseResume: (sprintId: string) => void;
+  onOpenRowMenu?: (event: MouseEvent, sprintId: string) => void;
   onEdit: () => void;
   onExport: () => void;
   onOverrides: () => void;
@@ -96,6 +118,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   onToggleShowcase,
   onSprintToggle,
   onSprintPauseResume,
+  onOpenRowMenu,
 }) => {
   const settings = useProjectEffectiveSettings(sprint.projectId);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -134,6 +157,12 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       ? "lg:border-black/[0.06] lg:bg-white/80 dark:lg:border-white/[0.07] dark:lg:bg-white/[0.045]"
       : "lg:border-black/[0.06] lg:bg-slate-50/80 dark:lg:border-white/[0.07] dark:lg:bg-white/[0.03]";
   const progressTone = PROGRESS_TONES[sprint.status];
+
+  const attentionOverride = humanIntervention?.attentionType
+    ? ATTENTION_BADGE_OVERRIDES[humanIntervention.attentionType]
+    : undefined;
+  const badgeTone = attentionOverride?.tone ?? STATUS_BADGE_TONES[sprint.status];
+  const badgeLabel = attentionOverride?.label ?? STATUS_LABELS[sprint.status];
 
   return (
     <TableRow
@@ -192,7 +221,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             Updated {formatMetaDate(sprint.updatedAt)}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-black/[0.025] px-2 py-1 dark:border-white/[0.06] dark:bg-white/[0.03]">
-            Created {formatTableDate(sprint.createdAt)}
+            Created {formatTableDate(sprint.createdAt)} <span className="ml-1 font-mono text-[10px] text-slate-400">{formatTableTime(sprint.createdAt)}</span>
           </span>
         </div>
         {showInterventionBadge && isSprintActionable(sprint.status) && humanIntervention && (
@@ -216,8 +245,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       <TableCell className={`lg:w-[120px] lg:min-w-[120px] ${desktopCellTone}`}>
         <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-start">
           <span className="text-[10px] font-bold text-slate-400 lg:hidden">Status</span>
-          <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${STATUS_BADGE_TONES[sprint.status]}`}>
-            {STATUS_LABELS[sprint.status]}
+          <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${badgeTone}`}>
+            {badgeLabel}
           </span>
         </div>
       </TableCell>
@@ -247,7 +276,10 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       </TableCell>
       <TableCell className={`lg:w-[120px] lg:min-w-[120px] ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Created</span>
-        <div className="font-medium text-[var(--text-primary)]">{formatTableDate(sprint.createdAt)}</div>
+        <div className="font-medium text-[var(--text-primary)]">
+          {formatTableDate(sprint.createdAt)}
+          <span className="ml-1.5 font-mono text-[10px] text-slate-400">{formatTableTime(sprint.createdAt)}</span>
+        </div>
         <div className="mt-1 text-[11px] text-slate-400">created</div>
         <div className="mt-1.5 inline-flex items-center gap-1">
           {sprint.latestReview?.status === 'running' ? (
@@ -283,36 +315,11 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             Open
             <Maximize2 className="h-3.5 w-3.5" />
           </a>
-          <DropdownMenu
-            isOpen={menuOpen}
-            onOpenChange={setMenuOpen}
-            position="bottom"
-            align="end"
-            className="min-w-[11.5rem]"
-            computePosition={({ triggerRect, menuRect, viewport }) => computeSprintActionMenuPosition(
-              triggerRect,
-              viewport,
-              { width: menuRect.width, height: menuRect.height },
-            )}
-            content={
-              <SprintActionMenu
-                sprint={sprint}
-                isCompleted={isCompleted}
-                showcaseBusy={isPinPending}
-                markCompletedDisabled={false}
-                onToggleShowcase={() => onToggleShowcase(sprint)}
-                onClose={() => setMenuOpen(false)}
-                markCompletedIcon="square"
-                role="menuitem"
-                buttonClassName="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
-              />
-            }
-          >
+          {onOpenRowMenu ? (
             <button
               type="button"
               disabled={isRowPending}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
+              onClick={(e) => onOpenRowMenu(e, sprint.id)}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               title="Open sprint actions"
             >
@@ -322,7 +329,48 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
                 <MoreVertical className="h-3.5 w-3.5" />
               )}
             </button>
-          </DropdownMenu>
+          ) : (
+            <DropdownMenu
+              isOpen={menuOpen}
+              onOpenChange={setMenuOpen}
+              position="bottom"
+              align="end"
+              className="min-w-[11.5rem]"
+              computePosition={({ triggerRect, menuRect, viewport }) => computeSprintActionMenuPosition(
+                triggerRect,
+                viewport,
+                { width: menuRect.width, height: menuRect.height },
+              )}
+              content={
+                <SprintActionMenu
+                  sprint={sprint}
+                  isCompleted={isCompleted}
+                  showcaseBusy={isPinPending}
+                  markCompletedDisabled={false}
+                  onToggleShowcase={() => onToggleShowcase(sprint)}
+                  onClose={() => setMenuOpen(false)}
+                  markCompletedIcon="square"
+                  role="menuitem"
+                  buttonClassName="flex w-full items-center gap-2 rounded-[0.9rem] px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+                />
+              }
+            >
+              <button
+                type="button"
+                disabled={isRowPending}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                title="Open sprint actions"
+              >
+                {isRowPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />
+                ) : (
+                  <MoreVertical className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </DropdownMenu>
+          )}
         </div>
       </TableCell>
     </TableRow>
