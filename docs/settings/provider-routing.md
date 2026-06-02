@@ -49,6 +49,7 @@ Provider instances are first-class routing targets:
 - each CLI instance also carries its own optional Docker auth-copy source (`mountAuth` + `authPath`), so routing one Codex, Qwen, or OpenCode instance vs another can change both credentials and local auth mount source
 - Qwen Code instances additionally carry auth mode metadata for local OAuth cache copying, Alibaba Cloud Coding Plan, or custom `modelProviders`-style endpoints
 - OpenCode instances additionally carry auth mode metadata for local `auth.json` cache copying, built-in provider API keys, or generated OpenAI-compatible custom provider config
+- OpenAI-compatible gateway quota messages are classified consistently for Codex, Claude Code, Qwen Code, and OpenCode. For example, OpenRouter `API Error: 403 Key limit exceeded (weekly limit)` responses are treated as `QUOTA_EXHAUSTED`; when the gateway omits a reset timestamp, the affected work is marked quota-limited without an active retry timer.
 - `MANUAL` selects one exact instance
 - `WEIGHTED` distributes across enabled instances, even when several share the same provider type
 - `AGENT` uses the selected agent preset's optional provider/model preference when present, then falls back to the route's inherited/manual provider

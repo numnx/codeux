@@ -102,6 +102,18 @@ describe("classifyProviderError", () => {
       expect(classification.userMessage).toContain("Claude Code");
     });
 
+    it("detects OpenRouter key-limit exhaustion as quota", () => {
+      const result = makeResult(
+        "",
+        "API Error: 403 Key limit exceeded (weekly limit). Manage it using https://openrouter.ai/workspaces/default/keys/a3a82d5bc13549c52b8ace84d8d0c08bdff407f730571d434b916d49bcf5d3fb",
+      );
+      const classification = classifyProviderError("claude-code", result);
+      expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      expect(classification.resetAfter).toBeNull();
+      expect(classification.resetAtIso).toBeNull();
+      expect(classification.userMessage).toContain("Claude Code quota exhausted");
+    });
+
     it("detects rate limiting", () => {
       const result = makeResult("", "Error: rate limit exceeded, please retry");
       const classification = classifyProviderError("claude-code", result);
@@ -148,6 +160,18 @@ describe("classifyProviderError", () => {
       expect(classification.resetAtIso).toBeNull();
     });
 
+    it("detects OpenRouter key-limit exhaustion as quota", () => {
+      const result = makeResult(
+        "",
+        "API Error: 403 Key limit exceeded (weekly limit). Manage it using https://openrouter.ai/workspaces/default/keys/a3a82d5bc13549c52b8ace84d8d0c08bdff407f730571d434b916d49bcf5d3fb",
+      );
+      const classification = classifyProviderError("codex", result);
+      expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      expect(classification.resetAfter).toBeNull();
+      expect(classification.resetAtIso).toBeNull();
+      expect(classification.userMessage).toContain("Codex quota exhausted");
+    });
+
     it("does not misclassify websocket 500 transport failures as auth errors", () => {
       const result = makeResult(
         "",
@@ -187,6 +211,27 @@ describe("classifyProviderError", () => {
       const classification = classifyProviderError("qwen-code", result);
       expect(classification.category).toBe("AUTH_FAILURE");
       expect(classification.userMessage).toContain("Qwen Code");
+    });
+  });
+
+  describe("opencode", () => {
+    it("detects OpenRouter key-limit exhaustion as quota", () => {
+      const result = makeResult(
+        "",
+        "API Error: 403 Key limit exceeded (weekly limit). Manage it using https://openrouter.ai/workspaces/default/keys/a3a82d5bc13549c52b8ace84d8d0c08bdff407f730571d434b916d49bcf5d3fb",
+      );
+      const classification = classifyProviderError("opencode", result);
+      expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      expect(classification.resetAfter).toBeNull();
+      expect(classification.resetAtIso).toBeNull();
+      expect(classification.userMessage).toContain("OpenCode quota exhausted");
+    });
+
+    it("detects OpenCode custom provider auth failures", () => {
+      const result = makeResult("", "Error: Incorrect API key provided for OPENCODE_API_KEY");
+      const classification = classifyProviderError("opencode", result);
+      expect(classification.category).toBe("AUTH_FAILURE");
+      expect(classification.userMessage).toContain("OpenCode");
     });
   });
 

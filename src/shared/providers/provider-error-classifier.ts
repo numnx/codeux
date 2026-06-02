@@ -91,6 +91,81 @@ interface ErrorPattern {
   resetTimeExtractor?: (text: string) => string | null;
 }
 
+type ResetTimeExtractor = NonNullable<ErrorPattern["resetTimeExtractor"]>;
+
+interface GatewayProviderPatternOptions {
+  quotaExtras?: RegExp[];
+  authEnvKeys?: RegExp[];
+  authExtras?: RegExp[];
+  rateLimitExtras?: RegExp[];
+  resetTimeExtractor?: ResetTimeExtractor;
+}
+
+const OPENROUTER_KEY_LIMIT_PATTERNS: RegExp[] = [
+  /Key limit exceeded/i,
+  /\bweekly limit\b/i,
+  /\bmonthly limit\b/i,
+];
+
+const COMMON_GATEWAY_QUOTA_PATTERNS: RegExp[] = [
+  /quota.*exceeded/i,
+  /billing.*limit/i,
+  /insufficient.*quota/i,
+  /insufficient_quota/i,
+  /usage limit/i,
+  /hit your.*limit/i,
+  /purchase more credits/i,
+  /credit.*exhausted/i,
+  /Out of funds/i,
+  ...OPENROUTER_KEY_LIMIT_PATTERNS,
+];
+
+const COMMON_GATEWAY_AUTH_PATTERNS: RegExp[] = [
+  /invalid.*api.?key/i,
+  /authentication.*failed/i,
+  /unauthorized/i,
+  /Incorrect API key/i,
+  /invalid_api_key/i,
+  /authentication_error/i,
+];
+
+const COMMON_GATEWAY_RATE_LIMIT_PATTERNS: RegExp[] = [
+  /rate.?limit/i,
+  /too many requests/i,
+  /code:\s*429\b/,
+  /requests per minute/i,
+];
+
+function createGatewayProviderPatterns(options: GatewayProviderPatternOptions = {}): ErrorPattern[] {
+  const quotaPatterns = [
+    ...COMMON_GATEWAY_QUOTA_PATTERNS,
+    ...(options.quotaExtras ?? []),
+  ];
+  const authPatterns = [
+    ...COMMON_GATEWAY_AUTH_PATTERNS,
+    ...(options.authEnvKeys ?? []),
+    ...(options.authExtras ?? []),
+  ];
+  return [
+    {
+      category: "QUOTA_EXHAUSTED",
+      patterns: quotaPatterns,
+      ...(options.resetTimeExtractor ? { resetTimeExtractor: options.resetTimeExtractor } : {}),
+    },
+    {
+      category: "AUTH_FAILURE",
+      patterns: authPatterns,
+    },
+    {
+      category: "RATE_LIMITED",
+      patterns: [
+        ...COMMON_GATEWAY_RATE_LIMIT_PATTERNS,
+        ...(options.rateLimitExtras ?? []),
+      ],
+    },
+  ];
+}
+
 const GEMINI_PATTERNS: ErrorPattern[] = [
   {
     category: "QUOTA_EXHAUSTED",
@@ -133,40 +208,11 @@ const GEMINI_PATTERNS: ErrorPattern[] = [
   },
 ];
 
-const CLAUDE_CODE_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /usage limit/i,
-      /quota.*exceeded/i,
-      /billing.*limit/i,
-      /credit.*exhausted/i,
-      /insufficient_quota/i,
-      /Out of funds/i,
-    ],
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /ANTHROPIC_API_KEY/i,
-      /credentials.*expired/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /overloaded/i,
-      /code:\s*429\b/,
-    ],
-  },
-];
+const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+  authEnvKeys: [/ANTHROPIC_API_KEY/i],
+  authExtras: [/credentials.*expired/i],
+  rateLimitExtras: [/overloaded/i],
+});
 
 // Codex's `codex exec` prints its usage cap as a single ERROR line, e.g.:
 //   "ERROR: You've hit your usage limit. Upgrade to Pro (...), visit
@@ -176,87 +222,26 @@ const CLAUDE_CODE_PATTERNS: ErrorPattern[] = [
 // The reset hint is a wall-clock time ("try again at 3:54 AM"), not a duration,
 // so it needs its own extractor (computeResetAfterFromClockTime) rather than the
 // shared HhMmSs parser used by the other providers.
-const CODEX_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /quota.*exceeded/i,
-      /billing.*limit/i,
-      /insufficient.*quota/i,
-      /usage limit/i,
-      /hit your.*limit/i,
-      /purchase more credits/i,
-      /Upgrade to Pro/i,
-    ],
-    resetTimeExtractor: computeResetAfterFromClockTime,
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /OPENAI_API_KEY/i,
-      /Incorrect API key/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /code:\s*429\b/,
-      /requests per minute/i,
-    ],
-  },
-];
+const CODEX_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+  quotaExtras: [/Upgrade to Pro/i],
+  authEnvKeys: [/OPENAI_API_KEY/i],
+  resetTimeExtractor: computeResetAfterFromClockTime,
+});
 
-const QWEN_CODE_PATTERNS: ErrorPattern[] = [
-  {
-    category: "QUOTA_EXHAUSTED",
-    patterns: [
-      /quota.*exceeded/i,
-      /billing.*limit/i,
-      /insufficient.*quota/i,
-      /insufficient_quota/i,
-      /usage limit/i,
-      /hit your.*limit/i,
-      /purchase more credits/i,
-      /Key limit exceeded/i,
-      /weekly limit/i,
-      /monthly limit/i,
-      /credit.*exhausted/i,
-      /Out of funds/i,
-    ],
-    resetTimeExtractor: computeResetAfterFromClockTime,
-  },
-  {
-    category: "AUTH_FAILURE",
-    patterns: [
-      /invalid.*api.?key/i,
-      /authentication.*failed/i,
-      /unauthorized/i,
-      /OPENAI_API_KEY/i,
-      /DASHSCOPE_API_KEY/i,
-      /BAILIAN_CODING_PLAN_API_KEY/i,
-      /QWEN_API_KEY/i,
-      /Incorrect API key/i,
-      /invalid_api_key/i,
-      /authentication_error/i,
-    ],
-  },
-  {
-    category: "RATE_LIMITED",
-    patterns: [
-      /rate.?limit/i,
-      /too many requests/i,
-      /code:\s*429\b/,
-      /requests per minute/i,
-    ],
-  },
-];
+const QWEN_CODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+  authEnvKeys: [
+    /OPENAI_API_KEY/i,
+    /DASHSCOPE_API_KEY/i,
+    /BAILIAN_CODING_PLAN_API_KEY/i,
+    /QWEN_API_KEY/i,
+  ],
+  resetTimeExtractor: computeResetAfterFromClockTime,
+});
+
+const OPENCODE_PATTERNS: ErrorPattern[] = createGatewayProviderPatterns({
+  authEnvKeys: [/OPENCODE_API_KEY/i],
+  resetTimeExtractor: computeResetAfterFromClockTime,
+});
 
 // Antigravity's `agy` CLI surfaces an exhausted allowance with a message like:
 //   "Individual quota reached. Contact your administrator to enable overages. Resets in 3h4m52s."
@@ -305,6 +290,7 @@ const PROVIDER_PATTERNS: Record<string, ErrorPattern[]> = {
   "claude-code": CLAUDE_CODE_PATTERNS,
   codex: CODEX_PATTERNS,
   "qwen-code": QWEN_CODE_PATTERNS,
+  opencode: OPENCODE_PATTERNS,
   antigravity: ANTIGRAVITY_PATTERNS,
 };
 
