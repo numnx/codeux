@@ -71,6 +71,7 @@ interface SprintCellProps {
   onOverrides?: () => void;
   onToggleShowcase?: () => void;
   onMarkCompleted?: () => void;
+  onOpenMenu?: (event: MouseEvent) => void;
 }
 
 const formatSprintKey = (sprint: Sprint, prefix: string = "SPR"): string => (
@@ -100,6 +101,7 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
   onOverrides,
   onToggleShowcase,
   onMarkCompleted,
+  onOpenMenu,
 }) => {
   const settings = useProjectEffectiveSettings(sprint.projectId);
   const reducedMotion = useReducedMotion();
