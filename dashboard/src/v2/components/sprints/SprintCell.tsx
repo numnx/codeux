@@ -73,6 +73,13 @@ const formatSprintKey = (sprint: Sprint, prefix: string = "SPR"): string => (
 
 const formatCardDate = (value: string): string => CARD_DATE_FORMATTER.format(new Date(value));
 
+const BUBBLE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const formatBubbleTime = (value: string): string => BUBBLE_TIME_FORMATTER.format(new Date(value));
+
 export const SprintCell: FunctionComponent<SprintCellProps> = ({
   sprint,
   isEven,
@@ -216,9 +223,8 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
 
         <div className={`absolute left-7 top-7 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${accentColor}`}>
           <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.1} />
-          {formatCardDate(sprint.createdAt)}
+          {formatCardDate(sprint.createdAt)} · {formatBubbleTime(sprint.createdAt)}
         </div>
-
 {(showInterventionBadge || sprint.latestReview) && (
           <div className="absolute right-4 top-4 z-[60] flex items-center gap-2 lg:right-5 lg:top-5">
             {sprint.latestReview && (

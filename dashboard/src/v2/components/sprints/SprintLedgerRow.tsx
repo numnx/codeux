@@ -56,10 +56,16 @@ const TABLE_META_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const TABLE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 const shortenId = (value: string): string => value.slice(0, 8);
 const formatTableDate = (value: string): string => TABLE_DATE_FORMATTER.format(new Date(value));
 const formatMetaDate = (value: string): string => TABLE_META_DATE_FORMATTER.format(new Date(value));
+const formatTableTime = (value: string): string => TABLE_TIME_FORMATTER.format(new Date(value));
 
 const isSprintActionable = (status: SprintStatus): boolean => status === "running" || status === "paused";
 
@@ -192,7 +198,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             Updated {formatMetaDate(sprint.updatedAt)}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-black/[0.025] px-2 py-1 dark:border-white/[0.06] dark:bg-white/[0.03]">
-            Created {formatTableDate(sprint.createdAt)}
+            Created {formatTableDate(sprint.createdAt)} <span className="ml-1 font-mono text-[10px] text-slate-400">{formatTableTime(sprint.createdAt)}</span>
           </span>
         </div>
         {showInterventionBadge && isSprintActionable(sprint.status) && humanIntervention && (
@@ -247,7 +253,10 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       </TableCell>
       <TableCell className={`lg:w-[120px] lg:min-w-[120px] ${desktopCellTone}`}>
         <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:hidden">Created</span>
-        <div className="font-medium text-[var(--text-primary)]">{formatTableDate(sprint.createdAt)}</div>
+        <div className="font-medium text-[var(--text-primary)]">
+          {formatTableDate(sprint.createdAt)}
+          <span className="ml-1.5 font-mono text-[10px] text-slate-400">{formatTableTime(sprint.createdAt)}</span>
+        </div>
         <div className="mt-1 text-[11px] text-slate-400">created</div>
         <div className="mt-1.5 inline-flex items-center gap-1">
           {sprint.latestReview?.status === 'running' ? (
