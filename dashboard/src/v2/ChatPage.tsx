@@ -15,6 +15,7 @@ import { EmptyState } from "./components/ui/EmptyState.js";
 import { MessageCircle } from "lucide-preact";
 import { ChatMessageBubble } from "./components/chat/ChatMessageBubble.js";
 import { useChatPageData } from "./hooks/use-chat-page-data.js";
+import { useProjectEffectiveSettings } from "./hooks/use-project-effective-settings.js";
 import { InvocationMessageBubble } from "./components/chat/InvocationMessageBubble.js";
 import { InvocationRoutingWidget } from "./components/chat/widgets/InvocationRoutingWidget.js";
 import { InvocationContainerWidget } from "./components/chat/widgets/InvocationContainerWidget.js";
@@ -102,6 +103,9 @@ export const ChatPage: FunctionComponent = () => {
     handleConfirm,
     handleCancel,
   } = useChatPageData({ composerRef, messagesRef });
+
+  const effectiveSettings = useProjectEffectiveSettings(selectedProject?.id ?? null);
+  const sprintKeyPrefix = effectiveSettings.data?.settings?.git?.sprintKeyPrefix || "SPR";
 
   // Build lookups from agentPresets
   const presetIdMap = useMemo(() => {
@@ -227,6 +231,7 @@ export const ChatPage: FunctionComponent = () => {
             invocations={invocations}
             selectedInvocationId={selectedInvocationId}
             agentPresets={agentPresets}
+            sprintKeyPrefix={sprintKeyPrefix}
             onSelect={(invocationId) => {
               const preferredInvocation = invocationIndex.get(invocationId) || null;
               void activateInvocation(invocationId, { preferredInvocation });
