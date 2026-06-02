@@ -1019,6 +1019,8 @@ describe("QualityAssuranceService", () => {
       taskRun: null,
       sprintRunId: null,
       agentPresetId: null,
+      reviewBranch: "feature/task-1",
+      baseBranch: "dev",
     })).rejects.toThrow("Failed to refresh origin before running QA review on feature/task-1: fetch failed");
 
     expect(syncRemoteBranchIfAvailable).toHaveBeenCalledWith("/repo", "feature/task-1", {
