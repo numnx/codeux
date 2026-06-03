@@ -6,6 +6,7 @@ import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
+import { getHomeCodeUxPath } from "../../../src/shared/config/code-ux-paths.js";
 
 const tempDirs: string[] = [];
 
@@ -191,6 +192,36 @@ describe("ProjectManagementRepository", () => {
       repoUrl: "git@github.com:numnx/jules-agent-mcp.git",
       gitProvider: "github",
       gitHostDomain: "github.com",
+    });
+  });
+
+  it("resolves relative local project paths against the user home directory", async () => {
+    const { repository } = await createRepository();
+
+    const project = repository.createProject({
+      name: "Relative Local Project",
+      sourceType: "local",
+      sourceRef: "projects/relative-local-project",
+    });
+
+    expect(project.baseDir).toBe(path.resolve(os.homedir(), "projects/relative-local-project"));
+  });
+
+  it("uses the home projects directory for new_project sources", async () => {
+    const { repository } = await createRepository();
+
+    const project = repository.createProject({
+      name: "Blank Project",
+      sourceType: "new_project",
+      sourceRef: "Blank Project",
+    });
+
+    expect(project).toMatchObject({
+      sourceType: "new_project",
+      sourceRef: "Blank Project",
+      baseDir: getHomeCodeUxPath("projects", "blank-project"),
+      gitProvider: "local",
+      gitHostDomain: null,
     });
   });
 

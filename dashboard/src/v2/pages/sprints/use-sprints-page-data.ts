@@ -73,7 +73,7 @@ const VIRTUAL_PROVIDER_LABELS: Record<string, string> = {
 
 type AddProjectDraft = {
   name: string;
-  type: "local" | "git";
+  type: "local" | "git" | "new_project";
   path: string;
   cloneDir?: string;
 };

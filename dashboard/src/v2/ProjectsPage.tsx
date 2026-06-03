@@ -478,7 +478,7 @@ export const ProjectsPage: FunctionComponent = () => {
 
     const handleAddProject = async (project: {
         name: string;
-        type: 'local' | 'git';
+        type: 'local' | 'git' | 'new_project';
         path: string;
         cloneDir?: string;
         setup?: {

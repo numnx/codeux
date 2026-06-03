@@ -229,7 +229,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ isDark, toggleTheme, on
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const handleCreateProject = async (project: { name: string; type: 'local' | 'git'; path: string; cloneDir?: string }) => {
+    const handleCreateProject = async (project: { name: string; type: 'local' | 'git' | 'new_project'; path: string; cloneDir?: string }) => {
         await createProject({
             name: project.name,
             sourceType: project.type,

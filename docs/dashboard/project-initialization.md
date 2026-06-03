@@ -6,6 +6,7 @@ Project Initialization runs a repository-specific setup pass through the `Projec
 
 - `Add Project` includes `Initialize with Project Setup Agent`, checked by default in the dashboard.
 - When that checkbox is enabled, the dialog opens a setup scope step before creation.
+- The dialog also supports a blank `New Project` source mode that skips local/git path inputs and creates the workspace in the default Code UX projects directory.
 - Existing projects expose a `Setup Project` action from the project card agent button.
 
 Both flows let the operator choose which artifacts to create:

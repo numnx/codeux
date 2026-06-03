@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as os from "os";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 import { ValidationError, EntityNotFoundError, RepositoryError } from "./repository-utils.js";
@@ -192,7 +193,9 @@ export class ProjectManagementRepository {
       const now = new Date().toISOString();
       const slug = this.createUniqueProjectSlug(input.name);
       const sourceType = input.sourceType;
-      const sourceRef = input.sourceRef.trim();
+      const sourceRef = sourceType === "new_project"
+        ? (input.sourceRef.trim() || slug)
+        : input.sourceRef.trim();
       const baseDir = this.resolveBaseDir(sourceType, sourceRef, input.cloneDir);
       const repoUrl = sourceType === "git" ? sourceRef : null;
 
@@ -1259,7 +1262,9 @@ export class ProjectManagementRepository {
     fallback = ""
   ): string {
     if (sourceType === "local") {
-      return sourceRef;
+      return path.isAbsolute(sourceRef)
+        ? sourceRef
+        : path.resolve(os.homedir(), sourceRef);
     }
 
     const repoName = deriveRepoName(sourceRef);

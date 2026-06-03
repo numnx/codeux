@@ -12,7 +12,7 @@ interface AddProjectModalProps {
     onClose: () => void;
     onAdd: (project: {
         name: string;
-        type: 'local' | 'git';
+        type: 'local' | 'git' | 'new_project';
         path: string;
         cloneDir?: string;
         setup?: {
@@ -27,7 +27,7 @@ interface AddProjectModalProps {
     }) => void | Promise<void>;
 }
 
-type SourceType = 'local' | 'git';
+type SourceType = 'local' | 'git' | 'new_project';
 type DirectoryPickerTarget = 'localPath' | 'cloneDir';
 
 const fieldLabelClass = "text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors";
@@ -70,8 +70,12 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = "Project Name is required.";
 
-        const path = sourceType === 'local' ? localPath.trim() : gitUrl.trim();
-        if (!path) {
+        const path = sourceType === 'local'
+          ? localPath.trim()
+          : sourceType === 'git'
+            ? gitUrl.trim()
+            : name.trim();
+        if (sourceType !== 'new_project' && !path) {
             errors.path = sourceType === 'local' ? "Directory Path is required." : "Repository URL is required.";
         }
         return errors;
@@ -118,7 +122,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     };
 
     const submitProject = async () => {
-        const path = sourceType === 'local' ? localPath.trim() : gitUrl.trim();
+        const path = sourceType === 'local'
+          ? localPath.trim()
+          : sourceType === 'git'
+            ? gitUrl.trim()
+            : name.trim();
 
         setIsSubmitting(true);
         setSubmitError(null);
@@ -351,7 +359,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     <div className="relative z-10">
                         <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 font-mono mb-1.5">Source</div>
                         <div className="text-lg font-black text-white font-mono tracking-tight leading-snug">
-                            {sourceType === 'git' ? 'Git Repo' : 'Local Path'}
+                            {sourceType === 'git' ? 'Git Repo' : sourceType === 'new_project' ? 'New Project' : 'Local Path'}
                         </div>
                         <div className="mt-3 w-8 h-[2px] bg-ember-500/50" />
                     </div>
@@ -419,10 +427,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     Source Type
                                 </legend>
                                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
-                                    {(['local', 'git'] as SourceType[]).map((type) => (
-                                        <button
-                                            key={type}
-                                            type="button"
+                            {(['local', 'git', 'new_project'] as SourceType[]).map((type) => (
+                                <button
+                                    key={type}
+                                    type="button"
                                             onClick={() => handleSourceTypeChange(type)}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-[0.14em] transition-all active:scale-95 duration-250 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 ${
                                                 sourceType === type
@@ -432,9 +440,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         >
                                             {type === 'local'
                                                 ? <FolderInput className="w-3.5 h-3.5" strokeWidth={2} />
-                                                : <GitBranch className="w-3.5 h-3.5" strokeWidth={2} />
+                                                : type === 'git'
+                                                  ? <GitBranch className="w-3.5 h-3.5" strokeWidth={2} />
+                                                  : <Plus className="w-3.5 h-3.5" strokeWidth={2} />
                                             }
-                                            {type === 'local' ? 'Local Path' : 'Git URL'}
+                                            {type === 'local' ? 'Local Path' : type === 'git' ? 'Git URL' : 'New Project'}
                                         </button>
                                     ))}
                                 </div>
@@ -477,7 +487,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     {renderDirectoryPicker('localPath')}
                                     {validationErrors.path && touched.path && <div id="project-path-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.path}</div>}
                                 </div>
-                            ) : (
+                            ) : sourceType === 'git' ? (
                                 <>
                                     <div className="group/field">
                                         <label htmlFor="add-project-git-url" className={`${fieldLabelClass} flex items-center gap-1.5`}>
@@ -529,6 +539,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         {renderDirectoryPicker('cloneDir')}
                                     </div>
                                 </>
+                            ) : (
+                                <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.025] p-4 text-sm text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-400">
+                                    This will create a new project workspace in the default Code UX projects directory.
+                                </div>
                             )}
 
                             <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.08] dark:bg-white/[0.035]">

@@ -604,7 +604,7 @@ export const TasksPage: FunctionComponent = () => {
     setTimeout(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, []);
 
-  const handleAddProject = useCallback(async (project: { name: string; type: "local" | "git"; path: string; cloneDir?: string }) => {
+  const handleAddProject = useCallback(async (project: { name: string; type: "local" | "git" | "new_project"; path: string; cloneDir?: string }) => {
     await createProject({
       name: project.name,
       sourceType: project.type,

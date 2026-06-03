@@ -72,6 +72,16 @@ describe("AddProjectModal", () => {
     expect(dialogCard.style.minHeight).toBe("min(640px, calc(100vh - 2rem))");
   });
 
+  it("hides the local and git fields for the new project source type", () => {
+    render(<AddProjectModal onClose={vi.fn()} onAdd={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+
+    expect(screen.queryByLabelText("Directory Path")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Repository URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Clone Into Directory/i)).not.toBeInTheDocument();
+  });
+
   it("browses into a directory and applies it to the local path input", async () => {
     vi.mocked(fetchLocalDirectories)
       .mockResolvedValueOnce({
