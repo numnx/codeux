@@ -526,11 +526,16 @@ export class ProviderExecutionService {
           model: args.model,
           finishedAt: new Date().toISOString(),
         });
+        // Include both streams so the real failure detail is never hidden: some
+        // providers (notably codex) print only a benign "Reading additional input
+        // from stdin..." to stderr while the actionable error events go to stdout.
+        const rawOutput = [providerResult.stderr, providerResult.stdout]
+          .map((stream) => (stream ?? "").trim())
+          .filter((stream) => stream.length > 0)
+          .join("\n\n");
         this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
           role: "tool",
-          contentMarkdown: sanitizeInvocationOutputText(
-            providerResult.stderr || providerResult.stdout || "Provider failed without output.",
-          ),
+          contentMarkdown: sanitizeInvocationOutputText(rawOutput || "Provider failed without output."),
         });
       }
       return providerResult;

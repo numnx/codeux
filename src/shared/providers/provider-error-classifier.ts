@@ -363,6 +363,7 @@ function buildUserMessage(
   provider: string,
   category: ProviderErrorCategory,
   resetAfter: string | null,
+  detail?: string | null,
 ): string {
   const label = PROVIDER_LABELS[provider] ?? provider;
   switch (category) {
@@ -379,8 +380,123 @@ function buildUserMessage(
     case "PROVIDER_NOT_FOUND":
       return `${label} CLI not found. Ensure the provider is installed and available in PATH.`;
     case "UNKNOWN":
-      return `${label} failed with an unexpected error.`;
+      return detail
+        ? `${label} failed: ${detail}`
+        : `${label} failed with an unexpected error.`;
   }
+}
+
+// Provider output lines that carry no diagnostic value and must never be surfaced
+// as "the error" — e.g. Codex prints this to stderr on every `exec` run while it
+// waits for (optional) piped stdin, and it was masking the real failure reason.
+const NOISE_OUTPUT_PATTERNS: RegExp[] = [
+  /^Reading additional input from stdin/i,
+  /^\s*$/,
+];
+
+const ERROR_LIKE_PATTERN = /error|fail|exception|not supported|unsupported|denied|refused|invalid|unauthor/i;
+
+/**
+ * Unwraps Codex's doubly-encoded error string. Codex `exec --json` emits
+ * `{"type":"error","message":"<stringified-json>"}` where the inner string is
+ * itself `{"type":"error","status":400,"error":{"message":"<human reason>"}}`.
+ * Returns the innermost human-readable message when present, else the input.
+ */
+function unwrapCodexErrorMessage(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const inner = JSON.parse(trimmed) as { error?: { message?: unknown }; message?: unknown };
+      if (inner.error && typeof inner.error.message === "string") {
+        return inner.error.message;
+      }
+      if (typeof inner.message === "string") {
+        return inner.message;
+      }
+    } catch {
+      // not nested JSON — fall through to the raw message
+    }
+  }
+  return trimmed;
+}
+
+/**
+ * Extracts the real failure reason from Codex `exec --json` output. Codex reports
+ * failures as structured `{"type":"error",...}` / `{"type":"turn.failed","error":{...}}`
+ * JSONL events on stdout while exiting non-zero, so the actionable message (e.g.
+ * "The 'gpt-5.3-codex' model is not supported when using Codex with a ChatGPT account.")
+ * is otherwise lost behind the generic "unexpected error" text. Returns the latest
+ * such message, or null when none is present.
+ */
+export function extractCodexStructuredError(combined: string): string | null {
+  let latest: string | null = null;
+  for (const rawLine of combined.split("\n")) {
+    const trimmed = rawLine.trim();
+    if (!trimmed.startsWith("{")) {
+      continue;
+    }
+    let obj: { type?: unknown; message?: unknown; error?: { message?: unknown } };
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    const type = typeof obj.type === "string" ? obj.type : null;
+    let message: string | null = null;
+    if (type === "error" && typeof obj.message === "string") {
+      message = obj.message;
+    } else if (type === "turn.failed" && obj.error && typeof obj.error.message === "string") {
+      message = obj.error.message;
+    }
+    if (message) {
+      latest = unwrapCodexErrorMessage(message);
+    }
+  }
+  return latest;
+}
+
+/**
+ * Pulls the most informative single line out of arbitrary provider output for
+ * surfacing as the failure reason. Drops known-noise lines, prefers the last
+ * error-looking line, and otherwise falls back to the last non-empty line.
+ * Truncated so the dashboard message stays readable. Returns null when nothing
+ * meaningful remains.
+ */
+function extractGenericErrorDetail(combined: string): string | null {
+  const lines = combined
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !NOISE_OUTPUT_PATTERNS.some((pattern) => pattern.test(line)))
+    // JSON event lines are not human-readable on their own; skip them here.
+    .filter((line) => !line.startsWith("{"));
+  if (lines.length === 0) {
+    return null;
+  }
+  const errorLine = [...lines].reverse().find((line) => ERROR_LIKE_PATTERN.test(line));
+  const chosen = errorLine ?? lines[lines.length - 1];
+  return chosen.length > 300 ? `${chosen.slice(0, 297)}...` : chosen;
+}
+
+/**
+ * Builds an UNKNOWN classification whose userMessage carries the real failure
+ * reason extracted from provider output, instead of the opaque
+ * "<provider> failed with an unexpected error." The dashboard renders
+ * `userMessage` as the headline error, so this is what makes the actual cause
+ * (bad model, transport refusal, etc.) visible without digging into raw logs.
+ */
+function buildUnknownClassification(
+  provider: Exclude<ProviderId, "jules">,
+  combined: string,
+): ProviderErrorClassification {
+  const detail = (provider === "codex" ? extractCodexStructuredError(combined) : null)
+    ?? extractGenericErrorDetail(combined);
+  return {
+    category: "UNKNOWN",
+    provider,
+    userMessage: buildUserMessage(provider, "UNKNOWN", null, detail),
+    resetAfter: null,
+    resetAtIso: null,
+  };
 }
 
 export function classifyProviderError(
@@ -434,11 +550,5 @@ export function classifyProviderError(
     };
   }
 
-  return {
-    category: "UNKNOWN",
-    provider,
-    userMessage: buildUserMessage(provider, "UNKNOWN", null),
-    resetAfter: null,
-    resetAtIso: null,
-  };
+  return buildUnknownClassification(provider, combined);
 }

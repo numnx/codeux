@@ -192,6 +192,41 @@ describe("classifyProviderError", () => {
       const classification = classifyProviderError("codex", result);
       expect(classification.category).toBe("UNKNOWN");
     });
+
+    it("surfaces the real model-not-supported reason from `codex exec --json` events", () => {
+      const stdout = [
+        '{"type":"thread.started","thread_id":"019e8bbe-567d-7d52-8a09-2007b61b7ef9"}',
+        '{"type":"turn.started"}',
+        '{"type":"error","message":"{\\"type\\":\\"error\\",\\"status\\":400,\\"error\\":{\\"type\\":\\"invalid_request_error\\",\\"message\\":\\"The \'gpt-5.3-codex\' model is not supported when using Codex with a ChatGPT account.\\"}}"}',
+        '{"type":"turn.failed","error":{"message":"{\\"type\\":\\"error\\",\\"status\\":400,\\"error\\":{\\"type\\":\\"invalid_request_error\\",\\"message\\":\\"The \'gpt-5.3-codex\' model is not supported when using Codex with a ChatGPT account.\\"}}"}}',
+      ].join("\n");
+      const classification = classifyProviderError("codex", makeResult(stdout, "Reading additional input from stdin..."));
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe(
+        "Codex failed: The 'gpt-5.3-codex' model is not supported when using Codex with a ChatGPT account.",
+      );
+      expect(classification.userMessage).not.toContain("unexpected error");
+      expect(classification.userMessage).not.toContain("stdin");
+    });
+
+    it("falls back to the generic unexpected-error text when codex produced no parseable detail", () => {
+      const classification = classifyProviderError("codex", makeResult("", "Reading additional input from stdin..."));
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe("Codex failed with an unexpected error.");
+    });
+  });
+
+  describe("UNKNOWN error detail surfacing", () => {
+    it("surfaces a plain-text error line for non-codex providers instead of the opaque fallback", () => {
+      const classification = classifyProviderError(
+        "claude-code",
+        makeResult("", "Something exploded: the frobnicator refused the request"),
+      );
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe(
+        "Claude Code failed: Something exploded: the frobnicator refused the request",
+      );
+    });
   });
 
   describe("qwen-code", () => {

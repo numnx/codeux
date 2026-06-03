@@ -21,3 +21,5 @@ release/
 .code-ux-home/
 .claude/
 .antigravitycli*
+# Stray gitlink that recurs from running tools with HOME=~ inside the repo
+/~/
