@@ -1,4 +1,5 @@
 import * as path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 import { ValidationError, EntityNotFoundError, RepositoryError } from "./repository-utils.js";
@@ -1262,12 +1263,13 @@ export class ProjectManagementRepository {
     fallback = ""
   ): string {
     if (sourceType === "local") {
-      return sourceRef;
+      return path.isAbsolute(sourceRef) ? sourceRef : path.resolve(os.homedir(), sourceRef);
     }
 
     const repoName = deriveRepoName(sourceRef);
     if (cloneDir && cloneDir.trim()) {
-      return path.resolve(cloneDir.trim(), repoName);
+      const resolvedClone = path.isAbsolute(cloneDir.trim()) ? cloneDir.trim() : path.resolve(os.homedir(), cloneDir.trim());
+      return path.resolve(resolvedClone, repoName);
     }
 
     return fallback || path.resolve(getHomeCodeUxPath("projects"), repoName);
