@@ -380,6 +380,7 @@ export class ProviderRunner implements IProviderRunner {
       });
     };
 
+    let tempDbPath: string | null = null;
     try {
       let result = await runCmd();
       if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
@@ -420,6 +421,24 @@ export class ProviderRunner implements IProviderRunner {
       const qwenLog = provider === "qwen-code"
         ? await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs)
         : null;
+
+      let resolvedNativeSessionId = nativeSessionId;
+      if (provider === "antigravity" && !resolvedNativeSessionId && antigravityLogPath) {
+        resolvedNativeSessionId = await this.parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode);
+      }
+
+      let antigravityTranscriptJsonl: string | null = null;
+      if (provider === "antigravity" && resolvedNativeSessionId) {
+        antigravityTranscriptJsonl = await this.readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode);
+        
+        const safeSession = resolvedNativeSessionId.replace(/[^A-Za-z0-9_-]/g, "_");
+        const hostTempDb = path.join(os.tmpdir(), `agy-temp-${safeSession}-${randomUUID()}.db`);
+        const resolvedDb = await this.resolveAntigravityDatabase(cwd, resolvedNativeSessionId, workflowSettings.executionMode, hostTempDb);
+        if (resolvedDb) {
+          tempDbPath = hostTempDb;
+        }
+      }
+
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
         model: runModel,
@@ -428,20 +447,25 @@ export class ProviderRunner implements IProviderRunner {
         stdout: result.stdout,
         stderr: result.stderr,
         capturedText,
-        nativeSessionId,
+        nativeSessionId: resolvedNativeSessionId || nativeSessionId,
         claudeSessionJsonl,
         codexSessionJson,
         qwenReportedUsage: qwenLog?.usage ?? null,
         qwenConversation: qwenLog?.conversation ?? null,
         startTimeMs: startedMs,
         executionMode: workflowSettings.executionMode,
+        antigravitySessionDbPath: tempDbPath,
+        antigravityTranscriptJsonl,
       });
       return {
         ...result,
         usageTelemetry,
-        nativeSessionId: usageTelemetry.nativeSessionId || nativeSessionId,
+        nativeSessionId: usageTelemetry.nativeSessionId || resolvedNativeSessionId || nativeSessionId,
       };
     } finally {
+      if (tempDbPath) {
+        await fs.rm(tempDbPath, { force: true }).catch(() => undefined);
+      }
       for (const entry of localMcpCleanup) {
         if (entry.originalContent !== null) {
           await fs.writeFile(entry.path, entry.originalContent).catch(() => undefined);
@@ -677,6 +701,96 @@ export class ProviderRunner implements IProviderRunner {
       `${nativeSessionId}.jsonl`,
     );
     return (await this.dockerRunner.readWorkspaceFile?.(cwd, sessionPath).catch(() => null)) || null;
+  }
+
+  private async parseAntigravityConversationId(
+    cwd: string,
+    logPath: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+  ): Promise<string | null> {
+    try {
+      const raw = executionMode === "DOCKER"
+        ? ((await this.dockerRunner.readWorkspaceFile?.(cwd, logPath).catch(() => null)) || "")
+        : (await fs.readFile(logPath, "utf8").catch(() => ""));
+      if (!raw.trim()) {
+        return null;
+      }
+      const match = raw.match(/Created conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/found conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/switching to conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/GetConversationDetail:\s+found\s+conversation\s+([0-9a-fA-F-]+)/i);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async readAntigravityTranscript(
+    cwd: string,
+    conversationId: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+  ): Promise<string | null> {
+    const candidates = [
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt")
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
+        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt")
+        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
+    ];
+
+    for (const p of candidates) {
+      const raw = executionMode === "DOCKER"
+        ? await this.dockerRunner.readWorkspaceFile?.(cwd, p).catch(() => null)
+        : await fs.readFile(p, "utf8").catch(() => null);
+      if (raw) {
+        return raw;
+      }
+    }
+    return null;
+  }
+
+  private async resolveAntigravityDatabase(
+    cwd: string,
+    conversationId: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+    tempDbPath: string,
+  ): Promise<boolean> {
+    const candidates = [
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".code-ux-home", ".gemini", "antigravity-cli", "conversations", `${conversationId}.db`)
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "conversations", `${conversationId}.db`),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".code-ux-home", ".gemini", "antigravity", "conversations", `${conversationId}.db`)
+        : path.join(os.homedir(), ".gemini", "antigravity", "conversations", `${conversationId}.db`),
+    ];
+
+    for (const p of candidates) {
+      if (executionMode === "DOCKER") {
+        if (this.dockerRunner.readWorkspaceFileBase64) {
+          const base64Str = await this.dockerRunner.readWorkspaceFileBase64(cwd, p).catch(() => null);
+          if (base64Str) {
+            const dbBuffer = Buffer.from(base64Str, "base64");
+            await fs.writeFile(tempDbPath, dbBuffer);
+            return true;
+          }
+        }
+      } else {
+        try {
+          await fs.copyFile(p, tempDbPath);
+          return true;
+        } catch {
+          // ignore error and try next
+        }
+      }
+    }
+    return false;
   }
 
   /** Builds the `-c` config overrides that point Codex at a custom OpenAI-compatible
