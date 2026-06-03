@@ -463,6 +463,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     maxRateLimitRetries: 5,
     maxParsingRetries: 3,
     resumeFailedTaskInSameWorkspace: true,
+    gitMode: "remote",
     executionMode: "DOCKER",
     containerImage: "node:24-bookworm",
     containerSetupScriptPath: "",

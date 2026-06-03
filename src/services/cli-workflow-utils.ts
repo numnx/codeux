@@ -10,6 +10,7 @@ export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   maxRateLimitRetries: 5,
   maxParsingRetries: 3,
   resumeFailedTaskInSameWorkspace: true,
+  gitMode: "remote",
   executionMode: "DOCKER",
   containerImage: "node:24-bookworm",
   containerSetupScriptPath: "",

@@ -171,6 +171,7 @@ describe("validateSettingsPayload", () => {
         cleanupWorktreeOnFailure: "bad",
         retryOnReadFileNotFound: "bad",
         resumeFailedTaskInSameWorkspace: "bad",
+        gitMode: "bad",
         executionMode: "bad",
         containerImage: 1,
         containerSetupScriptPath: 2,
@@ -236,6 +237,7 @@ describe("validateSettingsPayload", () => {
     expect(paths).toContain("ciIntelligence.mainBranchAutoMergeMode");
     expect(paths).toContain("sprintLoopSteps.watchLoopOutputIntervalSeconds");
     expect(paths).toContain("cliWorkflow.executionMode");
+    expect(paths).toContain("cliWorkflow.gitMode");
     expect(paths).toContain("cliWorkflow.containerCacheSetupScriptImage");
     expect(paths).toContain("cliWorkflow.containerClaudeCodeAuthPath");
     expect(paths).toContain("workers.executionMode");

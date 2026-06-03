@@ -57,6 +57,10 @@ export const sanitizeCliWorkflow = (
       cliInput.resumeFailedTaskInSameWorkspace,
       DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.resumeFailedTaskInSameWorkspace
     ),
+    gitMode: (() => {
+      const gitMode = readString(cliInput.gitMode, DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.gitMode) as "remote" | "local";
+      return gitMode === "local" ? "local" : "remote";
+    })(),
     executionMode: normalizedExecutionMode,
     containerImage,
     containerSetupScriptPath: readString(

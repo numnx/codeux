@@ -748,6 +748,7 @@ export interface CliWorkflowSettings {
   maxRateLimitRetries: number;
   maxParsingRetries: number;
   resumeFailedTaskInSameWorkspace: boolean;
+  gitMode: "remote" | "local";
   executionMode: CliExecutionMode;
   containerImage: string;
   containerSetupScriptPath: string;
