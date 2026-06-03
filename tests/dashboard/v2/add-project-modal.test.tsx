@@ -115,9 +115,9 @@ describe("AddProjectModal", () => {
     render(<AddProjectModal onClose={vi.fn()} onAdd={onAdd} initialSourceType="new_project" />);
 
     fireEvent.input(screen.getByLabelText("Project Name"), { target: { value: "Alpha" } });
-    fireEvent.input(screen.getByLabelText("Directory Path"), { target: { value: "/tmp/alpha" } });
+    fireEvent.input(screen.getByLabelText(/Directory Path/i), { target: { value: "/tmp/alpha" } });
     await waitFor(() => expect(screen.getByLabelText("Project Name")).toHaveValue("Alpha"));
-    await waitFor(() => expect(screen.getByLabelText("Directory Path")).toHaveValue("/tmp/alpha"));
+    await waitFor(() => expect(screen.getByLabelText(/Directory Path/i)).toHaveValue("/tmp/alpha"));
     const form = screen.getByLabelText("Project Name").closest("form");
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
@@ -128,6 +128,7 @@ describe("AddProjectModal", () => {
       type: "new_project",
       path: "/tmp/alpha",
       initMode: "new-local",
+      repoSlug: "alpha",
     });
   });
 

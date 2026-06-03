@@ -35,9 +35,17 @@ type NewProjectSubmission = {
     initMode: 'new-local' | 'new-remote';
     remoteProvider?: 'github' | 'gitlab';
     isPrivate?: boolean;
+    repoSlug?: string;
 };
 
 export type AddProjectModalSubmission = ExistingProjectSubmission | NewProjectSubmission;
+
+const slugify = (text: string): string => {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+};
 
 interface AddProjectModalProps {
     onClose: () => void;
@@ -60,6 +68,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const fieldsRef   = useRef<HTMLDivElement>(null);
 
     const [name, setName]           = useState('');
+    const [gitUrlSlug, setGitUrlSlug] = useState('');
+    const [isSlugEdited, setIsSlugEdited] = useState(false);
     const [sourceType, setSourceType] = useState<SourceType>(initialSourceType ?? 'local');
     const [localPath, setLocalPath] = useState('');
     const [gitUrl, setGitUrl]       = useState('');
@@ -94,11 +104,9 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
             if (!gitUrl.trim()) {
                 errors.path = "Repository URL is required.";
             }
-        } else if (sourceType === 'new_project' && newInitMode === 'new-local' && !localPath.trim()) {
-            errors.path = "Directory Path is required.";
         }
         return errors;
-    }, [name, localPath, gitUrl, sourceType, newInitMode]);
+    }, [name, gitUrl, sourceType]);
 
     useLayoutEffect(() => {
         const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
@@ -150,6 +158,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     type: 'new_project',
                     path: newInitMode === 'new-local' ? localPath.trim() : '',
                     initMode: newInitMode,
+                    repoSlug: gitUrlSlug.trim(),
                     ...(newInitMode === 'new-remote'
                         ? {
                             remoteProvider: newProvider,
@@ -394,7 +403,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     <div className="relative z-10">
                         <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 font-mono mb-1.5">Source</div>
                         <div className="text-lg font-black text-white font-mono tracking-tight leading-snug">
-                            {sourceType === 'new_project' ? 'New Project' : sourceType === 'git' ? 'Git Repo' : 'New Project'}
+                            {sourceType === 'new_project' ? 'New Project' : sourceType === 'git' ? 'Git Repo' : 'Local Project'}
                         </div>
                         <div className="mt-3 w-8 h-[2px] bg-ember-500/50" />
                     </div>
@@ -442,7 +451,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     type="text"
                                     value={name}
                                     onInput={(e) => {
-                                        setName((e.target as HTMLInputElement).value);
+                                        const newName = (e.target as HTMLInputElement).value;
+                                        setName(newName);
+                                        if (!isSlugEdited) {
+                                            setGitUrlSlug(slugify(newName));
+                                        }
                                         if (submitError) setSubmitError(null);
                                     }}
                                     placeholder="My Awesome Project"
@@ -479,14 +492,14 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     ? <GitBranch className="w-3.5 h-3.5" strokeWidth={2} />
                                                     : <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
                                             }
-                                            {type === 'local' ? 'New Project' : type === 'git' ? 'Git URL' : 'New Project'}
+                                            {type === 'local' ? 'Local Project' : type === 'git' ? 'Git URL' : 'New Project'}
                                         </button>
                                     ))}
                                 </div>
                             </fieldset>
 
                             {/* Conditional fields */}
-                            {sourceType === 'local' ? (
+                            {sourceType === 'local' && (
                                 <div className="group/field">
                                     <label htmlFor="add-project-path" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                         <FolderInput className="w-3 h-3" /> Directory Path
@@ -521,7 +534,9 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     {renderDirectoryPicker('localPath')}
                                     {validationErrors.path && touched.path && <div id="project-path-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.path}</div>}
                                 </div>
-                            ) : (
+                            )}
+
+                            {sourceType === 'git' && (
                                 <>
                                     <div className="group/field">
                                         <label htmlFor="add-project-git-url" className={`${fieldLabelClass} flex items-center gap-1.5`}>
@@ -700,10 +715,30 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         </div>
                                     </fieldset>
 
+                                    <div className="group/field">
+                                        <label htmlFor="add-project-git-slug" className={`${fieldLabelClass} flex items-center gap-1.5`}>
+                                            <GitBranch className="w-3.5 h-3.5" /> Git URL Slug
+                                        </label>
+                                        <input
+                                            id="add-project-git-slug"
+                                            type="text"
+                                            value={gitUrlSlug}
+                                            onInput={(e) => {
+                                                setGitUrlSlug((e.target as HTMLInputElement).value);
+                                                setIsSlugEdited(true);
+                                                if (submitError) setSubmitError(null);
+                                            }}
+                                            placeholder="my-awesome-project"
+                                            className={detailInputClass}
+                                            required
+                                        />
+                                    </div>
+
                                     {newInitMode === 'new-local' ? (
                                         <div className="group/field">
                                             <label htmlFor="add-project-new-path" className={`${fieldLabelClass} flex items-center gap-1.5`}>
                                                 <FolderInput className="w-3 h-3" /> Directory Path
+                                                <span className="ml-1 text-slate-300 dark:text-slate-600 normal-case font-medium tracking-normal">(optional)</span>
                                             </label>
                                             <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-stretch">
                                                 <input
