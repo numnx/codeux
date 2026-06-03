@@ -66,9 +66,10 @@ export const KanbanTaskCard: FunctionComponent<{
     const y = (event.clientY - bounds.top) / bounds.height - 0.5;
 
     gsap.to(element, {
-      rotationY: x * 10,
-      rotationX: -y * 8,
+      rotationY: x * 4,
+      rotationX: -y * 4,
       z: 12,
+      zIndex: 50,
       transformPerspective: 800,
       duration: 0.4,
       ease: "power2.out",
@@ -83,6 +84,7 @@ export const KanbanTaskCard: FunctionComponent<{
       rotationY: 0,
       rotationX: 0,
       z: 0,
+      zIndex: 1,
       transformPerspective: 800,
       duration: 0.8,
       ease: "elastic.out(1, 0.5)",
@@ -90,11 +92,19 @@ export const KanbanTaskCard: FunctionComponent<{
     });
   };
 
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.target === cardRef.current && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      onEdit(task);
+    }
+  };
+
   return (
     <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onKeyDown={handleKeyDown}
       tabIndex={0}
       className={`kanban-card group relative flex flex-col bg-white/80 dark:bg-void-800/75 backdrop-blur-sm rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"} ${isReducedMotion ? 'kanban-card-reduced-motion' : ''}`}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
