@@ -400,10 +400,11 @@ export const useSettingsPageState = (
   }, [systemSettings]);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
-    if (activeScope === "system") {
-      if (!systemSettings) {
-        return false;
-      }
+    let systemSaved = true;
+    let projectSaved = true;
+    const errors: string[] = [];
+
+    if (systemDirty && systemSettings) {
       setSavingSystem(true);
       try {
         const saved = await saveSystemSettings(systemSettings);
@@ -417,40 +418,50 @@ export const useSettingsPageState = (
           setSavedProjectSettings(cloneProjectSettings(nextProject));
           setProjectSources(effectiveProject.sources);
         }
-
-        setError(null);
-        setSaveMessage("System settings saved.");
-        return true;
       } catch (saveError) {
-        setError(saveError instanceof Error ? saveError.message : String(saveError));
-        return false;
+        errors.push(saveError instanceof Error ? saveError.message : String(saveError));
+        systemSaved = false;
       } finally {
         setSavingSystem(false);
       }
     }
 
-    if (!selectedProject || !projectSettings) {
-      return false;
+    if (projectDirty && selectedProject && projectSettings) {
+      setSavingProject(true);
+      try {
+        await saveProjectSettings(selectedProject.id, projectSettings);
+        const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+        const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
+        setProjectSettings(cloneProjectSettings(nextProject));
+        setSavedProjectSettings(cloneProjectSettings(nextProject));
+        setProjectSources(effectiveProject.sources);
+      } catch (saveError) {
+        errors.push(saveError instanceof Error ? saveError.message : String(saveError));
+        projectSaved = false;
+      } finally {
+        setSavingProject(false);
+      }
     }
 
-    setSavingProject(true);
-    try {
-      await saveProjectSettings(selectedProject.id, projectSettings);
-      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
-      const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
-      setProjectSettings(cloneProjectSettings(nextProject));
-      setSavedProjectSettings(cloneProjectSettings(nextProject));
-      setProjectSources(effectiveProject.sources);
+    if (errors.length > 0) {
+      setError(errors.join(" | "));
+    } else {
       setError(null);
-      setSaveMessage(`Project settings saved for ${selectedProject.name}.`);
-      return true;
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-      return false;
-    } finally {
-      setSavingProject(false);
     }
-  }, [activeScope, systemSettings, selectedProject, projectSettings]);
+
+    if (systemSaved && projectSaved) {
+      const scopeMsg = systemDirty && projectDirty
+        ? "All settings saved."
+        : systemDirty
+          ? "System settings saved."
+          : projectDirty && selectedProject
+            ? `Project settings saved for ${selectedProject.name}.`
+            : "Settings saved.";
+      setSaveMessage(scopeMsg);
+      return true;
+    }
+    return false;
+  }, [systemDirty, projectDirty, systemSettings, selectedProject, projectSettings]);
 
   const handleResetProject = useCallback(async (): Promise<void> => {
     if (!selectedProject) {
@@ -633,7 +644,7 @@ export const useSettingsPageState = (
     };
   }, []);
 
-  const activeDirty = activeScope === "system" ? systemDirty : projectDirty;
+  const activeDirty = systemDirty || projectDirty;
 
   useEffect(() => {
     if (typeof window === "undefined" || !activeDirty) {
@@ -652,7 +663,7 @@ export const useSettingsPageState = (
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [activeDirty]);
 
-  const activeSaving = activeScope === "system" ? savingSystem : savingProject;
+  const activeSaving = savingSystem || savingProject;
 
   return {
     activeCategory, setActiveCategory,
