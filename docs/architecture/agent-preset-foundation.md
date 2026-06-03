@@ -27,6 +27,7 @@ Foundation fields:
 - `labels_json`
 - `provider_config_id`
 - `model`
+- `memory_config`
 - `created_at`
 - `updated_at`
 
@@ -66,6 +67,7 @@ Foundation-supported fields:
 - instruction markdown
 - optional provider instance preference
 - optional model override
+- optional per-agent memory injection configuration
 
 Agent labels are still stored in the data model for markdown sync and built-in preset conventions, but the dashboard no longer exposes custom label editing. The Agents page displays computed route-assignment tags from effective project settings instead, including tags for built-in fallback selections on Planning agent, Worker, Project manager, and Quality assurance agent.
 
