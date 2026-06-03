@@ -7,6 +7,17 @@ describe("sanitizeCliWorkflow", () => {
     expect(result.executionMode).toBe("DOCKER");
   });
 
+  it("defaults git mode to remote and rejects invalid values", () => {
+    const defaults = sanitizeCliWorkflow(undefined);
+    expect(defaults.gitMode).toBe("remote");
+
+    const invalid = sanitizeCliWorkflow({ cliWorkflow: { gitMode: "invalid" as any } });
+    expect(invalid.gitMode).toBe("remote");
+
+    const local = sanitizeCliWorkflow({ cliWorkflow: { gitMode: "local" as any } });
+    expect(local.gitMode).toBe("local");
+  });
+
   it("keeps provider credential mounts independent", () => {
     const result = sanitizeCliWorkflow({
       cliWorkflow: {

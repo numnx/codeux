@@ -155,6 +155,7 @@ function makeBasePayload() {
       maxPlanningJsonRetries: 3,
       maxQuotaRetriesWithoutTimer: 3,
       resumeFailedTaskInSameWorkspace: true,
+      gitMode: "remote",
       executionMode: "DOCKER",
       containerImage: "node:20",
       containerSetupScriptPath: "",
