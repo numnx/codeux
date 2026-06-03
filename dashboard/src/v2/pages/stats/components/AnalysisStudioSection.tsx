@@ -10,6 +10,7 @@ import {
   StudioHeader,
   PANEL_CLASS,
 } from "./StatsShared.js";
+import { SystemStudio } from "./system/SystemStudio.js";
 import { TelemetryLedgerTabs } from "./TelemetryLedgerTabs.js";
 
 export interface AnalysisStudioSectionProps {
@@ -17,6 +18,7 @@ export interface AnalysisStudioSectionProps {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  projectId: string;
   planningUsage: ExecutionStatsEntitySummary | null;
   providerSegments: SegmentDefinition[];
   tokenSegments: SegmentDefinition[];
@@ -31,6 +33,7 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
   loading,
   error,
   refresh,
+  projectId,
   planningUsage,
   providerSegments,
   tokenSegments,
@@ -78,6 +81,10 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
           </div>
           <TelemetryLedgerTabs stats={stats} />
         </section>
+      ) : null}
+
+      {visualMode === "system" ? (
+        <SystemStudio projectId={projectId} />
       ) : null}
     </>
   );
