@@ -204,6 +204,7 @@ Legacy runtime:
 - Selecting a virtual worker from the top nav switches the selected project into `workers.executionMode = VIRTUAL` with that provider
 - Connected MCP worker selection has been removed; the worker selector is now virtual-only
 - Projects page is DB-backed and can create/select/delete projects
+- Project source cells now select the clicked project before routing: the `Sprints` action loads `/sprints`, and the settings gear loads `/config`.
 - The `Add Project` dialog now keeps keyboard focus inside the active form field while typing, and its initial focus respects the form's `autofocus` input instead of jumping to the header close button
 - The Projects page `Add Project` placeholder card uses the same full-height card footprint and internal padding as project cards, and the add dialog fields use rounded field surfaces with amber focus states instead of bare underline inputs; the dialog also constrains itself to the viewport on shorter screens
 - The `Add Project` dialog now has a wider desktop layout, keeps a stable Git-form-height floor while switching source types, and exposes the inline directory browser on both local project paths and optional Git clone destination paths, with home, refresh, parent-directory navigation, child-directory traversal, and an explicit use-current-folder action
