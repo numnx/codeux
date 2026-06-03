@@ -33,6 +33,7 @@
     "electron:benchmark:win": "node scripts/benchmark-electron-windows.mjs",
     "electron:install-deps": "electron-builder install-app-deps",
     "test": "vitest run",
+    "smoketest:codex": "node --import ./scripts/tsnode-register.mjs tests/smoketest/codex.smoketest.ts",
     "test:backend": "vitest run tests/backend",
     "test:dashboard": "vitest run tests/dashboard",
     "test:watch": "vitest",
