@@ -231,7 +231,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
         {/* Error overlay */}
         <div
           className={`absolute bottom-0 left-0 right-0 z-10 p-4 transition-transform duration-200 ease-out ${error ? "translate-y-0" : "translate-y-full"}`}
-          {...(!error ? { inert: "" } : {})}
+          {...(!error ? { inert: true } : {})}
         >
           <div className="mx-auto flex max-w-xl items-center justify-between gap-4 rounded-2xl border border-status-red/20 bg-status-red/10 p-4 text-sm shadow-lg backdrop-blur-xl dark:border-status-red/30 dark:bg-status-red/20">
             <div className="flex-1 text-status-red dark:text-red-400">
