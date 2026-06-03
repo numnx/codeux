@@ -61,6 +61,7 @@ export interface IDockerRunner {
     customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
+  readWorkspaceFileBase64?(cwd: string, targetPath: string): Promise<string | null>;
   readLatestWorkspaceFile?(cwd: string, dirPath: string, glob?: string): Promise<string | null>;
   readWorkspaceJsonArray?(cwd: string, dirPath: string): Promise<string | null>;
   removeWorkspaceDir?(cwd: string, dirPath: string): Promise<void>;
@@ -268,6 +269,37 @@ export class DockerRunner implements IDockerRunner {
           }),
           "alpine:3.20",
           "cat",
+          targetPath,
+        ],
+        process.cwd(),
+        process.env,
+      );
+      return result.ok ? result.stdout : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async readWorkspaceFileBase64(cwd: string, targetPath: string): Promise<string | null> {
+    const workspace = this.resolveWorkspace(cwd);
+    try {
+      const result = await runStreamingCommand(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-i",
+          "--workdir",
+          CONTAINER_WORKSPACE_ROOT,
+          "--mount",
+          toDockerMountArg({
+            source: workspace.volumeName,
+            destination: CONTAINER_WORKSPACE_ROOT,
+            readonly: true,
+            type: "volume",
+          }),
+          "alpine:3.20",
+          "base64",
           targetPath,
         ],
         process.cwd(),

@@ -96,6 +96,23 @@ If usage is absent or totals are zero, Code UX falls back to token estimation us
 
 For Docker-backed Claude Code runs, Code UX reads the same session JSONL from the isolated workspace runtime home (`/workspace/.code-ux-home`) before the Docker volume is cleaned up.
 
+### Antigravity
+
+Antigravity runs with `agy` CLI commands.
+
+Code UX parses session data from two sources:
+- **Token usage**: reads the conversation's SQLite database file (`~/.gemini/antigravity-cli/conversations/<id>.db` or fallback path `~/.gemini/antigravity/conversations/<id>.db`). It decodes the custom Protobuf data stored in the latest row of the `gen_metadata` table to extract:
+  - `inputTokens`
+  - `outputTokens` (falling back to reasoning + candidates if output tokens are zero or missing)
+  - `reasoningTokens`
+- **Full conversation transcript**: reads the JSONL transcript file (`~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/transcript.jsonl` or fallback path under `antigravity`). The transcript parser processes:
+  - `user` turns from `USER_INPUT` entry types (stripping `<USER_REQUEST>` wrapper tags).
+  - `assistant` and `tool_call` turns from `PLANNER_RESPONSE` entry types.
+  - `tool_result` turns from `RUN_COMMAND` or `TOOL_RESPONSE` entries.
+  - `reasoning` turns from `SYSTEM` source events.
+
+For Docker-backed Antigravity runs, the SQLite database is encoded to Base64 within the container first, and then decoded to a temporary file on the host before parsing to bypass Docker named volume permission issues.
+
 ### Jules
 
 Jules does not expose a compatible native token contract. Instead of excluding it, Code UX computes **estimated** tokens for Jules by accumulating input and output characters divided by 4 (the characters-per-token heuristic).
