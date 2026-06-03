@@ -64,7 +64,14 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [touched, setTouched] = useState({ sprintId: false, title: false });
+  const [shakeFields, setShakeFields] = useState({ sprintId: false, title: false });
   const [dependencySearchQuery, setDependencySearchQuery] = useState("");
+
+  const initialTriggerRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    initialTriggerRef.current = document.activeElement as HTMLElement | null;
+  }, []);
 
   const backdropRef = useFocusTrap(!isClosing, { onClose: () => handleClose(), restoreFocus: true });
 
@@ -84,7 +91,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
       { y: MODAL_MOTION.entry.yEnd, opacity: MODAL_MOTION.entry.opacityEnd, scale: MODAL_MOTION.entry.scaleEnd, filter: MODAL_MOTION.entry.filterEnd, duration: d_card, ease: MODAL_MOTION.entry.ease, clearProps: "filter" }
     );
     if (fieldsRef.current) {
-      gsap.fromTo(Array.from(fieldsRef.current.children),
+      gsap.fromTo(fieldsRef.current.querySelectorAll('.modal-animate-in'),
         { y: reducedMotion ? 0 : MODAL_MOTION.fieldStagger.yStart, opacity: 0 },
         {
           y: 0,
@@ -104,7 +111,12 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
     const d_card = reducedMotion ? 0 : MODAL_MOTION.exit.duration;
     const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
     gsap.to(cardRef.current, { y: MODAL_MOTION.exit.yEnd, opacity: MODAL_MOTION.exit.opacityEnd, scale: MODAL_MOTION.exit.scaleEnd, filter: MODAL_MOTION.exit.filterEnd, duration: d_card, ease: MODAL_MOTION.exit.ease });
-    gsap.to(backdropRef.current, { opacity: 0, duration: d_backdrop, delay: reducedMotion ? 0 : 0.05, onComplete: onClose });
+    gsap.to(backdropRef.current, { opacity: 0, duration: d_backdrop, delay: reducedMotion ? 0 : 0.05, onComplete: () => {
+      onClose();
+      if (initialTriggerRef.current) {
+        initialTriggerRef.current.focus();
+      }
+    }});
   };
 
   const dependencyOptions = useMemo(() => {
@@ -132,6 +144,13 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
     event.preventDefault();
     if (Object.keys(validationErrors).length > 0) {
       setTouched({ sprintId: true, title: true });
+      setShakeFields({
+        sprintId: !!validationErrors.sprintId,
+        title: !!validationErrors.title,
+      });
+      setTimeout(() => {
+        setShakeFields({ sprintId: false, title: false });
+      }, 400);
       return;
     }
 
@@ -224,7 +243,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
           <form ref={fieldsRef} onSubmit={handleSubmit} className="flex flex-col gap-6">
             <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} autoDismiss={feedback.autoDismiss} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="group/field">
+              <div className={`group/field modal-animate-in relative ${shakeFields.sprintId && !reducedMotion ? "animate-shake" : ""}`}>
                 <label htmlFor="add-task-sprint" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Sprint</label>
                 <select
                   id="add-task-sprint"
@@ -243,10 +262,12 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                     <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
                   ))}
                 </select>
-                {validationErrors.sprintId && touched.sprintId && <div id="task-sprint-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.sprintId}</div>}
+                <div className="h-5 mt-1">
+                  {validationErrors.sprintId && touched.sprintId && <div id="task-sprint-error" className="text-xs text-red-500 font-medium motion-safe:animate-form-slide-down">{validationErrors.sprintId}</div>}
+                </div>
               </div>
 
-              <div className="group/field">
+              <div className={`group/field modal-animate-in relative ${shakeFields.title && !reducedMotion ? "animate-shake" : ""}`}>
                 <label htmlFor="add-task-title" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Title</label>
                 <input
                   id="add-task-title"
@@ -264,12 +285,14 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                   onBlur={() => setTouched(prev => ({ ...prev, title: true }))}
 
                 />
-                {validationErrors.title && touched.title && <div id="task-title-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.title}</div>}
+                <div className="h-5 mt-1">
+                  {validationErrors.title && touched.title && <div id="task-title-error" className="text-xs text-red-500 font-medium motion-safe:animate-form-slide-down">{validationErrors.title}</div>}
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <fieldset>
+              <fieldset className="modal-animate-in">
                 <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">Status</legend>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {STATUS_OPTIONS.map((option) => (
@@ -289,7 +312,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                 </div>
               </fieldset>
 
-              <fieldset>
+              <fieldset className="modal-animate-in">
                 <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">Priority</legend>
                 <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                   {PRIORITY_OPTIONS.map((option) => (
@@ -310,7 +333,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </fieldset>
             </div>
 
-            <fieldset>
+            <fieldset className="modal-animate-in">
               <legend className="flex items-center gap-2 mb-2.5">
                 <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</span>
@@ -334,7 +357,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               </div>
             </fieldset>
 
-            <div className="group/field">
+            <div className="group/field modal-animate-in">
               <label htmlFor="add-task-description" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Description</label>
               <textarea
                 id="add-task-description"
@@ -345,7 +368,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               />
             </div>
 
-            <div className="group/field">
+            <div className="group/field modal-animate-in">
               <label htmlFor="add-task-prompt" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Execution Prompt</label>
               <textarea
                 id="add-task-prompt"
@@ -356,7 +379,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               />
             </div>
 
-            <fieldset>
+            <fieldset className="modal-animate-in">
               <div className="flex items-center justify-between mb-3">
                 <legend className="flex items-center gap-2">
                   <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
@@ -409,7 +432,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
               )}
             </fieldset>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-2 modal-animate-in">
               <button
                 type="button"
                 onClick={handleClose}
