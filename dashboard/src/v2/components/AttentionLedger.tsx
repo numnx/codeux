@@ -1,6 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
-import { useMemo, useLayoutEffect, useRef, useId, useState } from "preact/hooks";
+import { useMemo, useLayoutEffect, useRef, useId, useState, useEffect } from "preact/hooks";
 import gsap from "gsap";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 import { Bot, CheckCircle2, ChevronDown, XCircle } from "lucide-preact";
@@ -57,27 +57,113 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
         return attentionItems.slice(0, 8);
     }, [attentionItems, attentionItems.length]);
 
+    // Local state to keep exiting items in DOM
+    const [displayItems, setDisplayItems] = useState<(typeof visibleAttentionItems[0] & { _isExiting?: boolean })[]>(visibleAttentionItems);
+    const prevItemsRef = useRef(visibleAttentionItems);
+    const scrollStateRef = useRef({ scrollTop: 0, scrollHeight: 0 });
+
     useLayoutEffect(() => {
         if (!listRef.current || reducedMotion) {
-            prevCountRef.current = attentionItems.length;
+            setDisplayItems(visibleAttentionItems);
+            prevItemsRef.current = visibleAttentionItems;
             return;
         }
 
-        const currentCount = attentionItems.length;
-        if (currentCount > prevCountRef.current) {
-            // New items were added, animate them
-            const newElements = Array.from(listRef.current.children).filter(el => !el.hasAttribute('data-entered'));
+        const prevItems = prevItemsRef.current;
+        const currentItems = visibleAttentionItems;
 
-            if (newElements.length > 0) {
-                gsap.fromTo(newElements,
-                    { opacity: 0, x: -10 },
-                    { opacity: 1, x: 0, duration: 0.25, stagger: 0.04, ease: "power2.out" }
-                );
-                newElements.forEach(el => el.setAttribute('data-entered', 'true'));
+        // Save scroll state before DOM updates
+        scrollStateRef.current = {
+            scrollTop: listRef.current.scrollTop,
+            scrollHeight: listRef.current.scrollHeight
+        };
+
+        const currentIds = new Set(currentItems.map(i => i.id));
+        const prevIds = new Set(prevItems.map(i => i.id));
+
+        const enteringIds = new Set([...currentIds].filter(id => !prevIds.has(id)));
+        const exitingIds = new Set([...prevIds].filter(id => !currentIds.has(id)));
+
+        // Find state changes for flashing
+        const changedIds = new Set();
+        currentItems.forEach(item => {
+            const prevItem = prevItems.find(p => p.id === item.id);
+            if (prevItem && prevItem.status !== item.status) {
+                changedIds.add(item.id);
             }
-        }
-        prevCountRef.current = currentCount;
-    }, [attentionItems, attentionItems.length, reducedMotion]);
+        });
+
+        // Compute merged items to keep exiting ones in DOM temporarily
+        const mergedItems: (typeof visibleAttentionItems[0] & { _isExiting?: boolean })[] = [...currentItems];
+        exitingIds.forEach(id => {
+            const exitingItem = prevItems.find(p => p.id === id);
+            if (exitingItem) {
+                // Insert exiting item at its previous position, or at the end
+                const prevIndex = prevItems.findIndex(p => p.id === id);
+                mergedItems.splice(prevIndex, 0, { ...exitingItem, _isExiting: true });
+            }
+        });
+
+        setDisplayItems(mergedItems);
+
+        // Use a slight timeout to let DOM render the merged items before animating
+        requestAnimationFrame(() => {
+            if (!listRef.current) return;
+
+            // Scroll anchoring logic is handled by GSAP organically pushing content.
+            // If the user has scrolled down, we should animate the scrollTop
+            // but since GSAP height animation starts at 0 and grows, it organically pushes items down.
+            // A more precise approach if scrolled is to adjust scrollTop incrementally.
+
+            const initialScrollTop = scrollStateRef.current.scrollTop;
+            const isScrolled = initialScrollTop > 0;
+
+            const elements = Array.from(listRef.current.children);
+
+            elements.forEach((el) => {
+                const id = el.getAttribute('data-item-id');
+                if (!id) return;
+
+                if (enteringIds.has(id) && !el.hasAttribute('data-entered')) {
+                    el.setAttribute('data-entered', 'true');
+                    const targetHeight = (el as HTMLElement).offsetHeight;
+
+                    let prevHeight = 0;
+                    gsap.fromTo(el,
+                        { height: 0, opacity: 0, marginTop: 0, paddingTop: 0, paddingBottom: 0, overflow: 'hidden' },
+                        {
+                            height: targetHeight, opacity: 1, marginTop: '', paddingTop: '', paddingBottom: '', duration: 0.3, ease: "power2.out", clearProps: "height,overflow,marginTop,paddingTop,paddingBottom",
+                            onUpdate: function() {
+                                if (isScrolled && listRef.current) {
+                                    // Get current animated height
+                                    const currentHeight = gsap.getProperty(el, "height") as number;
+                                    const diff = currentHeight - prevHeight;
+                                    listRef.current.scrollTop += diff;
+                                    prevHeight = currentHeight;
+                                }
+                            }
+                        }
+                    );
+                } else if (exitingIds.has(id) && !el.hasAttribute('data-exiting')) {
+                    el.setAttribute('data-exiting', 'true');
+                    gsap.to(el, {
+                        height: 0, opacity: 0, marginTop: 0, paddingTop: 0, paddingBottom: 0, overflow: 'hidden',
+                        duration: 0.3, ease: "power2.in",
+                        onComplete: () => {
+                            setDisplayItems(prev => prev.filter(item => item.id !== id || !item._isExiting));
+                        }
+                    });
+                } else if (changedIds.has(id)) {
+                    gsap.fromTo(el,
+                        { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                        { backgroundColor: "", duration: 0.5, clearProps: "backgroundColor" }
+                    );
+                }
+            });
+        });
+
+        prevItemsRef.current = currentItems;
+    }, [visibleAttentionItems, reducedMotion]);
 
     if (!snapshot) return null;
 
@@ -135,7 +221,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                             </p>
                         ) : (
                             <div ref={listRef} className="max-h-80 space-y-2 overflow-y-auto pr-1 dashboard-scrollbar">
-                                {visibleAttentionItems.map((item) => {
+                                {displayItems.map((item) => {
                                     const assignedWorkerLabel = item.assignedWorkerEndpointId
                                         ? workersByEndpointId.get(item.assignedWorkerEndpointId) || item.assignedWorkerEndpointId
                                         : item.ownerType === "worker"
@@ -154,6 +240,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                     return (
                                         <div
                                             key={item.id}
+                                            data-item-id={item.id}
                                             className="rounded-xl border border-black/[0.04] bg-black/[0.015] p-3 dark:border-white/[0.04] dark:bg-white/[0.015]"
                                         >
                                             <div className="flex items-start justify-between gap-3">
