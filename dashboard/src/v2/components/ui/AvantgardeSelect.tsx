@@ -103,32 +103,28 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
       ? boundary.getBoundingClientRect()
       : { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight };
 
-    // --- Vertical direction ---
+    const panelHeight = panelRef.current?.getBoundingClientRect().height || PANEL_MAX_H;
+    const availableWidth = Math.max(0, bounds.right - bounds.left - EDGE_MARGIN * 2);
+    const availableHeight = Math.max(0, bounds.bottom - bounds.top - EDGE_MARGIN * 2);
+    const effectiveWidth = Math.min(panelWidth, availableWidth);
+    const effectiveHeight = Math.min(panelHeight, availableHeight);
+
     const spaceBelow = bounds.bottom - triggerRect.bottom - GAP - EDGE_MARGIN;
     const spaceAbove = triggerRect.top - bounds.top - GAP - EDGE_MARGIN;
     const direction: "down" | "up" =
-      spaceBelow >= PANEL_MAX_H || spaceBelow >= spaceAbove ? "down" : "up";
+      spaceBelow >= effectiveHeight || spaceBelow >= spaceAbove ? "down" : "up";
 
     const top =
       direction === "down"
-        ? triggerRect.bottom + GAP
-        : triggerRect.top - GAP;
+        ? Math.max(bounds.top + EDGE_MARGIN, Math.min(triggerRect.bottom + GAP, bounds.bottom - EDGE_MARGIN - effectiveHeight))
+        : Math.max(bounds.top + EDGE_MARGIN + effectiveHeight, Math.min(triggerRect.top - GAP, bounds.bottom - EDGE_MARGIN));
 
-    // --- Horizontal: keep panel within bounds ---
-    let left = triggerRect.left;
-    const panelRight = left + panelWidth;
-    const boundsRight = bounds.right;
-    const boundsLeft = bounds.left;
+    const left = Math.max(
+      bounds.left + EDGE_MARGIN,
+      Math.min(triggerRect.left, bounds.right - EDGE_MARGIN - effectiveWidth),
+    );
 
-    if (panelRight > boundsRight - EDGE_MARGIN) {
-      // Align right edge of panel with right edge of trigger (or boundary)
-      left = Math.max(boundsLeft + EDGE_MARGIN, triggerRect.right - panelWidth);
-    }
-    if (left < boundsLeft + EDGE_MARGIN) {
-      left = boundsLeft + EDGE_MARGIN;
-    }
-
-    setPosition({ top, left, width: panelWidth, direction });
+    setPosition({ top, left, width: effectiveWidth, direction });
   }, []);
 
   // Reposition on open, scroll, resize
@@ -253,6 +249,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
     }
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       setOpen(false);
       focusWithoutScroll(triggerRef.current);
       return;
@@ -369,25 +366,25 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
               const isSelected = option.value === value;
               const isFocused = idx === activeIndex;
               return (
-                <button
-                  key={option.value}
-                  id={`select-option-${option.value.replace(/\W/g, '-')}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  type="button"
-                  ref={isFocused ? activeOptionRef : null}
-                  onClick={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                    focusWithoutScroll(triggerRef.current);
-                  }}
-                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors ${
-                    isFocused ? "bg-signal-500/10 shadow-[inset_2px_0_0_0_var(--color-signal-500)] text-signal-600 dark:text-signal-300 z-10 relative" : ""
-                  }${
-                    isSelected
-                      ? "bg-signal-50/50 dark:bg-signal-900/20 font-semibold text-signal-700 dark:text-signal-300"
-                      : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-void-700"
-                  }`}
+                  <button
+                    key={option.value}
+                    id={`select-option-${option.value.replace(/\W/g, '-')}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    type="button"
+                    ref={isFocused ? activeOptionRef : null}
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                      focusWithoutScroll(triggerRef.current);
+                    }}
+                    className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-[background-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                      isFocused ? "bg-signal-500/10 shadow-[inset_2px_0_0_0_var(--color-signal-500)] text-signal-600 dark:text-signal-300 z-10 relative" : ""
+                    } ${
+                      isSelected
+                        ? "bg-signal-50/50 dark:bg-signal-900/20 font-semibold text-signal-700 dark:text-signal-300"
+                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-void-700"
+                    }`}
                 >
                   {option.icon && <span className="flex-shrink-0">{renderOptionIcon(option.icon)}</span>}
                   <span className="truncate">{option.label}</span>
