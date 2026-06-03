@@ -190,6 +190,7 @@ Legacy runtime:
 - The System stats view uses a local `useSystemViewData(projectId)` hook to fetch project invocation records, apply client-side search/filter/sort state, and derive summary metrics directly from the filtered list.
 
 ### V2 project management
+- The `AvantgardeSelect` popup now restores focus to its trigger on `Escape`, keeps arrow-key highlight changes visually eased, and clamps its portal position against scroll/resize boundary changes so the dropdown stays inside clipped cards and dialogs.
 - Interactive dashboard controls use pointer cursors consistently: enabled buttons, links, tab controls, form toggles, menu/popover triggers, DAG nodes, cards, and dismissible overlays expose a pointer affordance, while disabled controls retain `not-allowed`.
 - V2 pages use the shared `PageContainer` atomic component for page-level layout. Its `2400px` max width matches the `/` overview dashboard and is the single source of truth for page container width across overview, project, sprint, task, live, memory, stats, settings, agents, chat, and browser routes.
 - Top-nav project selector persists the active project in sqlite
