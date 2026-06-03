@@ -9,6 +9,7 @@ import { useOnboardingState } from "../../../dashboard/src/v2/hooks/useOnboardin
 import { OnboardingExperience } from "../../../dashboard/src/v2/components/onboarding/OnboardingExperience.js";
 import { cloneDefaultSettings } from "../../../dashboard/src/lib/settings.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
+import * as settingsApi from "../../../dashboard/src/v2/lib/settings-api.js";
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
@@ -22,6 +23,15 @@ vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", ()
     queueMicrotask(() => onComplete?.());
     return null;
   },
+}));
+
+vi.mock("../../../dashboard/src/v2/components/chat/DeepOceanBackground.js", () => ({
+  DeepOceanBackground: () => null,
+}));
+
+vi.mock("../../../dashboard/src/v2/lib/settings-api.js", () => ({
+  fetchSystemSettings: vi.fn(),
+  saveSystemSettings: vi.fn(),
 }));
 
 const HookProbe = () => {
@@ -88,7 +98,7 @@ describe("OnboardingExperience integration", () => {
     cleanup();
   });
 
-  it("initializes autoApprovePlan as true by default in settings", async () => {
+  it("toggles Git onboarding between remote and local modes", async () => {
     const defaultSettings = cloneDefaultSettings();
     const systemSettings = {
       runtime: {
@@ -102,11 +112,14 @@ describe("OnboardingExperience integration", () => {
         codexApiKey: "",
         claudeCodeApiKey: "",
         githubToken: "",
+        gitlabToken: "",
       },
       defaults: defaultSettings,
     };
+    vi.mocked(settingsApi.fetchSystemSettings).mockResolvedValue(systemSettings as any);
+    vi.mocked(settingsApi.saveSystemSettings).mockResolvedValue(systemSettings as any);
 
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input.url;
       if (url.endsWith("/api/user/onboarding")) {
         return new Response(JSON.stringify({ completed: false, onboardingCompletedAt: null }), {
@@ -125,18 +138,75 @@ describe("OnboardingExperience integration", () => {
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
-      if (url.endsWith("/api/system-settings")) {
-        return new Response(JSON.stringify(systemSettings), {
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+
+    render(<OnboardingExperience />);
+
+    const nextButton = await screen.findByRole("button", { name: "Next" });
+    await userEvent.click(nextButton);
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await screen.findByText("Git mode");
+    expect(screen.getByText("GitHub token")).not.toBeNull();
+    expect(screen.getByText("GitLab token")).not.toBeNull();
+    expect(screen.queryByText("Local mode does not support automatic CI or pull requests. Remote mode is recommended for full feature access.")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Local\b/i }));
+
+    expect(screen.queryByText("GitHub token")).toBeNull();
+    expect(screen.queryByText("GitLab token")).toBeNull();
+    expect(screen.getByText("Git identity")).not.toBeNull();
+    expect(screen.getByText("Local mode does not support automatic CI or pull requests. Remote mode is recommended for full feature access.")).not.toBeNull();
+  });
+
+  it("initializes autoApprovePlan as true by default in settings", async () => {
+    const defaultSettings = cloneDefaultSettings();
+    const systemSettings = {
+      runtime: {
+        dashboardPort: defaultSettings.dashboardPort,
+        enableDebugLogFile: defaultSettings.enableDebugLogFile,
+        consoleLogLevel: defaultSettings.consoleLogLevel,
+      },
+      integrations: {
+        julesApiKey: "",
+        geminiApiKey: "",
+        codexApiKey: "",
+        claudeCodeApiKey: "",
+        githubToken: "",
+      },
+      defaults: defaultSettings,
+    };
+    vi.mocked(settingsApi.fetchSystemSettings).mockResolvedValue(systemSettings as any);
+    vi.mocked(settingsApi.saveSystemSettings).mockResolvedValue(systemSettings as any);
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.endsWith("/api/user/onboarding")) {
+        return new Response(JSON.stringify({ completed: false, onboardingCompletedAt: null }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
+      }
+      if (url.endsWith("/api/onboarding/readiness")) {
+        return new Response(
+          JSON.stringify({
+            checkedAt: "2026-06-01T00:00:00.000Z",
+            cluster: { status: "ready", label: "Healthy", detail: "Runtime environment is ready." },
+            dependencies: [],
+            providers: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
       }
       return new Response(JSON.stringify({}), { status: 404 });
     });
 
     render(<OnboardingExperience />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/system-settings", undefined));
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
     expect(systemSettings.defaults.automationInterventions.autoApprovePlan).toBe(true);
   });
 });
@@ -227,4 +297,3 @@ describe("onboarding appearance step", () => {
     expect(screen.queryByText("Upload Image")).toBeNull();
   });
 });
-

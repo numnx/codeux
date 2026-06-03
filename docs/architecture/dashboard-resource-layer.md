@@ -21,6 +21,9 @@ Data fetching is governed by a unified resource layer rather than ad-hoc `useEff
 - Live task cards, DAG nodes, filter counts, and timing summaries now share one runtime projection that merges stable project task structure with `/api/status`, execution dispatches, and terminal runtime events before rendering.
 - Active status refreshes preserve prior session/provider/branch/PR metadata when a transient `/api/status` poll returns the same task without those ephemeral runtime fields, preventing live cards from dropping context between updates.
 - The Live page now waits for the resolved sprint scope from the header selection before loading sprint-filtered task data; while that selection is still hydrating, it uses the runtime status `sprint_id` as the fallback scope instead of widening to project-wide "All Sprints".
+- Project status is dynamically derived from `has_active_runs` (active/queued sprint runs or sprints with status `'running'`). If a project has no active runs, its status is mapped to `"idle"` even if the database status column is stale (e.g. from crashed processes or sprint deletions).
+- Sprints only show as `"running"` if their latest sprint run status is `"queued"` or `"running"`. If a sprint run is completed, failed, cancelled, or does not exist, the effective sprint status falls back to `"idle"`.
+- Header telemetry metrics (`TelemetryStats`) filter task counts to only include running and queued tasks belonging to actively running sprints.
 - Cache invalidation is coordinated through realtime websocket events.
 
 ## Resource Keys and Cache Invalidation

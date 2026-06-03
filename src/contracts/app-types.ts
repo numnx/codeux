@@ -426,7 +426,7 @@ export interface ExecutionStatsEntitySummary {
   lastActivityAt: string | null;
 }
 
-export type ProjectStatsWindow = "24h" | "7d" | "30d" | "all" | "custom";
+export type ProjectStatsWindow = "1h" | "24h" | "7d" | "30d" | "all" | "custom";
 export type ProjectStatsResolution = "hour" | "day" | "week";
 
 export interface ProjectStatsQuery {
@@ -748,6 +748,7 @@ export interface CliWorkflowSettings {
   maxRateLimitRetries: number;
   maxParsingRetries: number;
   resumeFailedTaskInSameWorkspace: boolean;
+  gitMode: "remote" | "local";
   executionMode: CliExecutionMode;
   containerImage: string;
   containerSetupScriptPath: string;

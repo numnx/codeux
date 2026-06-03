@@ -8,6 +8,7 @@ import type {
 import type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
+  ExecutionInvocationStatus,
 } from "../../../src/contracts/invocation-types.js";
 import type {
   ConnectionInboxMessage,
@@ -92,6 +93,9 @@ import type {
   ScheduleTargetType,
   UpdateSchedulerEntryInput,
 } from "../../../src/contracts/scheduler-types.js";
+import type {
+  TokenUsageSource,
+} from "../../../src/contracts/execution-types.js";
 
 export interface SegmentDefinition {
   label: string;
@@ -140,6 +144,7 @@ export interface Task {
 export type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
+  ExecutionInvocationStatus,
   LocalDirectoryBrowserEntry,
   LocalDirectoryBrowserResponse,
   AgentAvatarConfig,
@@ -186,6 +191,7 @@ export type {
   ExecutionUsageTotals,
   ExecutionUsageBucketSummary,
   ExecutionStatsEntitySummary,
+  TokenUsageSource,
   ExecutionConnectionSummary,
   ExecutionGitMetrics,
   ExecutionGitStatsBucketSummary,

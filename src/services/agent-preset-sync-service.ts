@@ -1,6 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import type { AgentMcpAccessConfig, AgentPresetRecord, AgentSourceScope, AgentAvatarConfig } from "../contracts/agent-preset-types.js";
+import type { AgentMcpAccessConfig, AgentMemoryConfig, AgentPresetRecord, AgentSourceScope, AgentAvatarConfig } from "../contracts/agent-preset-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
 import { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
 import { parseAgentMarkdown, formatAgentMarkdown } from "./agent-preset-markdown.js";
@@ -30,6 +30,7 @@ interface AgentSourceFile {
   model?: string | null;
   memoryTemplateOverrideEnabled?: boolean;
   memoryTemplateMarkdown?: string;
+  memoryConfig?: AgentMemoryConfig;
 }
 
 const BASE_AGENT_IDS: Record<string, string> = {
@@ -59,6 +60,7 @@ export class AgentPresetSyncService {
     model?: string | null;
     memoryTemplateOverrideEnabled?: boolean;
     memoryTemplateMarkdown?: string;
+    memoryConfig?: AgentMemoryConfig;
   }): Promise<AgentPresetRecord> {
     const nextName = input.name.trim();
     this.assertAgentNameAvailable(projectId, nextName);
@@ -75,6 +77,7 @@ export class AgentPresetSyncService {
         model: input.model,
         memoryTemplateOverrideEnabled: input.memoryTemplateOverrideEnabled,
         memoryTemplateMarkdown: input.memoryTemplateMarkdown,
+        memoryConfig: input.memoryConfig,
       });
       const created = this.deps.agentPresetRepository.importAgentPresetFromSource(projectId, {
         id: input.id,
@@ -110,6 +113,7 @@ export class AgentPresetSyncService {
     memoryTemplateOverrideEnabled?: boolean;
     memoryTemplateMarkdown?: string;
     mcpAccess?: AgentMcpAccessConfig;
+    memoryConfig?: AgentMemoryConfig;
   }): Promise<AgentPresetRecord> {
     const existing = this.deps.agentPresetRepository.getAgentPreset(agentPresetId);
     if (!existing) {
@@ -135,6 +139,7 @@ export class AgentPresetSyncService {
         model: input.model === undefined ? existing.model : input.model,
         memoryTemplateOverrideEnabled: input.memoryTemplateOverrideEnabled === undefined ? existing.memoryTemplateOverrideEnabled : input.memoryTemplateOverrideEnabled,
         memoryTemplateMarkdown: input.memoryTemplateMarkdown === undefined ? existing.memoryTemplateMarkdown : input.memoryTemplateMarkdown,
+        memoryConfig: input.memoryConfig === undefined ? existing.memoryConfig : input.memoryConfig,
         previousProjectSourcePath: existing.sourceScope === "project" ? existing.sourcePath : null,
       });
 
@@ -197,6 +202,7 @@ export class AgentPresetSyncService {
           model: source.model,
           memoryTemplateOverrideEnabled: source.memoryTemplateOverrideEnabled,
           memoryTemplateMarkdown: source.memoryTemplateMarkdown,
+          memoryConfig: source.memoryConfig,
         });
         presetsById.set(created.id, created);
         presetsByName.set(source.normalizedName, created);
@@ -227,8 +233,9 @@ export class AgentPresetSyncService {
       const modelChanged = (source.model || "") !== (existing.model || "");
       const memoryEnabledChanged = Boolean(source.memoryTemplateOverrideEnabled) !== Boolean(existing.memoryTemplateOverrideEnabled);
       const memoryMarkdownChanged = (source.memoryTemplateMarkdown || "") !== (existing.memoryTemplateMarkdown || "");
+      const memoryConfigChanged = JSON.stringify(source.memoryConfig || null) !== JSON.stringify(existing.memoryConfig || null);
 
-      if (contentChanged || descriptionChanged || nameChanged || avatarChanged || providerChanged || modelChanged || memoryEnabledChanged || memoryMarkdownChanged) {
+      if (contentChanged || descriptionChanged || nameChanged || avatarChanged || providerChanged || modelChanged || memoryEnabledChanged || memoryMarkdownChanged || memoryConfigChanged) {
         const imported = this.deps.agentPresetRepository.importLinkedAgentPreset(existing.id, {
           name: source.sourceScope === "project" ? existing.name : source.name,
           description: source.description,
@@ -239,6 +246,7 @@ export class AgentPresetSyncService {
           model: source.model,
           memoryTemplateOverrideEnabled: source.memoryTemplateOverrideEnabled,
           memoryTemplateMarkdown: source.memoryTemplateMarkdown,
+          memoryConfig: source.memoryConfig,
         });
         presetsById.set(imported.id, imported);
         presetsByName.set(source.normalizedName, imported);
@@ -270,6 +278,7 @@ export class AgentPresetSyncService {
       model: source.model,
       memoryTemplateOverrideEnabled: source.memoryTemplateOverrideEnabled,
       memoryTemplateMarkdown: source.memoryTemplateMarkdown,
+      memoryConfig: source.memoryConfig,
     });
 
     return await this.decorateAgentPreset(updated);
@@ -391,7 +400,8 @@ export class AgentPresetSyncService {
         || (source.providerConfigId || "") !== (preset.providerConfigId || "")
         || (source.model || "") !== (preset.model || "")
         || Boolean(source.memoryTemplateOverrideEnabled) !== Boolean(preset.memoryTemplateOverrideEnabled)
-        || (source.memoryTemplateMarkdown || "") !== (preset.memoryTemplateMarkdown || "");
+        || (source.memoryTemplateMarkdown || "") !== (preset.memoryTemplateMarkdown || "")
+        || JSON.stringify(source.memoryConfig || null) !== JSON.stringify(preset.memoryConfig || null);
       return {
         ...preset,
         sourceScope: source.sourceScope,
@@ -469,6 +479,7 @@ export class AgentPresetSyncService {
       model: parsed.model,
       memoryTemplateOverrideEnabled: parsed.memoryTemplateOverrideEnabled,
       memoryTemplateMarkdown: parsed.memoryTemplateMarkdown,
+      memoryConfig: parsed.memoryConfig,
     };
   }
 
@@ -533,6 +544,7 @@ export class AgentPresetSyncService {
     model?: string | null;
     memoryTemplateOverrideEnabled?: boolean;
     memoryTemplateMarkdown?: string;
+    memoryConfig?: AgentMemoryConfig;
     previousProjectSourcePath?: string | null;
   }): Promise<AgentSourceFile> {
     const directory = getRepoCodeUxPath(args.projectBaseDir, "agents");
@@ -556,6 +568,7 @@ export class AgentPresetSyncService {
       model: args.model,
       memoryTemplateOverrideEnabled: args.memoryTemplateOverrideEnabled,
       memoryTemplateMarkdown: args.memoryTemplateMarkdown,
+      memoryConfig: args.memoryConfig,
     });
     await fs.writeFile(filePath, fileContent, "utf8");
 

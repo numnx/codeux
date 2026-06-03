@@ -1,4 +1,5 @@
 import * as path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 import { ValidationError, EntityNotFoundError, RepositoryError } from "./repository-utils.js";
@@ -432,6 +433,20 @@ export class ProjectManagementRepository {
         `).get(sprint.projectId) as { id: string } | undefined;
 
         this.setSelectedSprintId(sprint.projectId, nextSprintRow?.id ?? null);
+      }
+
+      const hasActive = this.db.prepare(`
+        SELECT 1 FROM sprint_runs
+        WHERE project_id = ? AND status IN ('running', 'queued')
+        LIMIT 1
+      `).get(sprint.projectId);
+
+      if (!hasActive) {
+        this.db.prepare(`
+          UPDATE projects
+          SET status = 'idle', updated_at = ?
+          WHERE id = ? AND status = 'running'
+        `).run(new Date().toISOString(), sprint.projectId);
       }
 
       this.touchProject(sprint.projectId);
@@ -1048,6 +1063,14 @@ export class ProjectManagementRepository {
     const effectiveRepoUrl = row.repo_url || inferredLocalRemoteUrl;
     const { provider, hostDomain } = resolveRepositoryHost(effectiveRepoUrl || (sourceType === "git" ? sourceRef : null));
 
+    const isRunning = toBoolean(row.has_active_runs);
+    let status = row.status;
+    if (isRunning) {
+      status = "running";
+    } else if (status === "running") {
+      status = "idle";
+    }
+
     return {
       id: row.id,
       slug: row.slug,
@@ -1060,11 +1083,11 @@ export class ProjectManagementRepository {
       gitHostDomain: hostDomain,
       defaultBranch: row.default_branch,
       featureBranchPrefix: row.feature_branch_prefix,
-      status: row.status,
+      status,
       sprintsCount: toNumber(row.sprints_count),
       openTasks: toNumber(row.open_tasks),
       completedTasks: toNumber(row.completed_tasks),
-      isRunning: toBoolean(row.has_active_runs),
+      isRunning,
       settingsOverrides,
       agentBindings,
       createdAt: row.created_at,
@@ -1262,12 +1285,13 @@ export class ProjectManagementRepository {
     fallback = ""
   ): string {
     if (sourceType === "local") {
-      return sourceRef;
+      return path.isAbsolute(sourceRef) ? sourceRef : path.resolve(os.homedir(), sourceRef);
     }
 
     const repoName = deriveRepoName(sourceRef);
     if (cloneDir && cloneDir.trim()) {
-      return path.resolve(cloneDir.trim(), repoName);
+      const resolvedClone = path.isAbsolute(cloneDir.trim()) ? cloneDir.trim() : path.resolve(os.homedir(), cloneDir.trim());
+      return path.resolve(resolvedClone, repoName);
     }
 
     return fallback || path.resolve(getHomeCodeUxPath("projects"), repoName);
@@ -1312,7 +1336,7 @@ function mapEffectiveSprintStatus(
     case "failed":
       return "failed";
     default:
-      return storedStatus;
+      return storedStatus === "running" ? "idle" : storedStatus;
   }
 }
 

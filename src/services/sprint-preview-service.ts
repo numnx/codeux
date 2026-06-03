@@ -969,35 +969,52 @@ export class SprintPreviewService {
 
   private async safeRmWorkspace(workspacePath: string, repoPath: string): Promise<void> {
     try {
-      await fs.rm(workspacePath, { recursive: true, force: true });
+      await this.rmWorkspaceWithRetries(workspacePath);
+      return;
     } catch (error: any) {
-      if (process.platform === "win32" && (error.code === "EPERM" || error.code === "EACCES" || error.code === "ENOTEMPTY")) {
-        // Fallback: Delete using Docker container to bypass Windows host permission/EPERM issues on mounted volumes
-        try {
-          const parentDir = path.dirname(workspacePath);
-          const workspaceName = path.basename(workspacePath);
-          const source = this.mapDockerSourcePathForDaemon(parentDir, repoPath);
-
-          await runCommandStrict("docker", [
-            "run",
-            "--rm",
-            "--mount",
-            toDockerMountArg({ source, destination: "/clean-target", readonly: false }),
-            "alpine:3.20",
-            "rm",
-            "-rf",
-            `/clean-target/${workspaceName}`,
-          ], repoPath);
-
-          await fs.mkdir(workspacePath, { recursive: true }).catch(() => undefined);
-          await fs.rm(workspacePath, { recursive: true, force: true }).catch(() => undefined);
-          return;
-        } catch (dockerError) {
-          throw error;
-        }
+      const code = error?.code;
+      const recoverableOnWindows = process.platform === "win32"
+        && (code === "EPERM" || code === "EACCES" || code === "EBUSY" || code === "ENOTEMPTY");
+      if (!recoverableOnWindows) {
+        throw error;
       }
-      throw error;
+
+      // On Windows, Docker Desktop releases its file handles to the bind-mounted
+      // workspace lazily after `docker rm -f`, so host-side deletion of a populated
+      // node_modules tree can keep failing with EPERM even after retries. Delete the
+      // tree from inside a throwaway Linux container, which removes the files through
+      // the daemon and bypasses the lingering host-side locks.
+      try {
+        const parentDir = path.dirname(workspacePath);
+        const workspaceName = path.basename(workspacePath);
+        const source = this.mapDockerSourcePathForDaemon(parentDir, repoPath);
+
+        await runCommandStrict("docker", [
+          "run",
+          "--rm",
+          "--mount",
+          toDockerMountArg({ source, destination: "/clean-target", readonly: false }),
+          "alpine:3.20",
+          "rm",
+          "-rf",
+          `/clean-target/${workspaceName}`,
+        ], repoPath);
+      } catch (dockerError) {
+        this.deps.logger?.warn("Container-assisted preview workspace cleanup failed; retrying host removal", {
+          workspacePath,
+          error: dockerError instanceof Error ? dockerError.message : String(dockerError),
+        });
+      }
+
+      // Whether or not the helper container removed the tree, do a final retried host
+      // removal. With `force: true` this is a no-op when the directory is already gone,
+      // and otherwise surfaces a clean error if something still holds the workspace.
+      await this.rmWorkspaceWithRetries(workspacePath);
     }
+  }
+
+  private async rmWorkspaceWithRetries(workspacePath: string): Promise<void> {
+    await fs.rm(workspacePath, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   }
 
   private async materializePreviewWorkspace(

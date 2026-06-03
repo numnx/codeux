@@ -183,12 +183,19 @@ Legacy runtime:
 
 ## UI Sections
 
+### Stats page
+- The Stats page keeps the time-window selector in the hero header, above the visual mode tabs, so preset and custom range controls remain visible no matter which analysis tab is active.
+- The trend-chart filter flyout is now metric-series only, which keeps the graph controls focused on series visibility while the header owns the time range.
+- The system invocation ledger beneath the stats analysis views is a sortable, card-row table with sticky sort controls for Time, In, Out, Total, and Duration; explicit input/output/cached/total token columns; status chips; task context chips; empty and loading states; and expandable detail placeholders that will later host message history.
+- The System stats view uses a local `useSystemViewData(projectId)` hook to fetch project invocation records, apply client-side search/filter/sort state, and derive summary metrics directly from the filtered list.
+
 ### V2 project management
 - Interactive dashboard controls use pointer cursors consistently: enabled buttons, links, tab controls, form toggles, menu/popover triggers, DAG nodes, cards, and dismissible overlays expose a pointer affordance, while disabled controls retain `not-allowed`.
 - V2 pages use the shared `PageContainer` atomic component for page-level layout. Its `2400px` max width matches the `/` overview dashboard and is the single source of truth for page container width across overview, project, sprint, task, live, memory, stats, settings, agents, chat, and browser routes.
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
 - Top-nav search sits in the left header cluster beside the brand, while the active task counter uses the same compact height as the project, sprint, and worker selectors
+- The Live Sprint Clock card in the Sprint Stats deck now shows a six-tile grid with Finished, Avg Finish, Accumulated, Input, Output, and Cached values, and the token tiles reuse the shared compact formatter from the Stats page.
 - Live runtime pages now use the persisted top-nav sprint selection as the page scope, so the Live view follows the selected sprint from the header menu
 - That selection is view-only for the dashboard surface; it does not change which sprint run is actually executing in the backend
 - The Live page Git / CI / PR panel now uses compact status metric tiles plus state-specific iconography for PR and CI rows, including animated indicators for active CI states (`IN_PROGRESS`, `QUEUED`, `PENDING`, `QUOTA`) with reduced-motion fallback (`motion-reduce:animate-none`)
@@ -200,6 +207,7 @@ Legacy runtime:
 - The `Add Project` dialog now keeps keyboard focus inside the active form field while typing, and its initial focus respects the form's `autofocus` input instead of jumping to the header close button
 - The Projects page `Add Project` placeholder card uses the same full-height card footprint and internal padding as project cards, and the add dialog fields use rounded field surfaces with amber focus states instead of bare underline inputs; the dialog also constrains itself to the viewport on shorter screens
 - The `Add Project` dialog now has a wider desktop layout, keeps a stable Git-form-height floor while switching source types, and exposes the inline directory browser on both local project paths and optional Git clone destination paths, with home, refresh, parent-directory navigation, child-directory traversal, and an explicit use-current-folder action
+- The `Add Project` dialog now also includes a `New Project` source type. That branch keeps creation inside the same modal, preselects `Local Repo` or `Remote Repo` init modes, shows provider and visibility toggles for remote initialization, and skips the Project Setup Agent controls entirely.
 - The `Add Project` dialog preselects Project Setup Agent initialization. When enabled, creation advances to a setup scope step where operators choose Agents, Quicksprint Templates, Preview Container Script, and CI before the backend creates repository-specific artifacts.
 - Existing project cards expose a Project Setup Agent action that opens the same setup scope for later initialization or regeneration. See [Project Initialization](./project-initialization.md).
 - Project setup runs display immediate toast feedback, an `Initializing` project-card state, and direct `Open invocation` actions while the background setup invocation is running and after it finishes.
@@ -328,6 +336,8 @@ Legacy runtime:
   - an embedded grouped metric selector instead of separate tabs, organizing Tokens, Time, and Git metrics into unified groupings
   - relocated analysis-mode controls that focus the workspace on trend, composition, or reliability
   - a full-width interactive trend graph (Usage Graph) with hover bucket inspection and drag-to-zoom timeframe selection
+  - a Trend Studio summary band above the chart and a purpose activity section below it, keeping the trend tab self-contained for window-level analysis
+  - a Composition Studio that now layers cache efficiency, token-flight timing, and a per-provider activity ledger beneath the donut charts so the provider picture stays readable without tab switching
   - a persistent right-side selected-metrics rail for configuring the chart series; same-window refreshes preserve user chart selections
   - hourly views keep one-hour hover targets while reducing visible axis labels to a three-hour rhythm for readability
   - donut-style composition charts for providers, token anatomy, and telemetry-source mix now animate as interactive slices with hover emphasis and center-detail readouts
@@ -338,6 +348,9 @@ Legacy runtime:
 - Agents page features an immersive, showcase-first layout that defaults to presenting the selected agent's 3D animated avatar, details, and route-assignment tags, rather than a raw edit form.
 - Agents are generated with a random persisted avatar on creation and can be fully customized in the dedicated edit mode.
 - Edit mode exposes a new toggleable Memory Template Override control, allowing operators to explicitly provide custom memory injection instructions on a per-agent basis.
+- Edit mode now also exposes a dedicated `Manage Memory` popover for tier selection, category filtering, global and per-category minimum strength, and short/long-term memory caps. Empty category selection means all categories are included, and per-category overrides are only shown for categories currently eligible for injection.
+- The agent editor shows a compact memory summary chip under the filter trigger so operators can see the active memory scope without opening the popover.
+- Worker prompt preparation honors that memory config at runtime by filtering injected memories after retrieval, so the prompt only includes the configured tier(s), categories, strength thresholds, and per-tier caps.
 - Agents page is DB-backed and manages project-scoped agents (`name`, `short routing description`, `instruction markdown`, `memory template markdown`)
 - Agents are auto-imported from project and home `.code-ux/agents/*.md` when first discovered
 - Project-local markdown mirroring is enabled by default through project settings, so dashboard edits create/update `.code-ux/agents/*.md` in the selected repo without touching shipped defaults
@@ -388,7 +401,7 @@ Legacy runtime:
 - `recentEvents` is now a unified runtime timeline spanning both `task_run_events` and `sprint_run_events`
 - The selected-project execution snapshot now keeps the full task-dispatch and task-run event history for the active or most recent sprint run, so completed tasks in Live view keep their runtime feed and stage timings visible even after later tasks start
 - The execution runtime panel can now start or resume sprint orchestration, pause or cancel sprint runs, cancel queued dispatches, and retry terminal dispatches
-- The Live sidebar now renders `Attention Queue` as its own card under the shared execution timeline context, preserving claim/resolve/dismiss controls while keeping the execution runtime card focused on runs, dispatch, connections, and timeline data
+- The Live sidebar now renders `Live Connections`, `Attention Queue`, `Runtime Timeline`, and `Execution Runtime` as separate standalone cards under the shared execution timeline context, with the same card chrome and collapsible behavior while keeping the execution runtime card focused on runs and dispatches
 - The Live page now keeps the Git/CI/PR card in a dedicated `GitCIStatusPanel` component so the page shell stays focused on wiring runtime state, controls, and layout
 - Live task stats, filter counts, the active filtered task list, and per-card runtime payloads are memoized from the selected project's runtime snapshot so high-frequency realtime updates do not repeatedly recompute unchanged projections
 - Live task cards, the DAG, and timing summaries now render from the same projected task model:
@@ -405,11 +418,6 @@ Legacy runtime:
   - after hydration, `project.live.updated` is the only websocket event the Live page applies for selected-project runtime state
   - task stats, DAG state, race positions, protocol text, git status, and the visible task list all derive from the same payload, so the hero visualizations stay in sync during normal updates and websocket recovery
   - the page only shows the full `Waiting for Sprint Start` empty state when the selected-sprint live snapshot has no sprint context
-- The Live view now keeps its mounted shell stable during background refresh:
-  - the selected project scope is anchored from dashboard project selection
-  - the selected sprint scope is anchored from the persisted header selection inside the unified live snapshot
-  - websocket reconnect gaps now trigger a full `/api/live` reload instead of incremental client-side repair across multiple endpoints
-  - transient execution-only refreshes therefore no longer drop the DAG, race, or task pipeline back to a mismatched or partially stale state
 - The Live view hero now has three interchangeable visualizations:
   - `Stats` for a compact asymmetric telemetry deck with one dominant sprint-time panel, a slimmer runtime intelligence rail, live flow-state deltas, merge pressure, and accumulated stage timing
   - `Race` for stage-based progress across the execution course, with labelled checkpoint buoys for Coding, Code Done, CI, Merge, and Completed; the race is scoped to the selected sprint context so completed or paused sprint snapshots still render their fleet instead of falling back to the idle harbour

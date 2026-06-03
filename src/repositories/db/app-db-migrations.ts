@@ -94,6 +94,7 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureColumn(db, "agent_presets", "memory_template_override_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "agent_presets", "memory_template_markdown", "TEXT");
   ensureColumn(db, "agent_presets", "mcp_access_json", "TEXT");
+  ensureColumn(db, "agent_presets", "memory_config_json", "TEXT");
 
   ensureColumn(db, "connection_project_bindings", "last_attention_cursor", "TEXT");
   ensureColumn(db, "connection_project_bindings", "last_assignment_cursor", "TEXT");
@@ -147,6 +148,10 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureIndex(db, "idx_execution_invocations_task_run_started", "execution_invocations", "task_run_id, started_at DESC");
   ensureIndex(db, "idx_execution_invocation_messages_invocation_created", "execution_invocation_messages", "invocation_id, created_at ASC");
   ensureIndex(db, "idx_dashboard_realtime_events_scope_sequence", "dashboard_realtime_events", "scope_type, scope_id, is_replayable, sequence DESC");
+  // Non-replayable snapshot events are no longer persisted (their watermark is tracked in
+  // memory). Reclaim historical rows that only ever bloated the table — they are never
+  // returned by replay, so deleting them is safe.
+  db.exec("DELETE FROM dashboard_realtime_events WHERE is_replayable = 0");
   ensureIndex(db, "idx_conversation_threads_project_updated", "conversation_threads", "project_id, updated_at DESC");
   ensureIndex(db, "idx_conversation_messages_thread_created", "conversation_messages", "thread_id, created_at ASC");
   ensureIndex(db, "idx_memories_project_scope", "memories", "project_id, scope, updated_at DESC");

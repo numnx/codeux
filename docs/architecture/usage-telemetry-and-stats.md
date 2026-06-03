@@ -79,12 +79,55 @@ Code UX first looks for `token_count` JSONL events, then normalizes the usage pa
 
 Claude Code runs with a generated native `--session-id`.
 
-Code UX reads usage from the persisted Claude session JSONL artifact under `~/.claude/projects/...`. If usage is absent, it falls back to token estimation using `@anthropic-ai/tokenizer` over the prompt plus recovered transcript text.
+Code UX now uses a dedicated parser (`src/infrastructure/providers/cli/provider-logs/claude-code-log-parser.ts`) to read the Claude session JSONL artifacts stored at `~/.claude/projects/<cwd-slug>/<sessionId>.jsonl`.
+
+The parser handles:
+- **Token usage**: accumulates `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` across all unique assistant messages (deduplicated by `message.id` to avoid double-counting streaming fragments).
+- **Full conversation transcript**: extracts ordered turns of all kinds:
+  - `assistant` turns from `type: "text"` content blocks.
+  - `reasoning` turns from `type: "thinking"` blocks (only when non-empty; encrypted thinking blocks are silently skipped).
+  - `tool_call` turns from `type: "tool_use"` blocks with tool name, id, and JSON-serialized input.
+  - `tool_result` turns from user-entry `type: "tool_result"` content with output and error status.
+  - `user` turns from plain user text entries.
+- **Backwards compatibility**: legacy bare `{ message: { usage, content } }` entries (produced by older Claude Code versions and container artifact dumps) are handled as assistant turns.
+- **Run-window isolation**: when `sinceMs` is provided, only entries at/after `sinceMs - 2000ms` are included, matching the Codex/Qwen convention.
+
+If usage is absent or totals are zero, Code UX falls back to token estimation using `@anthropic-ai/tokenizer` over the prompt plus recovered transcript text.
+
 For Docker-backed Claude Code runs, Code UX reads the same session JSONL from the isolated workspace runtime home (`/workspace/.code-ux-home`) before the Docker volume is cleaned up.
 
 ### Jules
 
 Jules does not expose a compatible native token contract. Instead of excluding it, Code UX computes **estimated** tokens for Jules by accumulating input and output characters divided by 4 (the characters-per-token heuristic).
+
+## OpenTelemetry Integration
+
+Code UX provides a lightweight, dependency-free OpenTelemetry module at `src/infrastructure/providers/cli/otel-span-collector.ts` that:
+
+1. **Configures CLI providers for OTLP export** via `buildOtelEnv(opts)` — returns an env-var fragment that enables Claude Code's native telemetry:
+
+   ```
+   CLAUDE_CODE_ENABLE_TELEMETRY=1
+   OTEL_METRICS_EXPORTER=otlp
+   OTEL_LOGS_EXPORTER=otlp
+   OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+   ```
+
+   Optional flags include `OTEL_TRACES_EXPORTER`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_LOG_USER_PROMPTS`, and `OTEL_LOG_TOOL_DETAILS`.
+
+2. **Collects spans via `OtelSpanCollector`** — a buffered HTTP/JSON OTLP exporter that:
+   - Batches spans and logs and flushes them to `/v1/traces` and `/v1/logs`.
+   - Operates as a no-op when no endpoint is configured (never breaks the agent path).
+   - Supports auth headers, service-name resource attributes, and configurable batch size and export timeout.
+
+3. **Builds provider spans via `buildProviderSpan(args)`** — creates OTLP spans aligned with the OpenTelemetry GenAI semantic conventions draft:
+   - `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_creation_tokens`, `gen_ai.usage.cache_read_tokens`, `gen_ai.usage.reasoning_tokens`.
+   - Provider extensions: `provider.session_id`, `provider.execution_mode`, `provider.cwd`, `provider.conversation_turns`, `provider.duration_ms`.
+
+4. **Builds log records via `buildProviderLogRecord(args)`** — ties INFO/WARN/ERROR log records to a trace/span context.
+
+The `OtelSpanCollector` is designed to be instantiated once per server process and reused across all provider invocations. The entire module has zero npm dependencies beyond Node.js built-ins.
 
 ## Usage Source Semantics
 
@@ -142,16 +185,30 @@ It focuses on:
 - source mix
 - unified Analysis Studio UX with analysis-mode controls that focus the workspace on trend, composition, or reliability
 - standalone execution-purpose telemetry cards in the trend view so purpose context is visible before entering detailed chart analysis
+- a richer Trend Studio that adds a window-level summary band, period context chips, the interactive usage chart, and a purpose activity section in a single self-contained analytical flow
 - a full-width interactive trend graph (Usage Graph) with hover bucket inspection, staged smooth line-draw animation, and mouse drag zoom selection
 - a usage-graph filter submenu (time-window + metric-series controls) that opens inline from the graph header instead of separate execution-lane wrappers
 - an embedded grouped metric selector and a persistent right-side selected-metrics rail for configuring the chart series (including Token, Time, and Git series); same-window refreshes preserve user chart selection
+- the metric-series flyout groups series under labelled headers for Core, Purposes, Providers, and Git so related worker/provider series stay discoverable as the catalog grows
 - hourly windows keep one-hour hover buckets while rendering visible axis labels every three hours
 - alternate composition and reliability views with donut charts
+- reliability mode now ends with a provider breakdown grid that exposes token anatomy, invocation volume, active time, and telemetry source quality per provider
+- the Composition Studio now adds cache-efficiency insight, a token-flow bar, active-versus-wall-time comparison, and a per-provider activity ledger so the provider picture stays visible without switching tabs
+- the System stats view uses a controlled filter bar that keeps status, purpose, provider, and search state outside the component so the host view can own query state and result counting explicitly
+- that filter bar renders status toggle chips, purpose/provider multi-select chips, a searchable text field with inline clear affordance, and a result-count badge so the system list can stay reactive without local state
 - task, sprint, provider, and purpose leaderboards
 - tabbed task and sprint telemetry sections integrated into the Analysis Studio, complete with search, recency, richer token breakdowns, and client-side sorting by date and usage dimensions
+- a System mode entry in the analysis toggle that provides a dedicated system workspace with a dense ledger surface
+- the dedicated SystemStudio workspace now renders a telemetry header, five summary metric cards, the shared system filter bar, and the invocations table in one stacked analysis surface so operational logs stay readable at a glance
+- the SystemStudio ledger now includes All, Errors, and System Msgs tabs that pre-filter the already-filtered invocation set before it reaches the table, which keeps the result-count badge and the visible rows aligned
+- the system invocation table exposes sortable per-invocation token columns, sticky header controls, status color-coding, sprint/task context chips, loading skeletons, empty states, and expandable detail placeholders for future message panels
+- expanded invocation rows now lazy-load a dedicated transcript panel that renders role-specific message cards, preserves long system messages with an inline expand toggle, and falls back to an empty-state message when no transcript exists
 - animated donut charts now expose slice-level hover focus with center-detail readouts instead of only static composition rings
+- the System stats view now uses a dedicated client-side invocation hook that fetches the project invocation ledger, applies local search/filter/sort state, and derives summary metrics from the filtered result set
 - Heavy list views, such as the scrollable lazy-loaded task and sprint ledgers, are backed by a page-scoped progressive list strategy (`useProgressiveList`) that renders items in batches to optimize performance.
 - Backend read-model optimizations efficiently supply data to these page-scoped modules, ensuring fast telemetry rendering while **API contracts and routes remain completely unchanged**.
+- The Stats page header owns the time-window chips and custom range inputs so the window selector stays visible across all analysis tabs and the shared trend-chart flyout can focus exclusively on metric-series toggles.
+- The Live Sprint Clock card now surfaces sprint token totals inline, using compact token formatting for input, output, and cached input values so the live orchestration view can show usage rollups without leaving the sprint surface.
 
 This page is intentionally separate from the live execution view so the live dashboard can stay optimized for orchestration while the Stats page handles historical analysis.
 

@@ -1,4 +1,4 @@
-import type { ProjectExecutionStatsSnapshot, ExecutionStatsEntitySummary, SegmentDefinition, ProjectStatsWindow } from "../../../types.js";
+import type { ProjectExecutionStatsSnapshot, ExecutionStatsEntitySummary, SegmentDefinition } from "../../../types.js";
 import type { UsageChartState } from "../use-usage-chart-state.js";
 import type { StatsVisualMode } from "./StatsShared.js";
 import type { FunctionComponent } from "preact";
@@ -10,6 +10,7 @@ import {
   StudioHeader,
   PANEL_CLASS,
 } from "./StatsShared.js";
+import { SystemStudio } from "./system/SystemStudio.js";
 import { TelemetryLedgerTabs } from "./TelemetryLedgerTabs.js";
 
 export interface AnalysisStudioSectionProps {
@@ -17,6 +18,7 @@ export interface AnalysisStudioSectionProps {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  projectId: string;
   planningUsage: ExecutionStatsEntitySummary | null;
   providerSegments: SegmentDefinition[];
   tokenSegments: SegmentDefinition[];
@@ -24,13 +26,6 @@ export interface AnalysisStudioSectionProps {
   visualMode: StatsVisualMode;
   setVisualMode: (mode: StatsVisualMode) => void;
   chartState: UsageChartState;
-  activeWindow: ProjectStatsWindow | string;
-  customFrom: string;
-  customTo: string;
-  applyPresetWindow: (value: Exclude<ProjectStatsWindow, "custom">) => void;
-  setCustomFrom: (value: string) => void;
-  setCustomTo: (value: string) => void;
-  applyCustomRange: () => void;
 }
 
 export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps> = ({
@@ -38,6 +33,7 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
   loading,
   error,
   refresh,
+  projectId,
   planningUsage,
   providerSegments,
   tokenSegments,
@@ -45,13 +41,6 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
   visualMode,
   setVisualMode,
   chartState,
-  activeWindow,
-  customFrom,
-  customTo,
-  applyPresetWindow,
-  setCustomFrom,
-  setCustomTo,
-  applyCustomRange,
 }) => {
   if (!stats) return null;
 
@@ -65,13 +54,6 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
           refresh={refresh}
           planningUsage={planningUsage}
           chartState={chartState}
-          activeWindow={activeWindow}
-          customFrom={customFrom}
-          customTo={customTo}
-          onSelectPreset={applyPresetWindow}
-          onCustomFromChange={setCustomFrom}
-          onCustomToChange={setCustomTo}
-          onApplyCustom={applyCustomRange}
         />
       ) : null}
 
@@ -99,6 +81,10 @@ export const AnalysisStudioSection: FunctionComponent<AnalysisStudioSectionProps
           </div>
           <TelemetryLedgerTabs stats={stats} />
         </section>
+      ) : null}
+
+      {visualMode === "system" ? (
+        <SystemStudio projectId={projectId} />
       ) : null}
     </>
   );

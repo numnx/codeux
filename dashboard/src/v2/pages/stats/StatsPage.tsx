@@ -108,6 +108,7 @@ export const StatsPage: FunctionComponent = () => {
               loading={loading}
               error={error}
               refresh={refresh}
+              projectId={selectedProject?.id || ""}
               planningUsage={planningUsage}
               providerSegments={providerSegments}
               tokenSegments={tokenSegments}
@@ -115,13 +116,6 @@ export const StatsPage: FunctionComponent = () => {
               visualMode={visualMode}
               setVisualMode={setVisualMode}
               chartState={chartState}
-              activeWindow={activeQuery.window}
-              customFrom={customFrom}
-              customTo={customTo}
-              applyPresetWindow={applyPresetWindow}
-              setCustomFrom={setCustomFrom}
-              setCustomTo={setCustomTo}
-              applyCustomRange={applyCustomRange}
             />
           </section>
 

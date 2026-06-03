@@ -290,6 +290,10 @@ QA merge-gate notes:
   - `retryOnReadFileNotFound`
   - `resumeFailedTaskInSameWorkspace`
   - `maxPlanningJsonRetries` (default `3`): Maximum number of retry attempts inside a same-session virtual worker planning loop if the provider output cannot be parsed as valid JSON.
+- Git onboarding mode:
+  - `gitMode` (`remote` | `local`, default `remote`)
+    - `remote` keeps the GitHub and GitLab onboarding cards visible and preserves CI/PR automation guidance
+    - `local` hides the remote integration cards during onboarding while leaving git identity controls visible for repo-local workflows
 - Runtime mode:
   - `executionMode` (`HOST|DOCKER`)
 - Docker runtime config:

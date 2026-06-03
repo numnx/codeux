@@ -5,7 +5,6 @@ import {
   extractProviderErrorCategory,
   extractRetryAfterIso,
   resultHasSilentQuotaSignal,
-  type ProviderErrorClassification,
 } from "../../../src/shared/providers/provider-error-classifier.js";
 import type { CommandResult } from "../../../src/shared/subprocess/command-runner.js";
 
@@ -104,6 +103,51 @@ describe("classifyProviderError", () => {
       expect(classification.category).toBe("QUOTA_EXHAUSTED");
       expect(classification.resetAfter).toBe("2h10m5s");
     });
+
+    describe("auth variants", () => {
+      it.each([
+        "Session expired or is unauthorized.",
+        "[API Error: API key not valid. Please pass a valid API key. (Status: INVALID_ARGUMENT)]",
+        "[API Error: API Key not found. Please pass a valid API key. (Status: INVALID_ARGUMENT)]",
+        "[API Error: API key expired. Please renew the API key. (Status: INVALID_ARGUMENT)]",
+        "reason: API_KEY_INVALID",
+      ])("classifies %s as AUTH_FAILURE", (stderr) => {
+        const classification = classifyProviderError("gemini", makeResult("", stderr));
+        expect(classification.category).toBe("AUTH_FAILURE");
+      });
+    });
+
+    describe("quota / rate-limit variants", () => {
+      it.each([
+        "[API Error: You have exhausted your daily quota on this model.]",
+        "Quota exceeded for quota metric 'Gemini 2.5 Pro Requests' and limit 'Gemini 2.5 Pro Requests per day per user per tier'",
+        "Possible quota limitations in place or slow response times detected. Switching to the gemini-2.5-flash model for the rest of this session.",
+        "Usage limit reached for gemini-3-flash-preview.",
+      ])("classifies %s as QUOTA_EXHAUSTED", (stderr) => {
+        const classification = classifyProviderError("gemini", makeResult("", stderr));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      });
+
+      it.each([
+        "Rate Limit Exceeded",
+        "got status: 429 Too Many Requests",
+        "[API Error: Resource has been exhausted (e.g. check quota). (Status: RESOURCE_EXHAUSTED)]",
+        "We are currently experiencing high demand.",
+      ])("classifies %s as RATE_LIMITED", (stderr) => {
+        const classification = classifyProviderError("gemini", makeResult("", stderr));
+        expect(classification.category).toBe("RATE_LIMITED");
+      });
+
+      it("extracts the 'Suggested retry after 60s' duration on a quota error", () => {
+        const classification = classifyProviderError(
+          "gemini",
+          makeResult("", "You have exhausted your daily quota on this model.\nSuggested retry after 60s."),
+        );
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+        expect(classification.resetAfter).toBe("60s");
+        expect(classification.resetAtIso).toBeTruthy();
+      });
+    });
   });
 
   describe("claude-code", () => {
@@ -130,6 +174,58 @@ describe("classifyProviderError", () => {
       const result = makeResult("", "Error: rate limit exceeded, please retry");
       const classification = classifyProviderError("claude-code", result);
       expect(classification.category).toBe("RATE_LIMITED");
+    });
+
+    describe("auth variants", () => {
+      it.each([
+        "Invalid API key · Please run /login",
+        "Missing API key · Run /login",
+        'API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_1"}',
+        'Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid bearer token"}}',
+        'API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"OAuth token has expired. Please obtain a new token or refresh your existing token."},"request_id":"req_1"} · Please run /login',
+        "HTTP 401: authentication_error: OAuth token has expired. Please obtain a new token or refresh your existing token.",
+        'API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid OAuth token. The provided token was not found or is malformed."}} · Please run /login',
+        "API Error: 400 invalid token: token has invalid claims: token is expired",
+        'API Error: 403 {"error":{"type":"forbidden","message":"Request not allowed"}} · Please run /login',
+        "[Claude in Chrome] Bridge error: Invalid token or user mismatch",
+      ])("classifies %s as AUTH_FAILURE", (stderr) => {
+        const classification = classifyProviderError("claude-code", makeResult("", stderr));
+        expect(classification.category).toBe("AUTH_FAILURE");
+      });
+    });
+
+    describe("rate-limit / usage-limit variants", () => {
+      it.each([
+        "API Error: Rate limit reached",
+        "⎿  API Error: Rate limit reached",
+        'Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"This request would exceed your account\'s rate limit. Please try again later."},"request_id":"req_1"}',
+        "API Error: Request rejected (429) · Rate limited",
+        "Error: Failed to load usage data: rate_limit_error",
+      ])("classifies %s as RATE_LIMITED", (stderr) => {
+        const classification = classifyProviderError("claude-code", makeResult("", stderr));
+        expect(classification.category).toBe("RATE_LIMITED");
+      });
+
+      it.each([
+        "You've hit your limit · resets 4pm (Asia/Kuala_Lumpur)",
+        "Claude usage limit reached. Your limit will reset at 3pm (America/Santiago).",
+        "You've hit your usage limit",
+      ])("classifies %s as QUOTA_EXHAUSTED", (stderr) => {
+        const classification = classifyProviderError("claude-code", makeResult("", stderr));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      });
+    });
+
+    describe("extra-usage entitlement (must not be a retryable rate limit)", () => {
+      it.each([
+        'Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"Extra usage is required for long context requests."},"request_id":"req_1"}',
+        "API Error: Extra usage is required for 1M context · run /extra-usage to enable, or /model to switch to standard context",
+        "API Error: Extra usage is required for 1M context · enable extra usage at claude.ai/settings/usage, or use --model to switch to standard context",
+      ])("routes %s to terminal UNKNOWN with the actionable detail surfaced", (stderr) => {
+        const classification = classifyProviderError("claude-code", makeResult("", stderr));
+        expect(classification.category).toBe("UNKNOWN");
+        expect(classification.userMessage).toContain("Extra usage is required");
+      });
     });
   });
 
@@ -191,6 +287,130 @@ describe("classifyProviderError", () => {
       );
       const classification = classifyProviderError("codex", result);
       expect(classification.category).toBe("UNKNOWN");
+    });
+
+    it("surfaces the real model-not-supported reason from `codex exec --json` events", () => {
+      const stdout = [
+        '{"type":"thread.started","thread_id":"019e8bbe-567d-7d52-8a09-2007b61b7ef9"}',
+        '{"type":"turn.started"}',
+        '{"type":"error","message":"{\\"type\\":\\"error\\",\\"status\\":400,\\"error\\":{\\"type\\":\\"invalid_request_error\\",\\"message\\":\\"The \'gpt-5.3-codex\' model is not supported when using Codex with a ChatGPT account.\\"}}"}',
+        '{"type":"turn.failed","error":{"message":"{\\"type\\":\\"error\\",\\"status\\":400,\\"error\\":{\\"type\\":\\"invalid_request_error\\",\\"message\\":\\"The \'gpt-5.3-codex\' model is not supported when using Codex with a ChatGPT account.\\"}}"}}',
+      ].join("\n");
+      const classification = classifyProviderError("codex", makeResult(stdout, "Reading additional input from stdin..."));
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe(
+        "Codex failed: The 'gpt-5.3-codex' model is not supported when using Codex with a ChatGPT account.",
+      );
+      expect(classification.userMessage).not.toContain("unexpected error");
+      expect(classification.userMessage).not.toContain("stdin");
+    });
+
+    it("falls back to the generic unexpected-error text when codex produced no parseable detail", () => {
+      const classification = classifyProviderError("codex", makeResult("", "Reading additional input from stdin..."));
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe("Codex failed with an unexpected error.");
+    });
+
+    describe("auth variants", () => {
+      it.each([
+        "Your access token could not be refreshed because your refresh token has expired. Please log out and sign in again.",
+        "Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.",
+        "Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again.",
+        "Your access token could not be refreshed. Please log out and sign in again.",
+        "Failed to refresh token: 401 Unauthorized: invalid_grant",
+        "Missing bearer or basic authentication in header",
+        "ERROR: unexpected status 401 Unauthorized: You have insufficient permissions for this operation. Missing scopes: api.responses.write.",
+        "Invalid JWT form. A JWT consists of three parts separated by dots. (reason=token-invalid, token-carrier=header)",
+      ])("classifies %s as AUTH_FAILURE", (stderr) => {
+        const classification = classifyProviderError("codex", makeResult("", stderr));
+        expect(classification.category).toBe("AUTH_FAILURE");
+      });
+
+      it("classifies a JSONL-wrapped refresh-token failure as AUTH_FAILURE", () => {
+        const stdout = '{"type":"turn.failed","error":{"message":"Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again."}}';
+        const classification = classifyProviderError("codex", makeResult(stdout, ""));
+        expect(classification.category).toBe("AUTH_FAILURE");
+      });
+    });
+
+    describe("quota variants", () => {
+      it.each([
+        "You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again later.",
+        "Your workspace is out of credits. Add credits to continue.",
+        "You hit your spend cap set in your workspace. Increase your spend cap to continue.",
+        "Quota exceeded. Check your plan and billing details.",
+        "You've hit your usage limit. To get more access now, send a request to your admin or try again later.",
+        "You've hit your usage limit for gpt-5-codex. Switch to another model now, or try again later.",
+      ])("classifies %s as QUOTA_EXHAUSTED", (stderr) => {
+        const classification = classifyProviderError("codex", makeResult("", stderr));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      });
+
+      it("classifies the TUI bullet-prefixed quota line", () => {
+        const classification = classifyProviderError("codex", makeResult("", "■ Quota exceeded. Check your plan and billing details."));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      });
+
+      it("classifies a JSONL-wrapped usage-limit event and extracts the clock-time reset", () => {
+        const stdout = '{"type":"error","message":"You\'ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 3:54 AM."}';
+        const classification = classifyProviderError("codex", makeResult(stdout, ""));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+        expect(classification.resetAfter).toMatch(/^\d+h\d+m\d+s$/);
+        expect(classification.resetAtIso).toBeTruthy();
+      });
+    });
+
+    describe("rate-limit variants", () => {
+      it("classifies the 429 retry-exhaustion line as RATE_LIMITED", () => {
+        const classification = classifyProviderError(
+          "codex",
+          makeResult("", "ERROR: exceeded retry limit, last status: 429 Too Many Requests, request id: req_123"),
+        );
+        expect(classification.category).toBe("RATE_LIMITED");
+      });
+
+      it("keeps a non-429 retry-exhaustion as UNKNOWN", () => {
+        const classification = classifyProviderError(
+          "codex",
+          makeResult("", "ERROR: exceeded retry limit, last status: 500 Internal Server Error, request id: req_123"),
+        );
+        expect(classification.category).toBe("UNKNOWN");
+      });
+
+      it("extracts the seconds reset from the backend slow-down body", () => {
+        const classification = classifyProviderError(
+          "codex",
+          makeResult("", "You've exceeded the rate limit, please slow down and try again after 30 seconds."),
+        );
+        expect(classification.category).toBe("RATE_LIMITED");
+        expect(classification.resetAfter).toBe("30s");
+        expect(classification.resetAtIso).toBeTruthy();
+      });
+
+      it("extracts the seconds reset from the OpenAI TPM rate-limit body", () => {
+        const classification = classifyProviderError(
+          "codex",
+          makeResult(
+            "",
+            "[Error]: Rate limit reached for o3 in organization org-abc on tokens per min (TPM): Limit 30000, Used 29000, Requested 2000. Please try again in 12s. Visit https://platform.openai.com/account/rate-limits to learn more.",
+          ),
+        );
+        expect(classification.category).toBe("RATE_LIMITED");
+        expect(classification.resetAfter).toBe("12s");
+      });
+    });
+  });
+
+  describe("UNKNOWN error detail surfacing", () => {
+    it("surfaces a plain-text error line for non-codex providers instead of the opaque fallback", () => {
+      const classification = classifyProviderError(
+        "claude-code",
+        makeResult("", "Something exploded: the frobnicator refused the request"),
+      );
+      expect(classification.category).toBe("UNKNOWN");
+      expect(classification.userMessage).toBe(
+        "Claude Code failed: Something exploded: the frobnicator refused the request",
+      );
     });
   });
 
@@ -292,6 +512,45 @@ describe("classifyProviderError", () => {
       const result = makeResult("", "code: 429, message: 'too many requests'");
       const classification = classifyProviderError("antigravity", result);
       expect(classification.category).toBe("RATE_LIMITED");
+    });
+
+    describe("auth variants", () => {
+      it.each([
+        "Authentication required. Please visit the URL to log in:",
+        "Authentication Required Please sign in.",
+        "Invalid Token",
+        "Login Expired",
+        "Not Eligible",
+        "No auth token found",
+        "Failed to poll ListExperiments: error getting token source: You are not logged into Antigravity.",
+        "keyringAuth: failed to load token: failed to unlock correct collection '/org/freedesktop/secrets/aliases/default'",
+        "consumerOAuth: failed to persist token to keyring: The name org.freedesktop.secrets was not provided by any .service files",
+        "failed to set auth token",
+      ])("classifies %s as AUTH_FAILURE", (stderr) => {
+        const classification = classifyProviderError("antigravity", makeResult("", stderr));
+        expect(classification.category).toBe("AUTH_FAILURE");
+      });
+    });
+
+    describe("quota variants", () => {
+      it.each([
+        "Baseline model quota reached",
+        "Model quota reached",
+        "Usage Limit Reached",
+      ])("classifies %s as QUOTA_EXHAUSTED", (stderr) => {
+        const classification = classifyProviderError("antigravity", makeResult("", stderr));
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+      });
+
+      it("converts a 'resets after N days' weekly window into an hours reset", () => {
+        const classification = classifyProviderError(
+          "antigravity",
+          makeResult("", "Quota Limit reached and resets after 6 days"),
+        );
+        expect(classification.category).toBe("QUOTA_EXHAUSTED");
+        expect(classification.resetAfter).toBe("144h");
+        expect(classification.resetAtIso).toBeTruthy();
+      });
     });
   });
 

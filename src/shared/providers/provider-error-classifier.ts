@@ -174,7 +174,10 @@ const GEMINI_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
     /QUOTA_EXHAUSTED/i,
     /quota will reset after/i,
     /exhausted your capacity/i,
+    /exhausted your.*quota/i,
     /reason:\s*'QUOTA_EXHAUSTED'/i,
+    // Auto-fallback notice printed when a daily-quota limit forces a model switch.
+    /Possible quota limitations/i,
   ],
   authExtras: [
     /HybridTokenStorage/i,
@@ -183,14 +186,28 @@ const GEMINI_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
     /apiKeyCredentialStorage/i,
     /Config\.refreshAuth/i,
     /invalid api key/i,
+    // Gemini renders a 401 as "Session expired or is unauthorized." and the backend
+    // returns INVALID_ARGUMENT bodies for bad keys: "API key not valid", "API Key not
+    // found", "API key expired", plus the API_KEY_INVALID reason tag.
+    /Session expired/i,
+    /API.?key not (?:valid|found)/i,
+    /API key expired/i,
+    /API_KEY_INVALID/i,
   ],
   rateLimitExtras: [
     /no capacity available for model/i,
     /Resource has been exhausted/i,
+    // Transient capacity / high-demand backoff prompts.
+    /high demand/i,
   ],
   quotaResetTimeExtractor: (text: string): string | null => {
-    const match = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
-    return match?.[1] ?? null;
+    const resetMatch = text.match(/quota will reset after\s+(\d+h\d+m\d+s|\d+m\d+s|\d+h\d+m|\d+s)/i);
+    if (resetMatch) {
+      return resetMatch[1];
+    }
+    // Gemini's quota classifier appends "Suggested retry after 60s." (a duration).
+    const retryMatch = text.match(/Suggested retry after\s+(\d+)\s*s\b/i);
+    return retryMatch ? `${retryMatch[1]}s` : null;
   },
   rateLimitResetTimeExtractor: (text: string): string | null => {
     const match = text.match(/retry.?after[:\s]+(\d+)/i);
@@ -198,24 +215,110 @@ const GEMINI_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   },
 });
 
+// Claude Code authenticates via API key, bearer token, OAuth token, or /login, so
+// the same underlying auth failure surfaces with different wording depending on the
+// path. The shared patterns already catch the plain "Invalid API key" /
+// "authentication_error" / "unauthorized" forms; these add the bearer-token,
+// OAuth-token, missing-key, forbidden, and bridge variants. The "· Please run /login"
+// recovery hint is itself a reliable auth signal across surface messages.
+const CLAUDE_CODE_AUTH_EXTRAS: RegExp[] = [
+  /ANTHROPIC_API_KEY/i,
+  /credentials.*expired/i,
+  /Missing API key/i,
+  /Failed to authenticate/i,
+  /Invalid bearer token/i,
+  /OAuth token/i,
+  /token (?:has|is) expired/i,
+  /invalid claims/i,
+  /Request not allowed/i,
+  /"type"\s*:\s*"forbidden"/i,
+  /Invalid token or user mismatch/i,
+  /run \/login/i,
+];
+
 const CLAUDE_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
-  authEnvKeys: [/ANTHROPIC_API_KEY/i],
-  authExtras: [/credentials.*expired/i],
+  authExtras: CLAUDE_CODE_AUTH_EXTRAS,
   rateLimitExtras: [/overloaded/i],
 });
 
-// Codex's `codex exec` prints its usage cap as a single ERROR line, e.g.:
-//   "ERROR: You've hit your usage limit. Upgrade to Pro (...), visit
-//    https://chatgpt.com/codex/settings/usage to purchase more credits or
-//    try again at 3:54 AM."
-// It exits non-zero, so it reaches classifyProviderError on the failure path.
-// The reset hint is a wall-clock time ("try again at 3:54 AM"), not a duration,
-// so it needs its own extractor (computeResetAfterFromClockTime) rather than the
-// shared HhMmSs parser used by the other providers.
+/**
+ * Claude Code's "Extra usage is required …" messages (1M / long-context) carry the
+ * API `rate_limit_error` type but are NOT transient: retrying never clears them —
+ * the user must enable extra usage or switch model. Detect them so they are routed
+ * to a terminal UNKNOWN (which surfaces the actionable message) instead of being
+ * swept into the rate-limit retry loop by the shared rate_limit pattern.
+ */
+function isClaudeExtraUsageRequired(text: string): boolean {
+  return /Extra usage is required/i.test(text);
+}
+
+// Codex surfaces the same core error string through several wrappers depending on
+// mode — the interactive TUI prefixes it with "■ ", `codex exec` human output with
+// "ERROR: ", and `codex exec --json` embeds it in
+// {"type":"error","message":"…"} / {"type":"turn.failed","error":{"message":"…"}}.
+// Classification runs on the combined stdout+stderr with substring matching, so the
+// wrappers don't matter here; the patterns below only need to match the inner text.
+
+// AUTH_FAILURE: the stored ChatGPT/Codex login can no longer authenticate and the
+// run needs a re-login or a key with the right scopes. Covers RefreshTokenFailedError
+// display strings, the transient "Failed to refresh token" template, 401 missing-auth
+// / insufficient-scope renderings, and provider JWT/clerk token-invalid bodies. (Plain
+// "401 Unauthorized" already matches the shared /unauthorized/ pattern.)
+const CODEX_AUTH_EXTRAS: RegExp[] = [
+  /OPENAI_API_KEY/i,
+  /access token could not be refreshed/i,
+  /refresh token (?:has expired|was already used|was revoked)/i,
+  /log ?out and sign in again/i,
+  /Failed to refresh token/i,
+  /Missing bearer or basic authentication/i,
+  /insufficient permissions for this operation/i,
+  /Missing scopes:/i,
+  /Invalid JWT/i,
+  /token-invalid/i,
+];
+
+// QUOTA_EXHAUSTED: plan usage caps, workspace credit/spend-cap exhaustion, and the
+// two-line "Quota exceeded." message. The bare "You've hit your usage limit" and
+// "purchase more credits" forms already match the shared quota patterns; these add
+// the plan/credit-specific variants. The reset hint, when present, is a wall-clock
+// time ("try again at 3:54 AM"), parsed by computeResetAfterFromClockTime.
+const CODEX_QUOTA_EXTRAS: RegExp[] = [
+  /Upgrade to Pro\b/i,
+  /Upgrade to Plus\b/i,
+  /out of credits/i,
+  /spend cap/i,
+  /send a request to your admin/i,
+  /Switch to another model now/i,
+  /Check your plan and billing details/i,
+];
+
+// RATE_LIMITED: transient throttling that should retry after a short wait. The 429
+// retry-exhaustion line ("exceeded retry limit, last status: 429 Too Many Requests")
+// already matches the shared /too many requests/ pattern (and a non-429 retry
+// exhaustion must stay UNKNOWN, so we deliberately do not match "exceeded retry
+// limit" on its own). These add the OpenAI TPM body and the backend slow-down body.
+const CODEX_RATE_LIMIT_EXTRAS: RegExp[] = [
+  /rate limit reached/i,
+  /slow down and try again/i,
+];
+
+/**
+ * Parses Codex rate-limit reset hints expressed as a duration in seconds, e.g.
+ * "Please try again in 30s" or "try again after 60 seconds". Distinct from the
+ * quota path's wall-clock "try again at 3:54 AM" hint. Returns an `Ns` string the
+ * shared pipeline understands, or null when no duration is present.
+ */
+function extractCodexRateLimitReset(text: string): string | null {
+  const match = text.match(/try again (?:in|after)\s+(\d+)\s*s(?:ec(?:ond)?s?)?\b/i);
+  return match ? `${match[1]}s` : null;
+}
+
 const CODEX_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
-  quotaExtras: [/Upgrade to Pro/i],
-  authEnvKeys: [/OPENAI_API_KEY/i],
+  quotaExtras: CODEX_QUOTA_EXTRAS,
+  authExtras: CODEX_AUTH_EXTRAS,
+  rateLimitExtras: CODEX_RATE_LIMIT_EXTRAS,
   quotaResetTimeExtractor: computeResetAfterFromClockTime,
+  rateLimitResetTimeExtractor: extractCodexRateLimitReset,
 });
 
 const QWEN_CODE_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
@@ -243,14 +346,41 @@ const ANTIGRAVITY_QUOTA_PATTERNS: RegExp[] = [
   /Contact your administrator to enable overages/i,
   /enable overages/i,
   /RESOURCE_EXHAUSTED/i,
+  // Baseline / model / individual quota and weekly-window forms.
+  /quota reached/i,
+  /Quota Limit reached/i,
+];
+
+// Antigravity authenticates via the system keyring with a Google Sign-In fallback,
+// so auth failures surface as login prompts, "Invalid Token"/"Login Expired" states,
+// keyring load/persist failures, and "not logged into Antigravity" / "No auth token
+// found" token-source errors (all written to its glog log, which the runner folds
+// into stderr before classification).
+const ANTIGRAVITY_AUTH_EXTRAS: RegExp[] = [
+  /ANTIGRAVITY_API_KEY/i,
+  /Authentication[\s_]?required/i,
+  /Please sign in/i,
+  /Invalid Token/i,
+  /Login Expired/i,
+  /Not Eligible/i,
+  /No auth token found/i,
+  /not logged into Antigravity/i,
+  /failed to (?:load|persist|set) (?:auth )?token/i,
+  /error getting token source/i,
 ];
 
 const ANTIGRAVITY_PATTERNS: ErrorPattern[] = createCliProviderPatterns({
   quotaExtras: ANTIGRAVITY_QUOTA_PATTERNS,
-  authEnvKeys: [/ANTIGRAVITY_API_KEY/i],
+  authExtras: ANTIGRAVITY_AUTH_EXTRAS,
   quotaResetTimeExtractor: (text: string): string | null => {
-    const match = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
-    return match?.[1] ?? null;
+    const durationMatch = text.match(/Resets in\s+(\d+h\d+m\d+s|\d+h\d+m|\d+m\d+s|\d+h|\d+m|\d+s)/i);
+    if (durationMatch) {
+      return durationMatch[1];
+    }
+    // Weekly-window form: "Quota Limit reached and resets after 6 days." Convert the
+    // day count to hours so it flows through the shared HhMmSs reset pipeline.
+    const daysMatch = text.match(/resets? after\s+(\d+)\s*days?/i);
+    return daysMatch ? `${parseInt(daysMatch[1], 10) * 24}h` : null;
   },
 });
 
@@ -363,6 +493,7 @@ function buildUserMessage(
   provider: string,
   category: ProviderErrorCategory,
   resetAfter: string | null,
+  detail?: string | null,
 ): string {
   const label = PROVIDER_LABELS[provider] ?? provider;
   switch (category) {
@@ -379,8 +510,123 @@ function buildUserMessage(
     case "PROVIDER_NOT_FOUND":
       return `${label} CLI not found. Ensure the provider is installed and available in PATH.`;
     case "UNKNOWN":
-      return `${label} failed with an unexpected error.`;
+      return detail
+        ? `${label} failed: ${detail}`
+        : `${label} failed with an unexpected error.`;
   }
+}
+
+// Provider output lines that carry no diagnostic value and must never be surfaced
+// as "the error" — e.g. Codex prints this to stderr on every `exec` run while it
+// waits for (optional) piped stdin, and it was masking the real failure reason.
+const NOISE_OUTPUT_PATTERNS: RegExp[] = [
+  /^Reading additional input from stdin/i,
+  /^\s*$/,
+];
+
+const ERROR_LIKE_PATTERN = /error|fail|exception|not supported|unsupported|denied|refused|invalid|unauthor/i;
+
+/**
+ * Unwraps Codex's doubly-encoded error string. Codex `exec --json` emits
+ * `{"type":"error","message":"<stringified-json>"}` where the inner string is
+ * itself `{"type":"error","status":400,"error":{"message":"<human reason>"}}`.
+ * Returns the innermost human-readable message when present, else the input.
+ */
+function unwrapCodexErrorMessage(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const inner = JSON.parse(trimmed) as { error?: { message?: unknown }; message?: unknown };
+      if (inner.error && typeof inner.error.message === "string") {
+        return inner.error.message;
+      }
+      if (typeof inner.message === "string") {
+        return inner.message;
+      }
+    } catch {
+      // not nested JSON — fall through to the raw message
+    }
+  }
+  return trimmed;
+}
+
+/**
+ * Extracts the real failure reason from Codex `exec --json` output. Codex reports
+ * failures as structured `{"type":"error",...}` / `{"type":"turn.failed","error":{...}}`
+ * JSONL events on stdout while exiting non-zero, so the actionable message (e.g.
+ * "The 'gpt-5.3-codex' model is not supported when using Codex with a ChatGPT account.")
+ * is otherwise lost behind the generic "unexpected error" text. Returns the latest
+ * such message, or null when none is present.
+ */
+export function extractCodexStructuredError(combined: string): string | null {
+  let latest: string | null = null;
+  for (const rawLine of combined.split("\n")) {
+    const trimmed = rawLine.trim();
+    if (!trimmed.startsWith("{")) {
+      continue;
+    }
+    let obj: { type?: unknown; message?: unknown; error?: { message?: unknown } };
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    const type = typeof obj.type === "string" ? obj.type : null;
+    let message: string | null = null;
+    if (type === "error" && typeof obj.message === "string") {
+      message = obj.message;
+    } else if (type === "turn.failed" && obj.error && typeof obj.error.message === "string") {
+      message = obj.error.message;
+    }
+    if (message) {
+      latest = unwrapCodexErrorMessage(message);
+    }
+  }
+  return latest;
+}
+
+/**
+ * Pulls the most informative single line out of arbitrary provider output for
+ * surfacing as the failure reason. Drops known-noise lines, prefers the last
+ * error-looking line, and otherwise falls back to the last non-empty line.
+ * Truncated so the dashboard message stays readable. Returns null when nothing
+ * meaningful remains.
+ */
+function extractGenericErrorDetail(combined: string): string | null {
+  const lines = combined
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !NOISE_OUTPUT_PATTERNS.some((pattern) => pattern.test(line)))
+    // JSON event lines are not human-readable on their own; skip them here.
+    .filter((line) => !line.startsWith("{"));
+  if (lines.length === 0) {
+    return null;
+  }
+  const errorLine = [...lines].reverse().find((line) => ERROR_LIKE_PATTERN.test(line));
+  const chosen = errorLine ?? lines[lines.length - 1];
+  return chosen.length > 300 ? `${chosen.slice(0, 297)}...` : chosen;
+}
+
+/**
+ * Builds an UNKNOWN classification whose userMessage carries the real failure
+ * reason extracted from provider output, instead of the opaque
+ * "<provider> failed with an unexpected error." The dashboard renders
+ * `userMessage` as the headline error, so this is what makes the actual cause
+ * (bad model, transport refusal, etc.) visible without digging into raw logs.
+ */
+function buildUnknownClassification(
+  provider: Exclude<ProviderId, "jules">,
+  combined: string,
+): ProviderErrorClassification {
+  const detail = (provider === "codex" ? extractCodexStructuredError(combined) : null)
+    ?? extractGenericErrorDetail(combined);
+  return {
+    category: "UNKNOWN",
+    provider,
+    userMessage: buildUserMessage(provider, "UNKNOWN", null, detail),
+    resetAfter: null,
+    resetAtIso: null,
+  };
 }
 
 export function classifyProviderError(
@@ -398,6 +644,13 @@ export function classifyProviderError(
       resetAfter: null,
       resetAtIso: null,
     };
+  }
+
+  // Route Claude Code's non-transient "Extra usage is required" entitlement errors
+  // to a terminal UNKNOWN (with the actionable detail surfaced) before the shared
+  // rate_limit pattern can sweep them into the retry loop.
+  if (provider === "claude-code" && isClaudeExtraUsageRequired(combined)) {
+    return buildUnknownClassification(provider, combined);
   }
 
   for (const entry of providerPatterns) {
@@ -434,11 +687,5 @@ export function classifyProviderError(
     };
   }
 
-  return {
-    category: "UNKNOWN",
-    provider,
-    userMessage: buildUserMessage(provider, "UNKNOWN", null),
-    resetAfter: null,
-    resetAtIso: null,
-  };
+  return buildUnknownClassification(provider, combined);
 }

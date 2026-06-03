@@ -8,13 +8,16 @@ import {
   ArrowUpRight,
   BarChart3,
   Brain,
+  Code2,
   Clock3,
   Database,
+  GitBranch,
   Layers3,
   PieChart,
   ShieldCheck,
   Sparkles,
   TimerReset,
+  Zap,
   Workflow,
   Bot,
   Terminal,
@@ -39,7 +42,7 @@ import {
 } from "../stats-utils.js";
 
 import type { DonutSliceGeometry, ChartPoint } from "./stats-geometry.js";
-export type StatsVisualMode = "trend" | "composition" | "reliability" | "ledgers";
+export type StatsVisualMode = "trend" | "composition" | "reliability" | "ledgers" | "system";
 export type ChartSeriesId = "tokens" | "active" | "invocations";
 export type LedgerSortKey = "last" | "tokens" | "active" | "input" | "output" | "name";
 
@@ -110,7 +113,7 @@ export const RangeToggle: FunctionComponent<{
 }) => (
   <div className="flex flex-col gap-4">
     <div className={`inline-flex flex-wrap p-1 ${CHIP_CLASS}`}>
-      {(["24h", "7d", "30d", "all"] as const).map((value) => (
+      {(["1h", "24h", "7d", "30d", "all"] as const).map((value) => (
         <button
           key={value}
           type="button"
@@ -169,6 +172,7 @@ export const ViewToggle: FunctionComponent<{
     { id: "composition", label: "Composition", icon: PieChart },
     { id: "reliability", label: "Providers", icon: ShieldCheck },
     { id: "ledgers", label: "Ledgers", icon: Layers3 },
+    { id: "system", label: "System", icon: Terminal },
   ];
 
   return (
@@ -248,6 +252,9 @@ export function getProviderIcon(provider: string | null | undefined): { icon: Co
   if (p.includes("claude")) return { icon: Brain, bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" };
   if (p.includes("codex")) return { icon: Terminal, bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400" };
   if (p.includes("jules")) return { icon: Layers3, bg: "bg-signal-500/10", text: "text-signal-600 dark:text-signal-400" };
+  if (p.includes("qwen-code")) return { icon: Code2, bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400" };
+  if (p.includes("opencode")) return { icon: GitBranch, bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" };
+  if (p.includes("antigravity")) return { icon: Zap, bg: "bg-orange-500/10", text: "text-orange-600 dark:text-orange-400" };
   return { icon: Bot, bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400" };
 }
 
