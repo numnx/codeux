@@ -4,24 +4,12 @@ import gsap from 'gsap';
 import { X } from 'lucide-preact';
 import type {
   ProjectExecutionStatsSnapshot,
-  ProjectStatsWindow,
 } from '../../../types.js';
-import {
-  CHIP_CLASS,
-  INPUT_CLASS,
-} from './StatsShared.js';
 import styles from './UsageFilterMenu.module.css';
 
 interface UsageFilterMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  activeWindow: ProjectStatsWindow | string;
-  customFrom: string;
-  customTo: string;
-  onSelectPreset: (value: Exclude<ProjectStatsWindow, "custom">) => void;
-  onCustomFromChange: (value: string) => void;
-  onCustomToChange: (value: string) => void;
-  onApplyCustom: () => void;
   stats: ProjectExecutionStatsSnapshot | null;
   enabledSeries: Record<string, boolean>;
   setEnabledSeries: (val: Record<string, boolean> | ((curr: Record<string, boolean>) => Record<string, boolean>)) => void;
@@ -30,13 +18,6 @@ interface UsageFilterMenuProps {
 export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
   isOpen,
   onClose,
-  activeWindow,
-  customFrom,
-  customTo,
-  onSelectPreset,
-  onCustomFromChange,
-  onCustomToChange,
-  onApplyCustom,
   stats,
   enabledSeries,
   setEnabledSeries,
@@ -101,88 +82,78 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
           </button>
         </div>
 
-        <div className={styles.section}>
-          <label className={styles.label}>Time Window</label>
-          <div className="flex flex-wrap gap-2">
-            {(['24h', '7d', '30d', 'all'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onSelectPreset(value)}
-                className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all ${
-                  activeWindow === value
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-void-900'
-                    : 'bg-black/[0.04] text-slate-500 hover:bg-black/[0.08] dark:bg-white/[0.04] dark:text-slate-400'
-                }`}
-              >
-                {value === 'all' ? 'All time' : value}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <label className={styles.label}>Custom Range</label>
-          <div className="grid gap-2">
-            <input
-              type="date"
-              value={customFrom}
-              onInput={(e) => onCustomFromChange((e.currentTarget as HTMLInputElement).value)}
-              className={`${INPUT_CLASS} !h-9 !px-3 !text-[12px]`}
-            />
-            <input
-              type="date"
-              value={customTo}
-              onInput={(e) => onCustomToChange((e.currentTarget as HTMLInputElement).value)}
-              className={`${INPUT_CLASS} !h-9 !px-3 !text-[12px]`}
-            />
-            <button
-              type="button"
-              onClick={onApplyCustom}
-              className="mt-1 flex h-9 items-center justify-center rounded-xl bg-slate-900 px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-transform hover:-translate-y-0.5 dark:bg-white dark:text-void-900"
-            >
-              Apply Range
-            </button>
-          </div>
-        </div>
-
         {stats && (
           <div className={styles.section}>
             <label className={styles.label}>Metric Series</label>
-            <div className="flex flex-col gap-2 max-h-[280px] overflow-y-auto pr-2">
-              {stats.chartSeries.map((s) => {
-                const active = enabledSeries[s.id] || false;
-                const disabled = activeSeriesCount === 1 && active;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      if (activeSeriesCount === 1 && enabledSeries[s.id]) return;
-                      setEnabledSeries((curr) => ({ ...curr, [s.id]: !curr[s.id] }));
-                    }}
-                    disabled={disabled}
-                    className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-all ${
-                      active
-                        ? 'border-signal-500/20 bg-signal-500/[0.03] text-slate-900 dark:text-white'
-                        : 'border-black/[0.05] bg-transparent text-slate-500 hover:border-black/[0.1] dark:border-white/[0.05] dark:text-slate-400'
-                    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: s.color || '#ccc' }}
-                      />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
-                        {s.label}
-                      </span>
+            <div className="flex max-h-[280px] flex-col gap-2 overflow-y-auto pr-2">
+              {(() => {
+                const groups = stats.chartSeries.reduce((acc, s) => {
+                  (acc[s.grouping] ??= []).push(s);
+                  return acc;
+                }, {} as Record<string, typeof stats.chartSeries>);
+                const displayOrder = ['core', 'purposes', 'providers', 'git'];
+                const orderedGroups = [
+                  ...displayOrder.filter((groupKey) => groups[groupKey]?.length),
+                  ...Object.keys(groups).filter((groupKey) => !displayOrder.includes(groupKey) && groups[groupKey]?.length),
+                ];
+
+                return orderedGroups.map((groupKey) => {
+                  const groupLabel = (
+                    groupKey === 'core'
+                      ? 'Core'
+                      : groupKey === 'purposes'
+                        ? 'Purposes'
+                        : groupKey === 'providers'
+                          ? 'Providers'
+                          : groupKey === 'git'
+                            ? 'Git'
+                            : groupKey.charAt(0).toUpperCase() + groupKey.slice(1)
+                  );
+
+                  return (
+                    <div key={groupKey} className="flex flex-col">
+                      <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mt-3 mb-1 px-1">
+                        {groupLabel}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {groups[groupKey].map((s) => {
+                          const active = enabledSeries[s.id] || false;
+                          const disabled = activeSeriesCount === 1 && active;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                if (activeSeriesCount === 1 && enabledSeries[s.id]) return;
+                                setEnabledSeries((curr) => ({ ...curr, [s.id]: !curr[s.id] }));
+                              }}
+                              disabled={disabled}
+                              className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-all ${
+                                active
+                                  ? 'border-signal-500/20 bg-signal-500/[0.03] text-slate-900 dark:text-white'
+                                  : 'border-black/[0.05] bg-transparent text-slate-500 hover:border-black/[0.1] dark:border-white/[0.05] dark:text-slate-400'
+                              } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: s.color || '#ccc' }}
+                                />
+                                <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
+                                  {s.label}
+                                </span>
+                              </div>
+                              {active && (
+                                <div className="h-1.5 w-1.5 rounded-full bg-signal-500" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    {active && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-signal-500" />
-                    )}
-                  </button>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
