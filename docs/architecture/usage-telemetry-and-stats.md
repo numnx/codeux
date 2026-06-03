@@ -153,6 +153,7 @@ It focuses on:
 - the Composition Studio now adds cache-efficiency insight, a token-flow bar, active-versus-wall-time comparison, and a per-provider activity ledger so the provider picture stays visible without switching tabs
 - task, sprint, provider, and purpose leaderboards
 - tabbed task and sprint telemetry sections integrated into the Analysis Studio, complete with search, recency, richer token breakdowns, and client-side sorting by date and usage dimensions
+- the system invocation table is a separate dense ledger surface that exposes sortable per-invocation token columns, sticky header controls, status color-coding, sprint/task context chips, loading skeletons, empty states, and expandable detail placeholders for future message panels
 - animated donut charts now expose slice-level hover focus with center-detail readouts instead of only static composition rings
 - Heavy list views, such as the scrollable lazy-loaded task and sprint ledgers, are backed by a page-scoped progressive list strategy (`useProgressiveList`) that renders items in batches to optimize performance.
 - Backend read-model optimizations efficiently supply data to these page-scoped modules, ensuring fast telemetry rendering while **API contracts and routes remain completely unchanged**.
