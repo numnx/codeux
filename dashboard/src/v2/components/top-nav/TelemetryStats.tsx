@@ -12,8 +12,9 @@ export const TelemetryStats: FunctionComponent<TelemetryStatsProps> = ({ project
     const { tasks } = useProjectTasks(projectId, [], sprints, null);
 
     const allTasks = tasks || [];
-    const runningCount = allTasks.filter((t: Task) => t.status === "in_progress").length;
-    const queuedCount = allTasks.filter((t: Task) => t.status === "pending").length;
+    const activeSprintIds = new Set((sprints || []).filter((s) => s.status === "running").map((s) => s.id));
+    const runningCount = allTasks.filter((t: Task) => t.status === "in_progress" && activeSprintIds.has(t.sprintId)).length;
+    const queuedCount = allTasks.filter((t: Task) => t.status === "pending" && activeSprintIds.has(t.sprintId)).length;
 
     return (
         <div className="hidden items-center gap-0.5 rounded-xl border border-black/[0.04] bg-black/[0.02] px-1 dark:border-white/[0.04] dark:bg-white/[0.02] lg:flex">
