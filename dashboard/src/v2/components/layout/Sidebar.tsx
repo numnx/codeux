@@ -56,6 +56,38 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
     const currentPath = (matches && matches.length > 0) ? (matches[matches.length - 1]?.pathname || "/") : "/";
     const activeIndex = Math.max(0, navItems.findIndex(i => i.path === currentPath));
 
+    const indicatorLineRef = useRef<SVGSVGElement>(null);
+    const updateLinePosition = () => {
+        if (!navRef.current || !indicatorLineRef.current) return;
+
+        // Target links directly to avoid index shifting due to headers or other injected non-link items
+        const linkNodes = navRef.current.querySelectorAll('.nav-item-link');
+        const activeLink = linkNodes[activeIndex] as HTMLElement;
+
+        if (!activeLink) return;
+
+        const navTop = navRef.current.getBoundingClientRect().top;
+        const activeLinkTop = activeLink.getBoundingClientRect().top;
+        const relativeOffset = activeLinkTop - navTop;
+
+        const duration = prefersReducedMotion ? 0 : 0.5;
+
+        gsap.to(indicatorLineRef.current, {
+            y: relativeOffset,
+            duration,
+            ease: "power3.out",
+        });
+    };
+
+    useEffect(() => {
+        updateLinePosition();
+    }, [activeIndex, isMinimized, isMobile, prefersReducedMotion]);
+
+    useEffect(() => {
+        window.addEventListener('resize', updateLinePosition);
+        return () => window.removeEventListener('resize', updateLinePosition);
+    }, [activeIndex, isMinimized, isMobile, prefersReducedMotion]);
+
     useEffect(() => {
         if (!isMobile && sidebarRef.current) {
             if (prefersReducedMotion) {
@@ -131,7 +163,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
             ref={sidebarRef}
             className={`h-full shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 z-50 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
                 isMobile 
-                    ? 'fixed left-0 top-0 w-[260px] -translate-x-full opacity-0 shadow-2xl bg-[#F5F3EF] dark:bg-void-900' 
+                    ? 'fixed left-0 top-0 w-[280px] max-w-[85vw] -translate-x-full opacity-0 shadow-2xl bg-[#F5F3EF] dark:bg-void-900'
                     : (isMinimized ? 'relative w-[88px]' : 'relative w-[260px]')
             }`}
         >
@@ -156,6 +188,20 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
 
             {/* Navigation */}
             <nav ref={navRef} className="flex-1 flex flex-col relative z-10">
+                <svg
+                    ref={indicatorLineRef}
+                    className="absolute left-0 w-2 h-10 pointer-events-none drop-shadow-[0_0_8px_rgba(0,224,160,0.6)]"
+                    style={{ top: 0, zIndex: 10 }}
+                    viewBox="0 0 8 40"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path
+                        d="M0 0C4.41828 0 8 3.58172 8 8V32C8 36.4183 4.41828 40 0 40V0Z"
+                        className="fill-signal-500"
+                    />
+                </svg>
+
                 <h2 className={`px-8 text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.16em] mb-3 transition-all duration-500 overflow-hidden ${isMinimized && !isMobile ? 'w-0 h-0 opacity-0 m-0' : 'opacity-100'}`}>
                     Workspace
                 </h2>
@@ -168,20 +214,15 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
                             onClick={isMobile ? onClose : undefined}
                             aria-current={isActive ? "page" : undefined}
                             data-tour-id={`nav-${item.label.toLowerCase()}`}
-                            className={`relative flex items-center ${isMinimized && !isMobile ? 'justify-center mx-4' : 'gap-3.5 px-5 mx-4'} py-3 min-h-[44px] rounded-2xl transition-all duration-300 group mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none`}
+                            className={`nav-item-link relative flex items-center ${isMinimized && !isMobile ? 'justify-center mx-4' : 'gap-3.5 px-5 mx-4'} py-3 min-h-[44px] rounded-2xl transition-all duration-300 group mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none`}
                         >
                             <div className={`absolute inset-0 rounded-2xl transition-all duration-300 pointer-events-none origin-left ${isActive ? 'bg-signal-500/[0.10] dark:bg-signal-500/[0.10] opacity-100 translate-x-0' : 'bg-black/[0.05] dark:bg-white/[0.05] opacity-0 -translate-x-full group-hover:translate-x-0 group-hover:opacity-100'}`} />
                             <div className={`absolute inset-0 rounded-2xl pointer-events-none transition-all duration-300 ${isActive ? 'shadow-[inset_0_0_0_1px_rgba(0,224,160,0.12)] dark:shadow-[inset_0_0_0_1px_rgba(0,224,160,0.1)]' : 'shadow-none'}`} />
 
-                            {/* Vertical Accent Indicator */}
-                            {isActive && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-2/3 w-1 bg-signal-500 rounded-r-full shadow-[0_0_8px_rgba(0,224,160,0.6)]" />
-                            )}
-
-                            <item.icon aria-hidden="true" className={`relative z-10 w-4 h-4 transition-all duration-300 shrink-0 ${isActive ? 'text-signal-600 dark:text-signal-400 drop-shadow-[0_0_8px_rgba(0,224,160,0.5)]' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`} strokeWidth={isActive ? 2 : 1.5} />
+                            <item.icon aria-hidden="true" className={`relative z-10 w-4 h-4 transition-all duration-300 shrink-0 ${isActive ? 'text-signal-600 dark:text-signal-400 drop-shadow-[0_0_8px_rgba(0,224,160,0.5)]' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 group-hover:translate-x-1'}`} strokeWidth={isActive ? 2 : 1.5} />
 
                             <div className={`relative z-10 overflow-hidden transition-all duration-500 ${isMinimized && !isMobile ? 'w-0 opacity-0' : 'opacity-100'}`}>
-                                <span className={`font-medium text-sm tracking-wide transition-colors duration-300 whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white font-semibold' : 'text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`}>
+                                <span className={`font-medium text-sm tracking-wide transition-all duration-300 whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white font-semibold' : 'text-slate-500 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 group-hover:opacity-80'}`}>
                                     {item.label}
                                 </span>
                             </div>
