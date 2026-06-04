@@ -1,19 +1,18 @@
 import { test, expect } from '@playwright/test';
+import { completeOnboarding } from './helpers/prepare-app';
 
 test.describe('AgentAvatarScene E2E Tests', () => {
-  test('should render the WebGL canvas when WebGL is supported', async ({ page }) => {
-    // Navigate to agents page
-    await page.goto('/agents');
-    await page.waitForLoadState('networkidle');
+  test.beforeEach(async ({ request }) => {
+    await completeOnboarding(request);
+  });
 
-    // If no agents exist (empty state), create one to display the customizer detail panel
-    const createFirstBtn = page.getByRole('button', { name: 'Create First Agent' });
-    const newAgentBtn = page.getByRole('button', { name: 'New Agent' });
-    if (await createFirstBtn.isVisible()) {
-      await createFirstBtn.click();
-    } else if (await newAgentBtn.isVisible()) {
-      await newAgentBtn.click();
-    }
+  test('should render the WebGL canvas when WebGL is supported', async ({ page }) => {
+    // Navigate to agents page. Open the customizer via whichever entry point is
+    // present (empty-state "Create First Agent" or the toolbar "New Agent").
+    // `click()` auto-waits for the control, so we avoid the flaky `networkidle`
+    // wait, which never settles while the dashboard's realtime stream is open.
+    await page.goto('/agents');
+    await page.getByRole('button', { name: /Create First Agent|New Agent/ }).first().click();
 
     // Assert that the 3D scene container is rendered and contains a canvas
     const avatarScene = page.locator('[data-testid="agent-avatar-scene"]');
@@ -37,16 +36,7 @@ test.describe('AgentAvatarScene E2E Tests', () => {
     });
 
     await page.goto('/agents');
-    await page.waitForLoadState('networkidle');
-
-    // Create an agent if necessary
-    const createFirstBtn = page.getByRole('button', { name: 'Create First Agent' });
-    const newAgentBtn = page.getByRole('button', { name: 'New Agent' });
-    if (await createFirstBtn.isVisible()) {
-      await createFirstBtn.click();
-    } else if (await newAgentBtn.isVisible()) {
-      await newAgentBtn.click();
-    }
+    await page.getByRole('button', { name: /Create First Agent|New Agent/ }).first().click();
 
     // Verify that the fallback SVG container is rendered instead of the WebGL canvas
     const fallbackSvg = page.locator('[data-testid="agent-avatar-fallback"]');

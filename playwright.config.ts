@@ -43,7 +43,10 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'node dist/index.js',
-    url: 'http://127.0.0.1:4444/ready',
+    // Poll the liveness probe (/health) rather than the readiness probe (/ready).
+    // /ready only returns 200 once a project has a live-status timestamp, which
+    // never happens in a clean CI checkout, so it would hang until timeout.
+    url: 'http://127.0.0.1:4444/health',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
     stdout: 'pipe',
