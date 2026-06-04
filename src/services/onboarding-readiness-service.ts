@@ -132,7 +132,16 @@ const getProviderCredentialStatuses = async (settings: SystemSettings): Promise<
   }));
 };
 
+let cachedReadiness: OnboardingRuntimeReadiness | null = null;
+let lastCheckTime = 0;
+const CACHE_TTL_MS = 6000;
+
 export const getOnboardingRuntimeReadiness = async (settings: SystemSettings): Promise<OnboardingRuntimeReadiness> => {
+  const now = Date.now();
+  if (cachedReadiness && (now - lastCheckTime < CACHE_TTL_MS)) {
+    return cachedReadiness;
+  }
+
   const [dockerCli, dockerDaemon, gitCli, providerStatuses] = await Promise.all([
     runCheck(
       "docker-cli",
@@ -164,7 +173,7 @@ export const getOnboardingRuntimeReadiness = async (settings: SystemSettings): P
   const dependencies = [dockerCli, dockerDaemon, gitCli];
   const requiredMissing = dependencies.some((dependency) => dependency.required && dependency.status === "missing");
 
-  return {
+  cachedReadiness = {
     checkedAt: new Date().toISOString(),
     cluster: {
       status: requiredMissing ? "not_ready" : "ready",
@@ -176,4 +185,7 @@ export const getOnboardingRuntimeReadiness = async (settings: SystemSettings): P
     dependencies,
     providers: providerStatuses,
   };
+  lastCheckTime = Date.now();
+
+  return cachedReadiness;
 };
