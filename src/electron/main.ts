@@ -134,6 +134,11 @@ function createMainWindow(url: string): BrowserWindow {
       nodeIntegration: false,
       sandbox: false,
       preload: preloadPath,
+      // Keep timers and requestAnimationFrame running when the window is blurred,
+      // occluded, or minimized. The dashboard coalesces realtime updates onto a rAF;
+      // with the default throttling those updates stall while the window is in the
+      // background, making the app appear frozen until it is refocused.
+      backgroundThrottling: false,
     },
   });
 

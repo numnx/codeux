@@ -346,7 +346,9 @@ const notFoundRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, sprintsRoute, tasksRoute, projectsRoute, chatRoute, agentsRoute, statsRoute, schedulerRoute, configRoute, memoryRoute, browserRoute, fileBrowserRoute, liveRoute, notFoundRoute]);
-const router = createRouter({ routeTree });
+// `defaultPreload: "intent"` warms route matching on hover/focus; the page chunks themselves are
+// prefetched explicitly by the nav components via prefetchRoute() since they are Preact-lazy.
+const router = createRouter({ routeTree, defaultPreload: "intent", defaultPreloadDelay: 50 });
 
 // 4. Entry
 const Root = () => <RouterProvider router={router} />;
