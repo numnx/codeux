@@ -115,7 +115,12 @@ test('Benchmark Page Load & Fast Navigation', async ({ page }) => {
     });
   }
 
-  const consoleErrors = consoleMessages.filter(m => m.type === 'error');
+  // "Failed to fetch" errors are in-flight requests aborted by this test's own
+  // rapid back-to-back navigation, not real defects — drop them so the audit
+  // only surfaces genuine console errors.
+  const consoleErrors = consoleMessages.filter(
+    m => m.type === 'error' && !/Failed to fetch/i.test(m.text),
+  );
   if (consoleErrors.length > 0) {
     console.log('\nConsole Errors detected during audit:');
     consoleErrors.forEach(err => console.log(`  [Error] ${err.text}`));

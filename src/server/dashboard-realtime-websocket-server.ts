@@ -319,6 +319,15 @@ export function bootDashboardRealtimeWebSocketServer(args: {
     });
     socket.on("error", (error) => {
       clients.delete(socket);
+      // A client closing its tab/connection abruptly surfaces here as a reset or
+      // broken pipe. That's a normal disconnect, not a server fault, so keep it
+      // out of the warning stream (it would otherwise spam a full stack trace
+      // for every page teardown). Genuinely unexpected errors still warn.
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ECONNRESET" || code === "EPIPE" || code === "ECONNABORTED" || code === "ETIMEDOUT") {
+        args.logger.debug("Dashboard realtime websocket client disconnected", { code });
+        return;
+      }
       args.logger.warn("Dashboard realtime websocket client error", { error });
     });
   };
