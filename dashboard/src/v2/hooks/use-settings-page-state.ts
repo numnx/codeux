@@ -228,7 +228,7 @@ export const useSettingsPageState = (
 
       if (selectedProjectId) {
         const [effectiveProject, projectAgentPresets] = await Promise.all([
-          fetchProjectEffectiveSettings(selectedProjectId),
+          fetchProjectEffectiveSettings(selectedProjectId, { cache: "reload" }),
           fetchAgentPresets(selectedProjectId).catch(() => []),
         ]);
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
@@ -415,7 +415,7 @@ export const useSettingsPageState = (
         setSavedSystemSettings(cloneSystemSettings(saved));
 
         if (selectedProject) {
-          const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+          const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
           const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
           setProjectSettings(cloneProjectSettings(nextProject));
           setSavedProjectSettings(cloneProjectSettings(nextProject));
@@ -433,7 +433,7 @@ export const useSettingsPageState = (
       setSavingProject(true);
       try {
         await saveProjectSettings(selectedProject.id, projectSettings);
-        const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+        const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
         setProjectSettings(cloneProjectSettings(nextProject));
         setSavedProjectSettings(cloneProjectSettings(nextProject));
@@ -473,7 +473,7 @@ export const useSettingsPageState = (
     setResettingProject(true);
     try {
       await resetProjectSettings(selectedProject.id);
-      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
       const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
       setProjectSettings(cloneProjectSettings(nextProject));
       setSavedProjectSettings(cloneProjectSettings(nextProject));

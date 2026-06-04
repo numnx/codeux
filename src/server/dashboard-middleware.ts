@@ -18,6 +18,18 @@ export const applyDashboardPreRouteMiddleware = (
 ): void => {
   app.use(correlationIdMiddleware());
   app.use((req, res, next) => {
+    const isRuntimeDataPath = req.path.startsWith("/api/")
+      || req.path === "/health"
+      || req.path === "/ready";
+    if (isRuntimeDataPath) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+    }
+    next();
+  });
+  app.use((req, res, next) => {
     const startedAt = Date.now();
     res.on("finish", () => {
       dashboardLogger.info("Dashboard request completed", {

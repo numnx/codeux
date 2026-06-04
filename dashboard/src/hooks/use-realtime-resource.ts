@@ -125,15 +125,21 @@ export function useRealtimeResource<T>(options: RealtimeResourceOptions<T>): Rea
   const fetchIdRef = useRef<number>(0);
   const activeSilentFetchPromiseRef = useRef<Promise<void> | null>(null);
 
-const refreshInternal = useCallback((refreshOptions?: { silent?: boolean; signal?: AbortSignal }): Promise<void> => {
+  const refreshInternal = useCallback((refreshOptions?: { silent?: boolean; signal?: AbortSignal }): Promise<void> => {
     // Determine if we show a foreground loading spinner.
     // Only show on the very first fetch if not suppressed.
     // Subsequent polls/realtime refreshes update data silently.
     const isForeground = !refreshOptions?.silent && !hasLoadedRef.current;
+    const shouldDedupeSilentFetch = refreshOptions?.silent && !refreshOptions?.signal;
 
-    // Dedupe silent fetches
-    if (refreshOptions?.silent && !refreshOptions?.signal && activeSilentFetchPromiseRef.current) {
+    // Dedupe silent fetches. Any non-deduped fetch supersedes an older silent
+    // request, so clear the old promise up front; otherwise a later silent
+    // invalidation can get stuck returning an already-aborted request forever.
+    if (shouldDedupeSilentFetch && activeSilentFetchPromiseRef.current) {
       return activeSilentFetchPromiseRef.current;
+    }
+    if (!shouldDedupeSilentFetch) {
+      activeSilentFetchPromiseRef.current = null;
     }
 
     if (abortControllerRef.current) {
@@ -200,7 +206,7 @@ const refreshInternal = useCallback((refreshOptions?: { silent?: boolean; signal
       }
     })();
 
-    if (refreshOptions?.silent && !refreshOptions?.signal) {
+    if (shouldDedupeSilentFetch) {
       activeSilentFetchPromiseRef.current = fetchPromise;
     }
 
