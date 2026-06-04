@@ -482,7 +482,9 @@ export const ProjectsPage: FunctionComponent = () => {
             await createProject({
                 name: project.name,
                 sourceType: project.initMode === 'new-local' ? 'local' : 'git',
-                sourceRef: project.path || project.name,
+                sourceRef: project.initMode === 'new-local'
+                    ? (project.path || project.repoSlug || project.name)
+                    : (project.repoSlug || project.name),
                 initMode: project.initMode,
                 remoteProvider: project.remoteProvider,
                 isPrivate: project.isPrivate,
