@@ -222,8 +222,6 @@ export class SprintPreviewService {
         });
         const shouldRunSetupScriptAtRuntime = false;
 
-        const projectRuntimeSource = this.mapDockerSourcePathForDaemon(projectRuntimeRoot, project.baseDir);
-        const startupScriptSource = this.mapDockerSourcePathForDaemon(startupRuntimePath, project.baseDir);
         const workflowSettings = effectiveSettings.cliWorkflow;
         const credentialMounts = await new DockerCredentialMountBuilder().build(workflowSettings, project.baseDir, () => undefined);
         const bootstrapScript = new DockerBootstrapBuilder().build({
@@ -234,8 +232,7 @@ export class SprintPreviewService {
         });
 
         const dockerArgs = [
-          "run",
-          "-d",
+          "create",
           "--name", containerName,
           "--log-driver", PREVIEW_LOG_DRIVER,
           "-p", `127.0.0.1:${hostPort}:${CONTAINER_PREVIEW_PROXY_PORT}`,
@@ -245,8 +242,7 @@ export class SprintPreviewService {
           "--label", `code-ux.sprint-id=${sprintId}`,
           "--label", `code-ux.session-id=${session.id}`,
           "--label", `code-ux.host-port=${hostPort}`,
-          "--mount", toDockerMountArg({ source: projectRuntimeSource, destination: CONTAINER_PREVIEW_RUNTIME_ROOT, readonly: false }),
-          "--mount", toDockerMountArg({ source: startupScriptSource, destination: startupMountPath, readonly: true }),
+          "--mount", toDockerMountArg({ type: "volume", source: `code-ux-preview-volume-${sprintId}`, destination: CONTAINER_PREVIEW_RUNTIME_ROOT, readonly: false }),
           "-e", `HOME=${containerRuntimeHome}`,
           "-e", "HOST=0.0.0.0",
           "-e", `PORT=${settings.containerAppPort}`,
@@ -286,13 +282,36 @@ export class SprintPreviewService {
           }));
         }
 
-        dockerArgs.push(resolvedImage.image, "bash", "-c", bootstrapScript, "preview-runner", "bash", startupMountPath);
+        const containerStartScript = [
+          `mkdir -p "${containerWorkspacePath}"`,
+          `tar -xf /tmp/workspace.tar -C "${containerWorkspacePath}"`,
+          `rm -f /tmp/workspace.tar`,
+          `exec bash /tmp/preview-start.sh`,
+        ].join(" && ");
+
+        dockerArgs.push(
+          resolvedImage.image,
+          "bash",
+          "-c",
+          bootstrapScript,
+          "preview-runner",
+          "bash",
+          "-c",
+          containerStartScript,
+        );
 
         const startResult = await runCommandStrict("docker", dockerArgs, project.baseDir);
         const containerId = startResult.stdout.trim();
         if (!containerId) {
           throw new Error("Docker preview container did not return a container id.");
         }
+
+        const archivePath = `${workspacePath}.tar`;
+        await runCommandStrict("docker", ["cp", archivePath, `${containerName}:/tmp/workspace.tar`], project.baseDir);
+        await runCommandStrict("docker", ["cp", startupRuntimePath, `${containerName}:/tmp/preview-start.sh`], project.baseDir);
+        await fs.rm(archivePath, { force: true }).catch(() => undefined);
+
+        await runCommandStrict("docker", ["start", containerName], project.baseDir);
 
         const updated = this.deps.sprintPreviewRepository.updateSession(session.id, {
           ...sessionBasePatch,
@@ -380,6 +399,7 @@ export class SprintPreviewService {
     await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
       await this.removeContainerIfPresent(containerRef, session.worktreePath || process.cwd());
+      await runCommandStrict("docker", ["volume", "rm", `code-ux-preview-volume-${session.sprintId}`], process.cwd()).catch(() => undefined);
       this.deps.sprintPreviewRepository.deleteSession(sessionId);
     });
   }
@@ -1058,40 +1078,7 @@ export class SprintPreviewService {
     await fs.mkdir(workspacePath, { recursive: true });
     await fs.rm(archivePath, { force: true }).catch(() => undefined);
 
-    try {
-      await runCommandStrict("git", ["archive", "--format=tar", "-o", archivePath, exportRef], repoPath);
-      await this.extractPreviewArchive(repoPath, workspacePath, archivePath);
-    } finally {
-      await fs.rm(archivePath, { force: true }).catch(() => undefined);
-    }
-  }
-
-  private async extractPreviewArchive(repoPath: string, workspacePath: string, archivePath: string): Promise<void> {
-    const archiveRoot = path.dirname(workspacePath);
-    const archiveFileName = path.basename(archivePath);
-    const workspaceName = path.basename(workspacePath);
-    const source = this.mapDockerSourcePathForDaemon(archiveRoot, repoPath);
-    const userSpec = await this.resolveDockerUserSpec(workspacePath);
-
-    const dockerArgs = [
-      "run",
-      "--rm",
-      "--mount",
-      toDockerMountArg({ source, destination: "/preview-extract", readonly: false }),
-    ];
-    if (userSpec) {
-      dockerArgs.push("--user", userSpec);
-    }
-    dockerArgs.push(
-      "alpine:3.20",
-      "tar",
-      "-xf",
-      pathPosix.join("/preview-extract", archiveFileName),
-      "-C",
-      pathPosix.join("/preview-extract", workspaceName),
-    );
-
-    await runCommandStrict("docker", dockerArgs, repoPath);
+    await runCommandStrict("git", ["archive", "--format=tar", "-o", archivePath, exportRef], repoPath);
   }
 
   private async ensurePreviewBranchExists(

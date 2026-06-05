@@ -147,26 +147,33 @@ export class SprintFileBrowserService {
           },
         );
 
-        const workspaceSource = this.mapDockerSourcePathForDaemon(workspacePath, project.baseDir);
+        const archivePath = `${workspacePath}.tar`;
         const dockerArgs = [
-          "run",
-          "-d",
+          "create",
           "--name", containerName,
           "--label", FILE_BROWSER_LABEL,
           "--label", `code-ux.project-id=${projectId}`,
           "--label", `code-ux.sprint-id=${sprintId}`,
           "--label", `code-ux.session-id=${session.id}`,
           "--workdir", CONTAINER_WORKSPACE_PATH,
-          "--mount", toDockerMountArg({ source: workspaceSource, destination: CONTAINER_WORKSPACE_PATH, readonly: true }),
+          "--mount", toDockerMountArg({ type: "volume", source: `code-ux-file-browser-volume-${sprintId}`, destination: CONTAINER_WORKSPACE_PATH, readonly: false }),
           FILE_BROWSER_IMAGE,
           "tail", "-f", "/dev/null",
         ];
 
-        const startResult = await runCommandStrict("docker", dockerArgs, project.baseDir);
-        const containerId = startResult.stdout.trim();
+        const createResult = await runCommandStrict("docker", dockerArgs, project.baseDir);
+        const containerId = createResult.stdout.trim();
         if (!containerId) {
           throw new Error("Docker file browser container did not return a container id.");
         }
+
+        await runCommandStrict("docker", ["cp", archivePath, `${containerName}:/tmp/workspace.tar`], project.baseDir);
+        await fs.rm(archivePath, { force: true }).catch(() => undefined);
+
+        await runCommandStrict("docker", ["start", containerName], project.baseDir);
+
+        const extractCmd = `rm -rf ${CONTAINER_WORKSPACE_PATH}/* && tar -xf /tmp/workspace.tar -C ${CONTAINER_WORKSPACE_PATH} && rm -f /tmp/workspace.tar`;
+        await runCommandStrict("docker", ["exec", containerName, "sh", "-c", extractCmd], project.baseDir);
 
         const updated = this.deps.sprintFileBrowserRepository.updateSession(session.id, {
           ...basePatch,
@@ -216,6 +223,7 @@ export class SprintFileBrowserService {
     await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
       await this.removeContainerIfPresent(containerRef, session.workspacePath || process.cwd());
+      await runCommandStrict("docker", ["volume", "rm", `code-ux-file-browser-volume-${session.sprintId}`], process.cwd()).catch(() => undefined);
       this.deps.sprintFileBrowserRepository.deleteSession(sessionId);
     });
   }
@@ -700,13 +708,13 @@ export class SprintFileBrowserService {
     workspacePath: string,
     featureBranch: string,
     defaultBranch: string,
-    syncLatestFromOrigin: boolean,
-    gitAuthOptions: GitHttpAuthOptions,
+    syncLatestFromOrigin = true,
+    gitAuthOptions?: GitHttpAuthOptions,
   ): Promise<void> {
     if (syncLatestFromOrigin) {
-      await fetchOriginIfAvailable(repoPath, gitAuthOptions).catch(() => undefined);
+      await fetchOriginIfAvailable(repoPath, gitAuthOptions);
     }
-    await this.ensureBranchExists(repoPath, featureBranch, defaultBranch, gitAuthOptions);
+    await this.ensureBranchExists(repoPath, featureBranch, defaultBranch, gitAuthOptions || {});
     const exportRef = await this.resolveExistingRef(repoPath, featureBranch);
     if (!exportRef) {
       throw new Error(`Cannot export file browser workspace: branch ${featureBranch} does not exist locally or on origin.`);
@@ -717,40 +725,7 @@ export class SprintFileBrowserService {
     await fs.mkdir(workspacePath, { recursive: true });
     await fs.rm(archivePath, { force: true }).catch(() => undefined);
 
-    try {
-      await runCommandStrict("git", ["archive", "--format=tar", "-o", archivePath, exportRef], repoPath);
-      await this.extractArchive(repoPath, workspacePath, archivePath);
-    } finally {
-      await fs.rm(archivePath, { force: true }).catch(() => undefined);
-    }
-  }
-
-  private async extractArchive(repoPath: string, workspacePath: string, archivePath: string): Promise<void> {
-    const archiveRoot = path.dirname(workspacePath);
-    const archiveFileName = path.basename(archivePath);
-    const workspaceName = path.basename(workspacePath);
-    const source = this.mapDockerSourcePathForDaemon(archiveRoot, repoPath);
-    const userSpec = await this.resolveDockerUserSpec(workspacePath);
-
-    const dockerArgs = [
-      "run",
-      "--rm",
-      "--mount",
-      toDockerMountArg({ source, destination: "/file-browser-extract", readonly: false }),
-    ];
-    if (userSpec) {
-      dockerArgs.push("--user", userSpec);
-    }
-    dockerArgs.push(
-      FILE_BROWSER_IMAGE,
-      "tar",
-      "-xf",
-      pathPosix.join("/file-browser-extract", archiveFileName),
-      "-C",
-      pathPosix.join("/file-browser-extract", workspaceName),
-    );
-
-    await runCommandStrict("docker", dockerArgs, repoPath);
+    await runCommandStrict("git", ["archive", "--format=tar", "-o", archivePath, exportRef], repoPath);
   }
 
   private async ensureBranchExists(
