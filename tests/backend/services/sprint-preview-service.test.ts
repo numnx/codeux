@@ -6,6 +6,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { SprintPreviewService } from "../../../src/services/sprint-preview-service.js";
+import { getDockerUserSpec } from "../../../src/services/cli-docker-utils.js";
 
 const execFile = promisify(execFileCallback);
 const tempDirs: string[] = [];
@@ -79,6 +80,7 @@ describeIfDocker("SprintPreviewService workspace export", () => {
     await run("docker", [
       "run",
       "--rm",
+      "--user", getDockerUserSpec(),
       "-v", `${path.dirname(workspacePath)}:/data`,
       "alpine:3.20",
       "tar", "-xf", `/data/${path.basename(workspacePath)}.tar`, "-C", `/data/${path.basename(workspacePath)}`
@@ -137,6 +139,7 @@ describeIfDocker("SprintPreviewService workspace export", () => {
     await run("docker", [
       "run",
       "--rm",
+      "--user", getDockerUserSpec(),
       "-v", `${path.dirname(workspacePath)}:/data`,
       "alpine:3.20",
       "tar", "-xf", `/data/${path.basename(workspacePath)}.tar`, "-C", `/data/${path.basename(workspacePath)}`
