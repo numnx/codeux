@@ -210,7 +210,7 @@ export class SprintFileBrowserService {
     const session = await this.requireSession(sessionId);
     return await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, session.workspacePath || process.cwd());
+      await this.removeContainerIfPresent(containerRef, process.cwd());
       return this.deps.sprintFileBrowserRepository.updateSession(sessionId, {
         status: "stopped",
         containerId: null,
@@ -225,7 +225,7 @@ export class SprintFileBrowserService {
     const session = await this.requireSession(sessionId);
     await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, session.workspacePath || process.cwd());
+      await this.removeContainerIfPresent(containerRef, process.cwd());
       await runCommandStrict("docker", ["volume", "rm", `code-ux-file-browser-volume-${session.sprintId}`], process.cwd()).catch(() => undefined);
       this.deps.sprintFileBrowserRepository.deleteSession(sessionId);
     });
@@ -235,7 +235,7 @@ export class SprintFileBrowserService {
     const session = await this.requireRunningSession(sessionId);
     const script = this.buildTreeScript();
     const result = await commandRunner.run("docker", ["exec", session.containerId!, "sh", "-c", script], {
-      cwd: session.workspacePath || process.cwd(),
+      cwd: process.cwd(),
     });
     if (!result.ok) {
       throw new Error(result.stderr.trim() || "Failed to read file tree from container.");
@@ -249,7 +249,7 @@ export class SprintFileBrowserService {
     const containerPath = pathPosix.join(CONTAINER_WORKSPACE_PATH, relPath);
     const script = `head -c ${MAX_FILE_BYTES + 1} -- ${this.shellQuote(containerPath)}`;
     const result = await commandRunner.run("docker", ["exec", session.containerId!, "sh", "-c", script], {
-      cwd: session.workspacePath || process.cwd(),
+      cwd: process.cwd(),
       trimOutput: false,
     });
     if (!result.ok) {
@@ -849,7 +849,7 @@ export class SprintFileBrowserService {
   }
 
   private async findManagedContainerForSession(session: FileBrowserSession): Promise<DockerContainerSummary | null> {
-    const containers = await this.listFileBrowserContainers(session.workspacePath || process.cwd());
+    const containers = await this.listFileBrowserContainers(process.cwd());
     const bySession = containers.find((container) => container.labels["code-ux.session-id"] === session.id);
     if (bySession) {
       return bySession;

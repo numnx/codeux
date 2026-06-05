@@ -394,7 +394,7 @@ export class SprintPreviewService {
     const session = await this.requireSession(sessionId);
     return await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, session.worktreePath || process.cwd());
+      await this.removeContainerIfPresent(containerRef, process.cwd());
       return this.deps.sprintPreviewRepository.updateSession(sessionId, {
         status: "stopped",
         containerId: null,
@@ -410,7 +410,7 @@ export class SprintPreviewService {
     const session = await this.requireSession(sessionId);
     await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, session.worktreePath || process.cwd());
+      await this.removeContainerIfPresent(containerRef, process.cwd());
       await runCommandStrict("docker", ["volume", "rm", `code-ux-preview-volume-${session.sprintId}`], process.cwd()).catch(() => undefined);
       this.deps.sprintPreviewRepository.deleteSession(sessionId);
     });
@@ -427,7 +427,7 @@ export class SprintPreviewService {
         logs: await this.readContainerLogs(
           refreshed.containerId || refreshed.containerName || refreshed.id,
           tail,
-          refreshed.worktreePath || process.cwd(),
+          process.cwd(),
         ),
       };
     } catch (error) {
@@ -660,7 +660,7 @@ export class SprintPreviewService {
       });
 
     if (container.status !== "running") {
-      const logs = await this.readContainerLogs(container.id, PREVIEW_LOG_TAIL_LINES, adoptedSession.worktreePath || process.cwd()).catch(() => "");
+      const logs = await this.readContainerLogs(container.id, PREVIEW_LOG_TAIL_LINES, process.cwd()).catch(() => "");
       const lastError = this.extractPreviewError(logs) || adoptedSession.lastError || `Preview container is ${container.status}.`;
       return this.deps.sprintPreviewRepository.updateSession(adoptedSession.id, {
         status: "error",
@@ -817,7 +817,7 @@ export class SprintPreviewService {
   }
 
   private async findManagedContainerForSession(session: SprintPreviewSession): Promise<DockerContainerSummary | null> {
-    const containers = await this.listPreviewContainers(session.worktreePath || process.cwd());
+    const containers = await this.listPreviewContainers(process.cwd());
     const bySession = containers.find((container) => container.labels["code-ux.session-id"] === session.id);
     if (bySession) {
       return bySession;
