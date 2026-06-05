@@ -29,8 +29,8 @@ vi.mock("../../../src/infrastructure/providers/cli/docker-runtime-paths.js", () 
   resolveDockerRuntimeRoot: vi.fn(() => "/runtime-root"),
 }));
 
-vi.mock("../../../src/git/sprint-branch-scheme.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/git/sprint-branch-scheme.js")>();
+vi.mock("../../../src/domain/sprint/branch-name-generator.js", async (importOriginal) => {
+  const actual = await importOriginal<any>();
   return {
     ...actual,
     formatSprintBranch: vi.fn(() => "feature/sprint-1"),

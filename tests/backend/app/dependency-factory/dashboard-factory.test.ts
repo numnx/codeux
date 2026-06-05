@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../../src/repositories/settings-defaults.js";
 import { createDashboardDependencies } from "../../../../src/app/dependency-factory/dashboard-factory.js";
 import { ServerContext } from "../../../../src/app/dependency-factory.js";
 import { CoreDependencies } from "../../../../src/app/dependency-factory/core-factory.js";
@@ -85,7 +86,9 @@ describe("Dashboard Factory", () => {
         resolveProjectDashboardSettings: vi.fn(),
         resolveSprintDashboardSettings: vi.fn().mockReturnValue({
           settings: {
+            ...DEFAULT_DASHBOARD_SETTINGS,
             git: {
+              ...DEFAULT_DASHBOARD_SETTINGS.git,
               sprintBranchScheme: "feature/sprint{sprint}",
             },
           },

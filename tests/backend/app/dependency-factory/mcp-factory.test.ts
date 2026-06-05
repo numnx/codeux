@@ -10,7 +10,7 @@ vi.mock("../../../../src/mcp/management-tool-handler.js", () => {
   return { ManagementToolHandler };
 });
 
-vi.mock("../../../../src/git/sprint-branch-scheme.js", async (importOriginal) => {
+vi.mock("../../../../src/domain/sprint/branch-name-generator.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
     ...actual,
