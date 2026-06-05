@@ -2,18 +2,19 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState, useCallback } from "preact/hooks";
 import {
   Library, Upload, FileText, FileCode, StickyNote, FolderGit2, Trash2, RefreshCw,
-  Search, Loader2, AlertTriangle, Check, Plus, X, Sparkles, BookOpen,
+  Search, Loader2, AlertTriangle, Check, Plus, X, Sparkles, BookOpen, Copy,
 } from "lucide-preact";
 import { PageContainer } from "./components/layout/PageContainer.js";
 import { useProjectData } from "./context/project-data.js";
 import { listEmbeddingModels } from "./lib/memory-api.js";
 import { fetchAgentPresets } from "./lib/agent-preset-api.js";
-import type { AgentPreset } from "./types.js";
+import type { AgentPreset, Source } from "./types.js";
 import {
   fetchKnowledgeDocuments,
   addPastedDocument,
   addRepoPathDocuments,
   uploadKnowledgeFiles,
+  importKnowledgeFromProject,
   deleteKnowledgeDocument,
   reembedKnowledgeDocument,
   searchKnowledge,
@@ -21,7 +22,7 @@ import {
   type KnowledgeSearchResult,
 } from "./lib/knowledge-api.js";
 
-type AddMode = "upload" | "paste" | "repo" | null;
+type AddMode = "upload" | "paste" | "repo" | "project" | null;
 
 const formatBytes = (bytes: number): string => {
   if (!bytes) return "0 KB";
@@ -40,6 +41,7 @@ const docIcon = (doc: KnowledgeDocument) => {
   if ((doc.mimeType || "").includes("wordprocessingml") || ref.endsWith(".docx")) return { Icon: FileText, cls: "text-sky-500" };
   if (doc.sourceType === "paste") return { Icon: StickyNote, cls: "text-amber-500" };
   if (doc.sourceType === "repo_path") return { Icon: FolderGit2, cls: "text-violet-500" };
+  if (doc.sourceType === "project") return { Icon: Copy, cls: "text-sky-500" };
   if (/\.(ts|tsx|js|jsx|py|go|rs|java|rb|php|c|cpp|cs|sh|sql|css)$/.test(ref)) return { Icon: FileCode, cls: "text-signal-500" };
   return { Icon: FileText, cls: "text-slate-400" };
 };
@@ -70,7 +72,7 @@ const StatusPill: FunctionComponent<{ doc: KnowledgeDocument }> = ({ doc }) => {
 };
 
 export const KnowledgePage: FunctionComponent = () => {
-  const { selectedProject } = useProjectData();
+  const { selectedProject, projects } = useProjectData();
   const pid = selectedProject?.id || "";
 
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -228,6 +230,15 @@ export const KnowledgePage: FunctionComponent = () => {
             <FolderGit2 className="h-4 w-4" strokeWidth={2.4} />
             From repo
           </button>
+          <button
+            type="button"
+            onClick={() => setAddMode("project")}
+            disabled={!pid || projects.filter((project) => project.id !== pid).length === 0}
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/60 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
+          >
+            <Copy className="h-4 w-4" strokeWidth={2.4} />
+            From project
+          </button>
         </div>
       </div>
 
@@ -358,6 +369,23 @@ export const KnowledgePage: FunctionComponent = () => {
         } catch (err) { setError(err instanceof Error ? err.message : "Failed to ingest path"); }
         finally { setBusy(false); }
       }} />}
+      {addMode === "project" && <ProjectKnowledgeModal
+        busy={busy}
+        currentProjectId={pid}
+        projects={projects}
+        onClose={() => setAddMode(null)}
+        onSubmit={async (sourceProjectId, documentIds) => {
+          setBusy(true);
+          setError(null);
+          try {
+            const result = await importKnowledgeFromProject(pid, { sourceProjectId, documentIds });
+            if (result.errors.length > 0) setError(result.errors.map((e) => `${e.fileName}: ${e.error}`).join(" · "));
+            await loadData();
+            setAddMode(null);
+          } catch (err) { setError(err instanceof Error ? err.message : "Failed to import project knowledge"); }
+          finally { setBusy(false); }
+        }}
+      />}
     </PageContainer>
   );
 };
@@ -530,6 +558,121 @@ const RepoPathModal: FunctionComponent<{ busy: boolean; onClose: () => void; onS
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderGit2 className="h-4 w-4" strokeWidth={2.4} />}
           Ingest
         </button>
+      </div>
+    </ModalShell>
+  );
+};
+
+const ProjectKnowledgeModal: FunctionComponent<{
+  busy: boolean;
+  currentProjectId: string;
+  projects: Source[];
+  onClose: () => void;
+  onSubmit: (sourceProjectId: string, documentIds: string[]) => void;
+}> = ({ busy, currentProjectId, projects, onClose, onSubmit }) => {
+  const sourceProjects = projects.filter((project) => project.id !== currentProjectId);
+  const [sourceProjectId, setSourceProjectId] = useState(sourceProjects[0]?.id || "");
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sourceProjectId) {
+      setDocuments([]);
+      setSelectedIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    setLoadingDocs(true);
+    setLoadError(null);
+    fetchKnowledgeDocuments(sourceProjectId)
+      .then((docs) => {
+        if (cancelled) return;
+        setDocuments(docs);
+        setSelectedIds(new Set(docs.map((doc) => doc.id)));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDocuments([]);
+        setSelectedIds(new Set());
+        setLoadError(err instanceof Error ? err.message : "Failed to load project documents");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDocs(false);
+      });
+    return () => { cancelled = true; };
+  }, [sourceProjectId]);
+
+  const toggle = (documentId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(documentId)) next.delete(documentId);
+      else next.add(documentId);
+      return next;
+    });
+  };
+
+  return (
+    <ModalShell title="Import from project" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <select
+          value={sourceProjectId}
+          onChange={(e) => setSourceProjectId((e.target as HTMLSelectElement).value)}
+          className="rounded-xl border border-black/[0.08] bg-white/70 px-3 py-2.5 text-sm font-semibold text-slate-600 outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300"
+        >
+          {sourceProjects.map((project) => (
+            <option key={project.id} value={project.id}>{project.name}</option>
+          ))}
+        </select>
+
+        <div className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-2xl border border-black/[0.06] bg-black/[0.02] p-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          {loadingDocs ? (
+            <div className="flex items-center justify-center py-10 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : loadError ? (
+            <p className="px-2 py-8 text-center text-sm text-status-red">{loadError}</p>
+          ) : documents.length === 0 ? (
+            <p className="px-2 py-8 text-center text-sm text-slate-400">No knowledge documents in this project.</p>
+          ) : documents.map((doc) => {
+            const checked = selectedIds.has(doc.id);
+            return (
+              <button
+                key={doc.id}
+                type="button"
+                onClick={() => toggle(doc.id)}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${checked ? "bg-signal-500/[0.08]" : "hover:bg-white/60 dark:hover:bg-white/[0.04]"}`}
+              >
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${checked ? "bg-signal-500 text-slate-900 dark:text-void-900" : "bg-black/[0.05] text-slate-400 dark:bg-white/[0.06]"}`}>
+                  {checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : <FileText className="h-3.5 w-3.5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-slate-700 dark:text-slate-200">{doc.title}</span>
+                  <span className="block truncate text-[11px] text-slate-400 dark:text-slate-500">{doc.summary || doc.sourceRef || doc.sourceType}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            disabled={documents.length === 0}
+            onClick={() => setSelectedIds(selectedIds.size === documents.length ? new Set() : new Set(documents.map((doc) => doc.id)))}
+            className="rounded-xl border border-black/[0.08] px-3 py-2 text-[12px] font-bold text-slate-500 hover:bg-white disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:bg-white/[0.06]"
+          >
+            {selectedIds.size === documents.length ? "Clear" : "Select all"}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !sourceProjectId || selectedIds.size === 0}
+            onClick={() => onSubmit(sourceProjectId, [...selectedIds])}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-signal-500 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-signal-400 disabled:opacity-50 dark:text-void-900"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" strokeWidth={2.4} />}
+            Import {selectedIds.size || ""}
+          </button>
+        </div>
       </div>
     </ModalShell>
   );

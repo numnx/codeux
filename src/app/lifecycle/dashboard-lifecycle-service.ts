@@ -1,6 +1,4 @@
 import { setupDashboardServer, type DashboardServerHandle } from "../../server/dashboard-server.js";
-import { registerMemoryRoutes } from "../../server/memory-routes.js";
-import { registerKnowledgeRoutes } from "../../server/knowledge-routes.js";
 import { InstructionFileService } from "../../services/instruction-file-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { createLogger } from "../../shared/logging/logger.js";
@@ -277,21 +275,6 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
 
   deps.projectSetupService.setRealtimeNotifier(deps.dashboardRealtimeService);
 
-  registerMemoryRoutes(deps.app, {
-    memoryService: deps.memoryService,
-    memoryPromotionService: deps.memoryPromotionService,
-    embeddingModelManager: deps.embeddingModelManager,
-    embeddingService: deps.embeddingService,
-    memoryRepository: deps.memoryRepository,
-    settingsRepository: deps.settingsRepository,
-  });
-
-  registerKnowledgeRoutes(deps.app, {
-    knowledgeService: deps.knowledgeService,
-    agentPresetRepository: deps.agentPresetRepository,
-    projectManagementRepository: deps.projectManagementRepository,
-  });
-
   // Auto-restore previously active embedding model (fire-and-forget)
   deps.embeddingModelManager.restorePreviousModel().catch((error) => {
     deps.logger.warn(`Embedding model auto-restore failed: ${error}`);
@@ -309,6 +292,15 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
     getStatus: () => deps.projectRuntimeRepository.getSelectedProjectLiveStatus(),
+    memoryService: deps.memoryService,
+    memoryPromotionService: deps.memoryPromotionService,
+    embeddingModelManager: deps.embeddingModelManager,
+    embeddingService: deps.embeddingService,
+    memoryRepository: deps.memoryRepository,
+    settingsRepository: deps.settingsRepository,
+    knowledgeService: deps.knowledgeService,
+    agentPresetRepository: deps.agentPresetRepository,
+    projectManagementRepository: deps.projectManagementRepository,
     getLiveSnapshot: (projectIdHint) => getProjectLiveSnapshot({
       projectManagementRepository: deps.projectManagementRepository,
       projectRuntimeRepository: deps.projectRuntimeRepository,

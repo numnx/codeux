@@ -182,13 +182,6 @@ export function createCoreDependencies(
     connectionChatRepository,
   );
   const agentPresetRepository = new AgentPresetRepository(appDbStorage);
-  const agentPresetSyncService = new AgentPresetSyncService({
-    projectManagementRepository,
-    agentPresetRepository,
-    settingsRepository,
-    projectRoot: options.projectRoot,
-    logger: logger.child({ component: "agent-preset-sync-service" }),
-  });
   const executionRepository = new ExecutionRepository(appDbStorage, dashboardRealtimeService);
   const guardrailRepository = new GuardrailRepository(appDbStorage);
   const guardrailService = new GuardrailService(
@@ -271,6 +264,14 @@ export function createCoreDependencies(
     embeddingService,
     logger.child({ component: "knowledge-service" }),
   );
+  const agentPresetSyncService = new AgentPresetSyncService({
+    projectManagementRepository,
+    agentPresetRepository,
+    settingsRepository,
+    projectRoot: options.projectRoot,
+    logger: logger.child({ component: "agent-preset-sync-service" }),
+    knowledgeService,
+  });
   const instructionService = new InstructionService({
     settingsRepository,
     projectManagementRepository,

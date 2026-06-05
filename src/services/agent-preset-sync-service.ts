@@ -8,6 +8,7 @@ import type { SettingsRepository } from "../repositories/settings-repository.js"
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../shared/config/code-ux-paths.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { ensureDefaultCodeUxAssetsInstalled } from "./code-ux-default-assets-service.js";
+import { CODE_UX_INTERNAL_DOCS_SOURCE_REF, type KnowledgeService } from "./knowledge-service.js";
 
 interface AgentPresetSyncServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
@@ -15,6 +16,7 @@ interface AgentPresetSyncServiceDeps {
   settingsRepository: SettingsRepository;
   projectRoot: string;
   logger?: Logger;
+  knowledgeService?: KnowledgeService;
 }
 
 interface AgentSourceFile {
@@ -290,6 +292,8 @@ export class AgentPresetSyncService {
     if (!defaultAgentPresetsCopied && copiedDefaultAgentPresetThisSync) {
       this.deps.agentPresetRepository.markDefaultAgentPresetsCopied(projectId);
     }
+
+    await this.seedProjectManagerInternalDocs(projectId);
   }
 
   async importAgentPresetFromMarkdown(agentPresetId: string): Promise<AgentPresetRecord> {
@@ -612,6 +616,27 @@ export class AgentPresetSyncService {
     await this.syncProjectAgents(project.id);
     const agent = this.deps.agentPresetRepository.findAgentPresetByName(project.id, name);
     return agent ? await this.decorateAgentPreset(agent) : null;
+  }
+
+  private async seedProjectManagerInternalDocs(projectId: string): Promise<void> {
+    if (!this.deps.knowledgeService || this.deps.agentPresetRepository.hasSeededInternalDocsSubscription(projectId)) {
+      return;
+    }
+
+    const projectManager = this.deps.agentPresetRepository.findAgentPresetByName(projectId, "Iris")
+      || this.deps.agentPresetRepository.findAgentPresetByName(projectId, "Project manager");
+    if (!projectManager) {
+      return;
+    }
+
+    const doc = await this.deps.knowledgeService.ensureCodeUxInternalDocsDocument(projectId, this.deps.projectRoot);
+    if (!doc || doc.sourceRef !== CODE_UX_INTERNAL_DOCS_SOURCE_REF) {
+      return;
+    }
+
+    const existing = this.deps.knowledgeService.listSubscriptions(projectManager.id);
+    this.deps.knowledgeService.setSubscriptions(projectManager.id, projectId, [...new Set([...existing, doc.id])]);
+    this.deps.agentPresetRepository.markInternalDocsSubscriptionSeeded(projectId);
   }
 
   private shouldSaveToProjectDirectory(projectId: string): boolean {

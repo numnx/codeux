@@ -5,8 +5,11 @@ import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { AgentPresetRepository } from "../../../src/repositories/agent-preset-repository.js";
+import { KnowledgeRepository } from "../../../src/repositories/knowledge-repository.js";
 import { SettingsRepository } from "../../../src/repositories/settings-repository.js";
 import { AgentPresetSyncService } from "../../../src/services/agent-preset-sync-service.js";
+import { KnowledgeIngestionService } from "../../../src/services/knowledge-ingestion-service.js";
+import { KnowledgeService } from "../../../src/services/knowledge-service.js";
 
 const tempDirs: string[] = [];
 const appStorages: AppDbStorage[] = [];
@@ -14,6 +17,14 @@ const settingsRepositories: SettingsRepository[] = [];
 const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
 const originalEnableInstallInTests = process.env.CODE_UX_ENABLE_DEFAULT_ASSET_INSTALL_IN_TESTS;
+
+const noopLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, child: () => noopLogger } as any;
+const fakeEmbeddingService = {
+  isLoaded: () => true,
+  getLoadedModelId: () => "bge-small-en-v1.5",
+  getDimension: () => 2,
+  embed: async () => new Float32Array([1, 0]),
+} as any;
 
 const createAppStorage = (dbPath: string): AppDbStorage => {
   const storage = new AppDbStorage(dbPath);
@@ -258,6 +269,55 @@ describe("AgentPresetSyncService", () => {
     const resolved = await syncService.getProjectManagerAgent(project.id);
     expect(resolved.name).toBe("Iris");
     expect(resolved.instructionMarkdown).toContain("Answer Jules clarification requests.");
+  });
+
+  it("seeds Code UX internal docs as a default Iris knowledge subscription once", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-iris-internal-docs-"));
+    tempDirs.push(dir);
+
+    const projectRoot = path.join(dir, "app");
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(projectRoot, "docs"), { recursive: true });
+    await fs.mkdir(path.join(repoPath, ".code-ux", "agents"), { recursive: true });
+    await fs.writeFile(path.join(projectRoot, "docs", "index.md"), "# Code UX\n\nInternal docs.", "utf8");
+    await fs.writeFile(path.join(repoPath, ".code-ux", "agents", "iris.md"), "Manage the project.\n", "utf8");
+
+    const storage = createAppStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const knowledgeRepository = new KnowledgeRepository(storage);
+    const knowledgeService = new KnowledgeService(
+      knowledgeRepository,
+      new KnowledgeIngestionService(noopLogger),
+      fakeEmbeddingService,
+      noopLogger,
+    );
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot,
+      knowledgeService,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Iris Internal Docs",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    const presets = await syncService.listAgentPresets(project.id);
+    const iris = presets.find((preset) => preset.name === "Iris");
+    expect(iris).toBeTruthy();
+    const docs = knowledgeService.listDocuments(project.id);
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ title: "codeux/internaldocs", sourceRef: "codeux/internaldocs" });
+    expect(knowledgeService.listSubscriptions(iris!.id)).toEqual([docs[0]!.id]);
+
+    knowledgeService.setSubscriptions(iris!.id, project.id, []);
+    await syncService.syncProjectAgents(project.id);
+    expect(knowledgeService.listSubscriptions(iris!.id)).toEqual([]);
   });
 
   it("repairs stale DB content when source metadata already matches", async () => {

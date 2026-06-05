@@ -242,6 +242,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [discardOpen, setDiscardOpen] = useState(false);
   const [avatarExpression, setAvatarExpression] = useState<AgentAvatarExpression>("happy");
+  const [knowledgeDirty, setKnowledgeDirty] = useState(false);
 
   const setMcpAccessNormalized = (next: AgentMcpAccessConfig): void => setMcpAccess(normalizeAgentMcpAccess(next));
 
@@ -266,6 +267,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
     setMemoryConfig(preset.memoryConfig ?? DEFAULT_AGENT_MEMORY_CONFIG);
     setShowMemoryPanel(false);
     setTouched({});
+    setKnowledgeDirty(false);
   }, [preset.id]);
 
   /* Entry animation */
@@ -290,6 +292,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
   const hasErrors = Object.keys(errors).length > 0;
 
   const isDirty = useMemo(() => {
+    if (knowledgeDirty) return true;
     if (name !== preset.name) return true;
     if (description !== (preset.description || "")) return true;
     if (instructionMarkdown !== preset.instructionMarkdown) return true;
@@ -313,6 +316,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
     mcpAccess,
     memoryConfig,
     preset,
+    knowledgeDirty,
   ]);
 
   const submitDisabled = saving || hasErrors || !isDirty;
@@ -334,6 +338,7 @@ export const AgentPresetEditorPanel: FunctionComponent<{
       mcpAccess,
       memoryConfig,
     });
+    setKnowledgeDirty(false);
   };
 
   const attemptCancel = useCallback(() => {
@@ -754,7 +759,12 @@ export const AgentPresetEditorPanel: FunctionComponent<{
               Subscribe this agent to documents from the shared library. Subscribed docs appear in the
               agent's manifest, and it retrieves passages on demand via <code className="rounded bg-black/[0.05] px-1 py-0.5 font-mono text-[11px] dark:bg-white/[0.06]">search_knowledge</code>.
             </p>
-            <AgentKnowledgePanel agentPresetId={preset.id} projectId={preset.projectId} disabled={saving} />
+            <AgentKnowledgePanel
+              agentPresetId={preset.id}
+              projectId={preset.projectId}
+              disabled={saving}
+              onSubscriptionsChanged={() => setKnowledgeDirty(true)}
+            />
           </SectionCard>
 
           {/* Row 3 — routing + connected tools */}

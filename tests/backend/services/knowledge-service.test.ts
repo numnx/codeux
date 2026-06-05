@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createHash } from "crypto";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -7,7 +8,7 @@ import { ProjectManagementRepository } from "../../../src/repositories/project-m
 import { AgentPresetRepository } from "../../../src/repositories/agent-preset-repository.js";
 import { KnowledgeRepository } from "../../../src/repositories/knowledge-repository.js";
 import { KnowledgeIngestionService } from "../../../src/services/knowledge-ingestion-service.js";
-import { KnowledgeService } from "../../../src/services/knowledge-service.js";
+import { CODE_UX_INTERNAL_DOCS_SOURCE_REF, KnowledgeService } from "../../../src/services/knowledge-service.js";
 
 const noopLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, child: () => noopLogger } as any;
 
@@ -75,6 +76,24 @@ describe("KnowledgeService", () => {
     expect(service.listDocuments(projectId)).toHaveLength(1);
   });
 
+  it("imports selected knowledge documents from another project", async () => {
+    const sourceProjectId = projects.createProject({ name: "Source KB", sourceType: "local", sourceRef: "/tmp/source-kb" }).id;
+    const targetProjectId = projects.createProject({ name: "Target KB", sourceType: "local", sourceRef: "/tmp/target-kb" }).id;
+    const first = await service.ingestDocument(sourceProjectId, { title: "Runbook", sourceType: "paste", text: "alpha deploy notes" });
+    await service.ingestDocument(sourceProjectId, { title: "Ignore", sourceType: "paste", text: "gamma notes" });
+
+    const result = await service.importDocumentsFromProject(targetProjectId, sourceProjectId, [first.id]);
+
+    expect(result.errors).toEqual([]);
+    expect(result.documents).toHaveLength(1);
+    expect(result.documents[0]).toMatchObject({
+      title: "Runbook",
+      sourceType: "project",
+      sourceRef: `project:${sourceProjectId}/Runbook`,
+    });
+    expect(service.listDocuments(targetProjectId)).toHaveLength(1);
+  });
+
   it("ranks search results by relevance within a document set", async () => {
     const alphaDoc = await ingestReady("Alpha", "alpha alpha beta notes");
     const gammaDoc = await ingestReady("Gamma", "gamma delta notes");
@@ -120,5 +139,56 @@ describe("KnowledgeService", () => {
     // No subscriptions → no manifest.
     const empty = agents.createAgentPreset(projectId, { name: "Empty" });
     expect(service.buildManifestMarkdownForAgent(empty.id)).toBeNull();
+  });
+
+  it("groups Code UX docs into one internal knowledge document", async () => {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-internal-docs-"));
+    tempDirs.push(projectRoot);
+    await fs.mkdir(path.join(projectRoot, "docs", "architecture"), { recursive: true });
+    await fs.writeFile(path.join(projectRoot, "docs", "index.md"), "# Index\n\nStart here.", "utf8");
+    await fs.writeFile(path.join(projectRoot, "docs", "architecture", "runtime.md"), "# Runtime\n\nUse the event loop.", "utf8");
+
+    const doc = await service.ensureCodeUxInternalDocsDocument(projectId, projectRoot);
+
+    expect(doc).toMatchObject({
+      title: "codeux/internaldocs",
+      sourceType: "repo_path",
+      sourceRef: CODE_UX_INTERNAL_DOCS_SOURCE_REF,
+    });
+    const full = service.getDocument(doc!.id);
+    expect(full?.contentText).toContain("# architecture/runtime.md");
+    expect(full?.contentText).toContain("# index.md");
+  });
+
+  it("loads bundled precomputed embeddings for Code UX internal docs when hashes match", async () => {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-internal-docs-embeddings-"));
+    tempDirs.push(projectRoot);
+    await fs.mkdir(path.join(projectRoot, "docs"), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, ".code-ux", "embeddings"), { recursive: true });
+    await fs.writeFile(path.join(projectRoot, "docs", "index.md"), "# Alpha\n\nalpha beta", "utf8");
+
+    const text = "# index.md\n\n# Alpha\n\nalpha beta";
+    const contentHash = createHash("sha256").update(text).digest("hex");
+    await fs.writeFile(path.join(projectRoot, ".code-ux", "embeddings", "codeux-internaldocs.bge-small-en-v1.5.json"), JSON.stringify({
+      kind: "codeux.knowledge.embeddings",
+      version: 1,
+      sourceRef: CODE_UX_INTERNAL_DOCS_SOURCE_REF,
+      modelId: "bge-small-en-v1.5",
+      dimension: KEYWORDS.length,
+      contentHash,
+      chunks: [{
+        chunkIndex: 0,
+        content: text,
+        tokenCount: 4,
+        heading: "index.md",
+        embedding: [1, 0, 0, 0],
+      }],
+    }), "utf8");
+
+    const doc = await service.ensureCodeUxInternalDocsDocument(projectId, projectRoot);
+    const full = service.getDocument(doc!.id);
+    expect(full?.status).toBe("ready");
+    expect(full?.embeddingModel).toBe("bge-small-en-v1.5");
+    expect(full?.chunkCount).toBe(1);
   });
 });

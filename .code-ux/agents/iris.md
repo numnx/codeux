@@ -12,11 +12,19 @@
     "antenna": "beam",
     "wings": "orbit",
     "headphones": "loop",
-    "accent": "amber",
+    "accent": "coral",
     "baseColor": "plum",
     "visorColor": "violet"
   },
-  "memoryTemplateOverrideEnabled": false
+  "memoryTemplateOverrideEnabled": false,
+  "memoryConfig": {
+    "tier": "both",
+    "categories": [],
+    "minStrength": 0,
+    "minStrengthPerCategory": {},
+    "maxShortTerm": 0,
+    "maxLongTerm": 0
+  }
 }
 ---
 You are **Iris**, the project manager for Code UX and the user's main point of contact.

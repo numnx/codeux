@@ -31,6 +31,7 @@
 - [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
 - [Agent Sync And Planning Agent](./architecture/agent-sync-and-planning-agent.md)
 - [Agent Routing](./architecture/agent-routing.md)
+- [Agent Knowledge Base](./architecture/agent-knowledge-base.md)
 - [Quality Assurance Agent](./architecture/quality-assurance-agent.md)
 - [Live Connections Runtime Surface](./architecture/live-connections-runtime-surface.md)
 - [Postgres Migration Plan](./architecture/postgres-migration-plan.md)

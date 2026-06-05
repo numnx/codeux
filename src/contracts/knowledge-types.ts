@@ -12,7 +12,7 @@
 
 import type { EmbeddingModelId } from "./memory-types.js";
 
-export type KnowledgeSourceType = "upload" | "repo_path" | "paste";
+export type KnowledgeSourceType = "upload" | "repo_path" | "paste" | "project";
 
 export type KnowledgeDocumentStatus = "pending" | "embedding" | "ready" | "error";
 

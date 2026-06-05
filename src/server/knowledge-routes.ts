@@ -138,6 +138,31 @@ export function registerKnowledgeRoutes(app: Express, deps: KnowledgeRouteDepend
     }),
   );
 
+  app.post("/api/projects/:projectId/knowledge/documents/import-project", asyncRoute(async (req, res) => {
+    try {
+      const projectId = requireTrimmedString(req.params.projectId, "projectId");
+      if (!requireModel(res)) return;
+
+      const body = (req.body ?? {}) as { sourceProjectId?: unknown; documentIds?: unknown };
+      const sourceProjectId = typeof body.sourceProjectId === "string" ? body.sourceProjectId.trim() : "";
+      if (!sourceProjectId) {
+        res.status(400).json({ error: "sourceProjectId is required" });
+        return;
+      }
+      if (!projectManagementRepository.getProject(sourceProjectId)) {
+        res.status(404).json({ error: "Source project not found" });
+        return;
+      }
+      const documentIds = Array.isArray(body.documentIds)
+        ? body.documentIds.filter((id): id is string => typeof id === "string")
+        : undefined;
+      const result = await knowledgeService.importDocumentsFromProject(projectId, sourceProjectId, documentIds);
+      res.status(result.documents.length ? 201 : 400).json(result);
+    } catch (error) {
+      res.status(400).json(toErrorResponse(error, "Failed to import project knowledge"));
+    }
+  }));
+
   app.delete("/api/knowledge/documents/:documentId", syncRoute((req, res) => {
     try {
       knowledgeService.deleteDocument(requireTrimmedString(req.params.documentId, "documentId"));

@@ -1,7 +1,7 @@
 import { fetchJson } from "../../lib/api/fetch-json.js";
 
 export type KnowledgeDocumentStatus = "pending" | "embedding" | "ready" | "error";
-export type KnowledgeSourceType = "upload" | "repo_path" | "paste";
+export type KnowledgeSourceType = "upload" | "repo_path" | "paste" | "project";
 
 export interface KnowledgeDocument {
   id: string;
@@ -82,6 +82,16 @@ export const uploadKnowledgeFiles = async (
   }
   return body as KnowledgeUploadResult;
 };
+
+export const importKnowledgeFromProject = async (
+  projectId: string,
+  input: { sourceProjectId: string; documentIds?: string[] },
+): Promise<KnowledgeUploadResult> =>
+  fetchJson<KnowledgeUploadResult>(`/api/projects/${encode(projectId)}/knowledge/documents/import-project`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 
 export const deleteKnowledgeDocument = async (documentId: string): Promise<void> => {
   await fetchJson<{ ok: boolean }>(`/api/knowledge/documents/${encode(documentId)}`, { method: "DELETE" });

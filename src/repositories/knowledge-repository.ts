@@ -119,6 +119,13 @@ export class KnowledgeRepository {
     return row ? this.mapDocument(row) : null;
   }
 
+  findBySourceRef(projectId: string, sourceType: KnowledgeSourceType, sourceRef: string): KnowledgeDocumentRecord | null {
+    const row = this.db.prepare(
+      "SELECT * FROM knowledge_documents WHERE project_id = ? AND source_type = ? AND source_ref = ? LIMIT 1",
+    ).get(projectId, sourceType, sourceRef) as DocumentRow | undefined;
+    return row ? this.mapDocument(row) : null;
+  }
+
   listDocuments(projectId: string): KnowledgeDocumentSummary[] {
     const rows = this.db.prepare(
       "SELECT * FROM knowledge_documents WHERE project_id = ? ORDER BY updated_at DESC",
