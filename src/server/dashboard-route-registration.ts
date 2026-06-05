@@ -22,6 +22,8 @@ import { registerSchedulerRoutes } from "./scheduler-routes.js";
 import { registerTerminalRoutes } from "./terminal-routes.js";
 import { registerSprintComposerRoutes } from "./routes/sprint-composer.js";
 import { registerGitProviderRoutes } from "./git-provider-routes.js";
+import { registerMemoryRoutes } from "./memory-routes.js";
+import { registerKnowledgeRoutes } from "./knowledge-routes.js";
 
 export const registerDashboardRoutes = (
   app: Express,
@@ -49,4 +51,32 @@ export const registerDashboardRoutes = (
   registerSchedulerRoutes(app, deps);
   registerTerminalRoutes(app, deps);
   registerGitProviderRoutes(app, deps);
+  if (
+    deps.memoryService &&
+    deps.memoryPromotionService &&
+    deps.embeddingModelManager &&
+    deps.embeddingService &&
+    deps.memoryRepository &&
+    deps.settingsRepository
+  ) {
+    registerMemoryRoutes(app, {
+      memoryService: deps.memoryService,
+      memoryPromotionService: deps.memoryPromotionService,
+      embeddingModelManager: deps.embeddingModelManager,
+      embeddingService: deps.embeddingService,
+      memoryRepository: deps.memoryRepository,
+      settingsRepository: deps.settingsRepository,
+    });
+  }
+  if (
+    deps.knowledgeService &&
+    deps.agentPresetRepository &&
+    deps.projectManagementRepository
+  ) {
+    registerKnowledgeRoutes(app, {
+      knowledgeService: deps.knowledgeService,
+      agentPresetRepository: deps.agentPresetRepository,
+      projectManagementRepository: deps.projectManagementRepository,
+    });
+  }
 };

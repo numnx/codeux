@@ -8,6 +8,7 @@ import type { SettingsRepository } from "../repositories/settings-repository.js"
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../shared/config/code-ux-paths.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { ensureDefaultCodeUxAssetsInstalled } from "./code-ux-default-assets-service.js";
+import { CODE_UX_INTERNAL_DOCS_SOURCE_REF, type KnowledgeService } from "./knowledge-service.js";
 
 interface AgentPresetSyncServiceDeps {
   projectManagementRepository: ProjectManagementRepository;
@@ -15,6 +16,7 @@ interface AgentPresetSyncServiceDeps {
   settingsRepository: SettingsRepository;
   projectRoot: string;
   logger?: Logger;
+  knowledgeService?: KnowledgeService;
 }
 
 interface AgentSourceFile {
@@ -36,7 +38,7 @@ interface AgentSourceFile {
 const BASE_AGENT_IDS: Record<string, string> = {
   "worker": "1",
   "planning agent": "2",
-  "project manager": "3",
+  "iris": "3",
   "quality assurance agent": "4",
   "project setup agent": "5",
 };
@@ -290,6 +292,8 @@ export class AgentPresetSyncService {
     if (!defaultAgentPresetsCopied && copiedDefaultAgentPresetThisSync) {
       this.deps.agentPresetRepository.markDefaultAgentPresetsCopied(projectId);
     }
+
+    await this.seedProjectManagerInternalDocs(projectId);
   }
 
   async importAgentPresetFromMarkdown(agentPresetId: string): Promise<AgentPresetRecord> {
@@ -353,7 +357,24 @@ export class AgentPresetSyncService {
   }
 
   async getProjectManagerAgent(projectId: string): Promise<AgentPresetRecord> {
-    return await this.getRequiredAgent(projectId, "Project manager", "project_manager.md");
+    return await this.getRequiredAgent(projectId, "Iris", "iris.md");
+  }
+
+  /**
+   * Resolve the agent that should answer dashboard chat. Honors the configured dashboardReply
+   * routing override, otherwise defaults to the project manager (Iris) rather than the Worker.
+   */
+  async resolveDashboardReplyAgent(projectId: string, agentPresetId?: string | null): Promise<AgentPresetRecord> {
+    await this.syncProjectAgents(projectId);
+
+    if (agentPresetId) {
+      const targeted = this.deps.agentPresetRepository.getAgentPreset(agentPresetId);
+      if (targeted && targeted.projectId === projectId) {
+        return await this.decorateAgentPreset(targeted);
+      }
+    }
+
+    return await this.getProjectManagerAgent(projectId);
   }
 
   async getQualityAssuranceAgent(projectId: string): Promise<AgentPresetRecord> {
@@ -571,6 +592,9 @@ export class AgentPresetSyncService {
     if (normalizedName === "project setup agent") {
       return ["planning", "setup"];
     }
+    if (normalizedName === "iris") {
+      return ["manager", "chat"];
+    }
     return [];
   }
 
@@ -592,6 +616,27 @@ export class AgentPresetSyncService {
     await this.syncProjectAgents(project.id);
     const agent = this.deps.agentPresetRepository.findAgentPresetByName(project.id, name);
     return agent ? await this.decorateAgentPreset(agent) : null;
+  }
+
+  private async seedProjectManagerInternalDocs(projectId: string): Promise<void> {
+    if (!this.deps.knowledgeService || this.deps.agentPresetRepository.hasSeededInternalDocsSubscription(projectId)) {
+      return;
+    }
+
+    const projectManager = this.deps.agentPresetRepository.findAgentPresetByName(projectId, "Iris")
+      || this.deps.agentPresetRepository.findAgentPresetByName(projectId, "Project manager");
+    if (!projectManager) {
+      return;
+    }
+
+    const doc = await this.deps.knowledgeService.ensureCodeUxInternalDocsDocument(projectId, this.deps.projectRoot);
+    if (!doc || doc.sourceRef !== CODE_UX_INTERNAL_DOCS_SOURCE_REF) {
+      return;
+    }
+
+    const existing = this.deps.knowledgeService.listSubscriptions(projectManager.id);
+    this.deps.knowledgeService.setSubscriptions(projectManager.id, projectId, [...new Set([...existing, doc.id])]);
+    this.deps.agentPresetRepository.markInternalDocsSubscriptionSeeded(projectId);
   }
 
   private shouldSaveToProjectDirectory(projectId: string): boolean {
@@ -675,6 +720,10 @@ export class AgentPresetSyncService {
 
     if (this.normalizeName(normalized) === "worker") {
       return "Worker";
+    }
+
+    if (this.normalizeName(normalized) === "iris") {
+      return "Iris";
     }
 
     if (this.normalizeName(normalized) === "project manager") {

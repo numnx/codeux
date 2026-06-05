@@ -58,6 +58,7 @@ import type {
   CreateAgentPresetInput,
   UpdateAgentPresetInput,
 } from "../contracts/agent-preset-types.js";
+import type { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
 import type {
   ExecutionInvocationRecord,
   ExecutionInvocationMessageRecord,
@@ -94,6 +95,9 @@ import type {
   SprintLinkedIssueInput,
   SprintLinkedIssueRecord,
 } from "../contracts/project-management-types.js";
+import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
+import type { MemoryRepository } from "../repositories/memory-repository.js";
+import type { SettingsRepository } from "../repositories/settings-repository.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 
 import { registerDashboardRoutes } from "./dashboard-route-registration.js";
@@ -104,6 +108,11 @@ import { applyDashboardPreRouteMiddleware, applyDashboardPostRouteMiddleware } f
 import { bootDashboardRealtimeWebSocketServer } from "./dashboard-realtime-websocket-server.js";
 import { bootDashboardTerminalWebSocketServer } from "./terminal-routes.js";
 import type { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
+import type { MemoryService } from "../services/memory-service.js";
+import type { MemoryPromotionService } from "../services/memory-promotion-service.js";
+import type { EmbeddingModelManager } from "../services/embedding-model-manager.js";
+import type { EmbeddingService } from "../services/embedding-service.js";
+import type { KnowledgeService } from "../services/knowledge-service.js";
 import { asyncRoute, parseTrimmedString, requireTrimmedString, syncRoute, toErrorResponse } from "./route-utils.js";
 import { parsePreviewSessionIdFromHost, pipePreviewUpgradeRequest } from "./preview-host-utils.js";
 
@@ -120,6 +129,15 @@ export interface DashboardServerOptions {
   dashboardDir: string;
   port: number;
   liveActivityCacheMs: number;
+  memoryService?: MemoryService;
+  memoryPromotionService?: MemoryPromotionService;
+  embeddingModelManager?: EmbeddingModelManager;
+  embeddingService?: EmbeddingService;
+  memoryRepository?: MemoryRepository;
+  settingsRepository?: SettingsRepository;
+  knowledgeService?: KnowledgeService;
+  agentPresetRepository?: AgentPresetRepository;
+  projectManagementRepository?: ProjectManagementRepository;
   getStatus: () => unknown;
   getLiveSnapshot: (projectId?: string | null) => Promise<ProjectLiveDashboardSnapshot> | ProjectLiveDashboardSnapshot;
   getExecutionSnapshot: () => ExecutionDashboardSnapshot;

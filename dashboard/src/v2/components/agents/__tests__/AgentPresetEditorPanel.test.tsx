@@ -2,11 +2,12 @@
 /// <reference types="@testing-library/jest-dom" />
 import { h } from "preact";
 import { describe, expect, afterEach, vi, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { AgentPresetEditorPanel } from "../AgentPresetEditorPanel.js";
 import { DEFAULT_AGENT_MEMORY_CONFIG, type AgentMemoryConfig } from "../../../memory-types.js";
 import type { AgentPreset } from "../../../types.js";
+import * as knowledgeApi from "../../../lib/knowledge-api.js";
 
 expect.extend(matchers);
 
@@ -106,6 +107,53 @@ vi.mock("../../ui/AvantgardeSelect.js", () => ({
   ),
 }));
 
+vi.mock("../../../lib/knowledge-api.js", () => ({
+  fetchKnowledgeDocuments: vi.fn(async () => [
+    {
+      id: "doc_codeux",
+      projectId: "project_1",
+      title: "Code UX Docs",
+      sourceType: "repo_path",
+      sourceRef: "codeux/internaldocs",
+      mimeType: "text/markdown",
+      byteSize: 1200,
+      charCount: 1200,
+      tokenCount: 300,
+      summary: "Internal product and architecture documentation",
+      contentHash: "hash_codeux",
+      status: "ready",
+      embeddingModel: "bge-small-en-v1.5",
+      chunkCount: 4,
+      errorMessage: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      subscriberAgentIds: [],
+    },
+    {
+      id: "doc_runbook",
+      projectId: "project_1",
+      title: "Deploy Runbook",
+      sourceType: "paste",
+      sourceRef: null,
+      mimeType: "text/markdown",
+      byteSize: 600,
+      charCount: 600,
+      tokenCount: 150,
+      summary: "Deployment notes and release checklist",
+      contentHash: "hash_runbook",
+      status: "ready",
+      embeddingModel: "bge-small-en-v1.5",
+      chunkCount: 2,
+      errorMessage: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      subscriberAgentIds: [],
+    },
+  ]),
+  fetchAgentKnowledgeSubscriptions: vi.fn(async () => []),
+  setAgentKnowledgeSubscriptions: vi.fn(async (_agentPresetId: string, documentIds: string[]) => documentIds),
+}));
+
 function makePreset(overrides: Partial<AgentPreset> = {}): AgentPreset {
   return {
     id: "preset_1",
@@ -184,5 +232,60 @@ describe("AgentPresetEditorPanel", () => {
         }) as AgentMemoryConfig,
       })
     );
+  });
+
+  it("marks the editor dirty when knowledge subscriptions change", async () => {
+    const onSave = vi.fn();
+
+    render(
+      <AgentPresetEditorPanel
+        preset={makePreset()}
+        saving={false}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await screen.findByRole("button", { name: /Code UX Docs/ });
+    const saveButton = screen.getByRole("button", { name: "Save Agent" });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Code UX Docs/ }));
+
+    await waitFor(() => {
+      expect(knowledgeApi.setAgentKnowledgeSubscriptions).toHaveBeenCalledWith("preset_1", ["doc_codeux"]);
+      expect(saveButton).toBeEnabled();
+    });
+
+    fireEvent.click(saveButton);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith("preset_1", expect.objectContaining({ name: "Planning Agent" }));
+  });
+
+  it("filters knowledge documents and bulk selects the visible matches", async () => {
+    render(
+      <AgentPresetEditorPanel
+        preset={makePreset()}
+        saving={false}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await screen.findByRole("button", { name: /Code UX Docs/ });
+
+    fireEvent.input(screen.getByPlaceholderText("Search knowledge"), {
+      target: { value: "deploy" },
+    });
+
+    expect(screen.queryByRole("button", { name: /Code UX Docs/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Deploy Runbook/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+
+    await waitFor(() => {
+      expect(knowledgeApi.setAgentKnowledgeSubscriptions).toHaveBeenCalledWith("preset_1", ["doc_runbook"]);
+    });
   });
 });
