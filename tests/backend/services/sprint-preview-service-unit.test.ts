@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import type { SprintPreviewSession } from "../../../src/contracts/app-types.js";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
 vi.mock("../../../src/services/cli-process-runner.js", () => ({
   runCommandStrict: vi.fn(),
@@ -53,9 +54,13 @@ vi.mock("../../../src/infrastructure/providers/cli/docker-setup-image-cache.js",
   },
 }));
 
-vi.mock("../../../src/git/sprint-branch-scheme.js", () => ({
-  formatSprintBranch: vi.fn((_scheme: any, sprint: any) => "feature/sprint-" + (sprint.slug || "sprint-1")),
-}));
+vi.mock("../../../src/domain/sprint/branch-name-generator.js", async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    formatSprintBranch: vi.fn((_scheme: any, sprint: any) => "feature/sprint-" + (sprint.slug || "sprint-1")),
+  };
+});
 
 vi.mock("../../../src/services/cli-workflow-utils.js", () => ({
   CONTAINER_SETUP_SCRIPT: "/opt/code-ux/setup.sh",
@@ -182,7 +187,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     },
     settingsRepository: {
       resolveSprintDashboardSettings: vi.fn(() => ({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings(),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: {
@@ -294,7 +299,7 @@ describe("SprintPreviewService unit tests", () => {
   describe("startSession", () => {
     it("rejects launches when preview runtime is disabled", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ enabled: false }),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -307,7 +312,7 @@ describe("SprintPreviewService unit tests", () => {
 
     it("stops the oldest active previews when the max concurrent limit would be exceeded", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ maxConcurrentContainers: 1 }),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -731,7 +736,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: false,
             rebuildOnTaskCompletion: false,
@@ -784,7 +789,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: false,
             rebuildOnTaskCompletion: false,
@@ -822,7 +827,7 @@ describe("SprintPreviewService unit tests", () => {
         }],
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: true,
             rebuildOnTaskCompletion: false,
@@ -866,7 +871,7 @@ describe("SprintPreviewService unit tests", () => {
       });
       deps.sprintPreviewRepository.getSessionByProjectSprint.mockReturnValue(null);
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: true,
             rebuildOnTaskCompletion: false,
@@ -906,7 +911,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ enabled: false }),
           git: { defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -1304,7 +1309,7 @@ describe("SprintPreviewService unit tests", () => {
 
     it("materializePreviewWorkspace skips remote refresh in LOCAL git mode", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings(),
           git: { githubMode: "LOCAL", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -1368,7 +1373,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           git: { defaultBranch: "main", sprintBranchScheme: "feature/sprint-{sprint}" },
         }
       });
