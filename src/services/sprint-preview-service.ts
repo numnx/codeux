@@ -570,11 +570,13 @@ export class SprintPreviewService {
         continue;
       }
 
-      if (settings.autoStopOnTerminalSprint && !activeRun && (sprint.status === "completed" || sprint.status === "failed" || sprint.status === "cancelled")) {
+      const isTerminalStatus = sprint.status === "completed" || sprint.status === "failed" || sprint.status === "cancelled";
+      const statusChangedToTerminal = isTerminalStatus && refreshed.lastSeenSprintStatus !== sprint.status;
+
+      if (settings.autoStopOnTerminalSprint && !activeRun && statusChangedToTerminal) {
         if (refreshed.status !== "stopped") {
           await this.stopSession(refreshed.id).catch(() => undefined);
         }
-        continue;
       }
 
       if (refreshed.status !== "running" && refreshed.status !== "starting") {
