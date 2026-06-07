@@ -327,6 +327,24 @@ export const createProjectProviderDraft = (
   thinkingMode: providerId === "codex" || providerId === "claude-code" || providerId === "qwen-code" || providerId === "opencode" ? "HIGH" : "MEDIUM",
   maxConcurrentTasks: providerId === "jules" ? 15 : 0,
 });
+export const getProviderDefaultAuthPath = (providerId: ProviderId): string => {
+  switch (providerId) {
+    case "gemini":
+      return "~/.gemini";
+    case "codex":
+      return "~/.codex";
+    case "claude-code":
+      return "~/.claude";
+    case "qwen-code":
+      return "~/.qwen";
+    case "opencode":
+      return "~/.local/share/opencode";
+    case "antigravity":
+      return "~/.antigravity";
+    default:
+      return "";
+  }
+};
 
 export const createSystemProviderDraft = (
   providerId: ProviderId,
@@ -337,18 +355,9 @@ export const createSystemProviderDraft = (
   apiKey: "",
   authType: "apiKey",
   mountAuth: false,
-  authPath: providerId === "gemini"
-    ? "~/.gemini"
-    : providerId === "codex"
-      ? "~/.codex"
-      : providerId === "claude-code"
-        ? "~/.claude"
-        : providerId === "qwen-code"
-          ? "~/.qwen"
-          : providerId === "opencode"
-            ? "~/.local/share/opencode"
-            : "",
+  authPath: getProviderDefaultAuthPath(providerId),
   ...(providerId === "qwen-code" ? {
+...
     qwenAuthMode: "MODEL_PROVIDER" as const,
     qwenRegion: "international" as const,
     qwenBaseUrl: "http://127.0.0.1:11434/v1",
