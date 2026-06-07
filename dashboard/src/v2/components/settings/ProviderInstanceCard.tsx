@@ -2,7 +2,7 @@ import type { FunctionComponent } from "preact";
 import { useState } from "preact/hooks";
 import { Terminal, Trash2 } from "lucide-preact";
 import { PillChoiceGroup, ProviderLogo, Row, SelectInput, TextInput, Toggle } from "./SettingsFormFields.js";
-import { getProviderTypeLabel } from "../../lib/settings-view-models.js";
+import { getProviderDefaultAuthPath, getProviderTypeLabel } from "../../lib/settings-view-models.js";
 import { TerminalLoginModal } from "./TerminalLoginModal.js";
 import {
   buildOpenCodeConfigPreview,
@@ -90,7 +90,8 @@ export const ProviderInstanceCard: FunctionComponent<{
               if (authType === "dashboardAuth") {
                 updates.authPath = `~/.code-ux/credentials/${providerConfigId}`;
               } else if (authType === "localAuth") {
-                updates.authPath = (provider.authPath || "").includes(".code-ux") ? "" : provider.authPath;
+                const existingPath = (provider.authPath || "").includes(".code-ux") ? "" : provider.authPath;
+                updates.authPath = existingPath || getProviderDefaultAuthPath(provider.provider);
                 if (provider.provider === "qwen-code") {
                   updates.qwenAuthMode = "LOCAL_AUTH";
                 } else if (provider.provider === "opencode") {

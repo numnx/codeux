@@ -357,7 +357,6 @@ export const createSystemProviderDraft = (
   mountAuth: false,
   authPath: getProviderDefaultAuthPath(providerId),
   ...(providerId === "qwen-code" ? {
-...
     qwenAuthMode: "MODEL_PROVIDER" as const,
     qwenRegion: "international" as const,
     qwenBaseUrl: "http://127.0.0.1:11434/v1",
@@ -567,19 +566,7 @@ export const getSystemIntegrationProviders = (
       apiKey,
       authType: "apiKey",
       mountAuth: false,
-      authPath: providerId === "gemini"
-        ? "~/.gemini"
-        : providerId === "codex"
-          ? "~/.codex"
-          : providerId === "claude-code"
-            ? "~/.claude"
-            : providerId === "qwen-code"
-              ? "~/.qwen"
-              : providerId === "opencode"
-                ? "~/.local/share/opencode"
-                : providerId === "antigravity"
-                  ? "~/.antigravity"
-                  : "",
+      authPath: getProviderDefaultAuthPath(providerId),
       ...(providerId === "qwen-code" ? {
         qwenAuthMode: "MODEL_PROVIDER" as const,
         qwenRegion: "international" as const,
