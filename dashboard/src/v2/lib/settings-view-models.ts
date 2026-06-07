@@ -349,31 +349,43 @@ export const getProviderDefaultAuthPath = (providerId: ProviderId): string => {
 export const createSystemProviderDraft = (
   providerId: ProviderId,
   name: string,
-): SystemProviderCredentialSettings => ({
-  provider: providerId,
-  name,
-  apiKey: "",
-  authType: "apiKey",
-  mountAuth: false,
-  authPath: getProviderDefaultAuthPath(providerId),
-  ...(providerId === "qwen-code" ? {
-    qwenAuthMode: "MODEL_PROVIDER" as const,
-    qwenRegion: "international" as const,
-    qwenBaseUrl: "http://127.0.0.1:11434/v1",
-    qwenEnvKey: "OLLAMA_API_KEY",
-    qwenModelId: "glm-4.7-flash",
-    qwenProtocol: "openai" as const,
-    qwenAdditionalModelProviders: [],
-  } : {}),
-  ...(providerId === "opencode" ? {
-    openCodeAuthMode: "ENV_KEY" as const,
-    openCodeProviderId: "ollama",
-    openCodeModelId: "glm-4.7-flash",
-    openCodeBaseUrl: "http://127.0.0.1:11434/v1",
-    openCodeEnvKey: "OLLAMA_API_KEY",
-    openCodePackage: "@ai-sdk/openai-compatible",
-  } : {}),
-});
+): SystemProviderCredentialSettings => {
+  const base: SystemProviderCredentialSettings = {
+    provider: providerId,
+    name,
+    apiKey: "",
+    authType: "apiKey",
+    mountAuth: false,
+    authPath: getProviderDefaultAuthPath(providerId),
+  };
+
+  if (providerId === "qwen-code") {
+    return {
+      ...base,
+      qwenAuthMode: "MODEL_PROVIDER",
+      qwenRegion: "international",
+      qwenBaseUrl: "http://127.0.0.1:11434/v1",
+      qwenEnvKey: "OLLAMA_API_KEY",
+      qwenModelId: "glm-4.7-flash",
+      qwenProtocol: "openai",
+      qwenAdditionalModelProviders: [],
+    };
+  }
+
+  if (providerId === "opencode") {
+    return {
+      ...base,
+      openCodeAuthMode: "ENV_KEY",
+      openCodeProviderId: "ollama",
+      openCodeModelId: "glm-4.7-flash",
+      openCodeBaseUrl: "http://127.0.0.1:11434/v1",
+      openCodeEnvKey: "OLLAMA_API_KEY",
+      openCodePackage: "@ai-sdk/openai-compatible",
+    };
+  }
+
+  return base;
+};
 
 export const sortProviderConfigEntries = <T extends { provider: ProviderId; name: string }>(
   entries: Array<[ProviderConfigId, T]>,
@@ -560,31 +572,39 @@ export const getSystemIntegrationProviders = (
   const fallback: Record<ProviderConfigId, SystemProviderCredentialSettings> = {};
   for (const providerId of ["jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"] as ProviderId[]) {
     const apiKey = getLegacyIntegrationApiKey(systemSettings, providerId);
-    fallback[providerId] = {
+    const base: SystemProviderCredentialSettings = {
       provider: providerId,
       name: getProviderTypeLabel(providerId),
       apiKey,
       authType: "apiKey",
       mountAuth: false,
       authPath: getProviderDefaultAuthPath(providerId),
-      ...(providerId === "qwen-code" ? {
-        qwenAuthMode: "MODEL_PROVIDER" as const,
-        qwenRegion: "international" as const,
+    };
+
+    if (providerId === "qwen-code") {
+      fallback[providerId] = {
+        ...base,
+        qwenAuthMode: "MODEL_PROVIDER",
+        qwenRegion: "international",
         qwenBaseUrl: "http://127.0.0.1:11434/v1",
         qwenEnvKey: "OLLAMA_API_KEY",
         qwenModelId: "glm-4.7-flash",
-        qwenProtocol: "openai" as const,
+        qwenProtocol: "openai",
         qwenAdditionalModelProviders: [],
-      } : {}),
-      ...(providerId === "opencode" ? {
-        openCodeAuthMode: "ENV_KEY" as const,
+      };
+    } else if (providerId === "opencode") {
+      fallback[providerId] = {
+        ...base,
+        openCodeAuthMode: "ENV_KEY",
         openCodeProviderId: "ollama",
         openCodeModelId: "glm-4.7-flash",
         openCodeBaseUrl: "http://127.0.0.1:11434/v1",
         openCodeEnvKey: "OLLAMA_API_KEY",
         openCodePackage: "@ai-sdk/openai-compatible",
-      } : {}),
-    };
+      };
+    } else {
+      fallback[providerId] = base;
+    }
   }
   return fallback;
 };
