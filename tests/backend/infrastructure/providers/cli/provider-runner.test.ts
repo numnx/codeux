@@ -211,12 +211,41 @@ describe("ProviderRunner", () => {
 
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       command: "qwen",
-      args: ["--auth-type", "openai", "--yolo", "--session-id", expect.any(String), "--model", "qwen3-coder-plus", "-p", "ship it"],
+      args: ["--auth-type", "openai", "--yolo", "--output-format", "stream-json", "--model", "qwen3-coder-plus", "-p", "ship it"],
       providerEnv: expect.objectContaining({
         BAILIAN_CODING_PLAN_API_KEY: "sk-sp-test",
         OPENAI_BASE_URL: "https://coding-intl.dashscope.aliyuncs.com/v1",
         QWEN_CODE_SUPPRESS_YOLO_WARNING: "1",
       }),
+    }));
+  });
+
+  it("continues Qwen Code with the latest saved conversation instead of a Code UX session id", async () => {
+    await runner.runProvider({
+      provider: "qwen-code",
+      prompt: "retry json",
+      cwd: "/repo",
+      model: "qwen3-coder-plus",
+      apiKey: "sk-qwen-test",
+      qwenAuthMode: "MODEL_PROVIDER",
+      qwenProtocol: "openai",
+      sessionId: "planning-qwen-logical",
+      continueSessionId: "5b2dfdd7-2bf1-45f7-8f9a-28140e8ad316",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      command: "qwen",
+      args: [
+        "--auth-type", "openai",
+        "--yolo",
+        "--continue",
+        "--output-format", "stream-json",
+        "--model", "qwen3-coder-plus",
+        "-p", "retry json",
+      ],
     }));
   });
 
@@ -251,7 +280,7 @@ describe("ProviderRunner", () => {
 
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       command: "qwen",
-      args: ["--auth-type", "openai", "--yolo", "--session-id", expect.any(String), "--model", "glm-4.7-flash", "-p", "hello"],
+      args: ["--auth-type", "openai", "--yolo", "--output-format", "stream-json", "--model", "glm-4.7-flash", "-p", "hello"],
       providerEnv: expect.objectContaining({
         OLLAMA_API_KEY: "sk-qwen-test",
         OPENAI_BASE_URL: "http://host.docker.internal:11434/v1",

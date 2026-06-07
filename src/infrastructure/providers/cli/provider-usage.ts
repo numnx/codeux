@@ -13,6 +13,7 @@ import {
   readQwenOpenAiLogRecords,
   sumQwenOpenAiUsage,
   extractQwenUsageRecord,
+  parseQwenStreamJson,
   type QwenUsageTotals,
 } from "./provider-logs/qwen-log-parser.js";
 import {
@@ -33,6 +34,7 @@ export {
   sumQwenOpenAiUsage,
   extractQwenUsageRecord,
   buildQwenConversation,
+  parseQwenStreamJson,
 };
 export type { QwenUsageTotals };
 export type { ParsedConversationTurn };
@@ -460,11 +462,17 @@ export async function collectProviderUsageTelemetry(args: {
   }
 
   if (args.provider === "qwen-code") {
-    // Usage and conversation are read from the qwen-code OpenAI logs by the
-    // caller (provider-runner), which resolves the host-visible log directory
-    // for both HOST and DOCKER modes.
-    const conversation = withLeadingUserTurn(args.qwenConversation ?? [], args.prompt);
-    const exactUsage = args.qwenReportedUsage;
+    const stream = parseQwenStreamJson(args.stdout);
+    // Prefer qwen-code's documented stream-json stdout for native session ids
+    // and transcript text. OpenAI request logs remain a usage/conversation
+    // fallback because they can include richer model token details.
+    const conversation = withLeadingUserTurn(
+      stream?.conversation.length ? stream.conversation : args.qwenConversation ?? [],
+      args.prompt,
+    );
+    const exactUsage = stream?.usage ?? args.qwenReportedUsage;
+    const transcriptText = stream?.transcriptText || fallbackOutput;
+    const nativeSessionId = stream?.nativeSessionId ?? args.nativeSessionId ?? null;
     if (exactUsage && (exactUsage.inputTokens > 0 || exactUsage.outputTokens > 0)) {
       return {
         ...emptyTelemetry(),
@@ -474,14 +482,14 @@ export async function collectProviderUsageTelemetry(args: {
         totalTokens: exactUsage.inputTokens + exactUsage.outputTokens,
         usageSource: "reported",
         rawUsageJson: null,
-        transcriptText: fallbackOutput,
-        nativeSessionId: args.nativeSessionId || null,
+        transcriptText,
+        nativeSessionId,
         conversation,
       };
     }
 
-    const telemetry = estimateTelemetry("qwen-code", args.model, args.prompt, fallbackOutput);
-    telemetry.nativeSessionId = args.nativeSessionId || null;
+    const telemetry = estimateTelemetry("qwen-code", args.model, args.prompt, transcriptText);
+    telemetry.nativeSessionId = nativeSessionId;
     telemetry.conversation = conversation;
     return telemetry;
   }

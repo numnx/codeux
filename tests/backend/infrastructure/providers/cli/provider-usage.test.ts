@@ -596,6 +596,53 @@ describe("collectProviderUsageTelemetry", () => {
       nativeSessionId: "qwen-session-123",
     });
   });
+
+  it("parses Qwen Code stream-json stdout for session id, transcript, and usage", async () => {
+    const result = await collectProviderUsageTelemetry({
+      provider: "qwen-code",
+      model: "qwen3-coder-plus",
+      prompt: "Implement binary search.",
+      cwd: "/workspace",
+      stdout: [
+        JSON.stringify({
+          type: "system",
+          subtype: "session_start",
+          session_id: "qwen-native-1",
+          data: { session_id: "qwen-native-1", cwd: "/workspace" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          session_id: "qwen-native-1",
+          message: {
+            content: [{ type: "text", text: "Implemented binary search." }],
+          },
+        }),
+        JSON.stringify({
+          type: "result",
+          subtype: "success",
+          session_id: "qwen-native-1",
+          result: "Implemented binary search.",
+          usage: {
+            input_tokens: 120,
+            output_tokens: 30,
+            prompt_tokens_details: { cached_tokens: 10 },
+          },
+        }),
+      ].join("\n"),
+      stderr: "",
+    });
+
+    expect(result).toMatchObject({
+      inputTokens: 120,
+      cachedInputTokens: 10,
+      outputTokens: 30,
+      totalTokens: 150,
+      usageSource: "reported",
+      transcriptText: "Implemented binary search.",
+      nativeSessionId: "qwen-native-1",
+    });
+    expect(result.conversation.map((t) => t.kind)).toEqual(["user", "assistant"]);
+  });
 });
 
 describe("parseQwenOpenAiLogs", () => {

@@ -12,6 +12,22 @@ Code UX supports Qwen Code as a first-class virtual CLI provider alongside Gemin
 
 Qwen Code can be selected anywhere a virtual CLI provider is accepted: task coding, planning, dashboard replies, clarification replies, QA review, CI repair, and merge-conflict repair.
 
+## Session Continuation
+
+Code UX launches Qwen Code in documented headless structured-output mode:
+
+```bash
+qwen --output-format stream-json -p "<prompt>"
+```
+
+Fresh runs let Qwen create and persist its own native conversation. Follow-up runs use:
+
+```bash
+qwen --continue --output-format stream-json -p "<prompt>"
+```
+
+The runner intentionally does not pass Code UX logical session ids to `qwen --resume <id>`. Qwen only accepts ids for conversations it has saved locally; passing a Code UX UUID can fail with `No saved session found`. The `stream-json` lifecycle events are parsed for Qwen's native `session_id` for telemetry and dashboard display, while the CLI's own `--continue` behavior restores the latest conversation in the prepared workspace.
+
 ## Authentication Modes
 
 The system integration entry for each named Qwen instance stores a `qwenAuthMode`.

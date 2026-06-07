@@ -73,7 +73,7 @@ export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
     return { command: "codex", args };
   },
   "qwen-code": (model: string, prompt: string) => {
-    const args = ["--yolo"];
+    const args = ["--yolo", "--output-format", "stream-json"];
     if (model && model !== "default") args.push("--model", model);
     args.push("-p", prompt);
     return { command: "qwen", args };
@@ -147,7 +147,9 @@ export interface ProviderRunInput {
   signal?: AbortSignal;
   onActivity: (desc: string, originator?: string) => void;
   /** Pass a previous nativeSessionId to continue an existing CLI session.
-   *  Claude Code: reuses --session-id. Gemini: adds --resume. Codex: uses exec resume --last. */
+   *  Claude Code: reuses --session-id. Gemini: adds --resume. Codex uses
+   *  exec resume --last. Qwen Code uses --continue so automation never passes
+   *  Code UX logical ids to Qwen's native --resume lookup. */
   continueSessionId?: string | null;
   /** MCP server connection info for injecting management tools into the CLI provider. */
   mcpConnection?: McpConnectionInfo | null;
@@ -310,7 +312,9 @@ export class ProviderRunner implements IProviderRunner {
     const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir, gitlabToken);
     const nativeSessionId = provider === "opencode"
       ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
-      : input.continueSessionId || (provider === "claude-code" || provider === "qwen-code" ? randomUUID() : null);
+      : provider === "qwen-code"
+        ? null
+        : input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const applicableCustomServers = enabledCustomServersFor(input.customMcpServers, provider);
     const hasMcpConfig = !!input.mcpConnection || applicableCustomServers.length > 0;
@@ -875,11 +879,10 @@ export class ProviderRunner implements IProviderRunner {
     if (provider === "qwen-code") {
       const authType = qwenAuthMode === "LOCAL_AUTH" ? "qwen-oauth" : (qwenProtocol || "openai");
       const args = ["--auth-type", authType, "--yolo"];
-      if (continueSession && nativeSessionId) {
-        args.push("--resume", nativeSessionId);
-      } else if (nativeSessionId) {
-        args.push("--session-id", nativeSessionId);
+      if (continueSession) {
+        args.push("--continue");
       }
+      args.push("--output-format", "stream-json");
       if (model && model !== "default") {
         args.push("--model", model);
       }
@@ -1269,7 +1272,7 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {
-    if (provider !== "gemini" && provider !== "codex" && provider !== "opencode") {
+    if (provider !== "gemini" && provider !== "codex" && provider !== "opencode" && provider !== "qwen-code") {
       return false;
     }
     const trimmed = line.trim();

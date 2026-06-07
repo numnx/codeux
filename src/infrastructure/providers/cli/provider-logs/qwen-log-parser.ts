@@ -9,8 +9,66 @@ export interface QwenUsageTotals {
   outputTokens: number;
 }
 
+export interface QwenStreamJsonResult {
+  usage: QwenUsageTotals | null;
+  transcriptText: string;
+  nativeSessionId: string | null;
+  conversation: ParsedConversationTurn[];
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
+}
+
+function stringify(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function usageFromQwenObject(value: unknown): QwenUsageTotals | null {
+  const usage = asRecord(value);
+  if (!usage) return null;
+  const parsed = parseUsageObject(usage);
+  const inputTokens = parsed.inputTokens;
+  const outputTokens = parsed.outputTokens;
+  const cachedInputTokens = parsed.cachedInputTokens;
+  if (inputTokens <= 0 && outputTokens <= 0 && cachedInputTokens <= 0) {
+    return null;
+  }
+  return { inputTokens, cachedInputTokens, outputTokens };
+}
+
+function flattenQwenMessageContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content.trim();
+  }
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  const parts: string[] = [];
+  for (const item of content) {
+    const rec = asRecord(item);
+    if (typeof item === "string") {
+      parts.push(item);
+    } else if (rec && typeof rec.text === "string") {
+      parts.push(rec.text);
+    }
+  }
+  return parts.join("").trim();
+}
+
+function qwenAssistantMessageText(event: Record<string, unknown>): string {
+  const message = asRecord(event.message);
+  if (message) {
+    const text = flattenQwenMessageContent(message.content);
+    if (text) return text;
+  }
+  return typeof event.result === "string" ? event.result.trim() : "";
 }
 
 /**
@@ -50,6 +108,104 @@ export function sumQwenOpenAiUsage(records: unknown[]): QwenUsageTotals | null {
     }
   }
   return found ? totals : null;
+}
+
+/**
+ * Parses qwen-code's documented `--output-format stream-json` stdout. The
+ * stream is JSON Lines, with session lifecycle events carrying `session_id`,
+ * assistant/result events carrying text, and usage usually appearing on the
+ * final result event.
+ */
+export function parseQwenStreamJson(stdout: string): QwenStreamJsonResult | null {
+  let nativeSessionId: string | null = null;
+  let usage: QwenUsageTotals | null = null;
+  let foundEvent = false;
+  const transcriptParts: string[] = [];
+  const conversation: ParsedConversationTurn[] = [];
+  const seenAssistantTexts = new Set<string>();
+
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) {
+      continue;
+    }
+
+    let event: Record<string, unknown> | null = null;
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      event = asRecord(parsed);
+    } catch {
+      continue;
+    }
+    if (!event || typeof event.type !== "string") {
+      continue;
+    }
+    foundEvent = true;
+
+    const data = asRecord(event.data);
+    if (!nativeSessionId && typeof event.session_id === "string") {
+      nativeSessionId = event.session_id;
+    }
+    if (!nativeSessionId && typeof data?.session_id === "string") {
+      nativeSessionId = data.session_id;
+    }
+
+    const eventUsage = usageFromQwenObject(event.usage);
+    if (eventUsage) {
+      usage = eventUsage;
+    }
+
+    if (event.type === "assistant" || event.type === "result") {
+      const text = qwenAssistantMessageText(event);
+      if (text && !seenAssistantTexts.has(text)) {
+        seenAssistantTexts.add(text);
+        transcriptParts.push(text);
+        conversation.push({ kind: "assistant", text, tokens: eventUsage ? {
+          input: eventUsage.inputTokens,
+          cached: eventUsage.cachedInputTokens,
+          output: eventUsage.outputTokens,
+        } : undefined });
+      }
+      continue;
+    }
+
+    const contentBlock = asRecord(event.content_block);
+    const delta = asRecord(event.delta);
+    const partText = typeof event.text === "string"
+      ? event.text
+      : typeof contentBlock?.text === "string"
+        ? contentBlock.text
+        : typeof delta?.text === "string"
+          ? delta.text
+          : "";
+    if (partText.trim() && (event.type === "content_block_delta" || event.type === "message_delta")) {
+      const text = partText.trim();
+      transcriptParts.push(text);
+      conversation.push({ kind: "assistant", text });
+    }
+
+    const toolUse = asRecord(event.tool_use ?? event.tool);
+    if (toolUse) {
+      conversation.push({
+        kind: "tool_call",
+        text: "",
+        toolName: typeof toolUse.name === "string" ? toolUse.name : undefined,
+        toolCallId: typeof toolUse.id === "string" ? toolUse.id : undefined,
+        toolArguments: toolUse.input !== undefined ? stringify(toolUse.input) : undefined,
+      });
+    }
+  }
+
+  if (!foundEvent) {
+    return null;
+  }
+
+  return {
+    usage,
+    transcriptText: transcriptParts.join("\n\n").trim(),
+    nativeSessionId,
+    conversation,
+  };
 }
 
 /** Flattens an OpenAI `content` field (string or array of `{type:"text", text}` parts) to plain text. */
