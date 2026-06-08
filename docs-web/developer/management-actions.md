@@ -40,14 +40,18 @@ Domain for project CRUD and selection.
 | --- | --- | --- | --- |
 | `list` | – | `projectId` | List sprints for a project. |
 | `get` | – | `sprintId` | Get a sprint. |
-| `create` | – | `projectId`, `CreateSprintInput` | Create a sprint. |
-| `update` | – | `sprintId`, `UpdateSprintInput` | Update a sprint. |
+| `create` | – | `projectId`, `name \| title` | Create a sprint. Accepts `goal` or `goalMarkdown`, plus optional sprint metadata. |
+| `update` | – | `sprintId`, update fields | Update a sprint. Accepts `name` or `title`, and `goal` or `goalMarkdown`. |
 | `delete` | ✅ | `sprintId` | Delete a sprint. |
 | `start` | – | `projectId`, `sprintId` | Begin a sprint run (orchestrate). |
 | `pause` | – | `sprintRunId` | Pause an active run. |
 | `cancel` | – | `sprintRunId` | Cancel gracefully. |
 | `force_cancel` | – | `sprintRunId` | Force-cancel (immediate). |
 | `inspect_run` | – | `projectId`, `sprintId`, `sprintRunId?` | Inspect run(s). |
+| `import_issues` | – | `projectId`, optional `sprintId`, filters | Search provider issues, and optionally replace sprint linked issues. |
+| `plan` | – | `projectId`, `sprintId` | Run the planning agent. Optional `autoStart`, `replan`, `planningAgentPresetId`, and `overrides`. |
+
+`title` and `goalMarkdown` are MCP-friendly aliases. The repository stores sprint `name` and `goal`.
 
 ---
 
@@ -55,16 +59,18 @@ Domain for project CRUD and selection.
 
 | Action | Destructive | Required payload | Description |
 | --- | --- | --- | --- |
-| `list` | – | `projectId`, `sprintId` | List tasks. |
+| `list` | – | `projectId`, optional `sprintId` | List all project tasks or filter to one sprint. |
 | `get` | – | `taskId` | Get a task. |
-| `create` | – | `projectId`, `sprintId`, `title`, optional: `promptMarkdown`, `description`, `priority`, `dependsOnTaskIds` | Create a task. |
-| `update` | – | `taskId`, optional: `title`, `promptMarkdown`, `description`, `priority`, `dependsOnTaskIds` | Update a task. |
+| `create` | – | `projectId`, `sprintId`, optional fields | Create a task. `title` is canonical; `name` is accepted as an alias. |
+| `update` | – | `taskId`, optional fields | Update a task. |
 | `delete` | ✅ | `taskId` | Delete a task. |
 | `start` | – | `taskId`, optional `provider` | Start / rerun. |
 | `stop` | – | `taskId` | Stop the active dispatch. |
 | `force_stop` | – | `taskId` | Force-stop. |
 | `pause` | – | `taskId` | Pause the active dispatch. |
 | `inspect_run` | – | `taskId` | Inspect runs and the latest dispatch. |
+
+Task create/update fields include `title`, `name`, `promptMarkdown`, `description`, `status`, `priority`, `executorType`, `agentPresetId`, `model`, `sortOrder`, `dependsOnTaskIds`, `isIndependent`, and `isMerged`.
 
 ---
 
@@ -86,10 +92,15 @@ Domain for project CRUD and selection.
 | `patch_sprint_setting` | – | `projectId`, `sprintId`, `path`, `value` | Patch a sprint setting. |
 | `reset_sprint_settings` | ✅ | `projectId`, `sprintId` | Reset sprint to defaults. |
 
+All mutating settings actions are human-confirmation gated, including patch actions. The first call records the exact action and payload for up to 15 minutes and returns `approvalRequired: true`; it does not mutate settings, even if `approval.confirmed: true` was sent. After the user explicitly confirms, repeat the same action with the same payload and `approval.confirmed: true`. The approval is one-use and cannot approve a different settings payload.
+
 JSON path examples for `patch_*`:
 - `aiProvider.providers.codex.model` → string
 - `ciIntelligence.featurePrAutoMergeMode` → enum
 - `automationLevel` → enum
+- `git.sprintKeyPrefix` → uppercase string such as `SPR`
+
+`value` can be any JSON value, not only an object. This allows direct primitive patches such as booleans, strings, numbers, and `null`.
 
 See [Settings schema reference](./settings-reference.md) for the full path tree.
 

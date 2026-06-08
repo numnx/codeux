@@ -25,9 +25,15 @@ export interface ManageSprintsArgs {
   projectId?: string;
   sprintId?: string;
   sprintRunId?: string;
+  name?: string;
   title?: string;
+  goal?: string;
   goalMarkdown?: string;
+  originalPrompt?: string;
+  status?: string;
+  showcasePinned?: boolean;
   agentPresetId?: string;
+  planningAgentPresetId?: string;
   autoStart?: boolean;
   replan?: boolean;
   search?: string;
@@ -42,11 +48,20 @@ export interface ManageTasksArgs {
   projectId?: string;
   sprintId?: string;
   taskId?: string;
+  taskKey?: string;
+  name?: string;
   title?: string;
   promptMarkdown?: string;
   description?: string;
+  status?: string;
   priority?: string;
+  executorType?: string;
+  agentPresetId?: string | null;
+  model?: string | null;
+  sortOrder?: number;
   dependsOnTaskIds?: string[];
+  isIndependent?: boolean;
+  isMerged?: boolean;
   provider?: string;
   approval?: ManagementApproval;
 }
@@ -88,7 +103,7 @@ export interface ManageSettingsArgs {
   projectId?: string;
   sprintId?: string;
   path?: string;
-  value?: Record<string, unknown>;
+  value?: unknown;
   settings?: Record<string, unknown>;
   approval?: ManagementApproval;
 }
