@@ -66,6 +66,56 @@ export interface ManageTasksArgs {
   approval?: ManagementApproval;
 }
 
+export interface ManageQuicksprintsArgs {
+  action: "list_templates" | "get_template" | "create_template" | "update_template" | "delete_template" | "execute" | "start";
+  projectId?: string;
+  templateId?: string;
+  name?: string;
+  description?: string;
+  icon?: string;
+  category?: string;
+  categoryColor?: string;
+  agentInstructionMarkdown?: string;
+  defaultTaskCount?: number;
+  taskCount?: number;
+  submitMode?: "plan_only" | "plan_and_start";
+  routeOverride?: string;
+  modelOverride?: string;
+  planningOverrides?: Record<string, unknown>;
+  agentPresetId?: string;
+  additionalPrompt?: string;
+  approval?: ManagementApproval;
+}
+
+export interface ManageSchedulerArgs {
+  action: "list" | "create" | "schedule_sprint" | "schedule_quicksprint" | "schedule_chat" | "update" | "delete" | "run_due";
+  projectId?: string;
+  entryId?: string;
+  from?: string;
+  to?: string;
+  title?: string;
+  targetType?: "sprint" | "quicksprint" | "chat";
+  status?: "scheduled" | "paused" | "completed" | "failed" | "cancelled";
+  scheduledFor?: string;
+  timezone?: string;
+  recurrence?: Record<string, unknown>;
+  sprintTarget?: Record<string, unknown>;
+  quicksprintTarget?: Record<string, unknown>;
+  chatTarget?: Record<string, unknown>;
+  sprintId?: string;
+  templateId?: string;
+  taskCount?: number;
+  submitMode?: "plan_only" | "plan_and_start";
+  additionalPrompt?: string;
+  agentPresetId?: string;
+  planningOverrides?: Record<string, unknown>;
+  bodyMarkdown?: string;
+  threadId?: string | null;
+  connectionId?: string | null;
+  now?: string;
+  approval?: ManagementApproval;
+}
+
 export interface ManageAgentsArgs {
   action: "list" | "get" | "sync" | "create" | "update" | "delete";
   projectId?: string;

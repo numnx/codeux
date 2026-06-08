@@ -10,6 +10,17 @@ Implemented in:
 
 These cover:
 - `manage_code_ux`
+- `manage_projects`
+- `manage_sprints`
+- `manage_tasks`
+- `manage_quicksprints`
+- `manage_scheduler`
+- `manage_agents`
+- `manage_memory`
+- `search_knowledge`
+- `manage_settings`
+- `manage_preview`
+- `manage_telemetry`
 
 ### Core tools
 Implemented in:
@@ -29,6 +40,16 @@ These cover:
 ### Management
 - `manage_code_ux`
 - `manage_projects`
+- `manage_sprints`
+- `manage_tasks`
+- `manage_quicksprints`
+- `manage_scheduler`
+- `manage_agents`
+- `manage_memory`
+- `search_knowledge`
+- `manage_settings`
+- `manage_preview`
+- `manage_telemetry`
 
 ## Registered Tools
 
@@ -128,7 +149,7 @@ Dashboard calls can add `background: true` to the HTTP setup request. In that mo
 
 ### Sprint, Task, and Settings Payload Normalization
 
-The dedicated management tools (`manage_sprints`, `manage_tasks`, `manage_settings`) and the legacy `manage_code_ux` dispatcher share the same action handlers.
+The dedicated management tools (`manage_sprints`, `manage_tasks`, `manage_quicksprints`, `manage_scheduler`, `manage_settings`) and the legacy `manage_code_ux` dispatcher share the same action handlers.
 
 For sprint create/update calls:
 - `name` is the canonical repository field.
@@ -141,6 +162,19 @@ For task create/update calls:
 - `title` is canonical; `name` is accepted as an alias.
 - `projectId` is required for list/create, and `sprintId` is required for create. List can omit `sprintId` to return all project tasks.
 - Supported edit fields include `promptMarkdown`, `description`, `status`, `priority`, `executorType`, `agentPresetId`, `model`, `sortOrder`, `dependsOnTaskIds`, `isIndependent`, and `isMerged`.
+
+For quicksprint calls:
+- `manage_quicksprints` supports `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template`, `execute`, and `start`.
+- `start` is an MCP-friendly alias for execution with `submitMode: "plan_and_start"`.
+- `execute` defaults to `submitMode: "plan_only"` when no submit mode is supplied.
+- `delete_template` requires approval confirmation and only applies to custom templates; built-in templates remain protected by the quicksprint service.
+
+For scheduler calls:
+- `manage_scheduler` supports `list`, `create`, `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, `update`, `delete`, and `run_due`.
+- Generic `create` requires `targetType: "sprint" | "quicksprint" | "chat"`.
+- The `schedule_*` aliases infer the target type and accept flattened target fields.
+- Scheduled chat messages use `bodyMarkdown`, optional `threadId`, optional `connectionId`, and optional `title`. When due, the scheduler posts through the same chat runtime used by dashboard conversations.
+- `delete` requires approval confirmation.
 
 For settings patch calls, `value` may be any JSON value, including strings, booleans, numbers, `null`, arrays, or objects.
 Settings patch and replacement calls still require the stateful human-confirmation gate described above.

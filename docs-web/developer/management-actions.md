@@ -1,6 +1,6 @@
 # Management actions
 
-The `manage_code_ux` MCP tool dispatches into 8 management **domains**, each containing one or more **actions**. This page is the complete matrix.
+The `manage_code_ux` MCP tool dispatches into 10 management **domains**, each containing one or more **actions**. The same handlers are also exposed through dedicated tools such as `manage_sprints`, `manage_quicksprints`, and `manage_scheduler`. This page is the complete matrix.
 
 The shape of every call is:
 
@@ -71,6 +71,39 @@ Domain for project CRUD and selection.
 | `inspect_run` | – | `taskId` | Inspect runs and the latest dispatch. |
 
 Task create/update fields include `title`, `name`, `promptMarkdown`, `description`, `status`, `priority`, `executorType`, `agentPresetId`, `model`, `sortOrder`, `dependsOnTaskIds`, `isIndependent`, and `isMerged`.
+
+---
+
+## `quicksprints`
+
+| Action | Destructive | Required payload | Description |
+| --- | --- | --- | --- |
+| `list_templates` | – | `projectId` | List built-in and custom quicksprint templates. |
+| `get_template` | – | `projectId`, `templateId` | Get one quicksprint template. |
+| `create_template` | – | `projectId`, `name`, `description`, `icon`, `category`, `agentInstructionMarkdown` | Create a custom project template. Optional `categoryColor`, `defaultTaskCount`, `agentPresetId`. |
+| `update_template` | – | `projectId`, `templateId`, update fields | Update a custom template. Built-in templates cannot be updated. |
+| `delete_template` | ✅ | `projectId`, `templateId` | Delete a custom template. Built-in templates cannot be deleted. |
+| `execute` | – | `projectId`, `templateId` | Create and plan a quicksprint. Optional `taskCount`, `submitMode`, `modelOverride`, `planningOverrides`, `agentPresetId`, `additionalPrompt`. Defaults to `submitMode: "plan_only"`. |
+| `start` | – | `projectId`, `templateId` | MCP-friendly alias for executing with default `submitMode: "plan_and_start"`. |
+
+`taskCount` defaults to `5` when omitted. `submitMode` accepts `plan_only` or `plan_and_start`.
+
+---
+
+## `scheduler`
+
+| Action | Destructive | Required payload | Description |
+| --- | --- | --- | --- |
+| `list` | – | `projectId`, optional `from`, `to` | List scheduler entries and occurrences for a project window. |
+| `create` | – | `projectId`, `targetType`, `scheduledFor`, target payload | Create a generic scheduler entry for `sprint`, `quicksprint`, or `chat`. |
+| `schedule_sprint` | – | `projectId`, `scheduledFor`, `sprintId` | Schedule a sprint orchestration. |
+| `schedule_quicksprint` | – | `projectId`, `scheduledFor`, `templateId` | Schedule a quicksprint. Optional `taskCount`, `submitMode`, `additionalPrompt`, `agentPresetId`, `planningOverrides`. |
+| `schedule_chat` | – | `projectId`, `scheduledFor`, `bodyMarkdown` | Schedule a chat message. Optional `threadId`, `connectionId`, `title`, `timezone`, `recurrence`. |
+| `update` | – | `entryId`, update fields | Update scheduler title, status, time, recurrence, or target payload. |
+| `delete` | ✅ | `entryId` | Delete a scheduler entry. |
+| `run_due` | – | optional `now` | Evaluate due entries immediately, mostly for operational verification. |
+
+`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`) or the flattened fields used by the `schedule_*` aliases. Scheduled chat entries post through the dashboard chat runtime when due, so they can target an existing thread with `threadId` or create/use a titled thread with `title`.
 
 ---
 

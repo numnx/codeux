@@ -61,6 +61,12 @@ describe("ManagementToolHandler", () => {
       sprintIssueService: {
         searchIssues: vi.fn(),
       },
+      quicksprintService: {
+        listTemplates: vi.fn(),
+      },
+      schedulerService: {
+        listProjectSchedule: vi.fn(),
+      },
     };
     handler = new ManagementToolHandler(deps);
   });
@@ -129,6 +135,26 @@ describe("ManagementToolHandler", () => {
       approvalMessage: "The action 'delete' is destructive and requires explicit approval. Please review the changes and call this tool again with approval.confirmed set to true."
     });
     expect(deps.projectManagementRepository.deleteProject).not.toHaveBeenCalled();
+  });
+
+  it("routes manage_quicksprints through the quicksprint action handler", async () => {
+    deps.quicksprintService.listTemplates.mockResolvedValue([{ id: "t1" }]);
+
+    const response = await handler.handleManageQuicksprints({ action: "list_templates", projectId: "p1" });
+    const parsed = JSON.parse(response.content[0].text);
+
+    expect(deps.quicksprintService.listTemplates).toHaveBeenCalledWith("p1");
+    expect(parsed.result).toEqual({ templates: [{ id: "t1" }] });
+  });
+
+  it("routes manage_scheduler through the scheduler action handler", async () => {
+    deps.schedulerService.listProjectSchedule.mockReturnValue({ entries: [], occurrences: [], from: "from", to: "to" });
+
+    const response = await handler.handleManageScheduler({ action: "list", projectId: "p1", from: "from", to: "to" });
+    const parsed = JSON.parse(response.content[0].text);
+
+    expect(deps.schedulerService.listProjectSchedule).toHaveBeenCalledWith("p1", "from", "to");
+    expect(parsed.result).toEqual({ entries: [], occurrences: [], from: "from", to: "to" });
   });
 
   it("should execute handleManageProjects delete action if approval is provided", async () => {
