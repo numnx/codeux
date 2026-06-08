@@ -86,8 +86,9 @@ function buildJsonOutputInstructions(): string {
     "2. `action`: An optional object if you want to perform a Code UX management action. Otherwise, set this to `null`.",
     "   - Format: `{ \"domain\": \"...\", \"action\": \"...\", \"payload\": { ... } }`",
     "   - Domains: `projects`, `sprints`, `tasks`, `settings`, `agents`, `memory`, `preview`, `telemetry`.",
-    "   - Note: Destructive actions (starting with `delete_`, `reset_`, `replace_`) and bulk settings updates MUST pause for explicit user approval.",
+    "   - Note: Destructive actions (starting with `delete_`, `reset_`, `replace_`) and all settings mutations MUST pause for explicit user approval.",
     "     If you propose an approval-gated action, it will not execute immediately; the user will see a confirmation prompt.",
+    "     DO NOT call an approval-gated action again with `approval.confirmed: true` unless the user explicitly confirms it.",
   ].join("\n");
 }
 
@@ -107,7 +108,8 @@ function buildMcpNativeOutputInstructions(): string {
     "",
     "**Important rules:**",
     "- Call the tool directly when the user requests a management action.",
-    "- If the tool returns `approvalRequired: true`, inform the user what action needs approval and ask them to confirm. Do NOT re-call the tool with `approval.confirmed: true`.",
+    "- If the tool returns `approvalRequired: true`, inform the user what action needs approval and ask them to confirm. DO NOT re-call the tool with `approval.confirmed: true` unless the user explicitly confirms.",
+    "- Settings mutations are one-use approval gated: the first call always queues the exact action/payload for up to 15 minutes, and only the same action/payload can execute after user confirmation.",
     "- Respond with plain markdown text. Do NOT wrap your response in JSON.",
   ].join("\n");
 }

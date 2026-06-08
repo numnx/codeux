@@ -10,9 +10,13 @@ describe("tool availability", () => {
     expect(projectManagerTools.some((tool) => tool.name === "manage_projects")).toBe(true);
     expect(projectManagerTools.some((tool) => tool.name === "manage_sprints")).toBe(true);
     expect(projectManagerTools.some((tool) => tool.name === "manage_tasks")).toBe(true);
+    expect(projectManagerTools.some((tool) => tool.name === "manage_quicksprints")).toBe(true);
+    expect(projectManagerTools.some((tool) => tool.name === "manage_scheduler")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "manage_code_ux", "project_manager")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "manage_projects", "project_manager")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "manage_sprints", "project_manager")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "manage_quicksprints", "project_manager")).toBe(true);
+    expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "manage_scheduler", "project_manager")).toBe(true);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "claim_attention_item", "project_manager" as any)).toBe(false);
     expect(isToolEnabled(DEFAULT_DASHBOARD_SETTINGS, "execute_worker_dispatch", "project_manager" as any)).toBe(false);
   });

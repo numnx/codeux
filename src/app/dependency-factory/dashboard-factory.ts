@@ -372,6 +372,7 @@ export function createDashboardDependencies(
     (projectId, sprintId, options, signal) => planningAgentService.planSprint(projectId, sprintId, options, signal),
     (agentPresetId) => coreDeps.agentPresetRepository.getAgentPreset(agentPresetId),
   );
+  (managementToolHandler as any).deps.quicksprintService = quicksprintService;
 
   const projectSetupService = new ProjectSetupService({
     projectManagementRepository,
@@ -394,6 +395,7 @@ export function createDashboardDependencies(
     executionControlService,
     logger: logger.child({ component: "scheduler-service" }),
   });
+  (managementToolHandler as any).deps.schedulerService = schedulerService;
 
   return {
     chatThreadRuntimeService,

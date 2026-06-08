@@ -4,6 +4,8 @@ import type {
   ManageProjectsArgs,
   ManageSprintsArgs,
   ManageTasksArgs,
+  ManageQuicksprintsArgs,
+  ManageSchedulerArgs,
   ManageAgentsArgs,
   ManageMemoryArgs,
   ManageSettingsArgs,
@@ -28,12 +30,16 @@ import type { EmbeddingModelManager } from "../services/embedding-model-manager.
 import type { PlanningAgentService } from "../services/planning-agent-service.js";
 import type { ProjectSetupService } from "../services/project-setup-service.js";
 import type { SprintIssueService } from "../services/sprint-issue-service.js";
+import type { QuicksprintService } from "../services/quicksprint-service.js";
+import type { SchedulerService } from "../services/scheduler-service.js";
 
 import { PreviewActions } from "./management/preview-actions.js";
 import { handleTelemetryActions } from "./management/telemetry-actions.js";
 import { handleProjectAction } from "./management/project-actions.js";
 import { SprintActions } from "./management/sprint-actions.js";
 import { TaskActions } from "./management/task-actions.js";
+import { QuicksprintActions } from "./management/quicksprint-actions.js";
+import { SchedulerActions } from "./management/scheduler-actions.js";
 import { SettingsActions } from "./management/settings-actions.js";
 import { AgentActions } from "./management/agent-actions.js";
 import { MemoryActions } from "./management/memory-actions.js";
@@ -54,6 +60,8 @@ export interface ManagementToolHandlerDeps {
   planningAgentService: PlanningAgentService;
   projectSetupService?: ProjectSetupService;
   sprintIssueService: SprintIssueService;
+  quicksprintService?: QuicksprintService;
+  schedulerService?: SchedulerService;
 }
 
 export class ManagementToolHandler {
@@ -76,6 +84,20 @@ export class ManagementToolHandler {
     this.agentActions = new AgentActions(deps.agentPresetSyncService);
     this.memoryActions = new MemoryActions(deps.memoryService, deps.memoryPromotionService, deps.embeddingModelManager);
     this.previewActions = new PreviewActions(deps.sprintPreviewService);
+  }
+
+  private getQuicksprintActions(): QuicksprintActions {
+    if (!this.deps.quicksprintService) {
+      throw new Error("Quicksprint service is not enabled.");
+    }
+    return new QuicksprintActions(this.deps.quicksprintService);
+  }
+
+  private getSchedulerActions(): SchedulerActions {
+    if (!this.deps.schedulerService) {
+      throw new Error("Scheduler service is not enabled.");
+    }
+    return new SchedulerActions(this.deps.schedulerService);
   }
 
   private formatError(domain: string, action: string, error: unknown): { content: Array<{ type: string; text: string }> } {
@@ -107,6 +129,10 @@ export class ManagementToolHandler {
         envelope = await this.sprintActions.handleSprintAction(args);
       } else if (args.domain === "tasks") {
         envelope = await this.taskActions.handleTaskAction(args);
+      } else if (args.domain === "quicksprints") {
+        envelope = await this.getQuicksprintActions().handleQuicksprintAction(args);
+      } else if (args.domain === "scheduler") {
+        envelope = await this.getSchedulerActions().handleSchedulerAction(args);
       } else if (args.domain === "settings") {
         envelope = await this.settingsActions.handleSettingsAction(args);
       } else if (args.domain === "agents") {
@@ -175,6 +201,24 @@ export class ManagementToolHandler {
       return { content: [{ type: "text", text: JSON.stringify(envelope, null, 2) }] };
     } catch (error) {
       return this.formatError("tasks", args.action, error);
+    }
+  }
+
+  async handleManageQuicksprints(args: ManageQuicksprintsArgs): Promise<{ content: Array<{ type: string; text: string }> }> {
+    try {
+      const envelope = await this.getQuicksprintActions().handleQuicksprintAction({ domain: "quicksprints", action: args.action, payload: args as unknown as Record<string, unknown>, approval: args.approval });
+      return { content: [{ type: "text", text: JSON.stringify(envelope, null, 2) }] };
+    } catch (error) {
+      return this.formatError("quicksprints", args.action, error);
+    }
+  }
+
+  async handleManageScheduler(args: ManageSchedulerArgs): Promise<{ content: Array<{ type: string; text: string }> }> {
+    try {
+      const envelope = await this.getSchedulerActions().handleSchedulerAction({ domain: "scheduler", action: args.action, payload: args as unknown as Record<string, unknown>, approval: args.approval });
+      return { content: [{ type: "text", text: JSON.stringify(envelope, null, 2) }] };
+    } catch (error) {
+      return this.formatError("scheduler", args.action, error);
     }
   }
 

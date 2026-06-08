@@ -85,19 +85,42 @@ describe("SprintActions", () => {
     const mockSprint = { id: "s1" };
     vi.mocked(projectRepo.createSprint).mockReturnValue(mockSprint as any);
 
-    const input = { projectId: "p1", name: "test-sprint" };
+    const input = { projectId: "p1", name: "test-sprint", goal: "Ship it" };
     const result = await sprintActions.handleSprintAction(makeArgs("create", input));
-    expect(projectRepo.createSprint).toHaveBeenCalledWith("p1", input);
+    expect(projectRepo.createSprint).toHaveBeenCalledWith("p1", { name: "test-sprint", goal: "Ship it" });
     expect(result.result).toEqual(mockSprint);
+  });
+
+  it("creates sprint from public MCP title aliases", async () => {
+    const mockSprint = { id: "s1" };
+    vi.mocked(projectRepo.createSprint).mockReturnValue(mockSprint as any);
+
+    const result = await sprintActions.handleSprintAction(makeArgs("create", {
+      projectId: "p1",
+      title: "MCP Sprint",
+      goalMarkdown: "Build the MCP path",
+    }));
+
+    expect(projectRepo.createSprint).toHaveBeenCalledWith("p1", {
+      name: "MCP Sprint",
+      goal: "Build the MCP path",
+    });
+    expect(result.result).toEqual(mockSprint);
+  });
+
+  it("returns a clear validation error when sprint create has no title", async () => {
+    await expect(sprintActions.handleSprintAction(makeArgs("create", { projectId: "p1" })))
+      .rejects.toThrow("name or title is required");
+    expect(projectRepo.createSprint).not.toHaveBeenCalled();
   });
 
   it("updates sprint", async () => {
     const mockSprint = { id: "s1" };
     vi.mocked(projectRepo.updateSprint).mockReturnValue(mockSprint as any);
 
-    const input = { sprintId: "s1", name: "test-update" };
+    const input = { sprintId: "s1", title: "test-update", goalMarkdown: "Updated goal" };
     const result = await sprintActions.handleSprintAction(makeArgs("update", input));
-    expect(projectRepo.updateSprint).toHaveBeenCalledWith("s1", input);
+    expect(projectRepo.updateSprint).toHaveBeenCalledWith("s1", { name: "test-update", goal: "Updated goal" });
     expect(result.result).toEqual(mockSprint);
   });
 
@@ -116,7 +139,7 @@ describe("SprintActions", () => {
   it("starts sprint run", async () => {
     const result = await sprintActions.handleSprintAction(makeArgs("start", { projectId: "p1", sprintId: "s1" }));
     expect(execControl.orchestrateSprint).toHaveBeenCalledWith("p1", "s1");
-    expect(result.result).toEqual({ status: "success", message: "Sprint orchestration started" });
+    expect(result.result).toEqual({ status: "success", message: "Sprint orchestration started", orchestration: { ok: true } });
   });
 
   it("pauses sprint run", async () => {

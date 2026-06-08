@@ -58,6 +58,8 @@ export function createMcpDependencies(
     planningAgentService: dashboardDeps.planningAgentService,
     projectSetupService: dashboardDeps.projectSetupService,
     sprintIssueService: coreDeps.sprintIssueService,
+    quicksprintService: dashboardDeps.quicksprintService,
+    schedulerService: dashboardDeps.schedulerService,
   });
 
   return {
