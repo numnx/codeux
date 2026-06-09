@@ -46,6 +46,7 @@ interface RepoPlumbing {
   branch: string | null;
   hasRemote: boolean;
   dirty: boolean;
+  remoteUrl: string | null;
 }
 
 const FAILED_RUN_DETAILS_LIMIT = 3;
@@ -69,9 +70,14 @@ export class GitStatusService {
    * repos only ever receive the GitHub token and GitLab repos only the GitLab
    * token, so cross-host token contamination cannot happen.
    */
-  private async resolveProviderAndToken(tokens: GitHostTokens): Promise<{ provider: GitProvider; token?: string }> {
-    const remoteUrlRes = await this.queryClient.gitRemoteUrl("origin");
-    const remoteUrl = remoteUrlRes.ok ? remoteUrlRes.stdout.trim() : null;
+  private async resolveProviderAndToken(tokens: GitHostTokens, cachedRemoteUrl?: string | null): Promise<{ provider: GitProvider; token?: string }> {
+    // Reuse the origin URL already read by the cached repo plumbing when available; otherwise
+    // (callers without plumbing context) fall back to a direct lookup.
+    let remoteUrl = cachedRemoteUrl ?? null;
+    if (cachedRemoteUrl === undefined) {
+      const remoteUrlRes = await this.queryClient.gitRemoteUrl("origin");
+      remoteUrl = remoteUrlRes.ok ? remoteUrlRes.stdout.trim() : null;
+    }
     const { provider, hostDomain, repoTarget } = resolveRepositoryHost(remoteUrl);
     const token = selectHostToken(provider, tokens);
     this.queryClient.setProvider(provider, hostDomain, repoTarget, this.preferApi && !!token);
@@ -128,16 +134,18 @@ export class GitStatusService {
     const insideResult = await this.queryClient.gitRevParseIsInsideWorkTree();
     const isInsideWorkTree = insideResult.ok && (insideResult.stdout ?? "").trim() === "true";
     if (!isInsideWorkTree) {
-      return { isRepository: false, repositoryRoot: null, branch: null, hasRemote: false, dirty: false };
+      return { isRepository: false, repositoryRoot: null, branch: null, hasRemote: false, dirty: false, remoteUrl: null };
     }
 
     // These remaining queries are independent and read-only, so run them concurrently rather
-    // than spinning up the helper containers one after another.
-    const [rootResult, branchResult, remoteResult, dirtyResult] = await Promise.all([
+    // than spinning up the helper containers one after another. The origin URL is fetched here
+    // too so provider/host resolution reuses it instead of issuing its own per-call git command.
+    const [rootResult, branchResult, remoteResult, dirtyResult, remoteUrlResult] = await Promise.all([
       this.queryClient.gitRevParseShowToplevel(),
       this.queryClient.gitBranchShowCurrent(),
       this.queryClient.gitRemote(),
       this.queryClient.gitStatusPorcelain(),
+      this.queryClient.gitRemoteUrl("origin"),
     ]);
 
     return {
@@ -146,6 +154,7 @@ export class GitStatusService {
       branch: branchResult.ok ? (branchResult.stdout ?? "").trim() || null : null,
       hasRemote: remoteResult.ok && (remoteResult.stdout ?? "").trim().length > 0,
       dirty: dirtyResult.ok && (dirtyResult.stdout ?? "").trim().length > 0,
+      remoteUrl: remoteUrlResult.ok ? (remoteUrlResult.stdout ?? "").trim() || null : null,
     };
   }
 
@@ -346,7 +355,7 @@ export class GitStatusService {
     }
 
     if (mode === "REMOTE") {
-      const resolved = await this.resolveProviderAndToken(normalizedTokens);
+      const resolved = await this.resolveProviderAndToken(normalizedTokens, plumbing.remoteUrl);
       effectiveToken = resolved.token;
     }
 
