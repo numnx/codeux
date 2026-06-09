@@ -26,6 +26,7 @@ import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import type { MemoryService } from "./memory-service.js";
 import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
 import { parseQaError, type QaReviewError } from "../domain/qa-review/qa-review-types.js";
+import { clearMergeProjectionForRerun, MERGE_PROJECTION_RESET } from "../domain/sprint/task-reset-state.js";
 
 type CliQaProvider = Exclude<ProviderId, "jules">;
 
@@ -336,14 +337,18 @@ export class QualityAssuranceService {
       if (continued.applied) {
         this.deps.projectManagementRepository.updateTask(taskId, {
           status: "in_progress",
+          ...MERGE_PROJECTION_RESET,
         });
         args.task.status = "RUNNING";
       } else {
         this.deps.projectManagementRepository.updateTask(taskId, {
           status: "pending",
+          ...MERGE_PROJECTION_RESET,
         });
         args.task.status = "PENDING";
       }
+      // Re-entering the coding stage: drop any stale CI / QA / MERGED indicator.
+      clearMergeProjectionForRerun(args.task);
 
       this.appendTaskEvent(taskRun, "qa_review_changes_requested", {
         triggerType,
@@ -572,8 +577,11 @@ export class QualityAssuranceService {
       if (continued.applied && targetTask?.record_id) {
         this.deps.projectManagementRepository.updateTask(targetTask.record_id, {
           status: "in_progress",
+          ...MERGE_PROJECTION_RESET,
         });
         targetTask.status = "RUNNING";
+        // Re-entering the coding stage: drop any stale CI / QA / MERGED indicator.
+        clearMergeProjectionForRerun(targetTask);
       }
 
       return {

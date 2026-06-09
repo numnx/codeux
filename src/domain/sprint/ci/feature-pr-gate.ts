@@ -119,20 +119,9 @@ export class FeaturePrGateService {
       task.intervention_owner = transition.intervention_owner;
       task.intervention_hint = transition.intervention_hint;
 
-      // Handle task completion without a PR in REMOTE mode:
-      // if it completed, has no PR, is in REMOTE mode, and not already merged,
-      // mark it as merged so it settles immediately.
-      const info = taskCiInfoMap.get(task.id)!;
-      if (
-        task.status === "COMPLETED" &&
-        context.githubMode === "REMOTE" &&
-        info.isExecutionCompleted &&
-        !info.hasPr &&
-        !task.is_merged
-      ) {
-        task.is_merged = true;
-        task.merge_indicator = "MERGED";
-      }
+      // A task that resolved to COMPLETED with no merge evidence (e.g. produced
+      // no changes) settles honestly here via the stage resolver — we no longer
+      // fabricate an is_merged/MERGED state for it, since nothing was merged.
 
       if (task.record_id && (task.status !== previousStatus || task.merge_indicator !== previousMergeIndicator)) {
         tasksToPersist.push(task);
@@ -348,10 +337,16 @@ export class FeaturePrGateService {
             return { reportText, events, attentionItem };
           }
 
-          task.status = "COMPLETED";
-          task.is_merged = true;
-          task.merge_indicator = "MERGED";
+          // Coding is done but there is a worker branch with no PR to merge.
+          // Do not fabricate a merge — leave the task awaiting a (manual) merge
+          // so it is surfaced honestly rather than marked COMPLETED/MERGED.
+          task.status = "CODING_COMPLETED";
+          task.merge_indicator = undefined;
           await this.persistMergedTask(task, context);
+          events.push({ state: "awaiting_merge_no_pr", payload: {
+            featureBranch: context.featureBranch,
+          } });
+          reportText += buildNoPrFoundText(task.id, context.featureBranch);
           return { reportText, events, attentionItem };
         }
 
