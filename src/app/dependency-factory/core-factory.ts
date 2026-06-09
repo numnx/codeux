@@ -37,6 +37,9 @@ import { EmbeddingService } from "../../services/embedding-service.js";
 import { EmbeddingModelManager } from "../../services/embedding-model-manager.js";
 import { MemoryService } from "../../services/memory-service.js";
 import { MemoryPromotionService } from "../../services/memory-promotion-service.js";
+import { KnowledgeRepository } from "../../repositories/knowledge-repository.js";
+import { KnowledgeIngestionService } from "../../services/knowledge-ingestion-service.js";
+import { KnowledgeService } from "../../services/knowledge-service.js";
 import { ProviderConcurrencyService } from "../../services/provider-concurrency-service.js";
 import { DashboardSettings, ExternalSettingsHints } from "../../contracts/app-types.js";
 import { loadExternalSettingsHints } from "../../config/external-settings.js";
@@ -96,6 +99,8 @@ export interface CoreDependencies {
   embeddingModelManager: EmbeddingModelManager;
   memoryService: MemoryService;
   memoryPromotionService: MemoryPromotionService;
+  knowledgeRepository: KnowledgeRepository;
+  knowledgeService: KnowledgeService;
   providerConcurrencyService: ProviderConcurrencyService;
   sprintPreviewService: SprintPreviewService;
   sprintPreviewRepository: SprintPreviewRepository;
@@ -177,13 +182,6 @@ export function createCoreDependencies(
     connectionChatRepository,
   );
   const agentPresetRepository = new AgentPresetRepository(appDbStorage);
-  const agentPresetSyncService = new AgentPresetSyncService({
-    projectManagementRepository,
-    agentPresetRepository,
-    settingsRepository,
-    projectRoot: options.projectRoot,
-    logger: logger.child({ component: "agent-preset-sync-service" }),
-  });
   const executionRepository = new ExecutionRepository(appDbStorage, dashboardRealtimeService);
   const guardrailRepository = new GuardrailRepository(appDbStorage);
   const guardrailService = new GuardrailService(
@@ -259,6 +257,21 @@ export function createCoreDependencies(
     memoryRepository,
     logger.child({ component: "memory-promotion-service" }),
   );
+  const knowledgeRepository = new KnowledgeRepository(appDbStorage);
+  const knowledgeService = new KnowledgeService(
+    knowledgeRepository,
+    new KnowledgeIngestionService(logger.child({ component: "knowledge-ingestion-service" })),
+    embeddingService,
+    logger.child({ component: "knowledge-service" }),
+  );
+  const agentPresetSyncService = new AgentPresetSyncService({
+    projectManagementRepository,
+    agentPresetRepository,
+    settingsRepository,
+    projectRoot: options.projectRoot,
+    logger: logger.child({ component: "agent-preset-sync-service" }),
+    knowledgeService,
+  });
   const instructionService = new InstructionService({
     settingsRepository,
     projectManagementRepository,
@@ -306,6 +319,8 @@ export function createCoreDependencies(
     embeddingModelManager,
     memoryService,
     memoryPromotionService,
+    knowledgeRepository,
+    knowledgeService,
     providerConcurrencyService,
     sprintPreviewService,
     sprintPreviewRepository,

@@ -10,7 +10,7 @@ vi.mock("../../../../src/mcp/management-tool-handler.js", () => {
   return { ManagementToolHandler };
 });
 
-vi.mock("../../../../src/git/sprint-branch-scheme.js", async (importOriginal) => {
+vi.mock("../../../../src/domain/sprint/branch-name-generator.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
     ...actual,
@@ -63,6 +63,8 @@ describe("MCP Factory", () => {
       taskRerunService: {},
       planningAgentService: {},
       projectSetupService: {},
+      quicksprintService: {},
+      schedulerService: {},
     };
   });
 
@@ -81,6 +83,8 @@ describe("MCP Factory", () => {
     expect(typeof managementArgs.getDashboardSettings).toBe("function");
     expect(managementArgs.settingsRepository).toBe(mockCoreDeps.settingsRepository);
     expect(managementArgs.executionControlService).toBe(mockDashboardDeps.executionControlService);
+    expect(managementArgs.quicksprintService).toBe(mockDashboardDeps.quicksprintService);
+    expect(managementArgs.schedulerService).toBe(mockDashboardDeps.schedulerService);
   });
 
   it("no longer exposes the removed listening handlers", () => {

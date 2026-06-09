@@ -1,19 +1,64 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
 import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import { AgentPresetRepository } from "../../../src/repositories/agent-preset-repository.js";
+import { KnowledgeRepository } from "../../../src/repositories/knowledge-repository.js";
 import { SettingsRepository } from "../../../src/repositories/settings-repository.js";
 import { AgentPresetSyncService } from "../../../src/services/agent-preset-sync-service.js";
+import { KnowledgeIngestionService } from "../../../src/services/knowledge-ingestion-service.js";
+import { KnowledgeService } from "../../../src/services/knowledge-service.js";
 
 const tempDirs: string[] = [];
+const appStorages: AppDbStorage[] = [];
+const settingsRepositories: SettingsRepository[] = [];
 const originalHome = process.env.HOME;
+const originalUserProfile = process.env.USERPROFILE;
 const originalEnableInstallInTests = process.env.CODE_UX_ENABLE_DEFAULT_ASSET_INSTALL_IN_TESTS;
 
+const noopLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, child: () => noopLogger } as any;
+const fakeEmbeddingService = {
+  isLoaded: () => true,
+  getLoadedModelId: () => "bge-small-en-v1.5",
+  getDimension: () => 2,
+  embed: async () => new Float32Array([1, 0]),
+} as any;
+
+const createAppStorage = (dbPath: string): AppDbStorage => {
+  const storage = new AppDbStorage(dbPath);
+  appStorages.push(storage);
+  return storage;
+};
+
+const createSettingsRepository = (dbPath: string): SettingsRepository => {
+  const repository = new SettingsRepository(dbPath);
+  settingsRepositories.push(repository);
+  return repository;
+};
+
+beforeEach(async () => {
+  delete process.env.CODE_UX_ENABLE_DEFAULT_ASSET_INSTALL_IN_TESTS;
+  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-home-"));
+  tempDirs.push(homeDir);
+  process.env.HOME = homeDir;
+  process.env.USERPROFILE = homeDir;
+});
+
 afterEach(async () => {
+  for (const repository of settingsRepositories.splice(0).reverse()) {
+    repository.close();
+  }
+  for (const storage of appStorages.splice(0).reverse()) {
+    storage.close();
+  }
   process.env.HOME = originalHome;
+  if (originalUserProfile === undefined) {
+    delete process.env.USERPROFILE;
+  } else {
+    process.env.USERPROFILE = originalUserProfile;
+  }
   if (originalEnableInstallInTests === undefined) {
     delete process.env.CODE_UX_ENABLE_DEFAULT_ASSET_INSTALL_IN_TESTS;
   } else {
@@ -23,6 +68,63 @@ afterEach(async () => {
 });
 
 describe("AgentPresetSyncService", () => {
+  it("returns existing dashboard presets without awaiting background markdown sync", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-dashboard-fast-list-"));
+    tempDirs.push(dir);
+
+    const storage = createAppStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Fast Dashboard Agents",
+      sourceType: "local",
+      sourceRef: path.join(dir, "repo"),
+    });
+    agentPresetRepository.createAgentPreset(project.id, {
+      name: "Existing Worker",
+      instructionMarkdown: "Use the stored sqlite instructions.\n",
+    });
+
+    let releaseSync!: () => void;
+    let markSyncStarted!: () => void;
+    const syncStarted = new Promise<void>((resolve) => {
+      markSyncStarted = resolve;
+    });
+    const syncBlocker = new Promise<void>((release) => {
+      releaseSync = release;
+    });
+    const syncSpy = vi.spyOn(syncService, "syncProjectAgents").mockImplementation(async () => {
+      markSyncStarted();
+      await syncBlocker;
+    });
+
+    const result = await Promise.race([
+      syncService.listAgentPresetsForDashboard(project.id),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+    ]);
+
+    expect(result).not.toBeNull();
+    const presets = result as Awaited<ReturnType<AgentPresetSyncService["listAgentPresetsForDashboard"]>>;
+    expect(presets[0]?.name).toBe("Existing Worker");
+    expect(syncSpy).toHaveBeenCalledTimes(1);
+    await syncStarted;
+
+    await syncService.listAgentPresetsForDashboard(project.id);
+    expect(syncSpy).toHaveBeenCalledTimes(1);
+
+    releaseSync();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    syncSpy.mockRestore();
+  });
+
   it("imports project markdown agents and auto-syncs content on change", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-sync-"));
     tempDirs.push(dir);
@@ -32,10 +134,10 @@ describe("AgentPresetSyncService", () => {
     const agentPath = path.join(repoPath, ".code-ux", "agents", "planning_agent.md");
     await fs.writeFile(agentPath, "---json\n{\"avatarConfig\":{\"body\":\"alien\"},\"memoryTemplateOverrideEnabled\":true}\n---\nInitial planning instructions.\n", "utf8");
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -80,6 +182,7 @@ describe("AgentPresetSyncService", () => {
     const repoPath = path.join(dir, "repo");
     const homeDir = path.join(dir, "home");
     process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
 
     await fs.mkdir(path.join(projectRoot, ".code-ux", "agents"), { recursive: true });
     await fs.mkdir(path.join(projectRoot, ".code-ux", "container"), { recursive: true });
@@ -92,10 +195,10 @@ describe("AgentPresetSyncService", () => {
     }
     await fs.writeFile(path.join(projectRoot, ".code-ux", "container", "setup.sh"), "#!/usr/bin/env bash\necho setup\n", "utf8");
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -128,7 +231,7 @@ describe("AgentPresetSyncService", () => {
     await expect(fs.stat(path.join(homeDir, ".code-ux", "agents", "worker.md"))).rejects.toThrow();
   });
 
-  it("normalizes project_manager sources and resolves the Project manager agent", async () => {
+  it("normalizes project manager sources and resolves the project manager agent", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-project-manager-agent-"));
     tempDirs.push(dir);
 
@@ -140,10 +243,10 @@ describe("AgentPresetSyncService", () => {
       "utf8",
     );
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -168,6 +271,55 @@ describe("AgentPresetSyncService", () => {
     expect(resolved.instructionMarkdown).toContain("Answer Jules clarification requests.");
   });
 
+  it("seeds Code UX internal docs as a default Project manager knowledge subscription once", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-project-manager-internal-docs-"));
+    tempDirs.push(dir);
+
+    const projectRoot = path.join(dir, "app");
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(projectRoot, "docs"), { recursive: true });
+    await fs.mkdir(path.join(repoPath, ".code-ux", "agents"), { recursive: true });
+    await fs.writeFile(path.join(projectRoot, "docs", "index.md"), "# Code UX\n\nInternal docs.", "utf8");
+    await fs.writeFile(path.join(repoPath, ".code-ux", "agents", "project_manager.md"), "Manage the project.\n", "utf8");
+
+    const storage = createAppStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const knowledgeRepository = new KnowledgeRepository(storage);
+    const knowledgeService = new KnowledgeService(
+      knowledgeRepository,
+      new KnowledgeIngestionService(noopLogger),
+      fakeEmbeddingService,
+      noopLogger,
+    );
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot,
+      knowledgeService,
+    });
+
+    const project = projectRepository.createProject({
+      name: "Project manager Internal Docs",
+      sourceType: "local",
+      sourceRef: repoPath,
+    });
+
+    const presets = await syncService.listAgentPresets(project.id);
+    const projectManager = presets.find((preset) => preset.name === "Project manager");
+    expect(projectManager).toBeTruthy();
+    const docs = knowledgeService.listDocuments(project.id);
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ title: "codeux/internaldocs", sourceRef: "codeux/internaldocs" });
+    expect(knowledgeService.listSubscriptions(projectManager!.id)).toEqual([docs[0]!.id]);
+
+    knowledgeService.setSubscriptions(projectManager!.id, project.id, []);
+    await syncService.syncProjectAgents(project.id);
+    expect(knowledgeService.listSubscriptions(projectManager!.id)).toEqual([]);
+  });
+
   it("repairs stale DB content when source metadata already matches", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-stale-content-"));
     tempDirs.push(dir);
@@ -177,10 +329,10 @@ describe("AgentPresetSyncService", () => {
     const agentPath = path.join(repoPath, ".code-ux", "agents", "worker.md");
     await fs.writeFile(agentPath, "Real worker instructions.\n", "utf8");
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -230,10 +382,10 @@ describe("AgentPresetSyncService", () => {
     const defaultPlanningPath = path.join(defaultAgentsDir, "planning_agent.md");
     await fs.writeFile(defaultPlanningPath, "Default planning instructions.\n", "utf8");
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -288,10 +440,10 @@ describe("AgentPresetSyncService", () => {
     await fs.writeFile(planningPath, "Initial planning instructions.\n", "utf8");
     await fs.writeFile(reviewerPath, "Initial review instructions.\n", "utf8");
 
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,
       agentPresetRepository,
@@ -333,10 +485,10 @@ describe("AgentPresetSyncService", () => {
     it("resolves to the default planning agent when no ID is provided", async () => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-resolve-"));
       tempDirs.push(dir);
-      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const storage = createAppStorage(path.join(dir, "app.db"));
       const projectRepository = new ProjectManagementRepository(storage);
       const agentPresetRepository = new AgentPresetRepository(storage);
-      const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+      const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
       const syncService = new AgentPresetSyncService({
         projectManagementRepository: projectRepository,
         agentPresetRepository,
@@ -356,10 +508,10 @@ describe("AgentPresetSyncService", () => {
     it("resolves to a valid targeted planning preset with 'planning' label", async () => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-resolve-valid-"));
       tempDirs.push(dir);
-      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const storage = createAppStorage(path.join(dir, "app.db"));
       const projectRepository = new ProjectManagementRepository(storage);
       const agentPresetRepository = new AgentPresetRepository(storage);
-      const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+      const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
       const syncService = new AgentPresetSyncService({
         projectManagementRepository: projectRepository,
         agentPresetRepository,
@@ -382,10 +534,10 @@ describe("AgentPresetSyncService", () => {
     it("falls back to default planning agent if targeted ID is missing or invalid", async () => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-resolve-fallback-"));
       tempDirs.push(dir);
-      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const storage = createAppStorage(path.join(dir, "app.db"));
       const projectRepository = new ProjectManagementRepository(storage);
       const agentPresetRepository = new AgentPresetRepository(storage);
-      const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+      const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
       const syncService = new AgentPresetSyncService({
         projectManagementRepository: projectRepository,
         agentPresetRepository,
@@ -405,10 +557,10 @@ describe("AgentPresetSyncService", () => {
     it("falls back to default planning agent if targeted preset belongs to a different project", async () => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-resolve-cross-project-"));
       tempDirs.push(dir);
-      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const storage = createAppStorage(path.join(dir, "app.db"));
       const projectRepository = new ProjectManagementRepository(storage);
       const agentPresetRepository = new AgentPresetRepository(storage);
-      const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+      const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
       const syncService = new AgentPresetSyncService({
         projectManagementRepository: projectRepository,
         agentPresetRepository,
@@ -434,10 +586,10 @@ describe("AgentPresetSyncService", () => {
     it("accepts targeted planning agent presets without requiring a planning label", async () => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-resolve-unlabeled-"));
       tempDirs.push(dir);
-      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const storage = createAppStorage(path.join(dir, "app.db"));
       const projectRepository = new ProjectManagementRepository(storage);
       const agentPresetRepository = new AgentPresetRepository(storage);
-      const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+      const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
       const syncService = new AgentPresetSyncService({
         projectManagementRepository: projectRepository,
         agentPresetRepository,
@@ -463,10 +615,10 @@ describe("AgentPresetSyncService", () => {
   it("syncs agent memory settings down to md file on update and imports memory settings from md file", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-agent-memory-sync-"));
     tempDirs.push(dir);
-    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const storage = createAppStorage(path.join(dir, "app.db"));
     const projectRepository = new ProjectManagementRepository(storage);
     const agentPresetRepository = new AgentPresetRepository(storage);
-    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const settingsRepository = createSettingsRepository(path.join(dir, "settings.db"));
 
     const syncService = new AgentPresetSyncService({
       projectManagementRepository: projectRepository,

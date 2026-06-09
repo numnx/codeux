@@ -54,9 +54,12 @@ export function createMcpDependencies(
     memoryService: coreDeps.memoryService,
     memoryPromotionService: coreDeps.memoryPromotionService,
     embeddingModelManager: coreDeps.embeddingModelManager,
+    knowledgeService: coreDeps.knowledgeService,
     planningAgentService: dashboardDeps.planningAgentService,
     projectSetupService: dashboardDeps.projectSetupService,
     sprintIssueService: coreDeps.sprintIssueService,
+    quicksprintService: dashboardDeps.quicksprintService,
+    schedulerService: dashboardDeps.schedulerService,
   });
 
   return {

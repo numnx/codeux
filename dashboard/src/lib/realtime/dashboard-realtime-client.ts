@@ -30,6 +30,18 @@ class DashboardRealtimeClient {
   private transportState: TransportState = "disconnected";
   private disconnectTimer: number | null = null;
 
+  constructor() {
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("online", () => {
+        if (this.subscriptions.size > 0) {
+          this.reconnectAttempt = 0;
+          this.clearReconnectTimer();
+          this.ensureConnected();
+        }
+      });
+    }
+  }
+
   subscribe(scopes: string[], listener: RealtimeListener, transportListener?: TransportStateListener): () => void {
     const subscriptionId = this.nextSubscriptionId++;
     this.subscriptions.set(subscriptionId, {
@@ -54,6 +66,9 @@ class DashboardRealtimeClient {
 
   private ensureConnected(): void {
     this.clearDisconnectTimer();
+    if (typeof window === "undefined") {
+      return;
+    }
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -205,7 +220,11 @@ class DashboardRealtimeClient {
 
   private clearDisconnectTimer(): void {
     if (this.disconnectTimer !== null) {
-      window.clearTimeout(this.disconnectTimer);
+      if (typeof window !== "undefined") {
+        window.clearTimeout(this.disconnectTimer);
+      } else {
+        globalThis.clearTimeout(this.disconnectTimer);
+      }
       this.disconnectTimer = null;
     }
   }

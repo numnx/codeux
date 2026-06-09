@@ -86,7 +86,6 @@ export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
   },
   antigravity: (model: string, prompt: string) => {
     const args = ["--dangerously-skip-permissions"];
-    if (model && model !== "default") args.push("--model", model);
     args.push("-p", prompt);
     return { command: "agy", args };
   },
@@ -147,8 +146,10 @@ export interface ProviderRunInput {
   gitlabToken?: string;
   signal?: AbortSignal;
   onActivity: (desc: string, originator?: string) => void;
+  onTelemetry?: (telemetry: ProviderUsageTelemetry) => void;
   /** Pass a previous nativeSessionId to continue an existing CLI session.
-   *  Claude Code: reuses --session-id. Gemini: adds --resume. Codex: uses exec resume --last. */
+   *  Claude Code: reuses --session-id. Gemini: adds --resume. Codex: uses exec resume --last.
+   *  Qwen Code uses project-scoped --continue because Code UX logical ids are not Qwen saved-session ids. */
   continueSessionId?: string | null;
   /** MCP server connection info for injecting management tools into the CLI provider. */
   mcpConnection?: McpConnectionInfo | null;
@@ -165,11 +166,14 @@ export class ProviderRunner implements IProviderRunner {
   constructor(private readonly dockerRunner: IDockerRunner) { }
 
   async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
+    const preserveQwenSessionWorkspace = this.shouldPreserveQwenSessionWorkspace(input);
     const prepared = input.workflowSettings.executionMode === "DOCKER"
       ? await this.dockerRunner.ensureWorkspace({
         cwd: input.cwd,
         repoPath: input.repoPath,
         sessionId: input.workspaceSessionId || input.sessionId,
+        preserve: preserveQwenSessionWorkspace,
+        reuseExisting: preserveQwenSessionWorkspace,
       })
       : { cwd: input.cwd, cleanup: async () => undefined };
 
@@ -192,11 +196,14 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   async runProviderForText(input: ProviderRunInput): Promise<ProviderRunResult & { text: string }> {
+    const preserveQwenSessionWorkspace = this.shouldPreserveQwenSessionWorkspace(input);
     const prepared = input.workflowSettings.executionMode === "DOCKER"
       ? await this.dockerRunner.ensureWorkspace({
         cwd: input.cwd,
         repoPath: input.repoPath,
         sessionId: input.workspaceSessionId || input.sessionId,
+        preserve: preserveQwenSessionWorkspace,
+        reuseExisting: preserveQwenSessionWorkspace,
       })
       : { cwd: input.cwd, cleanup: async () => undefined };
 
@@ -236,6 +243,12 @@ export class ProviderRunner implements IProviderRunner {
     return input.workflowSettings.executionMode === "DOCKER"
       ? pathPosix.join("/workspace", `provider-last-message-${input.sessionId}.txt`)
       : path.join(os.tmpdir(), `provider-last-message-${input.sessionId}.txt`);
+  }
+
+  private shouldPreserveQwenSessionWorkspace(input: ProviderRunInput): boolean {
+    return input.provider === "qwen-code"
+      && input.workflowSettings.executionMode === "DOCKER"
+      && !input.cwd.startsWith("docker-volume://");
   }
 
   private async cleanupCodexOutputPath(
@@ -285,12 +298,13 @@ export class ProviderRunner implements IProviderRunner {
     gitlabToken?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
+    onTelemetry?: (telemetry: ProviderUsageTelemetry) => void;
     codexOutputPath?: string | null;
     continueSessionId?: string | null;
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
   }): Promise<ProviderRunResult> {
-    const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, gitlabToken, signal, onActivity } = input;
+    const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, gitlabToken, signal, onActivity, onTelemetry } = input;
     const startedMs = Date.now();
     const runModel = this.resolveRunModel(provider, model, input);
     // Resolve where qwen-code should write its OpenAI request/response logs, as seen
@@ -311,7 +325,9 @@ export class ProviderRunner implements IProviderRunner {
     const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir, gitlabToken);
     const nativeSessionId = provider === "opencode"
       ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
-      : input.continueSessionId || (provider === "claude-code" || provider === "qwen-code" ? randomUUID() : null);
+      : provider === "qwen-code"
+        ? null
+      : input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
 
     const applicableCustomServers = enabledCustomServersFor(input.customMcpServers, provider);
     const hasMcpConfig = !!input.mcpConnection || applicableCustomServers.length > 0;
@@ -353,18 +369,29 @@ export class ProviderRunner implements IProviderRunner {
       await this.resetQwenOpenAiLogDir(cwd, workflowSettings.executionMode, sessionId);
     }
 
+    let accumulatedStdout = "";
+    let accumulatedStderr = "";
+    const trackingOnActivity = (desc: string, originator?: string) => {
+      if (originator === "agent") {
+        accumulatedStdout += desc + "\n";
+      } else if (originator === "provider") {
+        accumulatedStderr += desc + "\n";
+      }
+      onActivity(desc, originator);
+    };
+
     const runCmd = async () => {
       if (workflowSettings.executionMode === "DOCKER") {
         const result = await this.dockerRunner.runProviderInDocker({
           command, args, cwd, providerEnv, sessionId,
-          providerLabel: provider, workflowSettings, repoPath, signal, onActivity,
+          providerLabel: provider, workflowSettings, repoPath, signal, onActivity: trackingOnActivity,
           providerMountAuth,
           providerAuthPath,
           mcpConnection: input.mcpConnection,
           customMcpServers: input.customMcpServers,
         });
         if (!result.ok && isDockerWorkspaceMountError(result)) {
-          try { await fs.access(cwd); onActivity(`Docker could not mount workspace path (${cwd}) even though it exists locally. Path visibility mismatch.`); } catch { /* ignore */ }
+          try { await fs.access(cwd); trackingOnActivity(`Docker could not mount workspace path (${cwd}) even though it exists locally. Path visibility mismatch.`, "provider"); } catch { /* ignore */ }
         }
         return result;
       }
@@ -374,16 +401,84 @@ export class ProviderRunner implements IProviderRunner {
           if (this.shouldSuppressStructuredStdout(provider, line)) {
             return;
           }
-          onActivity(line, "agent");
+          trackingOnActivity(line, "agent");
         },
-        onStderrLine: (line) => onActivity(`[${provider}] ${line}`, "provider"),
+        onStderrLine: (line) => trackingOnActivity(`[${provider}] ${line}`, "provider"),
       });
     };
+
+    let tempDbPath: string | null = null;
+    let watcherTempDbPath: string | null = null;
+    let activeWatcher = true;
+    let watcherPromise: Promise<void> | null = null;
+
+    if (input.onTelemetry) {
+      const watcherLoop = async () => {
+        // Small initial delay to let the process spin up and start writing logs
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        while (activeWatcher && !signal?.aborted) {
+          try {
+            let claudeSessionJsonl: string | null = null;
+            let codexSessionJson: string | null = null;
+            let qwenLog: { usage: QwenUsageTotals | null; conversation: ParsedConversationTurn[] } | null = null;
+            let antigravityTranscriptJsonl: string | null = null;
+            let resolvedNativeSessionId = nativeSessionId;
+
+            if (provider === "claude-code" && nativeSessionId) {
+              claudeSessionJsonl = await this.readClaudeSessionJsonl(cwd, nativeSessionId, workflowSettings.executionMode);
+            } else if (provider === "codex") {
+              codexSessionJson = await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode);
+            } else if (provider === "qwen-code") {
+              qwenLog = await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs);
+            } else if (provider === "antigravity") {
+              if (!resolvedNativeSessionId && antigravityLogPath) {
+                resolvedNativeSessionId = await this.parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode);
+              }
+              if (resolvedNativeSessionId) {
+                antigravityTranscriptJsonl = await this.readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode);
+                if (!watcherTempDbPath) {
+                  const safeSession = resolvedNativeSessionId.replace(/[^A-Za-z0-9_-]/g, "_");
+                  watcherTempDbPath = path.join(os.tmpdir(), `agy-temp-watcher-${safeSession}-${randomUUID()}.db`);
+                }
+                await this.resolveAntigravityDatabase(cwd, resolvedNativeSessionId, workflowSettings.executionMode, watcherTempDbPath);
+              }
+            }
+
+            const telemetry = await collectProviderUsageTelemetry({
+              provider,
+              model: runModel,
+              prompt,
+              cwd,
+              stdout: accumulatedStdout,
+              stderr: accumulatedStderr,
+              capturedText: "",
+              nativeSessionId: resolvedNativeSessionId || nativeSessionId,
+              claudeSessionJsonl,
+              codexSessionJson,
+              qwenReportedUsage: qwenLog?.usage ?? null,
+              qwenConversation: qwenLog?.conversation ?? null,
+              startTimeMs: startedMs,
+              executionMode: workflowSettings.executionMode,
+              antigravitySessionDbPath: watcherTempDbPath,
+              antigravityTranscriptJsonl,
+            });
+
+            if (input.onTelemetry) {
+              input.onTelemetry(telemetry);
+            }
+          } catch (err) {
+            // Swallow background watcher errors
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      };
+      watcherPromise = watcherLoop();
+    }
 
     try {
       let result = await runCmd();
       if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
-        onActivity("Codex transport disconnected. Retrying once automatically...");
+        trackingOnActivity("Codex transport disconnected. Retrying once automatically...");
         await new Promise(r => setTimeout(r, 1500));
         result = await runCmd();
       }
@@ -403,7 +498,7 @@ export class ProviderRunner implements IProviderRunner {
             const reason = resultHasSilentQuotaSignal(provider, result)
               ? "Quota limit reached"
               : "Provider reported an error";
-            onActivity(`[${provider}] ${reason}; provider stopped before completing the task.`, "provider");
+            trackingOnActivity(`[${provider}] ${reason}; provider stopped before completing the task.`, "provider");
             result = { ...result, ok: false };
           }
         }
@@ -420,6 +515,24 @@ export class ProviderRunner implements IProviderRunner {
       const qwenLog = provider === "qwen-code"
         ? await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs)
         : null;
+
+      let resolvedNativeSessionId = nativeSessionId;
+      if (provider === "antigravity" && !resolvedNativeSessionId && antigravityLogPath) {
+        resolvedNativeSessionId = await this.parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode);
+      }
+
+      let antigravityTranscriptJsonl: string | null = null;
+      if (provider === "antigravity" && resolvedNativeSessionId) {
+        antigravityTranscriptJsonl = await this.readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode);
+        
+        const safeSession = resolvedNativeSessionId.replace(/[^A-Za-z0-9_-]/g, "_");
+        const hostTempDb = path.join(os.tmpdir(), `agy-temp-${safeSession}-${randomUUID()}.db`);
+        const resolvedDb = await this.resolveAntigravityDatabase(cwd, resolvedNativeSessionId, workflowSettings.executionMode, hostTempDb);
+        if (resolvedDb) {
+          tempDbPath = hostTempDb;
+        }
+      }
+
       const usageTelemetry = await collectProviderUsageTelemetry({
         provider,
         model: runModel,
@@ -428,20 +541,32 @@ export class ProviderRunner implements IProviderRunner {
         stdout: result.stdout,
         stderr: result.stderr,
         capturedText,
-        nativeSessionId,
+        nativeSessionId: resolvedNativeSessionId || nativeSessionId,
         claudeSessionJsonl,
         codexSessionJson,
         qwenReportedUsage: qwenLog?.usage ?? null,
         qwenConversation: qwenLog?.conversation ?? null,
         startTimeMs: startedMs,
         executionMode: workflowSettings.executionMode,
+        antigravitySessionDbPath: tempDbPath,
+        antigravityTranscriptJsonl,
       });
       return {
         ...result,
         usageTelemetry,
-        nativeSessionId: usageTelemetry.nativeSessionId || nativeSessionId,
+        nativeSessionId: usageTelemetry.nativeSessionId || resolvedNativeSessionId || nativeSessionId,
       };
     } finally {
+      activeWatcher = false;
+      if (watcherPromise) {
+        await watcherPromise.catch(() => undefined);
+      }
+      if (watcherTempDbPath) {
+        await fs.rm(watcherTempDbPath, { force: true }).catch(() => undefined);
+      }
+      if (tempDbPath) {
+        await fs.rm(tempDbPath, { force: true }).catch(() => undefined);
+      }
       for (const entry of localMcpCleanup) {
         if (entry.originalContent !== null) {
           await fs.writeFile(entry.path, entry.originalContent).catch(() => undefined);
@@ -679,6 +804,96 @@ export class ProviderRunner implements IProviderRunner {
     return (await this.dockerRunner.readWorkspaceFile?.(cwd, sessionPath).catch(() => null)) || null;
   }
 
+  private async parseAntigravityConversationId(
+    cwd: string,
+    logPath: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+  ): Promise<string | null> {
+    try {
+      const raw = executionMode === "DOCKER"
+        ? ((await this.dockerRunner.readWorkspaceFile?.(cwd, logPath).catch(() => null)) || "")
+        : (await fs.readFile(logPath, "utf8").catch(() => ""));
+      if (!raw.trim()) {
+        return null;
+      }
+      const match = raw.match(/Created conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/found conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/switching to conversation\s+([0-9a-fA-F-]+)/i) ||
+                    raw.match(/GetConversationDetail:\s+found\s+conversation\s+([0-9a-fA-F-]+)/i);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async readAntigravityTranscript(
+    cwd: string,
+    conversationId: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+  ): Promise<string | null> {
+    const candidates = [
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt")
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
+        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt")
+        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
+    ];
+
+    for (const p of candidates) {
+      const raw = executionMode === "DOCKER"
+        ? await this.dockerRunner.readWorkspaceFile?.(cwd, p).catch(() => null)
+        : await fs.readFile(p, "utf8").catch(() => null);
+      if (raw) {
+        return raw;
+      }
+    }
+    return null;
+  }
+
+  private async resolveAntigravityDatabase(
+    cwd: string,
+    conversationId: string,
+    executionMode: CliWorkflowSettings["executionMode"],
+    tempDbPath: string,
+  ): Promise<boolean> {
+    const candidates = [
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".code-ux-home", ".gemini", "antigravity-cli", "conversations", `${conversationId}.db`)
+        : path.join(os.homedir(), ".gemini", "antigravity-cli", "conversations", `${conversationId}.db`),
+      executionMode === "DOCKER"
+        ? pathPosix.join(CONTAINER_WORKSPACE_ROOT, ".code-ux-home", ".gemini", "antigravity", "conversations", `${conversationId}.db`)
+        : path.join(os.homedir(), ".gemini", "antigravity", "conversations", `${conversationId}.db`),
+    ];
+
+    for (const p of candidates) {
+      if (executionMode === "DOCKER") {
+        if (this.dockerRunner.readWorkspaceFileBase64) {
+          const base64Str = await this.dockerRunner.readWorkspaceFileBase64(cwd, p).catch(() => null);
+          if (base64Str) {
+            const dbBuffer = Buffer.from(base64Str, "base64");
+            await fs.writeFile(tempDbPath, dbBuffer);
+            return true;
+          }
+        }
+      } else {
+        try {
+          await fs.copyFile(p, tempDbPath);
+          return true;
+        } catch {
+          // ignore error and try next
+        }
+      }
+    }
+    return false;
+  }
+
   /** Builds the `-c` config overrides that point Codex at a custom OpenAI-compatible
    *  model provider (e.g. OpenRouter). We register a dedicated provider with
    *  `requires_openai_auth = false` so non-`sk-` gateway keys are accepted. The wire API is
@@ -762,10 +977,8 @@ export class ProviderRunner implements IProviderRunner {
     if (provider === "qwen-code") {
       const authType = qwenAuthMode === "LOCAL_AUTH" ? "qwen-oauth" : (qwenProtocol || "openai");
       const args = ["--auth-type", authType, "--yolo"];
-      if (continueSession && nativeSessionId) {
-        args.push("--resume", nativeSessionId);
-      } else if (nativeSessionId) {
-        args.push("--session-id", nativeSessionId);
+      if (continueSession) {
+        args.push("--continue");
       }
       if (model && model !== "default") {
         args.push("--model", model);
@@ -793,9 +1006,6 @@ export class ProviderRunner implements IProviderRunner {
         // Capture agy's diagnostics (quota/auth/executor errors) which it only writes
         // to this log file, never to stdout/stderr. Placed ahead of the terminal -p flag.
         args.push("--log-file", antigravityLogPath);
-      }
-      if (model && model !== "default") {
-        args.push("--model", model);
       }
       if (continueSession && nativeSessionId) {
         args.push(`--conversation=${nativeSessionId}`);
@@ -960,6 +1170,10 @@ export class ProviderRunner implements IProviderRunner {
       if (apiKey && !useProviderMount) {
         env.ANTIGRAVITY_API_KEY = apiKey;
       }
+      if (model && model !== "default") {
+        env.ANTIGRAVITY_MODEL = model;
+        env.AGY_MODEL = model;
+      }
     }
     return env;
   }
@@ -1007,7 +1221,6 @@ export class ProviderRunner implements IProviderRunner {
         },
       },
       model: modelConfig,
-      enableOpenAILogging: true,
     };
     // Redirect OpenAI request/response logs out of the worktree (default is
     // `<cwd>/logs/openai`). Set at both nesting levels for schema-version safety.
@@ -1221,6 +1434,7 @@ export class ProviderRunner implements IProviderRunner {
         } catch {
           // ignore parse errors and preserve existing settings
         }
+        delete existing.enableOpenAILogging;
       }
       const mcpServers: Record<string, unknown> = { ...(existing.mcpServers as Record<string, unknown> || {}) };
       if (conn) {

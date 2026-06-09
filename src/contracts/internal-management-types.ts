@@ -25,9 +25,15 @@ export interface ManageSprintsArgs {
   projectId?: string;
   sprintId?: string;
   sprintRunId?: string;
+  name?: string;
   title?: string;
+  goal?: string;
   goalMarkdown?: string;
+  originalPrompt?: string;
+  status?: string;
+  showcasePinned?: boolean;
   agentPresetId?: string;
+  planningAgentPresetId?: string;
   autoStart?: boolean;
   replan?: boolean;
   search?: string;
@@ -42,12 +48,71 @@ export interface ManageTasksArgs {
   projectId?: string;
   sprintId?: string;
   taskId?: string;
+  taskKey?: string;
+  name?: string;
   title?: string;
   promptMarkdown?: string;
   description?: string;
+  status?: string;
   priority?: string;
+  executorType?: string;
+  agentPresetId?: string | null;
+  model?: string | null;
+  sortOrder?: number;
   dependsOnTaskIds?: string[];
+  isIndependent?: boolean;
+  isMerged?: boolean;
   provider?: string;
+  approval?: ManagementApproval;
+}
+
+export interface ManageQuicksprintsArgs {
+  action: "list_templates" | "get_template" | "create_template" | "update_template" | "delete_template" | "execute" | "start";
+  projectId?: string;
+  templateId?: string;
+  name?: string;
+  description?: string;
+  icon?: string;
+  category?: string;
+  categoryColor?: string;
+  agentInstructionMarkdown?: string;
+  defaultTaskCount?: number | string;
+  taskCount?: number | string;
+  submitMode?: "plan_only" | "plan_and_start";
+  routeOverride?: string;
+  modelOverride?: string;
+  planningOverrides?: Record<string, unknown>;
+  agentPresetId?: string;
+  additionalPrompt?: string;
+  approval?: ManagementApproval;
+}
+
+export interface ManageSchedulerArgs {
+  action: "list" | "create" | "schedule_sprint" | "schedule_quicksprint" | "schedule_chat" | "update" | "delete" | "run_due";
+  projectId?: string;
+  entryId?: string;
+  from?: string;
+  to?: string;
+  title?: string;
+  targetType?: "sprint" | "quicksprint" | "chat";
+  status?: "scheduled" | "paused" | "completed" | "failed" | "cancelled";
+  scheduledFor?: string;
+  timezone?: string;
+  recurrence?: Record<string, unknown>;
+  sprintTarget?: Record<string, unknown>;
+  quicksprintTarget?: Record<string, unknown>;
+  chatTarget?: Record<string, unknown>;
+  sprintId?: string;
+  templateId?: string;
+  taskCount?: number | string;
+  submitMode?: "plan_only" | "plan_and_start";
+  additionalPrompt?: string;
+  agentPresetId?: string;
+  planningOverrides?: Record<string, unknown>;
+  bodyMarkdown?: string;
+  threadId?: string | null;
+  connectionId?: string | null;
+  now?: string;
   approval?: ManagementApproval;
 }
 
@@ -88,7 +153,7 @@ export interface ManageSettingsArgs {
   projectId?: string;
   sprintId?: string;
   path?: string;
-  value?: Record<string, unknown>;
+  value?: unknown;
   settings?: Record<string, unknown>;
   approval?: ManagementApproval;
 }
@@ -109,6 +174,12 @@ export interface ManageTelemetryArgs {
   taskId?: string;
   invocationId?: string;
   type?: string;
+}
+
+export interface SearchKnowledgeArgs {
+  query: string;
+  limit?: number;
+  minSimilarity?: number;
 }
 
 export interface ManagementResponseEnvelope {

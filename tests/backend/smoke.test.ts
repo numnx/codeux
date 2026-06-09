@@ -50,6 +50,8 @@ describe("Smoke Test", () => {
     expect(toolNames).toContain("manage_projects");
     expect(toolNames).toContain("manage_sprints");
     expect(toolNames).toContain("manage_tasks");
+    expect(toolNames).toContain("manage_quicksprints");
+    expect(toolNames).toContain("manage_scheduler");
     // Deprecated listening-loop tools are no longer exposed
     expect(toolNames).not.toContain("listen");
     expect(toolNames).not.toContain("generate_dashboard_reply");

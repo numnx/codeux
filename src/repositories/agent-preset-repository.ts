@@ -402,6 +402,14 @@ export class AgentPresetRepository {
     );
   }
 
+  hasSeededInternalDocsSubscription(projectId: string): boolean {
+    return this.readBooleanProjectSetting(projectId, this.internalDocsSubscriptionKey(projectId), "seeded");
+  }
+
+  markInternalDocsSubscriptionSeeded(projectId: string): void {
+    this.writeBooleanProjectSetting(projectId, this.internalDocsSubscriptionKey(projectId), "seeded");
+  }
+
   private mapRow(row: AgentPresetRow): AgentPresetRecord {
     return {
       id: row.id,
@@ -457,5 +465,43 @@ export class AgentPresetRepository {
 
   private defaultAgentCopyKey(projectId: string): string {
     return `default_agent_presets_copied_${projectId}`;
+  }
+
+  private internalDocsSubscriptionKey(projectId: string): string {
+    return `internal_docs_subscription_seeded_${projectId}`;
+  }
+
+  private readBooleanProjectSetting(projectId: string, key: string, property: string): boolean {
+    requireRecord(this.db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId), "Project", projectId);
+    const row = this.db.prepare(`
+      SELECT payload
+      FROM app_settings
+      WHERE key = ?
+    `).get(key) as { payload: string } | undefined;
+
+    if (!row) {
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(row.payload) as Record<string, unknown>;
+      return parsed[property] === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private writeBooleanProjectSetting(projectId: string, key: string, property: string): void {
+    requireRecord(this.db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId), "Project", projectId);
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO app_settings (key, payload, updated_at)
+      VALUES (?, ?, ?)
+      ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
+    `).run(
+      key,
+      JSON.stringify({ [property]: true, updatedAt: now }),
+      now,
+    );
   }
 }

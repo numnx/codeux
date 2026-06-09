@@ -77,6 +77,7 @@ export function createDashboardDependencies(
     memoryService: coreDeps.memoryService,
     memoryPromotionService: coreDeps.memoryPromotionService,
     embeddingModelManager: coreDeps.embeddingModelManager,
+    knowledgeService: coreDeps.knowledgeService,
     planningAgentService: {} as any, // Will link below
     projectSetupService: undefined,
     sprintIssueService: coreDeps.sprintIssueService,
@@ -113,6 +114,7 @@ export function createDashboardDependencies(
     projectManagementRepository,
     providerRunner,
     chatManagementActionService,
+    knowledgeService: coreDeps.knowledgeService,
     getMcpConnectionInfo: context.getMcpConnectionInfo,
     getMcpApprovalTracker: context.getMcpApprovalTracker,
     logger: logger.child({ component: "chat-thread-runtime-service" }),
@@ -149,7 +151,17 @@ export function createDashboardDependencies(
       const runtimeTask = (runtimeStatus.subtasks || []).find((task) => task.record_id === taskId || task.id === taskRecord.taskKey);
       const effectiveSettings = settingsRepository.resolveSprintDashboardSettings(taskRecord.projectId, sprint.id).settings;
       const derivedFeatureBranch = typeof sprint.number === "number"
-        ? formatSprintBranch(effectiveSettings.git.sprintBranchScheme, { number: sprint.number as number, slug: sprint.slug || "", name: sprint.name || "", createdAt: sprint.createdAt || new Date().toISOString(), tasksCount: sprint.tasksCount || 0 })
+        ? formatSprintBranch(effectiveSettings.git.sprintBranchScheme, {
+            sprint_key_prefix: effectiveSettings.git.sprintKeyPrefix,
+            sprint_number: sprint.number as number,
+            sprint_name: sprint.name || "",
+            sprint_id: sprint.slug || "",
+            planning_agent: effectiveSettings.agents.routing.planning.agentPresetId || "default",
+            agent_routing: effectiveSettings.agents.routing.taskCoding.mode,
+            worker_agent: effectiveSettings.agents.routing.taskCoding.agentPresetId || "default",
+            worker_provider: effectiveSettings.workers.virtualWorkerProvider,
+            worker_model: effectiveSettings.workers.model,
+          })
         : null;
       const featureBranch = sprint.featureBranch || derivedFeatureBranch || runtimeStatus.feature_branch || null;
       const repoPath = project.baseDir || runtimeStatus.repo_path || null;
@@ -360,6 +372,7 @@ export function createDashboardDependencies(
     (projectId, sprintId, options, signal) => planningAgentService.planSprint(projectId, sprintId, options, signal),
     (agentPresetId) => coreDeps.agentPresetRepository.getAgentPreset(agentPresetId),
   );
+  (managementToolHandler as any).deps.quicksprintService = quicksprintService;
 
   const projectSetupService = new ProjectSetupService({
     projectManagementRepository,
@@ -382,6 +395,7 @@ export function createDashboardDependencies(
     executionControlService,
     logger: logger.child({ component: "scheduler-service" }),
   });
+  (managementToolHandler as any).deps.schedulerService = schedulerService;
 
   return {
     chatThreadRuntimeService,

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { vi } from "vitest";
 
 const originalEmitWarning = process.emitWarning.bind(process);
 const originalLogLevel = process.env.LOG_LEVEL;
@@ -28,6 +29,36 @@ process.emitWarning = ((warning: string | Error, ...args: unknown[]) => {
 }) as typeof process.emitWarning;
 
 process.env.LOG_LEVEL = originalLogLevel ?? "error";
+
+const isWindowsTempLockError = (error: unknown, targetPath: unknown): boolean => {
+  if (process.platform !== "win32" || !error || typeof error !== "object") {
+    return false;
+  }
+  const code = "code" in error ? String((error as { code?: unknown }).code || "") : "";
+  if (code !== "EBUSY" && code !== "EPERM") {
+    return false;
+  }
+  const resolvedTarget = path.resolve(String(targetPath));
+  const resolvedTemp = path.resolve(os.tmpdir());
+  return resolvedTarget === resolvedTemp || resolvedTarget.startsWith(`${resolvedTemp}${path.sep}`);
+};
+
+vi.doMock("fs/promises", async () => {
+  const actual = await vi.importActual<typeof import("fs/promises")>("fs/promises");
+  return {
+    ...actual,
+    rm: async (...args: Parameters<typeof actual.rm>) => {
+      try {
+        return await actual.rm(...args);
+      } catch (error) {
+        if (isWindowsTempLockError(error, args[0])) {
+          return undefined;
+        }
+        throw error;
+      }
+    },
+  };
+});
 
 const installAnimationFramePolyfill = (): void => {
   const target = globalThis as typeof globalThis & {
@@ -110,3 +141,28 @@ const installCanvasContextPolyfill = (): void => {
 };
 
 installCanvasContextPolyfill();
+
+// In DOM test environments (happy-dom/jsdom) component effects frequently fire
+// real `fetch` calls against relative `/api/...` paths. Those resolve against the
+// environment's default origin (http://localhost:3000) and hit the network: in
+// Node they log `ECONNREFUSED` noise, and under happy-dom they stay pending until
+// the window teardown aborts them, surfacing `AbortError` traces after otherwise
+// green suites. Install a default stub that short-circuits unmocked requests with
+// a benign 503 Response — no socket, nothing pending at teardown. Tests that
+// exercise fetch override this via vi.stubGlobal/vi.spyOn, so they are unaffected.
+const installDefaultFetchGuard = (): void => {
+  const target = globalThis as typeof globalThis & { window?: unknown; Response?: typeof Response };
+  if (typeof target.window === "undefined" || typeof target.Response === "undefined") {
+    return;
+  }
+
+  target.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request).url ?? input);
+    return new target.Response!(
+      JSON.stringify({ error: "network access is disabled in unit tests", url }),
+      { status: 503, statusText: "Service Unavailable", headers: { "Content-Type": "application/json" } },
+    );
+  }) as typeof fetch;
+};
+
+installDefaultFetchGuard();

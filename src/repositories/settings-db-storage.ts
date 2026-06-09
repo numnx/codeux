@@ -163,4 +163,12 @@ export class SettingsDbStorage {
         updated_at = excluded.updated_at
     `).run(new Date().toISOString());
   }
+
+  getDatabase(): DatabaseAdapter {
+    return this.db;
+  }
+
+  close(): void {
+    this.db.close();
+  }
 }

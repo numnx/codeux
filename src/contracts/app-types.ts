@@ -569,6 +569,7 @@ export interface DashboardStats {
   completed: number;
   failed: number;
   ci: number;
+  qa: number;
   automerge: number;
   merged: number;
   mergeBlocked: number;
@@ -886,6 +887,9 @@ export interface DashboardSettings {
   dashboardPort: number;
   enableDebugLogFile: boolean;
   consoleLogLevel: ConsoleLogLevel;
+  dbAutoVacuumOnStartup: boolean;
+  dbPruningEnabled: boolean;
+  dbRetentionDays: number;
   appearance: AppearanceSettings;
   automationLevel: AutomationLevel;
   automationInterventions: AutomationInterventionsSettings;

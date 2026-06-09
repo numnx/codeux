@@ -4,6 +4,7 @@ import type { SessionSyncDependencies } from "../sprint-types.js";
 import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
 import type { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
 import { applyPendingTaskRuntimeReset } from "../../domain/sprint/task-reset-state.js";
+import { isCompletedTaskSettled } from "../../domain/sprint/task-merge-state.js";
 import {
   extractProviderErrorCategory,
   isQuotaCooldownActive,
@@ -349,6 +350,7 @@ export const runSessionSyncStep = async (
     maxQuotaRetriesWithoutTimer?: number;
     retryOnRateLimit?: boolean;
     maxRateLimitRetries?: number;
+    githubMode?: "REMOTE" | "LOCAL";
   },
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
@@ -459,10 +461,12 @@ export const runSessionSyncStep = async (
       sessionName ? activitiesMap.get(sessionName) : undefined,
     );
 
+    if (task.status === "COMPLETED" && isCompletedTaskSettled(task, { githubMode: context.githubMode })) {
+      continue;
+    }
+
     if (match.state === "COMPLETED") {
-      if (task.status !== "COMPLETED") {
-        task.status = "CODING_COMPLETED";
-      }
+      task.status = "CODING_COMPLETED";
       continue;
     }
 

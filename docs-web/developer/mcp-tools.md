@@ -1,6 +1,6 @@
 # MCP tools
 
-Code UX exposes **7 root MCP tools**. Six are connection / messaging primitives; the seventh, `manage_code_ux`, is a unified action surface covering 60+ management actions across 8 domains (documented separately in [Management actions](./management-actions.md)).
+Code UX exposes a project-manager MCP surface centered on dedicated management tools plus the legacy `manage_code_ux` dispatcher. Quicksprints and scheduler entries, including scheduled chat messages, are available through `manage_quicksprints` and `manage_scheduler` (documented with the full action matrix in [Management actions](./management-actions.md)).
 
 This page is the exact contract for each tool: input schema, output shape, side effects, and runtime-role gating.
 
@@ -13,7 +13,7 @@ Tools are filtered through two layers before being advertised on `ListTools`:
 1. **Runtime role** — defined per tool in `runtimeRoles`. The server's role is set via `--runtime-role` (default `project_manager`).
 2. **Toggle** — each tool has an entry in `settings.mcpTools`. Disabled tools are not advertised and return `MethodNotFound` if called.
 
-All seven default tools are enabled by default and have `runtimeRoles: ["project_manager"]`.
+All default Code UX tools are enabled by default and have `runtimeRoles: ["project_manager"]`.
 
 ---
 
@@ -44,7 +44,7 @@ Unified action dispatcher for all internal Code UX state. Used for configuration
 ### Input
 ```jsonc
 {
-  "domain": "string",       // required: projects | sprints | tasks | settings | agents | memory | preview | telemetry
+  "domain": "string",       // required: projects | sprints | tasks | quicksprints | scheduler | settings | agents | memory | preview | telemetry
   "action": "string",       // required: action name within the domain
   "payload": { },           // required: action-specific parameters
   "approval": {

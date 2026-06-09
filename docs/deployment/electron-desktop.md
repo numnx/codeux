@@ -9,6 +9,8 @@ Code UX can run as an installable Electron desktop app while preserving the exis
 - The desktop window loads the resolved dashboard URL, usually `http://127.0.0.1:4444`.
 - If the requested dashboard port is busy, the backend keeps the existing retry behavior and the Electron window opens the actual runtime port.
 - MCP stdio is disabled in the Electron runtime with `CODE_UX_DISABLE_MCP_STDIO=1` so the GUI process does not attach to desktop process stdio.
+- Mutable dashboard runtime traffic (`/api/*`, `/health`, and `/ready`) is treated as non-cacheable in both the backend response headers and the Electron session. The desktop app clears the Electron HTTP cache on startup, injects no-cache request headers only for runtime `GET`/`HEAD` reads, and injects no-store response headers for all loopback runtime data so stale Chromium cache entries cannot make settings, project, agent, or runtime pages appear frozen after navigation without interfering with JSON upload bodies.
+- Windows packaged builds keep the active WebGL context cap at 16 so the persistent shell canvas, avatar canvases, and route-scoped chart canvases have enough headroom during long navigation sessions while old Chromium contexts are waiting for garbage collection.
 - External links are opened through the host operating system. In-app dashboard and sprint-preview URLs remain inside the Electron app.
 
 ## Native Desktop Integration
@@ -45,12 +47,15 @@ macOS DMG builds include the MIT license resource through `build/license_en.txt`
 - `pnpm run electron:dist:linux`: build Linux targets.
 - `pnpm run electron:dist:mac`: build macOS targets.
 - `pnpm run electron:dist:win`: build Windows targets.
+- `pnpm run electron:benchmark:runtime`: launch Electron with an isolated temporary user profile, navigate dashboard routes, probe backend endpoints, and write route/API/renderer/runtime metrics under `.cache/electron-runtime-benchmark/`.
 - `pnpm run electron:benchmark:win`: build Windows installers with `normal` and `store` compression and write timing/size data to `release/electron-benchmark/summary.json`.
 - `pnpm run electron:install-deps`: rebuild native app dependencies for Electron.
 
 The release output is written to `release/electron/`.
 
 Electron package builds run `pnpm run electron:prepare-deps` before Electron Builder. That script creates a production-only, hoisted runtime dependency tree in `.cache/electron-runtime/node_modules`, prunes non-runtime package files, generates deterministic PNG/ICO/BMP desktop artwork, and Electron Builder copies it to `resources/node_modules` so ASAR-packaged builds can resolve pnpm transitive dependencies at runtime.
+
+Electron Builder also copies the bundled `.code-ux` runtime defaults to `resources/.code-ux-defaults`. Keep that resource filter aligned with the default asset seeding contract in `src/services/code-ux-default-assets-service.ts`; the packaged app depends on `planning_agent.md`, `project_manager.md`, `quality_assurance_agent.md`, `worker.md`, and `container/setup.sh` being present because it cannot fall back to the workspace `.code-ux` directory after installation.
 
 The runtime dependency tree is fingerprinted from production dependencies and the lockfile. If the fingerprint matches a previous run, `electron:prepare-deps` reuses the existing tree instead of deleting and reinstalling it.
 
@@ -61,6 +66,13 @@ Native runtime binaries are pruned during `electron:prepare-deps` to the current
 Electron runtime locales are limited to `en-US` because the desktop UI is currently English-only. Add languages to `electronLanguages` in `electron-builder.config.cjs` when localized UI support is shipped.
 
 Windows installer compression defaults to `normal`. Set `CODE_UX_ELECTRON_COMPRESSION=store` to prioritize faster package creation and extraction during benchmarking, or run `pnpm run electron:benchmark:win` to compare both modes before changing the default.
+
+Use the runtime benchmark when investigating long-session desktop responsiveness:
+
+- Development Electron: `pnpm run electron:benchmark:runtime -- --routes "/agents,/config,/tasks,/sprints,/agents" --cycles 20 --seed-home-code-ux`
+- Packaged Windows build: `pnpm run electron:benchmark:runtime -- --executable "release/electron/win-unpacked/Code UX.exe" --routes "/agents,/config,/tasks,/sprints,/agents" --cycles 10 --seed-home-code-ux`
+
+`--seed-home-code-ux` copies only the database files from the user's home `.code-ux` directory into the isolated benchmark profile. This allows large local datasets to be reproduced without mutating the live profile. On June 4, 2026 a copied live dataset with a 476 MB `app.db`, 33 sprints, 32,873 task runs, and 51,971 task run events completed the focused `/agents,/config,/tasks,/sprints,/agents` benchmark with zero failed or slow API samples. After moving dashboard agent preset listing to a non-blocking read path, the copied-live-database dev run reported backend probe p95 3.5 ms and max `/agent-presets` probe 5.42 ms; the packaged Windows run reported backend probe p95 3.5 ms and max `/agent-presets` probe 4.24 ms.
 
 Linux `electron:pack` benchmark on WSL/Linux after the first installer optimization pass was 17.61s with a warm runtime dependency cache and produced a 595 MB unpacked app. After pruning non-target `onnxruntime-node` native binaries and unused Electron locales, the same local benchmark completed in 15.38s and produced a 373 MB unpacked app.
 
@@ -84,7 +96,11 @@ The release workflow caches pnpm downloads, TypeScript/Vite caches, Electron dow
 
 - File and directory selection: browser image upload uses standard `<input type="file">` and `FileReader`, which Electron/Chromium supports on macOS, Linux, and Windows. Project directory selection now uses Electron's native directory dialog in the desktop app and falls back to the existing dashboard directory browser outside Electron.
 - Paths: backend directory browsing uses Node `path`, `os.homedir()`, and root detection, so Windows drive roots, Linux roots, and macOS roots resolve through the host platform. Tilde expansion accepts both `~/path` and `~\path`.
-- Dashboard API calls: the frontend uses relative `/api/*` calls, so it follows the Electron-loaded loopback origin and does not hardcode `localhost`.
+- Project and Git helpers treat local Windows repository paths as first-class inputs. Clone target name derivation splits both POSIX and Windows separators, absolute user paths resolve through the host platform, and tests compare native paths through normalized representations unless the UI intentionally displays host-native paths.
+- User-home dependent desktop behavior must consider both `HOME` and `USERPROFILE`; Windows Electron sessions resolve home directories through the native profile environment.
+- Dashboard date, time, and token/count formatting that is rendered in English UI is pinned to explicit `en-US`/UTC formatting where deterministic display matters, preventing host locale differences from changing the desktop surface or CI snapshots.
+- Dashboard API calls: the frontend uses relative `/api/*` calls, so it follows the Electron-loaded loopback origin and does not hardcode `localhost`. Shared JSON fetches default to `cache: "no-store"` and the server sends no-store headers for runtime API responses.
+- Dashboard JSON mutations are parsed on runtime API routes even if a packaged Chromium request arrives with a missing or downgraded JSON `Content-Type` header. Multipart knowledge uploads and preview proxy bodies are excluded from that fallback so route-specific body handling remains intact.
 - Sprint previews: preview iframes use same-port `preview-<session>.localhost` origins and the backend routes those hosts to loopback preview containers. Electron keeps those preview URLs internal.
 - External links: `target="_blank"` and navigation to non-dashboard HTTP(S) or mailto URLs open in the user's default browser/mail client instead of replacing the desktop shell.
 - Native modules: Electron Builder is configured to unpack `.node` files and `onnxruntime-node` assets from ASAR so native bindings remain loadable after packaging.

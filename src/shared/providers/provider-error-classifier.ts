@@ -359,6 +359,7 @@ const ANTIGRAVITY_QUOTA_PATTERNS: RegExp[] = [
 const ANTIGRAVITY_AUTH_EXTRAS: RegExp[] = [
   /ANTIGRAVITY_API_KEY/i,
   /Authentication[\s_]?required/i,
+  /Please visit the URL to log in/i,
   /Please sign in/i,
   /Invalid Token/i,
   /Login Expired/i,

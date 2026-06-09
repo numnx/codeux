@@ -1,5 +1,4 @@
 import { setupDashboardServer, type DashboardServerHandle } from "../../server/dashboard-server.js";
-import { registerMemoryRoutes } from "../../server/memory-routes.js";
 import { InstructionFileService } from "../../services/instruction-file-service.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { createLogger } from "../../shared/logging/logger.js";
@@ -51,6 +50,7 @@ import type { QuicksprintService } from "../../services/quicksprint-service.js";
 import type { ProjectSetupService } from "../../services/project-setup-service.js";
 import type { SchedulerService } from "../../services/scheduler-service.js";
 import type { MemoryService } from "../../services/memory-service.js";
+import type { KnowledgeService } from "../../services/knowledge-service.js";
 import type { MemoryPromotionService } from "../../services/memory-promotion-service.js";
 import type { EmbeddingModelManager } from "../../services/embedding-model-manager.js";
 import type { EmbeddingService } from "../../services/embedding-service.js";
@@ -130,6 +130,7 @@ export interface BootDashboardDeps {
   embeddingModelManager: EmbeddingModelManager;
   embeddingService: EmbeddingService;
   memoryRepository: MemoryRepository;
+  knowledgeService: KnowledgeService;
 }
 
 export function reinitializeLogger(deps: { projectRoot: string, runtimeContext: RuntimeContext }): Logger {
@@ -267,20 +268,12 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
       getProjectExecutionSnapshot: cache.getProjectExecutionSnapshot,
       getGitStatus: deps.getGitStatus,
       logger: deps.logger.child({ component: "project-live-snapshot" })
-    }, projectIdHint),
+    }, projectIdHint, { includeGit: false }),
+    getProjectGitStatus: () => deps.getGitStatus(),
     getOverviewTelemetrySnapshot: cache.getOverviewTelemetrySnapshot,
   });
 
   deps.projectSetupService.setRealtimeNotifier(deps.dashboardRealtimeService);
-
-  registerMemoryRoutes(deps.app, {
-    memoryService: deps.memoryService,
-    memoryPromotionService: deps.memoryPromotionService,
-    embeddingModelManager: deps.embeddingModelManager,
-    embeddingService: deps.embeddingService,
-    memoryRepository: deps.memoryRepository,
-    settingsRepository: deps.settingsRepository,
-  });
 
   // Auto-restore previously active embedding model (fire-and-forget)
   deps.embeddingModelManager.restorePreviousModel().catch((error) => {
@@ -299,13 +292,22 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
     port,
     liveActivityCacheMs: deps.LIVE_ACTIVITY_CACHE_MS,
     getStatus: () => deps.projectRuntimeRepository.getSelectedProjectLiveStatus(),
+    memoryService: deps.memoryService,
+    memoryPromotionService: deps.memoryPromotionService,
+    embeddingModelManager: deps.embeddingModelManager,
+    embeddingService: deps.embeddingService,
+    memoryRepository: deps.memoryRepository,
+    settingsRepository: deps.settingsRepository,
+    knowledgeService: deps.knowledgeService,
+    agentPresetRepository: deps.agentPresetRepository,
+    projectManagementRepository: deps.projectManagementRepository,
     getLiveSnapshot: (projectIdHint) => getProjectLiveSnapshot({
       projectManagementRepository: deps.projectManagementRepository,
       projectRuntimeRepository: deps.projectRuntimeRepository,
       getProjectExecutionSnapshot: cache.getProjectExecutionSnapshot,
       getGitStatus: deps.getGitStatus,
       logger: deps.logger.child({ component: "project-live-snapshot" })
-    }, projectIdHint),
+    }, projectIdHint, { includeGit: false }),
     getExecutionSnapshot: () => {
       const projectId = deps.projectManagementRepository.getSelectedProjectId();
       return projectId
@@ -514,7 +516,7 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
     replaceSprintLinkedIssues: (sprintId, projectId, issues) => deps.sprintIssueService.replaceLinkedIssues(sprintId, projectId, issues),
     listConnections: (projectId) => deps.connectionChatRepository.listConnections(projectId),
     updateConnection: (connectionId, input) => deps.connectionChatRepository.updateConnection(connectionId, input),
-    listAgentPresets: async (projectId) => await deps.agentPresetSyncService.listAgentPresets(projectId),
+    listAgentPresets: async (projectId) => await deps.agentPresetSyncService.listAgentPresetsForDashboard(projectId),
     createAgentPreset: async (projectId, input) => await deps.agentPresetSyncService.createAgentPreset(projectId, input),
     updateAgentPreset: async (agentPresetId, input) => await deps.agentPresetSyncService.updateAgentPreset(agentPresetId, input),
     deleteAgentPreset: async (agentPresetId) => await deps.agentPresetSyncService.deleteAgentPreset(agentPresetId),

@@ -6,9 +6,10 @@ import { CommandRunner } from "../../../../src/shared/subprocess/command-runner.
 
 describe("CommandRunner", () => {
   const runner = new CommandRunner();
+  const node = process.execPath;
 
   it("should run a simple command (echo)", async () => {
-    const result = await runner.run("echo", ["hello"]);
+    const result = await runner.run(node, ["-e", "console.log('hello')"]);
     expect(result.ok).toBe(true);
     expect(result.stdout).toBe("hello");
     expect(result.code).toBe(0);
@@ -22,22 +23,20 @@ describe("CommandRunner", () => {
   });
 
   it("should handle error exit code", async () => {
-    // Use 'sh -c exit 1' to be cross-platform or just 'false' if on linux
-    const result = await runner.run("sh", ["-c", "exit 1"]);
+    const result = await runner.run(node, ["-e", "process.exit(1)"]);
     expect(result.ok).toBe(false);
     expect(result.code).toBe(1);
   });
 
   it("should respect timeout", async () => {
-    // sleep for 10 seconds but timeout after 100ms
-    const result = await runner.run("sleep", ["10"], { timeout: 100 });
+    const result = await runner.run(node, ["-e", "setTimeout(() => {}, 10_000)"], { timeout: 100 });
     expect(result.ok).toBe(false);
     expect(result.stderr).toContain("timed out");
   });
 
   it("should abort a running command when the signal is cancelled", async () => {
     const controller = new AbortController();
-    const runPromise = runner.run("node", ["-e", "setTimeout(() => {}, 10_000)"], {
+    const runPromise = runner.run(node, ["-e", "setTimeout(() => {}, 10_000)"], {
       signal: controller.signal,
     });
     setTimeout(() => controller.abort("test abort"), 50);
@@ -49,13 +48,7 @@ describe("CommandRunner", () => {
 
   it("should call streaming callbacks", async () => {
     const stdoutLines: string[] = [];
-    await runner.run("echo", ["line1\nline2"], {
-      onStdoutLine: (line) => stdoutLines.push(line),
-    });
-    // Depending on how echo handles newlines, it might be one or two lines
-    // In many shells echo "line1\nline2" might not interpret \n without -e
-    // Let's use printf or multiple echoes
-    const result = await runner.run("sh", ["-c", "echo line1; echo line2"], {
+    await runner.run(node, ["-e", "console.log('line1'); console.log('line2')"], {
       onStdoutLine: (line) => stdoutLines.push(line),
     });
     expect(stdoutLines).toContain("line1");
@@ -73,7 +66,7 @@ describe("CommandRunner", () => {
         }, 10);
       }, 10);
     `;
-    await runner.run("node", ["-e", script], {
+    await runner.run(node, ["-e", script], {
       onStdoutLine: (line) => stdoutLines.push(line),
     });
     expect(stdoutLines).toEqual(["hello", "world"]);
@@ -81,14 +74,14 @@ describe("CommandRunner", () => {
 
   it("should flush remaining string in buffer on close", async () => {
     const stdoutLines: string[] = [];
-    await runner.run("node", ["-e", "process.stdout.write('no_newline_at_end')"], {
+    await runner.run(node, ["-e", "process.stdout.write('no_newline_at_end')"], {
       onStdoutLine: (line) => stdoutLines.push(line),
     });
     expect(stdoutLines).toEqual(["no_newline_at_end"]);
   });
 
   it("should preserve raw stdout when trimOutput is disabled", async () => {
-    const result = await runner.run("node", ["-e", "process.stdout.write('hello\\n   \\n')"], {
+    const result = await runner.run(node, ["-e", "process.stdout.write('hello\\n   \\n')"], {
       trimOutput: false,
     });
 
@@ -101,7 +94,7 @@ describe("CommandRunner", () => {
     try {
       await fs.writeFile(inputPath, "from-file-stdin", "utf8");
 
-      const result = await runner.run("node", ["-e", "process.stdin.pipe(process.stdout)"], {
+      const result = await runner.run(node, ["-e", "process.stdin.pipe(process.stdout)"], {
         stdinFile: inputPath,
       });
 
@@ -113,8 +106,7 @@ describe("CommandRunner", () => {
   });
 
   it("should clip stderr if too long", async () => {
-    // Generate 100 'a's on stderr
-    const result = await runner.run("sh", ["-c", "for i in $(seq 1 100); do printf 'a' >&2; done"], {
+    const result = await runner.run(node, ["-e", "process.stderr.write('a'.repeat(100))"], {
       maxStderrChars: 10,
     });
     expect(result.stderr.length).toBeLessThanOrEqual(13); // "..." + 10 chars
@@ -123,7 +115,7 @@ describe("CommandRunner", () => {
   });
 
   it("runStrict should throw on failure", async () => {
-    await expect(runner.runStrict("sh", ["-c", "exit 1"])).rejects.toThrow("sh -c exit 1 failed");
+    await expect(runner.runStrict(node, ["-e", "process.exit(1)"])).rejects.toThrow("failed");
   });
 
   it("runStrict truncates very long command arguments in failure messages", async () => {
@@ -131,7 +123,7 @@ describe("CommandRunner", () => {
     let error: Error | null = null;
 
     try {
-      await runner.runStrict("node", ["-e", "process.exit(1)", longArg]);
+      await runner.runStrict(node, ["-e", "process.exit(1)", longArg]);
     } catch (caught) {
       error = caught as Error;
     }
@@ -141,7 +133,83 @@ describe("CommandRunner", () => {
   });
 
   it("runStrict should return result on success", async () => {
-    const result = await runner.runStrict("echo", ["ok"]);
+    const result = await runner.runStrict(node, ["-e", "console.log('ok')"]);
     expect(result.stdout).toBe("ok");
+  });
+
+  it("rewrites git commands to the helper container when containerized git is enabled", () => {
+    const tempRoot = path.join(os.tmpdir(), "code-ux-command-runner-repo");
+    const result = (runner as unknown as {
+      resolveCommand: (command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv }) => { command: string; args: string[] };
+    }).resolveCommand("git", ["status", "--porcelain"], { cwd: tempRoot });
+
+    expect(result.command).toBe("git");
+
+    const previous = process.env.CODE_UX_CONTAINERIZED_GIT;
+    process.env.CODE_UX_CONTAINERIZED_GIT = "1";
+    try {
+      const containerized = (runner as unknown as {
+        resolveCommand: (command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv }) => { command: string; args: string[] };
+      }).resolveCommand("git", ["status", "--porcelain"], { cwd: tempRoot });
+
+      expect(containerized.command).toBe("docker");
+      expect(containerized.args).toEqual(expect.arrayContaining([
+        "run",
+        "--rm",
+        "--entrypoint",
+        "git",
+        "alpine/git",
+        "status",
+        "--porcelain",
+      ]));
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CODE_UX_CONTAINERIZED_GIT;
+      } else {
+        process.env.CODE_UX_CONTAINERIZED_GIT = previous;
+      }
+    }
+  });
+
+  it("maps helper-container workspace paths in stdout back to the host cwd", () => {
+    const mapped = (runner as unknown as {
+      mapContainerStdoutToHost: (stdout: string, cwd: string) => string;
+    }).mapContainerStdoutToHost("/workspace\n/workspace/src/index.ts\nrelative.txt\n", "/home/pierre/project");
+
+    expect(mapped).toBe("/home/pierre/project\n/home/pierre/project/src/index.ts\nrelative.txt\n");
+  });
+
+  it("mounts absolute Git env paths for helper-container commands", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-git-env-mount-"));
+    const repoDir = path.join(tempDir, "repo");
+    const indexDir = path.join(tempDir, "index");
+    await fs.mkdir(repoDir);
+    await fs.mkdir(indexDir);
+
+    const previous = process.env.CODE_UX_CONTAINERIZED_GIT;
+    process.env.CODE_UX_CONTAINERIZED_GIT = "1";
+    try {
+      const containerized = (runner as unknown as {
+        resolveCommand: (command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv }) => { command: string; args: string[] };
+      }).resolveCommand("git", ["read-tree", "HEAD"], {
+        cwd: repoDir,
+        env: {
+          ...process.env,
+          GIT_INDEX_FILE: path.join(indexDir, "workspace.index"),
+        },
+      });
+
+      expect(containerized.args).toEqual(expect.arrayContaining([
+        "--mount",
+        `type=bind,source=${indexDir},target=${indexDir}`,
+      ]));
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CODE_UX_CONTAINERIZED_GIT;
+      } else {
+        process.env.CODE_UX_CONTAINERIZED_GIT = previous;
+      }
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   });
 });

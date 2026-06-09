@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 import { SprintExecutionStateService } from "../../../src/services/sprint-execution-state-service.js";
 import type { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
 import type { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
@@ -31,7 +32,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue(mockSprint);
 
       const args = { project_id: "p1", sprint_id: "s1" };
-      const settings = { git: { defaultBranch: "main", sprintBranchScheme: "sprint-{sprint}" } } as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS, git: { ...DEFAULT_DASHBOARD_SETTINGS.git, defaultBranch: "main", sprintBranchScheme: "sprint-{sprint}" } } as any;
 
       const context = service.resolveContext(args, settings);
 
@@ -44,7 +45,7 @@ describe("SprintExecutionStateService", () => {
     it("should throw error if project not found", () => {
       vi.mocked(mockProjectManagementRepository.getProject).mockReturnValue(undefined);
       const args = { project_id: "p1", sprint_id: "s1" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
 
       expect(() => service.resolveContext(args, settings)).toThrow("Project not found: p1");
     });
@@ -55,7 +56,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue({ id: "s1", number: 1, projectId: "p1" });
 
       const args = { repo_path: "/tmp", sprint_id: "s1" };
-      const settings = { git: { defaultBranch: "main" } } as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS, git: { ...DEFAULT_DASHBOARD_SETTINGS.git, defaultBranch: "main" } } as any;
 
       const context = service.resolveContext(args, settings);
       expect(context.project).toBe(mockProject);
@@ -68,7 +69,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue({ id: "s1", number: 1, projectId: "p1" });
 
       const args = { sprint_id: "s1" };
-      const settings = { git: { defaultBranch: "main" } } as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS, git: { ...DEFAULT_DASHBOARD_SETTINGS.git, defaultBranch: "main" } } as any;
 
       const context = service.resolveContext(args, settings);
       expect(context.project).toBe(mockProject);
@@ -77,7 +78,7 @@ describe("SprintExecutionStateService", () => {
     it("should throw error if no project scope can be resolved", () => {
       vi.mocked(mockProjectManagementRepository.getSelectedProjectId).mockReturnValue(null);
       const args = { sprint_id: "s1" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("No project scope could be resolved");
     });
 
@@ -88,7 +89,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.findSprintByProjectAndNumber).mockReturnValue(mockSprint);
 
       const args = { project_id: "p1", sprint_number: 5 };
-      const settings = { git: { defaultBranch: "main" } } as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS, git: { ...DEFAULT_DASHBOARD_SETTINGS.git, defaultBranch: "main" } } as any;
 
       const context = service.resolveContext(args, settings);
       expect(context.sprint).toBe(mockSprint);
@@ -101,7 +102,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue(undefined);
 
       const args = { project_id: "p1", sprint_id: "s2" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("Sprint not found: s2");
     });
 
@@ -112,7 +113,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue(mockSprint);
 
       const args = { project_id: "p1", sprint_id: "s1" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("does not belong to project p1");
     });
 
@@ -123,7 +124,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getSprint).mockReturnValue(mockSprint);
 
       const args = { project_id: "p1", sprint_id: "s1" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("has no number configured");
     });
 
@@ -133,7 +134,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.findSprintByProjectAndNumber).mockReturnValue(undefined);
 
       const args = { project_id: "p1", sprint_number: 10 };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("was not found for project P1");
     });
 
@@ -142,7 +143,7 @@ describe("SprintExecutionStateService", () => {
       vi.mocked(mockProjectManagementRepository.getProject).mockReturnValue(mockProject);
 
       const args = { project_id: "p1" };
-      const settings = {} as any;
+      const settings = { ...DEFAULT_DASHBOARD_SETTINGS } as any;
       expect(() => service.resolveContext(args, settings)).toThrow("No sprint scope could be resolved");
     });
   });

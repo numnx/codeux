@@ -43,6 +43,8 @@ export interface IDockerRunner {
     cwd: string;
     repoPath: string;
     sessionId: string;
+    preserve?: boolean;
+    reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }>;
   runProviderInDocker(args: {
     command: string;
@@ -61,6 +63,7 @@ export interface IDockerRunner {
     customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
+  readWorkspaceFileBase64?(cwd: string, targetPath: string): Promise<string | null>;
   readLatestWorkspaceFile?(cwd: string, dirPath: string, glob?: string): Promise<string | null>;
   readWorkspaceJsonArray?(cwd: string, dirPath: string): Promise<string | null>;
   removeWorkspaceDir?(cwd: string, dirPath: string): Promise<void>;
@@ -74,6 +77,8 @@ export class DockerRunner implements IDockerRunner {
     cwd: string;
     repoPath: string;
     sessionId: string;
+    preserve?: boolean;
+    reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }> {
     if (args.cwd.startsWith("docker-volume://")) {
       return {
@@ -82,10 +87,15 @@ export class DockerRunner implements IDockerRunner {
       };
     }
 
-    const workspaceRef = await this.workspaceManager.createSnapshotWorkspace(args.repoPath, args.sessionId);
+    const workspaceRef = args.reuseExisting
+      ? await this.workspaceManager.createOrReuseSnapshotWorkspace(args.repoPath, args.sessionId)
+      : await this.workspaceManager.createSnapshotWorkspace(args.repoPath, args.sessionId);
     return {
       cwd: workspaceRef,
       cleanup: async () => {
+        if (args.preserve) {
+          return;
+        }
         await this.workspaceManager.removeWorktree(args.repoPath, workspaceRef).catch(() => undefined);
       },
     };
@@ -268,6 +278,37 @@ export class DockerRunner implements IDockerRunner {
           }),
           "alpine:3.20",
           "cat",
+          targetPath,
+        ],
+        process.cwd(),
+        process.env,
+      );
+      return result.ok ? result.stdout : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async readWorkspaceFileBase64(cwd: string, targetPath: string): Promise<string | null> {
+    const workspace = this.resolveWorkspace(cwd);
+    try {
+      const result = await runStreamingCommand(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-i",
+          "--workdir",
+          CONTAINER_WORKSPACE_ROOT,
+          "--mount",
+          toDockerMountArg({
+            source: workspace.volumeName,
+            destination: CONTAINER_WORKSPACE_ROOT,
+            readonly: true,
+            type: "volume",
+          }),
+          "alpine:3.20",
+          "base64",
           targetPath,
         ],
         process.cwd(),

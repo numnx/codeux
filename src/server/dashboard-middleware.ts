@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import * as fs from "fs";
 import * as path from "path";
+import type { IncomingMessage } from "http";
 import type { Logger } from "../shared/logging/logger.js";
 import { correlationIdMiddleware } from "../shared/logging/correlation-id.js";
 import { createPreviewHostMiddleware } from "./preview-host-middleware.js";
@@ -17,6 +18,18 @@ export const applyDashboardPreRouteMiddleware = (
   dashboardLogger: Logger
 ): void => {
   app.use(correlationIdMiddleware());
+  app.use((req, res, next) => {
+    const isRuntimeDataPath = req.path.startsWith("/api/")
+      || req.path === "/health"
+      || req.path === "/ready";
+    if (isRuntimeDataPath) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+    }
+    next();
+  });
   app.use((req, res, next) => {
     const startedAt = Date.now();
     res.on("finish", () => {
@@ -35,8 +48,38 @@ export const applyDashboardPreRouteMiddleware = (
   // Settings payloads can embed a base64 background-image data URL, which the
   // dashboard warns about past ~5MB. base64 inflates bytes by ~33%, so allow
   // generous headroom to keep appearance saves from failing with HTTP 413.
-  app.use(express.json({ limit: "25mb" }));
+  app.use(express.json({ limit: "25mb", type: shouldParseDashboardJsonBody }));
 };
+
+export function shouldParseDashboardJsonBody(req: IncomingMessage): boolean {
+  const pathname = getRequestPathname(req);
+  const isRuntimeDataPath = pathname.startsWith("/api/")
+    || pathname === "/health"
+    || pathname === "/ready";
+  if (!isRuntimeDataPath) {
+    return false;
+  }
+  if (pathname.startsWith("/api/browser/sessions/") && pathname.includes("/proxy")) {
+    return false;
+  }
+
+  const contentType = String(req.headers["content-type"] || "").toLowerCase();
+  if (contentType.startsWith("multipart/form-data")
+    || contentType.startsWith("application/x-www-form-urlencoded")
+    || contentType.startsWith("application/octet-stream")) {
+    return false;
+  }
+
+  return true;
+}
+
+function getRequestPathname(req: IncomingMessage): string {
+  try {
+    return new URL(req.url || "/", "http://localhost").pathname;
+  } catch {
+    return "/";
+  }
+}
 
 export const applyDashboardPostRouteMiddleware = (
   app: Express,
@@ -47,7 +90,20 @@ export const applyDashboardPostRouteMiddleware = (
   const builtDashboardDir = path.join(path.resolve(dashboardDir), "dist");
   const staticDir = fs.existsSync(builtDashboardDir) ? builtDashboardDir : path.resolve(dashboardDir);
 
-  app.use(express.static(staticDir));
+  app.use(express.static(staticDir, {
+    setHeaders: (res, filePath) => {
+      // Vite emits content-hashed, immutable bundles under /assets (e.g. index-3f9a2c1b.js).
+      // A new build produces a new filename, so these can be cached forever — this removes the
+      // per-asset revalidation round-trips that otherwise run on every load. index.html (and any
+      // other non-hashed entry) must stay revalidated so a new build is picked up immediately.
+      const isHashedAsset = path.join(path.resolve(staticDir), "assets") === path.dirname(filePath);
+      if (isHashedAsset) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
   app.use((req, res, next) => {
     const isGet = req.method === "GET";
     const isApi = req.path.startsWith("/api/") || req.path.startsWith("/health") || req.path.startsWith("/ready");

@@ -224,6 +224,9 @@ export class QualityAssuranceService {
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
 
+    const sprintFeatureBranch = sprint.featureBranch?.trim()
+      || `${settings.git.featureBranchPrefix || "feature/"}sprint-${sprint.number ?? 0}`;
+
     const agentPresetId = triggerType === "completed_task_without_pr"
       ? qaSettings.completedTaskWithoutPr.agentPresetId
       : qaSettings.taskCompletion.agentPresetId;
@@ -274,9 +277,8 @@ export class QualityAssuranceService {
         // the sprint base branch when the worker branch metadata is missing.
         reviewBranch: args.task.worker_branch?.trim()
           || taskRun?.workerBranch?.trim()
-          || sprint.featureBranch?.trim()
-          || settings.git.defaultBranch,
-        baseBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
+          || sprintFeatureBranch,
+        baseBranch: sprintFeatureBranch,
       });
 
       if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
@@ -312,7 +314,7 @@ export class QualityAssuranceService {
           task: args.task,
           taskRun,
           repoPath: args.repoPath,
-          featureBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
+          featureBranch: sprintFeatureBranch,
           scope,
           prompt: fixInstructions,
         })
@@ -415,6 +417,9 @@ export class QualityAssuranceService {
       return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
     }
 
+    const sprintFeatureBranch = sprint.featureBranch?.trim()
+      || `${settings.git.featureBranchPrefix || "feature/"}sprint-${sprint.number ?? 0}`;
+
     const latestRun = this.reconcileRunningQaRun(this.deps.qaReviewRepository.getLatestSprintRun(args.sprintId));
     const maxRuns = qaSettings.maxTaskReviewRuns;
     const latestTaskSnapshot = readSprintQaSnapshot(latestRun);
@@ -498,7 +503,7 @@ export class QualityAssuranceService {
         agentPresetId: agent.id,
         // Sprint QA reviews the integrated base branch (where all task work is
         // merged), falling back to the configured default branch.
-        reviewBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
+        reviewBranch: sprintFeatureBranch,
         baseBranch: settings.git.defaultBranch,
       });
 
@@ -531,7 +536,7 @@ export class QualityAssuranceService {
           task: targetTask,
           taskRun: targetTaskRun,
           repoPath: args.repoPath,
-          featureBranch: sprint.featureBranch?.trim() || settings.git.defaultBranch,
+          featureBranch: sprintFeatureBranch,
           scope,
           prompt: fixInstructions,
         })
@@ -1239,7 +1244,21 @@ export class QualityAssuranceService {
         : "",
     ].filter(Boolean).join("\n\n");
     const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(args.followUpPrompt, worktreePath);
-    const followUpProviderSettings = settings.aiProvider.providers[args.provider];
+    let followUpProviderSettings = settings.aiProvider.providers[args.provider];
+    if (typeof this.deps.taskService?.resolveInvocationProvider === "function") {
+      try {
+        const route = this.deps.taskService.resolveInvocationProvider("task_coding", args.task, {
+          scope: args.scope,
+          cliOnly: true,
+        });
+        const providerConfigId = this.deps.taskService.resolveProviderConfigIdForProvider(route, args.provider);
+        if (route.providers[providerConfigId]) {
+          followUpProviderSettings = route.providers[providerConfigId];
+        }
+      } catch (error) {
+        this.deps.logger?.warn("Failed to resolve follow-up provider via taskService routing", { error });
+      }
+    }
     const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, followUpProviderSettings.thinkingMode);
     const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
     const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
@@ -1318,6 +1337,7 @@ export class QualityAssuranceService {
           name: workflowSettings.containerGitUserName,
           email: workflowSettings.containerGitUserEmail,
         },
+      githubMode: settings.git.githubMode,
     });
 
     let hasUnpushed = applyResult.hasChanges;
@@ -1325,7 +1345,7 @@ export class QualityAssuranceService {
     if (!applyResult.hasChanges) {
       hasUnpushed = await this.prService.hasUnpushedCommits(args.repoPath, workerBranch, args.featureBranch);
       hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(args.repoPath, workerBranch, args.featureBranch);
-      if (hasUnpushed) {
+      if (hasUnpushed && settings.git.githubMode !== "LOCAL") {
         const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(args.repoPath, gitAuth);
         await runCommandStrict(
           "git",
@@ -1338,7 +1358,7 @@ export class QualityAssuranceService {
 
     let prUrl = args.task.pr_url || args.taskRun?.prUrl || null;
     if (hasUnpushed || hasAhead) {
-      if (settings.git.autoCreatePr) {
+      if (settings.git.autoCreatePr && settings.git.githubMode !== "LOCAL") {
         const sprint = args.task.sprint_id ? this.deps.projectManagementRepository.getSprint(args.task.sprint_id) : null;
         prUrl = (await this.prService.resolveOrCreateFeaturePr(
           {

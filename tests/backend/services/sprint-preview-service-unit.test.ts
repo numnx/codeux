@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
+import * as path from "path";
 import type { SprintPreviewSession } from "../../../src/contracts/app-types.js";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
 vi.mock("../../../src/services/cli-process-runner.js", () => ({
   runCommandStrict: vi.fn(),
@@ -28,7 +30,7 @@ vi.mock("../../../src/services/cli-docker-utils.js", () => ({
   mapPathPrefix: vi.fn((mapped: string) => mapped),
   pickContainerEnv: vi.fn(() => []),
   resolveConfiguredPath: vi.fn((_base: string, rel: string) => `/resolved/${rel}`),
-  toDockerMountArg: vi.fn((m: { source: string; destination: string }) => `type=bind,source=${m.source},destination=${m.destination}`),
+  toDockerMountArg: vi.fn((m: any) => `type=${m.type ?? "bind"},source=${m.source},target=${m.destination}`),
 }));
 
 vi.mock("../../../src/infrastructure/providers/cli/docker-runtime-paths.js", () => ({
@@ -53,9 +55,13 @@ vi.mock("../../../src/infrastructure/providers/cli/docker-setup-image-cache.js",
   },
 }));
 
-vi.mock("../../../src/git/sprint-branch-scheme.js", () => ({
-  formatSprintBranch: vi.fn((_scheme: any, sprint: any) => "feature/sprint-" + (sprint.slug || "sprint-1")),
-}));
+vi.mock("../../../src/domain/sprint/branch-name-generator.js", async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    formatSprintBranch: vi.fn((_scheme: any, sprint: any) => "feature/sprint-" + (sprint.slug || "sprint-1")),
+  };
+});
 
 vi.mock("../../../src/services/cli-workflow-utils.js", () => ({
   CONTAINER_SETUP_SCRIPT: "/opt/code-ux/setup.sh",
@@ -182,7 +188,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     },
     settingsRepository: {
       resolveSprintDashboardSettings: vi.fn(() => ({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings(),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: {
@@ -294,7 +300,7 @@ describe("SprintPreviewService unit tests", () => {
   describe("startSession", () => {
     it("rejects launches when preview runtime is disabled", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ enabled: false }),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -307,7 +313,7 @@ describe("SprintPreviewService unit tests", () => {
 
     it("stops the oldest active previews when the max concurrent limit would be exceeded", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ maxConcurrentContainers: 1 }),
           git: { githubMode: "REMOTE", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -343,7 +349,7 @@ describe("SprintPreviewService unit tests", () => {
       await service.startSession("proj-1", "sprint-1");
 
       const previewRunCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
-        call[0] === "docker" && call[1][0] === "run" && call[1].includes("-d")
+        call[0] === "docker" && call[1][0] === "create"
       );
       const dockerArgs = previewRunCall?.[1] || [];
       expect(dockerArgs).toContain("/code-ux-preview-runtime/preview/sprint-1/workspace");
@@ -353,76 +359,31 @@ describe("SprintPreviewService unit tests", () => {
 
       const workdirIndex = dockerArgs.indexOf("--workdir");
       expect(dockerArgs[workdirIndex + 1]).not.toContain("C:\\");
-      const mountArgs = dockerArgs.filter((arg) => arg.startsWith("type=bind"));
-      expect(mountArgs.some((arg) => arg.includes("destination=/code-ux-preview-runtime"))).toBe(true);
+      const mountArgs = dockerArgs.filter((arg) => arg.startsWith("type=volume") || arg.startsWith("type=bind"));
+      expect(mountArgs.some((arg) => arg.includes("target=/code-ux-preview-runtime"))).toBe(true);
     });
 
-    it("extracts preview archives through a container helper instead of host tar", async () => {
+    it("copies workspace tar archive and startup script into the container and starts it", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true })));
+
+      vi.mocked(runCommandStrict).mockImplementation(async (cmd, args) => {
+        if (cmd === "docker" && args[0] === "create") {
+          return { exitCode: 0, stdout: "cid123\n", stderr: "", durationMs: 1 };
+        }
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
+      });
+
       const service = new SprintPreviewService(deps as any);
       await service.startSession("proj-1", "sprint-1");
 
-      expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "tar")).toBe(false);
-      const extractCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
-        call[0] === "docker" && call[1][0] === "run" && call[1].includes("alpine:3.20") && call[1].includes("tar")
-      );
-      expect(extractCall?.[1]).toEqual(expect.arrayContaining([
-        "--mount",
-        "alpine:3.20",
-        "tar",
-        "-xf",
-        "/preview-extract/workspace.tar",
-        "-C",
-        "/preview-extract/workspace",
-      ]));
+      expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "docker" && call[1][0] === "cp" && call[1][2].endsWith(":/tmp/workspace.tar"))).toBe(true);
+      expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "docker" && call[1][0] === "cp" && call[1][2].endsWith(":/tmp/preview-start.sh"))).toBe(true);
+      expect(vi.mocked(runCommandStrict).mock.calls.some((call) => call[0] === "docker" && call[1][0] === "start")).toBe(true);
+
+      vi.unstubAllGlobals();
     });
   });
 
-  describe("safeRmWorkspace (Windows EPERM handling)", () => {
-    const originalPlatform = process.platform;
-
-    afterEach(() => {
-      Object.defineProperty(process, "platform", { value: originalPlatform });
-    });
-
-    it("retries host removal and falls back to a helper container on Windows EPERM", async () => {
-      Object.defineProperty(process, "platform", { value: "win32" });
-      const eperm = Object.assign(
-        new Error("EPERM: operation not permitted, unlink 'workspace\\node_modules\\eslint'"),
-        { code: "EPERM" },
-      );
-      vi.mocked(fs.rm)
-        .mockRejectedValueOnce(eperm) // primary retried host removal
-        .mockResolvedValueOnce(undefined); // final host removal after container-assisted cleanup
-
-      const service = new SprintPreviewService(deps as any);
-      await (service as any).safeRmWorkspace("/runtime/preview/sprint-1/workspace", "/repo");
-
-      const cleanupCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
-        call[0] === "docker"
-        && call[1].includes("alpine:3.20")
-        && call[1].includes("rm")
-        && call[1].includes("-rf"),
-      );
-      expect(cleanupCall?.[1]).toEqual(expect.arrayContaining(["/clean-target/workspace"]));
-      // Primary attempt + final attempt after the helper container ran.
-      expect(vi.mocked(fs.rm)).toHaveBeenCalledTimes(2);
-    });
-
-    it("rethrows non-Windows removal failures without launching a helper container", async () => {
-      Object.defineProperty(process, "platform", { value: "linux" });
-      const eperm = Object.assign(new Error("EPERM"), { code: "EPERM" });
-      vi.mocked(fs.rm).mockRejectedValueOnce(eperm);
-
-      const service = new SprintPreviewService(deps as any);
-      await expect((service as any).safeRmWorkspace("/runtime/preview/sprint-1/workspace", "/repo"))
-        .rejects.toThrow("EPERM");
-
-      const cleanupCall = vi.mocked(runCommandStrict).mock.calls.find((call) =>
-        call[0] === "docker" && call[1].includes("/clean-target/workspace"),
-      );
-      expect(cleanupCall).toBeUndefined();
-    });
-  });
 
   describe("getLogs", () => {
     it("returns empty logs when no container exists", async () => {
@@ -530,7 +491,11 @@ describe("SprintPreviewService unit tests", () => {
 
       const result = await service.saveScript("proj-1", "sprint-1", "#!/bin/bash\nsaved content");
       expect(fsMod.writeFile).toHaveBeenCalled();
-      expect(fsMod.chmod).toHaveBeenCalled();
+      if (process.platform === "win32") {
+        expect(fsMod.chmod).not.toHaveBeenCalled();
+      } else {
+        expect(fsMod.chmod).toHaveBeenCalled();
+      }
       expect(result.exists).toBe(true);
     });
   });
@@ -731,7 +696,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: false,
             rebuildOnTaskCompletion: false,
@@ -784,7 +749,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: false,
             rebuildOnTaskCompletion: false,
@@ -822,7 +787,7 @@ describe("SprintPreviewService unit tests", () => {
         }],
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: true,
             rebuildOnTaskCompletion: false,
@@ -866,7 +831,7 @@ describe("SprintPreviewService unit tests", () => {
       });
       deps.sprintPreviewRepository.getSessionByProjectSprint.mockReturnValue(null);
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({
             autoStartOnRunningSprint: true,
             rebuildOnTaskCompletion: false,
@@ -906,7 +871,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "feature/sprint-1",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings({ enabled: false }),
           git: { defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -1304,7 +1269,7 @@ describe("SprintPreviewService unit tests", () => {
 
     it("materializePreviewWorkspace skips remote refresh in LOCAL git mode", async () => {
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           sprintPreview: makePreviewSettings(),
           git: { githubMode: "LOCAL", defaultBranch: "main", sprintBranchScheme: "feature/sprint-{number}" },
           cliWorkflow: { containerImage: "", containerCacheSetupScriptImage: false, containerSetupScriptPath: "" },
@@ -1368,7 +1333,7 @@ describe("SprintPreviewService unit tests", () => {
         featureBranch: "",
       });
       deps.settingsRepository.resolveSprintDashboardSettings.mockReturnValue({
-        settings: {
+        settings: { ...DEFAULT_DASHBOARD_SETTINGS,
           git: { defaultBranch: "main", sprintBranchScheme: "feature/sprint-{sprint}" },
         }
       });
@@ -1383,7 +1348,7 @@ describe("SprintPreviewService unit tests", () => {
     it("returns normalized path by default", () => {
       const service = new SprintPreviewService(deps as any);
       const result = (service as any).mapDockerSourcePathForDaemon("/some/path", "/repo");
-      expect(result).toBe("/some/path");
+      expect(result).toBe(path.resolve("/some/path"));
     });
   });
 

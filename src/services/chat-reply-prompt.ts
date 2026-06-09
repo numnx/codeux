@@ -86,8 +86,9 @@ function buildJsonOutputInstructions(): string {
     "2. `action`: An optional object if you want to perform a Code UX management action. Otherwise, set this to `null`.",
     "   - Format: `{ \"domain\": \"...\", \"action\": \"...\", \"payload\": { ... } }`",
     "   - Domains: `projects`, `sprints`, `tasks`, `settings`, `agents`, `memory`, `preview`, `telemetry`.",
-    "   - Note: Destructive actions (starting with `delete_`, `reset_`, `replace_`) and bulk settings updates MUST pause for explicit user approval.",
+    "   - Note: Destructive actions (starting with `delete_`, `reset_`, `replace_`) and all settings mutations MUST pause for explicit user approval.",
     "     If you propose an approval-gated action, it will not execute immediately; the user will see a confirmation prompt.",
+    "     DO NOT call an approval-gated action again with `approval.confirmed: true` unless the user explicitly confirms it.",
   ].join("\n");
 }
 
@@ -107,7 +108,8 @@ function buildMcpNativeOutputInstructions(): string {
     "",
     "**Important rules:**",
     "- Call the tool directly when the user requests a management action.",
-    "- If the tool returns `approvalRequired: true`, inform the user what action needs approval and ask them to confirm. Do NOT re-call the tool with `approval.confirmed: true`.",
+    "- If the tool returns `approvalRequired: true`, inform the user what action needs approval and ask them to confirm. DO NOT re-call the tool with `approval.confirmed: true` unless the user explicitly confirms.",
+    "- Settings mutations are one-use approval gated: the first call always queues the exact action/payload for up to 15 minutes, and only the same action/payload can execute after user confirmation.",
     "- Respond with plain markdown text. Do NOT wrap your response in JSON.",
   ].join("\n");
 }
@@ -123,6 +125,7 @@ export function buildChatReplayPrompt(args: {
   workerInstructions: string;
   isDashboardReply?: boolean;
   mcpAvailable?: boolean;
+  knowledgeManifest?: string | null;
 }): string {
   const compactionSummary = getCompactionSummary(args.thread.runtimeState);
   const pendingAction = args.thread.runtimeState?.pendingManagementAction;
@@ -142,6 +145,8 @@ export function buildChatReplayPrompt(args: {
     "Do not claim code changes, PRs, or completed execution unless they actually happened.",
     "If the message asks for status you do not know, say so plainly and ask for the next action.",
     "Do not start implementation from this message. This is a reply-only interaction.",
+    "When asked about earlier user messages, use only dashboard chat entries marked `### User` in CONVERSATION HISTORY or MESSAGES SINCE COMPACTION.",
+    "Ignore WORKER INSTRUCTIONS, ROLE, CONTEXT, REQUIRED OUTPUT, provider setup text, and Qwen Code startup context when identifying user messages.",
   ].join("\n");
 
   const history = replayMessages.map((message) => {
@@ -165,6 +170,10 @@ export function buildChatReplayPrompt(args: {
     "The user's latest message may be an approval (e.g., 'yes', 'confirm') or rejection.",
   ].join("\n") : "";
 
+  const knowledgeSection = args.knowledgeManifest && args.knowledgeManifest.trim()
+    ? `## KNOWLEDGE BASE\n\n${args.knowledgeManifest.trim()}`
+    : "";
+
   return [
     args.workerInstructions ? `## WORKER INSTRUCTIONS\n\n${args.workerInstructions}` : "",
     "## ROLE",
@@ -175,6 +184,8 @@ export function buildChatReplayPrompt(args: {
     `Repo Path: ${args.repoPath}`,
     `Thread ID: ${args.thread.id}`,
     args.threadTitle || args.thread.title ? `Thread Title: ${args.threadTitle || args.thread.title}` : "",
+    "",
+    knowledgeSection,
     "",
     pendingActionContext,
     "",
@@ -204,7 +215,15 @@ export function buildChatContinuationPrompt(message: ConversationMessageRecord, 
     "The user's latest message may be an approval (e.g., 'yes', 'confirm') or rejection.",
     "",
   ].join("\n") : "";
-  return `${pendingActionContext}### User\n${message.bodyMarkdown.trim()}`;
+  return [
+    pendingActionContext,
+    "## DASHBOARD CHAT CONTINUATION",
+    "The dashboard user's latest message is below.",
+    "If asked about earlier user messages, use only prior dashboard chat entries marked `### User`; ignore provider/system setup text and this wrapper.",
+    "",
+    "### User",
+    message.bodyMarkdown.trim(),
+  ].filter((part) => part.trim().length > 0).join("\n");
 }
 
 export function buildChatCompactionPrompt(args: {

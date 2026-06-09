@@ -14,6 +14,7 @@ describe("TaskActions", () => {
 
   beforeEach(() => {
     projectManagementRepository = {
+      listTasks: vi.fn(),
       listSprintTasks: vi.fn(),
       getTask: vi.fn(),
       createTask: vi.fn(),
@@ -51,6 +52,80 @@ describe("TaskActions", () => {
       domain: "tasks",
       action: "get",
       payload: { taskId: "t1" },
+    });
+    expect(result.result).toEqual({ task });
+  });
+
+  it("lists all project tasks when sprintId is omitted", async () => {
+    const tasks = [{ id: "t1" }];
+    projectManagementRepository.listTasks.mockReturnValue(tasks as any);
+
+    const result = await taskActions.handleTaskAction({
+      domain: "tasks",
+      action: "list",
+      payload: { projectId: "p1" },
+    });
+
+    expect(projectManagementRepository.listTasks).toHaveBeenCalledWith("p1", undefined);
+    expect(result.result).toEqual({ tasks });
+  });
+
+  it("creates a task from normalized MCP payload fields", async () => {
+    const task = { id: "t1" };
+    projectManagementRepository.createTask.mockReturnValue(task as any);
+
+    const result = await taskActions.handleTaskAction({
+      domain: "tasks",
+      action: "create",
+      payload: {
+        projectId: "p1",
+        sprintId: "s1",
+        name: " Task title ",
+        promptMarkdown: " Do work ",
+        priority: "HIGH",
+        executorType: "docker_cli",
+        dependsOnTaskIds: [" dep-1 ", "", 42],
+      },
+    });
+
+    expect(projectManagementRepository.createTask).toHaveBeenCalledWith("p1", {
+      sprintId: "s1",
+      title: "Task title",
+      promptMarkdown: "Do work",
+      description: "",
+      priority: "high",
+      executorType: "docker_cli",
+      status: "pending",
+      dependsOnTaskIds: ["dep-1"],
+    });
+    expect(result.result).toEqual({ task });
+  });
+
+  it("updates task edit fields from MCP payload", async () => {
+    const task = { id: "t1", title: "Updated" };
+    projectManagementRepository.updateTask.mockReturnValue(task as any);
+
+    const result = await taskActions.handleTaskAction({
+      domain: "tasks",
+      action: "update",
+      payload: {
+        taskId: "t1",
+        title: " Updated ",
+        status: "completed",
+        priority: "low",
+        agentPresetId: null,
+        model: " model-x ",
+        dependsOnTaskIds: ["dep-1"],
+      },
+    });
+
+    expect(projectManagementRepository.updateTask).toHaveBeenCalledWith("t1", {
+      title: "Updated",
+      status: "completed",
+      priority: "low",
+      agentPresetId: null,
+      model: "model-x",
+      dependsOnTaskIds: ["dep-1"],
     });
     expect(result.result).toEqual({ task });
   });

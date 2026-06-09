@@ -45,6 +45,7 @@ import { JulesSourceResolver } from "../services/jules-source-resolver.js";
 import { RuntimeCleanupService } from "../services/runtime-cleanup-service.js";
 import { RuntimeStartupRecoveryService } from "../services/runtime-startup-recovery-service.js";
 import { DockerAssetPruneService } from "../services/docker-asset-prune-service.js";
+import { DatabaseMaintenanceService } from "../services/database-maintenance-service.js";
 import { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
 import { AgentPresetSyncService } from "../services/agent-preset-sync-service.js";
 import { PlanningAgentService } from "../services/planning-agent-service.js";
@@ -160,6 +161,7 @@ export class CodeUxServer {
   private embeddingModelManager: import("../services/embedding-model-manager.js").EmbeddingModelManager;
   private embeddingService: import("../services/embedding-service.js").EmbeddingService;
   private memoryRepository: import("../repositories/memory-repository.js").MemoryRepository;
+  private knowledgeService: import("../services/knowledge-service.js").KnowledgeService;
   private runtimeCleanupInterval: ReturnType<typeof setInterval> | null = null;
   private sprintPreviewInterval: ReturnType<typeof setInterval> | null = null;
   private liveSnapshotInterval: ReturnType<typeof setInterval> | null = null;
@@ -240,6 +242,7 @@ export class CodeUxServer {
     this.embeddingModelManager = deps.embeddingModelManager;
     this.embeddingService = deps.embeddingService;
     this.memoryRepository = deps.memoryRepository;
+    this.knowledgeService = deps.knowledgeService;
 
     this.configureMcpServer(this.server, this.appConfig.runtimeRole);
 
@@ -389,6 +392,8 @@ export class CodeUxServer {
       }
 
       this.dashboardRealtimeService.scheduleProjectLiveRefresh(projectId);
+      // Refresh git/CI/PR status on its own dedicated, throttled channel (Live page only).
+      this.dashboardRealtimeService.scheduleProjectGitRefresh(projectId);
     };
 
     const initialTimer = setTimeout(refreshLiveSnapshot, 0);
@@ -961,6 +966,17 @@ export class CodeUxServer {
       this.logger.error("Failed to prune stale Docker assets on startup", { error });
     }
 
+    try {
+      await new DatabaseMaintenanceService({
+        appDbStorage: this.appDbStorage,
+        sessionTracking: this.sessionTracking,
+        settingsRepository: this.settingsRepository,
+        logger: this.logger.child({ component: "database-maintenance-service" }),
+      }).runMaintenance();
+    } catch (error) {
+      this.logger.error("Failed to run database maintenance on startup", { error });
+    }
+
     if (this.isDashboardEnabled()) {
       this.dashboardHandle = await bootDashboard({
         app: this.app,
@@ -979,6 +995,7 @@ export class CodeUxServer {
         projectAttentionRepository: this.projectAttentionRepository,
         agentPresetRepository: this.agentPresetRepository,
         agentPresetSyncService: this.agentPresetSyncService,
+        knowledgeService: this.knowledgeService,
         sprintMarkdownService: this.sprintMarkdownService,
         sprintIssueService: this.sprintIssueService,
         activityCacheService: this.activityCacheService,

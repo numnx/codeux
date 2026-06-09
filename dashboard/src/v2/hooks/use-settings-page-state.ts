@@ -228,7 +228,7 @@ export const useSettingsPageState = (
 
       if (selectedProjectId) {
         const [effectiveProject, projectAgentPresets] = await Promise.all([
-          fetchProjectEffectiveSettings(selectedProjectId),
+          fetchProjectEffectiveSettings(selectedProjectId, { cache: "reload" }),
           fetchAgentPresets(selectedProjectId).catch(() => []),
         ]);
         const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
@@ -313,9 +313,12 @@ export const useSettingsPageState = (
       : false
   ), [projectSettings, savedProjectSettings]);
 
-  useEffect(() => {
-    isDirtyRef.current = systemDirty || projectDirty;
-  }, [systemDirty, projectDirty]);
+  // Keep the dirty flag in sync synchronously rather than in a post-commit effect.
+  // `loadSettings` reads `isDirtyRef.current` to decide whether to preserve in-progress
+  // edits; with an effect, a background reload landing in the one-render gap after the
+  // user's first keystroke would still read `false`, overwrite the edit with server state,
+  // and leave the Save button greyed out. Assigning during render closes that gap.
+  isDirtyRef.current = systemDirty || projectDirty;
 
   const editableSettings = activeScope === "system" ? systemSettings?.defaults ?? null : projectSettings;
   const activeCategoryConfig = categories.find((category) => category.id === activeCategory) ?? categories[0]!;
@@ -400,10 +403,11 @@ export const useSettingsPageState = (
   }, [systemSettings]);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
-    if (activeScope === "system") {
-      if (!systemSettings) {
-        return false;
-      }
+    let systemSaved = true;
+    let projectSaved = true;
+    const errors: string[] = [];
+
+    if (systemDirty && systemSettings) {
       setSavingSystem(true);
       try {
         const saved = await saveSystemSettings(systemSettings);
@@ -411,46 +415,56 @@ export const useSettingsPageState = (
         setSavedSystemSettings(cloneSystemSettings(saved));
 
         if (selectedProject) {
-          const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+          const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
           const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
           setProjectSettings(cloneProjectSettings(nextProject));
           setSavedProjectSettings(cloneProjectSettings(nextProject));
           setProjectSources(effectiveProject.sources);
         }
-
-        setError(null);
-        setSaveMessage("System settings saved.");
-        return true;
       } catch (saveError) {
-        setError(saveError instanceof Error ? saveError.message : String(saveError));
-        return false;
+        errors.push(saveError instanceof Error ? saveError.message : String(saveError));
+        systemSaved = false;
       } finally {
         setSavingSystem(false);
       }
     }
 
-    if (!selectedProject || !projectSettings) {
-      return false;
+    if (projectDirty && selectedProject && projectSettings) {
+      setSavingProject(true);
+      try {
+        await saveProjectSettings(selectedProject.id, projectSettings);
+        const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
+        const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
+        setProjectSettings(cloneProjectSettings(nextProject));
+        setSavedProjectSettings(cloneProjectSettings(nextProject));
+        setProjectSources(effectiveProject.sources);
+      } catch (saveError) {
+        errors.push(saveError instanceof Error ? saveError.message : String(saveError));
+        projectSaved = false;
+      } finally {
+        setSavingProject(false);
+      }
     }
 
-    setSavingProject(true);
-    try {
-      await saveProjectSettings(selectedProject.id, projectSettings);
-      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
-      const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
-      setProjectSettings(cloneProjectSettings(nextProject));
-      setSavedProjectSettings(cloneProjectSettings(nextProject));
-      setProjectSources(effectiveProject.sources);
+    if (errors.length > 0) {
+      setError(errors.join(" | "));
+    } else {
       setError(null);
-      setSaveMessage(`Project settings saved for ${selectedProject.name}.`);
-      return true;
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-      return false;
-    } finally {
-      setSavingProject(false);
     }
-  }, [activeScope, systemSettings, selectedProject, projectSettings]);
+
+    if (systemSaved && projectSaved) {
+      const scopeMsg = systemDirty && projectDirty
+        ? "All settings saved."
+        : systemDirty
+          ? "System settings saved."
+          : projectDirty && selectedProject
+            ? `Project settings saved for ${selectedProject.name}.`
+            : "Settings saved.";
+      setSaveMessage(scopeMsg);
+      return true;
+    }
+    return false;
+  }, [systemDirty, projectDirty, systemSettings, selectedProject, projectSettings]);
 
   const handleResetProject = useCallback(async (): Promise<void> => {
     if (!selectedProject) {
@@ -459,7 +473,7 @@ export const useSettingsPageState = (
     setResettingProject(true);
     try {
       await resetProjectSettings(selectedProject.id);
-      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id);
+      const effectiveProject = await fetchProjectEffectiveSettings(selectedProject.id, { cache: "reload" });
       const nextProject = dashboardSettingsToProjectSettings(effectiveProject.settings);
       setProjectSettings(cloneProjectSettings(nextProject));
       setSavedProjectSettings(cloneProjectSettings(nextProject));
@@ -633,7 +647,7 @@ export const useSettingsPageState = (
     };
   }, []);
 
-  const activeDirty = activeScope === "system" ? systemDirty : projectDirty;
+  const activeDirty = systemDirty || projectDirty;
 
   useEffect(() => {
     if (typeof window === "undefined" || !activeDirty) {
@@ -652,7 +666,7 @@ export const useSettingsPageState = (
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [activeDirty]);
 
-  const activeSaving = activeScope === "system" ? savingSystem : savingProject;
+  const activeSaving = savingSystem || savingProject;
 
   return {
     activeCategory, setActiveCategory,

@@ -19,6 +19,11 @@ import {
   parseClaudeCodeSessionJsonl,
   type ClaudeCodeLogResult,
 } from "./provider-logs/claude-code-log-parser.js";
+import {
+  parseAntigravityDatabase,
+  parseAntigravityTranscript,
+  type AntigravityUsageTotals,
+} from "./provider-logs/antigravity-log-parser.js";
 
 // Re-export the qwen log helpers so existing importers (provider-runner, tests)
 // keep their import paths. The implementations now live in provider-logs/.
@@ -330,6 +335,8 @@ export async function collectProviderUsageTelemetry(args: {
   qwenConversation?: ParsedConversationTurn[] | null;
   startTimeMs?: number;
   executionMode?: "HOST" | "DOCKER";
+  antigravitySessionDbPath?: string | null;
+  antigravityTranscriptJsonl?: string | null;
 }): Promise<ProviderUsageTelemetry> {
   const fallbackOutput = [args.capturedText || "", args.stdout || "", args.stderr || ""].filter(Boolean).join("\n").trim();
 
@@ -406,7 +413,50 @@ export async function collectProviderUsageTelemetry(args: {
   }
 
   if (args.provider === "antigravity") {
-    return estimateTelemetry("antigravity", args.model, args.prompt, fallbackOutput);
+    let usage: AntigravityUsageTotals | null = null;
+    let rawUsageJson: Record<string, unknown> | null = null;
+    let conversation: ParsedConversationTurn[] = [];
+
+    if (args.antigravityTranscriptJsonl) {
+      conversation = parseAntigravityTranscript(args.antigravityTranscriptJsonl, args.startTimeMs);
+    }
+
+    if (args.antigravitySessionDbPath) {
+      const dbResult = parseAntigravityDatabase(args.antigravitySessionDbPath);
+      if (dbResult) {
+        usage = dbResult.usage;
+        rawUsageJson = dbResult.rawUsageJson;
+      }
+    }
+
+    const transcriptText = conversation
+      .filter((t) => t.kind === "assistant")
+      .map((t) => t.text)
+      .filter(Boolean)
+      .join("\n")
+      .trim() || fallbackOutput;
+
+    const fullConversation = withLeadingUserTurn(conversation, args.prompt);
+
+    if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
+      return {
+        ...emptyTelemetry(),
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        reasoningOutputTokens: usage.reasoningTokens,
+        totalTokens: usage.inputTokens + usage.outputTokens,
+        usageSource: "reported",
+        rawUsageJson,
+        transcriptText,
+        nativeSessionId: args.nativeSessionId || null,
+        conversation: fullConversation,
+      };
+    }
+
+    const estimated = estimateTelemetry("antigravity", args.model, args.prompt, transcriptText);
+    estimated.nativeSessionId = args.nativeSessionId || null;
+    estimated.conversation = fullConversation;
+    return estimated;
   }
 
   if (args.provider === "qwen-code") {

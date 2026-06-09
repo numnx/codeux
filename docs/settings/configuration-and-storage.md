@@ -74,6 +74,7 @@ Runtime resolution:
 - Docker provider runs stage provider argv in a temporary host file mounted at `/opt/code-ux/provider-argv.sh`; only the provider command name remains in the host `docker run` argv. This avoids Windows command-line length failures when prompts include large task context.
 - Packaged Windows Electron uses an opaque BrowserWindow and Chromium GPU memory hints to mitigate tile-memory pressure. All animated backgrounds render at full fidelity; WebGL backgrounds use `powerPreference: "low-power"` and 0.5× render scale, and all background layers apply CSS `contain: strict` to limit compositor tile scope.
 - On startup, Code UX prunes stale Code UX Docker workspace volumes and cached setup-script images so finished, failed, unrecoverable, and outdated Docker assets do not accumulate across restarts.
+- On startup, Code UX also performs automated database maintenance, pruning old completed task runs (and their cascaded child tables), VM activities, attention items, and realtime events according to the configured retention policy, followed by a `VACUUM` operation on database files to reclaim disk space.
 - restart recovery also treats interrupted Docker sessions without a live backing container as failed, so abandoned workspaces are reclaimed instead of waiting forever for a callback that cannot arrive.
 - startup recovery now also requeues task-level CLI follow-up runs that were left in `in_progress` after QA/repair `Fix` work lost its backing container, so the orchestrator can start the container again instead of leaving the sprint stuck after a server restart.
 - When Code UX has to create a missing feature branch, it prefers `origin/<defaultBranch>` over the local `<defaultBranch>` ref when the remote-tracking base branch exists.
@@ -88,6 +89,9 @@ Runtime resolution:
   - `dashboardPort`
   - `enableDebugLogFile`
   - `consoleLogLevel` (`standard` by default; `full` also prints routine dashboard HTTP request logs)
+  - `dbAutoVacuumOnStartup` (default `true`; executes SQL `VACUUM` on startup to reclaim disk space)
+  - `dbPruningEnabled` (default `true`; enables automatic startup pruning of old data)
+  - `dbRetentionDays` (default `14`; retention threshold in days for completed runs and logs)
 - `integrations`
   - `julesApiKey`
   - `geminiApiKey`
@@ -308,7 +312,8 @@ QA merge-gate notes:
   - `containerGitUserEmail` (default `agents@codeux.ai`)
     - the same identity is also passed to host-side `git commit-tree` during Docker workspace write-back, so final provider commits do not depend on the dashboard host's global git config
     - Docker snapshot workspaces do not hardcode a repo-local Git identity; provider containers use the copied `.gitconfig` or configured Code UX identity, and Git helper commands forward Git-specific environment such as temporary indexes and HTTP auth headers into the workspace container
-    - when `git.autoCreatePr` is enabled, a pushed CLI task branch must produce a PR URL; configured GitHub/GitLab tokens use API-backed PR/MR creation without requiring `gh`/`glab`, and host CLI failures now fail the run instead of silently completing without a PR
+    - backend Git commands run through the `alpine/git` helper container by default, so branch prep, clone, archive, write-back, and merge helpers do not depend on host Git being installed. Set `CODE_UX_GIT_CONTAINER_MODE=host` or `CODE_UX_CONTAINERIZED_GIT=0` only for diagnostics.
+    - when `git.autoCreatePr` is enabled, a pushed CLI task branch must produce a PR URL; configured GitHub/GitLab tokens use API-backed PR/MR creation without requiring `gh`/`glab`, and missing tokens now fail remote automation instead of falling back to local host CLIs
   - `containerMountGithubAuth` (default `false`)
   - `containerMountGeminiAuth` (default `false`)
   - `containerMountCodexAuth` (default `false`)
@@ -368,7 +373,7 @@ Container execution notes:
 - merge-conflict resolution remains Docker-only because it must run in an isolated throwaway workspace
 - repo-local `.code-ux/worktrees/*` are no longer used for Docker execution
 - `~/.code-ux/runtime/docker/` should now contain only cache-like artifacts such as reusable setup-image state, not per-session workspaces
-- Docker-volume workspace bootstrap uses public helper images such as `alpine/git`. Code UX verifies or pulls these helpers automatically, and if a stale host Docker credential helper blocks a public pull, retries that helper pull with an isolated empty Docker client config. Bootstrap sends the generated Git bundle to `docker run` through stdin, so packaged Windows Electron builds do not depend on Bash understanding host temp paths such as `C:\Users\...\AppData\Local\Temp\code-ux-bundle-*`.
+- Docker-volume workspace bootstrap uses public helper images such as `alpine/git`; backend host-path Git commands use the same helper image by default. Code UX verifies or pulls workspace bootstrap helpers automatically, and if a stale host Docker credential helper blocks a public pull, retries that helper pull with an isolated empty Docker client config. Bootstrap sends the generated Git bundle to `docker run` through stdin, so packaged Windows Electron builds do not depend on Bash understanding host temp paths such as `C:\Users\...\AppData\Local\Temp\code-ux-bundle-*`.
 - Windows host named pipe fallback: on Windows hosts, if the active Docker context (such as `desktop-linux`) points to an unreachable named pipe (e.g., `npipe:////./pipe/dockerDesktopLinuxEngine`), Code UX automatically detects this during startup and falls back to the default working named pipe (`npipe:////./pipe/docker_engine`) if responsive. This ensures Docker commands executed via CLI in child processes (like volume creation or container runs) can connect to the Docker Desktop daemon correctly without requiring manual context adjustments on the host.
 - Docker workspace bootstrap now rejects configured project paths that are nested inside a different Git checkout; this prevents Git from walking up to a parent repo and producing misleading no-change task completions.
 - write-back from isolated CLI runs uses a Git patch artifact applied on the host branch, not direct file syncing from the container

@@ -5,11 +5,11 @@ import { h, Fragment } from "preact";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/preact";
 import { BranchNameSchemeEditor } from "../../../dashboard/src/v2/components/settings/BranchNameSchemeEditor.js";
-import { getBranchSchemeOptions, getCanonicalBranchNameToken } from "../../../dashboard/src/v2/lib/settings-view-models.js";
+import { getBranchSchemeOptions, getCanonicalBranchNameToken, BRANCH_NAME_TOKEN_LABELS } from "../../../dashboard/src/v2/lib/settings-view-models.js";
 import { BRANCH_NAME_TOKENS } from "../../../src/domain/settings/branch-name-tokens.js";
 
 describe("BranchNameSchemeEditor", () => {
-  it("renders the 7 canonical options in deterministic order", () => {
+  it("renders the canonical options in deterministic order", () => {
     const { container } = render(
       <BranchNameSchemeEditor
         value="{sprint_id}"
@@ -18,26 +18,10 @@ describe("BranchNameSchemeEditor", () => {
     );
 
     const options = getBranchSchemeOptions();
-    expect(options).toHaveLength(7);
-    expect(options.map(o => o.value)).toEqual([
-      "{sprint_key_prefix}",
-      "{sprint_number}",
-      "{sprint_name}",
-      "{sprint_id}",
-      "{planning_agent}",
-      "{agent_routing}",
-      "{worker_agent}"
-    ]);
+    expect(options).toHaveLength(BRANCH_NAME_TOKENS.length);
+    expect(options.map(o => o.value)).toEqual(BRANCH_NAME_TOKENS.map(t => `{${t}}`));
 
-    expect(options.map(o => o.label)).toEqual([
-      "Sprint Key Prefix",
-      "Sprint Number",
-      "Sprint Name",
-      "Sprint ID",
-      "Planning Agent",
-      "Agent Routing",
-      "Worker Agent"
-    ]);
+    expect(options.map(o => o.label)).toEqual(BRANCH_NAME_TOKENS.map(t => BRANCH_NAME_TOKEN_LABELS[t]));
   });
 
   it("correctly rehydrates legacy or alias options without drift", () => {

@@ -75,10 +75,39 @@ describe("AddProjectModal", () => {
   it("preselects the new project flow and hides setup controls", () => {
     render(<AddProjectModal onClose={vi.fn()} onAdd={vi.fn()} initialSourceType="new_project" />);
 
-    expect(screen.getByRole("button", { name: /new project/i })).toHaveClass("bg-ember-500");
+    const newProjectButtons = screen.getAllByRole("button", { name: /new project/i });
+    expect(newProjectButtons.some((button) => button.className.includes("bg-ember-500"))).toBe(true);
     expect(screen.getByRole("button", { name: /local repo/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /remote repo/i })).toBeInTheDocument();
     expect(screen.queryByText(/Initialize with Project Setup Agent/i)).not.toBeInTheDocument();
+  });
+
+  it("hides git inputs and allows a blank local directory path", async () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined);
+    render(<AddProjectModal onClose={vi.fn()} onAdd={onAdd} />);
+
+    expect(screen.queryByLabelText(/repository url/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/clone into directory/i)).not.toBeInTheDocument();
+
+    fireEvent.input(screen.getByLabelText("Project Name"), { target: { value: "Alpha" } });
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.submit(screen.getByLabelText("Project Name").closest("form")!);
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
+    expect(onAdd).toHaveBeenCalledWith({
+      name: "Alpha",
+      type: "local",
+      path: "",
+      setup: {
+        enabled: false,
+        options: {
+          agents: true,
+          quicksprints: true,
+          previewScript: false,
+          ci: true,
+        },
+      },
+    });
   });
 
   it("submits the new project local payload without setup fields", async () => {
@@ -86,9 +115,9 @@ describe("AddProjectModal", () => {
     render(<AddProjectModal onClose={vi.fn()} onAdd={onAdd} initialSourceType="new_project" />);
 
     fireEvent.input(screen.getByLabelText("Project Name"), { target: { value: "Alpha" } });
-    fireEvent.input(screen.getByLabelText("Directory Path"), { target: { value: "/tmp/alpha" } });
+    fireEvent.input(screen.getByLabelText(/Directory Path/i), { target: { value: "/tmp/alpha" } });
     await waitFor(() => expect(screen.getByLabelText("Project Name")).toHaveValue("Alpha"));
-    await waitFor(() => expect(screen.getByLabelText("Directory Path")).toHaveValue("/tmp/alpha"));
+    await waitFor(() => expect(screen.getByLabelText(/Directory Path/i)).toHaveValue("/tmp/alpha"));
     const form = screen.getByLabelText("Project Name").closest("form");
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
@@ -99,6 +128,7 @@ describe("AddProjectModal", () => {
       type: "new_project",
       path: "/tmp/alpha",
       initMode: "new-local",
+      repoSlug: "alpha",
     });
   });
 
