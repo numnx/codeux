@@ -98,6 +98,7 @@ interface OpenCodeRuntimeSettings {
   openCodeBaseUrl?: string;
   openCodeEnvKey?: string;
   openCodePackage?: string;
+  customMcpServers?: CustomMcpServer[];
 }
 
 interface QwenRuntimeSettings {
@@ -148,7 +149,7 @@ export interface ProviderRunInput {
   onActivity: (desc: string, originator?: string) => void;
   onTelemetry?: (telemetry: ProviderUsageTelemetry) => void;
   /** Pass a previous nativeSessionId to continue an existing CLI session.
-   *  Claude Code: reuses --session-id. Gemini: adds --resume. Codex: uses exec resume --last.
+   *  Claude Code: uses --resume. Gemini: adds --resume. Codex: uses exec resume --last.
    *  Qwen Code uses project-scoped --continue because Code UX logical ids are not Qwen saved-session ids. */
   continueSessionId?: string | null;
   /** MCP server connection info for injecting management tools into the CLI provider. */
@@ -166,14 +167,14 @@ export class ProviderRunner implements IProviderRunner {
   constructor(private readonly dockerRunner: IDockerRunner) { }
 
   async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
-    const preserveQwenSessionWorkspace = this.shouldPreserveQwenSessionWorkspace(input);
+    const preserveSessionWorkspace = this.shouldPreserveSessionWorkspace(input);
     const prepared = input.workflowSettings.executionMode === "DOCKER"
       ? await this.dockerRunner.ensureWorkspace({
         cwd: input.cwd,
         repoPath: input.repoPath,
         sessionId: input.workspaceSessionId || input.sessionId,
-        preserve: preserveQwenSessionWorkspace,
-        reuseExisting: preserveQwenSessionWorkspace,
+        preserve: preserveSessionWorkspace,
+        reuseExisting: preserveSessionWorkspace,
       })
       : { cwd: input.cwd, cleanup: async () => undefined };
 
@@ -196,14 +197,14 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   async runProviderForText(input: ProviderRunInput): Promise<ProviderRunResult & { text: string }> {
-    const preserveQwenSessionWorkspace = this.shouldPreserveQwenSessionWorkspace(input);
+    const preserveSessionWorkspace = this.shouldPreserveSessionWorkspace(input);
     const prepared = input.workflowSettings.executionMode === "DOCKER"
       ? await this.dockerRunner.ensureWorkspace({
         cwd: input.cwd,
         repoPath: input.repoPath,
         sessionId: input.workspaceSessionId || input.sessionId,
-        preserve: preserveQwenSessionWorkspace,
-        reuseExisting: preserveQwenSessionWorkspace,
+        preserve: preserveSessionWorkspace,
+        reuseExisting: preserveSessionWorkspace,
       })
       : { cwd: input.cwd, cleanup: async () => undefined };
 
@@ -245,9 +246,8 @@ export class ProviderRunner implements IProviderRunner {
       : path.join(os.tmpdir(), `provider-last-message-${input.sessionId}.txt`);
   }
 
-  private shouldPreserveQwenSessionWorkspace(input: ProviderRunInput): boolean {
-    return input.provider === "qwen-code"
-      && input.workflowSettings.executionMode === "DOCKER"
+  private shouldPreserveSessionWorkspace(input: ProviderRunInput): boolean {
+    return input.workflowSettings.executionMode === "DOCKER"
       && !input.cwd.startsWith("docker-volume://");
   }
 
@@ -949,7 +949,12 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     if (provider === "claude-code" && nativeSessionId) {
-      const args = ["--dangerously-skip-permissions", "--session-id", nativeSessionId];
+      const args = ["--dangerously-skip-permissions"];
+      if (continueSession) {
+        args.push("--resume", nativeSessionId);
+      } else {
+        args.push("--session-id", nativeSessionId);
+      }
       if (model && model !== "default") {
         args.push("--model", model);
       }
@@ -1035,7 +1040,7 @@ export class ProviderRunner implements IProviderRunner {
     workflowSettings: CliWorkflowSettings,
     githubToken?: string,
     providerMountAuth?: boolean,
-    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection" | "customBaseUrl" | "customModel">,
+    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection" | "customBaseUrl" | "customModel" | "customMcpServers">,
     qwenOpenAiLogDir?: string,
     gitlabToken?: string,
   ): NodeJS.ProcessEnv {
@@ -1309,6 +1314,7 @@ export class ProviderRunner implements IProviderRunner {
       };
     }
 
+    const mcpServers: Record<string, unknown> = {};
     if (conn) {
       const headers: Record<string, string> = {};
       if (conn.authToken) {
@@ -1317,14 +1323,35 @@ export class ProviderRunner implements IProviderRunner {
       if (conn.agentId) {
         headers["X-Code-Ux-Agent"] = conn.agentId;
       }
-      runtimeConfig.mcp = {
-        code_ux: {
-          type: "remote",
-          url: this.rewriteLoopbackUrlForDocker(conn.url, rewriteDockerLoopbackUrls),
-          enabled: true,
-          ...(Object.keys(headers).length > 0 ? { headers } : {}),
-        },
+      mcpServers.code_ux = {
+        type: "remote",
+        url: this.rewriteLoopbackUrlForDocker(conn.url, rewriteDockerLoopbackUrls),
+        enabled: true,
+        ...(Object.keys(headers).length > 0 ? { headers } : {}),
       };
+    }
+
+    const applicableCustomServers = enabledCustomServersFor(config?.customMcpServers, "opencode");
+    for (const server of applicableCustomServers) {
+      if (server.transport === "stdio") {
+        mcpServers[server.name] = {
+          type: "local",
+          command: [server.command || "", ...(server.args || [])],
+          enabled: true,
+          ...(server.env && Object.keys(server.env).length > 0 ? { environment: server.env } : {}),
+        };
+      } else {
+        mcpServers[server.name] = {
+          type: "remote",
+          url: this.rewriteLoopbackUrlForDocker(server.url || "", rewriteDockerLoopbackUrls),
+          enabled: true,
+          ...(server.headers && Object.keys(server.headers).length > 0 ? { headers: server.headers } : {}),
+        };
+      }
+    }
+
+    if (Object.keys(mcpServers).length > 0) {
+      runtimeConfig.mcp = mcpServers;
     }
 
     return JSON.stringify(runtimeConfig);
@@ -1414,9 +1441,16 @@ export class ProviderRunner implements IProviderRunner {
       if (Object.keys(mcpServers).length === 0) {
         return created;
       }
-      const configPath = path.join(cwd, ".mcp.json");
+      const dirPath = path.join(cwd, ".claude");
+      await fs.mkdir(dirPath, { recursive: true });
+      const configPath = path.join(dirPath, "settings.local.json");
+      let existing: Record<string, unknown> = {};
       const originalContent = await fs.readFile(configPath, "utf8").catch(() => null);
-      await fs.writeFile(configPath, JSON.stringify({ mcpServers }, null, 2));
+      if (originalContent) {
+        try { existing = JSON.parse(originalContent); } catch { /* ignore parse errors */ }
+      }
+      existing.mcpServers = { ...(existing.mcpServers as Record<string, unknown> || {}), ...mcpServers };
+      await fs.writeFile(configPath, JSON.stringify(existing, null, 2));
       created.push({ path: configPath, originalContent });
     } else if (provider === "gemini" || provider === "qwen-code") {
       const dirPath = path.join(cwd, provider === "gemini" ? ".gemini" : ".qwen");
@@ -1474,6 +1508,34 @@ export class ProviderRunner implements IProviderRunner {
       }
       const originalContent = await fs.readFile(configPath, "utf8").catch(() => null);
       await fs.writeFile(configPath, lines.join("\n") + "\n");
+      created.push({ path: configPath, originalContent });
+    } else if (provider === "antigravity" && (conn || customServers.length > 0)) {
+      const dirPath = path.join(cwd, ".agents");
+      await fs.mkdir(dirPath, { recursive: true });
+      const configPath = path.join(dirPath, "mcp_config.json");
+      const mcpServers: Record<string, unknown> = {};
+      if (conn) {
+        mcpServers.code_ux = {
+          serverUrl: conn.url,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+      }
+      for (const server of customServers) {
+        if (server.transport === "stdio") {
+          mcpServers[server.name] = {
+            command: server.command,
+            ...(server.args && server.args.length > 0 ? { args: server.args } : {}),
+            ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
+          };
+        } else {
+          mcpServers[server.name] = {
+            serverUrl: server.url,
+            ...(server.headers && Object.keys(server.headers).length > 0 ? { headers: server.headers } : {}),
+          };
+        }
+      }
+      const originalContent = await fs.readFile(configPath, "utf8").catch(() => null);
+      await fs.writeFile(configPath, JSON.stringify({ mcpServers }, null, 2));
       created.push({ path: configPath, originalContent });
     }
 

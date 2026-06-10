@@ -53,8 +53,8 @@ describe("ProviderRunner", () => {
       cwd: "/repo",
       repoPath: "/repo",
       sessionId: "workspace-1",
-      preserve: false,
-      reuseExisting: false,
+      preserve: true,
+      reuseExisting: true,
     });
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
       cwd: "docker-volume://workspace-1",
@@ -171,7 +171,7 @@ describe("ProviderRunner", () => {
     });
 
     expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
-      args: expect.arrayContaining(["--session-id", "native-123"]),
+      args: expect.arrayContaining(["--resume", "native-123"]),
     }));
   });
 
@@ -329,6 +329,28 @@ describe("ProviderRunner", () => {
       cwd: "/repo",
       repoPath: "/repo",
       sessionId: "chat-thread-1",
+      preserve: true,
+      reuseExisting: true,
+    });
+  });
+
+  it("preserves and reuses Docker-created Claude workspaces so saved sessions survive short-lived containers", async () => {
+    await runner.runProvider({
+      provider: "claude-code",
+      prompt: "hello",
+      cwd: "/repo",
+      model: "sonnet",
+      apiKey: "sk-anthropic",
+      sessionId: "chat-thread-2",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.ensureWorkspace).toHaveBeenCalledWith({
+      cwd: "/repo",
+      repoPath: "/repo",
+      sessionId: "chat-thread-2",
       preserve: true,
       reuseExisting: true,
     });
@@ -770,5 +792,83 @@ describe("ProviderRunner", () => {
       usageSource: "reported",
       transcriptText: "Finished in container.",
     });
+  });
+
+  it("injects MCP configuration for Antigravity in DOCKER mode", async () => {
+    dockerRunner.runProviderInDocker = vi.fn(async () => ({
+      ok: true,
+      stdout: "docker stdout",
+      stderr: "",
+      code: 0,
+      signal: null,
+    }));
+
+    await runner.runProvider({
+      provider: "antigravity",
+      prompt: "hello",
+      cwd: "/repo",
+      model: "default",
+      apiKey: "mykey",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      mcpConnection: { url: "http://127.0.0.1:4445/mcp", authToken: null },
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledWith(expect.objectContaining({
+      providerLabel: "antigravity",
+      mcpConnection: expect.objectContaining({ url: "http://127.0.0.1:4445/mcp" }),
+    }));
+  });
+
+  it("materializes generated Antigravity config for host execution", async () => {
+    const repoPath = await fs.mkdtemp(path.join(os.tmpdir(), "provider-runner-"));
+    let mcpConfigPath = "";
+    let mcpConfigContent = "";
+    vi.mocked(runStreamingCommand).mockImplementationOnce(async (_command, _args, cwd, env) => {
+      mcpConfigPath = path.join(cwd, ".agents", "mcp_config.json");
+      mcpConfigContent = await fs.readFile(mcpConfigPath, "utf8");
+      return {
+        ok: true,
+        stdout: "host stdout",
+        stderr: "",
+        code: 0,
+        signal: null,
+      };
+    });
+
+    await runner.runProvider({
+      provider: "antigravity",
+      prompt: "hello",
+      cwd: repoPath,
+      model: "default",
+      apiKey: "mykey",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "HOST" } as any,
+      repoPath,
+      mcpConnection: { url: "http://127.0.0.1:4445/mcp", authToken: "token123" },
+      onActivity: vi.fn(),
+    });
+
+    expect(runStreamingCommand).toHaveBeenCalledWith(
+      "agy",
+      ["--dangerously-skip-permissions", "--log-file", expect.any(String), "-p", "hello"],
+      repoPath,
+      expect.any(Object),
+      expect.any(Object),
+    );
+    expect(JSON.parse(mcpConfigContent)).toMatchObject({
+      mcpServers: {
+        code_ux: {
+          serverUrl: "http://127.0.0.1:4445/mcp",
+          headers: {
+            Authorization: "Bearer token123",
+          },
+        },
+      },
+    });
+    // Check clean up
+    await expect(fs.access(mcpConfigPath)).rejects.toThrow();
   });
 });

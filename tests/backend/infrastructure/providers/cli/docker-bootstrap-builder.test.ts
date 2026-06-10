@@ -14,6 +14,7 @@ import {
   CLAUDE_CODE_MCP_CONFIG_MOUNT,
   GEMINI_MCP_SETTINGS_MOUNT,
   CODEX_MCP_CONFIG_MOUNT,
+  ANTIGRAVITY_MCP_CONFIG_MOUNT,
 } from "../../../../../src/infrastructure/providers/cli/docker-bootstrap-builder.js";
 import { CONTAINER_SETUP_SCRIPT } from "../../../../../src/services/cli-workflow-utils.js";
 import { DockerCredentialMountBuilder } from "../../../../../src/infrastructure/providers/cli/docker-credential-mount-builder.js";
@@ -77,11 +78,12 @@ describe("DockerBootstrapBuilder", () => {
       runtimeNpmCache: "/runtime/npm-cache",
     });
 
-    expect(script).toContain(`merge_json_file "${CLAUDE_CODE_MCP_CONFIG_MOUNT}" "$HOME/.mcp.json"`);
+    expect(script).toContain(`merge_json_file "${CLAUDE_CODE_MCP_CONFIG_MOUNT}" "$HOME/.claude/settings.json"`);
     expect(script).toContain(`merge_json_file "${GEMINI_MCP_SETTINGS_MOUNT}" "$HOME/.gemini/settings.json"`);
     expect(script).toContain(`append_if_missing_literal "${CODEX_MCP_CONFIG_MOUNT}" "$HOME/.codex/config.toml" "[mcp_servers.code-ux]"`);
     expect(script).toContain(`merge_json_file "/opt/provider-config/qwen-settings.json" "$HOME/.qwen/settings.json"`);
     expect(script).toContain(`remove_json_key "$HOME/.qwen/settings.json" "enableOpenAILogging"`);
+    expect(script).toContain(`merge_json_file "${ANTIGRAVITY_MCP_CONFIG_MOUNT}" "$HOME/.gemini/antigravity-cli/mcp_config.json"`);
   });
 
   it("writes generated OpenCode config content to the runtime config path", () => {
