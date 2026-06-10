@@ -29,6 +29,7 @@ import {
   CODEX_MCP_CONFIG_MOUNT,
   GEMINI_MCP_SETTINGS_MOUNT,
   QWEN_CODE_SETTINGS_MOUNT,
+  ANTIGRAVITY_MCP_CONFIG_MOUNT,
 } from "./docker-bootstrap-builder.js";
 
 const BUNDLED_CONTAINER_SETUP_SCRIPT = path.resolve(
@@ -490,8 +491,38 @@ export class DockerRunner implements IDockerRunner {
       return [{ source: filePath, destination: QWEN_CODE_SETTINGS_MOUNT, readonly: true }];
     }
 
-    if (provider === "opencode" || provider === "antigravity") {
+    if (provider === "opencode") {
       return [];
+    }
+
+    if (provider === "antigravity") {
+      const mcpServers: Record<string, unknown> = {};
+      if (conn) {
+        mcpServers.code_ux = {
+          serverUrl: conn.url,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+      }
+      for (const server of applicableCustomServers) {
+        if (server.transport === "stdio") {
+          mcpServers[server.name] = {
+            command: server.command,
+            ...(server.args && server.args.length > 0 ? { args: server.args } : {}),
+            ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
+          };
+        } else {
+          mcpServers[server.name] = {
+            serverUrl: server.url,
+            ...(server.headers && Object.keys(server.headers).length > 0 ? { headers: server.headers } : {}),
+          };
+        }
+      }
+      if (Object.keys(mcpServers).length === 0) {
+        return [];
+      }
+      const filePath = path.join(tempRoot, "antigravity-mcp.json");
+      await fs.writeFile(filePath, JSON.stringify({ mcpServers }, null, 2));
+      return [{ source: filePath, destination: ANTIGRAVITY_MCP_CONFIG_MOUNT, readonly: true }];
     }
 
     if (!conn && applicableCustomServers.length === 0) {

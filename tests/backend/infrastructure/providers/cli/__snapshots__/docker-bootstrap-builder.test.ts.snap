@@ -24,7 +24,6 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash <(sed 's/\\r//' "/opt/jules/setup.sh") || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;;     codex) npm install -g @openai/codex ;;     claude) if ensure_curl; then curl -fsSL https://claude.ai/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install claude" >&2; fi ;;     qwen) npm install -g @qwen-code/qwen-code ;;     opencode) if ensure_curl; then curl -fsSL https://opencode.ai/install | bash && export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install opencode" >&2; fi ;;     agy) if ensure_curl; then curl -fsSL https://antigravity.google/cli/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install antigravity" >&2; fi ;; esac; fi
-merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   mkdir -p "$HOME/.gemini/tmp" "$HOME/.gemini/history" "$HOME/.gemini/memory"
   ensure_json_file "$HOME/.gemini/projects.json" '{"projects":{}}'
@@ -39,6 +38,7 @@ fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
+  merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.claude/settings.json" "claude mcp config"
 fi
 if [ "$1" = "qwen" ]; then
   if [ -d "/opt/credentials/qwen-code" ]; then sync_dir_contents "/opt/credentials/qwen-code" "$HOME/.qwen" "qwen"; fi
@@ -56,6 +56,8 @@ if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.antigravity" "antigravity"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.gemini" "antigravity-gemini"
   fi
+  mkdir -p "$HOME/.gemini/antigravity-cli"
+  merge_json_file "/opt/provider-config/antigravity-mcp.json" "$HOME/.gemini/antigravity-cli/mcp_config.json" "antigravity mcp config"
   if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
     echo "provider-runner: installing keyring dependencies in container..."
     if command -v apt-get >/dev/null 2>&1; then
@@ -105,7 +107,6 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash <(sed 's/\\r//' "/opt/jules/setup.sh") || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;;     codex) npm install -g @openai/codex ;;     claude) if ensure_curl; then curl -fsSL https://claude.ai/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install claude" >&2; fi ;;     qwen) npm install -g @qwen-code/qwen-code ;;     opencode) if ensure_curl; then curl -fsSL https://opencode.ai/install | bash && export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install opencode" >&2; fi ;;     agy) if ensure_curl; then curl -fsSL https://antigravity.google/cli/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install antigravity" >&2; fi ;; esac; fi
-merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   mkdir -p "$HOME/.gemini/tmp" "$HOME/.gemini/history" "$HOME/.gemini/memory"
   ensure_json_file "$HOME/.gemini/projects.json" '{"projects":{}}'
@@ -120,6 +121,7 @@ fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
+  merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.claude/settings.json" "claude mcp config"
 fi
 if [ "$1" = "qwen" ]; then
   if [ -d "/opt/credentials/qwen-code" ]; then sync_dir_contents "/opt/credentials/qwen-code" "$HOME/.qwen" "qwen"; fi
@@ -137,6 +139,8 @@ if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.antigravity" "antigravity"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.gemini" "antigravity-gemini"
   fi
+  mkdir -p "$HOME/.gemini/antigravity-cli"
+  merge_json_file "/opt/provider-config/antigravity-mcp.json" "$HOME/.gemini/antigravity-cli/mcp_config.json" "antigravity mcp config"
   if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
     echo "provider-runner: installing keyring dependencies in container..."
     if command -v apt-get >/dev/null 2>&1; then
@@ -186,7 +190,6 @@ mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash <(sed 's/\\r//' "/opt/jules/setup.sh") || echo "provider-runner: setup script failed" >&2; fi
 if ! command -v "$1" >/dev/null 2>&1; then case "$1" in     gemini) npm install -g @google/gemini-cli ;; esac; fi
-merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   mkdir -p "$HOME/.gemini/tmp" "$HOME/.gemini/history" "$HOME/.gemini/memory"
   ensure_json_file "$HOME/.gemini/projects.json" '{"projects":{}}'
@@ -201,6 +204,7 @@ fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
+  merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.claude/settings.json" "claude mcp config"
 fi
 if [ "$1" = "qwen" ]; then
   if [ -d "/opt/credentials/qwen-code" ]; then sync_dir_contents "/opt/credentials/qwen-code" "$HOME/.qwen" "qwen"; fi
@@ -218,6 +222,8 @@ if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.antigravity" "antigravity"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.gemini" "antigravity-gemini"
   fi
+  mkdir -p "$HOME/.gemini/antigravity-cli"
+  merge_json_file "/opt/provider-config/antigravity-mcp.json" "$HOME/.gemini/antigravity-cli/mcp_config.json" "antigravity mcp config"
   if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
     echo "provider-runner: installing keyring dependencies in container..."
     if command -v apt-get >/dev/null 2>&1; then
@@ -266,7 +272,6 @@ export pnpm_config_store_dir="$PNPM_STORE_DIR"
 mkdir -p "$NPM_CONFIG_PREFIX" "$NPM_CONFIG_CACHE" "$PNPM_STORE_DIR"
 export PATH="$HOME/.local/bin:$NPM_CONFIG_PREFIX/bin:$PATH"
 if [ -f "/opt/jules/setup.sh" ]; then bash <(sed 's/\\r//' "/opt/jules/setup.sh") || echo "provider-runner: setup script failed" >&2; fi
-merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.mcp.json" "claude mcp config"
 if [ "$1" = "gemini" ]; then
   mkdir -p "$HOME/.gemini/tmp" "$HOME/.gemini/history" "$HOME/.gemini/memory"
   ensure_json_file "$HOME/.gemini/projects.json" '{"projects":{}}'
@@ -281,6 +286,7 @@ fi
 if [ "$1" = "claude" ]; then
   if [ -f "/opt/credentials/claude-code/.credentials.json" ]; then cp -f "/opt/credentials/claude-code/.credentials.json" "$HOME/.claude/.credentials.json"; fi
   if [ -f "/opt/credentials/claude-code-auth.json" ]; then cp -f "/opt/credentials/claude-code-auth.json" "$HOME/.claude.json"; fi
+  merge_json_file "/opt/provider-config/claude-mcp.json" "$HOME/.claude/settings.json" "claude mcp config"
 fi
 if [ "$1" = "qwen" ]; then
   if [ -d "/opt/credentials/qwen-code" ]; then sync_dir_contents "/opt/credentials/qwen-code" "$HOME/.qwen" "qwen"; fi
@@ -298,6 +304,8 @@ if [ "$1" = "antigravity" ] || [ "$1" = "agy" ]; then
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.antigravity" "antigravity"
     sync_dir_contents "/opt/credentials/antigravity" "$HOME/.gemini" "antigravity-gemini"
   fi
+  mkdir -p "$HOME/.gemini/antigravity-cli"
+  merge_json_file "/opt/provider-config/antigravity-mcp.json" "$HOME/.gemini/antigravity-cli/mcp_config.json" "antigravity mcp config"
   if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
     echo "provider-runner: installing keyring dependencies in container..."
     if command -v apt-get >/dev/null 2>&1; then
