@@ -2,7 +2,7 @@ import type { FunctionComponent } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowRight,
@@ -81,7 +81,7 @@ const DeepOceanBackground = lazy(async () => {
   return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
 
-type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "git" | "jira" | "defaults" | "automation" | "appearance";
+type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "git" | "knowledge" | "jira" | "defaults" | "automation" | "appearance";
 
 const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
   { id: "installation", label: "Installation", icon: Box },
@@ -89,6 +89,7 @@ const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
   { id: "providers", label: "Select Providers", icon: Cpu },
   { id: "provider-setup", label: "Providers", icon: Settings },
   { id: "git", label: "Git", icon: GitBranch },
+  { id: "knowledge", label: "Knowledge Base", icon: BookOpen },
   { id: "jira", label: "Jira", icon: ClipboardList },
   { id: "defaults", label: "Default providers", icon: Layers },
   { id: "automation", label: "Automation", icon: Sparkles },
@@ -678,7 +679,7 @@ export const OnboardingExperience: FunctionComponent = () => {
     return null;
   }
 
-  const stepNeedsSettings: StepId[] = ["provider-setup", "git", "jira", "automation", "appearance", "defaults"];
+  const stepNeedsSettings: StepId[] = ["provider-setup", "git", "knowledge", "jira", "automation", "appearance", "defaults"];
   const canGoNext = !stepNeedsSettings.includes(active.id) || Boolean(settings);
   const clusterReady = readiness.cluster.status === "ready";
   const dockerExecutionEnabled = settings?.defaults.cliWorkflow.executionMode === "DOCKER";
@@ -788,16 +789,17 @@ export const OnboardingExperience: FunctionComponent = () => {
                 {
                   id: "configure-flow",
                   label:
-                    activeStep === 3 ? "Providers (1/4)"
-                    : activeStep === 4 ? "Git (2/4)"
-                    : activeStep === 5 ? "Jira (3/4)"
-                    : activeStep === 6 ? "Default providers (4/4)"
-                    : "Providers (1/4)",
+                    activeStep === 3 ? "Providers (1/5)"
+                    : activeStep === 4 ? "Git (2/5)"
+                    : activeStep === 5 ? "Knowledge Base (3/5)"
+                    : activeStep === 6 ? "Jira (4/5)"
+                    : activeStep === 7 ? "Default providers (5/5)"
+                    : "Providers (1/5)",
                   icon: Settings,
-                  active: activeStep >= 3 && activeStep <= 6,
-                  complete: activeStep > 6,
+                  active: activeStep >= 3 && activeStep <= 7,
+                  complete: activeStep > 7,
                   onClick: () => {
-                    setActiveStep(activeStep >= 3 && activeStep <= 6 ? activeStep : 3);
+                    setActiveStep(activeStep >= 3 && activeStep <= 7 ? activeStep : 3);
                   },
                 },
                 {
@@ -1241,6 +1243,51 @@ export const OnboardingExperience: FunctionComponent = () => {
                         </Row>
                       </>
                     ) : null}
+                  </SectionCard>
+                </div>
+              </div>
+            ) : null}
+
+            {active.id === "knowledge" && settings ? (
+              <div className="space-y-4">
+                <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-signal-500/18 bg-signal-500/10 text-signal-600 dark:border-signal-300/18 dark:bg-signal-300/10 dark:text-signal-300">
+                      <BookOpen className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-base font-black text-slate-900 dark:text-white">Knowledge Base</div>
+                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                        The Knowledge Base allows you to save guidelines, coding standards, and documentation. This provides additional context to AI agents during tasks.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div data-onboarding-card>
+                  <SectionCard title="Discover Context" watermark="KB" icon={<BookOpen strokeWidth={2.4} />}>
+                    <Row label="Explore now" description="Open the Knowledge Base page to view or upload documentation. This will complete the onboarding setup." last>
+                      <div className="flex items-center gap-3">
+                        <Link
+                          to="/knowledge"
+                          className="inline-flex items-center gap-2 rounded-2xl bg-signal-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-signal-600 dark:text-void-900"
+                          onClick={async () => {
+                            await markOnboardingCompleted("complete");
+                            window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+                            setOpen(false);
+                          }}
+                        >
+                          Go to Knowledge Base
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </Row>
                   </SectionCard>
                 </div>
               </div>
