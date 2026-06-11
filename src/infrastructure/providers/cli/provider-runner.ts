@@ -1079,16 +1079,18 @@ export class ProviderRunner implements IProviderRunner {
       } else if (apiKey && !useProviderMount) {
         env.ANTHROPIC_API_KEY = apiKey;
       }
-      if (providerConfig?.customModel && providerConfig.customModel.trim().length > 0) {
+      const customModel = providerConfig?.customModel?.trim();
+      const effectiveGatewayModel = customModel || (providerConfig?.customBaseUrl ? model : undefined);
+
+      if (effectiveGatewayModel && effectiveGatewayModel !== "default") {
         // A custom (gateway) model usually exposes a single slug, so point every Claude
         // Code model tier at it — including the background "small/fast" tier that would
         // otherwise request a Haiku model the gateway does not serve.
-        const customModel = providerConfig.customModel.trim();
-        env.ANTHROPIC_MODEL = customModel;
-        env.ANTHROPIC_SMALL_FAST_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_OPUS_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_SONNET_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_HAIKU_MODEL = customModel;
+        env.ANTHROPIC_MODEL = effectiveGatewayModel;
+        env.ANTHROPIC_SMALL_FAST_MODEL = effectiveGatewayModel;
+        env.ANTHROPIC_DEFAULT_OPUS_MODEL = effectiveGatewayModel;
+        env.ANTHROPIC_DEFAULT_SONNET_MODEL = effectiveGatewayModel;
+        env.ANTHROPIC_DEFAULT_HAIKU_MODEL = effectiveGatewayModel;
       }
     } else if (provider === "codex") {
       if (model && model !== "default") env.CODEX_MODEL = model;
