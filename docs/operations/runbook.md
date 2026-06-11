@@ -35,6 +35,13 @@ If consecutive task creation failures reach threshold:
 - Branch preflight blocker means Code UX could not prepare the local feature branch, or it could not push the branch to `origin` on a repo that expects a remote feature branch.
 - Planning preflight blocker means subtask files are missing.
 
+### Provider Concurrency Controls
+Provider concurrency is enforced globally across all projects using `ProviderSettings.maxConcurrentTasks`.
+- **Pre-Launch Enforcement**: Slots are claimed atomically before any provider container or host process is launched. If no slot is available, the task dispatch waits and retries until a slot becomes free.
+- **Unlimited Mode**: Setting `maxConcurrentTasks` to `0` disables concurrency enforcement for that provider (unlimited).
+- **Terminal States**: Completed, failed, cancelled, or quota-wait terminal invocations do not count against the cap. Only 'running' invocations are counted.
+- **Abort Handling**: If a task dispatch is cancelled while waiting for a slot, the wait loop exits immediately without creating a stale running invocation record.
+
 ## Common Incidents
 
 ### 1. Dashboard unavailable
