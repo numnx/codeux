@@ -311,7 +311,15 @@ export const ProviderInstanceCard: FunctionComponent<{
             }
             last={isLast}
           >
-            <TextInput value={provider.customModel || ""} onChange={(value) => onUpdate({ customModel: value || undefined })} mono />
+            <div className="flex flex-col gap-1.5">
+              <TextInput value={provider.customModel || ""} onChange={(value) => onUpdate({ customModel: value || undefined })} mono />
+              {provider.customModel && provider.customModel.trim().length > 0 && (
+                <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-wide uppercase text-signal-jade">
+                  <div className="h-1.5 w-1.5 rounded-full bg-signal-jade animate-pulse" />
+                  Active Override: {provider.customModel}
+                </div>
+              )}
+            </div>
           </Row>
         </>
       )}

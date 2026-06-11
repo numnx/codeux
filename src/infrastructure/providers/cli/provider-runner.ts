@@ -50,6 +50,7 @@ export type ProviderCommandSpec = (model: string, prompt: string) => { command: 
 export interface ProviderRunResult extends CommandResult {
   usageTelemetry: ProviderUsageTelemetry;
   nativeSessionId: string | null;
+  resolvedModel: string;
   text?: string;
 }
 
@@ -555,6 +556,7 @@ export class ProviderRunner implements IProviderRunner {
         ...result,
         usageTelemetry,
         nativeSessionId: usageTelemetry.nativeSessionId || resolvedNativeSessionId || nativeSessionId,
+        resolvedModel: runModel,
       };
     } finally {
       activeWatcher = false;
