@@ -6,11 +6,21 @@ import { createHash } from "crypto";
 // ─── Shared helpers for API implementations ──────────────────────────────────
 
 const API_TIMEOUT_MS = 30_000;
-const API_GET_CACHE_TTL_MS = 15_000;
+// GitHub/GitLab status is polled continuously by every active sprint watch loop and the
+// dashboard. A longer shared cache keeps the number of network calls low (and well under the
+// API rate limit) while staying fresh enough for merge/CI decisions.
+const API_GET_CACHE_TTL_MS = 30_000;
+// A token's validity hardly ever changes, so the auth probe (`/user`) does not need to ride
+// every polling window.
+const AUTH_CHECK_CACHE_TTL_MS = 5 * 60_000;
+// Logs of completed (failed) CI jobs are immutable, so re-downloading them every polling
+// window is pure waste.
+const FAILED_LOG_CACHE_TTL_MS = 10 * 60_000;
 const API_MIN_INTERVAL_MS = 150;
+const API_GET_CACHE_PRUNE_THRESHOLD = 500;
 let lastApiRequestAt = 0;
 let apiQueue: Promise<void> = Promise.resolve();
-const apiGetCache = new Map<string, { timestamp: number; promise: Promise<{ ok: boolean; status: number; text: string }> }>();
+const apiGetCache = new Map<string, { timestamp: number; ttlMs: number; promise: Promise<{ ok: boolean; status: number; text: string }> }>();
 
 function apiOk(stdout: string): CommandResult {
   return { ok: true, code: 0, stdout, stderr: "" };
@@ -44,7 +54,19 @@ async function apiFetch(url: string, init: RequestInit): Promise<{ ok: boolean; 
   return { ok: res.ok, status: res.status, text };
 }
 
-async function cachedApiGet(url: string, init: RequestInit): Promise<{ ok: boolean; status: number; text: string }> {
+function pruneExpiredApiCacheEntries(): void {
+  if (apiGetCache.size < API_GET_CACHE_PRUNE_THRESHOLD) {
+    return;
+  }
+  const now = Date.now();
+  for (const [key, entry] of apiGetCache) {
+    if (now - entry.timestamp >= entry.ttlMs) {
+      apiGetCache.delete(key);
+    }
+  }
+}
+
+async function cachedApiGet(url: string, init: RequestInit, ttlMs = API_GET_CACHE_TTL_MS): Promise<{ ok: boolean; status: number; text: string }> {
   if (process.env.NODE_ENV === "test") {
     return apiFetch(url, init);
   }
@@ -54,17 +76,81 @@ async function cachedApiGet(url: string, init: RequestInit): Promise<{ ok: boole
   const authHash = auth ? createHash("sha256").update(auth).digest("hex").slice(0, 16) : "";
   const key = `${url}|${authHash}`;
   const cached = apiGetCache.get(key);
-  if (cached && Date.now() - cached.timestamp < API_GET_CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.timestamp < cached.ttlMs) {
     return cached.promise;
   }
+  pruneExpiredApiCacheEntries();
   const promise = apiFetch(url, init);
-  apiGetCache.set(key, { timestamp: Date.now(), promise });
+  apiGetCache.set(key, { timestamp: Date.now(), ttlMs, promise });
   try {
     return await promise;
   } catch (error) {
     apiGetCache.delete(key);
     throw error;
   }
+}
+
+/**
+ * Cache a POST response (e.g. a GraphQL query) under an explicit key so repeated identical
+ * requests from concurrent sprint watch loops collapse into a single network call, exactly like
+ * {@link cachedApiGet} does for GETs.
+ */
+async function cachedApiPost(cacheKey: string, url: string, init: RequestInit): Promise<{ ok: boolean; status: number; text: string }> {
+  if (process.env.NODE_ENV === "test") {
+    return apiFetch(url, init);
+  }
+  const cached = apiGetCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < cached.ttlMs) {
+    return cached.promise;
+  }
+  pruneExpiredApiCacheEntries();
+  const promise = apiFetch(url, init);
+  apiGetCache.set(cacheKey, { timestamp: Date.now(), ttlMs: API_GET_CACHE_TTL_MS, promise });
+  try {
+    return await promise;
+  } catch (error) {
+    apiGetCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+/**
+ * Maps the GraphQL `statusCheckRollup.contexts` of a PR's head commit to the gh-CLI-compatible
+ * `statusCheckRollup` shape (`{ name, status, conclusion }`). CheckRun nodes map directly;
+ * legacy commit-status contexts only expose a single `state`, which is normalized so the
+ * existing `isCiPending`/`isCiFailure` policies interpret them correctly.
+ */
+function mapGraphqlStatusCheckRollup(pr: Record<string, any>): Array<{ name: string; status: string; conclusion: string | null }> {
+  const commitNodes = pr?.commits?.nodes;
+  const rollup = Array.isArray(commitNodes) && commitNodes.length > 0
+    ? commitNodes[0]?.commit?.statusCheckRollup
+    : null;
+  const contexts = rollup?.contexts?.nodes;
+  if (!Array.isArray(contexts)) {
+    return [];
+  }
+  const checks: Array<{ name: string; status: string; conclusion: string | null }> = [];
+  for (const node of contexts) {
+    if (!node || typeof node !== "object") continue;
+    const context = node as Record<string, unknown>;
+    if (typeof context.context === "string") {
+      // StatusContext (legacy commit status): state is EXPECTED | PENDING | SUCCESS | FAILURE | ERROR.
+      const state = typeof context.state === "string" ? context.state : "";
+      const settled = state === "SUCCESS" || state === "FAILURE" || state === "ERROR";
+      checks.push({
+        name: context.context,
+        status: settled ? "COMPLETED" : "IN_PROGRESS",
+        conclusion: settled ? state : null,
+      });
+      continue;
+    }
+    checks.push({
+      name: typeof context.name === "string" ? context.name : "check",
+      status: typeof context.status === "string" ? context.status : "UNKNOWN",
+      conclusion: typeof context.conclusion === "string" ? context.conclusion : null,
+    });
+  }
+  return checks;
 }
 
 function githubMergeableState(state: string | null | undefined): string {
@@ -170,10 +256,10 @@ export class GithubApiHostCli implements GitHostCli {
     };
   }
 
-  private async get(path: string, token?: string): Promise<{ ok: boolean; status: number; text: string } | null> {
+  private async get(path: string, token?: string, ttlMs?: number): Promise<{ ok: boolean; status: number; text: string } | null> {
     if (!token) return null;
     try {
-      return await cachedApiGet(`${this.base}${path}`, { headers: this.ghHeaders(token) });
+      return await cachedApiGet(`${this.base}${path}`, { headers: this.ghHeaders(token) }, ttlMs);
     } catch {
       return null;
     }
@@ -224,13 +310,30 @@ export class GithubApiHostCli implements GitHostCli {
     try {
       const err = JSON.parse(res.text) as Record<string, unknown>;
       message = String(err.message ?? res.text);
+      // 422 responses carry the actionable cause (e.g. "Field base is invalid", "No commits
+      // between x and y", "A pull request already exists") inside `errors`, not `message`.
+      if (Array.isArray(err.errors)) {
+        const details = err.errors
+          .map((entry) => {
+            if (!entry || typeof entry !== "object") return null;
+            const detail = entry as Record<string, unknown>;
+            if (typeof detail.message === "string" && detail.message.trim()) return detail.message;
+            const field = typeof detail.field === "string" ? detail.field : null;
+            const code = typeof detail.code === "string" ? detail.code : null;
+            return field || code ? [field, code].filter(Boolean).join(" ") : null;
+          })
+          .filter((entry): entry is string => Boolean(entry));
+        if (details.length > 0) {
+          message = `${message}: ${details.join("; ")}`;
+        }
+      }
     } catch { /* use status */ }
     return apiFail(message, res.status);
   }
 
   async version(hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
-    const res = await this.get("/user", hostToken);
+    const res = await this.get("/user", hostToken, AUTH_CHECK_CACHE_TTL_MS);
     if (!res?.ok) return this.apiError(res, "GitHub API request failed.");
     return apiOk("github-api-host-cli/1.0");
   }
@@ -241,30 +344,117 @@ export class GithubApiHostCli implements GitHostCli {
 
   async prListOpen(hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
+    const graph = await this.fetchPullRequestsGraphql(hostToken);
+    if (graph) {
+      return apiOk(JSON.stringify(graph.open));
+    }
+    // Fallback: REST list (no per-PR enrichment). mergeStateStatus is unavailable from the list
+    // endpoint, but this only runs if GraphQL is unreachable and avoids the N+1 call explosion.
     const res = await this.get(`/repos/${this.owner}/${this.repo}/pulls?state=open&per_page=50`, hostToken);
     if (!res?.ok) return this.apiError(res, "GitHub API request failed.");
-    let rawPrs: Record<string, unknown>[];
-    try { rawPrs = JSON.parse(res.text) as Record<string, unknown>[]; }
-    catch { return apiFail("Failed to parse GitHub PR list response."); }
-    const mapped = rawPrs.map((pr) => {
-      const head = pr.head as Record<string, unknown> | undefined;
-      const base = pr.base as Record<string, unknown> | undefined;
+    try {
+      const rawPrs = JSON.parse(res.text) as Record<string, unknown>[];
+      const mapped = rawPrs.map((pr) => {
+        const head = pr.head as Record<string, unknown> | undefined;
+        const base = pr.base as Record<string, unknown> | undefined;
+        return {
+          number: pr.number,
+          title: pr.title ?? "Untitled PR",
+          url: pr.html_url ?? "",
+          state: typeof pr.state === "string" ? pr.state.toUpperCase() : "OPEN",
+          isDraft: pr.draft === true,
+          headRefName: typeof head?.ref === "string" ? head.ref : null,
+          baseRefName: typeof base?.ref === "string" ? base.ref : null,
+          mergeStateStatus: githubMergeableState(typeof pr.mergeable_state === "string" ? pr.mergeable_state : null),
+          reviewDecision: null,
+          updatedAt: pr.updated_at ?? null,
+          comments: ((pr.comments as number | undefined) ?? 0) + ((pr.review_comments as number | undefined) ?? 0),
+          statusCheckRollup: [],
+        };
+      });
+      return apiOk(JSON.stringify(mapped));
+    } catch {
+      return apiFail("Failed to parse GitHub PR list response.");
+    }
+  }
+
+  /**
+   * Fetch open AND recently-merged PRs (with computed `mergeStateStatus`) in a single GraphQL
+   * call. GitHub computes mergeability for GraphQL list queries — unlike the REST list endpoint,
+   * which omits it and would otherwise force one extra REST call per PR. The result is cached so
+   * `prListOpen` and `prListMerged` share one network round-trip per polling window.
+   */
+  private async fetchPullRequestsGraphql(token: string): Promise<{ open: unknown[]; merged: unknown[] } | null> {
+    const query = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){`
+      + `open:pullRequests(states:OPEN,first:50,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title url isDraft headRefName baseRefName mergeStateStatus reviewDecision updatedAt comments{totalCount} `
+      + `commits(last:1){nodes{commit{statusCheckRollup{state contexts(first:100){nodes{__typename ... on CheckRun{name status conclusion} ... on StatusContext{context state}}}}}}}`
+      + `}}`
+      + `merged:pullRequests(states:MERGED,first:50,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title url headRefName baseRefName mergedAt mergedBy{login}}}`
+      + `}}`;
+    const res = await this.graphql(query, { owner: this.owner, repo: this.repo }, token);
+    if (!res?.ok) {
+      return null;
+    }
+    try {
+      const data = JSON.parse(res.text) as { data?: { repository?: { open?: { nodes?: unknown[] }; merged?: { nodes?: unknown[] } } }; errors?: unknown };
+      const repo = data?.data?.repository;
+      if (!repo || data.errors) {
+        return null;
+      }
+      const openNodes = Array.isArray(repo.open?.nodes) ? repo.open!.nodes : [];
+      const mergedNodes = Array.isArray(repo.merged?.nodes) ? repo.merged!.nodes : [];
       return {
-        number: pr.number,
-        title: pr.title ?? "Untitled PR",
-        url: pr.html_url ?? "",
-        state: typeof pr.state === "string" ? pr.state.toUpperCase() : "OPEN",
-        isDraft: pr.draft === true,
-        headRefName: typeof head?.ref === "string" ? head.ref : null,
-        baseRefName: typeof base?.ref === "string" ? base.ref : null,
-        mergeStateStatus: githubMergeableState(typeof pr.mergeable_state === "string" ? pr.mergeable_state : null),
-        reviewDecision: null,
-        updatedAt: pr.updated_at ?? null,
-        comments: ((pr.comments as number | undefined) ?? 0) + ((pr.review_comments as number | undefined) ?? 0),
-        statusCheckRollup: [],
+        open: openNodes.map((node) => {
+          const pr = node as Record<string, any>;
+          return {
+            number: pr.number,
+            title: pr.title ?? "Untitled PR",
+            url: pr.url ?? "",
+            state: "OPEN",
+            isDraft: pr.isDraft === true,
+            headRefName: typeof pr.headRefName === "string" ? pr.headRefName : null,
+            baseRefName: typeof pr.baseRefName === "string" ? pr.baseRefName : null,
+            mergeStateStatus: githubMergeableState(typeof pr.mergeStateStatus === "string" ? pr.mergeStateStatus : null),
+            reviewDecision: typeof pr.reviewDecision === "string" ? pr.reviewDecision : null,
+            updatedAt: pr.updatedAt ?? null,
+            comments: typeof pr.comments?.totalCount === "number" ? pr.comments.totalCount : 0,
+            statusCheckRollup: mapGraphqlStatusCheckRollup(pr),
+          };
+        }),
+        merged: mergedNodes.map((node) => {
+          const pr = node as Record<string, any>;
+          return {
+            number: pr.number,
+            title: pr.title ?? "Merged PR",
+            url: pr.url ?? "",
+            headRefName: typeof pr.headRefName === "string" ? pr.headRefName : null,
+            baseRefName: typeof pr.baseRefName === "string" ? pr.baseRefName : null,
+            mergedAt: pr.mergedAt ?? null,
+            mergedBy: pr.mergedBy ? { login: pr.mergedBy.login ?? null } : null,
+          };
+        }),
       };
-    });
-    return apiOk(JSON.stringify(mapped));
+    } catch {
+      return null;
+    }
+  }
+
+  private async graphql(query: string, variables: Record<string, unknown>, token: string): Promise<{ ok: boolean; status: number; text: string } | null> {
+    if (!token) {
+      return null;
+    }
+    const body = JSON.stringify({ query, variables });
+    const authHash = createHash("sha256").update(token).digest("hex").slice(0, 16);
+    const cacheKey = `graphql|${authHash}|${createHash("sha256").update(body).digest("hex").slice(0, 24)}`;
+    try {
+      return await cachedApiPost(cacheKey, `${this.base}/graphql`, {
+        method: "POST",
+        headers: { ...this.ghHeaders(token), "Content-Type": "application/json" },
+        body,
+      });
+    } catch {
+      return null;
+    }
   }
 
   async prListOpenMatching(baseBranch: string, headBranch: string, hostToken?: string): Promise<CommandResult> {
@@ -326,6 +516,11 @@ export class GithubApiHostCli implements GitHostCli {
 
   async prListMerged(hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
+    const graph = await this.fetchPullRequestsGraphql(hostToken);
+    if (graph) {
+      return apiOk(JSON.stringify(graph.merged));
+    }
+    // Fallback: REST list when GraphQL is unreachable.
     const res = await this.get(`/repos/${this.owner}/${this.repo}/pulls?state=closed&per_page=100`, hostToken);
     if (!res?.ok) return this.apiError(res, "GitHub API request failed.");
     try {
@@ -375,7 +570,7 @@ export class GithubApiHostCli implements GitHostCli {
 
   async runViewLogFailed(_runId: number, jobId: number, hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
-    const res = await this.get(`/repos/${this.owner}/${this.repo}/actions/jobs/${jobId}/logs`, hostToken);
+    const res = await this.get(`/repos/${this.owner}/${this.repo}/actions/jobs/${jobId}/logs`, hostToken, FAILED_LOG_CACHE_TTL_MS);
     if (!res?.ok) return this.apiError(res, "GitHub API request failed.");
     return apiOk(res.text);
   }
@@ -574,6 +769,7 @@ export class GitlabApiHostCli implements GitHostCli {
     path: string,
     token?: string,
     body?: unknown,
+    ttlMs?: number,
   ): Promise<{ ok: boolean; status: number; text: string } | null> {
     if (!token) return null;
     try {
@@ -587,14 +783,14 @@ export class GitlabApiHostCli implements GitHostCli {
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       };
       return method === "GET"
-        ? await cachedApiGet(`${this.base}${path}`, request)
+        ? await cachedApiGet(`${this.base}${path}`, request, ttlMs)
         : await apiFetch(`${this.base}${path}`, request);
     } catch {
       return null;
     }
   }
 
-  private get(path: string, token?: string) { return this.request("GET", path, token); }
+  private get(path: string, token?: string, ttlMs?: number) { return this.request("GET", path, token, undefined, ttlMs); }
   private post(path: string, body: unknown, token?: string) { return this.request("POST", path, token, body); }
   private put(path: string, body: unknown, token?: string) { return this.request("PUT", path, token, body); }
 
@@ -617,7 +813,7 @@ export class GitlabApiHostCli implements GitHostCli {
 
   async version(hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
-    const res = await this.get("/user", hostToken);
+    const res = await this.get("/user", hostToken, AUTH_CHECK_CACHE_TTL_MS);
     if (!res?.ok) return this.apiError(res, "GitLab API request failed.");
     return apiOk("gitlab-api-host-cli/1.0");
   }
@@ -762,7 +958,7 @@ export class GitlabApiHostCli implements GitHostCli {
 
   async runViewLogFailed(_runId: number, jobId: number, hostToken?: string): Promise<CommandResult> {
     if (!hostToken) return this.noToken();
-    const res = await this.get(`/projects/${this.encodedProject}/jobs/${jobId}/trace`, hostToken);
+    const res = await this.get(`/projects/${this.encodedProject}/jobs/${jobId}/trace`, hostToken, FAILED_LOG_CACHE_TTL_MS);
     if (!res?.ok) return this.apiError(res, "GitLab API request failed.");
     return apiOk(res.text);
   }

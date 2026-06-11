@@ -21,6 +21,7 @@ import { DockerBootstrapBuilder } from "./docker-bootstrap-builder.js";
 import { DockerCredentialMountBuilder } from "./docker-credential-mount-builder.js";
 import { DockerSetupImageCache } from "./docker-setup-image-cache.js";
 import { WorkspaceManager } from "./workspace-manager.js";
+import { workspaceVolumeHelperPool, type WorkspaceVolumeHelperPool } from "./workspace-volume-helper.js";
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
 import { ensureDefaultCodeUxAssetsInstalled } from "../../../services/code-ux-default-assets-service.js";
 import {
@@ -28,6 +29,7 @@ import {
   CODEX_MCP_CONFIG_MOUNT,
   GEMINI_MCP_SETTINGS_MOUNT,
   QWEN_CODE_SETTINGS_MOUNT,
+  ANTIGRAVITY_MCP_CONFIG_MOUNT,
 } from "./docker-bootstrap-builder.js";
 
 const BUNDLED_CONTAINER_SETUP_SCRIPT = path.resolve(
@@ -72,6 +74,7 @@ export interface IDockerRunner {
 export class DockerRunner implements IDockerRunner {
   private readonly dockerHintLoggedSessions = new Set<string>();
   private readonly workspaceManager = new WorkspaceManager();
+  private readonly volumeHelperPool: WorkspaceVolumeHelperPool = workspaceVolumeHelperPool;
 
   async ensureWorkspace(args: {
     cwd: string;
@@ -218,7 +221,14 @@ export class DockerRunner implements IDockerRunner {
           path: input.providerAuthPath || "",
         },
       );
-      const providerConfigMounts = await this.buildProviderConfigMounts(input.mcpConnection || null, providerLabel, tempRoot, providerEnv, input.customMcpServers || []);
+      const providerConfigMounts = await this.buildProviderConfigMounts(
+        input.mcpConnection || null,
+        providerLabel,
+        tempRoot,
+        providerEnv,
+        input.customMcpServers || [],
+        workflowSettings,
+      );
 
       for (const mount of [...credentialMounts, ...providerConfigMounts]) {
         const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials", onActivity);
@@ -261,28 +271,7 @@ export class DockerRunner implements IDockerRunner {
   async readWorkspaceFile(cwd: string, targetPath: string): Promise<string | null> {
     const workspace = this.resolveWorkspace(cwd);
     try {
-      const result = await runStreamingCommand(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "-i",
-          "--workdir",
-          CONTAINER_WORKSPACE_ROOT,
-          "--mount",
-          toDockerMountArg({
-            source: workspace.volumeName,
-            destination: CONTAINER_WORKSPACE_ROOT,
-            readonly: false,
-            type: "volume",
-          }),
-          "alpine:3.20",
-          "cat",
-          targetPath,
-        ],
-        process.cwd(),
-        process.env,
-      );
+      const result = await this.volumeHelperPool.exec(workspace.volumeName, ["cat", targetPath]);
       return result.ok ? result.stdout : null;
     } catch {
       return null;
@@ -292,28 +281,7 @@ export class DockerRunner implements IDockerRunner {
   async readWorkspaceFileBase64(cwd: string, targetPath: string): Promise<string | null> {
     const workspace = this.resolveWorkspace(cwd);
     try {
-      const result = await runStreamingCommand(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "-i",
-          "--workdir",
-          CONTAINER_WORKSPACE_ROOT,
-          "--mount",
-          toDockerMountArg({
-            source: workspace.volumeName,
-            destination: CONTAINER_WORKSPACE_ROOT,
-            readonly: true,
-            type: "volume",
-          }),
-          "alpine:3.20",
-          "base64",
-          targetPath,
-        ],
-        process.cwd(),
-        process.env,
-      );
+      const result = await this.volumeHelperPool.exec(workspace.volumeName, ["base64", targetPath]);
       return result.ok ? result.stdout : null;
     } catch {
       return null;
@@ -324,29 +292,7 @@ export class DockerRunner implements IDockerRunner {
     const workspace = this.resolveWorkspace(cwd);
     try {
       const script = `f=$(ls -1t "${dirPath}"/${glob} 2>/dev/null | head -1); [ -n "$f" ] && cat "$f"`;
-      const result = await runStreamingCommand(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "-i",
-          "--workdir",
-          CONTAINER_WORKSPACE_ROOT,
-          "--mount",
-          toDockerMountArg({
-            source: workspace.volumeName,
-            destination: CONTAINER_WORKSPACE_ROOT,
-            readonly: false,
-            type: "volume",
-          }),
-          "alpine:3.20",
-          "sh",
-          "-c",
-          script,
-        ],
-        process.cwd(),
-        process.env,
-      );
+      const result = await this.volumeHelperPool.exec(workspace.volumeName, ["sh", "-c", script]);
       return result.ok && result.stdout.trim() ? result.stdout : null;
     } catch {
       return null;
@@ -364,29 +310,7 @@ export class DockerRunner implements IDockerRunner {
     const workspace = this.resolveWorkspace(cwd);
     try {
       const script = `first=1; printf '['; for f in "${dirPath}"/*.json; do [ -e "$f" ] || continue; [ "$first" -eq 1 ] || printf ','; cat "$f"; first=0; done; printf ']'`;
-      const result = await runStreamingCommand(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "-i",
-          "--workdir",
-          CONTAINER_WORKSPACE_ROOT,
-          "--mount",
-          toDockerMountArg({
-            source: workspace.volumeName,
-            destination: CONTAINER_WORKSPACE_ROOT,
-            readonly: true,
-            type: "volume",
-          }),
-          "alpine:3.20",
-          "sh",
-          "-c",
-          script,
-        ],
-        process.cwd(),
-        process.env,
-      );
+      const result = await this.volumeHelperPool.exec(workspace.volumeName, ["sh", "-c", script]);
       if (!result.ok) return null;
       const trimmed = result.stdout.trim();
       return trimmed && trimmed !== "[]" ? trimmed : null;
@@ -399,29 +323,7 @@ export class DockerRunner implements IDockerRunner {
   async removeWorkspaceDir(cwd: string, dirPath: string): Promise<void> {
     const workspace = this.resolveWorkspace(cwd);
     try {
-      await runStreamingCommand(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "-i",
-          "--workdir",
-          CONTAINER_WORKSPACE_ROOT,
-          "--mount",
-          toDockerMountArg({
-            source: workspace.volumeName,
-            destination: CONTAINER_WORKSPACE_ROOT,
-            readonly: false,
-            type: "volume",
-          }),
-          "alpine:3.20",
-          "rm",
-          "-rf",
-          dirPath,
-        ],
-        process.cwd(),
-        process.env,
-      );
+      await this.volumeHelperPool.exec(workspace.volumeName, ["rm", "-rf", dirPath]);
     } catch {
       // best-effort cleanup
     }
@@ -516,22 +418,30 @@ export class DockerRunner implements IDockerRunner {
     tempRoot: string,
     providerEnv: NodeJS.ProcessEnv,
     customServers: CustomMcpServer[] = [],
+    workflowSettings?: CliWorkflowSettings,
   ): Promise<ContainerMount[]> {
+    const rewriteLoopbackUrls = workflowSettings
+      ? this.shouldRewriteDockerLoopbackUrls(workflowSettings)
+      : false;
+    const dockerConn = conn
+      ? { ...conn, url: this.rewriteLoopbackUrlForDocker(conn.url, rewriteLoopbackUrls) }
+      : null;
     const headers: Record<string, string> = {};
-    if (conn?.authToken) {
-      headers.Authorization = `Bearer ${conn.authToken}`;
+    if (dockerConn?.authToken) {
+      headers.Authorization = `Bearer ${dockerConn.authToken}`;
     }
-    if (conn?.agentId) {
-      headers["X-Code-Ux-Agent"] = conn.agentId;
+    if (dockerConn?.agentId) {
+      headers["X-Code-Ux-Agent"] = dockerConn.agentId;
     }
-    const applicableCustomServers = this.customServersForProvider(customServers, provider);
+    const applicableCustomServers = this.customServersForProvider(customServers, provider)
+      .map((server) => this.rewriteCustomMcpServerForDocker(server, rewriteLoopbackUrls));
 
     if (provider === "claude-code") {
       const mcpServers: Record<string, unknown> = {};
-      if (conn) {
+      if (dockerConn) {
         mcpServers.code_ux = {
           type: "http",
-          url: conn.url,
+          url: dockerConn.url,
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         };
       }
@@ -548,9 +458,9 @@ export class DockerRunner implements IDockerRunner {
 
     if (provider === "gemini") {
       const mcpServers: Record<string, unknown> = {};
-      if (conn) {
+      if (dockerConn) {
         mcpServers.code_ux = {
-          httpUrl: conn.url,
+          httpUrl: dockerConn.url,
           ...(Object.keys(headers).length > 0 ? { headers } : {}),
         };
       }
@@ -575,12 +485,12 @@ export class DockerRunner implements IDockerRunner {
           settings = {};
         }
       }
-      if (conn || applicableCustomServers.length > 0) {
+      if (dockerConn || applicableCustomServers.length > 0) {
         const existingMcpServers = settings.mcpServers as Record<string, unknown> || {};
         const mcpServers: Record<string, unknown> = { ...existingMcpServers };
-        if (conn) {
+        if (dockerConn) {
           mcpServers.code_ux = existingMcpServers.code_ux || {
-            httpUrl: conn.url,
+            httpUrl: dockerConn.url,
             ...(Object.keys(headers).length > 0 ? { headers } : {}),
           };
         }
@@ -596,23 +506,53 @@ export class DockerRunner implements IDockerRunner {
       return [{ source: filePath, destination: QWEN_CODE_SETTINGS_MOUNT, readonly: true }];
     }
 
-    if (provider === "opencode" || provider === "antigravity") {
+    if (provider === "opencode") {
       return [];
     }
 
-    if (!conn && applicableCustomServers.length === 0) {
+    if (provider === "antigravity") {
+      const mcpServers: Record<string, unknown> = {};
+      if (dockerConn) {
+        mcpServers.code_ux = {
+          serverUrl: dockerConn.url,
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+        };
+      }
+      for (const server of applicableCustomServers) {
+        if (server.transport === "stdio") {
+          mcpServers[server.name] = {
+            command: server.command,
+            ...(server.args && server.args.length > 0 ? { args: server.args } : {}),
+            ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
+          };
+        } else {
+          mcpServers[server.name] = {
+            serverUrl: server.url,
+            ...(server.headers && Object.keys(server.headers).length > 0 ? { headers: server.headers } : {}),
+          };
+        }
+      }
+      if (Object.keys(mcpServers).length === 0) {
+        return [];
+      }
+      const filePath = path.join(tempRoot, "antigravity-mcp.json");
+      await fs.writeFile(filePath, JSON.stringify({ mcpServers }, null, 2));
+      return [{ source: filePath, destination: ANTIGRAVITY_MCP_CONFIG_MOUNT, readonly: true }];
+    }
+
+    if (!dockerConn && applicableCustomServers.length === 0) {
       return [];
     }
     const filePath = path.join(tempRoot, "codex-config.toml");
     const lines: string[] = [];
-    if (conn) {
-      lines.push("[mcp_servers.code-ux]", `url = "${escapeTomlString(conn.url)}"`);
+    if (dockerConn) {
+      lines.push("[mcp_servers.code-ux]", `url = "${escapeTomlString(dockerConn.url)}"`);
       const codexHeaderParts: string[] = [];
-      if (conn.authToken) {
-        codexHeaderParts.push(`"Authorization" = "Bearer ${escapeTomlString(conn.authToken)}"`);
+      if (dockerConn.authToken) {
+        codexHeaderParts.push(`"Authorization" = "Bearer ${escapeTomlString(dockerConn.authToken)}"`);
       }
-      if (conn.agentId) {
-        codexHeaderParts.push(`"X-Code-Ux-Agent" = "${escapeTomlString(conn.agentId)}"`);
+      if (dockerConn.agentId) {
+        codexHeaderParts.push(`"X-Code-Ux-Agent" = "${escapeTomlString(dockerConn.agentId)}"`);
       }
       if (codexHeaderParts.length > 0) {
         lines.push(`http_headers = { ${codexHeaderParts.join(", ")} }`);
@@ -623,6 +563,54 @@ export class DockerRunner implements IDockerRunner {
     }
     await fs.writeFile(filePath, lines.join("\n") + "\n");
     return [{ source: filePath, destination: CODEX_MCP_CONFIG_MOUNT, readonly: true }];
+  }
+
+  private shouldRewriteDockerLoopbackUrls(workflowSettings: CliWorkflowSettings): boolean {
+    if (workflowSettings.executionMode !== "DOCKER") {
+      return false;
+    }
+    const override = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
+    if (override === "0" || override === "false") {
+      return false;
+    }
+    if (override === "1" || override === "true") {
+      return true;
+    }
+    return process.platform === "darwin"
+      || process.platform === "win32"
+      || os.release().toLowerCase().includes("microsoft");
+  }
+
+  private rewriteLoopbackUrlForDocker(rawUrl: string, enabled: boolean): string {
+    if (!enabled) {
+      return rawUrl;
+    }
+    try {
+      const url = new URL(rawUrl);
+      if (
+        url.hostname === "127.0.0.1"
+        || url.hostname === "localhost"
+        || url.hostname === "::1"
+        || url.hostname === "0.0.0.0"
+        || url.hostname === "::"
+      ) {
+        url.hostname = "host.docker.internal";
+        return url.toString();
+      }
+    } catch {
+      return rawUrl;
+    }
+    return rawUrl;
+  }
+
+  private rewriteCustomMcpServerForDocker(server: CustomMcpServer, enabled: boolean): CustomMcpServer {
+    if (server.transport === "stdio" || !server.url) {
+      return server;
+    }
+    return {
+      ...server,
+      url: this.rewriteLoopbackUrlForDocker(server.url, enabled),
+    };
   }
 
   private resolveWorkspace(cwd: string): { volumeName: string } {

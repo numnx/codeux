@@ -1,4 +1,5 @@
 import { evaluateMergeReadiness } from "./feature-pr/merge-readiness-policy.js";
+import { deriveChecksFromCiRuns } from "../../../sprint/ci-status-utils.js";
 import type { GuardrailService } from "../../../services/guardrail-service.js";
 import { runCommandStrict } from "../../../services/cli-process-runner.js";
 import { matchMergedPrForTask, matchPrForTask } from "./feature-pr/pr-matcher.js";
@@ -119,20 +120,9 @@ export class FeaturePrGateService {
       task.intervention_owner = transition.intervention_owner;
       task.intervention_hint = transition.intervention_hint;
 
-      // Handle task completion without a PR in REMOTE mode:
-      // if it completed, has no PR, is in REMOTE mode, and not already merged,
-      // mark it as merged so it settles immediately.
-      const info = taskCiInfoMap.get(task.id)!;
-      if (
-        task.status === "COMPLETED" &&
-        context.githubMode === "REMOTE" &&
-        info.isExecutionCompleted &&
-        !info.hasPr &&
-        !task.is_merged
-      ) {
-        task.is_merged = true;
-        task.merge_indicator = "MERGED";
-      }
+      // A task that resolved to COMPLETED with no merge evidence (e.g. produced
+      // no changes) settles honestly here via the stage resolver — we no longer
+      // fabricate an is_merged/MERGED state for it, since nothing was merged.
 
       if (task.record_id && (task.status !== previousStatus || task.merge_indicator !== previousMergeIndicator)) {
         tasksToPersist.push(task);
@@ -348,10 +338,16 @@ export class FeaturePrGateService {
             return { reportText, events, attentionItem };
           }
 
-          task.status = "COMPLETED";
-          task.is_merged = true;
-          task.merge_indicator = "MERGED";
+          // Coding is done but there is a worker branch with no PR to merge.
+          // Do not fabricate a merge — leave the task awaiting a (manual) merge
+          // so it is surfaced honestly rather than marked COMPLETED/MERGED.
+          task.status = "CODING_COMPLETED";
+          task.merge_indicator = undefined;
           await this.persistMergedTask(task, context);
+          events.push({ state: "awaiting_merge_no_pr", payload: {
+            featureBranch: context.featureBranch,
+          } });
+          reportText += buildNoPrFoundText(task.id, context.featureBranch);
           return { reportText, events, attentionItem };
         }
 
@@ -364,7 +360,13 @@ export class FeaturePrGateService {
         return { reportText, events, attentionItem };
       }
 
-      const checks = Array.isArray(pr.checks) ? pr.checks : [];
+      // When the PR itself carries no status-check rollup (GitLab, GitHub REST fallback),
+      // fall back to the branch's workflow runs so CI completion is still observed instead of
+      // waiting forever on an empty check list.
+      let checks = Array.isArray(pr.checks) && pr.checks.length > 0 ? pr.checks : [];
+      if (checks.length === 0 && context.gitStatus) {
+        checks = deriveChecksFromCiRuns(context.gitStatus, pr.headRefName || workerBranch);
+      }
       const autoMergeMode = context.ciIntelligence.featurePrAutoMergeMode;
       const waitForFeatureCi = autoMergeMode === "WHEN_GREEN";
       const resolveAllCommentsBeforeFeatureMerge = context.ciIntelligence.resolveAllCommentsBeforeFeatureMerge;
@@ -384,6 +386,20 @@ export class FeaturePrGateService {
           targetBranch: context.featureBranch,
         } });
         return { reportText, events, attentionItem };
+      }
+
+      // The PR is no longer reporting a merge conflict. Clear any stale MERGE_CONFLICT
+      // indicator so the task can settle normally — otherwise the indicator stays sticky
+      // (see normalizeTaskMergeIndicator) and the conflict-resolution loop never ends even
+      // though the conflict is already resolved.
+      if (task.merge_indicator === "MERGE_CONFLICT" && pr.mergeStateStatus && pr.mergeStateStatus !== "UNKNOWN") {
+        task.merge_indicator = undefined;
+        await this.persistMergedTask(task, context);
+        events.push({ state: "merge_conflict_cleared", payload: {
+          prNumber: pr.number,
+          prUrl: pr.url,
+          mergeStateStatus: pr.mergeStateStatus,
+        } });
       }
 
       const ciSupport = waitForFeatureCi && checks.length === 0
@@ -482,11 +498,9 @@ export class FeaturePrGateService {
           return { reportText, events, attentionItem };
         }
 
-        task.merge_indicator = task.is_merged
-          ? "MERGED"
-          : task.merge_indicator === "MERGE_CONFLICT"
-            ? "MERGE_CONFLICT"
-            : undefined;
+        // The PR reached merge-ready, so any earlier conflict is resolved — never keep a
+        // stale MERGE_CONFLICT indicator here.
+        task.merge_indicator = task.is_merged ? "MERGED" : undefined;
         events.push({ state: "ready_for_merge", payload: {
           prNumber: pr.number,
           prUrl: pr.url,
