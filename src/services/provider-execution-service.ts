@@ -303,7 +303,7 @@ export class ProviderExecutionService {
             const durationMs = Date.now() - startedMs;
             this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
               status: "running",
-              model: args.model,
+              model: telemetry.resolvedModel ?? args.model,
               nativeSessionId: telemetry.nativeSessionId || undefined,
               durationMs,
               transcriptChars: telemetry.transcriptText.length,
@@ -384,7 +384,7 @@ export class ProviderExecutionService {
         const durationMs = Date.now() - startedMs;
         this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
           status: result.ok ? "completed" : "failed",
-          model: args.model,
+          model: result.resolvedModel,
           nativeSessionId: result.nativeSessionId,
           finishedAt,
           durationMs,
@@ -401,7 +401,7 @@ export class ProviderExecutionService {
         if (args.taskRunId) {
             this.deps.executionRepository.appendTaskRunEvent(args.taskRunId, "cli_provider_usage_reported", "system", {
             provider: args.provider,
-            model: args.model,
+            model: result.resolvedModel,
             purpose: args.purpose,
             inputTokens: result.usageTelemetry.inputTokens,
             cachedInputTokens: result.usageTelemetry.cachedInputTokens,

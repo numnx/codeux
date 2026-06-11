@@ -50,6 +50,7 @@ export interface ProviderUsageTelemetry {
   rawUsageJson: Record<string, unknown> | null;
   transcriptText: string;
   nativeSessionId: string | null;
+  resolvedModel?: string;
   /** Ordered conversation parsed from the provider's JSON logs (codex / qwen /
    *  opencode). Empty when the provider does not support structured parsing or
    *  the logs were unavailable (estimated usage). */
@@ -340,6 +341,11 @@ export async function collectProviderUsageTelemetry(args: {
 }): Promise<ProviderUsageTelemetry> {
   const fallbackOutput = [args.capturedText || "", args.stdout || "", args.stderr || ""].filter(Boolean).join("\n").trim();
 
+  const withResolved = (tel: ProviderUsageTelemetry): ProviderUsageTelemetry => {
+    tel.resolvedModel = args.model;
+    return tel;
+  };
+
   if (args.provider === "gemini") {
     const parsed = parseJsonObject(args.stdout);
     const stats = parsed?.stats && typeof parsed.stats === "object" ? parsed.stats as Record<string, unknown> : null;
@@ -347,11 +353,11 @@ export async function collectProviderUsageTelemetry(args: {
     if (usage) {
       usage.transcriptText = typeof parsed?.response === "string" ? parsed.response : fallbackOutput;
       usage.nativeSessionId = typeof parsed?.session_id === "string" ? parsed.session_id : null;
-      return usage;
+      return withResolved(usage);
     }
     const estimated = estimateTelemetry("gemini", args.model, args.prompt, typeof parsed?.response === "string" ? parsed.response : fallbackOutput);
     estimated.nativeSessionId = typeof parsed?.session_id === "string" ? parsed.session_id : null;
-    return estimated;
+    return withResolved(estimated);
   }
 
   if (args.provider === "codex") {
@@ -366,7 +372,7 @@ export async function collectProviderUsageTelemetry(args: {
     const rawUsageJson = rollout?.usage ? rollout.rawUsageJson : stdoutUsage.rawUsageJson;
     const conversation = withLeadingUserTurn(rollout?.conversation ?? [], args.prompt);
     if (usage) {
-      return {
+      return withResolved({
         ...emptyTelemetry(),
         inputTokens: usage.inputTokens,
         cachedInputTokens: usage.cachedInputTokens,
@@ -378,12 +384,12 @@ export async function collectProviderUsageTelemetry(args: {
         transcriptText,
         nativeSessionId: rollout?.nativeSessionId ?? stdoutUsage.nativeSessionId ?? args.nativeSessionId ?? null,
         conversation,
-      };
+      });
     }
     const estimated = estimateTelemetry("codex", args.model, args.prompt, transcriptText);
     estimated.nativeSessionId = rollout?.nativeSessionId ?? stdoutUsage.nativeSessionId ?? args.nativeSessionId ?? null;
     estimated.conversation = conversation;
-    return estimated;
+    return withResolved(estimated);
   }
 
   if (args.provider === "opencode") {
@@ -392,7 +398,7 @@ export async function collectProviderUsageTelemetry(args: {
       const transcriptText = parsed.transcriptText || fallbackOutput;
       const conversation = withLeadingUserTurn(parsed.conversation, args.prompt);
       if (parsed.inputTokens > 0 || parsed.outputTokens > 0) {
-        return {
+        return withResolved({
           ...emptyTelemetry(),
           inputTokens: parsed.inputTokens,
           outputTokens: parsed.outputTokens,
@@ -402,14 +408,14 @@ export async function collectProviderUsageTelemetry(args: {
           transcriptText,
           nativeSessionId: parsed.nativeSessionId,
           conversation,
-        };
+        });
       }
       const estimated = estimateTelemetry("opencode", args.model, args.prompt, transcriptText);
       estimated.nativeSessionId = parsed.nativeSessionId;
       estimated.conversation = conversation;
-      return estimated;
+      return withResolved(estimated);
     }
-    return estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput);
+    return withResolved(estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput));
   }
 
   if (args.provider === "antigravity") {
@@ -439,7 +445,7 @@ export async function collectProviderUsageTelemetry(args: {
     const fullConversation = withLeadingUserTurn(conversation, args.prompt);
 
     if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
-      return {
+      return withResolved({
         ...emptyTelemetry(),
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
@@ -450,13 +456,13 @@ export async function collectProviderUsageTelemetry(args: {
         transcriptText,
         nativeSessionId: args.nativeSessionId || null,
         conversation: fullConversation,
-      };
+      });
     }
 
     const estimated = estimateTelemetry("antigravity", args.model, args.prompt, transcriptText);
     estimated.nativeSessionId = args.nativeSessionId || null;
     estimated.conversation = fullConversation;
-    return estimated;
+    return withResolved(estimated);
   }
 
   if (args.provider === "qwen-code") {
@@ -466,7 +472,7 @@ export async function collectProviderUsageTelemetry(args: {
     const conversation = withLeadingUserTurn(args.qwenConversation ?? [], args.prompt);
     const exactUsage = args.qwenReportedUsage;
     if (exactUsage && (exactUsage.inputTokens > 0 || exactUsage.outputTokens > 0)) {
-      return {
+      return withResolved({
         ...emptyTelemetry(),
         inputTokens: exactUsage.inputTokens,
         cachedInputTokens: exactUsage.cachedInputTokens,
@@ -477,13 +483,13 @@ export async function collectProviderUsageTelemetry(args: {
         transcriptText: fallbackOutput,
         nativeSessionId: args.nativeSessionId || null,
         conversation,
-      };
+      });
     }
 
     const telemetry = estimateTelemetry("qwen-code", args.model, args.prompt, fallbackOutput);
     telemetry.nativeSessionId = args.nativeSessionId || null;
     telemetry.conversation = conversation;
-    return telemetry;
+    return withResolved(telemetry);
   }
 
   if (args.nativeSessionId) {
@@ -497,20 +503,20 @@ export async function collectProviderUsageTelemetry(args: {
       if (usage) {
         const conversation = withLeadingUserTurn(usage.conversation, args.prompt);
         if (usage.totalTokens > 0) {
-          return { ...usage, conversation };
+          return withResolved({ ...usage, conversation });
         }
-        return estimateTelemetry("claude-code", args.model, args.prompt, usage.transcriptText || fallbackOutput);
+        return withResolved(estimateTelemetry("claude-code", args.model, args.prompt, usage.transcriptText || fallbackOutput));
       }
     }
     const usage = await parseClaudeSessionTelemetry(args.cwd, args.nativeSessionId, args.startTimeMs);
     if (usage) {
       const conversation = withLeadingUserTurn(usage.conversation, args.prompt);
       if (usage.totalTokens > 0) {
-        return { ...usage, conversation };
+        return withResolved({ ...usage, conversation });
       }
-      return estimateTelemetry("claude-code", args.model, args.prompt, usage.transcriptText || fallbackOutput);
+      return withResolved(estimateTelemetry("claude-code", args.model, args.prompt, usage.transcriptText || fallbackOutput));
     }
   }
 
-  return estimateTelemetry("claude-code", args.model, args.prompt, fallbackOutput);
+  return withResolved(estimateTelemetry("claude-code", args.model, args.prompt, fallbackOutput));
 }
