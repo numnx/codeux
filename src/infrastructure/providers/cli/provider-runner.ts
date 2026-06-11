@@ -1097,12 +1097,6 @@ export class ProviderRunner implements IProviderRunner {
     } else if (provider === "codex") {
       if (model && model !== "default") env.CODEX_MODEL = model;
       if (apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
-      if (providerConfig?.customBaseUrl && !this.buildCodexCustomProviderArgs("codex", providerConfig, workflowSettings).length) {
-        env.OPENAI_BASE_URL = this.rewriteLoopbackUrlForDocker(
-          providerConfig.customBaseUrl,
-          this.shouldRewriteDockerLoopbackUrls(workflowSettings),
-        );
-      }
     } else if (provider === "qwen-code") {
       const qwenEnvKeys = new Set<string>();
       const primaryEnvKey = providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
