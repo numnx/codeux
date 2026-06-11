@@ -944,9 +944,8 @@ export class ProviderRunner implements IProviderRunner {
     if (provider === "codex" && codexOutputPath) {
       // `codex exec resume --last` continues the most recent session in the cwd
       const args = continueSession
-        ? ["exec", "resume", "--last", "--yolo", "--json", "--output-last-message", codexOutputPath]
-        : ["exec", "--yolo", "--json", "--output-last-message", codexOutputPath];
-      args.push(...codexProviderArgs);
+        ? ["exec", ...codexProviderArgs, "resume", "--last", "--yolo", "--json", "--output-last-message", codexOutputPath]
+        : ["exec", ...codexProviderArgs, "--yolo", "--json", "--output-last-message", codexOutputPath];
       if (model && model !== "default") {
         args.push("--model", model);
       }
