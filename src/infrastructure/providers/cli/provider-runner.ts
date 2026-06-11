@@ -901,7 +901,7 @@ export class ProviderRunner implements IProviderRunner {
    *  empty array for non-codex providers or when no custom base URL is configured. */
   private buildCodexCustomProviderArgs(
     provider: CliProviderId,
-    config: Pick<ProviderRunInput, "customBaseUrl">,
+    config: Pick<ProviderRunInput, "customBaseUrl" | "customModel">,
     workflowSettings: CliWorkflowSettings,
   ): string[] {
     if (provider !== "codex" || !config.customBaseUrl || config.customBaseUrl.trim().length === 0) {
@@ -912,13 +912,17 @@ export class ProviderRunner implements IProviderRunner {
       config.customBaseUrl.trim(),
       this.shouldRewriteDockerLoopbackUrls(workflowSettings),
     );
-    return [
+    const args = [
       "-c", `model_provider="${providerId}"`,
       "-c", `model_providers.${providerId}.name="${providerId}"`,
       "-c", `model_providers.${providerId}.base_url="${escapeTomlString(baseUrl)}"`,
       "-c", `model_providers.${providerId}.env_key="OPENAI_API_KEY"`,
       "-c", `model_providers.${providerId}.requires_openai_auth=false`,
     ];
+    if (config.customModel && config.customModel.trim().length > 0) {
+      args.push("-c", `model_providers.${providerId}.model="${escapeTomlString(config.customModel.trim())}"`);
+    }
+    return args;
   }
 
   private buildCommandSpec(
@@ -1093,7 +1097,7 @@ export class ProviderRunner implements IProviderRunner {
     } else if (provider === "codex") {
       if (model && model !== "default") env.CODEX_MODEL = model;
       if (apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
-      if (providerConfig?.customBaseUrl) {
+      if (providerConfig?.customBaseUrl && !this.buildCodexCustomProviderArgs("codex", providerConfig, workflowSettings).length) {
         env.OPENAI_BASE_URL = this.rewriteLoopbackUrlForDocker(
           providerConfig.customBaseUrl,
           this.shouldRewriteDockerLoopbackUrls(workflowSettings),
