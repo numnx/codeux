@@ -306,7 +306,7 @@ export const ProviderInstanceCard: FunctionComponent<{
             label="Custom model"
             description={
               provider.provider === "claude-code"
-                ? "Model slug sent to the gateway (e.g. anthropic/claude-sonnet-4.5). Applied to every Claude Code tier so background calls hit the same model. Leave empty to use the agent's selected model."
+                ? "Model slug sent to the gateway (e.g. anthropic/claude-fable-5). Applied to every Claude Code tier so background calls hit the same model. Leave empty to use the agent's selected model."
                 : "Model slug sent to the gateway (e.g. openai/gpt-5-codex). Overrides the agent's selected model. Leave empty to use the agent's selected model."
             }
             last={isLast}
