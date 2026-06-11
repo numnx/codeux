@@ -300,6 +300,23 @@ export class WorkspaceManager implements IWorkspaceManager {
           await fs.rm(workspaceRef, { recursive: true, force: true }).catch(() => undefined);
           await runCommandStrict("git", ["worktree", "add", "--force", "-B", workerBranch, workspaceRef, startRef], repoPath);
         }
+
+        // Prevent provider log files from being tracked in the new worktree.
+        try {
+          const gitDirResult = await runCommandStrict("git", ["rev-parse", "--git-dir"], workspaceRef);
+          const gitDir = gitDirResult.stdout.trim();
+          const excludeDir = path.join(gitDir, "info");
+          await fs.mkdir(excludeDir, { recursive: true });
+          const excludePath = path.join(excludeDir, "exclude");
+          const patterns = [
+            "logs/openai/",
+            "codex-last-message.txt",
+            "qwen-openai-logs/",
+          ].join("\n") + "\n";
+          await fs.writeFile(excludePath, patterns);
+        } catch (error) {
+          console.warn(`Failed to configure git exclusion patterns for worktree ${workspaceRef}: ${error}`);
+        }
       }
     });
 
