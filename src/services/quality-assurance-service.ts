@@ -1323,6 +1323,7 @@ export class QualityAssuranceService {
       cwd: worktreePath,
       model: followUpProviderSettings.model,
       apiKey: followUpProviderSettings.apiKey,
+      maxConcurrentTasks: followUpProviderSettings.maxConcurrentTasks,
       qwenAuthMode: followUpProviderSettings.qwenAuthMode,
       qwenRegion: followUpProviderSettings.qwenRegion,
       qwenBaseUrl: followUpProviderSettings.qwenBaseUrl,

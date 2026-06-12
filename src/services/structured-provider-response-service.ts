@@ -65,6 +65,7 @@ export class StructuredProviderResponseService {
 
       const result = await this.deps.providerExecutionService.executeProvider({
         ...args,
+        maxConcurrentTasks: args.maxConcurrentTasks,
         prompt: currentPrompt,
         continueSessionId,
         expectTextOutput: true,

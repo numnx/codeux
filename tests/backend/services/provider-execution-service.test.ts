@@ -47,6 +47,7 @@ describe("ProviderExecutionService", () => {
       createExecutionInvocation: vi.fn().mockReturnValue({ id: "exec-inv-1" }),
       appendExecutionInvocationMessage: vi.fn(),
       createProviderInvocationUsage: vi.fn().mockReturnValue({ id: "prov-inv-1" }),
+      tryCreateProviderInvocationUsage: vi.fn(),
       updateProviderInvocationUsage: vi.fn(),
       updateExecutionInvocation: vi.fn(),
       appendTaskRunEvent: vi.fn(),

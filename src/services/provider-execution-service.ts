@@ -219,11 +219,11 @@ export class ProviderExecutionService {
           usageInput,
           args.signal
         );
-      } else {
+      } else if (this.deps.executionRepository) {
         // Fallback for cases where ProviderConcurrencyService is not provided, 
-        // e.g. in some specialized service tests, though in production it should be present
-        // when an execution repository is present.
-        invocation = this.deps.executionRepository?.createProviderInvocationUsage(usageInput);
+        // but we still want atomic creation if the repository is present.
+        invocation = this.deps.executionRepository.tryCreateProviderInvocationUsage(usageInput, limit)
+          ?? this.deps.executionRepository.createProviderInvocationUsage(usageInput);
       }
 
       if (invocation && execInvocationId) {

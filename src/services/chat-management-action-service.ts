@@ -257,6 +257,10 @@ export class ChatManagementActionService {
     });
 
     try {
+      const providerSettings = resolveProviderForInvocation(args.settings, {
+        invocation: "dashboard_reply",
+      }).providers[args.provider];
+
       const result = await this.deps.providerExecutionService.executeProvider({
         projectId: args.projectId,
         purpose: "dashboard_reply",
@@ -265,6 +269,7 @@ export class ChatManagementActionService {
         prompt: args.prompt,
         model: args.model,
         apiKey: args.apiKey,
+        maxConcurrentTasks: providerSettings?.maxConcurrentTasks,
         qwenAuthMode: args.qwenAuthMode,
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,

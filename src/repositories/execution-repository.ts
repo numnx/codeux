@@ -989,7 +989,7 @@ export class ExecutionRepository {
 
     return this.db.transaction(() => {
       // Use queryRunningProviderInvocationUsages logic but inside the transaction for atomicity.
-      // We count rows where status is 'running' for this specific provider.
+      // We count rows where status is 'running' for this specific provider across ALL projects.
       const runningRow = this.db.prepare(`
         SELECT COUNT(*) as count
         FROM provider_invocations

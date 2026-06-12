@@ -45,6 +45,7 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
     cwd: ctx.worktreePath,
     model: providerSettings.model,
     apiKey: providerSettings.apiKey,
+    maxConcurrentTasks: providerSettings.maxConcurrentTasks,
     qwenAuthMode: providerSettings.qwenAuthMode,
     qwenRegion: providerSettings.qwenRegion,
     qwenBaseUrl: providerSettings.qwenBaseUrl,

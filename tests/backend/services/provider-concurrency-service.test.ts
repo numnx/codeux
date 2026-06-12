@@ -123,6 +123,56 @@ describe("ProviderConcurrencyService", () => {
         vi.useRealTimers();
       }
     });
+
+    it("REGRESSION: should only create 'limit' running invocations under concurrent pressure", async () => {
+      vi.useFakeTimers();
+      try {
+        const limit = 2;
+        const provider = "gemini";
+        
+        // Mock tryCreate to succeed twice then fail
+        executionRepository.tryCreateProviderInvocationUsage
+          .mockReturnValueOnce({ id: "inv-1" })
+          .mockReturnValueOnce({ id: "inv-2" })
+          .mockReturnValue(null); // All subsequent calls fail until a slot is freed
+
+        executionRepository.listRunningProviderInvocationUsages.mockReturnValue([{}, {}]); // 2 running
+
+        // Start 5 concurrent claims
+        const p1 = service.waitForSlotAndClaim(provider, limit, { provider } as any);
+        const p2 = service.waitForSlotAndClaim(provider, limit, { provider } as any);
+        const p3 = service.waitForSlotAndClaim(provider, limit, { provider } as any);
+        const p4 = service.waitForSlotAndClaim(provider, limit, { provider } as any);
+        const p5 = service.waitForSlotAndClaim(provider, limit, { provider } as any);
+
+        // Immediate result check: only p1 and p2 should have resolved if tryCreate is atomic
+        // Wait a tiny bit for the promises to settle (microtasks)
+        await vi.advanceTimersByTimeAsync(0);
+        
+        // p1 and p2 should be finished
+        const res1 = await p1;
+        const res2 = await p2;
+        expect(res1.id).toBe("inv-1");
+        expect(res2.id).toBe("inv-2");
+
+        // p3, p4, p5 should still be waiting
+        // We can check if tryCreate was called for them
+        expect(executionRepository.tryCreateProviderInvocationUsage).toHaveBeenCalledTimes(5);
+
+        // Free a slot
+        executionRepository.tryCreateProviderInvocationUsage.mockReturnValueOnce({ id: "inv-3" });
+        await vi.advanceTimersByTimeAsync(2000);
+        
+        const res3 = await p3;
+        expect(res3.id).toBe("inv-3");
+        // p3, p4, p5 all retried when the timer advanced.
+        // Original 5 + 3 retries = 8.
+        expect(executionRepository.tryCreateProviderInvocationUsage).toHaveBeenCalledTimes(8);
+
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("getGlobalRunningCounts", () => {
