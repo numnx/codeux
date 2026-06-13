@@ -31,6 +31,7 @@ import {
   USAGE_AGGREGATION_FIELDS_SQL
 } from "./execution-usage-aggregate-query.js";
 import { ProjectStatsQueryDependencies, StatsEntityMetadata } from "./execution-stats-types.js";
+import { toNumber } from "./execution-utils.js";
 
 export function queryProjectStatsSnapshot(
   db: Database,
@@ -173,6 +174,7 @@ export function queryProjectStatsSnapshot(
         b.purposeTime.set(row.purpose, (b.purposeTime.get(row.purpose) || 0) + u.activeTimeMs);
         b.purposeInvocations.set(row.purpose, (b.purposeInvocations.get(row.purpose) || 0) + u.invocationCount);
       }
+      b.modelTokens.set(modelKey, (b.modelTokens.get(modelKey) || 0) + u.totalTokens);
     }
   }
 
@@ -187,13 +189,13 @@ export function queryProjectStatsSnapshot(
         id,
         label: meta?.label || id,
         secondaryLabel: meta?.secondaryLabel || null,
-        status: meta?.status || "unknown",
+        status: (meta?.status || "unknown") as any,
         purpose: (meta?.purpose as any) || null,
         provider: meta?.provider || null,
         lastActivityAt: activityMap.get(id) || null,
         usage: u,
       };
-    });
+    }).sort((a, b) => (b.usage?.totalTokens || 0) - (a.usage?.totalTokens || 0));
   };
 
   const tasks = mapEntityUsage(taskUsage, taskLastActivity, (id) => deps.getTaskMetadata(projectId, [id]).get(id));
@@ -216,61 +218,74 @@ export function queryProjectStatsSnapshot(
 
   // Active sprint info
   const activeSprintRow = db.prepare(`
-    SELECT id, name, number
-    FROM sprints
-    WHERE project_id = ? AND status = 'running'
+    SELECT sr.sprint_id, s.name AS sprint_name, s.number AS sprint_number
+    FROM sprint_runs sr
+    INNER JOIN sprints s ON s.id = sr.sprint_id
+    WHERE sr.project_id = ?
+      AND sr.status IN ('queued', 'running', 'paused', 'cancel_requested')
+    ORDER BY COALESCE(sr.last_heartbeat_at, sr.updated_at, sr.created_at) DESC
     LIMIT 1
-  `).get(projectId) as { id: string; name: string; number: number | null } | undefined;
+  `).get(projectId) as { sprint_id: string; sprint_name: string; sprint_number: number | string | null } | undefined;
 
   // Build chart series
   const chartSeries: ProjectExecutionStatsChartSeries[] = [
-    { id: "core_total_tokens", label: "Total Tokens", grouping: "totals", defaultEnabled: true, data: buckets.map(b => b.usage.totalTokens), formatter: "tokens" },
-    { id: "core_active_time", label: "Active Time", grouping: "totals", defaultEnabled: false, data: buckets.map(b => b.usage.activeTimeMs), formatter: "duration" },
-    { id: "core_invocations", label: "Invocations", grouping: "totals", defaultEnabled: false, data: buckets.map(b => b.usage.invocationCount), formatter: "number" },
+    { id: "core_total_tokens", label: "Total Tokens", grouping: "totals", defaultEnabled: true, data: buckets.map((b) => b.usage.totalTokens), color: '#00E0A0', signalLabel: 'Throughput', formatter: 'tokens' },
+    { id: "core_active_time", label: "Active Time (ms)", grouping: "totals", defaultEnabled: false, data: buckets.map((b) => b.usage.activeTimeMs), color: '#FFB800', signalLabel: 'Latency', formatter: 'duration' },
+    { id: "core_invocations", label: "Invocations", grouping: "totals", defaultEnabled: false, data: buckets.map((b) => b.usage.invocationCount), color: '#0EA5E9', signalLabel: 'Volume', formatter: 'number' },
+    { id: "core_input_tokens", label: "Input Tokens", grouping: "details", defaultEnabled: false, data: buckets.map((b) => b.usage.inputTokens), formatter: 'tokens' },
+    { id: "core_cached_tokens", label: "Cached Tokens", grouping: "details", defaultEnabled: false, data: buckets.map((b) => b.usage.cachedInputTokens), formatter: 'tokens' },
+    { id: "core_output_tokens", label: "Output Tokens", grouping: "details", defaultEnabled: false, data: buckets.map((b) => b.usage.outputTokens), formatter: 'tokens' },
+    { id: "core_reasoning_tokens", label: "Reasoning Tokens", grouping: "details", defaultEnabled: false, data: buckets.map((b) => b.usage.reasoningOutputTokens), formatter: 'tokens' },
+    { id: "reliability_reported", label: "Reported Usage", grouping: "reliability", defaultEnabled: false, data: buckets.map((b) => b.usage.reportedInvocationCount), formatter: 'number' },
+    { id: "reliability_estimated", label: "Estimated Usage", grouping: "reliability", defaultEnabled: false, data: buckets.map((b) => b.usage.estimatedInvocationCount), formatter: 'number' },
+    { id: "reliability_unsupported", label: "Unsupported Usage", grouping: "reliability", defaultEnabled: false, data: buckets.map((b) => b.usage.unsupportedInvocationCount), formatter: 'number' },
+    { id: "reliability_unavailable", label: "Unavailable Usage", grouping: "reliability", defaultEnabled: false, data: buckets.map((b) => b.usage.unavailableInvocationCount), formatter: 'number' },
+    { id: "git_insertions", label: "Insertions", grouping: "git", defaultEnabled: true, data: gitBuckets.map((b) => b.metrics.insertions), color: '#10B981', signalLabel: 'Added', formatter: 'number' },
+    { id: "git_deletions", label: "Deletions", grouping: "git", defaultEnabled: true, data: gitBuckets.map((b) => b.metrics.deletions), color: '#EF4444', signalLabel: 'Removed', formatter: 'number' },
+    { id: "git_files_changed", label: "Files Changed", grouping: "git", defaultEnabled: true, data: gitBuckets.map((b) => b.metrics.filesChanged), color: '#3B82F6', signalLabel: 'Modified', formatter: 'number' },
+    { id: "git_prs", label: "Pull Requests", grouping: "git", defaultEnabled: false, data: gitBuckets.map((b) => b.metrics.prCount), color: '#8B5CF6', signalLabel: 'Merged', formatter: 'number' },
+    { id: "git_merges", label: "Commits", grouping: "git", defaultEnabled: false, data: gitBuckets.map((b) => b.metrics.mergedCount), color: '#F59E0B', signalLabel: 'History', formatter: 'number' },
+    { id: "core_cache_hit", label: "Cache Hit Rate", grouping: "details", defaultEnabled: false, data: buckets.map((b) => {
+      const denominator = b.usage.inputTokens + b.usage.cachedInputTokens;
+      return denominator > 0 ? Math.round((b.usage.cachedInputTokens / denominator) * 1000) / 10 : 0;
+    }), formatter: 'percent' },
+    ...Array.from(providerUsage.keys()).map((providerId) => ({
+      id: `provider_${providerId}`, label: `${providerId} Tokens`, grouping: "providers", defaultEnabled: false,
+      data: buckets.map((b) => b.providerTokens.get(providerId) || 0), formatter: 'tokens' as const
+    })),
+    ...Array.from(modelUsage.keys()).map((modelKey) => {
+      const meta = modelMeta.get(modelKey);
+      return {
+        id: `model_${modelKey}`,
+        label: `${buildModelStatsLabel(meta?.provider, meta?.model)} Tokens`,
+        grouping: "models",
+        defaultEnabled: false,
+        data: buckets.map((b) => b.modelTokens.get(modelKey) || 0),
+        formatter: 'tokens' as const,
+      };
+    }),
+    ...Array.from(purposeUsage.keys()).map((purposeId) => ({
+      id: `purpose_time_${purposeId}`, label: `${purposeId.replace(/_/g, " ")} Time`, grouping: "purposes_time", defaultEnabled: false,
+      data: buckets.map((b) => b.purposeTime.get(purposeId) || 0), formatter: 'duration' as const
+    })),
+    ...Array.from(purposeUsage.keys()).map((purposeId) => ({
+      id: `purpose_invocations_${purposeId}`, label: `${purposeId.replace(/_/g, " ")} Calls`, grouping: "purposes_invocations", defaultEnabled: false,
+      data: buckets.map((b) => b.purposeInvocations.get(purposeId) || 0), formatter: 'number' as const
+    })),
   ];
-
-  const allProviders = Array.from(new Set(buckets.flatMap(b => Array.from(b.providerTokens.keys()))));
-  for (const provider of allProviders) {
-    chartSeries.push({
-      id: `provider_${provider}`,
-      label: provider,
-      grouping: "providers",
-      defaultEnabled: false,
-      data: buckets.map(b => b.providerTokens.get(provider) || 0),
-      formatter: "tokens"
-    });
-  }
-
-  const allPurposes = Array.from(new Set(buckets.flatMap(b => Array.from(b.purposeTime.keys()))));
-  for (const purpose of allPurposes) {
-    chartSeries.push({
-      id: `purpose_time_${purpose}`,
-      label: purpose,
-      grouping: "purposes_time",
-      defaultEnabled: false,
-      data: buckets.map(b => b.purposeTime.get(purpose) || 0),
-      formatter: "duration"
-    });
-    chartSeries.push({
-      id: `purpose_invocations_${purpose}`,
-      label: purpose,
-      grouping: "purposes_invocations",
-      defaultEnabled: false,
-      data: buckets.map(b => b.purposeInvocations.get(purpose) || 0),
-      formatter: "number"
-    });
-  }
 
   return {
     projectId: projectRow?.id || projectId,
-    projectName: projectRow?.name || "Unknown Project",
+    projectName: projectRow?.name || projectId,
     window: normalized.range.window,
     query: normalized.query,
     generatedAt: nowIso,
     range: normalized.range,
     usage,
     statusCounts,
-    tokenSources: Array.from(tokenSourceCounts.entries()).map(([source, count]) => ({ source: source as any, count })),
+    tokenSources: Array.from(tokenSourceCounts.entries())
+      .map(([source, count]) => ({ source: source as any, count }))
+      .sort((a, b) => b.count - a.count),
     git: {
       totals: gitTotals,
       buckets: gitBuckets,
@@ -288,9 +303,9 @@ export function queryProjectStatsSnapshot(
     providers: mapEntityUsage(providerUsage, providerLastActivity),
     purposes: mapEntityUsage(purposeUsage, purposeLastActivity),
     activeSprint: activeSprintRow ? {
-      sprintId: activeSprintRow.id,
-      sprintName: activeSprintRow.name,
-      sprintNumber: activeSprintRow.number,
+      sprintId: activeSprintRow.sprint_id,
+      sprintName: activeSprintRow.sprint_name,
+      sprintNumber: activeSprintRow.sprint_number !== null ? toNumber(activeSprintRow.sprint_number) : null,
     } : null,
     models: Array.from(modelUsage.entries()).map(([key, u]): ExecutionModelStatsSummary => {
       const meta = modelMeta.get(key)!;
@@ -306,7 +321,7 @@ export function queryProjectStatsSnapshot(
         duration: computeDurationStats((u as any).durationSamples || []),
         lastActivityAt: modelLastActivity.get(key) || null,
       };
-    }),
+    }).sort((a, b) => (b.usage?.totalTokens || 0) - (a.usage?.totalTokens || 0)),
     buckets: buckets.map((b): ExecutionUsageBucketSummary => ({
       bucketStart: b.bucketStart,
       bucketEnd: b.bucketEnd,

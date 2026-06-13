@@ -66,18 +66,18 @@ export function mapUsageRowToTotals(row: any): ExecutionUsageTotals {
   };
 
   const totals: ExecutionUsageTotalsWithSamples = {
-    invocationCount: toNumber(row.invocationCount),
-    activeTimeMs: toNumber(row.activeTimeMs),
+    invocationCount: toNumber(row.invocationCount ?? row.invocation_count),
+    activeTimeMs: toNumber(row.activeTimeMs ?? row.duration_ms),
     wallTimeMs: 0,
-    inputTokens: toNumber(row.inputTokens),
-    cachedInputTokens: toNumber(row.cachedInputTokens),
-    outputTokens: toNumber(row.outputTokens),
-    reasoningOutputTokens: toNumber(row.reasoningOutputTokens),
-    totalTokens: toNumber(row.totalTokens),
-    reportedInvocationCount: toNumber(row.reportedInvocationCount),
-    estimatedInvocationCount: toNumber(row.estimatedInvocationCount),
-    unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
-    unavailableInvocationCount: toNumber(row.unavailableInvocationCount),
+    inputTokens: toNumber(row.inputTokens ?? row.input_tokens),
+    cachedInputTokens: toNumber(row.cachedInputTokens ?? row.cached_input_tokens),
+    outputTokens: toNumber(row.outputTokens ?? row.output_tokens),
+    reasoningOutputTokens: toNumber(row.reasoningOutputTokens ?? row.reasoning_output_tokens),
+    totalTokens: toNumber(row.totalTokens ?? row.total_tokens),
+    reportedInvocationCount: toNumber(row.reportedInvocationCount ?? row.reported_invocation_count),
+    estimatedInvocationCount: toNumber(row.estimatedInvocationCount ?? row.estimated_invocation_count),
+    unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount ?? row.unsupported_invocation_count),
+    unavailableInvocationCount: toNumber(row.unavailableInvocationCount ?? row.unavailable_invocation_count),
     durationSamples: row.durationSamples ? String(row.durationSamples).split(",").map(v => Number(v)).filter(v => !isNaN(v)) : []
   };
 
