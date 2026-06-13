@@ -138,3 +138,12 @@ If a virtual cycle dies mid-attention:
 - claimed worker attention becomes reclaimable by the next virtual cycle
 
 This prevents dead virtual workers from pinning merge-conflict items indefinitely.
+
+### Claiming and Workspace Recovery for Containerized Executions
+
+When running inside isolated or containerized worker environments (e.g., Gemini CLI in a Docker container):
+
+- **Virtual Worker Claiming**: Virtual workers (using claim reason prefixes starting with `virtual_worker_`) or automated attention types (`ci_fix_required`, `merge_conflict`) can bypass the `assignedWorkerEndpointId` mismatch check. This ensures that when a virtual worker reconciles and attempts to claim/reclaim an attention item that was originally opened/assigned to a different containerized worker endpoint, the claim is successfully allowed instead of stalling.
+- **Path and Workspace Normalization**: Remote origins and git remote URLs under `/workspace` container directories are dynamically resolved to correctly identify the host repository name. This allows `buildTaskRunKey` to match and reuse the correct containerized workspace targets when runs are resumed.
+- **POSIX and Windows Path Matching**: CLI session queries in the tracking repository match using both Windows and POSIX-normalized host paths, falling back to `/workspace` when matching containerized sessions.
+
