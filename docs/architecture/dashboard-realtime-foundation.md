@@ -64,6 +64,7 @@ June 13, 2026 refinement:
 - semantic fingerprinting is now centralized in a shared helper (`src/services/dashboard-realtime-fingerprint.ts`), ensuring consistent duplicate suppression across all snapshot-based events: `project.live.updated`, `project.execution.updated`, `project.git.updated`, and `overview.telemetry.updated`
 - fingerprinting ignores volatile fields like `updatedAt` and `timestamp` while calculating the exact payload size from a stable serialization pass
 - publication is skipped if the semantic fingerprint remains unchanged, reducing websocket bandwidth and browser rendering churn for data-only refreshes
+- the project execution snapshot now returns a bounded projection of recent runtime events (default 300) to ensure payload stability under large sprint histories; events are returned in UI-friendly chronological order while being deterministically sourced from the newest database rows
 
 ### Dashboard websocket endpoint
 

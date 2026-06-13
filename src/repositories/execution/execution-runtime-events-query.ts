@@ -16,15 +16,17 @@ import type { ExecutionRuntimeEventSummaryRow } from "./execution-repository-typ
 // run can never evict a quieter parallel run's events) and the merged feed is capped at
 // `MAX_RUNTIME_EVENTS`. The per-run cap matches the final cap so a single active run keeps its full
 // recent history up to the payload bound rather than losing its oldest events.
-const MAX_RUNTIME_EVENTS = 300;
-const EXPANDED_EVENTS_PER_RUN_LIMIT = MAX_RUNTIME_EVENTS;
+export const DEFAULT_RECENT_EVENTS_LIMIT = 300;
+const EXPANDED_EVENTS_PER_RUN_LIMIT = DEFAULT_RECENT_EVENTS_LIMIT;
 
 export function queryExecutionRuntimeEvents(
   db: DatabaseAdapter,
   storage: AppDbStorage,
   projectId: string,
-  expandedSprintRunIds: string[]
+  expandedSprintRunIds: string[],
+  options: { limit?: number } = {}
 ): ExecutionRuntimeEventSummaryRow[] {
+  const limit = options.limit ?? DEFAULT_RECENT_EVENTS_LIMIT;
   const recentEvents = db.prepare(`
     SELECT *
     FROM (
@@ -101,7 +103,7 @@ export function queryExecutionRuntimeEvents(
       WHERE sr.project_id = ?
     )
     ORDER BY created_at DESC, id DESC
-    LIMIT 240
+    LIMIT ${limit}
   `).all(projectId, projectId) as unknown as ExecutionRuntimeEventSummaryRow[];
 
   const expandedSprintTaskEvents = expandedSprintRunIds.length > 0
@@ -163,7 +165,12 @@ export function queryExecutionRuntimeEvents(
   }
   return [...recentEventById.values()]
     .sort((left, right) => {
+      // Deterministic sort: newest first for slicing
       return right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id);
     })
-    .slice(0, MAX_RUNTIME_EVENTS);
+    .slice(0, limit)
+    .sort((left, right) => {
+      // Return in chronological order (oldest first) as expected by the v2 RuntimeEventFeed (which scrolls to bottom)
+      return left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
+    });
 }

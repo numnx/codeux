@@ -118,13 +118,16 @@ function buildHumanInterventionSummaryFromEvents(
     return null;
   }
 
-  const latestRelevantEvent = events.find((event) => (
-    event.event_type === "branch_preflight_blocked"
-    || event.event_type === "planning_preflight_blocked"
-    || event.event_type === "sprint_merge_required"
-    || event.event_type === "sprint_no_more_actions"
-    || event.event_type === "sprint_paused"
-  ));
+  const latestRelevantEvent = [...events]
+    .filter((event) => (
+      event.event_type === "branch_preflight_blocked"
+      || event.event_type === "planning_preflight_blocked"
+      || event.event_type === "sprint_merge_required"
+      || event.event_type === "sprint_no_more_actions"
+      || event.event_type === "sprint_paused"
+    ))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime() || b.id.localeCompare(a.id))[0];
+
   if (latestRelevantEvent) {
     const payload = parsePayloadJson(latestRelevantEvent.payload_json);
     switch (latestRelevantEvent.event_type) {

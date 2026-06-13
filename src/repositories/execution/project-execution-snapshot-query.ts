@@ -23,7 +23,8 @@ export function queryProjectExecutionSnapshot(
     getWallTimeTotalsBySprintRunIds: (projectId: string, sprintRunIds: string[], nowIso: string) => Map<string, number>,
     getUsageTotalsByTaskIds: (projectId: string, taskIds: string[]) => Map<string, ExecutionUsageTotals>,
     getUsageTotalsBySprintRunIds: (projectId: string, sprintRunIds: string[]) => Map<string, ExecutionUsageTotals>
-  }
+  },
+  options: { recentEventsLimit?: number } = {}
 ): ExecutionDashboardSnapshot {
   const projectRow = db.prepare(`
     SELECT id, name
@@ -33,7 +34,9 @@ export function queryProjectExecutionSnapshot(
 
   const { sprintRuns, expandedSprintRunIds } = queryExecutionSprintRuns(db, projectId);
   const taskDispatches = queryExecutionTaskDispatches(db, storage, projectId, expandedSprintRunIds);
-  const runtimeEvents = queryExecutionRuntimeEvents(db, storage, projectId, expandedSprintRunIds);
+  const runtimeEvents = queryExecutionRuntimeEvents(db, storage, projectId, expandedSprintRunIds, {
+    limit: options.recentEventsLimit
+  });
 
   const activeAttentionItems = listActiveAttentionRowsForProject(db, projectId);
   const humanInterventionBySprintRunId = buildHumanInterventionSummaryBySprintRun(

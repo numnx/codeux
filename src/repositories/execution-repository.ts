@@ -1156,14 +1156,14 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
-  getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {
+  getProjectExecutionSnapshot(projectId: string, options: { recentEventsLimit?: number } = {}): ExecutionDashboardSnapshot {
     requireProject(this.db, projectId);
     return queryProjectExecutionSnapshot(this.db, this.storage, projectId, {
       getUsageTotalsByTaskIds: (pId, tIds) => getUsageTotalsByTaskIds(this.storage, pId, tIds),
       getUsageTotalsBySprintRunIds: (pId, sIds) => getUsageTotalsBySprintRunIds(this.storage, pId, sIds),
       getWallTimeTotalsByTaskIds: (pId, tIds, now) => this.getWallTimeTotalsByTaskIds(pId, tIds, now),
       getWallTimeTotalsBySprintRunIds: (pId, sIds, now) => this.getWallTimeTotalsBySprintRunIds(pId, sIds, now),
-    });
+    }, options);
   }
 
   getProjectStatsSnapshot(
