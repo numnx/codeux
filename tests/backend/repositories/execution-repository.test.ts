@@ -2451,3 +2451,162 @@ describe("ExecutionRepository", () => {
       expect(nonExistent).toBeNull();
     });
   });
+
+  describe("Wall Time Caching", () => {
+    it("updates cached wall time after a task run finishes", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Wall Time Cache Project",
+        sourceType: "local",
+        sourceRef: "/workspace/wall-time-cache",
+      });
+
+      const sprint = projectRepository.createSprint(project.id, {
+        name: "S1",
+        number: 1,
+        goal: "Goal",
+        status: "active",
+      });
+
+      const sprintRun = executionRepository.createSprintRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        status: "running",
+        triggerType: "manual",
+        executorMode: "VIRTUAL",
+      });
+
+      const task = projectRepository.createTask(project.id, {
+        sprintId: sprint.id,
+        title: "Task 1",
+        status: "todo",
+      });
+
+      const dispatch = executionRepository.createTaskDispatch({
+        projectId: project.id,
+        sprintId: sprint.id,
+        sprintRunId: sprintRun.id,
+        taskId: task.id,
+        status: "queued",
+        executorType: "VIRTUAL",
+      });
+
+      // Create a finished task run
+      const now = new Date();
+      const startedAt = new Date(now.getTime() - 10000).toISOString(); // 10s ago
+      const finishedAt = new Date(now.getTime() - 5000).toISOString(); // 5s ago
+
+      executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task.id,
+        sprintRunId: sprintRun.id,
+        dispatchId: dispatch.id,
+        state: "COMPLETED",
+        startedAt,
+        finishedAt,
+        durationMs: 5000,
+      });
+
+      // Initial check - should be 5000ms
+      let snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+      let taskUsage = snapshot.taskDispatches.find(d => d.taskId === task.id)?.usage;
+      expect(taskUsage?.wallTimeMs).toBe(5000);
+
+      // Create another task run for the same task
+      const startedAt2 = new Date(now.getTime() - 2000).toISOString(); // 2s ago
+      const finishedAt2 = new Date(now.getTime() - 1000).toISOString(); // 1s ago
+
+      executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task.id,
+        sprintRunId: sprintRun.id,
+        dispatchId: dispatch.id,
+        state: "COMPLETED",
+        startedAt: startedAt2,
+        finishedAt: finishedAt2,
+        durationMs: 1000,
+      });
+
+      // Check if cache was invalidated and updated - should be 6000ms
+      snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+      taskUsage = snapshot.taskDispatches.find(d => d.taskId === task.id)?.usage;
+      expect(taskUsage?.wallTimeMs).toBe(6000);
+    });
+
+    it("active task runs add live elapsed time to cached finished totals", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Live Wall Time Project",
+        sourceType: "local",
+        sourceRef: "/workspace/live-wall-time",
+      });
+
+      const sprint = projectRepository.createSprint(project.id, {
+        name: "S1",
+        number: 1,
+        goal: "Goal",
+        status: "active",
+      });
+
+      const sprintRun = executionRepository.createSprintRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        status: "running",
+        triggerType: "manual",
+        executorMode: "VIRTUAL",
+      });
+
+      const task = projectRepository.createTask(project.id, {
+        sprintId: sprint.id,
+        title: "Task 1",
+        status: "todo",
+      });
+
+      const dispatch = executionRepository.createTaskDispatch({
+        projectId: project.id,
+        sprintId: sprint.id,
+        sprintRunId: sprintRun.id,
+        taskId: task.id,
+        status: "queued",
+        executorType: "VIRTUAL",
+      });
+
+      // 1. Create a finished task run (5s)
+      const now = new Date();
+      const startedAt = new Date(now.getTime() - 20000).toISOString();
+      const finishedAt = new Date(now.getTime() - 15000).toISOString();
+
+      executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task.id,
+        sprintRunId: sprintRun.id,
+        dispatchId: dispatch.id,
+        state: "COMPLETED",
+        startedAt,
+        finishedAt,
+        durationMs: 5000,
+      });
+
+      // 2. Create an active task run (started 10s ago, still running)
+      const activeStartedAt = new Date(now.getTime() - 10000).toISOString();
+      executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task.id,
+        sprintRunId: sprintRun.id,
+        dispatchId: dispatch.id,
+        state: "RUNNING",
+        startedAt: activeStartedAt,
+      });
+
+      // Wall time should be 5s (finished) + 10s (active) = 15s
+      let snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+      let taskUsage = snapshot.taskDispatches.find(d => d.taskId === task.id)?.usage;
+      
+      expect(taskUsage?.wallTimeMs).toBeGreaterThanOrEqual(15000);
+      expect(taskUsage?.wallTimeMs).toBeLessThan(17000); // Allow more buffer for CI
+    });
+  });
