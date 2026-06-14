@@ -70,6 +70,8 @@ A subtask is **ready to start** when:
 
 This *gating on merge* is intentional: it ensures dependents see the actual code their dependencies produced, not just a green status flag.
 
+Dependency blockers are derived each cycle from the current task graph. Code UX does not treat a status-only `BLOCKED` projection as durable execution history unless the task has real runtime evidence such as a worker session, provider, branch, or PR. This keeps downstream DAG tasks eligible to start as soon as their dependencies settle.
+
 ## State machine
 
 ```
