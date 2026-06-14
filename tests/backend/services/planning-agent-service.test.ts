@@ -104,7 +104,7 @@ describe("PlanningAgentService", () => {
               goal: "Sharper sprint prompt from the Planning agent.",
               tasks: [
                 {
-                  key: "TASK-1",
+                  key: "T01",
                   title: "Redesign sprint gallery",
                   description: "Refresh the top sprint cells and completed-state visuals.",
                   promptMarkdown: "## Objective\nUpdate the sprint gallery UI and completed-state styling.\n\n## Scope\n- UI components\n\n## Implementation Requirements\n1. Refresh cells\n\n## Constraints\n- Keep it fast\n\n## Verification\n- Visual check",
@@ -113,13 +113,13 @@ describe("PlanningAgentService", () => {
                   dependsOn: [],
                 },
                 {
-                  key: "TASK-2",
+                  key: "T02",
                   title: "Wire planning actions",
                   description: "Connect improve and planning flows to the isolated runtime.",
                   promptMarkdown: "## Objective\nHook the sprint modal into Planning agent endpoints and verify behavior.\n\n## Scope\n- Modal components\n\n## Implementation Requirements\n1. Connect actions\n\n## Constraints\n- Use isolated runtime\n\n## Verification\n- Integration test",
                   priority: "medium",
                   executorType: "docker_cli",
-                  dependsOn: ["TASK-1"],
+                  dependsOn: ["T01"],
                 },
               ],
             }),
@@ -129,7 +129,7 @@ describe("PlanningAgentService", () => {
             goal: "Sharper sprint prompt from the Planning agent.",
             tasks: [
               {
-                key: "TASK-1",
+                key: "T01",
                 title: "Redesign sprint gallery",
                 description: "Refresh the top sprint cells and completed-state visuals.",
                 promptMarkdown: "## Objective\nUpdate the sprint gallery UI and completed-state styling.\n\n## Scope\n- UI components\n\n## Implementation Requirements\n1. Refresh cells\n\n## Constraints\n- Keep it fast\n\n## Verification\n- Visual check",
@@ -138,13 +138,13 @@ describe("PlanningAgentService", () => {
                 dependsOn: [],
               },
               {
-                key: "TASK-2",
+                key: "T02",
                 title: "Wire planning actions",
                 description: "Connect improve and planning flows to the isolated runtime.",
                 promptMarkdown: "## Objective\nHook the sprint modal into Planning agent endpoints and verify behavior.\n\n## Scope\n- Modal components\n\n## Implementation Requirements\n1. Connect actions\n\n## Constraints\n- Use isolated runtime\n\n## Verification\n- Integration test",
                 priority: "medium",
                 executorType: "docker_cli",
-                dependsOn: ["TASK-1"],
+                dependsOn: ["T01"],
               },
             ],
           }),
@@ -264,7 +264,7 @@ describe("PlanningAgentService", () => {
               goal: "Virtual worker improved sprint prompt.",
               tasks: [
                 {
-                  key: "TASK-1",
+                  key: "T01",
                   title: "Plan via virtual worker",
                   description: "Ensure planning runs without a connected MCP listener.",
                   promptMarkdown: "## Objective\nUse the virtual worker runtime to produce sprint tasks.\n\n## Scope\n- Planning service\n\n## Implementation Requirements\n1. Run virtual\n\n## Constraints\n- No live MCP\n\n## Verification\n- Tasks created",
@@ -280,7 +280,7 @@ describe("PlanningAgentService", () => {
             goal: "Virtual worker improved sprint prompt.",
             tasks: [
               {
-                key: "TASK-1",
+                key: "T01",
                 title: "Plan via virtual worker",
                 description: "Ensure planning runs without a connected MCP listener.",
                 promptMarkdown: "## Objective\nUse the virtual worker runtime to produce sprint tasks.\n\n## Scope\n- Planning service\n\n## Implementation Requirements\n1. Run virtual\n\n## Constraints\n- No live MCP\n\n## Verification\n- Tasks created",
@@ -645,7 +645,7 @@ describe("PlanningAgentService", () => {
             '  "goal": "Loose improved prompt",',
             '  "tasks": [',
             "    {",
-            '      "key": "TASK-1",',
+            '      "key": "T01",',
             '      "title": "First task",',
             '      "description": "Setup work",',
             '      "promptMarkdown": "## Objective\\nPerform the setup work\\n\\n## Scope\\n- Setup\\n\\n## Implementation Requirements\\n1. Setup\\n\\n## Constraints\\n- None\\n\\n## Verification\\n- Done",',
@@ -654,11 +654,11 @@ describe("PlanningAgentService", () => {
             '      "dependsOn": []',
             "    },",
             "    {",
-            '      "key": "TASK-2",',
+            '      "key": "T02",',
             '      "title": "Second task",',
             '      "description": "Follow-up",',
             '      "promptMarkdown": "## Objective\\nFinish the follow-up work\\n\\n## Scope\\n- Follow-up\\n\\n## Implementation Requirements\\n1. Follow-up\\n\\n## Constraints\\n- None\\n\\n## Verification\\n- Done",',
-            '      "dependsOn": ["TASK-1"],',
+            '      "dependsOn": ["T01"],',
             '      "executorType": "MCP_WORKER"',
             "    }",
             "  ]",
