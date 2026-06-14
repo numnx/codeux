@@ -192,6 +192,60 @@ describe("ExecutionRepository", () => {
     expect(latestRuns.get(taskWithScopedRun.id)?.workerBranch).toBe("worker/T2-scoped");
   });
 
+  it("ignores synthetic blocked status sync runs when listing latest task runs", async () => {
+    const { executionRepository, projectRepository } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Synthetic Blocked Runtime Project",
+      sourceType: "local",
+      sourceRef: "/workspace/synthetic-blocked",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Synthetic Blocked Sprint",
+      number: 42,
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T01",
+      title: "Task with stale blocked projection",
+      promptMarkdown: "Do work",
+      status: "pending",
+      isIndependent: true,
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+    });
+
+    const realRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: sprintRun.id,
+      provider: "codex",
+      mode: "docker_cli",
+      state: "RUNNING",
+      sessionId: "real-session",
+    });
+    const syntheticBlockedRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      sprintRunId: null,
+      mode: "legacy-orchestrator",
+      state: "BLOCKED",
+    });
+    executionRepository.appendTaskRunEvent(syntheticBlockedRun.id, "status_sync", "system", {
+      signature: "blocked-without-runtime-evidence",
+    });
+
+    const latestRuns = executionRepository.listLatestTaskRuns([task.id], sprintRun.id);
+
+    expect(latestRuns.get(task.id)?.id).toBe(realRun.id);
+    expect(latestRuns.get(task.id)?.state).toBe("RUNNING");
+  });
+
   it("skips resource validation when skipValidation flag is true", async () => {
     const { executionRepository, projectRepository } = await createRepositories();
 

@@ -1264,12 +1264,36 @@ export class ExecutionRepository {
       return new Map();
     }
 
+    const syntheticBlockedStatusSyncPredicate = `
+        state = 'BLOCKED'
+        AND mode = 'legacy-orchestrator'
+        AND dispatch_id IS NULL
+        AND connection_id IS NULL
+        AND provider IS NULL
+        AND session_id IS NULL
+        AND session_name IS NULL
+        AND worker_branch IS NULL
+        AND pr_url IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM task_run_events status_sync_events
+          WHERE status_sync_events.task_run_id = task_runs.id
+            AND status_sync_events.event_type = 'status_sync'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM task_run_events non_status_sync_events
+          WHERE non_status_sync_events.task_run_id = task_runs.id
+            AND non_status_sync_events.event_type != 'status_sync'
+        )`;
+
     if (sprintRunId) {
       const rows = this.storage.executeChunkedInQuery<TaskRunRow>({
         sqlPrefix: `SELECT *
         FROM task_runs
         WHERE task_id`,
         sqlSuffix: `AND (sprint_run_id = ? OR sprint_run_id IS NULL)
+        AND NOT (${syntheticBlockedStatusSyncPredicate})
         ORDER BY task_id ASC,
           CASE WHEN sprint_run_id = ? THEN 0 ELSE 1 END ASC,
           rowid DESC`,
@@ -1294,7 +1318,8 @@ export class ExecutionRepository {
         SELECT task_id, MAX(rowid) AS latest_rowid
         FROM task_runs
         WHERE task_id`,
-      sqlSuffix: `${runClause}
+      sqlSuffix: `AND NOT (${syntheticBlockedStatusSyncPredicate})
+        ${runClause}
         GROUP BY task_id
       ) latest ON latest.latest_rowid = tr.rowid
       ORDER BY tr.rowid DESC`,
