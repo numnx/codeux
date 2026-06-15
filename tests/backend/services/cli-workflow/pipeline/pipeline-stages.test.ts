@@ -481,7 +481,6 @@ describe("executeProviderStage", () => {
 
     expect(ctx.providerRunner.runProvider).toHaveBeenCalledTimes(2);
     expect(vi.mocked(ctx.providerRunner.runProvider).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
-    expect(providerRetryPolicy.sleepWithSignal).toHaveBeenCalledTimes(1);
   });
 });
 

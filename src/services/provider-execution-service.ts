@@ -14,7 +14,8 @@ import type { Logger } from "../shared/logging/logger.js";
 import type { ProviderConcurrencyService } from "./provider-concurrency-service.js";
 import { isReadFileNotFoundToolError, buildReadFileRetryPrompt } from "./cli-workflow-text-utils.js";
 import { classifyProviderError, ProviderQuotaError } from "../shared/providers/provider-error-classifier.js";
-import { resolveProviderRetryDecision, sleepWithSignal } from "../shared/providers/provider-retry-policy.js";
+import { resolveProviderRetryDecision } from "../shared/providers/provider-retry-policy.js";
+import { retryAsync } from "../shared/async/async-retry.js";
 import { DEFAULT_PROVIDER_SETTINGS } from "../repositories/settings-defaults.js";
 import type { ProviderId } from "../contracts/app-types.js";
 import type { CreateProviderInvocationUsageInput } from "../contracts/execution-types.js";
@@ -416,7 +417,14 @@ export class ProviderExecutionService {
     let continueSessionId: string | null = args.continueSessionId || null;
     let rateLimitRetryCount = 0;
 
-    while (true) {
+    class ProviderRetryError extends Error {
+      constructor(public delayMs: number) {
+        super("Provider retry");
+        this.name = "ProviderRetryError";
+      }
+    }
+
+    return retryAsync(async () => {
       providerResult = await runProviderInner(
         currentPrompt,
         usedReadFileRetry ? "Retrying with file-discovery guidance." : undefined,
@@ -434,7 +442,7 @@ export class ProviderExecutionService {
         }
         currentPrompt = buildReadFileRetryPrompt(args.prompt);
         usedReadFileRetry = true;
-        continue;
+        throw new ProviderRetryError(0);
       }
 
       if (providerResult.ok) {
@@ -450,8 +458,6 @@ export class ProviderExecutionService {
           if (args.trackAssistantInInvocation !== false) {
             const conversation = providerResult.usageTelemetry.conversation;
             if (!args.expectTextOutput && conversation && conversation.length > 0) {
-              // Replace the placeholder message(s) with the full parsed agent
-              // session (user prompt, reasoning, tool calls/results, assistant).
               this.deps.executionRepository?.clearExecutionInvocationMessages(execInvocationId);
               for (const turn of conversation) {
                 this.deps.executionRepository?.appendExecutionInvocationMessage(
@@ -492,64 +498,56 @@ export class ProviderExecutionService {
       }
 
       const retryDecision = resolveProviderRetryDecision(classification, args.workflowSettings);
-      if (retryDecision) {
-        if (retryDecision.kind === "rate_limit" && rateLimitRetryCount >= args.workflowSettings.maxRateLimitRetries) {
-          // fall through to terminal classified error handling below
-        } else {
-          if (retryDecision.kind === "rate_limit") {
-            rateLimitRetryCount += 1;
-          }
-          const retryMessage = retryDecision.kind === "quota_reset"
-            ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
-            : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`;
+      if (retryDecision && (retryDecision.kind !== "rate_limit" || rateLimitRetryCount < (args.workflowSettings.maxRateLimitRetries ?? 0))) {
+        if (retryDecision.kind === "rate_limit") {
+          rateLimitRetryCount += 1;
+        }
+        const retryMessage = retryDecision.kind === "quota_reset"
+          ? `Waiting for provider quota reset. Retrying at ${retryDecision.retryAtIso}.`
+          : `Provider rate-limited. Retrying at ${retryDecision.retryAtIso}.`;
 
-          if (args.onActivity) {
-            args.onActivity(retryMessage, "system");
-          } else if (this.deps.sessionTracking) {
-            this.deps.sessionTracking.appendActivity(args.sessionId, {
-              originator: "system",
-              description: retryMessage,
-            });
-          }
+        if (args.onActivity) {
+          args.onActivity(retryMessage, "system");
+        } else if (this.deps.sessionTracking) {
+          this.deps.sessionTracking.appendActivity(args.sessionId, {
+            originator: "system",
+            description: retryMessage,
+          });
+        }
 
-          if (execInvocationId) {
-            this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
-              role: "system",
-              contentMarkdown: retryMessage,
-              metadata: {
-                provider: args.provider,
-                model: args.model,
-                errorCategory: classification.category,
-                retryAfterIso: retryDecision.retryAtIso,
-              },
-            });
-          }
-          // Surface the in-process wait as a task-run event so the live dashboard can show
-          // QUOTA + a countdown while we sleep here (the dispatch deliberately stays
-          // "running" during the wait, so this is the only signal the UI can key off).
-          if (args.taskRunId) {
-            this.deps.executionRepository?.appendTaskRunEvent(args.taskRunId, "cli_provider_quota_wait", "system", {
+        if (execInvocationId) {
+          this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+            role: "system",
+            contentMarkdown: retryMessage,
+            metadata: {
               provider: args.provider,
               model: args.model,
-              purpose: args.purpose,
-              kind: retryDecision.kind,
               errorCategory: classification.category,
               retryAfterIso: retryDecision.retryAtIso,
-            }, {
-              sourceEventKey: `cli:provider:quota-wait:${execInvocationId ?? args.sessionId}:${retryDecision.retryAtIso}`,
-            });
-          }
-          continueSessionId = providerResult.nativeSessionId || (args.provider === "claude-code" ? null : args.sessionId);
-          await sleepWithSignal(retryDecision.delayMs, args.signal);
-          continue;
+            },
+          });
         }
+        if (args.taskRunId) {
+          this.deps.executionRepository?.appendTaskRunEvent(args.taskRunId, "cli_provider_quota_wait", "system", {
+            provider: args.provider,
+            model: args.model,
+            purpose: args.purpose,
+            kind: retryDecision.kind,
+            errorCategory: classification.category,
+            retryAfterIso: retryDecision.retryAtIso,
+          }, {
+            sourceEventKey: `cli:provider:quota-wait:${execInvocationId ?? args.sessionId}:${retryDecision.retryAtIso}`,
+          });
+        }
+        continueSessionId = providerResult.nativeSessionId || (args.provider === "claude-code" ? null : args.sessionId);
+
+        throw new ProviderRetryError(retryDecision.delayMs);
       }
 
       if (classification.category !== "UNKNOWN") {
         throw new ProviderQuotaError(classification);
       }
 
-      // If no retry policy handles the failure, propagate it to the caller if not OK
       if (execInvocationId) {
         if (this.isExecutionInvocationStillRunning(execInvocationId)) {
           this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
@@ -558,9 +556,6 @@ export class ProviderExecutionService {
             model: args.model,
             finishedAt: new Date().toISOString(),
           });
-          // Include both streams so the real failure detail is never hidden: some
-          // providers (notably codex) print only a benign "Reading additional input
-          // from stdin..." to stderr while the actionable error events go to stdout.
           const rawOutput = [providerResult.stderr, providerResult.stdout]
             .map((stream) => (stream ?? "").trim())
             .filter((stream) => stream.length > 0)
@@ -572,7 +567,14 @@ export class ProviderExecutionService {
         }
       }
       return providerResult;
-    }
+    }, {
+      attempts: 999999,
+      signal: args.signal,
+      backoff: (_: number, error: unknown) => {
+        return error instanceof ProviderRetryError ? error.delayMs : 0;
+      },
+      isRetryable: (error: unknown) => error instanceof ProviderRetryError
+    });
   }
 
   private isProviderInvocationStillRunning(providerInvocationId: string): boolean {

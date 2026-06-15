@@ -1,3 +1,4 @@
+import { withTimeout } from "../shared/async/async-retry.js";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as pathPosix from "path/posix";
@@ -752,13 +753,10 @@ export class SprintPreviewService {
 
   private async fetchHealthStatus(hostPort: number): Promise<"healthy" | "unreachable"> {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
-      try {
-        await fetch(`http://127.0.0.1:${hostPort}/`, { signal: controller.signal });
-      } finally {
-        clearTimeout(timeout);
-      }
+      await withTimeout(
+        (signal: AbortSignal) => fetch(`http://127.0.0.1:${hostPort}/`, { signal }),
+        2500
+      );
       return "healthy";
     } catch {
       return "unreachable";
