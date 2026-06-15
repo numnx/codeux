@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { memo } from "preact/compat";
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Code2, GitBranch, Hourglass, Sparkles, Timer, Workflow, XCircle } from "lucide-preact";
@@ -429,7 +429,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
     }));
   }, [model.columns, maxDepth]);
 
-  const handleNodeClick = (node: SprintDagNodeModel & { x: number; y: number; }) => {
+  const handleNodeClick = useCallback((node: SprintDagNodeModel & { x: number; y: number; }) => {
     if (!scrollRef.current) return;
     const containerWidth = scrollRef.current.clientWidth;
     const containerHeight = scrollRef.current.clientHeight;
@@ -444,9 +444,9 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
       top: Math.max(0, targetY),
       behavior: 'smooth'
     });
-  };
+  }, []);
 
-  const handlePointerDown = (e: preact.JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback((e: preact.JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (!scrollRef.current) return;
     isDraggingRef.current = true;
     setIsDraggingState(true);
@@ -455,20 +455,20 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
       left: scrollRef.current.scrollLeft,
       top: scrollRef.current.scrollTop,
     };
-  };
+  }, []);
 
-  const handlePointerMove = (e: preact.JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = useCallback((e: preact.JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current || !scrollRef.current) return;
     const dx = e.pageX - startPosRef.current.x;
     const dy = e.pageY - startPosRef.current.y;
     scrollRef.current.scrollLeft = startScrollRef.current.left - dx;
     scrollRef.current.scrollTop = startScrollRef.current.top - dy;
-  };
+  }, []);
 
-  const handlePointerUpOrLeave = () => {
+  const handlePointerUpOrLeave = useCallback(() => {
     isDraggingRef.current = false;
     setIsDraggingState(false);
-  };
+  }, []);
 
   useLayoutEffect(() => {
     if (hasSprintContext && safeTasks.length > 0 && scrollRef.current) {
@@ -482,6 +482,130 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
       }
     }
   }, [hasSprintContext]);
+
+  const columnLabels = useMemo(() => {
+    return columnAnchors.map((column) => (
+      <div
+        key={`label-${column.depth}`}
+        className="pointer-events-none absolute -translate-x-1/2"
+        style={{ left: `${column.x}px`, top: "18px" }}
+      >
+        <div className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/60 dark:text-slate-300">
+          <span>{column.label}</span>
+          <span className="ml-2 font-mono text-slate-400">{column.count}</span>
+        </div>
+      </div>
+    ));
+  }, [columnAnchors]);
+
+  const dagNodes = useMemo(() => {
+    return positionedNodes.map((node) => {
+      const dispatch = dispatchByTaskId.get(node.task.record_id || "") || dispatchByTaskId.get(node.task.id);
+      return (
+        <DagNode key={node.task.id} node={node} dispatch={dispatch} onNodeClick={handleNodeClick} />
+      );
+    });
+  }, [positionedNodes, dispatchByTaskId, handleNodeClick]);
+
+  const edgePaths = useMemo(() => {
+    return model.edges.map((edge) => {
+      const source = positionedNodeById.get(edge.from);
+      const target = positionedNodeById.get(edge.to);
+      if (!source || !target) {
+        return null;
+      }
+
+      const sourceX = source.x + NODE_W;
+      const sourceY = source.y + NODE_H / 2;
+      const targetX = target.x;
+      const targetY = target.y + NODE_H / 2;
+      const curve = Math.max(70, (targetX - sourceX) * 0.42);
+      const path = `M ${sourceX} ${sourceY} C ${sourceX + curve} ${sourceY}, ${targetX - curve} ${targetY}, ${targetX} ${targetY}`;
+      const tone = getEdgeTone(edge);
+      const stroke = edge.state === "active"
+        ? "url(#dag-edge-active)"
+        : edge.state === "settled"
+          ? "url(#dag-edge-settled)"
+          : edge.state === "blocked"
+            ? "url(#dag-edge-blocked)"
+            : tone.stroke;
+
+      return (
+        <g key={edge.id}>
+          <path
+            className="dag-edge-transition"
+            d={path}
+            stroke="rgba(15,23,42,0.10)"
+            strokeWidth={tone.width + 8}
+            opacity={edge.state === "active" ? 0.18 : 0.10}
+            strokeLinecap="round"
+          />
+          {edge.state === "active" && (
+            <path
+              className="dag-edge-transition"
+              d={path}
+              stroke="url(#dag-edge-active-soft)"
+              strokeWidth={tone.width + 10}
+              opacity={0.55}
+              strokeLinecap="round"
+              filter="url(#dag-edge-bloom)"
+            />
+          )}
+          <path
+            id={`dag-path-${edge.id}`}
+            className="dag-edge-transition"
+            d={path}
+            stroke={stroke}
+            strokeWidth={Math.max(tone.width, 2)}
+            opacity={Math.max(tone.opacity, edge.state === "pending" ? 0.5 : tone.opacity)}
+            strokeLinecap="round"
+            strokeDasharray={edge.state === "pending" ? "7 9" : undefined}
+            filter={edge.state === "active" ? "url(#dag-glow)" : undefined}
+          >
+            {edge.state === "pending" && (
+              <animate attributeName="stroke-dashoffset" from="32" to="0" dur="2.8s" repeatCount="indefinite" />
+            )}
+          </path>
+          {edge.state === "active" && (
+            <path
+              d={path}
+              stroke="#CFFFF0"
+              strokeWidth={2.4}
+              opacity={0.95}
+              strokeLinecap="round"
+              strokeDasharray="18 32"
+              filter="url(#dag-glow)"
+            >
+              <animate attributeName="stroke-dashoffset" from="0" to="-100" dur="1.6s" repeatCount="indefinite" />
+            </path>
+          )}
+          {(edge.state === "active" || (edge.state === "blocked" && (source.isFocusMode || target.isFocusMode))) && (
+            <circle r={edge.state === "active" ? 4.5 : 3.2} fill={tone.stroke} opacity={0}>
+              <animate attributeName="opacity" values={edge.state === "blocked" ? "0; 0.7; 0.7; 0" : "0; 0.92; 0.92; 0"} keyTimes="0; 0.1; 0.9; 1" dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" />
+              <animateMotion dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" rotate="auto">
+                <mpath href={`#dag-path-${edge.id}`} />
+              </animateMotion>
+            </circle>
+          )}
+          {edge.state === "active" && (
+            <circle r={2.8} fill="#F4FFF8" opacity={0}>
+              <animate attributeName="opacity" values="0; 0.95; 0.95; 0" keyTimes="0; 0.1; 0.9; 1" dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" />
+              <animateMotion dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" rotate="auto">
+                <mpath href={`#dag-path-${edge.id}`} />
+              </animateMotion>
+            </circle>
+          )}
+          {edge.state !== "pending" && (
+            <circle cx={targetX} cy={targetY} r={edge.state === "active" ? 7 : 5} fill={tone.stroke} opacity={edge.state === "blocked" ? 0.18 : 0.12}>
+              {edge.state === "active" && (
+                <animate attributeName="r" values="6;10;6" dur="2.2s" repeatCount="indefinite" />
+              )}
+            </circle>
+          )}
+        </g>
+      );
+    });
+  }, [model.edges, positionedNodeById]);
 
   if (!hasSprintContext || safeTasks.length === 0) {
     return (
@@ -645,124 +769,12 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
                   </g>
                 ))}
 
-                {model.edges.map((edge) => {
-                  const source = positionedNodeById.get(edge.from);
-                  const target = positionedNodeById.get(edge.to);
-                  if (!source || !target) {
-                    return null;
-                  }
-
-                  const sourceX = source.x + NODE_W;
-                  const sourceY = source.y + NODE_H / 2;
-                  const targetX = target.x;
-                  const targetY = target.y + NODE_H / 2;
-                  const curve = Math.max(70, (targetX - sourceX) * 0.42);
-                  const path = `M ${sourceX} ${sourceY} C ${sourceX + curve} ${sourceY}, ${targetX - curve} ${targetY}, ${targetX} ${targetY}`;
-                  const tone = getEdgeTone(edge);
-                  const stroke = edge.state === "active"
-                    ? "url(#dag-edge-active)"
-                    : edge.state === "settled"
-                      ? "url(#dag-edge-settled)"
-                      : edge.state === "blocked"
-                        ? "url(#dag-edge-blocked)"
-                        : tone.stroke;
-
-                  return (
-                    <g key={edge.id}>
-                      <path
-                        className="dag-edge-transition"
-                        d={path}
-                        stroke="rgba(15,23,42,0.10)"
-                        strokeWidth={tone.width + 8}
-                        opacity={edge.state === "active" ? 0.18 : 0.10}
-                        strokeLinecap="round"
-                      />
-                      {edge.state === "active" && (
-                        <path
-                          className="dag-edge-transition"
-                          d={path}
-                          stroke="url(#dag-edge-active-soft)"
-                          strokeWidth={tone.width + 10}
-                          opacity={0.55}
-                          strokeLinecap="round"
-                          filter="url(#dag-edge-bloom)"
-                        />
-                      )}
-                      <path
-                        id={`dag-path-${edge.id}`}
-                        className="dag-edge-transition"
-                        d={path}
-                        stroke={stroke}
-                        strokeWidth={Math.max(tone.width, 2)}
-                        opacity={Math.max(tone.opacity, edge.state === "pending" ? 0.5 : tone.opacity)}
-                        strokeLinecap="round"
-                        strokeDasharray={edge.state === "pending" ? "7 9" : undefined}
-                        filter={edge.state === "active" ? "url(#dag-glow)" : undefined}
-                      >
-                        {edge.state === "pending" && (
-                          <animate attributeName="stroke-dashoffset" from="32" to="0" dur="2.8s" repeatCount="indefinite" />
-                        )}
-                      </path>
-                      {edge.state === "active" && (
-                        <path
-                          d={path}
-                          stroke="#CFFFF0"
-                          strokeWidth={2.4}
-                          opacity={0.95}
-                          strokeLinecap="round"
-                          strokeDasharray="18 32"
-                          filter="url(#dag-glow)"
-                        >
-                          <animate attributeName="stroke-dashoffset" from="0" to="-100" dur="1.6s" repeatCount="indefinite" />
-                        </path>
-                      )}
-                      {(edge.state === "active" || (edge.state === "blocked" && (source.isFocusMode || target.isFocusMode))) && (
-                        <circle r={edge.state === "active" ? 4.5 : 3.2} fill={tone.stroke} opacity={0}>
-                          <animate attributeName="opacity" values={edge.state === "blocked" ? "0; 0.7; 0.7; 0" : "0; 0.92; 0.92; 0"} keyTimes="0; 0.1; 0.9; 1" dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" />
-                          <animateMotion dur={edge.state === "active" ? "3s" : "4.8s"} repeatCount="indefinite" rotate="auto">
-                            <mpath href={`#dag-path-${edge.id}`} />
-                          </animateMotion>
-                        </circle>
-                      )}
-                      {edge.state === "active" && (
-                        <circle r={2.8} fill="#F4FFF8" opacity={0}>
-                          <animate attributeName="opacity" values="0; 0.95; 0.95; 0" keyTimes="0; 0.1; 0.9; 1" dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" />
-                          <animateMotion dur="2s" begin={`${(stableRand(edge.id) * 1.2).toFixed(2)}s`} repeatCount="indefinite" rotate="auto">
-                            <mpath href={`#dag-path-${edge.id}`} />
-                          </animateMotion>
-                        </circle>
-                      )}
-                      {edge.state !== "pending" && (
-                        <circle cx={targetX} cy={targetY} r={edge.state === "active" ? 7 : 5} fill={tone.stroke} opacity={edge.state === "blocked" ? 0.18 : 0.12}>
-                          {edge.state === "active" && (
-                            <animate attributeName="r" values="6;10;6" dur="2.2s" repeatCount="indefinite" />
-                          )}
-                        </circle>
-                      )}
-                    </g>
-                  );
-                })}
+                {edgePaths}
               </svg>
 
-              {columnAnchors.map((column) => (
-                <div
-                  key={`label-${column.depth}`}
-                  className="pointer-events-none absolute -translate-x-1/2"
-                  style={{ left: `${column.x}px`, top: "18px" }}
-                >
-                  <div className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/60 dark:text-slate-300">
-                    <span>{column.label}</span>
-                    <span className="ml-2 font-mono text-slate-400">{column.count}</span>
-                  </div>
-                </div>
-              ))}
+              {columnLabels}
 
-              {positionedNodes.map((node) => {
-                const dispatch = dispatchByTaskId.get(node.task.record_id || "") || dispatchByTaskId.get(node.task.id);
-                return (
-                  <DagNode key={node.task.id} node={node} dispatch={dispatch} onNodeClick={handleNodeClick} />
-                );
-              })}
+              {dagNodes}
             </div>
           </div>
         </div>
