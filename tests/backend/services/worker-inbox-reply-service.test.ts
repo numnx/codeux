@@ -792,7 +792,7 @@ describe("WorkerInboxReplyService", () => {
       } as any,
     });
 
-    expect(fetchSessionActivities).toHaveBeenCalledWith("sessions/7528990551411663509", 30);
+    expect(fetchSessionActivities).toHaveBeenCalledWith("sessions/7528990551411663509", 15);
     expect(appendMessage).toHaveBeenCalledWith("exec-inv-live", {
       role: "user",
       contentMarkdown: expect.stringContaining(

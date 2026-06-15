@@ -466,7 +466,7 @@ export class WorkerInboxReplyService {
     const isCliSession = !!sessionName && sessionName.replace(/^sessions\//, "").startsWith("cli-");
     if (sessionName && !isCliSession && this.deps.fetchSessionActivities) {
       try {
-        const liveActivities = await this.deps.fetchSessionActivities(sessionName, 30);
+        const liveActivities = await this.deps.fetchSessionActivities(sessionName, 15);
         if (Array.isArray(liveActivities) && liveActivities.length > 0) {
           return liveActivities;
         }
