@@ -9,6 +9,7 @@ import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-s
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { NavItem } from "./NavItem.js";
 import { useAnimatedActiveIndicator } from "../../lib/motion/index.js";
+import { RobotLogo } from "../brand/RobotLogo.js";
 
 const ALL_NAV_ITEMS = [
     { icon: MessageCircle, label: "Chat",     path: "/chat" },
@@ -59,7 +60,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
     const currentPath = (matches && matches.length > 0) ? (matches[matches.length - 1]?.pathname || "/") : "/";
     const activeIndex = navItems.findIndex(i => i.path === currentPath);
 
-    const indicator = useAnimatedActiveIndicator(navRef, activeIndex, 'a', 'vertical');
+    const indicator = useAnimatedActiveIndicator(navRef, activeIndex, '[data-nav-item]', 'vertical');
 
     useEffect(() => {
         if (!isMobile && sidebarRef.current) {
@@ -166,9 +167,9 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
                 </h2>
 
                 {/* Sliding Active Indicator */}
-                <div 
+                <div
                     className="absolute left-4 right-4 z-0 rounded-2xl bg-signal-500/[0.10] dark:bg-signal-500/[0.10] pointer-events-none transition-all"
-                    style={indicator.style}
+                    style={indicator.style as any}
                 >
                     {/* Vertical Accent Indicator inside the sliding block */}
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 h-2/3 w-1 bg-signal-500 rounded-r-full shadow-[0_0_8px_rgba(0,224,160,0.6)]" />

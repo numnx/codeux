@@ -24,11 +24,12 @@ export const NavItem: FunctionComponent<NavItemProps> = ({ item, isActive, isMin
             onFocus={() => prefetchRoute(item.path)}
             aria-current={isActive ? "page" : undefined}
             data-tour-id={`nav-${item.label.toLowerCase()}`}
+            data-nav-item
             className={`relative flex items-center ${isMinimized && !isMobile ? 'justify-center mx-4' : 'gap-3.5 px-5 mx-4'} py-3 min-h-[44px] rounded-2xl transition-all duration-300 group mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none`}
         >
             {/* Hover state background - always present, but only visible on hover */}
             <div className={`absolute inset-0 rounded-2xl transition-all duration-300 pointer-events-none origin-left bg-black/[0.05] dark:bg-white/[0.05] opacity-0 group-hover:opacity-100`} />
-            
+
             <item.icon aria-hidden="true" className={`relative z-10 w-4 h-4 transition-all duration-300 shrink-0 ${isActive ? 'text-signal-600 dark:text-signal-400 drop-shadow-[0_0_8px_rgba(0,224,160,0.5)]' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`} strokeWidth={isActive ? 2 : 1.5} />
 
             <div className={`relative z-10 overflow-hidden transition-all duration-500 ${isMinimized && !isMobile ? 'w-0 opacity-0' : 'opacity-100'}`}>

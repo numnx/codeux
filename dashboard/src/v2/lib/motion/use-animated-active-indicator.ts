@@ -93,12 +93,12 @@ export function useAnimatedActiveIndicator(
     }, [containerRef, activeIndex, childSelector, orientation]);
 
     const baseStyle = useMemo(() => {
-        const transform = orientation === 'horizontal' 
-            ? `translateX(${layout.offset}px)` 
+        const transform = orientation === 'horizontal'
+            ? `translateX(${layout.offset}px)`
             : `translateY(${layout.offset}px)`;
-        
+
         const sizeProp = orientation === 'horizontal' ? 'width' : 'height';
-        
+
         return {
             transform,
             [sizeProp]: `${layout.size}px`,
