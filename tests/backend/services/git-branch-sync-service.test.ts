@@ -8,6 +8,11 @@ describe("git branch sync service", () => {
   beforeEach(() => {
     // Disable host CLI fallbacks so tests don't depend on a logged-in gh/glab.
     delete process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS;
+    delete process.env.GIT_CONFIG_COUNT;
+    for (let i = 0; i < 10; i++) {
+      delete process.env[`GIT_CONFIG_KEY_${i}`];
+      delete process.env[`GIT_CONFIG_VALUE_${i}`];
+    }
     setProviderTokenResolverForTests(async () => null);
   });
   afterEach(() => {

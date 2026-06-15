@@ -1,3 +1,4 @@
+import { retryAsync } from "../shared/async/async-retry.js";
 import * as fs from "fs";
 import * as path from "path";
 import type { DashboardSettings, DashboardSettingsScope, DockerContainer, ProviderId } from "../contracts/app-types.js";
@@ -385,7 +386,12 @@ export class RuntimeStartupRecoveryService {
       return new Set();
     }
 
-    const containers = await this.deps.dockerService.listContainers().catch(() => []);
+
+    const containers = await retryAsync(
+      async () => await this.deps.dockerService!.listContainers(),
+      { attempts: 3, delayMs: 1000, backoff: "exponential" }
+    ).catch(() => []);
+
     return new Set(
       containers
         .map((container) => container.labels?.["code-ux.session-id"]?.trim())

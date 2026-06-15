@@ -7,6 +7,11 @@ import { buildMockSettings } from "../../../builders/settings-builder.js";
 import { setProviderTokenResolverForTests } from "../../../../src/services/git-http-auth.js";
 
 beforeEach(() => {
+  delete process.env.GIT_CONFIG_COUNT;
+  for (let i = 0; i < 10; i++) {
+    delete process.env[`GIT_CONFIG_KEY_${i}`];
+    delete process.env[`GIT_CONFIG_VALUE_${i}`];
+  }
   setProviderTokenResolverForTests(async () => null);
 });
 
