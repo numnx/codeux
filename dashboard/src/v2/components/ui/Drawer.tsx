@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
+import { GSAP_DURATIONS, GSAP_EASINGS } from "../../lib/motion/constants.js";
 
 interface DrawerProps {
   isOpen: boolean;
@@ -44,13 +45,13 @@ export const Drawer: FunctionComponent<DrawerProps> = ({
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
-      const duration = reducedMotion ? 0 : 0.35;
+      const duration = reducedMotion ? 0 : GSAP_DURATIONS.slow;
       const xStart = isRight ? "100%" : "-100%";
 
       requestAnimationFrame(() => {
         const tl = gsap.timeline();
         if (scrimRef.current) {
-          tl.fromTo(scrimRef.current, { opacity: 0 }, { opacity: 1, duration: reducedMotion ? 0 : 0.25, ease: "power2.out" }, 0);
+          tl.fromTo(scrimRef.current, { opacity: 0 }, { opacity: 1, duration: reducedMotion ? 0 : GSAP_DURATIONS.base, ease: GSAP_EASINGS.smooth }, 0);
         }
         if (cardRef.current) {
           tl.fromTo(cardRef.current,
@@ -60,7 +61,7 @@ export const Drawer: FunctionComponent<DrawerProps> = ({
         }
       });
     } else {
-      const duration = reducedMotion ? 0 : 0.25;
+      const duration = reducedMotion ? 0 : GSAP_DURATIONS.base;
       const xEnd = isRight ? "100%" : "-100%";
 
       const tl = gsap.timeline({
@@ -70,7 +71,7 @@ export const Drawer: FunctionComponent<DrawerProps> = ({
       });
 
       if (scrimRef.current) {
-        tl.to(scrimRef.current, { opacity: 0, duration: reducedMotion ? 0 : 0.2, ease: "power2.in" }, 0);
+        tl.to(scrimRef.current, { opacity: 0, duration: reducedMotion ? 0 : GSAP_DURATIONS.base, ease: GSAP_EASINGS.smooth }, 0);
       }
       if (cardRef.current) {
         tl.to(cardRef.current, {
@@ -119,3 +120,4 @@ export const Drawer: FunctionComponent<DrawerProps> = ({
     </div>
   );
 };
+
