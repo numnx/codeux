@@ -29,6 +29,7 @@ import {
 import { UsageGraphHeader } from './UsageGraphHeader.js';
 import { UsageFilterMenu } from './UsageFilterMenu.js';
 import { useUsageFilters } from '../hooks/useUsageFilters.js';
+import { useReducedMotion } from '../../../hooks/use-reduced-motion.js';
 import { UsageGraphTooltip } from './UsageGraphTooltip.js';
 import { UsageGraphEmpty, UsageGraphError } from './UsageGraphStates.js';
 import { Activity, Filter } from 'lucide-preact';
@@ -49,6 +50,7 @@ export const InteractiveUsageChart: FunctionComponent<{
   const panelRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const { isFiltersOpen, toggleFilters, closeFilters } = useUsageFilters();
+  const reducedMotion = useReducedMotion();
 
   const {
     zoomRange,
@@ -252,10 +254,10 @@ export const InteractiveUsageChart: FunctionComponent<{
     paths.forEach((path) => {
       const length = path.getTotalLength();
       gsap.set(path, { strokeDasharray: `${length} ${length}`, strokeDashoffset: length });
-      timeline.to(path, { strokeDashoffset: 0, duration: 1.05, ease: "power3.out", clearProps: "strokeDashoffset,strokeDasharray" }, 0);
+      timeline.to(path, { strokeDashoffset: 0, duration: reducedMotion ? 0 : 1.05, ease: "power3.out", clearProps: "strokeDashoffset,strokeDasharray" }, 0);
     });
     if (areas.length > 0) {
-      timeline.to(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3"), duration: 0.7, stagger: 0.08, ease: "power2.out" }, 0.18);
+      timeline.to(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3"), duration: reducedMotion ? 0 : 0.7, stagger: reducedMotion ? 0 : 0.08, ease: "power2.out" }, reducedMotion ? 0 : 0.18);
     }
     if (pointsNodes.length > 0) {
       timeline.to(pointsNodes, { opacity: 1, scale: 1, duration: 0.38, stagger: 0.012, ease: "back.out(1.8)" }, 0.3);
@@ -354,7 +356,7 @@ export const InteractiveUsageChart: FunctionComponent<{
               ) : null}
               {loading && !error ? (
                 <div className="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-full bg-[var(--stats-card-bg)]/80 px-3 py-1.5 shadow-sm backdrop-blur-md border border-[var(--stats-card-border)]" aria-busy="true" aria-label="Loading new data">
-                  <Activity className="h-3.5 w-3.5 animate-pulse text-signal-500" />
+                  <Activity className={`h-3.5 w-3.5 text-signal-500 ${reducedMotion ? "" : "animate-pulse"}`} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)]">
                     Syncing
                   </span>

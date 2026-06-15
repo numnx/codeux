@@ -266,7 +266,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                         </div>
                     ) : isLoading ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
-                            <Loader2 className="w-8 h-8 mb-4 animate-spin opacity-50" />
+                            <Loader2 className={`w-8 h-8 mb-4 opacity-50 ${reducedMotion ? "" : "animate-spin"}`} />
                             <span className="text-sm">Searching...</span>
                         </div>
                     ) : (

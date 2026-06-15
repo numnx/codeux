@@ -18,6 +18,7 @@ import { DockerStatusMenu } from "./DockerStatusMenu.js";
 import { BrowserSessionsMenu } from "./browser/BrowserSessionsMenu.js";
 import { NotificationPanel } from "./NotificationPanel.js";
 import { Tooltip } from "./ui/Tooltip.js";
+import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 import { useNotifications } from "../hooks/use-notifications.js";
 import { useThemeSetting } from "../hooks/useThemeSetting.js";
 import { useIsDark } from "../hooks/use-is-dark.js";
@@ -105,6 +106,7 @@ interface TopNavProps {
 }
 
 export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile, hideLogo, isMobileMenuOpen }) => {
+    const prefersReducedMotion = useReducedMotion();
     const navRef = useRef<HTMLElement>(null);
 
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -215,9 +217,13 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
 
     useLayoutEffect(() => {
         if (navRef.current) {
-            gsap.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" });
+            if (prefersReducedMotion) {
+                gsap.set(navRef.current, { y: 0, opacity: 1 });
+            } else {
+                gsap.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" });
+            }
         }
-    }, []);
+    }, [prefersReducedMotion]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
