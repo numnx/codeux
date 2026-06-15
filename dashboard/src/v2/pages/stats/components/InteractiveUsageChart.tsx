@@ -1,4 +1,4 @@
-import type { FunctionComponent } from 'preact';
+import type { FunctionComponent, JSX } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import gsap from 'gsap';
 import type {
@@ -29,6 +29,7 @@ import {
 import { UsageGraphHeader } from './UsageGraphHeader.js';
 import { UsageFilterMenu } from './UsageFilterMenu.js';
 import { useUsageFilters } from '../hooks/useUsageFilters.js';
+import { h } from 'preact';
 import { UsageGraphTooltip } from './UsageGraphTooltip.js';
 import { UsageGraphEmpty, UsageGraphError } from './UsageGraphStates.js';
 import { Activity, Filter } from 'lucide-preact';
@@ -49,6 +50,21 @@ export const InteractiveUsageChart: FunctionComponent<{
   const panelRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const { isFiltersOpen, toggleFilters, closeFilters } = useUsageFilters();
+
+  const handleSliderChange = (e: JSX.TargetedEvent<HTMLInputElement>) => {
+    const val = parseInt(e.currentTarget.value, 10);
+    setHoveredIndex(val);
+  };
+
+  const handleSliderKeyDown = (e: JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (hoveredIndex !== null) {
+        // Zoom into current bucket
+        setZoomRange({ start: hoveredIndex, end: hoveredIndex });
+      }
+    }
+  };
 
   const {
     zoomRange,
@@ -250,7 +266,7 @@ export const InteractiveUsageChart: FunctionComponent<{
       gsap.set(pointsNodes, { opacity: 0, scale: 0.35, transformOrigin: "center center" });
     }
     paths.forEach((path) => {
-      const length = path.getTotalLength();
+      const length = typeof path.getTotalLength === "function" ? path.getTotalLength() : 100;
       gsap.set(path, { strokeDasharray: `${length} ${length}`, strokeDashoffset: length });
       timeline.to(path, { strokeDashoffset: 0, duration: 1.05, ease: "power3.out", clearProps: "strokeDashoffset,strokeDasharray" }, 0);
     });
@@ -276,6 +292,16 @@ export const InteractiveUsageChart: FunctionComponent<{
     <div ref={panelRef} className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7 border border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] shadow-[var(--stats-card-shadow)]`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.14]" />
       <div className="relative flex flex-col gap-8">
+        {/* Screen reader summary */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          <h2 className="sr-only">Data Visualization for {zoomRange ? "zoomed timeframe" : stats.range.label}</h2>
+          <p>
+            Currently showing {visibleBuckets.length} buckets.
+            {activeBucket ? `Focused bucket: ${activeBucket.label}. Tokens: ${activeBucket.usage.totalTokens}` : "No bucket focused."}
+            Active series: {visibleSeries.map(s => s.label).join(", ")}.
+            Peak Tokens: {formatTokens(peakTokens)}. Peak Time: {formatDuration(peakTime)}. Average Tokens: {formatTokens(averageTokens)}. Peak Invocations: {peakInvocations.toLocaleString()}.
+          </p>
+        </div>
         <UsageGraphHeader
           title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
           description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot or the overview strip to zoom a timeframe, hover for exact bucket values, and use filters to focus the graph."
@@ -326,7 +352,7 @@ export const InteractiveUsageChart: FunctionComponent<{
               </div>
               <button
                 type="button"
-                onClick={toggleFilters}
+                onClick={toggleFilters} aria-expanded={isFiltersOpen}
                 className={`group flex items-center gap-2 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border shadow-sm active:scale-95 ${CHIP_CLASS} ${
                   isFiltersOpen 
                     ? 'border-signal-500/30 bg-signal-500/[0.08] text-signal-500 shadow-signal-500/5' 
@@ -342,9 +368,23 @@ export const InteractiveUsageChart: FunctionComponent<{
                   onClick={() => setZoomRange(null)}
                   className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500 transition-all hover:bg-signal-500/10 border border-signal-500/20 rounded-full active:scale-95`}
                 >
-                  Reset zoom
+                  Reset zoom <span className="sr-only">to {stats.range.label}</span>
                 </button>
               ) : null}
+            </div>
+            <div className="sr-only">
+              <label htmlFor="bucket-focus-slider">Explore chart data across time</label>
+              <input
+                id="bucket-focus-slider"
+                type="range"
+                min={0}
+                max={Math.max(0, visibleBuckets.length - 1)}
+                value={hoveredIndex ?? 0}
+                onInput={handleSliderChange}
+                onChange={handleSliderChange}
+                onKeyDown={handleSliderKeyDown}
+                aria-valuetext={activeBucket ? `${activeBucket.label}, ${visibleSeries.map(s => `${s.label}: ${s.formatter(s.values[activeIndex] ?? 0)}`).join(', ')}` : 'No bucket focused'}
+              />
             </div>
             <div ref={svgContainerRef} className="relative flex-1 min-h-[36rem] w-full">
               {error ? (
@@ -379,7 +419,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                   <UsageGraphEmpty />
                 </div>
               ) : (
-                <svg viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+                <svg aria-hidden="true" viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
                   <defs>
                     {chartData.map((series) => (
                       <linearGradient key={`fill-${series.id}`} id={`stats-area-${series.id}`} x1="0" x2="0" y1="0" y2="1">
