@@ -160,7 +160,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isNotificationMenuVisible) {
                 setNotificationInteractionState('closed');
-                const triggerBtn = notificationContainerRef.current?.querySelector('button');
+                const triggerBtn = notificationContainerRef.current?.querySelector('#notification-trigger') as HTMLElement;
                 setTimeout(() => triggerBtn?.focus(), 0);
             }
         };
@@ -482,8 +482,10 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                             onClick={toggleNotificationMenu}
                             onFocus={handleNotificationFocus}
                             onBlur={handleNotificationBlur}
-                            aria-haspopup="menu"
+                            aria-haspopup="dialog"
                             aria-expanded={isNotificationMenuVisible}
+                            aria-controls="notification-panel"
+                            id="notification-trigger"
                             aria-label="Notifications"
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                         >
