@@ -8,31 +8,61 @@ const Shimmer = () => (
   />
 );
 
-export const SkeletonLoader: FunctionComponent<{ show: boolean; children: ComponentChildren; className?: string }> = ({ show, children, className }) => {
-  const [shouldRender, setShouldRender] = useState(show);
+export const SkeletonLoader: FunctionComponent<{
+  show: boolean;
+  children?: ComponentChildren;
+  skeleton?: ComponentChildren;
+  className?: string;
+}> = ({ show, children, skeleton, className }) => {
+  const [renderSkeleton, setRenderSkeleton] = useState(show);
+  const [renderChildren, setRenderChildren] = useState(!show);
   const isReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (show) {
-      setShouldRender(true);
-    } else {
+      setRenderSkeleton(true);
       if (isReducedMotion) {
-        setShouldRender(false);
+        setRenderChildren(false);
       } else {
-        const timeout = setTimeout(() => setShouldRender(false), 200);
+        const timeout = setTimeout(() => setRenderChildren(false), 200);
+        return () => clearTimeout(timeout);
+      }
+    } else {
+      setRenderChildren(true);
+      if (isReducedMotion) {
+        setRenderSkeleton(false);
+      } else {
+        const timeout = setTimeout(() => setRenderSkeleton(false), 200);
         return () => clearTimeout(timeout);
       }
     }
   }, [show, isReducedMotion]);
 
-  if (!shouldRender) return null;
+  const durationClass = isReducedMotion ? "duration-0" : "duration-200";
 
   return (
     <div
-      className={`transition-opacity duration-200 ease-in-out pointer-events-none bg-white dark:bg-void-800 z-10 ${show ? 'opacity-100' : 'opacity-0'} ${className || ''}`}
+      className={`grid grid-cols-1 grid-rows-1 ${className || ""}`}
       aria-busy={show}
     >
-      {children}
+      {renderSkeleton && (
+        <div
+          className={`col-start-1 row-start-1 transition-opacity ${durationClass} ease-in-out ${
+            show ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {skeleton || children}
+        </div>
+      )}
+      {renderChildren && children && (
+        <div
+          className={`col-start-1 row-start-1 transition-opacity ${durationClass} ease-in-out ${
+            !show ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 };
