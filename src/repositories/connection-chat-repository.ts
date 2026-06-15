@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { requireRecord, toNumber, toBoolean } from "./repository-utils.js";
+import { requireRecord, toNumber, toBoolean, parseJsonOr, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import type {
   ConnectionInboxMessage,
   ConversationMessageRecord,
@@ -104,7 +104,7 @@ function parseCapabilities(value: string | null): McpConnectionCapabilities {
     return {};
   }
   try {
-    const parsed = JSON.parse(value) as McpConnectionCapabilities;
+    const parsed = parseJsonThrows<McpConnectionCapabilities>(value);
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -280,7 +280,7 @@ export class ConnectionChatRepository {
           input.role,
           input.transport.trim() || "stdio",
           input.status,
-          JSON.stringify(input.capabilities || {}),
+          serializePayloadJson(input.capabilities || {}),
           now,
           now,
           connectionId
@@ -297,7 +297,7 @@ export class ConnectionChatRepository {
           input.role,
           input.transport.trim() || "stdio",
           input.status,
-          JSON.stringify(input.capabilities || {}),
+          serializePayloadJson(input.capabilities || {}),
           now,
           now,
           now
@@ -356,7 +356,7 @@ export class ConnectionChatRepository {
         input.displayName?.trim() || current.displayName,
         input.role || current.role,
         input.status || current.status,
-        JSON.stringify(nextCapabilities || {}),
+        serializePayloadJson(nextCapabilities || {}),
         now,
         connectionId
       );
@@ -439,7 +439,7 @@ export class ConnectionChatRepository {
       connectionId || null,
       input.scope || "project",
       input.title.trim(),
-      input.runtimeState ? JSON.stringify(input.runtimeState) : null,
+      input.runtimeState ? serializePayloadJson(input.runtimeState) : null,
       "open",
       now,
       now
@@ -491,7 +491,7 @@ export class ConnectionChatRepository {
         WHERE id = ?
       `).run(
         normalizedConnectionId || null,
-        input.runtimeState !== undefined ? (input.runtimeState ? JSON.stringify(input.runtimeState) : null) : (thread.runtimeState ? JSON.stringify(thread.runtimeState) : null),
+        input.runtimeState !== undefined ? (input.runtimeState ? serializePayloadJson(input.runtimeState) : null) : (thread.runtimeState ? serializePayloadJson(thread.runtimeState) : null),
         now,
         thread.id
       );
@@ -570,7 +570,7 @@ export class ConnectionChatRepository {
         null,
         input.bodyMarkdown.trim(),
         "pending",
-        input.metadata ? JSON.stringify(input.metadata) : null,
+        input.metadata ? serializePayloadJson(input.metadata) : null,
         now
       );
     });
@@ -628,7 +628,7 @@ export class ConnectionChatRepository {
         null,
         input.bodyMarkdown.trim(),
         "processed",
-        input.metadata ? JSON.stringify(input.metadata) : null,
+        input.metadata ? serializePayloadJson(input.metadata) : null,
         now
       );
     });
@@ -826,13 +826,13 @@ export class ConnectionChatRepository {
       threadTitle: row.title,
       projectId: row.project_id,
       bodyMarkdown: row.body_markdown,
-      metadata: row.metadata_json ? JSON.parse(row.metadata_json) as Record<string, unknown> : null,
+      metadata: row.metadata_json ? parseJsonOr<Record<string, unknown> | null>(row.metadata_json, null) : null,
       createdAt: row.created_at,
       deliveryStatus: "delivered" as const,
     }));
     this.notifyProjects(scopedProjectIds);
     for (const row of rows) {
-      const metadata = row.metadata_json ? JSON.parse(row.metadata_json) as Record<string, unknown> : null;
+      const metadata = row.metadata_json ? parseJsonOr<Record<string, unknown> | null>(row.metadata_json, null) : null;
       if (!isHiddenConversationMessage(metadata)) {
         this.publishThreadUpdatedEvent(requireConversationThreadQuery(this.db, row.thread_id));
       }
@@ -878,7 +878,7 @@ export class ConnectionChatRepository {
         connection.id,
         input.bodyMarkdown.trim(),
         "processed",
-        input.metadata ? JSON.stringify(input.metadata) : null,
+        input.metadata ? serializePayloadJson(input.metadata) : null,
         now
       );
 
@@ -1389,12 +1389,7 @@ export class ConnectionChatRepository {
       return null;
     }
 
-    try {
-      const parsed = JSON.parse(row.payload) as { projectId?: string | null };
-      return parsed.projectId ?? null;
-    } catch {
-      return null;
-    }
+    return parseJsonOr<{ projectId?: string | null }>(row.payload, {}).projectId ?? null;
   }
 
   private runInTransaction(operation: () => void): void {

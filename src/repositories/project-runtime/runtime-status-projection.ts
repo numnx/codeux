@@ -4,7 +4,7 @@ import type { DashboardStatus, JulesActivity, Subtask, SubtaskStatus } from "../
 import type { SprintReviewSummary } from "../../contracts/project-management-types.js";
 import { mapPlanningStatusToRuntimeStatus, toMergeIndicator } from "../../services/subtask-state-mapper.js";
 import { RuntimeContextPayload } from "./runtime-context-store.js";
-import { toNumber, toBoolean, parsePayloadJson } from "../repository-utils.js";
+import { toNumber, toBoolean, parsePayloadJson, parseJsonThrows } from "../repository-utils.js";
 
 export type PlanningTaskStatus = "pending" | "in_progress" | "coding_completed" | "completed" | "QA_REVIEW_FAILED";
 export type ProjectStatus = "running" | "failed" | "intervention" | "idle";
@@ -231,7 +231,7 @@ export class RuntimeStatusProjection {
         continue;
       }
       try {
-        const parsed = JSON.parse(row.latest_task_review_json) as SprintReviewSummary;
+        const parsed = parseJsonThrows<SprintReviewSummary>(row.latest_task_review_json);
         parsed.findings = Array.isArray(parsed.findings) ? parsed.findings : [];
         map.set(row.task_id, parsed);
       } catch {

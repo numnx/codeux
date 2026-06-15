@@ -1,8 +1,10 @@
+import { parseJsonThrows } from "./repository-utils.js";
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { deriveWorkerEndpointStatus } from "./connection-lifecycle.js";
 import type {
+
   ProjectWorkerAssignmentRecord,
   ProjectWorkerAssignmentRole,
   WorkerEndpointCapabilities,
@@ -45,7 +47,7 @@ function parseCapabilities(value: string | null): WorkerEndpointCapabilities {
   }
 
   try {
-    const parsed = JSON.parse(value) as Partial<WorkerEndpointCapabilities> | null;
+    const parsed = parseJsonThrows<Partial<WorkerEndpointCapabilities> | null>(value);
     return {
       canSuperviseProjects: parsed?.canSuperviseProjects ?? DEFAULT_CAPABILITIES.canSuperviseProjects,
       canExecuteTasks: parsed?.canExecuteTasks ?? DEFAULT_CAPABILITIES.canExecuteTasks,

@@ -349,7 +349,16 @@ export class ProviderExecutionService {
             durationMs: Date.now() - startedMs,
             error,
           });
-          throw error;
+          if (error instanceof ProviderQuotaError) {
+            throw error;
+          }
+          throw new ProviderQuotaError({
+            category: "UNKNOWN",
+            provider: args.provider,
+            userMessage: `${args.provider} failed: ${error instanceof Error ? error.message : String(error)}`,
+            resetAfter: null,
+            resetAtIso: null,
+          });
         }
       })();
 
@@ -566,7 +575,7 @@ export class ProviderExecutionService {
           });
         }
       }
-      return providerResult;
+      throw new ProviderQuotaError(classification);
     }, {
       attempts: 999999,
       signal: args.signal,

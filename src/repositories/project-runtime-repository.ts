@@ -15,7 +15,7 @@ import {
   ProjectRow,
   SprintRow
 } from "./project-runtime/runtime-status-projection.js";
-import { toNumber } from "./repository-utils.js";
+import { toNumber, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 
 const TERMINAL_TASK_STATES = new Set<TaskRunState>(["CODING_COMPLETED", "COMPLETED", "FAILED", "BLOCKED"]);
 
@@ -31,7 +31,7 @@ function normalizePath(value: string | null | undefined): string | null {
 }
 
 function subtaskSignature(subtask: Subtask): string {
-  return JSON.stringify({
+  return serializePayloadJson({
     status: subtask.status || "PENDING",
     provider: subtask.provider || null,
     sessionId: subtask.session_id || null,
@@ -40,7 +40,7 @@ function subtaskSignature(subtask: Subtask): string {
     prUrl: subtask.pr_url || null,
     isMerged: Boolean(subtask.is_merged),
     mergeIndicator: subtask.merge_indicator || null,
-  });
+  }) || "null";
 }
 
 function toPersistedTaskRunState(status: TaskRunState): Exclude<TaskRunState, "CODING_COMPLETED"> {
@@ -222,7 +222,7 @@ export class ProjectRuntimeRepository {
     }
 
     try {
-      const parsed = JSON.parse(row.payload) as { sprintId?: string | null };
+      const parsed = parseJsonThrows<{ sprintId?: string | null }>(row.payload);
       return parsed.sprintId ?? null;
     } catch {
       return null;
@@ -241,7 +241,7 @@ export class ProjectRuntimeRepository {
     }
 
     try {
-      const parsed = JSON.parse(row.payload) as { projectId?: string | null };
+      const parsed = parseJsonThrows<{ projectId?: string | null }>(row.payload);
       return parsed.projectId ?? null;
     } catch {
       return null;
@@ -411,7 +411,7 @@ export class ProjectRuntimeRepository {
       return;
     }
 
-    const previousSignature = JSON.stringify({
+    const previousSignature = serializePayloadJson({
       status: existing.state,
       provider: existing.provider,
       sessionId: existing.session_id,
@@ -517,7 +517,7 @@ export class ProjectRuntimeRepository {
       taskRunId,
       eventType,
       "system",
-      JSON.stringify(payload),
+      serializePayloadJson(payload),
       createdAt
     );
   }

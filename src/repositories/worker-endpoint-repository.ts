@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { requireRecord } from "./repository-utils.js";
+import { requireRecord, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import { deriveWorkerEndpointStatus } from "./connection-lifecycle.js";
 import type { McpConnectionRecord } from "../contracts/connection-chat-types.js";
 import type { WorkerEndpointCapabilities, WorkerEndpointRecord, WorkerEndpointStatus } from "../contracts/worker-types.js";
@@ -38,7 +38,7 @@ function parseCapabilities(value: string | null): WorkerEndpointCapabilities {
   }
 
   try {
-    const parsed = JSON.parse(value) as Partial<WorkerEndpointCapabilities> | null;
+    const parsed = parseJsonThrows<Partial<WorkerEndpointCapabilities> | null>(value);
     return {
       canSuperviseProjects: parsed?.canSuperviseProjects ?? DEFAULT_WORKER_ENDPOINT_CAPABILITIES.canSuperviseProjects,
       canExecuteTasks: parsed?.canExecuteTasks ?? DEFAULT_WORKER_ENDPOINT_CAPABILITIES.canExecuteTasks,
@@ -149,7 +149,7 @@ export class WorkerEndpointRepository {
       input.displayName,
       input.status || "connected",
       input.transport ?? "internal",
-      JSON.stringify(capabilities),
+      serializePayloadJson(capabilities),
       now,
       now,
       now,
@@ -187,7 +187,7 @@ export class WorkerEndpointRepository {
       updates.displayName ?? current.displayName,
       updates.status ?? current.status,
       updates.transport === undefined ? current.transport : updates.transport,
-      JSON.stringify(nextCapabilities),
+      serializePayloadJson(nextCapabilities),
       updates.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : updates.lastHeartbeatAt,
       now,
       endpointId,
@@ -254,7 +254,7 @@ export class WorkerEndpointRepository {
       connection.id,
       connection.connectionKey,
       connection.transport,
-      JSON.stringify(this.extractCapabilities(connection)),
+      serializePayloadJson(this.extractCapabilities(connection)),
       connection.lastHeartbeatAt,
       existing?.createdAt || now,
       now,

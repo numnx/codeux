@@ -1,4 +1,5 @@
 import { DatabaseAdapter } from "./database-adapter.js";
+import { serializePayloadJson } from "../repository-utils.js";
 
 export function ensureColumn(db: DatabaseAdapter, tableName: string, columnName: string, columnDefinition: string): void {
   // Using direct sqlite PRAGMA for now, until we abstract schema reflections
@@ -35,7 +36,7 @@ export function backfillEstimatedDockerCliUsage(db: DatabaseAdapter): void {
       AND status IN ('completed', 'failed')
       AND total_tokens = 0
       AND (prompt_chars > 0 OR transcript_chars > 0)
-  `).run(JSON.stringify({
+  `).run(serializePayloadJson({
     source: "migration:estimated-docker-cli-usage",
     heuristic: "ceil(chars/4)",
   }));

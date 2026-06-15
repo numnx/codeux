@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
-import { RepositoryError } from "./repository-utils.js";
+import { RepositoryError, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { requireRecord, executeChunkedInQuery } from "./repository-utils.js";
@@ -77,7 +77,7 @@ export class MemoryRepository {
         content: input.content.trim(),
         category: input.category,
         strength: input.strength ?? 0.5,
-        source_json: JSON.stringify(source),
+        source_json: serializePayloadJson(source) || "null",
         embedding_model: null,
         embedding_dimension: null,
         embedding_blob: null,
@@ -155,7 +155,7 @@ export class MemoryRepository {
             content: input.content.trim(),
             category: input.category,
             strength: input.strength ?? 0.5,
-            source_json: JSON.stringify(source),
+            source_json: serializePayloadJson(source) || "null",
             embedding_model: null,
             embedding_dimension: null,
             embedding_blob: null,
@@ -416,7 +416,7 @@ export class MemoryRepository {
       content: sourceMemory.content,
       category: sourceMemory.category,
       strength: Math.min(1, sourceMemory.strength + 0.1),
-      source_json: JSON.stringify(source),
+      source_json: serializePayloadJson(source) || "null",
       embedding_model: null,
       embedding_dimension: null,
       embedding_blob: null,
@@ -544,7 +544,7 @@ export class MemoryRepository {
 
   private parseSource(json: string): MemorySource {
     try {
-      const parsed = JSON.parse(json) as MemorySource;
+      const parsed = parseJsonThrows<MemorySource>(json);
       if (parsed && typeof parsed.type === "string") {
         return parsed;
       }

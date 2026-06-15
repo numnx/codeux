@@ -9,7 +9,7 @@ import type {
 } from "../contracts/settings-scope-types.js";
 import { SettingsDbStorage } from "./settings-db-storage.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
-import { executeChunkedInQuery } from "./repository-utils.js";
+import { executeChunkedInQuery, parseJsonOr, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import {
   buildDefaultProjectSettings,
   buildDefaultSystemSettings,
@@ -51,7 +51,7 @@ export class SettingsRepository {
     }
 
     try {
-      SettingsRepository.systemSettingsCache = sanitizeSystemSettings(JSON.parse(payload), this.externalHints);
+      SettingsRepository.systemSettingsCache = sanitizeSystemSettings(parseJsonThrows<Record<string, unknown>>(payload), this.externalHints);
       return SettingsRepository.systemSettingsCache;
     } catch {
       SettingsRepository.systemSettingsCache = buildDefaultSystemSettings(this.externalHints);
@@ -61,7 +61,7 @@ export class SettingsRepository {
 
   saveSystemSettings(input: SystemSettings): SystemSettings {
     const normalized = sanitizeSystemSettings(input, this.externalHints);
-    this.storage.writeSystemPayload(JSON.stringify(normalized));
+    this.storage.writeSystemPayload(serializePayloadJson(normalized) || "null");
     SettingsRepository.systemSettingsCache = normalized;
     return normalized;
   }
@@ -76,11 +76,7 @@ export class SettingsRepository {
       return {};
     }
 
-    try {
-      return JSON.parse(payload) as ProjectSettingsOverride;
-    } catch {
-      return {};
-    }
+    return parseJsonOr<ProjectSettingsOverride>(payload, {});
   }
 
   getProjectSettingsBatch(projectIds: string[]): Map<string, ProjectSettingsOverride> {
@@ -103,10 +99,9 @@ export class SettingsRepository {
     );
 
     for (const row of rows) {
-      try {
-        result.set(row.project_id, JSON.parse(row.payload) as ProjectSettingsOverride);
-      } catch {
-        // Ignore
+      const parsed = parseJsonOr<ProjectSettingsOverride | null>(row.payload, null);
+      if (parsed) {
+        result.set(row.project_id, parsed);
       }
     }
 
@@ -124,7 +119,7 @@ export class SettingsRepository {
     const systemSettings = this.getSystemSettings();
     const base = systemSettings.defaults;
     const normalized = toProjectSettingsOverride(base, patch, systemSettings.integrations, this.externalHints);
-    this.storage.writeProjectPayload(projectId, JSON.stringify(normalized));
+    this.storage.writeProjectPayload(projectId, serializePayloadJson(normalized) || "null");
     return normalized;
   }
 
@@ -142,17 +137,13 @@ export class SettingsRepository {
       return {};
     }
 
-    try {
-      return JSON.parse(payload) as SprintSettingsOverride;
-    } catch {
-      return {};
-    }
+    return parseJsonOr<SprintSettingsOverride>(payload, {});
   }
 
   saveSprintSettings(sprintId: string, baseProjectSettings: ProjectSettings, patch: SprintSettingsOverride): SprintSettingsOverride {
     const systemSettings = this.getSystemSettings();
     const normalized = toSprintSettingsOverride(baseProjectSettings, patch, systemSettings.integrations, this.externalHints);
-    this.storage.writeSprintPayload(sprintId, JSON.stringify(normalized));
+    this.storage.writeSprintPayload(sprintId, serializePayloadJson(normalized) || "null");
     return normalized;
   }
 
@@ -229,10 +220,10 @@ export class SettingsRepository {
     }
 
     try {
-      const legacySettings = JSON.parse(legacyPayload) as DashboardSettings & {
+      const legacySettings = parseJsonThrows<DashboardSettings & {
         enableDebugLogFile?: boolean;
         consoleLogLevel?: unknown;
-      };
+      }>(legacyPayload);
       const defaults = buildDefaultProjectSettings(this.externalHints);
       const systemSettings = sanitizeSystemSettings({
         runtime: {
@@ -310,7 +301,7 @@ export class SettingsRepository {
         mcpTools: legacySettings.mcpTools,
       }, this.externalHints);
 
-      this.storage.writeSystemPayload(JSON.stringify(systemSettings));
+      this.storage.writeSystemPayload(serializePayloadJson(systemSettings) || "null");
       this.storage.deleteLegacyPayload();
 
       // Warm up the cache with the migrated settings
