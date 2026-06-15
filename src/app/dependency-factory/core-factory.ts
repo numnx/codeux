@@ -56,6 +56,7 @@ import { SprintPreviewService } from "../../services/sprint-preview-service.js";
 import { SprintPreviewRepository } from "../../repositories/sprint-preview-repository.js";
 import { SprintFileBrowserService } from "../../services/sprint-file-browser-service.js";
 import { SprintFileBrowserRepository } from "../../repositories/sprint-file-browser-repository.js";
+import { DockerService } from "../../services/docker-service.js";
 
 export interface CoreDependencies {
   providerRunner: IProviderRunner;
@@ -120,14 +121,12 @@ export function createCoreDependencies(
     resolveEffectiveDashboardSettings(settingsRepository, projectId, sprintId).settings.workers.executionMode
   );
 
-  const logFilePath = dashboardSettings.enableDebugLogFile
-    ? getRepoDebugLogPath(options.projectRoot)
-    : undefined;
-
   const logger = createLogger({
     bindings: { service: CODE_UX_SERVICE_NAME },
     getConsoleLogLevel: () => context.runtimeContext.dashboardSettings?.consoleLogLevel,
-    logFilePath,
+    getDebugLogFileLevel: () => context.runtimeContext.dashboardSettings?.debugLogFileLevel,
+    getConsoleLogMode: () => context.runtimeContext.dashboardSettings?.consoleLogMode,
+    logFilePath: getRepoDebugLogPath(options.projectRoot),
   });
 
   const server = new Server(
@@ -192,6 +191,7 @@ export function createCoreDependencies(
   const providerConcurrencyService = new ProviderConcurrencyService({
     executionRepository,
     logger: logger.child({ component: "provider-concurrency-service" }),
+    dockerService: new DockerService(),
   });
   const sprintPreviewRepository = new SprintPreviewRepository(appDbStorage);
   const sprintPreviewService = new SprintPreviewService({

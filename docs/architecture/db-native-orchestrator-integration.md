@@ -20,6 +20,7 @@ It now:
 - persists provider session state and activity into `task_run_events`
 - persists direct CLI pipeline stage events and CI-gate state changes into `task_run_events`
 - persists action-required automation and protocol state into `task_run_events`
+- keeps dependency-only `BLOCKED` projections out of `task_runs` unless the task has real runtime evidence such as a session, provider, worker branch, or PR
 - persists branch/planning preflight blockers and watch-loop sprint lifecycle into `sprint_run_events`
 - orchestrate branch preflight now auto-prepares the local sprint feature branch and best-effort pushes it to `origin` before opening a blocker
 - exposes dashboard control actions for sprint orchestration and dispatch management on the same DB-native runtime
@@ -101,6 +102,7 @@ When `startReadyTasksStep` launches work during `orchestrate`:
 
 Implementation note:
 - batched task-record hydration in the start-ready phase now uses the shared chunked `IN` query helper, and repository call sites must pass only the predicate prefix (for example `WHERE id`) because the helper appends the `IN (...)` clause itself
+- dashboard status projection rows with only `BLOCKED` dependency state are not task execution history; the orchestrator ignores historical synthetic `status_sync` blocker rows so DAG tasks can unlock once their dependencies settle
 
 Executor mapping in this slice:
 

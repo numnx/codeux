@@ -493,14 +493,19 @@ export class ProjectRuntimeRepository {
   }
 
   private shouldCreateTaskRun(subtask: Subtask): boolean {
-    return Boolean(
+    const hasRuntimeEvidence = Boolean(
       (subtask.session_id && subtask.session_id.trim().length > 0)
       || (subtask.session_name && subtask.session_name.trim().length > 0)
       || (subtask.provider && subtask.provider.trim().length > 0)
       || (subtask.worker_branch && subtask.worker_branch.trim().length > 0)
       || (subtask.pr_url && subtask.pr_url.trim().length > 0)
-      || (subtask.status && subtask.status !== "PENDING")
     );
+
+    if (subtask.status === "BLOCKED" && !hasRuntimeEvidence) {
+      return false;
+    }
+
+    return Boolean(hasRuntimeEvidence || (subtask.status && subtask.status !== "PENDING"));
   }
 
   private insertRunEvent(taskRunId: string, eventType: string, payload: Record<string, unknown>, createdAt: string): void {
