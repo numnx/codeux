@@ -30,14 +30,8 @@ export type MemoryCategory =
 export const MEMORY_SCOPES: MemoryScope[] = ["sprint", "agent", "project"];
 
 /** Maps a tier to its underlying scope. */
-export function scopeForTier(tier: MemoryTier): MemoryScope {
-  return tier === "short_term" ? "sprint" : "project";
-}
 
 /** Maps a scope to its tier (agent scope is legacy short-term). */
-export function tierForScope(scope: MemoryScope): MemoryTier {
-  return scope === "project" ? "long_term" : "short_term";
-}
 
 export const MEMORY_CATEGORIES: MemoryCategory[] = [
   "architecture",

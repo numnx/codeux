@@ -48,7 +48,8 @@
     "build:server": "tsc",
     "build:dashboard": "tsc -p dashboard/tsconfig.json --noEmit --incremental --tsBuildInfoFile .cache/tsc/dashboard.tsbuildinfo && vite build",
     "dev:dashboard": "vite",
-    "typecheck:dashboard": "tsc -p dashboard/tsconfig.json --noEmit --incremental --tsBuildInfoFile .cache/tsc/dashboard.tsbuildinfo"
+    "typecheck:dashboard": "tsc -p dashboard/tsconfig.json --noEmit --incremental --tsBuildInfoFile .cache/tsc/dashboard.tsbuildinfo",
+    "deadcode": "ts-prune -p tsconfig.json -i 'src/index.ts|src/mcp/index.ts|tests/.*|dashboard/.*'"
   },
   "dependencies": {
     "@anthropic-ai/tokenizer": "^0.0.4",
@@ -101,6 +102,7 @@
     "tailwindcss": "^4.2.1",
     "three": "^0.183.2",
     "ts-node": "^10.9.2",
+    "ts-prune": "^0.10.3",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitepress": "^1.6.4",
