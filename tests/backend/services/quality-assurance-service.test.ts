@@ -99,7 +99,8 @@ describe("QualityAssuranceService", () => {
       agentPresetId: null,
     });
 
-    expect(result.verdict).toBe("pass");
+    expect(result.status).toBe("success");
+    expect((result as any).review.verdict).toBe("pass");
     expect(createSnapshotWorkspace).toHaveBeenCalled();
     expect(executeRequest).toHaveBeenCalledWith(expect.objectContaining({
       cwd: "docker-volume://qa-snapshot",
@@ -763,14 +764,18 @@ describe("QualityAssuranceService", () => {
       sendSessionMessage: async () => ({}),
     });
     vi.spyOn(service as any, "runReview").mockResolvedValue({
-      verdict: "pass",
-      summary: "Follow-up fix verified.",
-      findings: [],
-      fixInstructions: null,
-      targetTaskKey: null,
-      shouldHavePr: true,
-      followUpTasks: [],
-      raw: {},
+      status: "success",
+      review: {
+        verdict: "pass",
+        summary: "Follow-up fix verified.",
+        findings: [],
+        fixInstructions: null,
+        targetTaskKey: null,
+        shouldHavePr: true,
+        followUpTasks: [],
+        raw: {},
+      },
+      invocationId: "mock-inv-1"
     });
     vi.spyOn(service as any, "cleanupCliWorkspaceIfNeeded").mockResolvedValue(undefined);
 
@@ -1142,14 +1147,18 @@ describe("QualityAssuranceService", () => {
     });
 
     vi.spyOn(service as any, "runReview").mockResolvedValue({
-      verdict: "pass",
-      summary: "Sprint QA recovered and passed.",
-      findings: [],
-      fixInstructions: null,
-      targetTaskKey: null,
-      shouldHavePr: null,
-      followUpTasks: [],
-      raw: {},
+      status: "success",
+      review: {
+        verdict: "pass",
+        summary: "Sprint QA recovered and passed.",
+        findings: [],
+        fixInstructions: null,
+        targetTaskKey: null,
+        shouldHavePr: null,
+        followUpTasks: [],
+        raw: {},
+      },
+      invocationId: "mock-inv-1"
     });
 
     const outcome = await service.reviewSprintCompletion({
