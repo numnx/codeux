@@ -7,7 +7,7 @@ import { runProviderLifecycle } from "./provider-run-lifecycle.js";
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import type { IDockerRunner } from "./docker-runner.js";
 import { isDockerWorkspaceMountError } from "../../../services/cli-docker-utils.js";
-import { resultHasSilentQuotaSignal } from "../../../shared/providers/provider-error-classifier.js";
+import { resultHasSilentQuotaSignal, ProviderQuotaError } from "../../../shared/providers/provider-error-classifier.js";
 import { sanitizeInvocationOutputText } from "../../../services/invocation-output-sanitizer.js";
 import * as fs from "fs/promises";
 import * as os from "os";
@@ -641,7 +641,13 @@ export class ProviderRunner implements IProviderRunner {
 
     const providerSpec = providerSpecs[provider];
     if (!providerSpec) {
-      throw new Error(`Unsupported CLI provider: ${provider}`);
+      throw new ProviderQuotaError({
+        category: "PROVIDER_NOT_FOUND",
+        provider,
+        userMessage: `Unsupported CLI provider: ${provider}`,
+        resetAfter: null,
+        resetAtIso: null,
+      });
     }
 
     const spec = providerSpec(model, prompt);

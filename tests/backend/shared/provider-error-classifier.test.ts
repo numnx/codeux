@@ -625,6 +625,17 @@ describe("classifyProviderError", () => {
       expect(classification.category).toBe("UNKNOWN");
     });
 
+    it("returns TIMEOUT for unrecognized errors that look like timeouts", () => {
+      const result = makeResult("some output", "the request timed out after 30s");
+      const classification = classifyProviderError("gemini", result);
+      expect(classification.category).toBe("TIMEOUT");
+    });
+
+    it("detects timeouts appropriately", () => {
+       const message = new Error(`Request timed out [ERROR_CATEGORY:TIMEOUT]`).message;
+       expect(extractProviderErrorCategory(message)).toBe("TIMEOUT");
+    });
+
     it("computes resetAtIso from resetAfter", () => {
       const result = makeResult("", "quota will reset after 1h0m0s");
       const classification = classifyProviderError("gemini", result);

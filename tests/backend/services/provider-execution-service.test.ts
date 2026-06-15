@@ -306,7 +306,7 @@ describe("ProviderExecutionService", () => {
     expect(sleepWithSignal).not.toHaveBeenCalled();
   });
 
-  it("Unknown failure passthrough: returns result without throwing on UNKNOWN classification", async () => {
+  it("Unknown failure passthrough: throws ProviderQuotaError on UNKNOWN classification", async () => {
     const failedResult = { ...mockResult, ok: false };
     providerRunner.runProvider.mockResolvedValue(failedResult);
 
@@ -321,13 +321,11 @@ describe("ProviderExecutionService", () => {
     vi.mocked(resolveProviderRetryDecision).mockReturnValue(null);
     vi.mocked(isReadFileNotFoundToolError).mockReturnValue(false);
 
-    const result = await service.executeProvider(defaultArgs);
-
-    expect(result).toBe(failedResult);
+    await expect(service.executeProvider(defaultArgs)).rejects.toThrowError(ProviderQuotaError);
     expect(providerRunner.runProvider).toHaveBeenCalledTimes(1);
   });
 
-  it("sanitizes bootstrap-branch fatal lines before persisting fallback failure output", async () => {
+  it("sanitizes bootstrap-branch fatal lines before throwing fallback failure", async () => {
     const failedResult = {
       ...mockResult,
       ok: false,
@@ -349,7 +347,7 @@ describe("ProviderExecutionService", () => {
     vi.mocked(resolveProviderRetryDecision).mockReturnValue(null);
     vi.mocked(isReadFileNotFoundToolError).mockReturnValue(false);
 
-    await service.executeProvider(defaultArgs);
+    try { await service.executeProvider(defaultArgs); } catch(e) {}
 
     expect(executionRepository.appendExecutionInvocationMessage).toHaveBeenCalledWith(
       "exec-inv-1",
