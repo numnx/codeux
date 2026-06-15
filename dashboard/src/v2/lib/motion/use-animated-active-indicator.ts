@@ -1,61 +1,126 @@
-import { useEffect, useRef } from "preact/hooks";
-import gsap from "gsap";
-import { SPRING_TRANSITIONS } from "./tokens.js";
+import { useLayoutEffect, useState, useMemo } from "preact/hooks";
+import type { RefObject } from "preact";
 import { useReducedMotionSafe } from "./useReducedMotionSafe.js";
+import { GSAP_DURATIONS } from "./constants.js";
+import { MOTION_TOKENS } from "./tokens.js";
+
+interface IndicatorStyle {
+    transform: string;
+    width?: string;
+    height?: string;
+    opacity: number;
+    transition?: string;
+}
+
+interface UseAnimatedActiveIndicatorResult {
+    style: IndicatorStyle;
+    isReady: boolean;
+}
+
+export type IndicatorOrientation = 'horizontal' | 'vertical';
 
 /**
- * A shared hook to animate a sliding "active indicator" across a list of items.
+ * Measures the active element in a container and provides
+ * style properties to animate an absolutely-positioned active indicator.
  *
- * @param activeIndex - The index of the currently active item.
- * @param parentRef - A ref to the container element holding the items.
- * @param selector - A CSS selector to identify the individual items within the parent.
- * @param indicatorRef - A ref to the indicator element that will be animated.
- * @param propertyToAnimate - Which property to animate to represent sliding. Default: 'y' for vertical, 'x' for horizontal.
- * @param dimensionToAnimate - Which dimension to animate to match the active item's size. Default: 'height', 'width' for horizontal.
+ * @param containerRef Reference to the parent container element.
+ * @param activeIndex The index of the currently active child element (zero-based).
+ * @param childSelector An optional CSS selector to find valid children within the container. Defaults to '[role="tab"]'.
+ * @param orientation The orientation of the indicator ('horizontal' or 'vertical'). Defaults to 'horizontal'.
+ * @returns An object containing `style` properties and an `isReady` boolean.
  */
-export function useAnimatedActiveIndicator({
-    activeIndex,
-    parentRef,
-    selector,
-    indicatorRef,
-    propertyToAnimate = 'y',
-    dimensionToAnimate = 'height'
-}: {
-    activeIndex: number;
-    parentRef: preact.RefObject<HTMLElement>;
-    selector: string;
-    indicatorRef: preact.RefObject<HTMLElement>;
-    propertyToAnimate?: 'x' | 'y';
-    dimensionToAnimate?: 'width' | 'height';
-}) {
-    const safeGsap = useReducedMotionSafe();
+export function useAnimatedActiveIndicator(
+    containerRef: RefObject<HTMLElement>,
+    activeIndex: number,
+    childSelector: string = '[role="tab"]',
+    orientation: IndicatorOrientation = 'horizontal'
+): UseAnimatedActiveIndicatorResult {
+    const [layout, setLayout] = useState({
+        offset: 0,
+        size: 0,
+        opacity: 0,
+    });
+    const [isReady, setIsReady] = useState(false);
 
-    useEffect(() => {
-        if (activeIndex < 0 || !parentRef.current || !indicatorRef.current) return;
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
 
-        const items = parentRef.current.querySelectorAll(selector);
-        const activeElement = items[activeIndex] as HTMLElement;
+        const measure = () => {
+            const children = Array.from(container.querySelectorAll<HTMLElement>(childSelector));
+            const activeChild = children[activeIndex];
 
-        if (!activeElement) return;
+            if (activeChild) {
+                // Determine the offset and size based on orientation
+                const offset = orientation === 'horizontal' ? activeChild.offsetLeft : activeChild.offsetTop;
+                const size = orientation === 'horizontal' ? activeChild.offsetWidth : activeChild.offsetHeight;
 
-        // Ensure parent is relative or has explicit positioning to allow accurate offsets
-        const parentRect = parentRef.current.getBoundingClientRect();
-        const activeRect = activeElement.getBoundingClientRect();
+                setLayout({
+                    offset,
+                    size,
+                    opacity: 1,
+                });
+                setIsReady(true);
+            } else {
+                setLayout(prev => ({ ...prev, opacity: 0 }));
+            }
+        };
 
-        const offset = propertyToAnimate === 'y'
-            ? activeRect.top - parentRect.top + parentRef.current.scrollTop
-            : activeRect.left - parentRect.left + parentRef.current.scrollLeft;
+        // Measure immediately
+        measure();
 
-        const dimension = dimensionToAnimate === 'height' ? activeRect.height : activeRect.width;
+        // Optional: Measure on fonts loaded in case they change layout
+        if (typeof document !== 'undefined') {
+            document.fonts?.ready.then(measure);
+        }
 
-        // Position initial state instantly on first run or animate smoothly
-        safeGsap.to(indicatorRef.current, {
-            [propertyToAnimate]: offset,
-            [dimensionToAnimate]: dimension,
-            duration: SPRING_TRANSITIONS.bouncy.duration,
-            ease: SPRING_TRANSITIONS.bouncy.ease,
-            overwrite: "auto"
+        // Measure on window resize or when elements inside change size
+        const observer = new ResizeObserver(() => {
+            measure();
         });
 
-    }, [activeIndex, parentRef, selector, indicatorRef, propertyToAnimate, dimensionToAnimate, safeGsap]);
+        observer.observe(container);
+        const children = Array.from(container.querySelectorAll<HTMLElement>(childSelector));
+        children.forEach((child) => {
+            if (child instanceof Element) {
+                observer.observe(child);
+            }
+        });
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [containerRef, activeIndex, childSelector, orientation]);
+
+    const baseStyle = useMemo(() => {
+        const transform = orientation === 'horizontal' 
+            ? `translateX(${layout.offset}px)` 
+            : `translateY(${layout.offset}px)`;
+        
+        const sizeProp = orientation === 'horizontal' ? 'width' : 'height';
+        
+        return {
+            transform,
+            [sizeProp]: `${layout.size}px`,
+            opacity: layout.opacity,
+        } as IndicatorStyle;
+    }, [layout, orientation]);
+
+    const motionStyle = useReducedMotionSafe<IndicatorStyle>(
+        {
+            ...baseStyle,
+            transition: isReady
+                ? `transform ${GSAP_DURATIONS.base}s ${MOTION_TOKENS.easing.standard}, width ${GSAP_DURATIONS.base}s ${MOTION_TOKENS.easing.standard}, height ${GSAP_DURATIONS.base}s ${MOTION_TOKENS.easing.standard}`
+                : 'none'
+        },
+        {
+            ...baseStyle,
+            transition: 'none'
+        }
+    );
+
+    return {
+        style: motionStyle,
+        isReady
+    };
 }
