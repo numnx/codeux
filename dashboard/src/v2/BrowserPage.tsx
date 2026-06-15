@@ -1,3 +1,4 @@
+import { usePolling } from "./hooks/use-polling.js";
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
@@ -203,17 +204,19 @@ export const BrowserPage: FunctionComponent = () => {
     };
   }, [visibleSelectedSession?.id]);
 
-  useEffect(() => {
-    if (!visibleSelectedSession) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      void fetchPreviewLogs(visibleSelectedSession.id, 160)
-        .then((result) => setLogs(result.logs))
-        .catch(() => undefined);
-    }, 8000);
-    return () => window.clearInterval(timer);
-  }, [visibleSelectedSession?.id]);
+  usePolling(
+    async () => {
+      if (!visibleSelectedSession) return;
+      try {
+        const result = await fetchPreviewLogs(visibleSelectedSession.id, 160);
+        setLogs(result.logs);
+      } catch {
+        // ignore
+      }
+    },
+    8000,
+    { enabled: !!visibleSelectedSession }
+  );
 
   useEffect(() => {
     const handlePreviewMessage = (event: MessageEvent) => {

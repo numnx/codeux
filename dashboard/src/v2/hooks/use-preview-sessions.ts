@@ -1,3 +1,4 @@
+import { usePolling } from "./use-polling.js";
 import { useEffect, useState, useMemo } from "preact/hooks";
 import type { SprintPreviewSession } from "../../types.js";
 import { fetchPreviewSessions } from "../lib/browser-api.js";
@@ -48,13 +49,13 @@ export const usePreviewSessions = ({
     void refresh();
   }, [projectId]);
 
-  useEffect(() => {
-    if (!projectId || !pollInterval) return;
-    const timer = window.setInterval(() => {
-      void refresh(true);
-    }, pollInterval);
-    return () => window.clearInterval(timer);
-  }, [projectId, pollInterval]);
+  usePolling(
+    async () => {
+      await refresh(true);
+    },
+    pollInterval ?? 0,
+    { enabled: !!projectId && !!pollInterval }
+  );
 
   const selectedSession = useMemo(() => {
     if (activeSessionId) {

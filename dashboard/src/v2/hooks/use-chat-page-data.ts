@@ -1,3 +1,4 @@
+import { usePolling } from "./use-polling.js";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useMessageCache } from "./useMessageCache.js";
 import { useProjectData } from "../context/project-data.js";
@@ -98,34 +99,20 @@ export const useChatPageData = (options?: { composerRef?: RefObject<HTMLTextArea
     }
   }, [threadData.messages, options?.messagesRef]);
 
-  useEffect(() => {
-    if (!selectedProject) {
-      return;
-    }
-    const hasActiveInvocation = invocationData.invocations.some((invocation) => (
-      invocation.status === "running" || invocation.id.startsWith("optimistic:")
-    ));
-    if (!hasActiveInvocation) {
-      return;
-    }
+  const hasActiveInvocation = invocationData.invocations.some((invocation) => (
+    invocation.status === "running" || invocation.id.startsWith("optimistic:")
+  ));
 
-    const interval = window.setInterval(() => {
-      void refreshThreads({ mode: "invocations" });
+  usePolling(
+    async () => {
+      await refreshThreads({ mode: "invocations" });
       if (invocationData.selectedInvocationIdRef.current) {
-        void invocationData.refreshInvocationMessages(invocationData.selectedInvocationIdRef.current, { force: true });
+        await invocationData.refreshInvocationMessages(invocationData.selectedInvocationIdRef.current, { force: true });
       }
-    }, 3000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [
-    invocationData.invocations,
-    invocationData.refreshInvocationMessages,
-    invocationData.selectedInvocationIdRef,
-    refreshThreads,
-    selectedProject,
-  ]);
+    },
+    3000,
+    { enabled: !!selectedProject && hasActiveInvocation }
+  );
 
   const activeConnection = useMemo(() => {
     if (!threadData.selectedThread?.connectionId) {
