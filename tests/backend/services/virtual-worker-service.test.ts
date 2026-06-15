@@ -498,37 +498,26 @@ describe("VirtualWorkerService", () => {
     virtualWorkerService.stop();
   });
 
-  it("getProviderLabel returns correct labels", async () => {
+  it("getProviderLabel returns correct labels via provisioning helper", async () => {
     const {
-      settingsRepository,
-      sessionTracking,
-      projectManagementRepository,
-      executionRepository,
       workerEndpointRepository,
       projectWorkerAssignmentRepository,
-      projectAttentionService,
-      workerTaskDispatchService,
     } = await createFixture();
 
-    const virtualWorkerService = new VirtualWorkerService({
-      settingsRepository,
-      sessionTracking,
-      executionRepository,
-      projectManagementRepository,
+    const { VirtualWorkerProvisioning } = await import("../../../src/services/virtual-worker/virtual-worker-provisioning.js");
+
+    const provisioning = new VirtualWorkerProvisioning(
       workerEndpointRepository,
-      projectWorkerAssignmentRepository,
-      projectWorkerAssignmentService: new ProjectWorkerAssignmentService(
+      new ProjectWorkerAssignmentService(
         projectWorkerAssignmentRepository,
         workerEndpointRepository,
       ),
-      projectAttentionService,
-      workerTaskDispatchService,
-      cliWorkflowService: { startTask: vi.fn() } as any,
-    });
+      projectWorkerAssignmentRepository,
+    );
 
-    expect((virtualWorkerService as any).getProviderLabel("claude-code")).toBe("Claude Code");
-    expect((virtualWorkerService as any).getProviderLabel("gemini")).toBe("Gemini");
-    expect((virtualWorkerService as any).getProviderLabel("codex")).toBe("Codex");
+    expect((provisioning as any).getProviderLabel("claude-code")).toBe("Claude Code");
+    expect((provisioning as any).getProviderLabel("gemini")).toBe("Gemini");
+    expect((provisioning as any).getProviderLabel("codex")).toBe("Codex");
   });
 
   it("readRequiredString throws on empty values", async () => {
