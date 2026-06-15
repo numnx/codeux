@@ -13,9 +13,6 @@ interface MultiSelectProps {
   onChange: (value: string[]) => void;
   placeholder?: string;
   className?: string;
-  ariaLabel?: string;
-  labelledBy?: string;
-  inputId?: string;
 }
 
 export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
@@ -24,9 +21,6 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
   onChange,
   placeholder = "Add label...",
   className = "",
-  ariaLabel,
-  labelledBy,
-  inputId,
 }) => {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -34,7 +28,6 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
   const [listboxId] = useState(() => 'ms-' + Math.random().toString(36).slice(2, 7));
-  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -48,30 +41,21 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
 
   const addTag = (tag: string) => {
     const trimmed = tag.trim();
-    if (trimmed) {
-      if (!value.includes(trimmed)) {
-        onChange([...value, trimmed]);
-        setAnnouncement(`Added ${trimmed}`);
-      } else {
-        setAnnouncement(`${trimmed} is already selected`);
-      }
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
     }
     setInputValue("");
   };
 
   const removeTag = (tagToRemove: string) => {
     onChange(value.filter((tag) => tag !== tagToRemove));
-    setAnnouncement(`Removed ${tagToRemove}`);
   };
 
   const toggleOption = (optionValue: string) => {
-    if (value.includes(optionValue)) {
-      onChange(value.filter((v) => v !== optionValue));
-      setAnnouncement(`Removed ${optionValue}`);
-    } else {
-      onChange([...value, optionValue]);
-      setAnnouncement(`Added ${optionValue}`);
-    }
+    const newValue = value.includes(optionValue)
+      ? value.filter((v) => v !== optionValue)
+      : [...value, optionValue];
+    onChange(newValue);
   };
 
   const filteredOptions = options.filter(opt =>
@@ -177,36 +161,30 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
           setIsOpen(true);
         }}
       >
-        <ul className="flex m-0 p-0 list-none gap-1.5 flex-wrap">
-          {value.map((tag) => {
-            const matchedOption = options.find(o => o.value === tag);
-            const label = matchedOption ? matchedOption.label : tag;
-            return (
-              <li
-                key={tag}
-                className="flex items-center gap-1 rounded-full bg-slate-900/[0.06] px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-white/[0.08] dark:text-slate-300"
+        {value.map((tag) => {
+          const matchedOption = options.find(o => o.value === tag);
+          const label = matchedOption ? matchedOption.label : tag;
+          return (
+            <span
+              key={tag}
+              className="flex items-center gap-1 rounded-full bg-slate-900/[0.06] px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-white/[0.08] dark:text-slate-300"
+            >
+              {label}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeTag(tag);
+                }}
+                className="hover:text-status-red focus:outline-none"
+                aria-label={`Remove ${label}`}
               >
-                {label}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeTag(tag);
-                    inputRef.current?.focus();
-                  }}
-                  className="hover:text-status-red focus:outline-none"
-                  aria-label={`Remove label ${label}`}
-                >
-                  <X className="h-3 w-3" strokeWidth={2.5} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                <X className="h-3 w-3" strokeWidth={2.5} />
+              </button>
+            </span>
+          );
+        })}
         <input
-          id={inputId}
-          aria-label={ariaLabel}
-          aria-labelledby={labelledBy}
           ref={inputRef}
           type="text"
           role="combobox"
@@ -265,7 +243,6 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
           })}
         </div>
       )}
-      <div aria-live="polite" className="sr-only">{announcement}</div>
     </div>
   );
 };

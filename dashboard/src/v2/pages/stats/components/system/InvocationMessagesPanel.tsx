@@ -15,7 +15,6 @@ import { formatDateTime, formatDuration, formatTokens } from "../../stats-utils.
 
 interface InvocationMessagesPanelProps {
   invocation: ExecutionInvocationRecord;
-  id?: string;
 }
 
 const ROLE_CARD_CLASS: Record<ExecutionInvocationMessageRecord["role"], string> = {
@@ -65,7 +64,7 @@ function renderStatusChip(status: ExecutionInvocationRecord["status"]): JSX.Elem
   }
 }
 
-export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelProps> = ({ invocation, id }) => {
+export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelProps> = ({ invocation }) => {
   const [messages, setMessages] = useState<ExecutionInvocationMessageRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,15 +117,13 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
     }));
   };
 
-  const headingId = id ? `${id}-heading` : undefined;
-
   return (
-    <div id={id} role={id ? "region" : undefined} aria-labelledby={headingId} className="mt-2 rounded-2xl bg-slate-950/70 border border-white/[0.05] p-4 space-y-3">
+    <div className="mt-2 rounded-2xl bg-slate-950/70 border border-white/[0.05] p-4 space-y-3">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 id={headingId} className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 m-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
             Message transcript
-          </h3>
+          </div>
           <div className="text-[11px] text-slate-500">
             {formatDateTime(invocation.lastMessageAt)}
           </div>

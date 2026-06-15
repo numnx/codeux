@@ -34,7 +34,7 @@ export function TableRow({ children, className = "" }: { children: ComponentChil
   );
 }
 
-interface TableCellProps extends preact.JSX.HTMLAttributes<HTMLTableCellElement> {
+interface TableCellProps {
   children: ComponentChildren;
   className?: string;
   isFirst?: boolean;
@@ -44,14 +44,14 @@ interface TableCellProps extends preact.JSX.HTMLAttributes<HTMLTableCellElement>
   colSpan?: number;
 }
 
-export function TableCell({ children, className = "", isFirst, isLast, isHeader, align = "left", colSpan, ...props }: TableCellProps) {
+export function TableCell({ children, className = "", isFirst, isLast, isHeader, align = "left", colSpan }: TableCellProps) {
   const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
 
   if (isHeader) {
     const roundedClass = isFirst ? "rounded-l-2xl border-l" : isLast ? "rounded-r-2xl border-r pr-6" : "";
     const plClass = isFirst ? "pl-6" : "";
     return (
-      <th scope="col" className={`border-y border-black/[0.06] bg-white/55 px-4 py-2 ${alignClass} dark:border-white/[0.06] dark:bg-white/[0.035] ${roundedClass} ${plClass} ${className}`} {...props}>
+      <th className={`border-y border-black/[0.06] bg-white/55 px-4 py-2 ${alignClass} dark:border-white/[0.06] dark:bg-white/[0.035] ${roundedClass} ${plClass} ${className}`}>
         {children}
       </th>
     );
@@ -59,7 +59,7 @@ export function TableCell({ children, className = "", isFirst, isLast, isHeader,
 
   const roundedClass = isFirst ? "lg:rounded-l-[1.5rem] lg:border-l lg:pl-6" : isLast ? "lg:rounded-r-[1.5rem] lg:border-r lg:pr-6" : "";
   return (
-    <td colSpan={colSpan} className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-3 ${alignClass} ${roundedClass} ${className}`} {...props}>
+    <td colSpan={colSpan} className={`block px-4 py-3 align-middle lg:table-cell lg:border-y lg:px-4 lg:py-3 ${alignClass} ${roundedClass} ${className}`}>
       {children}
     </td>
   );
