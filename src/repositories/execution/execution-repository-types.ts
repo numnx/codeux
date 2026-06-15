@@ -1,3 +1,35 @@
+import type { Logger } from "../../shared/logging/logger.js";
+import type {
+  SprintRunRecord,
+  TaskRunRecord,
+  TaskDispatchRecord,
+  ExecutionInvocationRecord,
+  UpdateSprintRunInput,
+  UpdateTaskDispatchInput,
+  ExecutionLeaseRecord,
+  ProviderInvocationUsageRecord
+} from "../../contracts/execution-types.js";
+
+export interface ExecutionWriteContext {
+  logger: Logger;
+  notifyRealtime: (projectId: string, includeOverview: boolean) => void;
+  getTaskRun: (id: string) => TaskRunRecord | null;
+  getSprintRun: (id: string) => SprintRunRecord | null;
+  getTaskDispatch: (id: string) => TaskDispatchRecord | null;
+  getExecutionInvocation: (id: string) => ExecutionInvocationRecord | null;
+  shouldPublishSprintRunUpdate: (input: UpdateSprintRunInput) => boolean;
+  shouldPublishTaskDispatchUpdate: (input: UpdateTaskDispatchInput) => boolean;
+  notifyRealtimeForLease: (scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string) => void;
+  taskWallTimeCache: Map<string, { finishedMs: number, hasActive: boolean }>;
+  sprintRunWallTimeCache: Map<string, { finishedMs: number, hasActive: boolean }>;
+    getLease: (scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string) => ExecutionLeaseRecord | null;
+    resolveLeaseProjectId: (scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string) => string | null;
+    findActiveSprintRun: (projectId: string, sprintId: string) => SprintRunRecord | null;
+    hasActiveTaskDispatches: (sprintRunId: string) => boolean;
+    getProviderInvocationUsage: (id: string) => ProviderInvocationUsageRecord | null;
+    leaseProjectCache: Map<string, string>;
+}
+
 export interface ExecutionSprintRunSummaryRow {
   id: string;
   project_id: string;
