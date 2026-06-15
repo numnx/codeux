@@ -62,7 +62,7 @@ export function toBoolean(value: number | string | null | undefined): boolean {
   return toNumber(value) > 0;
 }
 
-export function parsePayloadJson(value: string | null | undefined): Record<string, unknown> | null {
+export function parsePayloadJson(value: string | null | undefined, throwOnError = false): Record<string, unknown> | null {
   if (typeof value !== "string" || value.trim().length === 0) {
     return null;
   }
@@ -70,7 +70,8 @@ export function parsePayloadJson(value: string | null | undefined): Record<strin
   try {
     const parsed = JSON.parse(value) as unknown;
     return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
-  } catch {
+  } catch (e) {
+    if (throwOnError) throw new RepositoryError("Failed to parse JSON payload", e);
     return null;
   }
 }
@@ -112,4 +113,39 @@ export class ValidationError extends RepositoryError {
     super(message);
     this.name = "ValidationError";
   }
+}
+
+export function parseJsonThrows<T>(value: string | null | undefined): T {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new RepositoryError("Cannot parse empty JSON payload");
+  }
+  try {
+    return JSON.parse(value) as T;
+  } catch (err) {
+    throw new RepositoryError("Failed to parse JSON payload", err);
+  }
+}
+
+export function parseJsonOr<T>(value: string | null | undefined, fallback: T): T {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function parseJsonArray<T = unknown>(value: string | null | undefined): T[] {
+  const parsed = parseJsonOr<unknown>(value, null);
+  if (Array.isArray(parsed)) {
+    return parsed as T[];
+  }
+  return [];
+}
+
+export function serializePayloadJson(value: unknown): string | null {
+  if (value === undefined) return null;
+  return JSON.stringify(value);
 }

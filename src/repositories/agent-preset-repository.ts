@@ -1,6 +1,6 @@
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { requireRecord } from "./repository-utils.js";
+import { requireRecord, parseJsonOr, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import { sanitizeAgentMcpAccess } from "../services/agent-mcp-access.js";
 import type {
   AgentMcpAccessConfig,
@@ -46,7 +46,7 @@ function parseLabels(value: string | null): string[] {
   }
 
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = parseJsonThrows<unknown>(value);
     if (!Array.isArray(parsed)) {
       return [];
     }
@@ -63,7 +63,7 @@ function parseAvatarConfig(value: string | null): AgentPresetRecord["avatarConfi
     return undefined;
   }
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = parseJsonThrows<unknown>(value);
     if (parsed && typeof parsed === "object") {
       return parsed as AgentPresetRecord["avatarConfig"];
     }
@@ -77,11 +77,11 @@ function parseMcpAccess(value: string | null): AgentMcpAccessConfig | undefined 
   if (!value) {
     return undefined;
   }
-  try {
-    return sanitizeAgentMcpAccess(JSON.parse(value));
-  } catch {
-    return undefined;
+  const parsed = parseJsonOr<unknown>(value, undefined);
+  if (parsed !== undefined) {
+    return sanitizeAgentMcpAccess(parsed);
   }
+  return undefined;
 }
 
 function parseMemoryConfig(value: string | null): AgentMemoryConfig | undefined {
@@ -89,7 +89,7 @@ function parseMemoryConfig(value: string | null): AgentMemoryConfig | undefined 
     return undefined;
   }
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = parseJsonThrows<unknown>(value);
     if (parsed && typeof parsed === "object") {
       return parsed as AgentMemoryConfig;
     }
@@ -100,7 +100,7 @@ function parseMemoryConfig(value: string | null): AgentMemoryConfig | undefined 
 }
 
 function serializeMemoryConfig(value: AgentMemoryConfig | undefined): string | null {
-  return value ? JSON.stringify(value) : null;
+  return value ? serializePayloadJson(value) : null;
 }
 
 export class AgentPresetRepository {
@@ -179,12 +179,12 @@ export class AgentPresetRepository {
       input.name.trim(),
       input.description?.trim() || "",
       input.instructionMarkdown?.trim() || "",
-      JSON.stringify(this.normalizeLabels(input.labels)),
+      serializePayloadJson(this.normalizeLabels(input.labels)),
       null,
       null,
       null,
       null,
-      input.avatarConfig ? JSON.stringify(input.avatarConfig) : null,
+      input.avatarConfig ? serializePayloadJson(input.avatarConfig) : null,
       input.providerConfigId?.trim() || null,
       input.model?.trim() || null,
       input.memoryTemplateOverrideEnabled ? 1 : 0,
@@ -231,17 +231,17 @@ export class AgentPresetRepository {
       input.name.trim(),
       input.description?.trim() || "",
       input.instructionMarkdown?.trim() || "",
-      JSON.stringify(this.normalizeLabels(input.labels)),
+      serializePayloadJson(this.normalizeLabels(input.labels)),
       input.sourcePath,
       input.sourceScope,
       input.sourceUpdatedAt,
       importedAt,
-      input.avatarConfig ? JSON.stringify(input.avatarConfig) : null,
+      input.avatarConfig ? serializePayloadJson(input.avatarConfig) : null,
       input.providerConfigId?.trim() || null,
       input.model?.trim() || null,
       input.memoryTemplateOverrideEnabled ? 1 : 0,
       input.memoryTemplateMarkdown || null,
-      input.memoryConfig ? JSON.stringify(input.memoryConfig) : null,
+      input.memoryConfig ? serializePayloadJson(input.memoryConfig) : null,
       now,
       now,
     );
@@ -260,17 +260,17 @@ export class AgentPresetRepository {
       input.name?.trim() || current.name,
       input.description === undefined ? current.description : input.description.trim(),
       input.instructionMarkdown === undefined ? current.instructionMarkdown : input.instructionMarkdown.trim(),
-      JSON.stringify(input.labels === undefined ? current.labels : this.normalizeLabels(input.labels)),
+      serializePayloadJson(input.labels === undefined ? current.labels : this.normalizeLabels(input.labels)),
       input.avatarConfig === undefined
-        ? (current.avatarConfig ? JSON.stringify(current.avatarConfig) : null)
-        : (input.avatarConfig ? JSON.stringify(input.avatarConfig) : null),
+        ? (current.avatarConfig ? serializePayloadJson(current.avatarConfig) : null)
+        : (input.avatarConfig ? serializePayloadJson(input.avatarConfig) : null),
       input.providerConfigId === undefined ? current.providerConfigId || null : input.providerConfigId?.trim() || null,
       input.model === undefined ? current.model || null : input.model?.trim() || null,
       input.memoryTemplateOverrideEnabled === undefined ? (current.memoryTemplateOverrideEnabled ? 1 : 0) : (input.memoryTemplateOverrideEnabled ? 1 : 0),
       input.memoryTemplateMarkdown === undefined ? (current.memoryTemplateMarkdown || null) : (input.memoryTemplateMarkdown || null),
       input.memoryConfig === undefined
-        ? (current.memoryConfig ? JSON.stringify(current.memoryConfig) : null)
-        : (input.memoryConfig ? JSON.stringify(input.memoryConfig) : null),
+        ? (current.memoryConfig ? serializePayloadJson(current.memoryConfig) : null)
+        : (input.memoryConfig ? serializePayloadJson(input.memoryConfig) : null),
       input.mcpAccess === undefined ? this.serializeMcpAccess(current.mcpAccess) : this.serializeMcpAccess(input.mcpAccess),
       now,
       agentPresetId,
@@ -331,14 +331,14 @@ export class AgentPresetRepository {
       input.instructionMarkdown.trim(),
       input.sourceUpdatedAt,
       input.sourceUpdatedAt,
-      input.avatarConfig ? JSON.stringify(input.avatarConfig) : null,
+      input.avatarConfig ? serializePayloadJson(input.avatarConfig) : null,
       input.providerConfigId === undefined ? current.providerConfigId || null : input.providerConfigId?.trim() || null,
       input.model === undefined ? current.model || null : input.model?.trim() || null,
       input.memoryTemplateOverrideEnabled ? 1 : 0,
       input.memoryTemplateMarkdown || null,
       input.memoryConfig === undefined
-        ? (current.memoryConfig ? JSON.stringify(current.memoryConfig) : null)
-        : (input.memoryConfig ? JSON.stringify(input.memoryConfig) : null),
+        ? (current.memoryConfig ? serializePayloadJson(current.memoryConfig) : null)
+        : (input.memoryConfig ? serializePayloadJson(input.memoryConfig) : null),
       now,
       agentPresetId,
     );
@@ -380,12 +380,7 @@ export class AgentPresetRepository {
       return false;
     }
 
-    try {
-      const parsed = JSON.parse(row.payload) as { copied?: boolean };
-      return parsed.copied === true;
-    } catch {
-      return false;
-    }
+    return parseJsonOr<{ copied?: boolean }>(row.payload, {}).copied === true;
   }
 
   markDefaultAgentPresetsCopied(projectId: string): void {
@@ -397,7 +392,7 @@ export class AgentPresetRepository {
       ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       this.defaultAgentCopyKey(projectId),
-      JSON.stringify({ copied: true, copiedAt: now }),
+      serializePayloadJson({ copied: true, copiedAt: now }),
       now,
     );
   }
@@ -437,7 +432,7 @@ export class AgentPresetRepository {
   }
 
   private serializeMcpAccess(mcpAccess: AgentMcpAccessConfig | undefined): string | null {
-    return mcpAccess ? JSON.stringify(sanitizeAgentMcpAccess(mcpAccess)) : null;
+    return mcpAccess ? serializePayloadJson(sanitizeAgentMcpAccess(mcpAccess)) : null;
   }
 
 
@@ -483,12 +478,7 @@ export class AgentPresetRepository {
       return false;
     }
 
-    try {
-      const parsed = JSON.parse(row.payload) as Record<string, unknown>;
-      return parsed[property] === true;
-    } catch {
-      return false;
-    }
+    return parseJsonOr<Record<string, unknown>>(row.payload, {})[property] === true;
   }
 
   private writeBooleanProjectSetting(projectId: string, key: string, property: string): void {
@@ -500,7 +490,7 @@ export class AgentPresetRepository {
       ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       key,
-      JSON.stringify({ [property]: true, updatedAt: now }),
+      serializePayloadJson({ [property]: true, updatedAt: now }),
       now,
     );
   }

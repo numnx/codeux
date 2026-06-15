@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { executeChunkedInQuery } from "./repository-utils.js";
+import { executeChunkedInQuery, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import { requireRecord } from "./repository-utils.js";
 import type { DashboardRealtimeMutationNotifier } from "../services/dashboard-realtime-service.js";
 import type {
@@ -38,7 +38,7 @@ function parsePayload(value: string | null): Record<string, unknown> | null {
     return null;
   }
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = parseJsonThrows<unknown>(value);
     return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
   } catch {
     return null;
@@ -49,7 +49,7 @@ function serializePayload(payload?: Record<string, unknown> | null): string | nu
   if (!payload) {
     return null;
   }
-  return JSON.stringify(payload);
+  return serializePayloadJson(payload);
 }
 
 export interface OpenProjectAttentionItemInput {

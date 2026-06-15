@@ -2,7 +2,7 @@ import * as path from "path";
 import os from "os";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
-import { ValidationError, EntityNotFoundError, RepositoryError } from "./repository-utils.js";
+import { ValidationError, EntityNotFoundError, RepositoryError, parseJsonOr, parseJsonArray, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import type {
   CreateProjectInput,
@@ -525,8 +525,8 @@ export class ProjectManagementRepository {
           issue.title,
           issue.url,
           issue.state || "open",
-          JSON.stringify(issue.labels || []),
-          JSON.stringify(issue.assignees || []),
+          serializePayloadJson(issue.labels || []),
+          serializePayloadJson(issue.assignees || []),
           now,
           null,
           "open",
@@ -779,12 +779,7 @@ export class ProjectManagementRepository {
       return null;
     }
 
-    try {
-      const parsed = JSON.parse(row.payload) as { sprintId?: string | null };
-      return parsed.sprintId ?? null;
-    } catch {
-      return null;
-    }
+    return parseJsonOr<{ sprintId?: string | null }>(row.payload, {}).sprintId ?? null;
   }
 
   setSelectedSprintId(projectId: string, sprintId: string | null): string | null {
@@ -803,7 +798,7 @@ export class ProjectManagementRepository {
         ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
       `).run(
         `selected_sprint_id_${projectId}`,
-        JSON.stringify({ sprintId }),
+        serializePayloadJson({ sprintId }),
         now
       );
 
@@ -827,12 +822,7 @@ export class ProjectManagementRepository {
       return null;
     }
 
-    try {
-      const parsed = JSON.parse(row.payload) as { projectId?: string | null };
-      return parsed.projectId ?? null;
-    } catch {
-      return null;
-    }
+    return parseJsonOr<{ projectId?: string | null }>(row.payload, {}).projectId ?? null;
   }
 
   setSelectedProjectId(projectId: string | null): string | null {
@@ -847,7 +837,7 @@ export class ProjectManagementRepository {
         ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
       `).run(
         SELECTED_PROJECT_KEY,
-        JSON.stringify({ projectId }),
+        serializePayloadJson({ projectId }),
         now
       );
 
@@ -1025,7 +1015,7 @@ export class ProjectManagementRepository {
         continue;
       }
       try {
-        const parsed = JSON.parse(row.latest_task_review_json) as SprintReviewSummary;
+        const parsed = parseJsonThrows<SprintReviewSummary>(row.latest_task_review_json);
         parsed.findings = Array.isArray(parsed.findings) ? parsed.findings : [];
         map.set(row.task_id, parsed);
       } catch {
@@ -1100,13 +1090,11 @@ export class ProjectManagementRepository {
 
     let latestReview: import("../contracts/project-management-types.js").SprintReviewSummary | undefined;
     if (row.latest_sprint_review_json) {
-      try {
-        const parsed = JSON.parse(row.latest_sprint_review_json) as import("../contracts/project-management-types.js").SprintReviewSummary;
-        parsed.findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-        latestReview = parsed;
-      } catch {
-        // Ignore JSON parse errors
-      }
+      const parsed = parseJsonOr<import("../contracts/project-management-types.js").SprintReviewSummary | null>(row.latest_sprint_review_json, null);
+        if (parsed) {
+          parsed.findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+          latestReview = parsed;
+        }
     }
 
     return {
@@ -1348,14 +1336,8 @@ function parseJsonStringArray(value: string | null | undefined): string[] {
   if (!value) {
     return [];
   }
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      : [];
-  } catch {
-    return [];
-  }
+  const parsed = parseJsonArray<string>(value);
+    return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
 function normalizeLinkedIssueInputs(issues: SprintLinkedIssueInput[]): SprintLinkedIssueInput[] {
