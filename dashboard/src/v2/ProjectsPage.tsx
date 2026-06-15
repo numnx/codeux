@@ -661,46 +661,52 @@ export const ProjectsPage: FunctionComponent = () => {
                 </div>
 
                 {/* ── Cards Grid ──────────────────────────────────────── */}
-                <div ref={gridRef} className="grid grid-cols-1 grid-rows-1 relative">
-                    <SkeletonLoader show={showSkeletons} className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                        <SkeletonPanel />
-                        <SkeletonPanel />
-                        <SkeletonPanel />
-                        <SkeletonPanel />
-                    </SkeletonLoader>
-                    {!loading ? (
-                        <div className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                            {filtered.map(source => (
-                                <div key={source.id} className="project-card-entry h-full">
-                                    <ProjectCard
-                                        source={source}
-                                        isSelected={selectedProjectId === source.id}
-                                        isSettingUp={runningSetupProjectIds.has(source.id)}
-                                        setupInvocationId={setupInvocationByProjectId[source.id] || null}
-                                        onSelect={() => { void selectProject(source.id); }}
-                                        onDelete={() => { void deleteProject(source.id); }}
-                                        onSetup={() => {
-                                            setSetupProjectId(source.id);
-                                            setSetupOptions({ agents: true, quicksprints: true, previewScript: true, ci: true });
-                                            setSetupError(null);
-                                        }}
-                                        onOpenInvocation={() => {
-                                            const invocationId = setupInvocationByProjectId[source.id];
-                                            if (invocationId) {
-                                                openInvocation(invocationId);
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                            <div className="project-card-entry h-full">
-                                <AddCard onClick={() => {
-                                    setModalSourceType('local');
-                                    setShowModal(true);
-                                }} />
+                <div ref={gridRef} className="grid grid-cols-1 relative">
+                    <SkeletonLoader
+                        show={showSkeletons}
+                        skeleton={
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                <SkeletonPanel />
+                                <SkeletonPanel />
+                                <SkeletonPanel />
+                                <SkeletonPanel />
                             </div>
-                        </div>
-                    ) : null}
+                        }
+                    >
+                        {!loading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                {filtered.map(source => (
+                                    <div key={source.id} className="project-card-entry h-full">
+                                        <ProjectCard
+                                            source={source}
+                                            isSelected={selectedProjectId === source.id}
+                                            isSettingUp={runningSetupProjectIds.has(source.id)}
+                                            setupInvocationId={setupInvocationByProjectId[source.id] || null}
+                                            onSelect={() => { void selectProject(source.id); }}
+                                            onDelete={() => { void deleteProject(source.id); }}
+                                            onSetup={() => {
+                                                setSetupProjectId(source.id);
+                                                setSetupOptions({ agents: true, quicksprints: true, previewScript: true, ci: true });
+                                                setSetupError(null);
+                                            }}
+                                            onOpenInvocation={() => {
+                                                const invocationId = setupInvocationByProjectId[source.id];
+                                                if (invocationId) {
+                                                    openInvocation(invocationId);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                                <div className="project-card-entry h-full">
+                                    <AddCard onClick={() => {
+                                        setModalSourceType('local');
+                                        setShowModal(true);
+                                    }} />
+                                </div>
+                            </div>
+                        ) : <div className="h-64 w-full" />}
+                    </SkeletonLoader>
                 </div>
             </PageContainer>
 

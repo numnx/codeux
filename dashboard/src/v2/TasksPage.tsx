@@ -804,38 +804,45 @@ export const TasksPage: FunctionComponent = () => {
             <div key={status} className="flex flex-col">
               <ColumnHeader status={status} count={count} />
               <div className="flex-1 grid grid-cols-1 grid-rows-1 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03]">
-                <SkeletonLoader show={showSkeletons} className="col-start-1 row-start-1 flex flex-col gap-4">
-                  <SkeletonCard />
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </SkeletonLoader>
-                {!loading && columnTasks.length === 0 ? (
-                  <div className="col-start-1 row-start-1 flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-[1rem]">
-                    No {status.replace("_", " ")} tasks
-                    <br />
-                    {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
-                  </div>
-                ) : !loading ? (
-                  <div className="col-start-1 row-start-1 flex flex-col gap-4">
-                    {columnTasks.map((task, index) => {
-                      const viewModel = taskViewModels.get(task.recordId);
-                      if (!viewModel) return null;
+                <SkeletonLoader
+                  show={showSkeletons}
+                  className="col-start-1 row-start-1"
+                  skeleton={
+                    <div className="flex flex-col gap-4">
+                      <SkeletonCard />
+                      <SkeletonCard />
+                      <SkeletonCard />
+                    </div>
+                  }
+                >
+                  {!loading && columnTasks.length === 0 ? (
+                    <div className="flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-[1rem]">
+                      No {status.replace("_", " ")} tasks
+                      <br />
+                      {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
+                    </div>
+                  ) : !loading ? (
+                    <div className="flex flex-col gap-4">
+                      {columnTasks.map((task, index) => {
+                        const viewModel = taskViewModels.get(task.recordId);
+                        if (!viewModel) return null;
 
-                      return (
-                        <div key={task.recordId} className="task-card-entry" data-task-id={task.recordId}>
-                          <KanbanTaskCard
-                            viewModel={viewModel}
-                            index={index}
-                            onEdit={handleEditClick}
-                            onDelete={handleDeleteTask}
-                            agentPresetName={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId)?.name ?? null : null}
-                            agentPresetAvatarConfig={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId)?.avatarConfig : undefined}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
+                        return (
+                          <div key={task.recordId} className="task-card-entry" data-task-id={task.recordId}>
+                            <KanbanTaskCard
+                              viewModel={viewModel}
+                              index={index}
+                              onEdit={handleEditClick}
+                              onDelete={handleDeleteTask}
+                              agentPresetName={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId)?.name ?? null : null}
+                              agentPresetAvatarConfig={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId)?.avatarConfig : undefined}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : <div className="min-h-[200px]" />}
+                </SkeletonLoader>
               </div>
             </div>
           ))}

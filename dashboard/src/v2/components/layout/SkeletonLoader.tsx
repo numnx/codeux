@@ -7,19 +7,36 @@ const Shimmer = () => (
   />
 );
 
-export const SkeletonLoader: FunctionComponent<{ show: boolean; children: ComponentChildren; className?: string }> = ({ show, children, className }) => {
-  const [shouldRender, setShouldRender] = useState(show);
+export const SkeletonLoader: FunctionComponent<{ show: boolean; skeleton?: ComponentChildren; children: ComponentChildren; className?: string }> = ({ show, skeleton, children, className }) => {
+  const [shouldRenderSkeleton, setShouldRenderSkeleton] = useState(show);
 
   useEffect(() => {
     if (show) {
-      setShouldRender(true);
+      setShouldRenderSkeleton(true);
     } else {
-      const timeout = setTimeout(() => setShouldRender(false), 200);
+      const timeout = setTimeout(() => setShouldRenderSkeleton(false), 200);
       return () => clearTimeout(timeout);
     }
   }, [show]);
 
-  if (!shouldRender) return null;
+  // If skeleton mode is used (new pattern)
+  if (skeleton) {
+    return (
+      <div className="grid grid-cols-1 grid-rows-1">
+        {shouldRenderSkeleton && (
+          <div className={`col-start-1 row-start-1 transition-opacity duration-200 ease-in-out pointer-events-none z-10 ${show ? 'opacity-100' : 'opacity-0'} ${className || ''}`}>
+            {skeleton}
+          </div>
+        )}
+        <div className={`col-start-1 row-start-1 transition-opacity duration-200 ease-in-out ${show ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${className || ''}`}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // Legacy pattern where only children (the skeleton elements) are passed
+  if (!shouldRenderSkeleton) return null;
 
   return (
     <div className={`transition-opacity duration-200 ease-in-out pointer-events-none ${show ? 'opacity-100' : 'opacity-0'} ${className || ''}`}>
