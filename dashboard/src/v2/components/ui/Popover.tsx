@@ -1,4 +1,4 @@
-import { h, ComponentChildren, RefObject, isValidElement } from "preact";
+import { h, ComponentChildren, RefObject, isValidElement, cloneElement } from "preact";
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
