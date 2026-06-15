@@ -1,7 +1,7 @@
 import { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
 import { useState } from "preact/hooks";
-import { activeMemoryIdSignal, lobotomizeModeSignal, memoriesSignal } from "./memoryState.js";
+import { activeMemoryIdSignal, lobotomizeModeSignal, memoriesSignal, memoryMutationsSignal } from "./memoryState.js";
 import { useComputed } from "@preact/signals";
 import { X } from "lucide-preact";
 import { deleteMemory } from "../../lib/memory-api.js";
@@ -13,7 +13,7 @@ interface MemoryCardProps {
     content: string;
     category: string;
     strength: number;
-        onClick: () => void;
+    onClick: () => void;
 }
 
 const CAT: Record<string, { label: string; hex: string }> = {
@@ -34,7 +34,6 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
     strength,
     onClick,
 }) => {
-    const [deleted, setDeleted] = useState(false);
     const cat = CAT[category] || CAT.context;
     const isSelected = useComputed(() => activeMemoryIdSignal.value === id);
     const { isOpen: isConfirmOpen, options: confirmOptions, requestConfirm, handleConfirm, handleCancel, triggerRef } = useConfirmDialog();
@@ -43,23 +42,16 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
         e.stopPropagation();
         const confirmed = await requestConfirm({
             title: "Delete Memory",
-            body: "Are you sure you want to delete this memory?",
-            confirmLabel: "Delete",
+            body: `Are you sure you want to delete this memory from ${cat.label}?`,
+            confirmLabel: "Delete Memory",
             cancelLabel: "Cancel",
             destructive: true
         });
-        if (!confirmed) return;
 
-        setDeleted(true);
-        memoriesSignal.value = memoriesSignal.value.filter((m) => m.id !== id);
-        try {
-            await deleteMemory(id);
-        } catch {
-            // Silently fail as per requirements
+        if (confirmed) {
+            memoryMutationsSignal.value.removeMemory(id);
         }
     };
-
-    if (deleted) return null;
 
     return (
         <div
