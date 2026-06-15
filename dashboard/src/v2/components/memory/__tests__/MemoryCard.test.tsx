@@ -13,6 +13,17 @@ vi.mock("../../../lib/memory-api.js", () => ({
     deleteMemory: vi.fn(),
 }));
 
+vi.mock("../../../hooks/use-confirm-dialog.js", () => ({
+    useConfirmDialog: () => ({
+        isOpen: false,
+        options: null,
+        requestConfirm: vi.fn().mockResolvedValue(true),
+        handleConfirm: vi.fn(),
+        handleCancel: vi.fn(),
+        triggerRef: { current: null }
+    })
+}));
+
 describe("MemoryCard", () => {
     afterEach(() => {
         vi.clearAllMocks();
@@ -52,6 +63,9 @@ describe("MemoryCard", () => {
         expect(deleteButton).toBeInTheDocument();
 
         await fireEvent.click(deleteButton);
+
+        // State updates after async confirmation
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         expect(MemoryApi.deleteMemory).toHaveBeenCalledWith("test-id");
         expect(memoriesSignal.value).toEqual([]);
