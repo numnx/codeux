@@ -17,7 +17,7 @@ import {
 } from "./project-runtime/runtime-status-projection.js";
 import { toNumber } from "./repository-utils.js";
 
-const TERMINAL_TASK_STATES = new Set<TaskRunState>(["CODING_COMPLETED", "COMPLETED", "FAILED", "BLOCKED"]);
+const TERMINAL_TASK_STATES = new Set<TaskRunState>(["CODING_COMPLETED", "COMPLETED", "FAILED", "BLOCKED", "QA_REVIEW_FAILED"]);
 
 function normalizePath(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -43,8 +43,15 @@ function subtaskSignature(subtask: Subtask): string {
   });
 }
 
-function toPersistedTaskRunState(status: TaskRunState): Exclude<TaskRunState, "CODING_COMPLETED"> {
-  return status === "CODING_COMPLETED" ? "COMPLETED" : status;
+function toPersistedTaskRunState(status: TaskRunState): Exclude<TaskRunState, "CODING_COMPLETED" | "QA_REVIEW_FAILED"> {
+  // `QA_REVIEW_FAILED` is a task/planning state, not a provider-run state: the
+  // underlying session genuinely COMPLETED (that is what QA reviewed). Persist
+  // the run as COMPLETED so the task_runs.state column stays within the valid
+  // execution-state set; the escalation lives on the task row, not the run.
+  if (status === "CODING_COMPLETED" || status === "QA_REVIEW_FAILED") {
+    return "COMPLETED";
+  }
+  return status;
 }
 
 export class ProjectRuntimeRepository {

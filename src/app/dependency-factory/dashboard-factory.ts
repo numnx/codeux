@@ -302,6 +302,13 @@ export function createDashboardDependencies(
         "ci_fix_required",
       ], "task_rerun_reset");
     },
+    resetTaskQaState: ({ taskId }) => {
+      // A manual rerun is a fresh attempt — clear the prior QA verdict budget and
+      // guardrail ledger so the new run is reviewed instead of being blocked or
+      // escalated on the previous attempt's exhausted/changes-requested history.
+      coreDeps.qaReviewRepository.resetTaskReviewRuns(taskId);
+      coreDeps.guardrailService.reset(taskId);
+    },
     updateTaskExecutorOverride: (taskId, provider) => {
       const executorType = provider === "jules" ? "jules" : "docker_cli";
       projectManagementRepository.updateTask(taskId, { executorType });

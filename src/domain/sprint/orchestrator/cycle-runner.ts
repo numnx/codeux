@@ -542,6 +542,72 @@ export class CycleRunner {
     }
   }
 
+  /**
+   * Park a code-complete task that QA could never clear into QA_REVIEW_FAILED
+   * and raise a human-escalation attention item. This is the fail-closed end of
+   * the QA gate: rather than letting an exhausted/unverified task settle as
+   * COMPLETED (which silently shipped tasks with no PR), we hold it for a human.
+   * Idempotent — the status flip and the deduped attention item make repeat
+   * cycles no-ops once the task is already escalated.
+   */
+  private escalateUnverifiedTaskToHuman(
+    task: Subtask,
+    qaGate: TaskQaMergeGateStatus,
+    args: CycleRunnerArgs,
+  ): void {
+    const taskId = task.record_id?.trim();
+    const hint = "QA could not verify this task and the review budget is exhausted. Inspect the produced work and finish or close the task manually.";
+
+    task.status = "QA_REVIEW_FAILED";
+    task.merge_indicator = undefined;
+    task.intervention_owner = "HUMAN";
+    task.intervention_hint = hint;
+
+    if (!taskId) {
+      return;
+    }
+
+    this.deps.projectManagementRepository.updateTask(taskId, {
+      status: "QA_REVIEW_FAILED",
+      mergeIndicator: null,
+    });
+
+    this.deps.projectAttentionService?.openItems?.([
+      {
+        projectId: args.executionContext.project.id,
+        sprintId: args.executionContext.sprint.id,
+        taskId,
+        sprintRunId: args.sprintRunId,
+        attentionType: "human_escalation_required",
+        severity: "high",
+        ownerType: "human" as ProjectAttentionOwnerType,
+        title: `QA could not verify ${task.id}`,
+        summaryMarkdown: [
+          `Task \`${task.id}\` (${task.title ?? "untitled"}) finished coding but QA never cleared it.`,
+          qaGate.summary ? `\nLatest QA signal: ${qaGate.summary}` : "",
+          `\nReviews used: ${qaGate.runsUsed}/${qaGate.maxRuns}. The task is held in QA_REVIEW_FAILED and will not be merged or marked complete until a human resolves it.`,
+        ].filter(Boolean).join("\n"),
+        payload: {
+          taskKey: task.id,
+          qaReason: qaGate.reason,
+          runsUsed: qaGate.runsUsed,
+          maxRuns: qaGate.maxRuns,
+        },
+      },
+    ]);
+
+    this.deps.logger.warn("QA exhausted without clearing task — escalated to human", {
+      projectId: args.executionContext.project.id,
+      sprintId: args.executionContext.sprint.id,
+      sprintRunId: args.sprintRunId,
+      taskId,
+      taskKey: task.id,
+      qaReason: qaGate.reason,
+      runsUsed: qaGate.runsUsed,
+      maxRuns: qaGate.maxRuns,
+    });
+  }
+
   private async reviewCompletedTasks(
     subtasks: Subtask[],
     previousStates: Map<string, Subtask["status"]>,
@@ -569,6 +635,16 @@ export class CycleRunner {
         task,
       });
       const taskIsCodeComplete = isTaskCodeComplete(task);
+
+      // Fail closed: QA spent its budget without ever clearing this task (no
+      // pass — either changes still outstanding at the cap or the reviewer kept
+      // failing for infra reasons). Never let it quietly settle as completed:
+      // hold it in QA_REVIEW_FAILED and raise a human-escalation attention item.
+      if (taskIsCodeComplete && qaGate.reason === "retries_exhausted" && task.status !== "QA_REVIEW_FAILED") {
+        this.escalateUnverifiedTaskToHuman(task, qaGate, args);
+        continue;
+      }
+
       const newlyCodeComplete = taskIsCodeComplete && !isTaskCodeComplete({ status: prev });
       const shouldRunQaReview = taskIsCodeComplete
         && (

@@ -207,8 +207,19 @@ const syncExecutionRunState = async (
     ? deps.executionRepository.getTaskDispatch(taskRun.dispatchId)
     : null;
   const wasDispatchTerminal = !currentDispatch || currentDispatch.finishedAt !== null;
+  const nextRunState = mapSessionStateToTaskRunState(session.state, deps.isActionRequiredState);
+  // A provider session can come back to life after it had finished — e.g. a
+  // Jules session continued with QA follow-up work, or a task that was rerun.
+  // When that happens the local run is terminal but the remote session is
+  // active again (RUNNING / awaiting action), so we must NOT short-circuit;
+  // otherwise the task is left showing its old completed status while a fresh
+  // session is actively working (the stale-status-on-rerun bug). A genuinely
+  // merged task is excluded — it is done for good and its session activity, if
+  // any, is stale.
+  const sessionReactivated = !task.is_merged
+    && (nextRunState === "RUNNING" || nextRunState === "BLOCKED");
 
-  if (wasTerminal && wasDispatchTerminal) {
+  if (wasTerminal && wasDispatchTerminal && !sessionReactivated) {
     return;
   }
 
@@ -217,7 +228,6 @@ const syncExecutionRunState = async (
   const provider = session.provider || taskRun.provider;
   const workerBranch = resolveWorkerBranch(session) || taskRun.workerBranch;
   const prUrl = resolvePrUrl(session) || taskRun.prUrl;
-  const nextRunState = mapSessionStateToTaskRunState(session.state, deps.isActionRequiredState);
   const now = new Date().toISOString();
   const nextFinishedAt = nextRunState === "RUNNING"
     ? null
@@ -252,7 +262,13 @@ const syncExecutionRunState = async (
   }
 
   const nextPlanningStatus = mapTaskRunStateToPlanningStatus(nextRunState);
-  const skipStatusUpdate = task.status === "COMPLETED" && (nextPlanningStatus as string) !== "completed";
+  // Never let a stale provider session rewrite the planning status of a task a
+  // human now owns. QA_REVIEW_FAILED means QA could not verify the task and it
+  // was escalated; the backing Jules session usually still reports COMPLETED,
+  // so without this guard session-sync would keep demoting it to
+  // coding_completed and re-enter the QA loop it was deliberately taken out of.
+  const skipStatusUpdate = task.status === "QA_REVIEW_FAILED"
+    || (task.status === "COMPLETED" && !sessionReactivated && (nextPlanningStatus as string) !== "completed");
 
   if (!skipStatusUpdate) {
     const updatePayload: Record<string, any> = {
@@ -477,7 +493,21 @@ export const runSessionSyncStep = async (
       sessionName ? activitiesMap.get(sessionName) : undefined,
     );
 
-    if (task.status === "COMPLETED" && isCompletedTaskSettled(task, { githubMode: context.githubMode })) {
+    // A human now owns this task (QA could not verify it). Leave its status
+    // alone — a stale session still reporting COMPLETED must not pull it back
+    // into the coding/QA pipeline it was escalated out of.
+    if (task.status === "QA_REVIEW_FAILED") {
+      continue;
+    }
+
+    // Keep a settled completed task as-is unless its provider session has
+    // reactivated (RUNNING / awaiting action again) — e.g. a no-PR task that was
+    // rerun or continued. A merged task is never reactivated. This lets a live
+    // re-run surface as RUNNING instead of staying stuck on "completed", while
+    // genuinely-done (merged) tasks are left untouched.
+    const liveRunState = mapSessionStateToTaskRunState(match.state, deps.isActionRequiredState);
+    const reactivated = !task.is_merged && (liveRunState === "RUNNING" || liveRunState === "BLOCKED");
+    if (task.status === "COMPLETED" && !reactivated && isCompletedTaskSettled(task, { githubMode: context.githubMode })) {
       continue;
     }
 
