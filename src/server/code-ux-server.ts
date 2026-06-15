@@ -978,7 +978,7 @@ export class CodeUxServer {
     }
 
     try {
-      await new DatabaseMaintenanceService({
+      new DatabaseMaintenanceService({
         appDbStorage: this.appDbStorage,
         sessionTracking: this.sessionTracking,
         settingsRepository: this.settingsRepository,
