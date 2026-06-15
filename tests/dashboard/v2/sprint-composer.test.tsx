@@ -429,10 +429,10 @@ describe("AddTaskModal Lifecycle", () => {
       expect(getByText("API Error 500")).toBeInTheDocument();
     });
 
-    const errorRegion = getByRole("alert");
+    const errorRegion = getByRole("status");
     expect(errorRegion).toBeInTheDocument();
 
-    const dismissBtn = getByLabelText("Dismiss error message");
+    const dismissBtn = getByLabelText("Dismiss message");
 
     // Explicitly focus it to ensure focus behavior is correctly represented
     dismissBtn.focus();

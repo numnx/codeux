@@ -51,11 +51,6 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
     }
   };
 
-  const getAriaSort = (key: SystemSortKey) => {
-    if (sort.key !== key) return "none";
-    return sort.dir === "asc" ? "ascending" : "descending";
-  };
-
   const renderSortIcon = (key: SystemSortKey) => {
     if (sort.key !== key) return <ArrowUpDown className="ml-1 h-3 w-3" />;
     return sort.dir === "asc" ? (
@@ -135,7 +130,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
       <table className="w-full border-separate border-spacing-y-2">
         <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-md dark:bg-[#0E0C0A]/80">
           <tr className="text-left text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            <th className="pb-2 pl-6" scope="col" aria-sort={getAriaSort("startedAt")}>
+            <th className="pb-2 pl-6">
               <button
                 type="button"
                 onClick={() => handleSort("startedAt")}
@@ -144,10 +139,10 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 Time {renderSortIcon("startedAt")}
               </button>
             </th>
-            <th className="pb-2" scope="col">Status</th>
-            <th className="pb-2" scope="col">Type</th>
-            <th className="pb-2" scope="col">Model</th>
-            <th className="pb-2" scope="col" aria-sort={getAriaSort("inputTokens")}>
+            <th className="pb-2">Status</th>
+            <th className="pb-2">Type</th>
+            <th className="pb-2">Model</th>
+            <th className="pb-2">
               <button
                 type="button"
                 onClick={() => handleSort("inputTokens")}
@@ -156,7 +151,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 In {renderSortIcon("inputTokens")}
               </button>
             </th>
-            <th className="pb-2" scope="col" aria-sort={getAriaSort("outputTokens")}>
+            <th className="pb-2">
               <button
                 type="button"
                 onClick={() => handleSort("outputTokens")}
@@ -165,8 +160,8 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 Out {renderSortIcon("outputTokens")}
               </button>
             </th>
-            <th className="pb-2" scope="col">Cached</th>
-            <th className="pb-2" scope="col" aria-sort={getAriaSort("totalTokens")}>
+            <th className="pb-2">Cached</th>
+            <th className="pb-2">
               <button
                 type="button"
                 onClick={() => handleSort("totalTokens")}
@@ -175,7 +170,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 Total {renderSortIcon("totalTokens")}
               </button>
             </th>
-            <th className="pb-2" scope="col" aria-sort={getAriaSort("durationMs")}>
+            <th className="pb-2">
               <button
                 type="button"
                 onClick={() => handleSort("durationMs")}
@@ -184,8 +179,8 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 Duration {renderSortIcon("durationMs")}
               </button>
             </th>
-            <th className="pb-2" scope="col">Context</th>
-            <th className="pb-2 pr-6 text-right" scope="col">Expand</th>
+            <th className="pb-2">Context</th>
+            <th className="pb-2 pr-6 text-right">Expand</th>
           </tr>
         </thead>
         <tbody>
@@ -273,9 +268,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                           <button
                             type="button"
                             onClick={() => onRowExpand(isExpanded ? null : invocation.id)}
-                            aria-label={isExpanded ? `Collapse details for invocation ${invocation.id}` : `Expand details for invocation ${invocation.id}`}
-                            aria-expanded={isExpanded}
-                            aria-controls={`invocation-panel-${invocation.id}`}
+                            aria-label={isExpanded ? `Collapse invocation ${invocation.id}` : `Expand invocation ${invocation.id}`}
                             className={`rounded-full p-2 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5 ${
                               isExpanded ? "text-signal-500" : "text-slate-400"
                             }`}
@@ -289,9 +282,8 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                     {/* Error Sub-row inside main card if failed */}
                     {invocation.status === "failed" && (invocation.lastErrorMessage || invocation.errorMessage) && (
                       <div className="mt-[-8px] px-6 pb-4">
-                        <div className="flex items-center gap-1.5 text-[11px] text-red-600 dark:text-red-400" role="alert">
-                          <AlertTriangle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                          <span className="sr-only">Error: </span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-red-600 dark:text-red-400">
+                          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                           <span>{invocation.lastErrorMessage || invocation.errorMessage}</span>
                         </div>
                       </div>
@@ -303,7 +295,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 {isExpanded && expandedInvocation ? (
                   <tr key={`${invocation.id}-detail`}>
                     <td colSpan={11} className="px-6 pb-2">
-                      <InvocationMessagesPanel invocation={expandedInvocation} id={`invocation-panel-${invocation.id}`} />
+                      <InvocationMessagesPanel invocation={expandedInvocation} />
                     </td>
                   </tr>
                 ) : null}

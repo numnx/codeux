@@ -47,7 +47,12 @@ const Wrapper = () => {
   return <InteractiveUsageChart stats={mockStats as any} loading={false} error={null} refresh={async () => {}} chartState={chartState} />;
 };
 
-// Mock SVG path methods that jsdom is missing
+const ZoomedWrapper = () => {
+  const chartState = useUsageChartState("test", mockStats as any);
+  chartState.zoomRange = { start: 0, end: 1 };
+  return <InteractiveUsageChart stats={mockStats as any} loading={false} error={null} refresh={async () => {}} chartState={chartState} />;
+};
+
 beforeAll(() => {
   if (typeof window.SVGPathElement !== 'undefined') {
     Object.defineProperty(window.SVGPathElement.prototype, 'getTotalLength', {
@@ -68,6 +73,35 @@ describe("UsageChartAccessibility", () => {
 
   it("renders a textual summary of the chart", () => {
     render(<Wrapper />);
-    expect(screen.getAllByText(/Last 7 Days/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Data Visualization for/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Currently showing 3 buckets/i)).toBeInTheDocument();
+    expect(screen.getByText(/Peak Tokens: 200/i)).toBeInTheDocument();
+  });
+
+  it("makes bucket focus keyboard-accessible with a slider", () => {
+    render(<Wrapper />);
+    const slider = screen.getByLabelText(/Explore chart data across time/i);
+    expect(slider).toBeInTheDocument();
+
+    fireEvent.input(slider, { target: { value: '1' } });
+
+    expect(slider).toHaveAttribute('aria-valuetext', expect.stringContaining('Jan 2'));
+
+    // Zoom by pressing enter
+    fireEvent.keyDown(slider, { key: "Enter" });
+  });
+
+  it("has accessible filter buttons", () => {
+    render(<Wrapper />);
+    const button = screen.getByRole("button", { name: /Filters/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it("announces zoom reset", () => {
+    render(<ZoomedWrapper />);
+    const resetButton = screen.getByRole("button", { name: /Reset zoom/i });
+    expect(resetButton).toBeInTheDocument();
+    expect(screen.getByText(/to Last 7 Days/i)).toBeInTheDocument();
   });
 });

@@ -6,7 +6,6 @@ import type {
   ProjectExecutionStatsSnapshot,
 } from '../../../types.js';
 import styles from './UsageFilterMenu.module.css';
-import { useReducedMotion } from '../../../hooks/use-reduced-motion.js';
 
 interface UsageFilterMenuProps {
   isOpen: boolean;
@@ -25,7 +24,6 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const reducedMotion = useReducedMotion();
 
   useLayoutEffect(() => {
     if (!menuRef.current) return;
@@ -34,7 +32,7 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
       gsap.fromTo(
         menuRef.current,
         { opacity: 0, scale: 0.95, y: -10 },
-        { opacity: 1, scale: 1, y: 0, duration: reducedMotion ? 0 : 0.25, ease: 'power2.out' }
+        { opacity: 1, scale: 1, y: 0, duration: 0.25, ease: 'power2.out' }
       );
       // Focus the close button when opened for keyboard support
       closeButtonRef.current?.focus();
@@ -43,7 +41,7 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
         opacity: 0,
         scale: 0.95,
         y: -10,
-        duration: reducedMotion ? 0 : 0.2,
+        duration: 0.2,
         ease: 'power2.in',
       });
     }

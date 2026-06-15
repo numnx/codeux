@@ -9,27 +9,6 @@ export interface FocusTrapOptions {
   restoreFocus?: boolean;
 }
 
-function isFocusable(element: HTMLElement): boolean {
-  if (element.hidden) return false;
-
-  if (
-    element.hasAttribute('disabled') ||
-    element.getAttribute('aria-hidden') === 'true' ||
-    element.closest('[aria-hidden="true"]') ||
-    element.hasAttribute('inert') ||
-    element.closest('[inert]') ||
-    element.tabIndex < 0
-  ) {
-    return false;
-  }
-
-  const style = window.getComputedStyle(element);
-  if (style.display === 'none' || style.visibility === 'hidden') {
-    return false;
-  }
-  return true;
-}
-
 export function useFocusTrap(
   active: boolean,
   optionsOrOnClose?: (() => void) | FocusTrapOptions
@@ -62,27 +41,18 @@ export function useFocusTrap(
       }
 
       const autoFocusTarget = containerRef.current.querySelector("[autofocus]") as HTMLElement | null;
-      if (autoFocusTarget && isFocusable(autoFocusTarget)) {
-          autoFocusTarget.focus();
-          return;
-      }
-
       const focusableElements = Array.from(
         containerRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
       ) as HTMLElement[];
-
-      const visibleFocusableElements = focusableElements.filter(isFocusable);
-      const initialTarget = visibleFocusableElements[0];
+      const initialTarget = autoFocusTarget ?? focusableElements[0];
       initialTarget?.focus();
     }, 50);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (onCloseRef.current) {
-            event.preventDefault();
-            event.stopPropagation();
-            onCloseRef.current();
-        }
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current?.();
         return;
       }
 
@@ -93,24 +63,15 @@ export function useFocusTrap(
           containerRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
         ) as HTMLElement[];
 
-        const visibleFocusableElements = focusableElements.filter(isFocusable);
+        if (focusableElements.length === 0) return;
 
-        if (visibleFocusableElements.length === 0) {
-            event.preventDefault();
-            return;
-        }
-
-        const first = visibleFocusableElements[0];
-        const last = visibleFocusableElements[visibleFocusableElements.length - 1];
+        const first = focusableElements[0];
+        const last = focusableElements[focusableElements.length - 1];
 
         // If focus escapes the modal, force it back
         if (!containerRef.current.contains(document.activeElement)) {
           event.preventDefault();
-          if (event.shiftKey) {
-            last.focus();
-          } else {
-            first.focus();
-          }
+          first.focus();
           return;
         }
 
@@ -129,13 +90,13 @@ export function useFocusTrap(
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
-      if (restoreFocus && triggerRef.current && document.body.contains(triggerRef.current)) {
+      if (restoreFocus && triggerRef.current) {
         // Defer focus restoration to ensure element is re-enabled or DOM is updated
         const trigger = triggerRef.current;
         window.setTimeout(() => trigger.focus(), 0);
       }
     };
-  }, [active, restoreFocus, initialFocusRef]);
+  }, [active]);
 
   return containerRef;
 }
