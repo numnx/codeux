@@ -49,20 +49,6 @@ export type KnowledgeDocumentListItem = KnowledgeDocumentSummary & {
   subscriberAgentIds: string[];
 };
 
-export interface KnowledgeChunkRecord {
-  id: string;
-  documentId: string;
-  projectId: string;
-  chunkIndex: number;
-  content: string;
-  tokenCount: number;
-  /** Nearest preceding markdown heading, when one was found. */
-  heading: string | null;
-  embeddingModel: EmbeddingModelId | null;
-  embeddingDimension: number | null;
-  embeddingBlob: Buffer | null;
-  createdAt: string;
-}
 
 export interface KnowledgeChunkEmbeddingRecord {
   id: string;
@@ -92,14 +78,6 @@ export interface KnowledgeChunkInput {
   heading: string | null;
 }
 
-export interface KnowledgeSearchQuery {
-  projectId: string;
-  /** Restrict candidate chunks to these document ids (e.g. an agent's subscriptions). */
-  documentIds: string[];
-  query: string;
-  limit?: number;
-  minSimilarity?: number;
-}
 
 export interface KnowledgeSearchResult {
   documentId: string;

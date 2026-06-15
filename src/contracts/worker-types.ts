@@ -58,7 +58,6 @@ export type AntigravityModel =
   | "claude-opus-4.6-thinking"
   | "gpt-oss-120b";
 
-export type VirtualWorkerModel = GeminiModel | ClaudeModel | CodexModel | AntigravityModel;
 
 export interface WorkerRuntimeSettings {
   model: string;
