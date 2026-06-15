@@ -1,0 +1,947 @@
+[
+  {
+    "name": "JulesSource",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface JulesSource {\n  name: string;\n  id: string;\n  [key: string]: unknown;\n}",
+    "startLine": 5,
+    "endLine": 9
+  },
+  {
+    "name": "PullRequestOutput",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface PullRequestOutput {\n  url?: string;\n  workerBranch?: string;\n  [key: string]: unknown;\n}",
+    "startLine": 11,
+    "endLine": 15
+  },
+  {
+    "name": "SessionOutput",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SessionOutput {\n  pullRequest?: PullRequestOutput;\n  [key: string]: unknown;\n}",
+    "startLine": 17,
+    "endLine": 20
+  },
+  {
+    "name": "JulesSession",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface JulesSession {\n  name: string;\n  id: string;\n  title?: string;\n  state?: string;\n  provider?: ProviderId;\n  prompt: string;\n  createTime?: string;\n  outputs?: SessionOutput[];\n}",
+    "startLine": 22,
+    "endLine": 31
+  },
+  {
+    "name": "ActivitySummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ActivitySummary {\n  id: string;\n  name: string;\n  createTime: string;\n  originator: string;\n  kind: string;\n  preview?: string;\n  [key: string]: unknown;\n}",
+    "startLine": 33,
+    "endLine": 41
+  },
+  {
+    "name": "JulesActivityArtifact",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface JulesActivityArtifact {\n  changeSet?: {\n    source?: string;\n    gitPatch?: {\n      unidiffPatch?: string;\n      baseCommitId?: string;\n      suggestedCommitMessage?: string;\n      [key: string]: unknown;\n    };\n    [key: string]: unknown;\n  };\n  media?: {\n    data?: string;\n    [key: string]: unknown;\n  };\n  [key: string]: unknown;\n}",
+    "startLine": 43,
+    "endLine": 59
+  },
+  {
+    "name": "JulesActivity",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface JulesActivity {\n  name: string;\n  id: string;\n  createTime: string;\n  originator?: \"agent\" | \"user\" | \"system\" | string;\n  agentMessaged?: { agentMessage?: string };\n  userMessaged?: { userMessage?: string };\n  progressUpdated?: { title?: string; description?: string };\n  planGenerated?: { plan?: { steps?: Array<{ title?: string }> } };\n  planApproved?: { planId?: string };\n  sessionFailed?: { reason?: string };\n  sessionCompleted?: unknown;\n  description?: string;\n  artifacts?: JulesActivityArtifact[];\n  [key: string]: unknown;\n}",
+    "startLine": 61,
+    "endLine": 76
+  },
+  {
+    "name": "SubtaskStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type SubtaskStatus = \"PENDING\" | \"RUNNING\" | \"CODING_COMPLETED\" | \"COMPLETED\" | \"FAILED\" | \"BLOCKED\" | \"QUOTA\" | \"QA_REVIEW_FAILED\";",
+    "startLine": 78,
+    "endLine": 78
+  },
+  {
+    "name": "SubtaskMergeIndicator",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type SubtaskMergeIndicator = \"CI\" | \"AUTOMERGE\" | \"MERGED\" | \"MERGE_BLOCKED\" | \"MERGE_CONFLICT\" | \"PR_ONLY\" | \"QA_PENDING\";",
+    "startLine": 79,
+    "endLine": 79
+  },
+  {
+    "name": "ProviderId",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ProviderId = \"jules\" | \"gemini\" | \"codex\" | \"claude-code\" | \"qwen-code\" | \"opencode\" | \"antigravity\";",
+    "startLine": 80,
+    "endLine": 80
+  },
+  {
+    "name": "ProviderConfigId",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ProviderConfigId = string;",
+    "startLine": 81,
+    "endLine": 81
+  },
+  {
+    "name": "ProviderStrategy",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ProviderStrategy = \"MANUAL\" | \"WEIGHTED\" | \"AGENT\";",
+    "startLine": 82,
+    "endLine": 82
+  },
+  {
+    "name": "ThinkingMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ThinkingMode = \"SMALL\" | \"MEDIUM\" | \"HIGH\";",
+    "startLine": 83,
+    "endLine": 83
+  },
+  {
+    "name": "InvocationRoutingProfile",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type InvocationRoutingProfile = \"GLOBAL\" | \"WORKER\";",
+    "startLine": 84,
+    "endLine": 84
+  },
+  {
+    "name": "InvocationRoutingId",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type InvocationRoutingId =\n  | \"task_coding\"\n  | \"planning\"\n  | \"dashboard_reply\"\n  | \"clarification_reply\"\n  | \"qa_review\"\n  | \"ci_fix\"\n  | \"merge_conflict\";",
+    "startLine": 85,
+    "endLine": 92
+  },
+  {
+    "name": "CliExecutionMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type CliExecutionMode = \"DOCKER\" | \"HOST\";",
+    "startLine": 93,
+    "endLine": 93
+  },
+  {
+    "name": "FeaturePrAutoMergeMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type FeaturePrAutoMergeMode = \"OFF\" | \"CREATE_PR\" | \"WHEN_GREEN\" | \"ALWAYS\";",
+    "startLine": 94,
+    "endLine": 94
+  },
+  {
+    "name": "WorkerExecutionMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type WorkerExecutionMode = \"VIRTUAL\";",
+    "startLine": 95,
+    "endLine": 95
+  },
+  {
+    "name": "VirtualWorkerProvider",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type VirtualWorkerProvider = Exclude<ProviderId, \"jules\">;",
+    "startLine": 96,
+    "endLine": 96
+  },
+  {
+    "name": "AgentRoutingMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type AgentRoutingMode = \"MANUAL\" | \"ORCHESTRATOR\";",
+    "startLine": 97,
+    "endLine": 97
+  },
+  {
+    "name": "Subtask",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface Subtask {\n  record_id?: string;\n  project_id?: string;\n  sprint_id?: string;\n  id: string;\n  title: string;\n  prompt: string;\n  depends_on: string[];\n  status?: SubtaskStatus;\n  session_id?: string;\n  session_name?: string;\n  session_state?: string;\n  provider?: ProviderId;\n  model?: string;\n  agentPresetId?: string | null;\n  worker_branch?: string;\n  pr_url?: string;\n  activities?: JulesActivity[];\n  is_independent: boolean;\n  qa_review?: {\n    error_reason?: string;\n    [key: string]: any;\n  };\n  latestReview?: {\n    status: string;\n    outcome: string | null;\n    summary: string | null;\n    findings: string[];\n    reviewer: string | null;\n    finishedAt: string | null;\n  };\n  is_merged?: boolean;\n  merge_indicator?: SubtaskMergeIndicator;\n  intervention_owner?: InterventionOwner;\n  intervention_hint?: string;\n}",
+    "startLine": 99,
+    "endLine": 134
+  },
+  {
+    "name": "DashboardStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardStatus {\n  project_id?: string;\n  sprint_id?: string;\n  sprint_number?: number;\n  source_id?: string;\n  repo_path?: string;\n  feature_branch?: string;\n  subtasks: Subtask[];\n  reportText?: string;\n  statusTable?: string;\n  instructions?: string;\n  timestamp: string | null;\n}",
+    "startLine": 136,
+    "endLine": 148
+  },
+  {
+    "name": "LocalDirectoryBrowserEntry",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface LocalDirectoryBrowserEntry {\n  name: string;\n  path: string;\n}",
+    "startLine": 150,
+    "endLine": 153
+  },
+  {
+    "name": "LocalDirectoryBrowserResponse",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface LocalDirectoryBrowserResponse {\n  currentPath: string;\n  parentPath: string | null;\n  rootPath: string;\n  homePath: string;\n  directories: LocalDirectoryBrowserEntry[];\n}",
+    "startLine": 155,
+    "endLine": 161
+  },
+  {
+    "name": "ProjectLiveDashboardSnapshot",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProjectLiveDashboardSnapshot {\n  /** Owned by `ProjectManagementRepository`. Mutated when a project is selected or created. */\n  projectId: string | null;\n  /** Owned by `ProjectManagementRepository`. Mutated when a sprint is selected or changed. */\n  selectedSprintId: string | null;\n  /** Owned by `ProjectRuntimeRepository`. Mutated when task states change, a sprint is run, or orchestration loop updates progress. */\n  status: DashboardStatus;\n  /** Owned by `ExecutionRepository` (via `getProjectExecutionSnapshot`). Mutated when sprint runs are dispatched, worker states change, or attention items are created/claimed. */\n  execution: ExecutionDashboardSnapshot;\n  /** Owned by the external git system. Mutated when local branches or upstream changes are detected. */\n  gitStatus: GitTrackingStatus | null;\n  /** Error state for git tracking. Mutated when external git/ci fails to load. */\n  gitStatusError: string | null;\n  /** Owned by the server assembly module. Mutated upon every assembly call to track the snapshot timestamp. */\n  updatedAt: string | null;\n}",
+    "startLine": 172,
+    "endLine": 187
+  },
+  {
+    "name": "LiveActivitiesResponse",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface LiveActivitiesResponse {\n  activitiesBySession: Record<string, JulesActivity[]>;\n  polledAt: string;\n  cacheTtlMs: number;\n}",
+    "startLine": 189,
+    "endLine": 193
+  },
+  {
+    "name": "ExecutionSprintRunSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionSprintRunSummary {\n  id: string;\n  projectId: string;\n  sprintId: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  status: string;\n  triggerType: string;\n  triggeredBy: string | null;\n  executorMode: string;\n  startedAt: string | null;\n  finishedAt: string | null;\n  lastHeartbeatAt: string | null;\n  createdAt: string;\n  activeLeaseOwnerKey: string | null;\n  activeLeaseExpiresAt: string | null;\n  humanIntervention: ExecutionHumanInterventionSummary | null;\n  usage?: ExecutionUsageTotals;\n}",
+    "startLine": 195,
+    "endLine": 213
+  },
+  {
+    "name": "ExecutionHumanInterventionSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionHumanInterventionSummary {\n  title: string;\n  reason: string;\n  instructions: string;\n  attentionType: string | null;\n  severity: string | null;\n  ownerType: string | null;\n}",
+    "startLine": 215,
+    "endLine": 222
+  },
+  {
+    "name": "ExecutionTaskDispatchSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionTaskDispatchSummary {\n  id: string;\n  projectId: string;\n  sprintId: string;\n  sprintRunId: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  taskId: string;\n  taskKey: string;\n  taskTitle: string;\n  status: string;\n  executorType: string;\n  priority: number;\n  connectionId: string | null;\n  connectionDisplayName: string | null;\n  connectionRole: string | null;\n  taskRunId: string | null;\n  taskRunState: string | null;\n  provider: string | null;\n  sessionId: string | null;\n  sessionName: string | null;\n  workerBranch: string | null;\n  prUrl: string | null;\n  queuedAt: string;\n  claimedAt: string | null;\n  startedAt: string | null;\n  finishedAt: string | null;\n  lastHeartbeatAt: string | null;\n  errorMessage: string | null;\n  activeLeaseOwnerKey: string | null;\n  activeLeaseExpiresAt: string | null;\n  usage?: ExecutionUsageTotals;\n}",
+    "startLine": 224,
+    "endLine": 256
+  },
+  {
+    "name": "ExecutionRuntimeEventSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionRuntimeEventSummary {\n  id: string;\n  scopeType: \"task_run\" | \"sprint_run\";\n  taskRunId: string | null;\n  sprintRunId: string | null;\n  dispatchId: string | null;\n  projectId: string;\n  sprintId: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  sprintRunStatus: string | null;\n  taskId: string | null;\n  taskKey: string | null;\n  taskTitle: string | null;\n  taskRunState: string | null;\n  eventType: string;\n  originator: string | null;\n  sourceEventKey: string | null;\n  provider: string | null;\n  sessionId: string | null;\n  sessionName: string | null;\n  workerBranch: string | null;\n  prUrl: string | null;\n  connectionId: string | null;\n  connectionDisplayName: string | null;\n  connectionRole: string | null;\n  createdAt: string;\n  payload: Record<string, unknown> | null;\n}",
+    "startLine": 258,
+    "endLine": 286
+  },
+  {
+    "name": "ExecutionTaskRunEventSummary",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ExecutionTaskRunEventSummary = ExecutionRuntimeEventSummary;",
+    "startLine": 288,
+    "endLine": 288
+  },
+  {
+    "name": "ExecutionConnectionSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionConnectionSummary {\n  id: string;\n  connectionKey: string;\n  displayName: string;\n  role: string;\n  transport: string;\n  status: string;\n  model: string | null;\n  instruction: string | null;\n  labels: string[];\n  listenMode: boolean;\n  machineName: string | null;\n  platform: string | null;\n  arch: string | null;\n  localExecutionRuntime: string | null;\n  lastHeartbeatAt: string | null;\n  projectIds: string[];\n  activeProjectIds: string[];\n  tasksRunCount: number;\n  threadCount: number;\n  messageCount: number;\n  pendingInboxCount: number;\n  activeDispatchCount: number;\n}",
+    "startLine": 290,
+    "endLine": 313
+  },
+  {
+    "name": "ExecutionAssignedWorkerSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionAssignedWorkerSummary {\n  assignmentId: string;\n  workerEndpointId: string | null;\n  workerEndpointKey: string;\n  workerEndpointType: string;\n  workerDisplayName: string;\n  connectionId: string | null;\n  connectionKey: string | null;\n  transport: string | null;\n  assignmentRole: string;\n  status: string;\n  assignedAt: string;\n  lastAffinityAt: string;\n  workerStatus: string | null;\n  canSuperviseProjects: boolean;\n  canExecuteTasks: boolean;\n}",
+    "startLine": 315,
+    "endLine": 331
+  },
+  {
+    "name": "ExecutionAttentionItemSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionAttentionItemSummary {\n  id: string;\n  sprintId: string | null;\n  taskId: string | null;\n  sprintRunId: string | null;\n  dispatchId: string | null;\n  attentionType: string;\n  severity: string;\n  ownerType: string;\n  status: string;\n  assignedWorkerEndpointId: string | null;\n  title: string;\n  summaryMarkdown: string;\n  payload: Record<string, unknown> | null;\n  openedAt: string;\n  claimedAt: string | null;\n  resolvedAt: string | null;\n  updatedAt: string;\n}",
+    "startLine": 333,
+    "endLine": 351
+  },
+  {
+    "name": "ExecutionDashboardSnapshot",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionDashboardSnapshot {\n  projectId: string | null;\n  projectName: string | null;\n  sprintRuns: ExecutionSprintRunSummary[];\n  taskDispatches: ExecutionTaskDispatchSummary[];\n  connections: ExecutionConnectionSummary[];\n  primaryAssignedWorker: ExecutionAssignedWorkerSummary | null;\n  overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];\n  attentionItems: ExecutionAttentionItemSummary[];\n  recentEvents: ExecutionRuntimeEventSummary[];\n  updatedAt: string | null;\n}",
+    "startLine": 353,
+    "endLine": 364
+  },
+  {
+    "name": "ExecutionUsageTotals",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionUsageTotals {\n  invocationCount: number;\n  activeTimeMs: number;\n  wallTimeMs: number;\n  inputTokens: number;\n  cachedInputTokens: number;\n  outputTokens: number;\n  reasoningOutputTokens: number;\n  totalTokens: number;\n  reportedInvocationCount: number;\n  estimatedInvocationCount: number;\n  unavailableInvocationCount: number;\n  unsupportedInvocationCount: number;\n}",
+    "startLine": 366,
+    "endLine": 379
+  },
+  {
+    "name": "ExecutionInvocationStatusCounts",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionInvocationStatusCounts {\n  completed: number;\n  failed: number;\n  cancelled: number;\n  running: number;\n  paused: number;\n}",
+    "startLine": 381,
+    "endLine": 387
+  },
+  {
+    "name": "ExecutionDurationStats",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionDurationStats {\n  sampleCount: number;\n  avgMs: number;\n  p50Ms: number;\n  p95Ms: number;\n  maxMs: number;\n}",
+    "startLine": 389,
+    "endLine": 395
+  },
+  {
+    "name": "ExecutionModelStatsSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionModelStatsSummary {\n  id: string;\n  provider: string;\n  model: string | null;\n  label: string;\n  usage: ExecutionUsageTotals;\n  statusCounts: ExecutionInvocationStatusCounts;\n  successRate: number | null;\n  duration: ExecutionDurationStats;\n  lastActivityAt: string | null;\n}",
+    "startLine": 397,
+    "endLine": 407
+  },
+  {
+    "name": "ExecutionGitMetrics",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionGitMetrics {\n  insertions: number;\n  deletions: number;\n  filesChanged: number;\n  prCount: number;\n  mergedCount: number;\n  mergeConflictCount: number;\n}",
+    "startLine": 409,
+    "endLine": 416
+  },
+  {
+    "name": "ExecutionGitStatsEntitySummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionGitStatsEntitySummary {\n  id: string;\n  label: string;\n  secondaryLabel: string | null;\n  metrics: ExecutionGitMetrics;\n}",
+    "startLine": 418,
+    "endLine": 423
+  },
+  {
+    "name": "ExecutionGitStatsBucketSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionGitStatsBucketSummary {\n  bucketStart: string;\n  bucketEnd: string;\n  label: string;\n  metrics: ExecutionGitMetrics;\n}",
+    "startLine": 425,
+    "endLine": 430
+  },
+  {
+    "name": "ExecutionGitStatsSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionGitStatsSummary {\n  totals: ExecutionGitMetrics;\n  buckets: ExecutionGitStatsBucketSummary[];\n  tasks: ExecutionGitStatsEntitySummary[];\n  sprints: ExecutionGitStatsEntitySummary[];\n}",
+    "startLine": 432,
+    "endLine": 437
+  },
+  {
+    "name": "ExecutionUsageBucketSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionUsageBucketSummary {\n  bucketStart: string;\n  bucketEnd: string;\n  label: string;\n  usage: ExecutionUsageTotals;\n}",
+    "startLine": 439,
+    "endLine": 444
+  },
+  {
+    "name": "ExecutionStatsEntitySummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExecutionStatsEntitySummary {\n  id: string;\n  label: string;\n  secondaryLabel: string | null;\n  status: string | null;\n  purpose: ProviderInvocationPurpose | null;\n  provider: ProviderId | string | null;\n  usage: ExecutionUsageTotals;\n  lastActivityAt: string | null;\n}",
+    "startLine": 446,
+    "endLine": 455
+  },
+  {
+    "name": "ProjectStatsWindow",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ProjectStatsWindow = \"1h\" | \"24h\" | \"7d\" | \"30d\" | \"all\" | \"custom\";",
+    "startLine": 457,
+    "endLine": 457
+  },
+  {
+    "name": "ProjectStatsResolution",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ProjectStatsResolution = \"hour\" | \"day\" | \"week\";",
+    "startLine": 458,
+    "endLine": 458
+  },
+  {
+    "name": "ProjectStatsQuery",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProjectStatsQuery {\n  window: ProjectStatsWindow;\n  from?: string | null;\n  to?: string | null;\n}",
+    "startLine": 460,
+    "endLine": 464
+  },
+  {
+    "name": "ProjectStatsRangeSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProjectStatsRangeSummary {\n  window: ProjectStatsWindow;\n  label: string;\n  resolution: ProjectStatsResolution;\n  resolutionLabel: string;\n  from: string;\n  to: string;\n  bucketCount: number;\n  isCustom: boolean;\n}",
+    "startLine": 466,
+    "endLine": 475
+  },
+  {
+    "name": "ProjectExecutionStatsChartSeries",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProjectExecutionStatsChartSeries {\n  id: string;\n  label: string;\n  grouping: string;\n  defaultEnabled: boolean;\n  data: number[];\n  color?: string;\n  signalLabel?: string;\n  formatter?: 'tokens' | 'duration' | 'number' | 'percent';\n}",
+    "startLine": 477,
+    "endLine": 486
+  },
+  {
+    "name": "ProjectExecutionStatsSnapshot",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProjectExecutionStatsSnapshot {\n  projectId: string;\n  projectName: string;\n  window: ProjectStatsWindow;\n  query: ProjectStatsQuery;\n  range: ProjectStatsRangeSummary;\n  generatedAt: string;\n  usage: ExecutionUsageTotals;\n  git: ExecutionGitStatsSummary;\n  mergeConflictCount?: number;\n  activeSprint: {\n    sprintId: string;\n    sprintName: string;\n    sprintNumber: number | null;\n  } | null;\n  buckets: ExecutionUsageBucketSummary[];\n  sprints: ExecutionStatsEntitySummary[];\n  tasks: ExecutionStatsEntitySummary[];\n  providers: ExecutionStatsEntitySummary[];\n  purposes: ExecutionStatsEntitySummary[];\n  models: ExecutionModelStatsSummary[];\n  statusCounts: ExecutionInvocationStatusCounts;\n  duration: ExecutionDurationStats;\n  tokenSources: Array<{\n    source: TokenUsageSource;\n    count: number;\n  }>;\n  chartSeries: ProjectExecutionStatsChartSeries[];\n}",
+    "startLine": 488,
+    "endLine": 516
+  },
+  {
+    "name": "OverviewTelemetryProjectSummary",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface OverviewTelemetryProjectSummary {\n  projectId: string;\n  projectName: string;\n  sprintId: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  sprintRunId: string;\n  sprintRunStatus: string;\n  activeDispatchCount: number;\n  runningDispatchCount: number;\n  updatedAt: string | null;\n  humanIntervention: ExecutionHumanInterventionSummary | null;\n}",
+    "startLine": 518,
+    "endLine": 530
+  },
+  {
+    "name": "OverviewTelemetrySnapshot",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface OverviewTelemetrySnapshot {\n  activeProjects: OverviewTelemetryProjectSummary[];\n  attentionProjects: OverviewTelemetryProjectSummary[];\n  recentEvents: ExecutionRuntimeEventSummary[];\n  updatedAt: string | null;\n}",
+    "startLine": 532,
+    "endLine": 537
+  },
+  {
+    "name": "DashboardRealtimeScopeType",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type DashboardRealtimeScopeType = \"overview\" | \"projects\" | \"project\" | \"thread\";",
+    "startLine": 539,
+    "endLine": 539
+  },
+  {
+    "name": "DashboardRealtimeEvent",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeEvent {\n  sequence: number;\n  emittedAt: string;\n  scopeType: DashboardRealtimeScopeType;\n  scopeId: string;\n  scope: string;\n  eventType: string;\n  entityType: string;\n  entityId: string;\n  projectId: string | null;\n  sprintId: string | null;\n  threadId: string | null;\n  taskId: string | null;\n  dispatchId: string | null;\n  sprintRunId: string | null;\n  taskRunId: string | null;\n  connectionId: string | null;\n  correlationId: string | null;\n  payload: unknown;\n}",
+    "startLine": 541,
+    "endLine": 560
+  },
+  {
+    "name": "DashboardRealtimeSetSubscriptionsMessage",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeSetSubscriptionsMessage {\n  type: \"set_subscriptions\";\n  scopes: string[];\n  lastSequence?: number | null;\n}",
+    "startLine": 562,
+    "endLine": 566
+  },
+  {
+    "name": "DashboardRealtimeReadyMessage",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeReadyMessage {\n  type: \"ready\";\n}",
+    "startLine": 568,
+    "endLine": 570
+  },
+  {
+    "name": "DashboardRealtimeSubscribedMessage",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeSubscribedMessage {\n  type: \"subscribed\";\n  scopes: string[];\n  lastSequence: number | null;\n}",
+    "startLine": 572,
+    "endLine": 576
+  },
+  {
+    "name": "DashboardRealtimeEventMessage",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeEventMessage {\n  type: \"event\";\n  event: DashboardRealtimeEvent;\n}",
+    "startLine": 578,
+    "endLine": 581
+  },
+  {
+    "name": "DashboardRealtimeSnapshotRequiredMessage",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardRealtimeSnapshotRequiredMessage {\n  type: \"snapshot_required\";\n  reason: string;\n}",
+    "startLine": 583,
+    "endLine": 586
+  },
+  {
+    "name": "DashboardRealtimeServerMessage",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type DashboardRealtimeServerMessage =\n  | DashboardRealtimeReadyMessage\n  | DashboardRealtimeSubscribedMessage\n  | DashboardRealtimeEventMessage\n  | DashboardRealtimeSnapshotRequiredMessage;",
+    "startLine": 588,
+    "endLine": 592
+  },
+  {
+    "name": "DashboardRealtimeClientMessage",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type DashboardRealtimeClientMessage = DashboardRealtimeSetSubscriptionsMessage;",
+    "startLine": 594,
+    "endLine": 594
+  },
+  {
+    "name": "DashboardStats",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardStats {\n  total: number;\n  running: number;\n  codingCompleted: number;\n  completed: number;\n  failed: number;\n  ci: number;\n  qa: number;\n  automerge: number;\n  merged: number;\n  mergeBlocked: number;\n  mergeConflicts: number;\n}",
+    "startLine": 596,
+    "endLine": 608
+  },
+  {
+    "name": "Settings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface Settings {\n  maxFailures?: number;\n  [key: string]: unknown;\n}",
+    "startLine": 610,
+    "endLine": 613
+  },
+  {
+    "name": "AutomationLevel",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type AutomationLevel = \"FULL\" | \"SEMI_AUTO\" | \"ALWAYS_ASK\";",
+    "startLine": 615,
+    "endLine": 615
+  },
+  {
+    "name": "InterventionOwner",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type InterventionOwner = \"HUMAN\" | \"AGENT\";",
+    "startLine": 616,
+    "endLine": 616
+  },
+  {
+    "name": "AutomationInterventionsSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AutomationInterventionsSettings {\n  autoApprovePlan: boolean;\n  autoAnswerClarification: boolean;\n  autoAnswerClarificationMode: \"TEMPLATE\" | \"WORKER\";\n  autoResumePaused: boolean;\n  clarificationAnswerTemplate: string;\n  clarificationCooldownSeconds: number;\n}",
+    "startLine": 618,
+    "endLine": 625
+  },
+  {
+    "name": "ProviderSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ProviderSettings {\n  provider: ProviderId;\n  name: string;\n  enabled: boolean;\n  model: string;\n  weight: number;\n  thinkingMode: ThinkingMode;\n  apiKey: string;\n  mountAuth: boolean;\n  authPath: string;\n  /** Custom API endpoint base URL for providers that support it (claude-code, codex). */\n  customBaseUrl?: string;\n  /** Custom model identifier sent to the CLI when routing through a custom base URL (claude-code, codex). */\n  customModel?: string;\n  maxConcurrentTasks: number;\n  qwenAuthMode?: \"LOCAL_AUTH\" | \"ALIBABA_CODING_PLAN\" | \"MODEL_PROVIDER\";\n  qwenRegion?: \"china\" | \"international\";\n  qwenBaseUrl?: string;\n  qwenEnvKey?: string;\n  qwenModelId?: string;\n  qwenProtocol?: \"openai\" | \"anthropic\" | \"gemini\";\n  qwenAdditionalModelProviders?: QwenModelProviderSettings[];\n  openCodeAuthMode?: \"LOCAL_AUTH\" | \"ENV_KEY\" | \"CUSTOM_PROVIDER\";\n  openCodeProviderId?: string;\n  openCodeModelId?: string;\n  openCodeBaseUrl?: string;\n  openCodeEnvKey?: string;\n  openCodePackage?: string;\n}",
+    "startLine": 627,
+    "endLine": 655
+  },
+  {
+    "name": "InvocationProviderOverrideSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface InvocationProviderOverrideSettings {\n  enabled?: boolean;\n  model?: string;\n  weight?: number;\n  thinkingMode?: ThinkingMode;\n}",
+    "startLine": 657,
+    "endLine": 662
+  },
+  {
+    "name": "QwenModelProviderSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface QwenModelProviderSettings {\n  id: string;\n  name: string;\n  authType: \"openai\" | \"anthropic\" | \"gemini\";\n  envKey: string;\n  apiKey: string;\n  baseUrl: string;\n  description?: string;\n}",
+    "startLine": 664,
+    "endLine": 672
+  },
+  {
+    "name": "InvocationRoutingSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface InvocationRoutingSettings {\n  profile: InvocationRoutingProfile;\n  strategy: ProviderStrategy;\n  provider: ProviderConfigId | null;\n  allowedProviders: ProviderConfigId[];\n  providers: Record<ProviderConfigId, InvocationProviderOverrideSettings>;\n}",
+    "startLine": 674,
+    "endLine": 680
+  },
+  {
+    "name": "AiProviderSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AiProviderSettings {\n  provider: ProviderConfigId | null;\n  strategy: ProviderStrategy;\n  providers: Record<ProviderConfigId, ProviderSettings>;\n  invocationRouting: Record<InvocationRoutingId, InvocationRoutingSettings>;\n}",
+    "startLine": 682,
+    "endLine": 687
+  },
+  {
+    "name": "GitSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitSettings {\n  githubMode: \"REMOTE\" | \"LOCAL\";\n  githubToken: string;\n  gitlabToken?: string;\n  defaultBranch: string;\n  autoCreatePr: boolean;\n  autoCloseLinkedIssues: boolean;\n  featureBranchPrefix: string;\n  sprintBranchScheme: string;\n  sprintKeyPrefix: string;\n}",
+    "startLine": 689,
+    "endLine": 699
+  },
+  {
+    "name": "JiraSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface JiraSettings {\n  host: string;               // e.g. \"https://company.atlassian.net\"\n  email: string;              // used for Basic Auth on Jira Cloud\n  apiToken: string;\n  autoCloseLinkedIssues: boolean;\n  defaultProject: string;     // default project key shown in import modal\n  closeTransitionName: string; // transition name for closing, default \"Done\"\n}",
+    "startLine": 701,
+    "endLine": 708
+  },
+  {
+    "name": "CiIntelligenceSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface CiIntelligenceSettings {\n  enabled: boolean;\n  enableLivePrMonitoring: boolean;\n  resolveAllCommentsBeforeMainMerge: boolean;\n  resolveMainMergeConflicts: boolean;\n  resolveAllCommentsBeforeFeatureMerge: boolean;\n  resolveMergeConflicts: boolean;\n  waitForJulesCiAutofix: boolean;\n  julesCiAutofixMaxRetries: number;\n  featurePrAutoMergeMode: FeaturePrAutoMergeMode;\n  mainBranchAutoMergeMode: FeaturePrAutoMergeMode;\n}",
+    "startLine": 710,
+    "endLine": 721
+  },
+  {
+    "name": "GuardrailJobType",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type GuardrailJobType =\n  | \"task_coding\"\n  | \"ci_fix\"\n  | \"merge_conflict\"\n  | \"clarification_reply\"\n  | \"planning\";",
+    "startLine": 729,
+    "endLine": 734
+  },
+  {
+    "name": "GuardrailOnLimitAction",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type GuardrailOnLimitAction =\n  | \"BLOCK_AND_ESCALATE\" // block the task, hand to human, open an attention item\n  | \"STOP_AND_WAIT\" // stop auto-handling this job type, leave the attention item open\n  | \"WARN_ONLY\";",
+    "startLine": 737,
+    "endLine": 740
+  },
+  {
+    "name": "GuardrailJobConfig",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GuardrailJobConfig {\n  /** Max invocations of this job type per task. 0 = unlimited. */\n  cap: number;\n  onLimit: GuardrailOnLimitAction;\n}",
+    "startLine": 742,
+    "endLine": 746
+  },
+  {
+    "name": "GuardrailSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GuardrailSettings {\n  enabled: boolean;\n  /** Optional hard cap on total agent invocations per task across all job types. 0 = unlimited. */\n  perTaskTotalCeiling: number;\n  jobs: Record<GuardrailJobType, GuardrailJobConfig>;\n  /** Separate per-task QA-review cap. Distinct from agents.qualityAssurance.maxTaskReviewRuns. 0 = unlimited. */\n  qaRunsCap: number;\n  qaRunsOnLimit: GuardrailOnLimitAction;\n}",
+    "startLine": 748,
+    "endLine": 756
+  },
+  {
+    "name": "SprintLoopStepSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SprintLoopStepSettings {\n  branchPreflight: boolean;\n  planningPreflight: boolean;\n  loadSubtasks: boolean;\n  sessionSync: boolean;\n  statusDerivation: boolean;\n  startReadyTasks: boolean;\n  mergeProtocol: boolean;\n  actionRequiredProtocol: boolean;\n  statusTable: boolean;\n  watchLoop: boolean;\n  watchLoopIntervalSeconds: number;\n  watchLoopOutputIntervalSeconds: number;\n}",
+    "startLine": 758,
+    "endLine": 771
+  },
+  {
+    "name": "CliWorkflowSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface CliWorkflowSettings {\n  cleanupWorktreeOnSuccess: boolean;\n  cleanupWorktreeOnFailure: boolean;\n  retryOnReadFileNotFound: boolean;\n  retryOnQuotaReset: boolean;\n  retryOnRateLimit: boolean;\n  rateLimitRetryDelaySeconds: number;\n  maxRateLimitRetries: number;\n  maxParsingRetries: number;\n  resumeFailedTaskInSameWorkspace: boolean;\n  gitMode: \"remote\" | \"local\";\n  executionMode: CliExecutionMode;\n  containerImage: string;\n  containerSetupScriptPath: string;\n  containerCacheSetupScriptImage: boolean;\n  containerMountGitConfig: boolean;\n  containerGitUserName: string;\n  containerGitUserEmail: string;\n  containerMountGithubAuth: boolean;\n  containerMountGeminiAuth: boolean;\n  containerMountCodexAuth: boolean;\n  containerMountClaudeCodeAuth: boolean;\n  containerMountQwenCodeAuth: boolean;\n  containerMountOpenCodeAuth: boolean;\n  containerMountAntigravityAuth: boolean;\n  containerGithubAuthPath: string;\n  containerGeminiAuthPath: string;\n  containerCodexAuthPath: string;\n  containerClaudeCodeAuthPath: string;\n  containerQwenCodeAuthPath: string;\n  containerOpenCodeAuthPath: string;\n  containerAntigravityAuthPath: string;\n  maxPlanningJsonRetries: number;\n  maxQuotaRetriesWithoutTimer: number;\n}",
+    "startLine": 773,
+    "endLine": 807
+  },
+  {
+    "name": "SprintPreviewSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SprintPreviewSettings {\n  enabled: boolean;\n  showInAppBrowser: boolean;\n  autoStartOnRunningSprint: boolean;\n  rebuildOnTaskCompletion: boolean;\n  rebuildOnSprintCompletion: boolean;\n  autoStopOnTerminalSprint: boolean;\n  maxConcurrentContainers: number;\n  hostPortRangeStart: number;\n  hostPortRangeEnd: number;\n  containerAppPort: number;\n  startupScriptPath: string;\n}",
+    "startLine": 809,
+    "endLine": 821
+  },
+  {
+    "name": "WorkerSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface WorkerSettings {\n  executionMode: WorkerExecutionMode;\n  virtualWorkerProvider: ProviderConfigId;\n  model: string;\n  maxConcurrency: number;\n  timeoutSeconds: number;\n}",
+    "startLine": 823,
+    "endLine": 829
+  },
+  {
+    "name": "QualityAssuranceTriggerSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface QualityAssuranceTriggerSettings {\n  enabled: boolean;\n  agentPresetId: string | null;\n}",
+    "startLine": 831,
+    "endLine": 834
+  },
+  {
+    "name": "QualityAssuranceSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface QualityAssuranceSettings {\n  enabled: boolean;\n  maxTaskReviewRuns: number;\n  taskCompletion: QualityAssuranceTriggerSettings;\n  sprintCompletion: QualityAssuranceTriggerSettings;\n  completedTaskWithoutPr: QualityAssuranceTriggerSettings;\n}",
+    "startLine": 836,
+    "endLine": 842
+  },
+  {
+    "name": "CodingAgentRoutingSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface CodingAgentRoutingSettings {\n  mode: AgentRoutingMode;\n  agentPresetId: string | null;\n  orchestratorAgentPresetIds: string[];\n}",
+    "startLine": 844,
+    "endLine": 848
+  },
+  {
+    "name": "ManualAgentRoutingSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ManualAgentRoutingSettings {\n  agentPresetId: string | null;\n}",
+    "startLine": 850,
+    "endLine": 852
+  },
+  {
+    "name": "AgentRoutingSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AgentRoutingSettings {\n  planning: ManualAgentRoutingSettings;\n  taskCoding: CodingAgentRoutingSettings;\n  ciFix: ManualAgentRoutingSettings;\n  mergeConflict: ManualAgentRoutingSettings;\n  dashboardReply: ManualAgentRoutingSettings;\n  clarificationReply: ManualAgentRoutingSettings;\n}",
+    "startLine": 854,
+    "endLine": 861
+  },
+  {
+    "name": "AgentSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AgentSettings {\n  saveToProjectDirectory: boolean;\n  routing: AgentRoutingSettings;\n  instructionTemplates: Record<InstructionTemplateId, string>;\n  qualityAssurance: QualityAssuranceSettings;\n}",
+    "startLine": 863,
+    "endLine": 868
+  },
+  {
+    "name": "BackgroundPattern",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type BackgroundPattern = \"NONE\" | \"DIAGONAL_LINES\" | \"HORIZONTAL_LINES\" | \"VERTICAL_LINES\" | \"CROSSHATCH\" | \"DOTS\" | \"DIAMONDS\" | \"HEXAGONS\" | \"TRIANGLES\" | \"WAVES\" | \"NOISE\";",
+    "startLine": 870,
+    "endLine": 870
+  },
+  {
+    "name": "AppearanceSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AppearanceSettings {\n  navigationMode: \"DOCK\" | \"SIDEBAR\";\n  theme: \"LIGHT\" | \"DARK\" | \"SYSTEM\";\n  reducedMotion: \"AUTO\" | \"REDUCE\" | \"NONE\";\n  backgroundMode: \"ANIMATED\" | \"STATIC\";\n  animatedBackground: string;\n  staticBackgroundColor: string;\n  backgroundImage?: string | null;\n  backgroundPattern?: BackgroundPattern | null;\n  zoomLevel: number;\n}",
+    "startLine": 872,
+    "endLine": 882
+  },
+  {
+    "name": "SkillToggle",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SkillToggle {\n  name: string;\n  enabled: boolean;\n  isInternal: boolean;\n}",
+    "startLine": 884,
+    "endLine": 888
+  },
+  {
+    "name": "McpToolToggle",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface McpToolToggle {\n  name: string;\n  enabled: boolean;\n  isInternal: boolean;\n}",
+    "startLine": 890,
+    "endLine": 894
+  },
+  {
+    "name": "CustomMcpTransport",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type CustomMcpTransport = \"http\" | \"stdio\";",
+    "startLine": 896,
+    "endLine": 896
+  },
+  {
+    "name": "CustomMcpServer",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface CustomMcpServer {\n  id: string;\n  name: string;\n  label?: string;\n  description?: string;\n  enabled: boolean;\n  transport: CustomMcpTransport;\n  // http transport\n  url?: string;\n  headers?: Record<string, string>;\n  // stdio transport\n  command?: string;\n  args?: string[];\n  env?: Record<string, string>;\n  providers?: ProviderId[];\n}",
+    "startLine": 898,
+    "endLine": 913
+  },
+  {
+    "name": "RuntimeLogLevel",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type RuntimeLogLevel = \"off\" | \"debug\" | \"info\" | \"warn\" | \"error\";",
+    "startLine": 915,
+    "endLine": 915
+  },
+  {
+    "name": "ConsoleLogMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type ConsoleLogMode = \"standard\" | \"full\";",
+    "startLine": 916,
+    "endLine": 916
+  },
+  {
+    "name": "DashboardSettings",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardSettings {\n  dashboardPort: number;\n  consoleLogLevel: RuntimeLogLevel;\n  debugLogFileLevel: RuntimeLogLevel;\n  consoleLogMode: ConsoleLogMode;\n  dbAutoVacuumOnStartup: boolean;\n  dbPruningEnabled: boolean;\n  dbRetentionDays: number;\n  appearance: AppearanceSettings;\n  automationLevel: AutomationLevel;\n  automationInterventions: AutomationInterventionsSettings;\n  aiProvider: AiProviderSettings;\n  git: GitSettings;\n  jira: JiraSettings;\n  ciIntelligence: CiIntelligenceSettings;\n  guardrails: GuardrailSettings;\n  sprintLoopSteps: SprintLoopStepSettings;\n  cliWorkflow: CliWorkflowSettings;\n  sprintPreview: SprintPreviewSettings;\n  workers: WorkerSettings;\n  agents: AgentSettings;\n  skills: SkillToggle[];\n  mcpTools: McpToolToggle[];\n  customMcpServers: CustomMcpServer[];\n  memory: MemorySettings;\n}",
+    "startLine": 918,
+    "endLine": 943
+  },
+  {
+    "name": "DashboardSettingsScope",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardSettingsScope {\n  projectId?: string;\n  sprintId?: string | null;\n}",
+    "startLine": 945,
+    "endLine": 948
+  },
+  {
+    "name": "GitStatusCheck",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitStatusCheck {\n  name: string;\n  status: string;\n  conclusion: string | null;\n}",
+    "startLine": 950,
+    "endLine": 954
+  },
+  {
+    "name": "GitPullRequestStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitPullRequestStatus {\n  number: number;\n  title: string;\n  url: string;\n  state: string;\n  isDraft: boolean;\n  headRefName: string | null;\n  baseRefName: string | null;\n  mergeStateStatus: string | null;\n  reviewDecision: string | null;\n  updatedAt: string | null;\n  comments: number;\n  checks: GitStatusCheck[];\n}",
+    "startLine": 956,
+    "endLine": 969
+  },
+  {
+    "name": "GitCiRunStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitCiRunStatus {\n  id: number | null;\n  name: string;\n  workflowName: string | null;\n  status: string;\n  conclusion: string | null;\n  event: string | null;\n  headBranch: string | null;\n  url: string;\n  updatedAt: string | null;\n  failedJobs?: GitCiFailedJob[];\n}",
+    "startLine": 971,
+    "endLine": 982
+  },
+  {
+    "name": "GitCiFailedJob",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitCiFailedJob {\n  id: number | null;\n  name: string;\n  conclusion: string | null;\n  failedSteps: string[];\n  logExcerpt: string | null;\n  logCommand: string | null;\n}",
+    "startLine": 984,
+    "endLine": 991
+  },
+  {
+    "name": "GitMergeStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitMergeStatus {\n  number: number;\n  title: string;\n  url: string;\n  headRefName: string | null;\n  baseRefName: string | null;\n  mergedAt: string | null;\n  mergedBy: string | null;\n}",
+    "startLine": 993,
+    "endLine": 1001
+  },
+  {
+    "name": "GitTrackingScope",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type GitTrackingScope = \"FEATURE_PR_CI\" | \"MAIN_MERGE_PR_CI\" | \"MAIN_BRANCH_CI\" | \"REPOSITORY\";",
+    "startLine": 1003,
+    "endLine": 1003
+  },
+  {
+    "name": "GitTrackingTarget",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitTrackingTarget {\n  scope: GitTrackingScope;\n  label: string;\n  branch: string | null;\n}",
+    "startLine": 1005,
+    "endLine": 1009
+  },
+  {
+    "name": "GitTrackingStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GitTrackingStatus {\n  mode: \"REMOTE\" | \"LOCAL\";\n  available: boolean;\n  repositoryRoot: string | null;\n  branch: string | null;\n  hasRemote: boolean;\n  dirty: boolean;\n  openPullRequests: GitPullRequestStatus[];\n  ciRuns: GitCiRunStatus[];\n  mergedPullRequests: GitMergeStatus[];\n  tracking: GitTrackingTarget;\n  warnings: string[];\n  lastUpdated: string;\n}",
+    "startLine": 1011,
+    "endLine": 1024
+  },
+  {
+    "name": "ExternalSettingsHints",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ExternalSettingsHints {\n  env: {\n    julesApiKey: string;\n    geminiApiKey: string;\n    codexApiKey: string;\n    claudeCodeApiKey: string;\n    qwenCodeApiKey: string;\n    openCodeApiKey: string;\n    antigravityApiKey: string;\n    githubToken: string;\n    gitlabToken?: string;\n    jiraToken?: string;\n  };\n  settingsJson: {\n    julesApiKey: string;\n    geminiApiKey: string;\n    codexApiKey: string;\n    claudeCodeApiKey: string;\n    qwenCodeApiKey: string;\n    openCodeApiKey: string;\n    antigravityApiKey: string;\n    githubToken: string;\n    gitlabToken?: string;\n    jiraToken?: string;\n  };\n  resolved: {\n    julesApiKey: string;\n    geminiApiKey: string;\n    codexApiKey: string;\n    claudeCodeApiKey: string;\n    qwenCodeApiKey: string;\n    openCodeApiKey: string;\n    antigravityApiKey: string;\n    githubToken: string;\n    gitlabToken?: string;\n    jiraToken?: string;\n  };\n  providerAvailability: {\n    jules: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    gemini: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    codex: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    claudeCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    qwenCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    openCode: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n    antigravity: { hasApiKey: boolean; hasLocalAuth: boolean; hasDashboardAuth: boolean };\n  };\n}",
+    "startLine": 1026,
+    "endLine": 1072
+  },
+  {
+    "name": "GetCiStatusForScopeArgs",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface GetCiStatusForScopeArgs {\n  repoPath: string;\n  scope: \"FEATURE_PR_CI\" | \"MAIN_MERGE_PR_CI\" | \"MAIN_BRANCH_CI\";\n  featureBranch: string;\n  defaultBranch: string;\n  featureBranchPrefix: string;\n  taskPrUrls?: string[];\n  cacheTtlMs?: number;\n}",
+    "startLine": 1074,
+    "endLine": 1082
+  },
+  {
+    "name": "AutoMergeFeaturePrArgs",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AutoMergeFeaturePrArgs {\n  repoPath: string;\n  prNumber: number;\n}",
+    "startLine": 1084,
+    "endLine": 1087
+  },
+  {
+    "name": "AutoMergeFeaturePrResult",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface AutoMergeFeaturePrResult {\n  ok: boolean;\n  merged?: boolean;\n  autoMergeScheduled?: boolean;\n  mergeConflict?: boolean;\n  message?: string;\n}",
+    "startLine": 1089,
+    "endLine": 1095
+  },
+  {
+    "name": "PersistTaskMergedFlagArgs",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface PersistTaskMergedFlagArgs {\n  repoPath: string;\n  sprintNumber: number;\n  taskId: string;\n  merged: boolean;\n}",
+    "startLine": 1097,
+    "endLine": 1102
+  },
+  {
+    "name": "ReadinessProbeStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface ReadinessProbeStatus {\n  status: \"UP\" | \"READY\" | \"NOT_READY\" | \"DOWN\";\n  components?: {\n    settingsDb: \"UP\" | \"DOWN\";\n    dashboardBind: \"UP\" | \"DOWN\";\n    mcpService: \"UP\" | \"DOWN\";\n  };\n}",
+    "startLine": 1104,
+    "endLine": 1111
+  },
+  {
+    "name": "DockerContainer",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DockerContainer {\n  id: string;\n  names: string;\n  image: string;\n  status: string;\n  state: string;\n  runningFor: string;\n  labels: Record<string, string>;\n}",
+    "startLine": 1113,
+    "endLine": 1121
+  },
+  {
+    "name": "OnboardingCheckStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type OnboardingCheckStatus = \"ready\" | \"warning\" | \"missing\";",
+    "startLine": 1123,
+    "endLine": 1123
+  },
+  {
+    "name": "OnboardingClusterStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type OnboardingClusterStatus = \"ready\" | \"not_ready\";",
+    "startLine": 1124,
+    "endLine": 1124
+  },
+  {
+    "name": "OnboardingDependencyCheck",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface OnboardingDependencyCheck {\n  id: string;\n  label: string;\n  status: OnboardingCheckStatus;\n  required: boolean;\n  description: string;\n  resolution: string;\n  detail?: string;\n}",
+    "startLine": 1126,
+    "endLine": 1134
+  },
+  {
+    "name": "OnboardingProviderCredentialStatus",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface OnboardingProviderCredentialStatus {\n  provider: ProviderId;\n  label: string;\n  authPath: string;\n  available: boolean;\n  mountEnabled: boolean;\n  detectedFiles: string[];\n  description: string;\n}",
+    "startLine": 1136,
+    "endLine": 1144
+  },
+  {
+    "name": "OnboardingRuntimeReadiness",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface OnboardingRuntimeReadiness {\n  checkedAt: string;\n  cluster: {\n    status: OnboardingClusterStatus;\n    label: string;\n    detail: string;\n  };\n  dependencies: OnboardingDependencyCheck[];\n  providers: OnboardingProviderCredentialStatus[];\n}",
+    "startLine": 1146,
+    "endLine": 1155
+  },
+  {
+    "name": "UserOnboardingState",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface UserOnboardingState {\n  completed: boolean;\n  onboardingCompletedAt: string | null;\n}",
+    "startLine": 1157,
+    "endLine": 1160
+  },
+  {
+    "name": "SprintPreviewSessionStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type SprintPreviewSessionStatus = \"stopped\" | \"starting\" | \"running\" | \"error\";",
+    "startLine": 1162,
+    "endLine": 1162
+  },
+  {
+    "name": "SprintPreviewHealthStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type SprintPreviewHealthStatus = \"unknown\" | \"healthy\" | \"unreachable\";",
+    "startLine": 1163,
+    "endLine": 1163
+  },
+  {
+    "name": "SprintPreviewStartupMode",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type SprintPreviewStartupMode = \"auto\" | \"script\";",
+    "startLine": 1164,
+    "endLine": 1164
+  },
+  {
+    "name": "SprintPreviewSession",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SprintPreviewSession {\n  id: string;\n  projectId: string;\n  sprintId: string;\n  projectName: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  status: SprintPreviewSessionStatus;\n  hostPort: number | null;\n  containerAppPort: number;\n  containerId: string | null;\n  containerName: string | null;\n  worktreePath: string | null;\n  featureBranch: string | null;\n  startupScriptPath: string;\n  startupMode: SprintPreviewStartupMode;\n  installCommand: string | null;\n  buildCommand: string | null;\n  runCommand: string | null;\n  lastCompletedTaskCount: number;\n  lastSeenSprintStatus: string | null;\n  lastKnownPath: string | null;\n  healthStatus: SprintPreviewHealthStatus;\n  lastError: string | null;\n  lastBuildAt: string | null;\n  lastStartedAt: string | null;\n  lastStoppedAt: string | null;\n  createdAt: string;\n  updatedAt: string;\n}",
+    "startLine": 1166,
+    "endLine": 1195
+  },
+  {
+    "name": "SprintPreviewScript",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface SprintPreviewScript {\n  projectId: string;\n  sprintId: string;\n  path: string;\n  exists: boolean;\n  mode: SprintPreviewStartupMode;\n  content: string;\n  detectedInstallCommand: string | null;\n  detectedBuildCommand: string | null;\n  detectedRunCommand: string | null;\n}",
+    "startLine": 1197,
+    "endLine": 1207
+  },
+  {
+    "name": "FileBrowserSessionStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type FileBrowserSessionStatus = \"stopped\" | \"starting\" | \"running\" | \"error\";",
+    "startLine": 1209,
+    "endLine": 1209
+  },
+  {
+    "name": "FileBrowserSession",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserSession {\n  id: string;\n  projectId: string;\n  sprintId: string;\n  projectName: string;\n  sprintName: string;\n  sprintNumber: number | null;\n  status: FileBrowserSessionStatus;\n  containerId: string | null;\n  containerName: string | null;\n  workspacePath: string | null;\n  featureBranch: string | null;\n  defaultBranch: string | null;\n  lastCompletedTaskCount: number;\n  lastSeenSprintStatus: string | null;\n  lastError: string | null;\n  lastBuildAt: string | null;\n  lastStartedAt: string | null;\n  lastStoppedAt: string | null;\n  createdAt: string;\n  updatedAt: string;\n}",
+    "startLine": 1211,
+    "endLine": 1232
+  },
+  {
+    "name": "FileBrowserTreeNode",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserTreeNode {\n  id: string;\n  name: string;\n  path: string;\n  type: \"file\" | \"directory\";\n  children?: FileBrowserTreeNode[];\n}",
+    "startLine": 1234,
+    "endLine": 1240
+  },
+  {
+    "name": "FileBrowserTree",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserTree {\n  sessionId: string;\n  root: FileBrowserTreeNode[];\n  fileCount: number;\n  truncated: boolean;\n}",
+    "startLine": 1242,
+    "endLine": 1247
+  },
+  {
+    "name": "FileBrowserFileContent",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserFileContent {\n  path: string;\n  content: string;\n  encoding: \"utf8\";\n  size: number;\n  truncated: boolean;\n  binary: boolean;\n  language: string | null;\n}",
+    "startLine": 1249,
+    "endLine": 1257
+  },
+  {
+    "name": "FileBrowserChangeStatus",
+    "kind": "TypeAliasDeclaration",
+    "text": "export type FileBrowserChangeStatus = \"added\" | \"modified\" | \"deleted\" | \"renamed\";",
+    "startLine": 1259,
+    "endLine": 1259
+  },
+  {
+    "name": "FileBrowserChange",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserChange {\n  path: string;\n  oldPath: string | null;\n  status: FileBrowserChangeStatus;\n  additions: number;\n  deletions: number;\n}",
+    "startLine": 1261,
+    "endLine": 1267
+  },
+  {
+    "name": "FileBrowserChangeSet",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserChangeSet {\n  sessionId: string;\n  featureBranch: string;\n  defaultBranch: string;\n  available: boolean;\n  reason: string | null;\n  files: FileBrowserChange[];\n}",
+    "startLine": 1269,
+    "endLine": 1276
+  },
+  {
+    "name": "FileBrowserDiff",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface FileBrowserDiff {\n  path: string;\n  oldPath: string | null;\n  status: FileBrowserChangeStatus;\n  original: string | null;\n  modified: string | null;\n  binary: boolean;\n  language: string | null;\n}",
+    "startLine": 1278,
+    "endLine": 1286
+  },
+  {
+    "name": "DashboardStatusSnapshot",
+    "kind": "InterfaceDeclaration",
+    "text": "export interface DashboardStatusSnapshot {\n  project_id?: string;\n  sprint_id?: string;\n  sprint_number?: number;\n  source_id?: string;\n  repo_path?: string;\n  feature_branch?: string;\n  subtasks: Subtask[];\n  reportText?: string;\n  statusTable?: string;\n  instructions?: string;\n  timestamp: string | null;\n}",
+    "startLine": 1288,
+    "endLine": 1300
+  }
+]
