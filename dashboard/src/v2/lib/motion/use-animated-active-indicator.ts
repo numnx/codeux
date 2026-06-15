@@ -1,4 +1,5 @@
-import { useLayoutEffect, useState, RefObject } from "preact/hooks";
+import { useLayoutEffect, useState } from "preact/hooks";
+import type { RefObject } from "preact";
 import { useReducedMotionSafe } from "./useReducedMotionSafe.js";
 import { GSAP_DURATIONS, GSAP_EASINGS } from "./constants.js";
 
@@ -45,8 +46,8 @@ export function useAnimatedActiveIndicator(
 
             if (activeChild) {
                 // Determine the offset and width
-                const offsetLeft = activeChild.offsetLeft;
-                const offsetWidth = activeChild.offsetWidth;
+                const offsetLeft = activeChild.offsetLeft ?? 0;
+                const offsetWidth = activeChild.offsetWidth ?? 0;
 
                 setStyle({
                     transform: `translateX(${offsetLeft}px)`,
@@ -72,7 +73,11 @@ export function useAnimatedActiveIndicator(
 
         observer.observe(container);
         const children = Array.from(container.querySelectorAll<HTMLElement>(childSelector));
-        children.forEach(child => observer.observe(child));
+        children.forEach((child) => {
+            if (child instanceof Element) {
+                observer.observe(child);
+            }
+        });
 
         return () => {
             observer.disconnect();
