@@ -6,7 +6,7 @@ import type { ProviderId } from "../../contracts/app-types.js";
 
 // Outcome types
 export type QaReviewRunnerOutcome =
-  | { status: "success"; review: NormalizedQaReviewResult }
+  | { status: "success"; review: NormalizedQaReviewResult; invocationId: string }
   | { status: "error"; error: QaReviewError };
 
 export interface QaReviewRunnerDependencies {
@@ -22,6 +22,7 @@ export interface QaReviewRunnerArgs {
   provider: ProviderId;
   model: string;
   apiKey: string;
+  maxConcurrentTasks?: number;
   qwenAuthMode?: string;
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
@@ -66,6 +67,7 @@ export class QaReviewRunner {
         provider: args.provider,
         model: args.model,
         apiKey: args.apiKey,
+        maxConcurrentTasks: args.maxConcurrentTasks,
         qwenAuthMode: args.qwenAuthMode as any,
         qwenRegion: args.qwenRegion,
         qwenBaseUrl: args.qwenBaseUrl,
@@ -102,7 +104,7 @@ export class QaReviewRunner {
         maxRetries: (args.settings as any)?.cliWorkflow?.maxParsingRetries as number | undefined,
       });
 
-      return { status: "success", review: result.parsed };
+      return { status: "success", review: result.parsed, invocationId: result.invocationId };
     } catch (error) {
       return {
         status: "error",

@@ -8,16 +8,17 @@ export interface QaReviewStateDependencies {
 export class QaReviewState {
   constructor(private readonly deps: QaReviewStateDependencies) {}
 
-  markQaReviewSuccess(run: QaReviewRunRecord, outcome: Extract<QaReviewRunnerOutcome, { status: "success" }>, taskSnapshot?: string): QaReviewRunRecord {
+  markQaReviewSuccess(run: QaReviewRunRecord, outcome: Extract<QaReviewRunnerOutcome, { status: "success" }>, options?: { taskSnapshot?: string; overrideVerdict?: "pass" | "changes_requested"; overrideFixInstructions?: string | null; extraPayload?: Record<string, unknown> }): QaReviewRunRecord {
     return this.deps.qaReviewRepository.updateRun(run.id, {
       status: "completed",
-      outcome: outcome.review.verdict,
+      outcome: options?.overrideVerdict || outcome.review.verdict,
       summaryMarkdown: outcome.review.summary,
-      fixInstructions: outcome.review.fixInstructions,
+      fixInstructions: options?.overrideFixInstructions !== undefined ? options.overrideFixInstructions : outcome.review.fixInstructions,
       targetTaskKey: outcome.review.targetTaskKey,
       payload: {
         ...outcome.review.raw,
-        taskSnapshot,
+        taskSnapshot: options?.taskSnapshot,
+        ...options?.extraPayload,
       },
       finishedAt: new Date().toISOString(),
     });

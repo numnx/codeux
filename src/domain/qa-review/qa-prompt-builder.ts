@@ -127,3 +127,42 @@ export function buildQaReviewPrompt(args: {
     "- Do not include prose outside the JSON object.",
   ].join("\n");
 }
+
+export function buildFollowUpSessionPrompt(args: {
+  workerInstructions: string;
+  workerMemoryContext?: string;
+  originalPrompt: string;
+  followUpPrompt: string;
+  workerMemoryInstructions?: string;
+}): string {
+  return [
+    args.workerInstructions
+      ? `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${args.workerInstructions}`
+      : "",
+    args.workerMemoryContext?.trim() || "",
+    "## ORIGINAL SUBTASK",
+    args.originalPrompt,
+    "",
+    "## QA FOLLOW-UP",
+    args.followUpPrompt,
+    args.workerMemoryInstructions
+      ? `## LEARNINGS CAPTURE (Required)\n\n${args.workerMemoryInstructions}`
+      : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+export function buildFollowUpTaskPrompt(args: {
+  sprintGoal: string;
+  taskId: string;
+  taskTitle: string;
+  promptMarkdown: string;
+}): string {
+  return [
+    "This is a follow-up task identified during a quality assurance review.",
+    args.sprintGoal ? `Sprint Goal: ${args.sprintGoal}` : "",
+    `Context task: ${args.taskId} (${args.taskTitle})`,
+    "",
+    "## REVIEW INSTRUCTIONS",
+    args.promptMarkdown,
+  ].filter(Boolean).join("\n");
+}

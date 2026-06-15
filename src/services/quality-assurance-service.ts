@@ -28,6 +28,9 @@ import { parseQaError, type QaReviewError } from "../domain/qa-review/qa-review-
 import { normalizeQaReviewResult } from "../domain/qa-review/qa-review-result-normalizer.js";
 import type { NormalizedQaReviewResult } from "../domain/qa-review/qa-review-types.js";
 import { buildQaReviewPrompt } from "../domain/qa-review/qa-prompt-builder.js";
+import { QaReviewRunner, type QaReviewRunnerOutcome } from "../domain/qa-review/qa-review-runner.js";
+import { QaReviewState } from "../domain/qa-review/qa-review-state.js";
+import { buildFollowUpSessionPrompt, buildFollowUpTaskPrompt } from "../domain/qa-review/qa-prompt-builder.js";
 import {
   renderQaPassReport,
   renderQaChangesRequestedReport,
@@ -99,6 +102,8 @@ export class QualityAssuranceService {
 
   private readonly providerExecutionService: ProviderExecutionService;
   private readonly structuredAgentRequestService: StructuredAgentRequestService;
+  private readonly qaReviewRunner: QaReviewRunner;
+  private readonly qaReviewState: QaReviewState;
 
   constructor(private readonly deps: QualityAssuranceServiceDependencies) {
     this.providerExecutionService = new ProviderExecutionService({
@@ -124,6 +129,10 @@ export class QualityAssuranceService {
         logger: deps.logger,
       });
     }
+
+    this.qaReviewRunner = new QaReviewRunner({ structuredAgentRequestService: this.structuredAgentRequestService });
+    this.qaReviewState = new QaReviewState({ qaReviewRepository: deps.qaReviewRepository });
+
   }
 
   private async syncRemoteBranchesIfNeeded(
@@ -256,7 +265,7 @@ export class QualityAssuranceService {
     this.setTaskQaPending(args.task, true);
 
     try {
-      const review = await this.runReview({
+      const outcome = await this.runReview({
         triggerType,
         scope,
         projectName: project.name,
@@ -274,16 +283,38 @@ export class QualityAssuranceService {
           || taskRun?.workerBranch?.trim()
           || sprintFeatureBranch,
         baseBranch: sprintFeatureBranch,
+        runRecord: run,
       });
 
-      if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
-        this.deps.qaReviewRepository.updateRun(run.id, {
-          status: "completed",
-          outcome: "pass",
-          summaryMarkdown: review.summary,
-          payload: review.raw,
-          finishedAt: new Date().toISOString(),
+      if (outcome.status === "error") {
+        const qaError = outcome.error;
+        this.qaReviewState.markQaReviewFailed(run, outcome);
+        this.appendTaskEvent(taskRun, "qa_review_failed", {
+          triggerType,
+          error: qaError.message,
+          error_code: qaError.code,
+          qaReviewRunId: run.id,
         });
+        this.setTaskQaPending(args.task, false);
+        this.deps.logger?.warn("Task QA review failed", {
+          projectId: args.projectId,
+          sprintId: args.sprintId,
+          taskId,
+          triggerType,
+          error: qaError.message,
+          error_code: qaError.code,
+        });
+        return {
+          reviewed: false,
+          reopenedTask: false,
+          mergeBlocked: qaError.isRetryable && (existingRuns + 1 < qaSettings.maxTaskReviewRuns),
+          reportText: renderQaReviewFailedReport(args.task.id, qaError),
+        };
+      }
+
+      const review = outcome.review;
+      if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
+        this.qaReviewState.markQaReviewSuccess(run, outcome, { overrideVerdict: "pass" });
         this.appendTaskEvent(taskRun, "qa_review_passed", {
           triggerType,
           summary: review.summary,
@@ -318,17 +349,12 @@ export class QualityAssuranceService {
         })
         : { applied: false, mode: "none" as const };
 
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "completed",
-        outcome: "changes_requested",
-        summaryMarkdown: review.summary,
-        fixInstructions,
-        payload: {
-          ...review.raw,
+      this.qaReviewState.markQaReviewSuccess(run, outcome, {
+        overrideFixInstructions: fixInstructions,
+        extraPayload: {
           continued: continued.applied,
           continuationMode: continued.mode,
-        },
-        finishedAt: new Date().toISOString(),
+        }
       });
 
       if (continued.applied) {
@@ -363,39 +389,9 @@ export class QualityAssuranceService {
         mergeBlocked: true,
         reportText: renderQaChangesRequestedReport(args.task.id, review.summary, continued.applied),
       };
-    } catch (error) {
-      const qaError = parseQaError(error);
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "failed",
-        summaryMarkdown: qaError.message,
-        payload: {
-          error_code: qaError.code,
-        },
-        finishedAt: new Date().toISOString(),
-      });
-      this.appendTaskEvent(taskRun, "qa_review_failed", {
-        triggerType,
-        error: qaError.message,
-        error_code: qaError.code,
-        qaReviewRunId: run.id,
-      });
-      // Drop the QA_PENDING indicator; the merge gate re-derives the blocked
-      // state from the failed run on the next cycle.
-      this.setTaskQaPending(args.task, false);
-      this.deps.logger?.warn("Task QA review failed", {
-        projectId: args.projectId,
-        sprintId: args.sprintId,
-        taskId,
-        triggerType,
-        error: qaError.message,
-        error_code: qaError.code,
-      });
-      return {
-        reviewed: false,
-        reopenedTask: false,
-        mergeBlocked: qaError.isRetryable && (existingRuns + 1 < qaSettings.maxTaskReviewRuns),
-        reportText: renderQaReviewFailedReport(args.task.id, error),
-      };
+    } finally {
+      // The try block around reviewCompletedTask handles task updates,
+      // but the QaReviewRunner.runQaReview handles the error internally.
     }
   }
 
@@ -515,7 +511,7 @@ export class QualityAssuranceService {
       );
       let agentInstructions = agent.instructionMarkdown + (memoryInstructions ? `\n\n### Memory Capture Instructions\n${memoryInstructions}` : "");
 
-      const review = await this.runReview({
+      const outcome = await this.runReview({
         triggerType: "sprint_completion",
         scope,
         projectName: project.name,
@@ -531,19 +527,30 @@ export class QualityAssuranceService {
         // merged), falling back to the configured default branch.
         reviewBranch: sprintFeatureBranch,
         baseBranch: settings.git.defaultBranch,
+        runRecord: run,
       });
 
-      if (review.verdict === "pass") {
-        this.deps.qaReviewRepository.updateRun(run.id, {
-          status: "completed",
-          outcome: "pass",
-          summaryMarkdown: review.summary,
-          payload: {
-            ...review.raw,
-            taskSnapshot: currentTaskSnapshot,
-          },
-          finishedAt: new Date().toISOString(),
+      if (outcome.status === "error") {
+        const qaError = outcome.error;
+        this.qaReviewState.markQaReviewFailed(run, outcome);
+        this.deps.logger?.warn("Sprint QA review failed", {
+          projectId: args.projectId,
+          sprintId: args.sprintId,
+          triggerType: "sprint_completion",
+          error: qaError.message,
+          error_code: qaError.code,
         });
+        return {
+          reviewed: false,
+          blockedCompletion: true,
+          mergeBlocked: qaError.isRetryable && ((latestRun?.runIndex ?? 0) + 1 < maxRuns),
+          reportText: renderSprintQaFailedReport(qaError),
+        };
+      }
+
+      const review = outcome.review;
+      if (review.verdict === "pass") {
+        this.qaReviewState.markQaReviewSuccess(run, outcome, { taskSnapshot: currentTaskSnapshot });
         return {
           reviewed: true,
           blockedCompletion: false,
@@ -577,23 +584,21 @@ export class QualityAssuranceService {
         sourceRunId: run.id,
       });
 
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "completed",
-        outcome: "changes_requested",
-        targetTaskKey: targetTask?.id || review.targetTaskKey,
-        targetSessionId: targetTask?.session_id || null,
-        targetProvider: targetTask?.provider || null,
-        summaryMarkdown: review.summary,
-        fixInstructions,
-        payload: {
-          ...review.raw,
+      this.qaReviewState.markQaReviewSuccess(run, outcome, {
+        taskSnapshot: currentTaskSnapshot,
+        extraPayload: {
           continued: continued.applied,
           continuationMode: continued.mode,
           createdFollowUpTaskKeys: createdFollowUpTasks.map((task) => task.taskKey),
-          taskSnapshot: currentTaskSnapshot,
-        },
-        finishedAt: new Date().toISOString(),
+        }
       });
+      if (targetTask?.id) {
+        this.deps.qaReviewRepository.updateRun(run.id, {
+          targetTaskKey: targetTask.id,
+          targetSessionId: targetTask.session_id || null,
+          targetProvider: targetTask.provider || null,
+        });
+      }
 
       if (continued.applied && targetTask?.record_id) {
         this.deps.projectManagementRepository.updateTask(targetTask.record_id, {
@@ -616,29 +621,8 @@ export class QualityAssuranceService {
           createdFollowUpTasks.map((task) => task.taskKey),
         ),
       };
-    } catch (error) {
-      const qaError = parseQaError(error);
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "failed",
-        summaryMarkdown: qaError.message,
-        payload: {
-          error_code: qaError.code,
-        },
-        finishedAt: new Date().toISOString(),
-      });
-      this.deps.logger?.warn("Sprint QA review failed", {
-        projectId: args.projectId,
-        sprintId: args.sprintId,
-        sprintRunId: args.sprintRunId,
-        error: qaError.message,
-        error_code: qaError.code,
-      });
-      return {
-        reviewed: false,
-        blockedCompletion: true,
-        mergeBlocked: qaError.isRetryable,
-        reportText: renderSprintQaFailedReport(error),
-      };
+    } finally {
+      // Internal execution errors are handled by QaReviewRunner
     }
   }
 
@@ -770,7 +754,8 @@ export class QualityAssuranceService {
     agentPresetId: string | null;
     reviewBranch: string | undefined;
     baseBranch: string;
-  }): Promise<NormalizedQaReviewResult> {
+    runRecord: QaReviewRunRecord;
+  }): Promise<QaReviewRunnerOutcome> {
     return await this.withSprintRunKeepAlive(args.sprintRunId, args.scope.sprintId, async () => {
       await this.syncRemoteBranchesIfNeeded(
         args.repoPath,
@@ -831,32 +816,29 @@ export class QualityAssuranceService {
 
       let result;
       try {
-        result = await this.structuredAgentRequestService.executeRequest<NormalizedQaReviewResult>({
+        result = await this.qaReviewRunner.runQaReview({
           projectId: args.scope.projectId!,
-          sprintId: args.scope.sprintId,
+          sprintId: args.scope.sprintId || null,
           taskId: args.taskRun?.taskId,
-          sprintRunId: args.sprintRunId,
+          sprintRunId: args.sprintRunId || undefined,
           taskRunId: args.taskRun?.id,
-          purpose: "qa_review",
-          type: "qa_review",
           provider,
           model: providerSettings.model,
           apiKey: providerSettings.apiKey,
           maxConcurrentTasks: providerSettings.maxConcurrentTasks,
           qwenAuthMode: providerSettings.qwenAuthMode,
-
-        qwenRegion: providerSettings.qwenRegion,
-        qwenBaseUrl: providerSettings.qwenBaseUrl,
-        qwenEnvKey: providerSettings.qwenEnvKey,
-        qwenModelId: providerSettings.qwenModelId,
-        qwenProtocol: providerSettings.qwenProtocol,
-        qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
-        openCodeAuthMode: providerSettings.openCodeAuthMode,
-        openCodeProviderId: providerSettings.openCodeProviderId,
-        openCodeModelId: providerSettings.openCodeModelId,
-        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
-        openCodeEnvKey: providerSettings.openCodeEnvKey,
-        openCodePackage: providerSettings.openCodePackage,
+          qwenRegion: providerSettings.qwenRegion,
+          qwenBaseUrl: providerSettings.qwenBaseUrl,
+          qwenEnvKey: providerSettings.qwenEnvKey,
+          qwenModelId: providerSettings.qwenModelId,
+          qwenProtocol: providerSettings.qwenProtocol,
+          qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
+          openCodeAuthMode: providerSettings.openCodeAuthMode,
+          openCodeProviderId: providerSettings.openCodeProviderId,
+          openCodeModelId: providerSettings.openCodeModelId,
+          openCodeBaseUrl: providerSettings.openCodeBaseUrl,
+          openCodeEnvKey: providerSettings.openCodeEnvKey,
+          openCodePackage: providerSettings.openCodePackage,
           providerMountAuth: providerSettings.mountAuth,
           providerAuthPath: providerSettings.authPath,
           customBaseUrl: providerSettings.customBaseUrl,
@@ -869,24 +851,15 @@ export class QualityAssuranceService {
             ...settings,
             cliWorkflow: workflowSettings,
           },
+          agentInstructions: args.agentInstructions,
+          runRecord: args.runRecord,
           parseFn: (text) => normalizeQaReviewResult(text),
-          buildRetryPrompt: (error) => [
-            "Your previous response failed validation with this error:",
-            error.message,
-            "",
-            "Please provide a valid JSON object matching the requested schema exactly.",
-          ].join("\n"),
-          providerLabel: "QA",
-          sessionIdPrefix: "qa-review",
-          systemRoutingMessage: args.agentInstructions.trim(),
           onActivity: () => {
             this.touchSprintRunHeartbeat(args.sprintRunId, args.scope.sprintId);
           },
         });
-      } catch (error) {
-        throw parseQaError(error);
       } finally {
-        if (settings.memory?.enabled && settings.memory.autoCaptureSprint && this.deps.memoryService && result) {
+        if (settings.memory?.enabled && settings.memory.autoCaptureSprint && this.deps.memoryService && result?.status === "success") {
           const memoryCaptureWorkspace = shouldCleanupSnapshot ? snapshotWorkspace : args.repoPath;
           if (memoryCaptureWorkspace) {
             await this.deps.memoryService.captureMemoriesFromWorktree(
@@ -903,7 +876,7 @@ export class QualityAssuranceService {
         }
       }
 
-      return result.parsed;
+      return result;
     });
   }
 
@@ -1276,20 +1249,13 @@ export class QualityAssuranceService {
     const workerMemoryContext = workerAgent?.id
       ? this.buildMemoryContext(args.scope.projectId!, args.scope.sprintId || null, workerAgent.id)
       : undefined;
-    const promptBody = [
-      workerInstructions
-        ? `## SYSTEM INSTRUCTIONS & ENGINEERING STANDARDS\n\n${workerInstructions}`
-        : "",
-      workerMemoryContext?.trim() || "",
-      "## ORIGINAL SUBTASK",
-      args.task.prompt,
-      "",
-      "## QA FOLLOW-UP",
-      args.followUpPrompt,
-      workerMemoryInstructions
-        ? `## LEARNINGS CAPTURE (Required)\n\n${workerMemoryInstructions}`
-        : "",
-    ].filter(Boolean).join("\n\n");
+    const promptBody = buildFollowUpSessionPrompt({
+      workerInstructions,
+      workerMemoryContext,
+      originalPrompt: args.task.prompt,
+      followUpPrompt: args.followUpPrompt,
+      workerMemoryInstructions,
+    });
     const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(args.followUpPrompt, worktreePath);
     let followUpProviderSettings = settings.aiProvider.providers[args.provider];
     if (typeof this.deps.taskService?.resolveInvocationProvider === "function") {
