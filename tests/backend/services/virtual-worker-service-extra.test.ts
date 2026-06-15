@@ -99,8 +99,14 @@ describe("VirtualWorkerService Extra Coverage", () => {
   });
 
   it("getProviderLabel returns default for unknown", async () => {
-    const { service } = await createFixture();
-    const getLabel = (service as any).getProviderLabel.bind(service);
+    const { deps } = await createFixture();
+    const { VirtualWorkerProvisioning } = await import("../../../src/services/virtual-worker/virtual-worker-provisioning.js");
+    const provisioning = new VirtualWorkerProvisioning(
+        deps.workerEndpointRepository,
+        deps.projectWorkerAssignmentService,
+        deps.projectWorkerAssignmentRepository
+    );
+    const getLabel = (provisioning as any).getProviderLabel.bind(provisioning);
     
     expect(getLabel("claude-code")).toBe("Claude Code");
     expect(getLabel("gemini")).toBe("Gemini");
@@ -109,7 +115,13 @@ describe("VirtualWorkerService Extra Coverage", () => {
   });
   
   it("cleanupOrphanedVirtualWorkers cleans up active assignments", async () => {
-    const { deps, service } = await createFixture();
+    const { deps } = await createFixture();
+    const { VirtualWorkerProvisioning } = await import("../../../src/services/virtual-worker/virtual-worker-provisioning.js");
+    const provisioning = new VirtualWorkerProvisioning(
+        deps.workerEndpointRepository,
+        deps.projectWorkerAssignmentService,
+        deps.projectWorkerAssignmentRepository
+    );
     
     const endpoint = deps.workerEndpointRepository.createVirtualEndpoint({
         endpointKey: "virtual:orphaned",
@@ -127,7 +139,7 @@ describe("VirtualWorkerService Extra Coverage", () => {
     
     expect(deps.projectWorkerAssignmentRepository.listActiveAssignmentsForWorker(endpoint.id)).toHaveLength(1);
     
-    (service as any).cleanupOrphanedVirtualWorkers();
+    provisioning.cleanupOrphanedVirtualWorkers();
     
     expect(deps.projectWorkerAssignmentRepository.listActiveAssignmentsForWorker(endpoint.id)).toHaveLength(0);
     expect(deps.workerEndpointRepository.getWorkerEndpoint(endpoint.id)).toBeFalsy();

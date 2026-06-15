@@ -36,16 +36,10 @@ import type { AgentPresetSyncService } from "./agent-preset-sync-service.js";
 import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import { LEARNINGS_FILENAME } from "../contracts/memory-types.js";
 import { DockerService } from "./docker-service.js";
+import { VirtualWorkerProvisioning } from "./virtual-worker/virtual-worker-provisioning.js";
+import { VirtualWorkerLifecycle, isTerminalSessionState, resolveTerminalDispatchState } from "./virtual-worker/virtual-worker-lifecycle.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
-const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
-
-function sleep(ms: number): Promise<void> {
-  if (ms <= 0) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function formatCiFixFailureDetails(failedRuns: GitCiRunStatus[], fallbackLogSnippets: string[]): string {
   if (failedRuns.length === 0) {
@@ -92,31 +86,11 @@ function formatCiFixFailureDetails(failedRuns: GitCiRunStatus[], fallbackLogSnip
   return sections.join("\n\n");
 }
 
-function isTerminalSessionState(state: string | undefined): boolean {
-  return state === "COMPLETED" || state === "FAILED" || state === "CANCELLED" || state === "QUOTA" || state === "RATE_LIMITED";
-}
-
 function extractPullRequest(session: JulesSession): { url?: string; workerBranch?: string } | null {
   const output = (session.outputs || [])
     .map((entry) => entry.pullRequest)
     .find((entry): entry is { url?: string; workerBranch?: string } => Boolean(entry));
   return output || null;
-}
-
-function resolveTerminalDispatchState(session: JulesSession): "COMPLETED" | "FAILED" | "QUOTA" | null {
-  if (session.state === "QUOTA") {
-    return "QUOTA";
-  }
-  if (session.state === "RATE_LIMITED") {
-    return "QUOTA";
-  }
-  if (session.state === "FAILED" || session.state === "CANCELLED") {
-    return "FAILED";
-  }
-  if (extractPullRequest(session) || session.state === "COMPLETED") {
-    return "COMPLETED";
-  }
-  return null;
 }
 
 export interface VirtualWorkerServiceDependencies {
@@ -157,6 +131,8 @@ export class VirtualWorkerService {
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
 
   private readonly providerExecutionService: ProviderExecutionService;
+  private readonly provisioning: VirtualWorkerProvisioning;
+  private readonly lifecycle: VirtualWorkerLifecycle;
 
   constructor(private readonly deps: VirtualWorkerServiceDependencies) {
     this.providerExecutionService = new ProviderExecutionService({
@@ -166,12 +142,15 @@ export class VirtualWorkerService {
       logger: deps.logger,
       sessionTracking: deps.sessionTracking,
     });
-  }
-
-  private isOrchestratorHandledClarificationItem(item: ProjectAttentionItemRecord): boolean {
-    return item.summaryMarkdown.includes("Clarification cooldown active")
-      || item.summaryMarkdown.includes("already answered automatically")
-      || item.summaryMarkdown.includes("Resume instruction already sent");
+    this.provisioning = new VirtualWorkerProvisioning(
+      deps.workerEndpointRepository,
+      deps.projectWorkerAssignmentService,
+      deps.projectWorkerAssignmentRepository,
+    );
+    this.lifecycle = new VirtualWorkerLifecycle(
+      deps.sessionTracking,
+      deps.workerEndpointRepository,
+    );
   }
 
   start(): void {
@@ -179,7 +158,7 @@ export class VirtualWorkerService {
       return;
     }
 
-    this.cleanupOrphanedVirtualWorkers();
+    this.provisioning.cleanupOrphanedVirtualWorkers();
     void this.reconcile();
     this.reconcileTimer = setInterval(() => {
       void this.reconcile().catch((error) => {
@@ -256,28 +235,15 @@ export class VirtualWorkerService {
 
   private async runProjectCycle(projectId: string, reason: string): Promise<void> {
     const cycleSettings = this.resolveCycleSettings(projectId);
-    const cycleProviderType = cycleSettings.aiProvider.providers[cycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
-    const endpoint = this.deps.workerEndpointRepository.createVirtualEndpoint({
-      endpointKey: `virtual:${projectId}:${Date.now().toString(36)}:${sanitizeToken(randomUUID().slice(0, 8))}`,
-      displayName: `Virtual ${this.getProviderLabel(cycleProviderType)} Worker`,
-      status: "connected",
-      transport: "internal",
-      capabilities: {
-        canSuperviseProjects: true,
-        canExecuteTasks: true,
-      },
-    });
-
-    this.deps.projectWorkerAssignmentService.ensureWorkerAssignment(projectId, endpoint.id);
+    const { endpointId, cleanup } = this.provisioning.provisionWorker(projectId, cycleSettings);
 
     try {
       const attentionItem = this.pickNextWorkerAttention(projectId);
       if (attentionItem) {
-        await this.handleAttentionItem(endpoint.id, attentionItem, reason);
+        await this.handleAttentionItem(endpointId, attentionItem, reason);
       }
     } finally {
-      this.deps.projectWorkerAssignmentService.releaseWorkerAssignment(projectId, endpoint.id, "virtual_worker_cycle_complete");
-      this.deps.workerEndpointRepository.deleteWorkerEndpoint(endpoint.id);
+      cleanup();
     }
   }
 
@@ -292,7 +258,7 @@ export class VirtualWorkerService {
         }
 
         // Avoid clarification/recovery items already being held in orchestrator-managed automated recovery.
-        if (this.isOrchestratorHandledClarificationItem(item)) {
+        if (this.lifecycle.isOrchestratorHandledClarificationItem(item)) {
           return false;
         }
 
@@ -403,11 +369,7 @@ export class VirtualWorkerService {
       prUrl: pullRequest?.url,
     });
 
-    while (true) {
-      await sleep(VIRTUAL_WORKER_SESSION_POLL_MS);
-      this.deps.workerEndpointRepository.touchWorkerEndpointHeartbeat(workerEndpointId, "connected");
-
-      const currentSession = this.deps.sessionTracking.getSession(session.id) || session;
+    await this.lifecycle.monitorSession(workerEndpointId, session.id, async (currentSession) => {
       const persistedTaskRun = this.deps.executionRepository.getTaskRunByDispatchId(claim.dispatch.id);
       const terminalState = persistedTaskRun?.state === "COMPLETED"
         ? "COMPLETED"
@@ -417,7 +379,7 @@ export class VirtualWorkerService {
             ? "QUOTA"
             : persistedTaskRun?.state === "BLOCKED"
               ? "BLOCKED"
-              : resolveTerminalDispatchState(currentSession);
+              : resolveTerminalDispatchState(currentSession, extractPullRequest);
       const currentPullRequest = extractPullRequest(currentSession);
       const update = this.deps.workerTaskDispatchService.updateDispatchForWorker({
         workerEndpointId,
@@ -436,9 +398,10 @@ export class VirtualWorkerService {
       });
 
       if (terminalState || update.controlAction === "cancel" || isTerminalSessionState(currentSession.state)) {
-        return;
+        return true;
       }
-    }
+      return false;
+    });
   }
 
   private buildDispatchSummary(claim: WorkerTaskDispatchClaim, session: JulesSession): string {
@@ -467,7 +430,7 @@ export class VirtualWorkerService {
 
   private async handleAttentionItem(workerEndpointId: string, item: ProjectAttentionItemRecord, reason: string): Promise<void> {
     // Check if it's an orchestrator-managed clarification recovery item we somehow claimed anyway.
-    if (this.isOrchestratorHandledClarificationItem(item)) {
+    if (this.lifecycle.isOrchestratorHandledClarificationItem(item)) {
       // Just release it, don't escalate. The orchestrator will handle it.
       return;
     }
@@ -475,7 +438,7 @@ export class VirtualWorkerService {
     const claimed = item.status === "claimed"
       ? this.deps.projectAttentionService.claimItem(item.id, workerEndpointId, `virtual_worker_reclaimed:${reason}`)
       : this.deps.projectAttentionService.claimItem(item.id, workerEndpointId, `virtual_worker_claimed:${reason}`);
-    this.deps.workerEndpointRepository.touchWorkerEndpointHeartbeat(workerEndpointId, "connected");
+    this.lifecycle.touchHeartbeat(workerEndpointId);
 
     if (claimed.attentionType === "merge_conflict" || claimed.attentionType === "merge_required") {
       await this.resolveMergeConflictAttention(workerEndpointId, claimed);
@@ -836,7 +799,7 @@ export class VirtualWorkerService {
         resolutionSummaryMarkdown: [
           item.summaryMarkdown.trim(),
           "",
-          `Virtual ${this.getProviderLabel(provider)} worker resolved the merge conflict and pushed the updated source branch.`,
+          `Virtual ${this.provisioning.getProviderLabel(provider)} worker resolved the merge conflict and pushed the updated source branch.`,
           `Source branch: ${sourceBranch}`,
           `Target branch: ${targetBranch}`,
           `Head SHA: ${headSha}`,
@@ -859,7 +822,7 @@ export class VirtualWorkerService {
         description: `Virtual worker failed to resolve merge conflict: ${message}`,
       });
       this.escalateAttentionToHuman(workerEndpointId, item, [
-        `Virtual ${this.getProviderLabel(provider)} worker failed to resolve the merge conflict automatically.`,
+        `Virtual ${this.provisioning.getProviderLabel(provider)} worker failed to resolve the merge conflict automatically.`,
         "",
         `Error: ${message}`,
         "",
@@ -1109,7 +1072,7 @@ export class VirtualWorkerService {
         resolutionSummaryMarkdown: [
           item.summaryMarkdown.trim(),
           "",
-          `Virtual ${this.getProviderLabel(provider)} worker fixed CI issues and pushed the updated branch.`,
+          `Virtual ${this.provisioning.getProviderLabel(provider)} worker fixed CI issues and pushed the updated branch.`,
           `Branch: ${branchName}`,
           `Head SHA: ${headSha}`,
           `Attempt: ${retryCount + 1}/${capLabel}`,
@@ -1132,7 +1095,7 @@ export class VirtualWorkerService {
         description: `Virtual worker failed to fix CI issues: ${message}`,
       });
       this.escalateAttentionToHuman(workerEndpointId, item, [
-        `Virtual ${this.getProviderLabel(provider)} worker failed to fix CI issues automatically.`,
+        `Virtual ${this.provisioning.getProviderLabel(provider)} worker failed to fix CI issues automatically.`,
         "",
         `Error: ${message}`,
         "",
@@ -1542,34 +1505,6 @@ export class VirtualWorkerService {
         workerOutcome: "needs_human_escalation",
       },
     });
-  }
-
-  private cleanupOrphanedVirtualWorkers(): void {
-    const orphaned = this.deps.workerEndpointRepository.listWorkerEndpoints()
-      .filter((endpoint) => endpoint.endpointType === "virtual_cli");
-
-    for (const endpoint of orphaned) {
-      for (const assignment of this.deps.projectWorkerAssignmentRepository.listActiveAssignmentsForWorker(endpoint.id)) {
-        this.deps.projectWorkerAssignmentService.releaseWorkerAssignment(assignment.projectId, endpoint.id, "virtual_worker_startup_prune");
-      }
-      this.deps.workerEndpointRepository.deleteWorkerEndpoint(endpoint.id);
-    }
-  }
-
-  private getProviderLabel(provider: ProviderId): string {
-    switch (provider) {
-      case "claude-code":
-        return "Claude Code";
-      case "qwen-code":
-        return "Qwen Code";
-      case "opencode":
-        return "OpenCode";
-      case "gemini":
-        return "Gemini";
-      case "codex":
-      default:
-        return "Codex";
-    }
   }
 
   private readRequiredString(value: unknown, label: string): string {
