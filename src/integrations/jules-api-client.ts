@@ -6,6 +6,13 @@ import type { JulesClient } from "../domain/jules/jules-client.js";
 export interface JulesApiClientOptions {
   apiKey?: string | null;
   baseUrl: string;
+  /**
+   * Minimum spacing between outgoing request starts, in milliseconds. Acts as a
+   * client-side rate limiter so that fan-out from many callers (session sync,
+   * the dashboard activity cache, clarification replies, …) cannot stampede the
+   * Jules API into 429s. Defaults to 250ms (~4 req/s).
+   */
+  minRequestIntervalMs?: number;
 }
 
 export interface JulesPageRequest {
@@ -77,9 +84,12 @@ interface JulesListSourcesQuery extends JulesPageQuery {
 export class JulesApiClient implements JulesClient {
   private readonly axiosInstance: AxiosInstance;
   private apiKey: string | null;
+  private readonly minRequestIntervalMs: number;
+  private nextRequestSlot = 0;
 
   constructor(options: JulesApiClientOptions) {
     this.apiKey = this.normalizeApiKey(options.apiKey);
+    this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? 250);
     this.axiosInstance = axios.create({
       baseURL: options.baseUrl,
       headers: {
@@ -87,7 +97,7 @@ export class JulesApiClient implements JulesClient {
       },
     });
 
-    this.axiosInstance.interceptors.request.use((config) => {
+    this.axiosInstance.interceptors.request.use(async (config) => {
       const headers = config.headers ?? {};
       if (this.apiKey) {
         headers["X-Goog-Api-Key"] = this.apiKey;
@@ -95,6 +105,7 @@ export class JulesApiClient implements JulesClient {
         delete headers["X-Goog-Api-Key"];
       }
       config.headers = headers;
+      await this.acquireRequestSlot();
       return config;
     });
 
@@ -116,13 +127,19 @@ export class JulesApiClient implements JulesClient {
             const nextCount = retryCount + 1;
             retryCounts.set(config, nextCount);
 
-            // Exponential backoff: 1s, 2s, 4s, 8s, 16s with 0-500ms jitter
-            const delay = Math.pow(2, nextCount - 1) * 1000 + Math.random() * 500;
-            
+            // Honor a server-provided Retry-After when present; otherwise fall
+            // back to exponential backoff (1s, 2s, 4s, 8s, 16s) with jitter.
+            const retryAfterMs = this.parseRetryAfterMs(error.response.headers?.["retry-after"]);
+            const backoffMs = Math.pow(2, nextCount - 1) * 1000 + Math.random() * 500;
+            const delay = Math.min(Math.max(retryAfterMs ?? backoffMs, backoffMs), 30000);
+
             console.warn(`Jules API returned 429. Retrying request to ${config.url} (Attempt ${nextCount}/${maxRetries}) after ${Math.round(delay)}ms...`);
 
+            // Push the global request schedule out so concurrent in-flight
+            // requests also back off, instead of all hammering at once.
+            this.deferRequestSlot(delay);
             await new Promise((resolve) => setTimeout(resolve, delay));
-            
+
             return this.axiosInstance(config);
           }
         }
@@ -131,6 +148,45 @@ export class JulesApiClient implements JulesClient {
       }
     );
 
+  }
+
+  /**
+   * Serializes request start times so that no two requests begin closer than
+   * `minRequestIntervalMs` apart, bounding the outgoing request rate across all
+   * callers without blocking concurrency once a request has started.
+   */
+  private async acquireRequestSlot(): Promise<void> {
+    if (this.minRequestIntervalMs <= 0) {
+      return;
+    }
+    const now = Date.now();
+    const slot = Math.max(now, this.nextRequestSlot);
+    this.nextRequestSlot = slot + this.minRequestIntervalMs;
+    const wait = slot - now;
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+
+  /** Pushes the global request schedule out by at least `delayMs` after a 429. */
+  private deferRequestSlot(delayMs: number): void {
+    this.nextRequestSlot = Math.max(this.nextRequestSlot, Date.now() + delayMs);
+  }
+
+  private parseRetryAfterMs(headerValue: unknown): number | null {
+    if (typeof headerValue !== "string" || headerValue.trim().length === 0) {
+      return null;
+    }
+    const trimmed = headerValue.trim();
+    const seconds = Number(trimmed);
+    if (Number.isFinite(seconds)) {
+      return Math.max(0, seconds * 1000);
+    }
+    const dateMs = Date.parse(trimmed);
+    if (Number.isFinite(dateMs)) {
+      return Math.max(0, dateMs - Date.now());
+    }
+    return null;
   }
 
   setApiKey(apiKey?: string | null): void {
@@ -328,6 +384,40 @@ export class JulesApiClient implements JulesClient {
     );
 
     return hydratedActivities.slice().sort((a, b) => {
+      const left = new Date(a.createTime || 0).getTime();
+      const right = new Date(b.createTime || 0).getTime();
+      return left - right;
+    });
+  }
+
+  /**
+   * Like {@link fetchRecentActivities} but without the per-activity hydration
+   * round-trips. The list response already includes message/progress fields,
+   * so callers that only need text (e.g. reading the latest clarification) can
+   * avoid issuing one extra request per activity. Returns the most recent
+   * `pageSize` activities sorted ascending by createTime.
+   */
+  async fetchRecentActivitiesLite(sessionName: string, pageSize: number): Promise<JulesActivity[]> {
+    this.ensureApiKey();
+    if (pageSize <= 0) {
+      return [];
+    }
+    const normalizedSessionName = this.toSessionName(sessionName);
+    let pageToken: string | undefined = undefined;
+    let recentActivities: JulesActivity[] = [];
+
+    do {
+      const response: { data: JulesListActivitiesResponse } = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${normalizedSessionName}/activities`, {
+        params: { pageSize, pageToken },
+      });
+      const activities = response.data.activities || [];
+      if (activities.length > 0) {
+        recentActivities = recentActivities.concat(activities).slice(-pageSize);
+      }
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
+
+    return recentActivities.slice().sort((a, b) => {
       const left = new Date(a.createTime || 0).getTime();
       const right = new Date(b.createTime || 0).getTime();
       return left - right;
