@@ -1,3 +1,4 @@
+import { usePolling } from "./hooks/use-polling.js";
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState, useCallback } from "preact/hooks";
 import {
@@ -119,14 +120,19 @@ export const KnowledgePage: FunctionComponent = () => {
   const processing = documents.some((d) => d.status === "pending" || d.status === "embedding");
   const processingRef = useRef(processing);
   processingRef.current = processing;
-  useEffect(() => {
-    if (!pid) return;
-    const interval = setInterval(() => {
-      if (!processingRef.current) return;
-      fetchKnowledgeDocuments(pid).then(setDocuments).catch(() => {});
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [pid]);
+  usePolling(
+    async () => {
+      if (!processingRef.current || !pid) return;
+      try {
+        const docs = await fetchKnowledgeDocuments(pid);
+        setDocuments(docs);
+      } catch {
+        // ignore
+      }
+    },
+    1500,
+    { enabled: !!pid && processing }
+  );
 
   const handleUpload = useCallback(async (files: File[]) => {
     if (!pid || files.length === 0) return;

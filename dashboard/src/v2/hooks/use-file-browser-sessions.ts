@@ -1,3 +1,4 @@
+import { usePolling } from "./use-polling.js";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { FileBrowserSession } from "../../types.js";
 import { fetchFileBrowserSessions } from "../lib/file-browser-api.js";
@@ -49,14 +50,13 @@ export const useFileBrowserSessions = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  useEffect(() => {
-    if (!projectId || !pollInterval) return;
-    const timer = window.setInterval(() => {
-      void refresh(true);
-    }, pollInterval);
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, pollInterval]);
+  usePolling(
+    async () => {
+      await refresh(true);
+    },
+    pollInterval ?? 0,
+    { enabled: !!projectId && !!pollInterval }
+  );
 
   const selectedSession = useMemo(() => {
     if (activeSessionId) {
