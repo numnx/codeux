@@ -1,5 +1,5 @@
 import type { ConversationMessageRecord, ConversationThreadRecord } from "../../contracts/connection-chat-types.js";
-import { toNumber } from "../repository-utils.js";
+import { toNumber, parseJsonOr } from "../repository-utils.js";
 
 export interface ThreadRow {
   id: string;
@@ -49,7 +49,7 @@ export function mapThreadRow(row: ThreadRow): ConversationThreadRecord {
     pendingMessageCount: toNumber(row.pending_message_count),
     lastMessageAt: row.last_message_at,
     lastMessagePreview: row.last_message_preview,
-    runtimeState: row.runtime_state_json ? JSON.parse(row.runtime_state_json) : null,
+    runtimeState: row.runtime_state_json ? parseJsonOr<Record<string, unknown> | null>(row.runtime_state_json, null) : null,
   };
 }
 
@@ -62,7 +62,7 @@ export function mapMessageRow(row: MessageRow): ConversationMessageRecord {
     authorConnectionId: row.author_connection_id,
     bodyMarkdown: row.body_markdown,
     deliveryStatus: row.delivery_status as ConversationMessageRecord["deliveryStatus"],
-    metadata: row.metadata_json ? JSON.parse(row.metadata_json) : null,
+    metadata: row.metadata_json ? parseJsonOr<Record<string, unknown> | null>(row.metadata_json, null) : null,
     createdAt: row.created_at,
   };
 }

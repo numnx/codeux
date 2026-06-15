@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { AppDbStorage } from "./app-db-storage.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
-import { EntityNotFoundError, requireRecord, toNumber, ValidationError } from "./repository-utils.js";
+import { EntityNotFoundError, requireRecord, toNumber, ValidationError, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import type {
   CreateSchedulerEntryInput,
   ScheduleChatTarget,
@@ -106,8 +106,8 @@ export class SchedulerRepository {
       status,
       scheduledFor,
       input.timezone?.trim() || "UTC",
-      JSON.stringify(recurrence),
-      JSON.stringify(targetPayload),
+      serializePayloadJson(recurrence),
+      serializePayloadJson(targetPayload),
       scheduledFor,
       null,
       0,
@@ -163,8 +163,8 @@ export class SchedulerRepository {
       nextStatus,
       nextScheduledFor,
       input.timezone?.trim() || current.timezone,
-      JSON.stringify(nextRecurrence),
-      JSON.stringify(nextTargetPayload),
+      serializePayloadJson(nextRecurrence),
+      serializePayloadJson(nextTargetPayload),
       nextRunAt,
       now,
       nextStatus === "scheduled" ? null : current.lastError,
@@ -310,7 +310,7 @@ export class SchedulerRepository {
 
   private parseRecurrence(value: string): ScheduleRecurrenceRule {
     try {
-      return normalizeRecurrenceRule(JSON.parse(value) as Partial<ScheduleRecurrenceRule>);
+      return normalizeRecurrenceRule(parseJsonThrows<Partial<ScheduleRecurrenceRule>>(value));
     } catch {
       return normalizeRecurrenceRule();
     }
@@ -318,7 +318,7 @@ export class SchedulerRepository {
 
   private parseTarget(value: string): PersistedTargetPayload {
     try {
-      const parsed = JSON.parse(value) as PersistedTargetPayload;
+      const parsed = parseJsonThrows<PersistedTargetPayload>(value);
       return parsed && typeof parsed === "object" ? parsed : {};
     } catch {
       return {};

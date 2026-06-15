@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { AppDbStorage } from "./app-db-storage.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
+import { parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 
 export type QaReviewTriggerType = "task_completion" | "completed_task_without_pr" | "sprint_completion";
 export type QaReviewRunStatus = "running" | "completed" | "failed" | "skipped" | "errored";
@@ -61,7 +62,7 @@ function parsePayload(value: string | null): Record<string, unknown> | null {
     return null;
   }
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = parseJsonThrows<unknown>(value);
     return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
   } catch {
     return null;
@@ -115,7 +116,7 @@ export class QaReviewRepository {
       input.targetTaskKey ?? null,
       input.targetSessionId ?? null,
       input.targetProvider ?? null,
-      input.payload ? JSON.stringify(input.payload) : null,
+      input.payload ? serializePayloadJson(input.payload) : null,
       startedAt,
       now,
       now,
@@ -152,8 +153,8 @@ export class QaReviewRepository {
       input.summaryMarkdown === undefined ? current.summaryMarkdown : input.summaryMarkdown,
       input.fixInstructions === undefined ? current.fixInstructions : input.fixInstructions,
       input.payload === undefined
-        ? JSON.stringify(current.payload)
-        : (input.payload ? JSON.stringify(input.payload) : null),
+        ? serializePayloadJson(current.payload)
+        : (input.payload ? serializePayloadJson(input.payload) : null),
       input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
       now,
       runId,

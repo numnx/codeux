@@ -1,6 +1,6 @@
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { toNumber } from "./repository-utils.js";
+import { toNumber, parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 import type {
   DashboardRealtimeEvent,
   DashboardRealtimeScopeType,
@@ -53,7 +53,7 @@ function parsePayload(value: string | null): unknown {
   }
 
   try {
-    return JSON.parse(value) as unknown;
+    return parseJsonThrows<unknown>(value);
   } catch {
     return null;
   }
@@ -171,7 +171,7 @@ export class DashboardRealtimeEventRepository {
         input.connectionId ?? null,
         input.correlationId ?? null,
         Number(replayable),
-        input.payload !== undefined ? JSON.stringify(input.payload) : null,
+        input.payload !== undefined ? serializePayloadJson(input.payload) : null,
         emittedAt,
       );
     }

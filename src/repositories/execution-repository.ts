@@ -12,7 +12,7 @@ import {
 } from "./execution/execution-invocations-query.js";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError } from "./repository-utils.js";
+import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "./repository-utils.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { toNumber, parsePayloadJson } from "./repository-utils.js";
@@ -514,8 +514,8 @@ export class ExecutionRepository {
         record.invocationId,
         record.role,
         record.contentMarkdown,
-        record.toolCallsJson ? JSON.stringify(record.toolCallsJson) : null,
-        record.metadata ? JSON.stringify(record.metadata) : null,
+        record.toolCallsJson ? serializePayloadJson(record.toolCallsJson) : null,
+        record.metadata ? serializePayloadJson(record.metadata) : null,
         record.createdAt
       );
 
@@ -1031,8 +1031,8 @@ export class ExecutionRepository {
         input.usageSource === undefined ? current.usageSource : input.usageSource,
         input.invocationSource === undefined ? current.invocationSource : input.invocationSource,
         input.rawUsageJson === undefined
-          ? JSON.stringify(current.rawUsageJson)
-          : (input.rawUsageJson === null ? null : JSON.stringify(input.rawUsageJson)),
+          ? serializePayloadJson(current.rawUsageJson)
+          : (input.rawUsageJson === null ? null : serializePayloadJson(input.rawUsageJson)),
         now,
         invocationId,
       );
@@ -1354,7 +1354,7 @@ export class ExecutionRepository {
       taskRunId,
       eventType,
       originator,
-      JSON.stringify(payload),
+      serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
       options?.createdAt || new Date().toISOString()
     );
@@ -1381,7 +1381,7 @@ export class ExecutionRepository {
       sprintRunId,
       eventType,
       originator,
-      JSON.stringify(payload),
+      serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
       options?.createdAt || new Date().toISOString(),
     );

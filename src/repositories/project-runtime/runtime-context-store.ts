@@ -1,4 +1,5 @@
 import { DatabaseAdapter } from "../db/database-adapter.js";
+import { parseJsonThrows, serializePayloadJson } from "../repository-utils.js";
 
 export const RUNTIME_CONTEXT_PREFIX = "runtime_context:";
 
@@ -41,7 +42,7 @@ export class RuntimeContextStore {
     }
 
     try {
-      return JSON.parse(row.payload) as RuntimeContextPayload;
+      return parseJsonThrows<RuntimeContextPayload>(row.payload);
     } catch {
       return null;
     }
@@ -58,7 +59,7 @@ export class RuntimeContextStore {
       ${this.db.dialect.upsert(["key"], ["payload", "updated_at"])}
     `).run(
       runtimeContextKey(context.projectId, context.sprintId),
-      JSON.stringify(context),
+      serializePayloadJson(context),
       now
     );
   }

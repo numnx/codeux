@@ -5,6 +5,7 @@ import type { JulesActivity, JulesSession, ProviderId } from "../contracts/app-t
 import { getHomeCodeUxPath } from "../shared/config/code-ux-paths.js";
 import { SqliteDatabaseAdapter } from "./db/sqlite-database-adapter.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
+import { parseJsonThrows, serializePayloadJson } from "./repository-utils.js";
 
 interface SessionRow {
   id: string;
@@ -194,7 +195,7 @@ export class SessionTrackingRepository {
       createTime,
       input.originator ?? "system",
       input.description,
-      input.payload === undefined ? null : JSON.stringify(input.payload)
+      input.payload === undefined ? null : serializePayloadJson(input.payload)
     );
     return {
       id,
@@ -376,7 +377,7 @@ export class SessionTrackingRepository {
           now,
           "system",
           "Recovered interrupted MCP process. Previous background CLI task is marked FAILED and can be retried safely.",
-          JSON.stringify({ recovery: "INTERRUPTED_PROCESS" })
+          serializePayloadJson({ recovery: "INTERRUPTED_PROCESS" })
         ]);
         this.db.prepare(`
           INSERT INTO provider_activities (session_id, activity_id, create_time, originator, description, payload)
@@ -426,7 +427,7 @@ export class SessionTrackingRepository {
     let payload: Record<string, unknown> = {};
     if (row.payload) {
       try {
-        payload = JSON.parse(row.payload) as Record<string, unknown>;
+        payload = parseJsonThrows<Record<string, unknown>>(row.payload);
       } catch {
         payload = {};
       }
