@@ -225,6 +225,53 @@ describe('ActivityCacheService', () => {
       expect(mockDeps.fetchRecentActivities).toHaveBeenCalledTimes(1);
       expect(res1).toBe(res2); // Should be the exact same object reference
     });
+
+    it('should fetch once for multiple tasks sharing a session and skip terminal/cached sessions', async () => {
+      const taskA = { ...mockTask, id: 'task-A' };
+      const taskB = { ...mockTask, id: 'task-B' };
+      const taskTerminal = { ...mockTask, id: 'task-term' };
+      const taskCached = { ...mockTask, id: 'task-cached' };
+
+      // Set up tasks
+      mockDeps.getSubtasks.mockReturnValue([taskA, taskB, taskTerminal, taskCached]);
+
+      // Resolve session names
+      mockDeps.resolveSessionNameFromTask.mockImplementation((t) => {
+        if (t.id === 'task-A' || t.id === 'task-B') return 'session-shared';
+        if (t.id === 'task-term') return 'session-terminal';
+        if (t.id === 'task-cached') return 'session-cached';
+        return 'unknown';
+      });
+
+      // Terminal session check
+      (mockDeps.isSessionTerminal as any).mockImplementation((sessionName: string) => {
+        return sessionName === 'session-terminal';
+      });
+
+      // Pre-populate cache for 'session-cached'
+      mockDeps.fetchRecentActivities.mockResolvedValue([mockActivity]);
+      mockDeps.getSubtasks.mockReturnValue([taskCached]);
+      await service.getLiveActivitiesForActiveTasks(); // caches 'session-cached'
+
+      // Reset fetch mock before the main test call
+      mockDeps.fetchRecentActivities.mockClear();
+      mockDeps.fetchRecentActivities.mockResolvedValue([mockActivity]);
+
+      // Set tasks back to the full list for the main test call
+      mockDeps.getSubtasks.mockReturnValue([taskA, taskB, taskTerminal, taskCached]);
+
+      const result = await service.getLiveActivitiesForActiveTasks();
+
+      // Should only fetch 'session-shared' (once)
+      expect(mockDeps.fetchRecentActivities).toHaveBeenCalledTimes(1);
+      expect(mockDeps.fetchRecentActivities).toHaveBeenCalledWith('session-shared', PAGE_SIZE);
+
+      // Terminal should be skipped, cached should be reused, shared should have data
+      expect(result).toEqual({
+        'session-shared': [mockActivity],
+        'session-cached': [mockActivity],
+      });
+    });
   });
 
   describe('Git Status Cache', () => {
