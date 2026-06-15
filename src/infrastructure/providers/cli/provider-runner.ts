@@ -3,6 +3,7 @@ import type { CustomMcpServer, QwenModelProviderSettings } from "../../../contra
 import { buildClaudeMcpServerEntry, buildCodexMcpServerTomlLines, buildGeminiMcpServerEntry, escapeTomlString } from "./mcp-config-format.js";
 import type { McpConnectionInfo } from "../../../contracts/mcp-connection-types.js";
 import { CliProviderId, enabledCustomServersFor, isOpenCodeNativeSessionId, ProviderCommandSpec, providerSpecs } from "./provider-command-specs.js";
+import { runProviderLifecycle } from "./provider-run-lifecycle.js";
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import type { IDockerRunner } from "./docker-runner.js";
 import { isDockerWorkspaceMountError } from "../../../services/cli-docker-utils.js";
@@ -318,204 +319,37 @@ export class ProviderRunner implements IProviderRunner {
       await this.resetQwenOpenAiLogDir(cwd, workflowSettings.executionMode, sessionId);
     }
 
-    let accumulatedStdout = "";
-    let accumulatedStderr = "";
-    const trackingOnActivity = (desc: string, originator?: string) => {
-      if (originator === "agent") {
-        accumulatedStdout += desc + "\n";
-      } else if (originator === "provider") {
-        accumulatedStderr += desc + "\n";
-      }
-      onActivity(desc, originator);
-    };
-
-    const runCmd = async () => {
-      if (workflowSettings.executionMode === "DOCKER") {
-        const result = await this.dockerRunner.runProviderInDocker({
-          command, args, cwd, providerEnv, sessionId,
-          providerLabel: provider, workflowSettings, repoPath, signal, onActivity: trackingOnActivity,
-          providerMountAuth,
-          providerAuthPath,
-          mcpConnection: input.mcpConnection,
-          customMcpServers: input.customMcpServers,
-        });
-        if (!result.ok && isDockerWorkspaceMountError(result)) {
-          try { await fs.access(cwd); trackingOnActivity(`Docker could not mount workspace path (${cwd}) even though it exists locally. Path visibility mismatch.`, "provider"); } catch { /* ignore */ }
-        }
-        return result;
-      }
-      return await runStreamingCommand(command, args, cwd, providerEnv, {
-        signal,
-        onStdoutLine: (line) => {
-          if (this.shouldSuppressStructuredStdout(provider, line)) {
-            return;
-          }
-          trackingOnActivity(line, "agent");
-        },
-        onStderrLine: (line) => trackingOnActivity(`[${provider}] ${line}`, "provider"),
-      });
-    };
-
-    let tempDbPath: string | null = null;
-    let watcherTempDbPath: string | null = null;
-    let activeWatcher = true;
-    let watcherPromise: Promise<void> | null = null;
-
-    if (input.onTelemetry) {
-      const watcherLoop = async () => {
-        // Small initial delay to let the process spin up and start writing logs
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        while (activeWatcher && !signal?.aborted) {
-          try {
-            let claudeSessionJsonl: string | null = null;
-            let codexSessionJson: string | null = null;
-            let qwenLog: { usage: QwenUsageTotals | null; conversation: ParsedConversationTurn[] } | null = null;
-            let antigravityTranscriptJsonl: string | null = null;
-            let resolvedNativeSessionId = nativeSessionId;
-
-            if (provider === "claude-code" && nativeSessionId) {
-              claudeSessionJsonl = await this.readClaudeSessionJsonl(cwd, nativeSessionId, workflowSettings.executionMode);
-            } else if (provider === "codex") {
-              codexSessionJson = await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode);
-            } else if (provider === "qwen-code") {
-              qwenLog = await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs);
-            } else if (provider === "antigravity") {
-              if (!resolvedNativeSessionId && antigravityLogPath) {
-                resolvedNativeSessionId = await this.parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode);
-              }
-              if (resolvedNativeSessionId) {
-                antigravityTranscriptJsonl = await this.readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode);
-                if (!watcherTempDbPath) {
-                  const safeSession = resolvedNativeSessionId.replace(/[^A-Za-z0-9_-]/g, "_");
-                  watcherTempDbPath = path.join(os.tmpdir(), `agy-temp-watcher-${safeSession}-${randomUUID()}.db`);
-                }
-                await this.resolveAntigravityDatabase(cwd, resolvedNativeSessionId, workflowSettings.executionMode, watcherTempDbPath);
-              }
-            }
-
-            const telemetry = await collectProviderUsageTelemetry({
-              provider,
-              model: runModel,
-              prompt,
-              cwd,
-              stdout: accumulatedStdout,
-              stderr: accumulatedStderr,
-              capturedText: "",
-              nativeSessionId: resolvedNativeSessionId || nativeSessionId,
-              claudeSessionJsonl,
-              codexSessionJson,
-              qwenReportedUsage: qwenLog?.usage ?? null,
-              qwenConversation: qwenLog?.conversation ?? null,
-              startTimeMs: startedMs,
-              executionMode: workflowSettings.executionMode,
-              antigravitySessionDbPath: watcherTempDbPath,
-              antigravityTranscriptJsonl,
-            });
-
-            if (input.onTelemetry) {
-              input.onTelemetry(telemetry);
-            }
-          } catch (err) {
-            // Swallow background watcher errors
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-      };
-      watcherPromise = watcherLoop();
-    }
 
     try {
-      let result = await runCmd();
-      if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
-        trackingOnActivity("Codex transport disconnected. Retrying once automatically...");
-        await new Promise(r => setTimeout(r, 1500));
-        result = await runCmd();
-      }
-      // Antigravity's `agy` CLI writes quota/auth/executor failures only to its log file
-      // and exits 0, so an exhausted run would otherwise be reported as a successful but
-      // empty "completion" — finishing the task unfinished. Read the captured log, surface
-      // any error into stderr, and demote to a failure so the shared classification/quota
-      // path (the same one other providers use) puts the task on hold until quota resets.
-      if (provider === "antigravity" && antigravityLogPath) {
-        const diagnostics = await this.readAntigravityDiagnostics(cwd, antigravityLogPath, workflowSettings.executionMode);
-        if (diagnostics) {
-          result = {
-            ...result,
-            stderr: [result.stderr, diagnostics].filter(Boolean).join("\n"),
-          };
-          if (result.ok) {
-            const reason = resultHasSilentQuotaSignal(provider, result)
-              ? "Quota limit reached"
-              : "Provider reported an error";
-            trackingOnActivity(`[${provider}] ${reason}; provider stopped before completing the task.`, "provider");
-            result = { ...result, ok: false };
-          }
-        }
-      }
-      const capturedText = input.codexOutputPath
-        ? await this.readProviderOutputPath(cwd, input.codexOutputPath, workflowSettings.executionMode)
-        : "";
-      const claudeSessionJsonl = provider === "claude-code" && nativeSessionId
-        ? await this.readClaudeSessionJsonl(cwd, nativeSessionId, workflowSettings.executionMode)
-        : null;
-      const codexSessionJson = provider === "codex"
-        ? await this.readCodexLatestSessionJson(cwd, workflowSettings.executionMode)
-        : null;
-      const qwenLog = provider === "qwen-code"
-        ? await this.readQwenLogData(cwd, workflowSettings.executionMode, sessionId, startedMs)
-        : null;
-
-      let resolvedNativeSessionId = nativeSessionId;
-      if (provider === "antigravity" && !resolvedNativeSessionId && antigravityLogPath) {
-        resolvedNativeSessionId = await this.parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode);
-      }
-
-      let antigravityTranscriptJsonl: string | null = null;
-      if (provider === "antigravity" && resolvedNativeSessionId) {
-        antigravityTranscriptJsonl = await this.readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode);
-        
-        const safeSession = resolvedNativeSessionId.replace(/[^A-Za-z0-9_-]/g, "_");
-        const hostTempDb = path.join(os.tmpdir(), `agy-temp-${safeSession}-${randomUUID()}.db`);
-        const resolvedDb = await this.resolveAntigravityDatabase(cwd, resolvedNativeSessionId, workflowSettings.executionMode, hostTempDb);
-        if (resolvedDb) {
-          tempDbPath = hostTempDb;
-        }
-      }
-
-      const usageTelemetry = await collectProviderUsageTelemetry({
+      return await runProviderLifecycle({
         provider,
-        model: runModel,
         prompt,
         cwd,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        capturedText,
-        nativeSessionId: resolvedNativeSessionId || nativeSessionId,
-        claudeSessionJsonl,
-        codexSessionJson,
-        qwenReportedUsage: qwenLog?.usage ?? null,
-        qwenConversation: qwenLog?.conversation ?? null,
-        startTimeMs: startedMs,
-        executionMode: workflowSettings.executionMode,
-        antigravitySessionDbPath: tempDbPath,
-        antigravityTranscriptJsonl,
+        model: runModel,
+        sessionId,
+        nativeSessionId,
+        startedMs,
+        workflowSettings,
+        repoPath,
+        providerEnv: providerEnv as Record<string, string>,
+        spec,
+        codexOutputPath: input.codexOutputPath,
+        antigravityLogPath,
+        dockerRunner: this.dockerRunner,
+        providerMountAuth,
+        providerAuthPath,
+        mcpConnection: input.mcpConnection,
+        customMcpServers: input.customMcpServers,
+        signal,
+        onActivity,
+        onTelemetry: input.onTelemetry,
+        shouldSuppressStructuredStdout: this.shouldSuppressStructuredStdout.bind(this),
+        isTransientCodexTransportError: this.isTransientCodexTransportError.bind(this),
+        parseAntigravityConversationId: this.parseAntigravityConversationId.bind(this),
+        resolveAntigravityDatabase: this.resolveAntigravityDatabase.bind(this),
+        readProviderOutputPath: this.readProviderOutputPath.bind(this),
       });
-      return {
-        ...result,
-        usageTelemetry,
-        nativeSessionId: usageTelemetry.nativeSessionId || resolvedNativeSessionId || nativeSessionId,
-      };
     } finally {
-      activeWatcher = false;
-      if (watcherPromise) {
-        await watcherPromise.catch(() => undefined);
-      }
-      if (watcherTempDbPath) {
-        await fs.rm(watcherTempDbPath, { force: true }).catch(() => undefined);
-      }
-      if (tempDbPath) {
-        await fs.rm(tempDbPath, { force: true }).catch(() => undefined);
-      }
       for (const entry of localMcpCleanup) {
         if (entry.originalContent !== null) {
           await fs.writeFile(entry.path, entry.originalContent).catch(() => undefined);
@@ -582,43 +416,12 @@ export class ProviderRunner implements IProviderRunner {
   /** Reads antigravity's captured log file and extracts only the meaningful failure lines
    *  (executor/quota/auth errors), stripped of their glog prefix. Returns "" when the log is
    *  absent or carries no error — i.e. a normal successful run. */
-  private async readAntigravityDiagnostics(
-    cwd: string,
-    logPath: string,
-    executionMode: CliWorkflowSettings["executionMode"],
-  ): Promise<string> {
-    const raw = executionMode === "DOCKER"
-      ? ((await this.dockerRunner.readWorkspaceFile?.(cwd, logPath).catch(() => null)) || "")
-      : (await fs.readFile(logPath, "utf8").catch(() => ""));
-    return this.extractAntigravityErrorLines(raw);
-  }
+
 
   /** Pulls executor/quota/auth error lines out of agy's verbose glog output, strips the glog
    *  prefix (`E0601 09:45:02.402482 813902 log.go:398] `), and de-duplicates them. agy logs the
    *  same quota line twice and appends a redundant `: <repeat>` suffix, so both are normalized. */
-  private extractAntigravityErrorLines(rawLog: string): string {
-    if (!rawLog.trim()) {
-      return "";
-    }
-    const signal = /agent executor error|RESOURCE_EXHAUSTED|Individual quota reached|Contact your administrator to enable overages|enable overages/i;
-    const glogPrefix = /^[IWEF]\d{4}\s+[\d:.]+\s+\d+\s+\S+?:\d+\]\s*/;
-    const seen = new Set<string>();
-    const lines: string[] = [];
-    for (const rawLine of rawLog.split("\n")) {
-      if (!signal.test(rawLine)) {
-        continue;
-      }
-      let cleaned = rawLine.replace(glogPrefix, "").trim();
-      cleaned = cleaned.replace(/^agent executor error:\s*/i, "");
-      // agy repeats the message as `<msg>: <msg>`; collapse the exact duplicate to one copy.
-      cleaned = cleaned.replace(/^(.+?):\s+\1$/, "$1");
-      if (cleaned && !seen.has(cleaned)) {
-        seen.add(cleaned);
-        lines.push(cleaned);
-      }
-    }
-    return lines.join("\n");
-  }
+
 
   /** Host-side directory for qwen-code OpenAI logs in non-Docker runs, kept outside the worktree. */
   private resolveQwenHostLogDir(sessionId: string): string {
@@ -644,90 +447,11 @@ export class ProviderRunner implements IProviderRunner {
   /** Aggregates provider-reported usage and the conversation from qwen-code
    *  OpenAI logs for both execution modes. Reads the log records once so usage
    *  and the parsed conversation come from the same set of files. */
-  private async readQwenLogData(
-    cwd: string,
-    executionMode: CliWorkflowSettings["executionMode"],
-    sessionId: string,
-    startTimeMs: number,
-  ): Promise<{ usage: QwenUsageTotals | null; conversation: ParsedConversationTurn[] } | null> {
-    let records: unknown[] = [];
-    if (executionMode === "DOCKER") {
-      const arrayJson = await this.dockerRunner.readWorkspaceJsonArray?.(cwd, CONTAINER_QWEN_OPENAI_LOG_DIR).catch(() => null);
-      if (!arrayJson) return null;
-      try {
-        const parsed = JSON.parse(arrayJson);
-        records = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return null;
-      }
-    } else {
-      records = await readQwenOpenAiLogRecords(this.resolveQwenHostLogDir(sessionId), startTimeMs);
-    }
-    if (records.length === 0) {
-      return null;
-    }
-    return { usage: sumQwenOpenAiUsage(records), conversation: buildQwenConversation(records) };
-  }
 
-  private async readCodexLatestSessionJson(
-    cwd: string,
-    executionMode: CliWorkflowSettings["executionMode"],
-  ): Promise<string | null> {
-    const now = new Date();
-    const year = now.getFullYear().toString();
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now.getDate().toString().padStart(2, "0");
 
-    if (executionMode === "DOCKER") {
-      const sessionsDir = pathPosix.join(
-        CONTAINER_RUNTIME_HOME,
-        ".codex",
-        "sessions",
-        year,
-        month,
-        day,
-      );
-      return (await this.dockerRunner.readLatestWorkspaceFile?.(cwd, sessionsDir, "*.jsonl").catch(() => null)) ?? null;
-    }
 
-    const sessionsDir = path.join(os.homedir(), ".codex", "sessions", year, month, day);
-    try {
-      const files = await fs.readdir(sessionsDir);
-      // Codex writes rollout transcripts as `rollout-<ts>-<uuid>.jsonl`.
-      const jsonFiles = files.filter(f => f.endsWith(".jsonl"));
-      if (jsonFiles.length === 0) return null;
-      const withMtimes = await Promise.all(
-        jsonFiles.map(async (f) => {
-          const filePath = path.join(sessionsDir, f);
-          const stat = await fs.stat(filePath).catch(() => null);
-          return { filePath, mtime: stat?.mtimeMs ?? 0 };
-        }),
-      );
-      withMtimes.sort((a, b) => b.mtime - a.mtime);
-      return await fs.readFile(withMtimes[0].filePath, "utf8").catch(() => null);
-    } catch {
-      return null;
-    }
-  }
 
-  private async readClaudeSessionJsonl(
-    cwd: string,
-    nativeSessionId: string,
-    executionMode: CliWorkflowSettings["executionMode"],
-  ): Promise<string | null> {
-    if (executionMode !== "DOCKER") {
-      return null;
-    }
 
-    const sessionPath = pathPosix.join(
-      CONTAINER_RUNTIME_HOME,
-      ".claude",
-      "projects",
-      CONTAINER_WORKSPACE_ROOT.replaceAll(pathPosix.sep, "-"),
-      `${nativeSessionId}.jsonl`,
-    );
-    return (await this.dockerRunner.readWorkspaceFile?.(cwd, sessionPath).catch(() => null)) || null;
-  }
 
   private async parseAntigravityConversationId(
     cwd: string,
@@ -751,36 +475,7 @@ export class ProviderRunner implements IProviderRunner {
     }
   }
 
-  private async readAntigravityTranscript(
-    cwd: string,
-    conversationId: string,
-    executionMode: CliWorkflowSettings["executionMode"],
-  ): Promise<string | null> {
-    const candidates = [
-      executionMode === "DOCKER"
-        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
-        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
-      executionMode === "DOCKER"
-        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt")
-        : path.join(os.homedir(), ".gemini", "antigravity-cli", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
-      executionMode === "DOCKER"
-        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl")
-        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "transcript.jsonl"),
-      executionMode === "DOCKER"
-        ? pathPosix.join(CONTAINER_RUNTIME_HOME, ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt")
-        : path.join(os.homedir(), ".gemini", "antigravity", "brain", conversationId, ".system_generated", "logs", "overview.txt"),
-    ];
 
-    for (const p of candidates) {
-      const raw = executionMode === "DOCKER"
-        ? await this.dockerRunner.readWorkspaceFile?.(cwd, p).catch(() => null)
-        : await fs.readFile(p, "utf8").catch(() => null);
-      if (raw) {
-        return raw;
-      }
-    }
-    return null;
-  }
 
   private async resolveAntigravityDatabase(
     cwd: string,
