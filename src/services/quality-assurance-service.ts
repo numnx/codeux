@@ -1,5 +1,4 @@
 import { buildProviderPrompt, DEFAULT_CLI_WORKFLOW_SETTINGS } from "./cli-workflow-utils.js";
-import { extractJsonFromText } from "../domain/llm/json-extraction.js";
 import { StructuredAgentRequestService } from "./structured-agent-request-service.js";
 import { StructuredProviderResponseService } from "./structured-provider-response-service.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
@@ -28,6 +27,18 @@ import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
 import { parseQaError, type QaReviewError } from "../domain/qa-review/qa-review-types.js";
 import { normalizeQaReviewResult } from "../domain/qa-review/qa-review-result-normalizer.js";
 import type { NormalizedQaReviewResult } from "../domain/qa-review/qa-review-types.js";
+import { buildQaReviewPrompt } from "../domain/qa-review/qa-prompt-builder.js";
+import {
+  renderQaPassReport,
+  renderQaChangesRequestedReport,
+  renderQaReviewFailedReport,
+  renderSprintQaPassReport,
+  renderSprintQaChangesRequestedReport,
+  renderSprintQaPendingReport,
+  renderSprintQaFailedReport,
+  buildSprintQaSnapshot,
+  readSprintQaSnapshot
+} from "../domain/qa-review/qa-report-renderer.js";
 
 import { clearMergeProjectionForRerun, MERGE_PROJECTION_RESET } from "../domain/sprint/task-reset-state.js";
 
@@ -787,7 +798,7 @@ export class QualityAssuranceService {
       const memoryContext = args.agentPresetId
         ? this.buildMemoryContext(args.scope.projectId!, args.scope.sprintId || null, args.agentPresetId)
         : undefined;
-      const prompt = this.buildReviewPrompt({
+      const prompt = buildQaReviewPrompt({
         ...args,
         memoryContext,
       });
@@ -1123,120 +1134,7 @@ export class QualityAssuranceService {
     }
   }
 
-  private buildReviewPrompt(args: {
-    triggerType: QaReviewTriggerType;
-    projectName: string;
-    sprintGoal: string;
-    agentInstructions: string;
-    memoryContext?: string;
-    subtasks: Subtask[];
-    currentTask: Subtask | null;
-  }): string {
-    const currentTaskSection = args.currentTask
-      ? [
-        "## CURRENT TASK",
-        `Task key: ${args.currentTask.id}`,
-        `Title: ${args.currentTask.title}`,
-        `Status: ${args.currentTask.status || "unknown"}`,
-        `Provider: ${args.currentTask.provider || "unknown"}`,
-        `Worker branch: ${args.currentTask.worker_branch || "none"}`,
-        `PR URL: ${args.currentTask.pr_url || "none"}`,
-        "",
-        "Prompt:",
-        args.currentTask.prompt,
-        "",
-        "Recent activity excerpts:",
-        this.renderActivityExcerpt(args.currentTask),
-      ]
-      : [
-        "## CURRENT TASK",
-        "No single task is preselected. If fixes are required, choose the best target task from the sprint task list and return its task key in `targetTaskKey`.",
-      ];
-    const fullTaskContextSections = args.subtasks.map((task) => [
-      `### ${task.id}: ${task.title}`,
-      `Status: ${task.status || "unknown"}`,
-      `Provider: ${task.provider || "unknown"}`,
-      `Worker branch: ${task.worker_branch || "none"}`,
-      `PR URL: ${task.pr_url || "none"}`,
-      `Depends on: ${task.depends_on.length > 0 ? task.depends_on.join(", ") : "none"}`,
-      "",
-      "Instruction:",
-      task.prompt || "No task instruction provided.",
-      "",
-      "Recent activity excerpts:",
-      this.renderActivityExcerpt(task),
-    ].join("\n"));
 
-    return [
-      "## QUALITY ASSURANCE AGENT INSTRUCTIONS",
-      args.agentInstructions.trim(),
-      args.memoryContext?.trim() || "",
-      "",
-      "## REVIEW MODE",
-      `Trigger: ${args.triggerType}`,
-      triggerReviewModeDescription(args.triggerType),
-      "",
-      "## PROJECT CONTEXT",
-      `Project: ${args.projectName}`,
-      `Sprint goal: ${args.sprintGoal || "No sprint goal provided."}`,
-      "",
-      "## SPRINT TASKS",
-      args.subtasks.map((task) => (
-        `- [${task.status || "unknown"}] ${task.id}: ${task.title} | provider=${task.provider || "unknown"} | branch=${task.worker_branch || "none"} | pr=${task.pr_url || "none"}`
-      )).join("\n"),
-      "",
-      "## FULL TASK INSTRUCTIONS",
-      fullTaskContextSections.join("\n\n"),
-      "",
-      ...currentTaskSection,
-      "",
-      "## REQUIRED OUTPUT",
-      "Return JSON only.",
-      "Use this exact shape:",
-      "{",
-      '  "verdict": "pass" | "changes_requested",',
-      '  "summary": "short markdown summary",',
-      '  "findings": ["finding 1", "finding 2"],',
-      '  "fixInstructions": "direct instructions for the coding session" | null,',
-      '  "targetTaskKey": "T01" | null,',
-      '  "shouldHavePr": true | false | null,',
-      '  "followUpTasks": [',
-      "    {",
-      '      "title": "follow-up task title",',
-      '      "promptMarkdown": "full task instructions",',
-      '      "description": "optional short description" | null,',
-      '      "dependsOnTaskKeys": ["T01"],',
-      '      "priority": "high" | "medium" | "low"',
-      "    }",
-      "  ]",
-      "}",
-      "",
-      "Rules:",
-      "- `summary` must be concise and factual.",
-      "- If `verdict` is `changes_requested`, `fixInstructions` must tell the coding session exactly what to fix next.",
-      "- For sprint completion reviews, set `targetTaskKey` to the best task to continue when changes are required.",
-      "- For sprint completion reviews, use `followUpTasks` when the required work should become new sprint tasks instead of only resuming one existing session.",
-      "- Every `followUpTasks[].promptMarkdown` entry must contain the full task instructions, not just a short summary.",
-      "- For `completed_task_without_pr`, set `shouldHavePr` explicitly.",
-      "- Do not include prose outside the JSON object.",
-    ].join("\n");
-  }
-
-  private renderActivityExcerpt(task: Subtask): string {
-    const activities = Array.isArray(task.activities) ? task.activities.slice(-8) : [];
-    if (activities.length === 0) {
-      return "- No recent activity captured.";
-    }
-
-    return activities.map((entry) => {
-      const message = entry.agentMessaged?.agentMessage
-        || entry.userMessaged?.userMessage
-        || entry.progressUpdated?.description
-        || entry.description
-        || "No summary";
-      return `- ${message}`;
-    }).join("\n");
-  }
 
   private resolveTaskRunForSubtask(task: Subtask, sprintRunId?: string): TaskRunRecord | null {
     const taskId = task.record_id?.trim();
@@ -1732,81 +1630,3 @@ export class QualityAssuranceService {
   }
 }
 
-function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string {
-  switch (triggerType) {
-    case "completed_task_without_pr":
-      return "Review a completed task with no PR and decide whether a PR should exist.";
-    case "sprint_completion":
-      return "Review the full sprint for integration quality before final completion.";
-    case "task_completion":
-    default:
-      return "Review a completed task for correctness, completeness, and integration quality.";
-  }
-}
-
-function buildSprintQaSnapshot(subtasks: Subtask[]): string {
-  return JSON.stringify(
-    subtasks
-      .map((task) => ({
-        id: task.id,
-        title: task.title || "",
-        prompt: task.prompt || "",
-        status: task.status || "",
-        dependsOn: [...task.depends_on].sort(),
-        isMerged: Boolean(task.is_merged),
-        mergeIndicator: task.merge_indicator || "",
-      }))
-      .sort((left, right) => left.id.localeCompare(right.id)),
-  );
-}
-
-function readSprintQaSnapshot(run: QaReviewRunRecord | null): string | null {
-  const snapshot = run?.payload?.taskSnapshot;
-  return typeof snapshot === "string" && snapshot.trim().length > 0 ? snapshot : null;
-}
-
-function renderQaPassReport(taskKey: string, summary: string): string {
-  return `\nQA passed for \`${taskKey}\`: ${summary}\n`;
-}
-
-function renderQaChangesRequestedReport(taskKey: string, summary: string, continued: boolean): string {
-  return `\nQA requested follow-up for \`${taskKey}\`${continued ? " and resumed the task session" : ""}: ${summary}\n`;
-}
-
-function renderQaReviewFailedReport(taskKey: string, error: unknown): string {
-  const summary = error instanceof Error ? error.message : String(error);
-  return `\nQA review failed for \`${taskKey}\` and must retry before merge: ${summary}\n`;
-}
-
-function renderSprintQaPassReport(summary: string): string {
-  return `\nSprint QA passed: ${summary}\n`;
-}
-
-function renderSprintQaChangesRequestedReport(
-  summary: string,
-  targetTaskKey: string | null,
-  continued: boolean,
-  createdTaskKeys: string[],
-): string {
-  const target = targetTaskKey ? ` Target task: \`${targetTaskKey}\`.` : "";
-  const created = createdTaskKeys.length > 0
-    ? ` Created follow-up tasks: ${createdTaskKeys.map((taskKey) => `\`${taskKey}\``).join(", ")}.`
-    : "";
-  return `\nSprint QA requested follow-up${continued ? " and resumed the selected task session." : "."}${target}${created} ${summary}\n`;
-}
-
-function renderSprintQaPendingReport(run: QaReviewRunRecord): string {
-  const summary = run.summaryMarkdown?.trim();
-  if (run.status === "running") {
-    return "\nSprint QA is still running. Main merge remains blocked until the review finishes.\n";
-  }
-  if (run.outcome === "changes_requested") {
-    return `\nSprint QA is still waiting on follow-up work before merge.${summary ? ` ${summary}` : ""}\n`;
-  }
-  return `\nSprint QA must be retried before merge.${summary ? ` ${summary}` : ""}\n`;
-}
-
-function renderSprintQaFailedReport(error: unknown): string {
-  const summary = error instanceof Error ? error.message : String(error);
-  return `\nSprint QA failed and blocked merge: ${summary}\n`;
-}

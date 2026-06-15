@@ -1,3 +1,4 @@
+import { buildQaReviewPrompt } from "../../../src/domain/qa-review/qa-prompt-builder.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
@@ -121,7 +122,7 @@ describe("QualityAssuranceService", () => {
       sendSessionMessage: async () => ({}),
     });
 
-    const prompt = (service as any).buildReviewPrompt({
+    const prompt = buildQaReviewPrompt({
       triggerType: "sprint_completion",
       projectName: "QA Project",
       sprintGoal: "Ship safely",
