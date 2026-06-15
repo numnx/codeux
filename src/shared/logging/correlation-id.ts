@@ -41,10 +41,6 @@ export const runWithCorrelationId = <T>(correlationId: string, operation: () => 
   return correlationContextStorage.run({ correlationId }, operation);
 };
 
-export const runWithResolvedCorrelationId = <T>(operation: () => T, preferredCorrelationId?: unknown): T => {
-  return runWithCorrelationId(resolveCorrelationId(preferredCorrelationId), operation);
-};
-
 export const correlationIdMiddleware = (): RequestHandler => {
   return (req, res, next) => {
     const requestedCorrelationId =

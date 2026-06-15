@@ -4,7 +4,6 @@ import {
   resolveCorrelationId,
   getCorrelationId,
   runWithCorrelationId,
-  runWithResolvedCorrelationId,
   correlationIdMiddleware,
   CORRELATION_ID_HEADER
 } from "../../../../src/shared/logging/correlation-id.js";
@@ -22,14 +21,6 @@ describe("correlation-id", () => {
             expect(getCorrelationId()).toBe("test-id");
         });
         expect(getCorrelationId()).toBeUndefined();
-
-        runWithResolvedCorrelationId(() => {
-            expect(getCorrelationId()).toMatch(/^[0-9a-f-]+$/);
-        });
-
-        runWithResolvedCorrelationId(() => {
-            expect(getCorrelationId()).toBe("resolved-id");
-        }, "resolved-id");
     });
 
     it("correlationIdMiddleware handles string array headers", () => {
