@@ -94,4 +94,67 @@ describe("QaReviewRepository", () => {
     expect(storedSprintRun?.payload).toEqual({ summary: "sprint review" });
     expect(repository.getLatestSprintRun(sprint.id)?.id).toBe(sprintRun.id);
   });
+
+  it("counts only decisive (completed) runs toward the verdict budget", async () => {
+    const { repository, projectRepository } = await createRepository();
+    const project = projectRepository.createProject({
+      name: "QA Project",
+      sourceType: "local",
+      sourceRef: path.join(os.tmpdir(), "qa-decisive"),
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Sprint 1",
+      goal: "Ship",
+      status: "active",
+      featureBranch: "feature/sprint-1",
+    });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Task",
+      promptMarkdown: "Do the thing.",
+      status: "coding_completed",
+      isIndependent: true,
+    });
+
+    // One reviewer infra crash (failed, no verdict) ...
+    const infraRun = repository.createRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      triggerType: "completed_task_without_pr",
+      runIndex: 1,
+    });
+    repository.updateRun(infraRun.id, {
+      status: "failed",
+      summaryMarkdown: "Virtual QA worker failed: missing auth.",
+      finishedAt: new Date().toISOString(),
+    });
+
+    // ... and one real verdict (completed).
+    const verdictRun = repository.createRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: task.id,
+      triggerType: "completed_task_without_pr",
+      runIndex: 2,
+    });
+    repository.updateRun(verdictRun.id, {
+      status: "completed",
+      outcome: "changes_requested",
+      summaryMarkdown: "Still missing the work.",
+      finishedAt: new Date().toISOString(),
+    });
+
+    // Total attempts (for the infra ceiling) includes the crash; the verdict
+    // budget only counts the decisive run.
+    expect(repository.countTaskRuns(task.id)).toBe(2);
+    expect(repository.countDecisiveTaskRuns(task.id)).toBe(1);
+
+    // A rerun clears the per-task QA history so the fresh attempt is reviewed.
+    const cleared = repository.resetTaskReviewRuns(task.id);
+    expect(cleared).toBe(2);
+    expect(repository.countTaskRuns(task.id)).toBe(0);
+    expect(repository.countDecisiveTaskRuns(task.id)).toBe(0);
+    expect(repository.getLatestTaskRun(task.id)).toBeNull();
+  });
 });

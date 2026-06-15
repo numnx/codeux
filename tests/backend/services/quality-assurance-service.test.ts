@@ -662,6 +662,183 @@ describe("QualityAssuranceService", () => {
     expect(gate.maxRuns).toBe(3);
   });
 
+  const buildGateService = (qaReviewRepository: any, maxTaskReviewRuns = 1) =>
+    new QualityAssuranceService({
+      projectManagementRepository: {} as any,
+      executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
+      sessionTracking: {} as any,
+      qaReviewRepository,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: {} as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+            maxTaskReviewRuns,
+          },
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    } as any);
+
+  const noPrCompletedTask = {
+    record_id: "task-1",
+    id: "T1",
+    title: "Task",
+    prompt: "Implement task.",
+    depends_on: [],
+    is_independent: true,
+    status: "COMPLETED" as const,
+  };
+
+  it("fails closed (no merge) when the verdict budget is exhausted without a pass", () => {
+    // A single decisive QA verdict that did not pass, at the cap of 1. This is
+    // the exact hole that used to silently complete no-PR tasks.
+    const service = buildGateService({
+      getLatestTaskRun: vi.fn().mockReturnValue({
+        id: "qa-run-1",
+        taskId: "task-1",
+        status: "completed",
+        outcome: "changes_requested",
+        summaryMarkdown: "Work still missing.",
+        runIndex: 1,
+      }),
+      countTaskRuns: vi.fn().mockReturnValue(1),
+      countDecisiveTaskRuns: vi.fn().mockReturnValue(1),
+    });
+
+    const gate = service.getTaskMergeGateStatus({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      task: noPrCompletedTask,
+    });
+
+    // changes_requested already blocks; the key invariant is mergeAllowed=false.
+    expect(gate.mergeAllowed).toBe(false);
+  });
+
+  it("does not let a reviewer infra crash exhaust the budget — it retries", () => {
+    // Latest run FAILED for infra reasons (no verdict). Decisive count is 0, so
+    // the budget is not spent and the gate asks for another review.
+    const service = buildGateService({
+      getLatestTaskRun: vi.fn().mockReturnValue({
+        id: "qa-run-1",
+        taskId: "task-1",
+        status: "failed",
+        outcome: null,
+        summaryMarkdown: "Virtual QA worker failed: missing auth.",
+        runIndex: 1,
+      }),
+      countTaskRuns: vi.fn().mockReturnValue(1),
+      countDecisiveTaskRuns: vi.fn().mockReturnValue(0),
+    });
+
+    const gate = service.getTaskMergeGateStatus({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      task: noPrCompletedTask,
+    });
+
+    expect(gate.mergeAllowed).toBe(false);
+    expect(gate.reason).toBe("review_failed");
+  });
+
+  it("fails closed once persistent reviewer infra failures hit the ceiling", () => {
+    // maxRuns=1, ceiling = 1 + 3 = 4. With 4 total infra failures and no
+    // verdict, the gate stops retrying and holds the merge for a human.
+    const service = buildGateService({
+      getLatestTaskRun: vi.fn().mockReturnValue({
+        id: "qa-run-4",
+        taskId: "task-1",
+        status: "failed",
+        outcome: null,
+        summaryMarkdown: "Virtual QA worker failed: missing auth.",
+        runIndex: 4,
+      }),
+      countTaskRuns: vi.fn().mockReturnValue(4),
+      countDecisiveTaskRuns: vi.fn().mockReturnValue(0),
+    });
+
+    const gate = service.getTaskMergeGateStatus({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      task: noPrCompletedTask,
+    });
+
+    expect(gate.mergeAllowed).toBe(false);
+    expect(gate.reason).toBe("retries_exhausted");
+  });
+
+  it("does not trigger no-PR QA on an already-merged task with task-completion QA disabled", () => {
+    // Reproduces the Code UX Fork setup: "Review every completed task"
+    // (taskCompletion) is OFF, but completedTaskWithoutPr is ON. A merged task
+    // whose runtime pr_url is not reconstructed must NOT be treated as
+    // "completed without a PR" — its is_merged flag is the source of truth.
+    const service = new QualityAssuranceService({
+      projectManagementRepository: {} as any,
+      executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
+      sessionTracking: {} as any,
+      qaReviewRepository: {
+        getLatestTaskRun: vi.fn().mockReturnValue(null),
+        countTaskRuns: vi.fn().mockReturnValue(0),
+        countDecisiveTaskRuns: vi.fn().mockReturnValue(0),
+      } as any,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: {} as any,
+      getDashboardSettings: () => ({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+            taskCompletion: { enabled: false, agentPresetId: null },
+            completedTaskWithoutPr: { enabled: true, agentPresetId: null },
+          },
+        },
+      }),
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    } as any);
+
+    const mergedTask = {
+      record_id: "task-merged",
+      id: "T1",
+      title: "Task",
+      prompt: "Implement task.",
+      depends_on: [],
+      is_independent: true,
+      status: "COMPLETED" as const,
+      is_merged: true,
+      // pr_url intentionally absent (not reconstructed after reload).
+    };
+
+    const gate = service.getTaskMergeGateStatus({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      task: mergedTask,
+    });
+
+    expect(gate.reason).toBe("not_required");
+    expect(gate.mergeAllowed).toBe(true);
+
+    // A genuinely no-evidence completed task still triggers the no-PR review.
+    const noEvidenceGate = service.getTaskMergeGateStatus({
+      projectId: "project-1",
+      sprintId: "sprint-1",
+      task: { ...mergedTask, record_id: "task-noevidence", is_merged: false },
+    });
+    expect(noEvidenceGate.reason).not.toBe("not_required");
+  });
+
   it("allows verification after an automatically continued QA fix reaches maxTaskReviewRuns", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qa-service-continued-cap-"));
     tempDirs.push(dir);
@@ -1596,6 +1773,11 @@ describe("QualityAssuranceService", () => {
     vi.spyOn((service as any).workspaceManager, "resolveResumeWorktreePath").mockResolvedValue("docker-volume://session-1");
     vi.spyOn((service as any).workspaceManager, "buildWorktreePath").mockReturnValue("docker-volume://session-1");
     vi.spyOn((service as any).workspaceManager, "resolveCurrentBranch").mockResolvedValue("feature/recovered-branch");
+    // Without this, the resumed docker-volume workspace triggers a real
+    // `git fetch` inside a docker container (~25s hang/timeout) since the ref is
+    // a fake `docker-volume://` path. The call is best-effort (.catch), so
+    // stubbing it keeps the test hermetic and fast.
+    vi.spyOn((service as any).workspaceManager, "fastForwardResumedWorkspace").mockResolvedValue(true);
     vi.spyOn((service as any).workspaceManager, "prepareWorktree").mockResolvedValue(undefined);
     vi.spyOn((service as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("");
     vi.spyOn(service as any, "runWorkspaceCommand").mockResolvedValue({ stdout: "abc123\n", stderr: "" });
@@ -1870,6 +2052,9 @@ describe("QualityAssuranceService", () => {
     vi.spyOn((service as any).workspaceManager, "resolveResumeWorktreePath").mockResolvedValue("docker-volume://session-1");
     vi.spyOn((service as any).workspaceManager, "buildWorktreePath").mockReturnValue("docker-volume://session-1");
     vi.spyOn((service as any).workspaceManager, "resolveCurrentBranch").mockResolvedValue("worker/recovered");
+    // Stub the best-effort fast-forward so the resumed docker-volume workspace
+    // doesn't shell out to a real `git fetch` in a container (~25s hang).
+    vi.spyOn((service as any).workspaceManager, "fastForwardResumedWorkspace").mockResolvedValue(true);
     const prepareWorktree = vi.spyOn((service as any).workspaceManager, "prepareWorktree").mockResolvedValue(undefined);
     vi.spyOn((service as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("");
     vi.spyOn(service as any, "runWorkspaceCommand").mockResolvedValue({ stdout: "abc123\n", stderr: "" });

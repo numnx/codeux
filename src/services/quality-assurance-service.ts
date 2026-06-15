@@ -37,6 +37,15 @@ const SPRINT_RUN_KEEPALIVE_MS = 30_000;
 const SPRINT_LEASE_EXTENSION_MS = 5 * 60 * 1000;
 const QA_RUN_START_TIMEOUT_MS = 60_000;
 const RECOVERED_STALE_QA_SUMMARY_PREFIX = "Recovered stale QA review run";
+/**
+ * How many extra QA attempts beyond `maxTaskReviewRuns` we tolerate when the
+ * reviewer keeps failing for infrastructure reasons (auth/config/container).
+ * Infra failures don't consume the verdict budget (see
+ * {@link QaReviewRepository.countDecisiveTaskRuns}), but a permanently broken
+ * reviewer must still stop retrying eventually and escalate the task to a human
+ * (QA_REVIEW_FAILED) rather than loop forever or — worse — fail open.
+ */
+const QA_INFRA_FAILURE_GRACE = 3;
 
 export interface TaskQaReviewOutcome {
   reviewed: boolean;
@@ -167,12 +176,19 @@ export class QualityAssuranceService {
     }
 
     const existingRuns = this.deps.qaReviewRepository.countTaskRuns(taskId);
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
     const latestRun = this.deps.qaReviewRepository.getLatestTaskRun(taskId);
-    const allowPostContinuationVerification = existingRuns >= qaSettings.maxTaskReviewRuns
+    // The budget is spent once we have enough real verdicts, or once total
+    // attempts (including reviewer infra crashes) hit the infra ceiling. Until
+    // then, keep retrying — a reviewer that crashed on auth/config produced no
+    // verdict and the task still needs reviewing before it can merge.
+    const budgetSpent = decisiveRuns >= qaSettings.maxTaskReviewRuns
+      || existingRuns >= qaSettings.maxTaskReviewRuns + QA_INFRA_FAILURE_GRACE;
+    const allowPostContinuationVerification = budgetSpent
       && this.shouldVerifyContinuedQaFix(latestRun);
-    const allowRecoveredStaleRetry = existingRuns >= qaSettings.maxTaskReviewRuns
+    const allowRecoveredStaleRetry = budgetSpent
       && this.isRecoveredStaleQaRun(latestRun);
-    if (existingRuns >= qaSettings.maxTaskReviewRuns && !allowPostContinuationVerification && !allowRecoveredStaleRetry) {
+    if (budgetSpent && !allowPostContinuationVerification && !allowRecoveredStaleRetry) {
       await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
@@ -450,7 +466,13 @@ export class QualityAssuranceService {
         : hasTaskUpdatesSinceLatestRun)
       : true;
     const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
-    const retriesExhausted = typeof latestRun?.runIndex === "number" && latestRun.runIndex >= maxRuns;
+    // Only count the budget as exhausted when the latest run actually produced a
+    // verdict (`completed`) at/over the cap. A reviewer that crashed for infra
+    // reasons (`failed`) yielded no judgement and must not let the sprint settle
+    // as reviewed — fall through so it is retried or held instead.
+    const retriesExhausted = typeof latestRun?.runIndex === "number"
+      && latestRun.runIndex >= maxRuns
+      && latestRun.status === "completed";
 
     if (latestRun?.status === "running") {
       return {
@@ -702,22 +724,35 @@ export class QualityAssuranceService {
 
     const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
 
-    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
+    // Only runs that produced a real verdict (pass / changes_requested) spend
+    // the review budget. Reviewer crashes (missing auth, container/parse
+    // failures) are infra noise that produced no judgement, so they are retried
+    // — bounded by an infra ceiling so a permanently broken reviewer still
+    // stops and escalates instead of looping or failing open.
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
+    const infraCeiling = maxRuns + QA_INFRA_FAILURE_GRACE;
+
+    // Fail CLOSED on exhaustion. A genuine pass returns above, so reaching here
+    // means QA never affirmatively cleared the task. Never let an exhausted gate
+    // allow the merge/settle — that is exactly what silently shipped tasks with
+    // no PR. Hold the merge; the orchestrator escalates the task to a human.
+    if (decisiveRuns >= maxRuns || runsUsed >= infraCeiling) {
       return {
         mergeAllowed: false,
-        reason: "review_failed",
-        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
+        reason: "retries_exhausted",
+        summary: latestRun?.summaryMarkdown
+          || `QA could not clear this task (${decisiveRuns}/${maxRuns} verdicts, ${runsUsed} attempts) — human attention required.`,
         latestRun,
         runsUsed,
         maxRuns,
       };
     }
 
-    if (runsUsed >= maxRuns) {
+    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
       return {
-        mergeAllowed: true,
-        reason: "retries_exhausted",
-        summary: latestRun?.summaryMarkdown || `QA retry budget exhausted (${runsUsed}/${maxRuns}).`,
+        mergeAllowed: false,
+        reason: "review_failed",
+        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
         latestRun,
         runsUsed,
         maxRuns,
@@ -1668,10 +1703,18 @@ export class QualityAssuranceService {
   }
 
   private resolveTaskTriggerType(
-    task: Pick<Subtask, "pr_url">,
+    task: Pick<Subtask, "pr_url" | "worker_branch" | "is_merged">,
     qaSettings: DashboardSettings["agents"]["qualityAssurance"],
   ): QaReviewTriggerType | null {
-    if (!task.pr_url && qaSettings.completedTaskWithoutPr.enabled) {
+    // A task with merge evidence clearly did NOT complete without a PR. We must
+    // check `is_merged`/`worker_branch` too, not just `pr_url`: `pr_url` is not a
+    // persisted task column — it is reconstructed at runtime — so when an old
+    // merged task is reloaded (e.g. a sprint resumes) its `pr_url` comes back
+    // empty and the no-PR trigger would misfire QA on already-merged work.
+    const hasMergeEvidence = Boolean(task.pr_url?.trim())
+      || Boolean(task.worker_branch?.trim())
+      || Boolean(task.is_merged);
+    if (!hasMergeEvidence && qaSettings.completedTaskWithoutPr.enabled) {
       return "completed_task_without_pr";
     }
     return qaSettings.taskCompletion.enabled ? "task_completion" : null;
