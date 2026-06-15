@@ -30,7 +30,7 @@ export const Menu = ({
   triggerRef: externalTriggerRef,
 }: MenuProps) => {
   const [isRendered, setIsRendered] = useState(false);
-  const localTriggerRef = useRef<HTMLDivElement>(null);
+  const localTriggerRef = useRef<any>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
