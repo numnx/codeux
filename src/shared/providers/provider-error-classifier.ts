@@ -46,6 +46,7 @@ export function extractProviderErrorCategory(errorMessage: string): ProviderErro
     case "QUOTA_EXHAUSTED":
     case "AUTH_FAILURE":
     case "RATE_LIMITED":
+    case "TIMEOUT":
     case "PROVIDER_NOT_FOUND":
     case "UNKNOWN":
       return category;
@@ -74,6 +75,7 @@ export type ProviderErrorCategory =
   | "QUOTA_EXHAUSTED"
   | "AUTH_FAILURE"
   | "RATE_LIMITED"
+  | "TIMEOUT"
   | "PROVIDER_NOT_FOUND"
   | "UNKNOWN";
 
@@ -137,6 +139,12 @@ const COMMON_CLI_PROVIDER_RATE_LIMIT_PATTERNS: RegExp[] = [
   /requests per minute/i,
 ];
 
+const COMMON_CLI_PROVIDER_TIMEOUT_PATTERNS: RegExp[] = [
+  /timeout/i,
+  /timed out/i,
+  /deadline.*exceeded/i,
+];
+
 function createCliProviderPatterns(options: CliProviderPatternOptions = {}): ErrorPattern[] {
   const quotaPatterns = [
     ...COMMON_CLI_PROVIDER_QUOTA_PATTERNS,
@@ -164,6 +172,12 @@ function createCliProviderPatterns(options: CliProviderPatternOptions = {}): Err
         ...(options.rateLimitExtras ?? []),
       ],
       ...(options.rateLimitResetTimeExtractor ? { resetTimeExtractor: options.rateLimitResetTimeExtractor } : {}),
+    },
+    {
+      category: "TIMEOUT",
+      patterns: [
+        ...COMMON_CLI_PROVIDER_TIMEOUT_PATTERNS,
+      ],
     },
   ];
 }
@@ -508,6 +522,8 @@ function buildUserMessage(
       return resetAfter
         ? `${label} rate-limited. Retry after ${resetAfter}.`
         : `${label} rate-limited. Retry after a short wait.`;
+    case "TIMEOUT":
+      return `${label} request timed out.`;
     case "PROVIDER_NOT_FOUND":
       return `${label} CLI not found. Ensure the provider is installed and available in PATH.`;
     case "UNKNOWN":
