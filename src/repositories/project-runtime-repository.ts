@@ -495,8 +495,32 @@ export class ProjectRuntimeRepository {
       ORDER BY rowid DESC
       LIMIT 1
     `).get(taskId) as TaskRunRow | undefined;
+    if (row) {
+      return row;
+    }
 
-    return row || null;
+    // A task can re-sync in a terminal state with no session id — e.g. a task
+    // parked BLOCKED by the coding guardrail. Terminal runs have finished_at
+    // set, so the unfinished-run lookup above misses them, and without this
+    // fallback syncTaskRun would INSERT a fresh BLOCKED run on every watch-loop
+    // cycle (observed as hundreds of duplicate rows / a CPU-burning spin).
+    // Reuse the latest run already in this terminal state so the sync is
+    // idempotent.
+    const persistedState = toPersistedTaskRunState(subtask.status || "PENDING");
+    if (TERMINAL_TASK_STATES.has(persistedState)) {
+      const terminalRow = this.db.prepare(`
+        SELECT *
+        FROM task_runs
+        WHERE task_id = ? AND state = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+      `).get(taskId, persistedState) as TaskRunRow | undefined;
+      if (terminalRow) {
+        return terminalRow;
+      }
+    }
+
+    return null;
   }
 
   private shouldCreateTaskRun(subtask: Subtask): boolean {

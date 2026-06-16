@@ -241,6 +241,55 @@ describe("ProjectRuntimeRepository", () => {
     expect(runRows).toEqual([]);
   });
 
+  it("does not create a new task_run every cycle for a guardrail-blocked task (idempotent terminal sync)", async () => {
+    const { projectRepository, runtimeRepository, storage } = await createRepositories();
+
+    const project = projectRepository.createProject({
+      name: "Spin",
+      sourceType: "local",
+      sourceRef: "/workspace/spin",
+    });
+    const sprint = projectRepository.createSprint(project.id, { name: "Spin Sprint", number: 1 });
+    const task = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T01",
+      title: "Capped task",
+      promptMarkdown: "Do work.",
+      status: "pending",
+      isIndependent: true,
+    });
+
+    // A guardrail-capped task syncs as BLOCKED with a provider but no session id.
+    // BLOCKED is terminal, so its run has finished_at set; without idempotent
+    // matching this would INSERT a fresh run on every watch-loop cycle.
+    const subtask = {
+      id: "T01",
+      record_id: task.id,
+      title: "Capped task",
+      prompt: "Do work.",
+      depends_on: [] as string[],
+      is_independent: true,
+      status: "BLOCKED" as const,
+      provider: "claude-code" as const,
+    };
+    for (let cycle = 0; cycle < 5; cycle++) {
+      runtimeRepository.syncDashboardStatus({
+        project_id: project.id,
+        sprint_id: sprint.id,
+        sprint_number: 1,
+        subtasks: [subtask],
+        reportText: "blocked",
+      });
+    }
+
+    const runRows = storage.getDatabase().getRawDatabase().prepare(`
+      SELECT state FROM task_runs WHERE task_id = ?
+    `).all(task.id) as Array<{ state: string }>;
+
+    expect(runRows).toHaveLength(1);
+    expect(runRows[0].state).toBe("BLOCKED");
+  });
+
   it("returns the selected project's planned tasks even without runtime context", async () => {
     const { projectRepository, runtimeRepository } = await createRepositories();
 
