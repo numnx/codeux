@@ -79,17 +79,17 @@ describe("JulesApiClient coverage", () => {
         expect(client.resolveSessionName({ name: "sessions/2" })).toBe("sessions/2");
     });
 
-    it("interceptor adds api key if present", () => {
+    it("interceptor adds api key if present", async () => {
         const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
         const cb = (mockInstance.interceptors.request as any)._cb;
-        const config = cb({ headers: {} });
+        const config = await cb({ headers: {} });
         expect(config.headers["X-Goog-Api-Key"]).toBe("key");
     });
 
-    it("interceptor removes api key if absent", () => {
+    it("interceptor removes api key if absent", async () => {
         const client = new JulesApiClient({ baseUrl: "http://url" });
         const cb = (mockInstance.interceptors.request as any)._cb;
-        const config = cb({ headers: { "X-Goog-Api-Key": "test" } });
+        const config = await cb({ headers: { "X-Goog-Api-Key": "test" } });
         expect(config.headers["X-Goog-Api-Key"]).toBeUndefined();
     });
 
@@ -112,7 +112,62 @@ describe("JulesApiClient coverage", () => {
         const result = await promise;
         expect(result.data).toBe("success");
         expect(mockInstance).toHaveBeenCalledWith(mockError.config);
-        
+
         vi.useRealTimers();
+    });
+
+    it("interceptor honors Retry-After on 429", async () => {
+        vi.useFakeTimers();
+        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+
+        mockInstance.mockResolvedValue({ data: "ok" });
+        const mockError = {
+          config: { url: "http://url/test" },
+          response: { status: 429, headers: { "retry-after": "3" } },
+        };
+
+        const promise = errorCb(mockError);
+        await vi.runAllTimersAsync();
+        await promise;
+
+        // 3s Retry-After should dominate the 1s first-attempt backoff.
+        expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === 3000)).toBe(true);
+        setTimeoutSpy.mockRestore();
+        vi.useRealTimers();
+    });
+
+    it("throttles request starts by the minimum interval", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 200 });
+        const cb = (mockInstance.interceptors.request as any)._cb;
+
+        await cb({ headers: {} });
+
+        let resolved = false;
+        const second = cb({ headers: {} }).then(() => { resolved = true; });
+        await Promise.resolve();
+        expect(resolved).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(200);
+        await second;
+        expect(resolved).toBe(true);
+
+        vi.useRealTimers();
+    });
+
+    it("fetchRecentActivitiesLite returns recent activities without per-activity hydration", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.get)
+            .mockResolvedValueOnce({ data: { activities: [{ id: "a1", createTime: "2026-01-02T00:00:00Z", agentMessaged: { agentMessage: "second" } }], nextPageToken: "t" } })
+            .mockResolvedValueOnce({ data: { activities: [{ id: "a0", createTime: "2026-01-01T00:00:00Z", agentMessaged: { agentMessage: "first" } }] } });
+
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+        const res = await client.fetchRecentActivitiesLite("sessions/x", 5);
+
+        // Sorted ascending by createTime, and only the two list calls (no getActivity hydration).
+        expect(res.map((a) => a.id)).toEqual(["a0", "a1"]);
+        expect(mockInstance.get).toHaveBeenCalledTimes(2);
     });
 });

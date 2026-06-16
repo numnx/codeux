@@ -39,13 +39,15 @@ export function FieldWrapper({ label, error, helperText, children, htmlFor, requ
     "aria-invalid": !!error ? "true" : undefined,
     ...(errorId ? { "aria-errormessage": errorId } : {}),
     ...(helperId ? { "aria-describedby": helperId } : {}),
+    ...(required ? { "aria-required": true } : {}),
   }) : children;
 
   return (
     <div class="flex flex-col mb-4">
       <label htmlFor={inputId} class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex gap-1">
         {label}
-        {required && <span class="text-status-red">*</span>}
+        {required && <span class="text-status-red" aria-hidden="true">*</span>}
+        {required && <span class="sr-only">(required)</span>}
       </label>
       <div
         class={`

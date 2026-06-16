@@ -235,6 +235,54 @@ describe("runSessionSyncStep", () => {
     expect(result.subtasks[0].status).toBe("CODING_COMPLETED");
   });
 
+  it("does not resurrect a human-owned QA_REVIEW_FAILED task from a stale COMPLETED session", async () => {
+    const subtasks: Subtask[] = [
+      {
+        id: "task-1",
+        title: "Task One",
+        prompt: "Do it",
+        depends_on: [],
+        is_independent: true,
+        // QA could not verify it; a human now owns it.
+        status: "QA_REVIEW_FAILED",
+      },
+    ];
+
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "stale-completed",
+            name: "sessions/stale-completed",
+            title: "Sprint 6: [run:my-repo/s6/task-1] [task-1] Task One",
+            // Jules still reports the original session as COMPLETED.
+            state: "COMPLETED",
+            prompt: "",
+          },
+        ],
+      }),
+      resolveSessionName: (session: { name?: string }) => session.name,
+      extractSessionId: (session: { id?: string }) => session.id,
+      fetchRecentActivities: vi.fn().mockResolvedValue([]),
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        child: vi.fn().mockReturnThis(),
+      },
+    };
+
+    const result = await runSessionSyncStep(subtasks, deps, true, {
+      repoPath: "/tmp/my-repo",
+      sprintNumber: 6,
+    });
+
+    // The stale COMPLETED session must not pull it back to CODING_COMPLETED.
+    expect(result.subtasks[0].status).toBe("QA_REVIEW_FAILED");
+  });
+
   it("picks the most recent session when multiple sessions exist for the same task", async () => {
     const subtasks: Subtask[] = [
       {
@@ -846,6 +894,69 @@ describe("runSessionSyncStep", () => {
     );
 
     expect(result.subtasks.find(t => t.id === "task-completed")?.status).toBe("RUNNING");
+  });
+
+  it("re-runs a no-PR completed task to RUNNING when its session reactivates (stale-status fix)", async () => {
+    // A task that completed with no PR/branch (no merge evidence) counts as
+    // "settled" by the pipeline, so it previously stayed stuck on "completed"
+    // even after being rerun. When its session is active again it must show
+    // RUNNING and the planning status must be persisted.
+    const subtasks: Subtask[] = [
+      {
+        id: "task-completed",
+        title: "Task C",
+        prompt: "",
+        depends_on: [],
+        is_independent: true,
+        status: "COMPLETED",
+        record_id: "rec-c",
+        is_merged: false,
+        // No worker_branch / pr_url — no merge evidence.
+      },
+    ];
+
+    const updateTaskMock = vi.fn();
+    const deps = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: "s-completed",
+            name: "sessions/s-completed",
+            title: "Sprint 1: [run:my-repo/s1/task-completed] [task-completed] Task C",
+            state: "IN_PROGRESS",
+          },
+        ],
+      }),
+      resolveSessionName: (session: any) => session.name,
+      extractSessionId: (session: any) => session.id,
+      fetchRecentActivities: vi.fn().mockResolvedValue([]),
+      isActionRequiredState: vi.fn().mockReturnValue(false),
+      logger: { warn: vi.fn() },
+      executionRepository: {
+        // Local run is terminal (COMPLETED) — the remote session reactivated.
+        getLatestTaskRun: vi.fn().mockReturnValue({ id: "run-id", state: "COMPLETED", startedAt: "2026-03-09T10:00:00.000Z", finishedAt: "2026-03-09T11:00:00.000Z" }),
+        updateTaskRun: vi.fn(),
+        getTaskDispatch: vi.fn().mockReturnValue({ id: "d-1", finishedAt: "2026-03-09T11:00:00.000Z" }),
+        updateTaskDispatch: vi.fn(),
+        appendTaskRunEvent: vi.fn(),
+        finalizeSprintRunCancellationIfIdle: vi.fn(),
+      },
+      sprintRunId: "sprint-run-1",
+      projectManagementRepository: {
+        updateTask: updateTaskMock,
+      },
+    };
+
+    const result = await runSessionSyncStep(
+      subtasks,
+      deps as any,
+      false,
+      { repoPath: "/tmp/my-repo", sprintNumber: 1 }
+    );
+
+    expect(result.subtasks.find(t => t.id === "task-completed")?.status).toBe("RUNNING");
+    // Planning status must be persisted as in_progress (not left on completed).
+    expect(updateTaskMock).toHaveBeenCalledWith("rec-c", expect.objectContaining({ status: "in_progress" }));
   });
 
   it("holds a rate-limited task in QUOTA until the retry delay expires, then requeues it", async () => {

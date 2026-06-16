@@ -309,11 +309,12 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             void loadDirectory(target, directoryListing?.currentPath || typedPath || undefined);
                         }}
                         disabled={isDirectoryPickerLoading}
+                        aria-busy={isDirectoryPickerLoading}
                         className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm transition-all hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:text-white"
                         aria-label="Refresh directories"
                         title="Refresh"
                     >
-                        <RefreshCw className={`h-4 w-4 ${isDirectoryPickerLoading ? "animate-spin" : ""}`} />
+                        <><RefreshCw aria-hidden="true" className={`h-4 w-4 ${isDirectoryPickerLoading ? "animate-spin" : ""}`} />{isDirectoryPickerLoading && <span className="sr-only">Loading</span>}</>
                     </button>
                     <div className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-600 dark:bg-white/[0.055] dark:text-slate-300">
                         {directoryListing?.currentPath || "Loading directories..."}
@@ -337,7 +338,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     <div className="max-h-44 overflow-y-auto p-2">
                         {isDirectoryPickerLoading && !directoryListing ? (
                             <div className="flex items-center gap-2 px-2 py-3 text-xs font-semibold text-slate-400">
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                                 Loading directories
                             </div>
                         ) : directoryListing?.directories.length ? (
@@ -383,11 +384,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         >
             <div
                 ref={cardRef}
-                className="relative flex w-full max-w-2xl lg:max-w-3xl max-h-[calc(100vh-2rem)] overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+                className="relative flex flex-col sm:flex-row w-[calc(100vw-2rem)] sm:w-full max-w-2xl lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-hidden sm:overflow-y-auto rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
                 style={{ minHeight: modalMinHeight }}
             >
                 {/* ── Left decorative panel ── */}
-                <div className="relative w-52 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
+                <div className="relative hidden sm:flex w-52 shrink-0 bg-void-900 dark:bg-void-950 flex-col justify-between p-8 overflow-hidden">
                     <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">
                         ADD
                     </span>
@@ -410,7 +411,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                 </div>
 
                 {/* ── Right form panel ── */}
-                <div className="flex-1 overflow-y-auto bg-white/98 dark:bg-void-800/98 p-7 lg:p-8 flex flex-col">
+                <div className="flex-1 overflow-y-auto bg-white/98 dark:bg-void-800/98 p-5 sm:p-7 lg:p-8 flex flex-col">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-6 lg:mb-8">
                         <div>
@@ -423,10 +424,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         </div>
                         <button
                             onClick={handleClose}
-                            aria-label="Close"
+                            aria-label="Close dialog"
                             className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500"
                         >
-                            <X className="w-4 h-4" />
+                            <X aria-hidden="true" className="w-4 h-4" />
                         </button>
                     </div>
 
@@ -858,10 +859,11 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
+                                    aria-busy={isSubmitting}
                                     className="group/btn flex items-center gap-2.5 px-6 py-3 bg-ember-500 hover:bg-ember-400 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(255,184,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)] disabled:shadow-none active:scale-95 disabled:active:scale-100 hover:-translate-y-px disabled:hover:-translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500"
                                 >
                                     {isSubmitting ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <><Loader2 aria-hidden="true" className="w-4 h-4 animate-spin" /><span className="sr-only">Loading</span></>
                                     ) : (
                                         <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
                                     )}
