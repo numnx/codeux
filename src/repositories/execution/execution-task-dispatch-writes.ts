@@ -1,8 +1,7 @@
-import { randomUUID } from "crypto";
-import { CreateExecutionInvocationInput, UpdateExecutionInvocationInput, AppendExecutionInvocationMessageInput, CreateSprintRunInput, UpdateSprintRunInput, CreateTaskDispatchInput, UpdateTaskDispatchInput, CreateTaskRunInput, UpdateTaskRunInput, CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, AcquireExecutionLeaseInput, RenewExecutionLeaseInput, SprintRunRecord, TaskDispatchRecord, TaskRunRecord, TaskRunEventRecord, SprintRunEventRecord, ProviderInvocationUsageRecord, ExecutionLeaseRecord } from "../../contracts/execution-types.js";
-import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "../repository-utils.js";
-import { requireProject, requireSprint, requireTask, requireConnection, requireSprintRun, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireProviderInvocationUsage, requireLease } from "./execution-validators.js";
+import { randomUUID } from "node:crypto";
+import { CreateTaskDispatchInput, UpdateTaskDispatchInput, TaskDispatchRecord } from "../../contracts/execution-types.js";
+import { RepositoryError } from "../repository-utils.js";
+import { requireProject, requireSprint, requireTask, requireSprintRunScoped, requireTaskDispatch, requireConnection } from "./execution-validators.js";
 import { claimNextTaskDispatchTransaction } from "./task-dispatch-claim-query.js";
 import { DatabaseAdapter } from "../db/database-adapter.js";
 import { ExecutionWriteContext } from "./execution-repository-types.js";
@@ -31,10 +30,10 @@ export function createTaskDispatchWrite(db: DatabaseAdapter, input: CreateTaskDi
         input.sprintId,
         input.taskId,
         input.sprintRunId,
-        input.connectionId ?? null,
+        input.connectionId || null,
         input.executorType,
         input.status || "queued",
-        input.priority ?? 0,
+        input.priority || 0,
         queuedAt,
         null,
         null,
@@ -78,10 +77,10 @@ export function updateTaskDispatchWrite(db: DatabaseAdapter, dispatchId: string,
       `).run(
         input.connectionId === undefined ? current.connectionId : input.connectionId,
         input.status || current.status,
-        input.claimedAt === undefined ? current.claimedAt : input.claimedAt,
-        input.startedAt === undefined ? current.startedAt : input.startedAt,
-        input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
-        input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : input.lastHeartbeatAt,
+        input.claimedAt || current.claimedAt,
+        input.startedAt || current.startedAt,
+        input.finishedAt || current.finishedAt,
+        input.lastHeartbeatAt || current.lastHeartbeatAt,
         input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
         now,
         dispatchId

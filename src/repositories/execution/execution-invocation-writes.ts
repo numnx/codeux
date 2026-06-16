@@ -1,8 +1,8 @@
-import { randomUUID } from "crypto";
-import { CreateExecutionInvocationInput, UpdateExecutionInvocationInput, AppendExecutionInvocationMessageInput, CreateSprintRunInput, UpdateSprintRunInput, CreateTaskDispatchInput, UpdateTaskDispatchInput, CreateTaskRunInput, UpdateTaskRunInput, CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, AcquireExecutionLeaseInput, RenewExecutionLeaseInput, SprintRunRecord, TaskDispatchRecord, TaskRunRecord, TaskRunEventRecord, SprintRunEventRecord, ProviderInvocationUsageRecord, ExecutionLeaseRecord } from "../../contracts/execution-types.js";
+import { randomUUID } from "node:crypto";
+import { CreateExecutionInvocationInput, UpdateExecutionInvocationInput, AppendExecutionInvocationMessageInput } from "../../contracts/execution-types.js";
 import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "../repository-utils.js";
-import { requireProject, requireSprint, requireTask, requireConnection, requireSprintRun, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireProviderInvocationUsage, requireLease } from "./execution-validators.js";
+import { EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "../repository-utils.js";
+import { requireProject, requireSprint, requireTask, requireSprintRunScoped, requireTaskDispatch, requireTaskRun } from "./execution-validators.js";
 import { DatabaseAdapter } from "../db/database-adapter.js";
 import { ExecutionWriteContext } from "./execution-repository-types.js";
 import { queryExecutionInvocationMessages } from "./execution-invocations-query.js";
@@ -18,7 +18,7 @@ export function createExecutionInvocationWrite(db: DatabaseAdapter, input: Creat
           requireTask(db, input.taskId, input.projectId, input.sprintId || undefined);
         }
         if (input.sprintRunId) {
-          requireSprintRun((id: string) => ctx.getSprintRun(id), input.sprintRunId);
+          requireSprintRunScoped((id: string) => ctx.getSprintRun(id), input.sprintRunId, input.projectId, input.sprintId as string);
         }
         if (input.dispatchId) {
           requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), input.dispatchId);
@@ -36,33 +36,30 @@ export function createExecutionInvocationWrite(db: DatabaseAdapter, input: Creat
 
       const id = `xi_${randomUUID().replace(/-/g, "")}`;
       const now = new Date().toISOString();
-      const startedAt = input.startedAt || now;
-
       const record: ExecutionInvocationRecord = {
         id,
         projectId: input.projectId,
-        sprintId: input.sprintId || null,
-        taskId: input.taskId || null,
-        sprintRunId: input.sprintRunId || null,
-        dispatchId: input.dispatchId || null,
-        taskRunId: input.taskRunId || null,
-        attentionItemId: input.attentionItemId || null,
-        providerInvocationId: input.providerInvocationId || null,
+        sprintId: input.sprintId ?? null,
+        taskId: input.taskId ?? null,
+        sprintRunId: input.sprintRunId ?? null,
+        dispatchId: input.dispatchId ?? null,
+        taskRunId: input.taskRunId ?? null,
+        attentionItemId: input.attentionItemId ?? null,
+        providerInvocationId: input.providerInvocationId ?? null,
         type: input.type,
         status: input.status || "running",
-        provider: input.provider || null,
-        model: input.model || null,
-        systemPrompt: input.systemPrompt || null,
-        startedAt,
+        provider: input.provider ?? null,
+        model: input.model ?? null,
+        systemPrompt: input.systemPrompt ?? null,
+        startedAt: input.startedAt || now,
         finishedAt: input.finishedAt || null,
         errorMessage: input.errorMessage || null,
         lastErrorCategory: input.lastErrorCategory || null,
         lastErrorMessage: input.lastErrorMessage || null,
         lastRetryAfterIso: input.lastRetryAfterIso || null,
-        invocationSource: input.invocationSource || "internal",
-        agentPresetId: taskAgentPresetId,
         messageCount: 0,
         lastMessageAt: null,
+        agentPresetId: taskAgentPresetId,
         createdAt: now,
         updatedAt: now,
       };
@@ -70,37 +67,34 @@ export function createExecutionInvocationWrite(db: DatabaseAdapter, input: Creat
       const stmt = db.prepare(`
         INSERT INTO execution_invocations (
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id, provider_invocation_id,
-          type, status, provider, model, system_prompt, started_at, finished_at, error_message, message_count, last_message_at,
-          last_error_category, last_error_message, last_retry_after_iso, invocation_source, agent_preset_id,
-          created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          type, status, provider, model, system_prompt, started_at, finished_at, error_message, last_error_category, last_error_message, last_retry_after_iso, message_count, last_message_at,
+          agent_preset_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
-        record.id,
-        record.projectId,
-        record.sprintId,
-        record.taskId,
-        record.sprintRunId,
-        record.dispatchId,
-        record.taskRunId,
-        record.attentionItemId,
-        record.providerInvocationId,
-        record.type,
-        record.status,
-        record.provider,
-        record.model,
-        record.systemPrompt,
+          record.id,
+          record.projectId,
+          record.sprintId,
+          record.taskId,
+          record.sprintRunId,
+          record.dispatchId,
+          record.taskRunId,
+          record.attentionItemId,
+          record.providerInvocationId,
+          record.type,
+          record.status,
+          record.provider,
+          record.model,
+          record.systemPrompt,
           record.startedAt,
           record.finishedAt,
           record.errorMessage,
-          record.messageCount,
-          record.lastMessageAt,
           record.lastErrorCategory,
           record.lastErrorMessage,
           record.lastRetryAfterIso,
-          record.invocationSource || "internal",
+          record.messageCount,
+          record.lastMessageAt,
           record.agentPresetId,
           record.createdAt,
           record.updatedAt
@@ -125,14 +119,24 @@ export function updateExecutionInvocationWrite(db: DatabaseAdapter, id: string, 
         throw new EntityNotFoundError(`Execution invocation not found: ${id}`);
       }
 
-      const now = new Date().toISOString();
       const updates: string[] = [];
       const values: any[] = [];
+      const now = new Date().toISOString();
 
       if (input.status !== undefined) {
         updates.push("status = ?");
         values.push(input.status);
         existing.status = input.status;
+      }
+      if (input.finishedAt !== undefined) {
+        updates.push("finished_at = ?");
+        values.push(input.finishedAt);
+        existing.finishedAt = input.finishedAt;
+      }
+      if (input.errorMessage !== undefined) {
+        updates.push("error_message = ?");
+        values.push(input.errorMessage);
+        existing.errorMessage = input.errorMessage;
       }
       if (input.providerInvocationId !== undefined) {
         updates.push("provider_invocation_id = ?");
@@ -148,16 +152,6 @@ export function updateExecutionInvocationWrite(db: DatabaseAdapter, id: string, 
         updates.push("model = ?");
         values.push(input.model);
         existing.model = input.model;
-      }
-      if (input.finishedAt !== undefined) {
-        updates.push("finished_at = ?");
-        values.push(input.finishedAt);
-        existing.finishedAt = input.finishedAt;
-      }
-      if (input.errorMessage !== undefined) {
-        updates.push("error_message = ?");
-        values.push(input.errorMessage);
-        existing.errorMessage = input.errorMessage;
       }
       if (input.lastErrorCategory !== undefined) {
         updates.push("last_error_category = ?");
@@ -236,25 +230,22 @@ export function appendExecutionInvocationMessageWrite(db: DatabaseAdapter, invoc
       }
 
       const id = `xim_${randomUUID().replace(/-/g, "")}`;
-      const now = input.createdAt || new Date().toISOString();
-
+      const now = new Date().toISOString();
       const record: ExecutionInvocationMessageRecord = {
         id,
         invocationId,
         role: input.role,
         contentMarkdown: input.contentMarkdown,
-        toolCallsJson: input.toolCallsJson || null,
-        metadata: input.metadata || null,
-        createdAt: now,
+        toolCallsJson: input.toolCallsJson ?? null,
+        metadata: input.metadata ?? null,
+        createdAt: input.createdAt || now,
       };
 
       const stmt = db.prepare(`
         INSERT INTO execution_invocation_messages (
           id, invocation_id, role, content_markdown, tool_calls_json, metadata_json, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-
       stmt.run(
         record.id,
         record.invocationId,

@@ -1,8 +1,7 @@
-import { randomUUID } from "crypto";
-import { CreateExecutionInvocationInput, UpdateExecutionInvocationInput, AppendExecutionInvocationMessageInput, CreateSprintRunInput, UpdateSprintRunInput, CreateTaskDispatchInput, UpdateTaskDispatchInput, CreateTaskRunInput, UpdateTaskRunInput, CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, AcquireExecutionLeaseInput, RenewExecutionLeaseInput, SprintRunRecord, TaskDispatchRecord, TaskRunRecord, TaskRunEventRecord, SprintRunEventRecord, ProviderInvocationUsageRecord, ExecutionLeaseRecord } from "../../contracts/execution-types.js";
-import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "../repository-utils.js";
-import { requireProject, requireSprint, requireTask, requireConnection, requireSprintRun, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireProviderInvocationUsage, requireLease } from "./execution-validators.js";
+import { randomUUID } from "node:crypto";
+import { CreateSprintRunInput, UpdateSprintRunInput, SprintRunRecord } from "../../contracts/execution-types.js";
+import { RepositoryError, serializePayloadJson } from "../repository-utils.js";
+import { requireProject, requireSprint, requireSprintRun } from "./execution-validators.js";
 import { DatabaseAdapter } from "../db/database-adapter.js";
 import { ExecutionWriteContext } from "./execution-repository-types.js";
 import { releaseStaleSprintLeaseWrite } from "./execution-lease-writes.js";
@@ -25,11 +24,11 @@ export function createSprintRunWrite(db: DatabaseAdapter, input: CreateSprintRun
         input.sprintId,
         input.status || "queued",
         input.triggerType || "manual",
-        input.triggeredBy ?? null,
-        input.executorMode || "mixed",
+        input.triggeredBy || null,
+        input.executorMode || "legacy-orchestrator",
+        input.status === "running" ? now : null,
         null,
-        null,
-        null,
+        now,
         now,
         now
       );
@@ -55,9 +54,9 @@ export function updateSprintRunWrite(db: DatabaseAdapter, runId: string, input: 
       `).run(
         input.status || current.status,
         input.executorMode || current.executorMode,
-        input.startedAt === undefined ? current.startedAt : input.startedAt,
-        input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
-        input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : input.lastHeartbeatAt,
+        input.startedAt || current.startedAt,
+        input.finishedAt || current.finishedAt,
+        input.lastHeartbeatAt || current.lastHeartbeatAt,
         now,
         runId
       );
@@ -85,7 +84,7 @@ export function appendSprintRunEventWrite(db: DatabaseAdapter, sprintRunId: stri
       originator,
       serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
-      options?.createdAt || new Date().toISOString(),
+      options?.createdAt ?? new Date().toISOString()
     );
     const inserted = Number((result as { changes?: number }).changes || 0) > 0;
     if (inserted) {

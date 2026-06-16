@@ -1,8 +1,7 @@
-import { randomUUID } from "crypto";
-import { CreateExecutionInvocationInput, UpdateExecutionInvocationInput, AppendExecutionInvocationMessageInput, CreateSprintRunInput, UpdateSprintRunInput, CreateTaskDispatchInput, UpdateTaskDispatchInput, CreateTaskRunInput, UpdateTaskRunInput, CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, AcquireExecutionLeaseInput, RenewExecutionLeaseInput, SprintRunRecord, TaskDispatchRecord, TaskRunRecord, TaskRunEventRecord, SprintRunEventRecord, ProviderInvocationUsageRecord, ExecutionLeaseRecord } from "../../contracts/execution-types.js";
-import { ExecutionInvocationRecord, ExecutionInvocationMessageRecord } from "../../contracts/invocation-types.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "../repository-utils.js";
-import { requireProject, requireSprint, requireTask, requireConnection, requireSprintRun, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireProviderInvocationUsage, requireLease } from "./execution-validators.js";
+import { randomUUID } from "node:crypto";
+import { CreateTaskRunInput, UpdateTaskRunInput, TaskRunRecord } from "../../contracts/execution-types.js";
+import { RepositoryError, serializePayloadJson } from "../repository-utils.js";
+import { requireProject, requireSprint, requireTask, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireConnection } from "./execution-validators.js";
 import { DatabaseAdapter } from "../db/database-adapter.js";
 import { ExecutionWriteContext } from "./execution-repository-types.js";
 
@@ -32,18 +31,18 @@ export function createTaskRunWrite(db: DatabaseAdapter, input: CreateTaskRunInpu
         input.projectId,
         input.sprintId,
         input.taskId,
-        input.sprintRunId ?? null,
-        input.dispatchId ?? null,
-        input.connectionId ?? null,
-        input.provider ?? null,
-        input.mode ?? null,
-        input.sessionId ?? null,
-        input.sessionName ?? null,
-        input.state,
-        input.workerBranch ?? null,
-        input.prUrl ?? null,
-        input.startedAt ?? null,
-        input.finishedAt ?? null,
+        input.sprintRunId || null,
+        input.dispatchId || null,
+        input.connectionId || null,
+        input.provider || null,
+        input.mode || "legacy-orchestrator",
+        input.sessionId || null,
+        input.sessionName || null,
+        input.state || "PENDING",
+        input.workerBranch || null,
+        input.prUrl || null,
+        input.startedAt || null,
+        input.finishedAt || null,
         input.durationMs ?? null
       );
 
@@ -82,7 +81,7 @@ export function updateTaskRunWrite(db: DatabaseAdapter, taskRunId: string, input
         input.mode === undefined ? current.mode : input.mode,
         input.sessionId === undefined ? current.sessionId : input.sessionId,
         input.sessionName === undefined ? current.sessionName : input.sessionName,
-        input.state === undefined ? current.state : input.state,
+        input.state || current.state,
         input.workerBranch === undefined ? current.workerBranch : input.workerBranch,
         input.prUrl === undefined ? current.prUrl : input.prUrl,
         input.startedAt === undefined ? current.startedAt : input.startedAt,
@@ -116,7 +115,7 @@ export function appendTaskRunEventWrite(db: DatabaseAdapter, taskRunId: string, 
       originator,
       serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
-      options?.createdAt || new Date().toISOString()
+      options?.createdAt ?? new Date().toISOString()
     );
     const inserted = Number((result as { changes?: number }).changes || 0) > 0;
     if (inserted) {

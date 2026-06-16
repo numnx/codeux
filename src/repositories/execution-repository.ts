@@ -10,17 +10,21 @@ import {
   queryExecutionInvocationsByProviderInvocationId,
   queryRunningRetryExecutionInvocations,
 } from "./execution/execution-invocations-query.js";
-import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
-import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, ValidationError, serializePayloadJson } from "./repository-utils.js";
+import { RepositoryError, toNumber, parsePayloadJson } from "./repository-utils.js";
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
-import { toNumber, parsePayloadJson } from "./repository-utils.js";
 import { queryProjectExecutionSnapshot } from "./execution/project-execution-snapshot-query.js";
 import {
   mapProviderInvocationUsageRow,
   mapExecutionSprintRunSummaryRow,
-  mapExecutionRuntimeEventSummaryRow
+  mapExecutionRuntimeEventSummaryRow,
+  mapSprintRunRow,
+  mapTaskDispatchRow,
+  mapExecutionLeaseRow,
+  mapTaskRunRow,
+  mapTaskRunEventRow,
+  mapSprintRunEventRow
 } from "./execution/execution-read-model-mappers.js";
 
 
@@ -55,194 +59,61 @@ import type {
 } from "../contracts/execution-types.js";
 import type {
   ExecutionDashboardSnapshot,
-  ExecutionStatsEntitySummary,
-  ExecutionHumanInterventionSummary,
-  ExecutionUsageBucketSummary,
   ExecutionUsageTotals,
-  ProjectExecutionStatsChartSeries,
-  OverviewTelemetryProjectSummary,
   OverviewTelemetrySnapshot,
   ProjectExecutionStatsSnapshot,
   ProjectStatsQuery,
-  ProjectStatsResolution,
   ProjectStatsWindow,
   ExecutionRuntimeEventSummary,
   ExecutionSprintRunSummary,
   ExecutionTaskDispatchSummary,
-  ExecutionGitMetrics,
 } from "../contracts/app-types.js";
 import type { DashboardRealtimeMutationNotifier } from "../services/dashboard-realtime-service.js";
 import type { ProviderId } from "../contracts/app-types.js";
-import { queryExecutionSprintRuns } from "./execution/execution-sprint-runs-query.js";
-import { queryExecutionTaskDispatches } from "./execution/execution-task-dispatches-query.js";
-import { queryExecutionRuntimeEvents } from "./execution/execution-runtime-events-query.js";
-import { normalizeProjectStatsQuery } from "./execution/project-stats-query.js";
-import { queryProjectStatsSnapshot } from "./execution/project-stats-snapshot-query.js";
-import { OverviewTelemetryQuery } from "./execution/overview-telemetry-query.js";
-import { createUsageBuckets, createEmptyUsageTotals } from "./execution/stats-buckets.js";
-import { claimNextTaskDispatchTransaction } from "./execution/task-dispatch-claim-query.js";
-import {
-  requireProject,
-  requireSprint,
-  requireTask,
-  requireConnection,
-  requireSprintRun,
-  requireSprintRunScoped,
-  requireTaskDispatch,
-  requireTaskRun,
-  requireProviderInvocationUsage,
-  requireLease
-} from "./execution/execution-validators.js";
-
-import type {
-  ExecutionSprintRunSummaryRow,
-  ExecutionTaskDispatchSummaryRow,
-  ExecutionRuntimeEventSummaryRow,
-  ProviderInvocationUsageRow,
-  ProjectAttentionSummaryRow
-} from "./execution/execution-repository-types.js";
 import { createExecutionInvocationWrite, updateExecutionInvocationWrite, listExecutionInvocationMessagesWrite, clearExecutionInvocationMessagesWrite, appendExecutionInvocationMessageWrite } from "./execution/execution-invocation-writes.js";
 import { createSprintRunWrite, updateSprintRunWrite, appendSprintRunEventWrite, finalizeSprintRunCancellationIfIdleWrite } from "./execution/execution-sprint-run-writes.js";
 import { createTaskDispatchWrite, updateTaskDispatchesBatchWrite, updateTaskDispatchWrite, claimNextTaskDispatchWrite } from "./execution/execution-task-dispatch-writes.js";
 import { createTaskRunWrite, updateTaskRunsBatchWrite, updateTaskRunWrite, appendTaskRunEventWrite } from "./execution/execution-task-run-writes.js";
 import { createProviderInvocationUsageWrite, tryCreateProviderInvocationUsageWrite, updateProviderInvocationUsageWrite } from "./execution/execution-provider-invocation-writes.js";
 import { acquireLeaseWrite, renewLeaseWrite, releaseLeaseWrite, releaseStaleSprintLeaseWrite } from "./execution/execution-lease-writes.js";
-import { ExecutionWriteContext } from "./execution/execution-repository-types.js";
-
-interface SprintRunRow {
-  id: string;
-  project_id: string;
-  sprint_id: string;
-  status: string;
-  trigger_type: string;
-  triggered_by: string | null;
-  executor_mode: string;
-  started_at: string | null;
-  finished_at: string | null;
-  last_heartbeat_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface TaskDispatchRow {
-  id: string;
-  project_id: string;
-  sprint_id: string;
-  task_id: string;
-  sprint_run_id: string;
-  connection_id: string | null;
-  executor_type: string;
-  status: string;
-  priority: number | string;
-  queued_at: string;
-  claimed_at: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  last_heartbeat_at: string | null;
-  error_message: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ExecutionLeaseRow {
-  id: string;
-  scope_type: string;
-  scope_id: string;
-  owner_key: string;
-  lease_token: string;
-  acquired_at: string;
-  expires_at: string;
-  last_heartbeat_at: string | null;
-}
-
-interface TaskRunRow {
-  id: string;
-  project_id: string;
-  sprint_id: string;
-  task_id: string;
-  sprint_run_id: string | null;
-  dispatch_id: string | null;
-  connection_id: string | null;
-  provider: string | null;
-  mode: string | null;
-  session_id: string | null;
-  session_name: string | null;
-  state: string;
-  worker_branch: string | null;
-  pr_url: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  duration_ms: number | string | null;
-}
-
-interface TaskRunEventRow {
-  id: string;
-  task_run_id: string;
-  event_type: string;
-  originator: string | null;
-  payload_json: string | null;
-  source_event_key: string | null;
-  created_at: string;
-}
-
-interface SprintRunEventRow {
-  id: string;
-  sprint_run_id: string;
-  event_type: string;
-  originator: string | null;
-  payload_json: string | null;
-  source_event_key: string | null;
-  created_at: string;
-}
-
-export interface StatsEntityMetadata {
-  label: string;
-  secondaryLabel: string | null;
-  status: string | null;
-  provider: string | null;
-  purpose: string | null;
-  lastActivityAt: string | null;
-}
-
-interface WorkerProjectAffinityRow {
-  project_id: string;
-  active_count: number | string;
-  last_seen_at: string | null;
-}
-
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function stripMarkdown(value: string): string {
-  return value
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_>#~-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function cloneUsageTotals(input?: ExecutionUsageTotals | null): ExecutionUsageTotals {
-  return {
-    ...createEmptyUsageTotals(),
-    ...(input || {}),
-  };
-}
+import { ExecutionWriteContext, SprintRunRow, TaskDispatchRow, ExecutionLeaseRow, TaskRunRow, TaskRunEventRow, SprintRunEventRow, ExecutionTaskDispatchSummaryRow, ExecutionRuntimeEventSummaryRow, ProjectAttentionSummaryRow } from "./execution/execution-repository-types.js";
+import { queryExecutionSprintRuns } from "./execution/execution-sprint-runs-query.js";
+import { queryExecutionTaskDispatches } from "./execution/execution-task-dispatches-query.js";
+import { queryExecutionRuntimeEvents } from "./execution/execution-runtime-events-query.js";
+import { queryProjectStatsSnapshot } from "./execution/project-stats-snapshot-query.js";
+import { OverviewTelemetryQuery } from "./execution/overview-telemetry-query.js";
+import { createEmptyUsageTotals } from "./execution/stats-buckets.js";
+import {
+  requireProject,
+  requireSprint,
+  requireTask,
+  requireSprintRun,
+  requireTaskRun,
+  requireProviderInvocationUsage,
+} from "./execution/execution-validators.js";
+import {
+    queryWallTimeTotalsByTaskIds,
+    queryWallTimeTotalsBySprintRunIds,
+    queryWallTimeTotalsByTaskIdsForRange,
+    queryWallTimeTotalsBySprintRunIdsForRange,
+    queryTaskMetadata,
+    querySprintMetadata,
+    StatsEntityMetadata
+} from "./execution/execution-stats-query.js";
+import { queryActiveAttentionRowsForProject } from "./execution/execution-attention-query.js";
 
 export class ExecutionRepository {
-  private readonly db: DatabaseAdapter;
-  private readonly taskWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
-  private readonly sprintRunWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
+  public readonly db: DatabaseAdapter;
+  public readonly taskWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
+  public readonly sprintRunWallTimeCache = new Map<string, { finishedMs: number, hasActive: boolean }>();
   private readonly pendingRealtimeProjectRefreshes = new Map<string, { includeOverview: boolean }>();
-  private readonly leaseProjectCache = new Map<string, string>();
+  public readonly leaseProjectCache = new Map<string, string>();
   private realtimeProjectRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
     private readonly realtimeNotifier?: DashboardRealtimeMutationNotifier,
-    private readonly logger: Logger = createLogger({ bindings: { component: "ExecutionRepository" } })
+    public readonly logger: Logger = createLogger({ bindings: { component: "ExecutionRepository" } })
   ) {
     this.db = storage.getDatabase();
   }
@@ -306,7 +177,7 @@ export class ExecutionRepository {
         WHERE project_id = ?
         ORDER BY created_at DESC, rowid DESC
       `).all(projectId);
-    return (rows as unknown as SprintRunRow[]).map((row) => this.mapSprintRunRow(row));
+    return (rows as unknown as SprintRunRow[]).map((row) => mapSprintRunRow(row));
   }
 
   listSprintRunsByStatus(
@@ -342,7 +213,7 @@ export class ExecutionRepository {
       ORDER BY created_at DESC, rowid DESC
     `).all(...values) as unknown as SprintRunRow[];
 
-    return rows.map((row) => this.mapSprintRunRow(row));
+    return rows.map((row) => mapSprintRunRow(row));
   }
 
   getSprintRun(runId: string): SprintRunRecord | null {
@@ -351,7 +222,7 @@ export class ExecutionRepository {
       FROM sprint_runs
       WHERE id = ?
     `).get(runId) as SprintRunRow | undefined;
-    return row ? this.mapSprintRunRow(row) : null;
+    return row ? mapSprintRunRow(row) : null;
   }
 
   findActiveSprintRun(projectId: string, sprintId: string): SprintRunRecord | null {
@@ -364,7 +235,7 @@ export class ExecutionRepository {
       ORDER BY created_at DESC, rowid DESC
       LIMIT 1
     `).get(projectId, sprintId) as SprintRunRow | undefined;
-    return row ? this.mapSprintRunRow(row) : null;
+    return row ? mapSprintRunRow(row) : null;
   }
 
   updateSprintRun(runId: string, input: UpdateSprintRunInput): SprintRunRecord {
@@ -399,7 +270,7 @@ export class ExecutionRepository {
       ORDER BY priority DESC, queued_at ASC, created_at ASC
     `).all(...values) as unknown as TaskDispatchRow[];
 
-    return rows.map((row) => this.mapTaskDispatchRow(row));
+    return rows.map((row) => mapTaskDispatchRow(row));
   }
 
   listTaskDispatchesByStatus(
@@ -443,7 +314,7 @@ export class ExecutionRepository {
       ORDER BY priority DESC, queued_at ASC, created_at ASC
     `).all(...values) as unknown as TaskDispatchRow[];
 
-    return rows.map((row) => this.mapTaskDispatchRow(row));
+    return rows.map((row) => mapTaskDispatchRow(row));
   }
 
   listStaleCancelRequestedDispatches(cutoffIso: string): TaskDispatchRecord[] {
@@ -455,7 +326,7 @@ export class ExecutionRepository {
       ORDER BY COALESCE(last_heartbeat_at, updated_at, started_at, queued_at) ASC
     `).all(cutoffIso) as unknown as TaskDispatchRow[];
 
-    return rows.map((row) => this.mapTaskDispatchRow(row));
+    return rows.map((row) => mapTaskDispatchRow(row));
   }
 
   updateTaskDispatchesBatch(dispatches: Array<{id: string} & UpdateTaskDispatchInput>): void {
@@ -492,7 +363,7 @@ export class ExecutionRepository {
       FROM task_runs
       WHERE id = ?
     `).get(taskRunId) as TaskRunRow | undefined;
-    return row ? this.mapTaskRunRow(row) : null;
+    return row ? mapTaskRunRow(row) : null;
   }
 
   getProviderInvocationUsage(invocationId: string): ProviderInvocationUsageRecord | null {
@@ -526,7 +397,7 @@ export class ExecutionRepository {
       ORDER BY rowid DESC
       LIMIT 1
     `).get(normalizedSessionId) as TaskRunRow | undefined;
-    return row ? this.mapTaskRunRow(row) : null;
+    return row ? mapTaskRunRow(row) : null;
   }
 
   isSessionTerminal(sessionName: string): boolean {
@@ -556,7 +427,7 @@ export class ExecutionRepository {
       FROM task_dispatches
       WHERE id = ?
     `).get(dispatchId) as TaskDispatchRow | undefined;
-    return row ? this.mapTaskDispatchRow(row) : null;
+    return row ? mapTaskDispatchRow(row) : null;
   }
 
   getTaskRunByDispatchId(dispatchId: string): TaskRunRecord | null {
@@ -567,7 +438,7 @@ export class ExecutionRepository {
       ORDER BY rowid DESC
       LIMIT 1
     `).get(dispatchId) as TaskRunRow | undefined;
-    return row ? this.mapTaskRunRow(row) : null;
+    return row ? mapTaskRunRow(row) : null;
   }
 
   getLatestTaskRun(taskId: string, sprintRunId?: string): TaskRunRecord | null {
@@ -588,7 +459,7 @@ export class ExecutionRepository {
         ORDER BY rowid DESC
         LIMIT 1
       `).get(taskId) as TaskRunRow | undefined;
-    return row ? this.mapTaskRunRow(row) : null;
+    return row ? mapTaskRunRow(row) : null;
   }
 
   getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {
@@ -662,6 +533,7 @@ export class ExecutionRepository {
       return updateTaskRunWrite(this.db, taskRunId, input, this.getWriteContext());
   }
 
+
   listLatestTaskRuns(taskIds: string[], sprintRunId?: string): Map<string, TaskRunRecord> {
     const uniqueTaskIds = [...new Set(taskIds.map((taskId) => taskId.trim()).filter(Boolean))];
     if (uniqueTaskIds.length === 0) {
@@ -708,7 +580,7 @@ export class ExecutionRepository {
       const map = new Map<string, TaskRunRecord>();
       for (const row of rows) {
         if (!map.has(row.task_id)) {
-          map.set(row.task_id, this.mapTaskRunRow(row));
+          map.set(row.task_id, mapTaskRunRow(row));
         }
       }
       return map;
@@ -734,7 +606,7 @@ export class ExecutionRepository {
     const map = new Map<string, TaskRunRecord>();
     for (const row of rows) {
       if (!map.has(row.task_id)) {
-        map.set(row.task_id, this.mapTaskRunRow(row));
+        map.set(row.task_id, mapTaskRunRow(row));
       }
     }
     return map;
@@ -769,7 +641,7 @@ export class ExecutionRepository {
       ORDER BY created_at DESC, rowid DESC
       LIMIT ?
     `).all(taskRunId, Math.max(1, limit)) as unknown as TaskRunEventRow[];
-    return rows.map((row) => this.mapTaskRunEventRow(row));
+    return rows.map((row) => mapTaskRunEventRow(row));
   }
 
   listSprintRunEvents(sprintRunId: string, limit: number = 50): SprintRunEventRecord[] {
@@ -781,7 +653,7 @@ export class ExecutionRepository {
       ORDER BY created_at DESC, rowid DESC
       LIMIT ?
     `).all(sprintRunId, Math.max(1, limit)) as unknown as SprintRunEventRow[];
-    return rows.map((row) => this.mapSprintRunEventRow(row));
+    return rows.map((row) => mapSprintRunEventRow(row));
   }
 
   claimNextTaskDispatch(args: {
@@ -821,7 +693,7 @@ export class ExecutionRepository {
       FROM execution_leases
       WHERE scope_type = ? AND scope_id = ?
     `).get(scopeType, scopeId) as ExecutionLeaseRow | undefined;
-    return row ? this.mapExecutionLeaseRow(row) : null;
+    return row ? mapExecutionLeaseRow(row) : null;
   }
 
   listAllLeases(scopeType?: ExecutionLeaseRecord["scopeType"]): ExecutionLeaseRecord[] {
@@ -836,7 +708,7 @@ export class ExecutionRepository {
         FROM execution_leases
       `).all();
 
-    return (rows as unknown as ExecutionLeaseRow[]).map((row) => this.mapExecutionLeaseRow(row));
+    return (rows as unknown as ExecutionLeaseRow[]).map((row) => mapExecutionLeaseRow(row));
   }
 
   listExpiredLeases(scopeType?: ExecutionLeaseRecord["scopeType"], now = new Date()): ExecutionLeaseRecord[] {
@@ -856,7 +728,7 @@ export class ExecutionRepository {
         ORDER BY expires_at ASC
       `).all(nowIso);
 
-    return (rows as unknown as ExecutionLeaseRow[]).map((row) => this.mapExecutionLeaseRow(row));
+    return (rows as unknown as ExecutionLeaseRow[]).map((row) => mapExecutionLeaseRow(row));
   }
 
   hasActiveTaskDispatches(sprintRunId: string): boolean {
@@ -967,257 +839,29 @@ export class ExecutionRepository {
   }
 
   private getWallTimeTotalsByTaskIds(projectId: string, taskIds: string[], nowIso: string): Map<string, number> {
-    if (taskIds.length === 0) return new Map();
-    const result = new Map<string, number>();
-    const missingTaskIds: string[] = [];
-    const activeTaskIds: string[] = [];
-
-    for (const taskId of taskIds) {
-      if (this.taskWallTimeCache.has(taskId)) {
-        const cache = this.taskWallTimeCache.get(taskId)!;
-        result.set(taskId, cache.finishedMs);
-        if (cache.hasActive) {
-          activeTaskIds.push(taskId);
-        }
-      } else {
-        missingTaskIds.push(taskId);
-      }
-    }
-
-    if (missingTaskIds.length > 0) {
-      const activeRows = this.storage.executeChunkedInQuery<{ task_id: string; c: number | string }>({
-        sqlPrefix: `SELECT task_id, COUNT(*) as c FROM task_runs WHERE finished_at IS NULL AND started_at IS NOT NULL AND task_id`,
-        sqlSuffix: "GROUP BY task_id",
-        items: missingTaskIds,
-      });
-      const activeMap = new Set(activeRows.map(r => r.task_id));
-
-      const finishedRows = this.storage.executeChunkedInQuery<{ task_id: string; total_duration_ms: number | string }>({
-        sqlPrefix: `SELECT task_id, SUM(CASE WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms ELSE 0 END) AS total_duration_ms FROM task_runs WHERE task_id`,
-        sqlSuffix: "GROUP BY task_id",
-        items: missingTaskIds,
-      });
-      const finishedMap = new Map(finishedRows.map(r => [r.task_id, Math.max(0, Number(r.total_duration_ms) || 0)]));
-
-      for (const taskId of missingTaskIds) {
-        const finishedMs = finishedMap.get(taskId) || 0;
-        const hasActive = activeMap.has(taskId);
-        this.taskWallTimeCache.set(taskId, { finishedMs, hasActive });
-        result.set(taskId, finishedMs);
-        if (hasActive) {
-          activeTaskIds.push(taskId);
-        }
-      }
-    }
-
-    if (activeTaskIds.length > 0) {
-      const activeTimeRows = this.storage.executeChunkedInQuery<{ task_id: string; total_duration_ms: number | string }>({
-        sqlPrefix: `SELECT task_id, SUM(CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)) AS total_duration_ms FROM task_runs WHERE finished_at IS NULL AND started_at IS NOT NULL AND task_id`,
-        sqlSuffix: "GROUP BY task_id",
-        items: activeTaskIds,
-        bindParamsBefore: [nowIso]
-      });
-      for (const row of activeTimeRows) {
-        result.set(row.task_id, (result.get(row.task_id) || 0) + Math.max(0, Number(row.total_duration_ms) || 0));
-      }
-    }
-
-    return result;
+      return queryWallTimeTotalsByTaskIds(this.storage, this.taskWallTimeCache, projectId, taskIds, nowIso);
   }
 
   private getWallTimeTotalsBySprintRunIds(projectId: string, sprintRunIds: string[], nowIso: string): Map<string, number> {
-    if (sprintRunIds.length === 0) return new Map();
-    const result = new Map<string, number>();
-    const missingIds: string[] = [];
-    const activeIds: string[] = [];
-
-    for (const sprintRunId of sprintRunIds) {
-      if (this.sprintRunWallTimeCache.has(sprintRunId)) {
-        const cache = this.sprintRunWallTimeCache.get(sprintRunId)!;
-        result.set(sprintRunId, cache.finishedMs);
-        if (cache.hasActive) {
-          activeIds.push(sprintRunId);
-        }
-      } else {
-        missingIds.push(sprintRunId);
-      }
-    }
-
-    if (missingIds.length > 0) {
-      const activeRows = this.storage.executeChunkedInQuery<{ sprint_run_id: string; c: number | string }>({
-        sqlPrefix: `SELECT sprint_run_id, COUNT(*) as c FROM task_runs WHERE finished_at IS NULL AND started_at IS NOT NULL AND sprint_run_id`,
-        sqlSuffix: "GROUP BY sprint_run_id",
-        items: missingIds,
-      });
-      const activeMap = new Set(activeRows.map(r => r.sprint_run_id));
-
-      const finishedRows = this.storage.executeChunkedInQuery<{ sprint_run_id: string; total_duration_ms: number | string }>({
-        sqlPrefix: `SELECT sprint_run_id, SUM(CASE WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms ELSE 0 END) AS total_duration_ms FROM task_runs WHERE sprint_run_id`,
-        sqlSuffix: "GROUP BY sprint_run_id",
-        items: missingIds,
-      });
-      const finishedMap = new Map(finishedRows.map(r => [r.sprint_run_id, Math.max(0, Number(r.total_duration_ms) || 0)]));
-
-      for (const sprintRunId of missingIds) {
-        const finishedMs = finishedMap.get(sprintRunId) || 0;
-        const hasActive = activeMap.has(sprintRunId);
-        this.sprintRunWallTimeCache.set(sprintRunId, { finishedMs, hasActive });
-        result.set(sprintRunId, finishedMs);
-        if (hasActive) {
-          activeIds.push(sprintRunId);
-        }
-      }
-    }
-
-    if (activeIds.length > 0) {
-      const activeTimeRows = this.storage.executeChunkedInQuery<{ sprint_run_id: string; total_duration_ms: number | string }>({
-        sqlPrefix: `SELECT sprint_run_id, SUM(CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)) AS total_duration_ms FROM task_runs WHERE finished_at IS NULL AND started_at IS NOT NULL AND sprint_run_id`,
-        sqlSuffix: "GROUP BY sprint_run_id",
-        items: activeIds,
-        bindParamsBefore: [nowIso]
-      });
-      for (const row of activeTimeRows) {
-        result.set(row.sprint_run_id, (result.get(row.sprint_run_id) || 0) + Math.max(0, Number(row.total_duration_ms) || 0));
-      }
-    }
-
-    return result;
+      return queryWallTimeTotalsBySprintRunIds(this.storage, this.sprintRunWallTimeCache, projectId, sprintRunIds, nowIso);
   }
 
   private getWallTimeTotalsByTaskIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string, nowIso: string): Map<string, number> {
-    const rows = this.db.prepare(`
-      SELECT
-        task_id,
-        SUM(
-          CASE
-            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
-            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
-            ELSE 0
-          END
-        ) AS total_duration_ms
-      FROM task_runs
-      WHERE project_id = ?
-        AND task_id IS NOT NULL
-        AND COALESCE(finished_at, started_at) >= ?
-        AND COALESCE(finished_at, started_at) < ?
-      GROUP BY task_id
-    `).all(nowIso, projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ task_id: string; total_duration_ms: number | string }>;
-
-    return new Map(rows.map((row) => [row.task_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
+      return queryWallTimeTotalsByTaskIdsForRange(this.db, projectId, rangeStartIso, rangeEndIso, nowIso);
   }
 
   private getWallTimeTotalsBySprintRunIdsForRange(projectId: string, rangeStartIso: string, rangeEndIso: string, nowIso: string): Map<string, number> {
-    const rows = this.db.prepare(`
-      SELECT
-        sprint_run_id,
-        SUM(
-          CASE
-            WHEN duration_ms IS NOT NULL AND duration_ms > 0 THEN duration_ms
-            WHEN started_at IS NOT NULL AND finished_at IS NULL THEN CAST((julianday(?) - julianday(started_at)) * 86400000 AS INTEGER)
-            ELSE 0
-          END
-        ) AS total_duration_ms
-      FROM task_runs
-      WHERE project_id = ?
-        AND sprint_run_id IS NOT NULL
-        AND COALESCE(finished_at, started_at) >= ?
-        AND COALESCE(finished_at, started_at) < ?
-      GROUP BY sprint_run_id
-    `).all(nowIso, projectId, rangeStartIso, rangeEndIso) as unknown as Array<{ sprint_run_id: string; total_duration_ms: number | string }>;
-
-    return new Map(rows.map((row) => [row.sprint_run_id, Math.max(0, toNumber(row.total_duration_ms))] as const));
+      return queryWallTimeTotalsBySprintRunIdsForRange(this.db, projectId, rangeStartIso, rangeEndIso, nowIso);
   }
 
   private getTaskMetadata(projectId: string, ids: string[]): Map<string, StatsEntityMetadata> {
-    if (ids.length === 0) {
-      return new Map();
-    }
-    const chunkMap = new Map<string, StatsEntityMetadata>();
-    for (let i = 0; i < ids.length; i += 500) {
-      const chunk = ids.slice(i, i + 500);
-      const placeholders = chunk.map(() => "?").join(",");
-      const rows = this.db.prepare(`
-        SELECT t.id, t.task_key, t.title, t.status, s.name AS sprint_name
-        FROM tasks t
-        INNER JOIN sprints s ON s.id = t.sprint_id
-        WHERE t.project_id = ? AND t.id IN (${placeholders})
-      `).all(projectId, ...chunk) as unknown as Array<{ id: string; task_key: string; title: string; status: string; sprint_name: string }>;
-      for (const row of rows) {
-        chunkMap.set(row.id, {
-          label: `${row.task_key} ${row.title}`.trim(),
-          secondaryLabel: row.sprint_name,
-          status: row.status,
-          provider: null,
-          purpose: null,
-          lastActivityAt: null,
-        });
-      }
-    }
-    return chunkMap;
+      return queryTaskMetadata(this.db, projectId, ids);
   }
 
   private getSprintMetadata(projectId: string, ids: string[]): Map<string, StatsEntityMetadata> {
-    if (ids.length === 0) {
-      return new Map();
-    }
-    const chunkMap = new Map<string, StatsEntityMetadata>();
-    for (let i = 0; i < ids.length; i += 500) {
-      const chunk = ids.slice(i, i + 500);
-      const placeholders = chunk.map(() => "?").join(",");
-      const rows = this.db.prepare(`
-        SELECT s.id AS sprint_id, sr.id AS sprint_run_id, s.name, s.number, sr.status
-        FROM sprints s
-        LEFT JOIN sprint_runs sr ON sr.sprint_id = s.id
-        WHERE s.project_id = ? AND (s.id IN (${placeholders}) OR sr.id IN (${placeholders}))
-      `).all(projectId, ...chunk, ...chunk) as unknown as Array<{
-        sprint_id: string;
-        sprint_run_id: string | null;
-        name: string;
-        number: number | string | null;
-        status: string | null;
-      }>;
-
-      for (const row of rows) {
-        const summary = {
-          label: row.number === null ? row.name : `Sprint ${toNumber(row.number)} · ${row.name}`,
-          secondaryLabel: null,
-          status: row.status,
-          provider: null,
-          purpose: null,
-          lastActivityAt: null,
-        } as const;
-        chunkMap.set(row.sprint_id, summary);
-        if (row.sprint_run_id) {
-          chunkMap.set(row.sprint_run_id, summary);
-        }
-      }
-    }
-    return chunkMap;
+      return querySprintMetadata(this.db, projectId, ids);
   }
 
-
-  private withLastActivityMetadata(
-    metadata: Map<string, StatsEntityMetadata>,
-    lastActivityMap: Map<string, string>,
-  ): Map<string, StatsEntityMetadata> {
-    const next = new Map(metadata);
-    for (const [id, lastActivityAt] of lastActivityMap.entries()) {
-      const current = next.get(id);
-      if (current) {
-        next.set(id, { ...current, lastActivityAt });
-        continue;
-      }
-      next.set(id, {
-        label: id,
-        secondaryLabel: null,
-        status: null,
-        provider: null,
-        purpose: null,
-        lastActivityAt,
-      });
-    }
-    return next;
-  }
 
   private updateLastActivity(map: Map<string, string>, key: string | null | undefined, value: string | null | undefined): void {
     if (!key || !value) {
@@ -1230,179 +874,7 @@ export class ExecutionRepository {
   }
 
 
-
-
-
-
-
-
-
-
-  private mapSprintRunRow(row: SprintRunRow): SprintRunRecord {
-    return {
-      id: row.id,
-      projectId: row.project_id,
-      sprintId: row.sprint_id,
-      status: row.status as SprintRunRecord["status"],
-      triggerType: row.trigger_type as SprintRunRecord["triggerType"],
-      triggeredBy: row.triggered_by,
-      executorMode: row.executor_mode as SprintRunRecord["executorMode"],
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      lastHeartbeatAt: row.last_heartbeat_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-
-  private mapTaskDispatchRow(row: TaskDispatchRow): TaskDispatchRecord {
-    return {
-      id: row.id,
-      projectId: row.project_id,
-      sprintId: row.sprint_id,
-      taskId: row.task_id,
-      sprintRunId: row.sprint_run_id,
-      connectionId: row.connection_id,
-      executorType: row.executor_type as TaskDispatchRecord["executorType"],
-      status: row.status as TaskDispatchRecord["status"],
-      priority: toNumber(row.priority),
-      queuedAt: row.queued_at,
-      claimedAt: row.claimed_at,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      lastHeartbeatAt: row.last_heartbeat_at,
-      errorMessage: row.error_message,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-
-  private mapExecutionLeaseRow(row: ExecutionLeaseRow): ExecutionLeaseRecord {
-    return {
-      id: row.id,
-      scopeType: row.scope_type as ExecutionLeaseRecord["scopeType"],
-      scopeId: row.scope_id,
-      ownerKey: row.owner_key,
-      leaseToken: row.lease_token,
-      acquiredAt: row.acquired_at,
-      expiresAt: row.expires_at,
-      lastHeartbeatAt: row.last_heartbeat_at,
-    };
-  }
-
-  private mapTaskRunRow(row: TaskRunRow): TaskRunRecord {
-    return {
-      id: row.id,
-      projectId: row.project_id,
-      sprintId: row.sprint_id,
-      taskId: row.task_id,
-      sprintRunId: row.sprint_run_id,
-      dispatchId: row.dispatch_id,
-      connectionId: row.connection_id,
-      provider: row.provider,
-      mode: row.mode,
-      sessionId: row.session_id,
-      sessionName: row.session_name,
-      state: row.state as TaskRunRecord["state"],
-      workerBranch: row.worker_branch,
-      prUrl: row.pr_url,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      durationMs: row.duration_ms === null ? null : toNumber(row.duration_ms),
-    };
-  }
-
-  private mapTaskRunEventRow(row: TaskRunEventRow): TaskRunEventRecord {
-    return {
-      id: row.id,
-      taskRunId: row.task_run_id,
-      eventType: row.event_type,
-      originator: row.originator,
-      payload: parsePayloadJson(row.payload_json),
-      sourceEventKey: row.source_event_key,
-      createdAt: row.created_at,
-    };
-  }
-
-
-  private mapSprintRunEventRow(row: SprintRunEventRow): SprintRunEventRecord {
-    return {
-      id: row.id,
-      sprintRunId: row.sprint_run_id,
-      eventType: row.event_type,
-      originator: row.originator,
-      payload: parsePayloadJson(row.payload_json),
-      sourceEventKey: row.source_event_key,
-      createdAt: row.created_at,
-    };
-  }
-
-
-
-  private listActiveAttentionRowsForProject(projectId: string): ProjectAttentionSummaryRow[] {
-    return this.db.prepare(`
-      SELECT
-        id,
-        project_id,
-        sprint_id,
-        sprint_run_id,
-        attention_type,
-        severity,
-        owner_type,
-        status,
-        title,
-        summary_markdown,
-        payload_json,
-        updated_at
-      FROM project_attention_items
-      WHERE project_id = ?
-        AND status IN ('open', 'claimed')
-      ORDER BY updated_at DESC, opened_at DESC, id DESC
-    `).all(projectId) as unknown as ProjectAttentionSummaryRow[];
-  }
-
-  private compareExecutionTaskDispatchSummaryRows(
-    left: ExecutionTaskDispatchSummaryRow,
-    right: ExecutionTaskDispatchSummaryRow,
-  ): number {
-    const leftRecency = left.last_heartbeat_at || left.started_at || left.claimed_at || left.queued_at;
-    const rightRecency = right.last_heartbeat_at || right.started_at || right.claimed_at || right.queued_at;
-
-    return this.executionTaskDispatchStatusRank(left.status) - this.executionTaskDispatchStatusRank(right.status)
-      || toNumber(right.priority) - toNumber(left.priority)
-      || rightRecency.localeCompare(leftRecency)
-      || right.id.localeCompare(left.id);
-  }
-
-  private executionTaskDispatchStatusRank(status: string): number {
-    switch (status) {
-      case "running":
-        return 0;
-      case "cancel_requested":
-        return 1;
-      case "claimed":
-        return 2;
-      case "queued":
-        return 3;
-      case "blocked":
-        return 4;
-      case "failed":
-        return 5;
-      case "completed":
-        return 6;
-      default:
-        return 7;
-    }
-  }
-
-  private compareExecutionRuntimeEventSummaryRows(
-    left: ExecutionRuntimeEventSummaryRow,
-    right: ExecutionRuntimeEventSummaryRow,
-  ): number {
-    return right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id);
-  }
-
-  private notifyRealtime(projectId: string, includeOverview: boolean): void {
+  public notifyRealtime(projectId: string, includeOverview: boolean): void {
     const normalizedProjectId = String(projectId || "").trim();
     if (!normalizedProjectId || !this.realtimeNotifier) {
       return;
@@ -1439,14 +911,14 @@ export class ExecutionRepository {
     }
   }
 
-  private shouldPublishSprintRunUpdate(input: UpdateSprintRunInput): boolean {
+  public shouldPublishSprintRunUpdate(input: UpdateSprintRunInput): boolean {
     return input.status !== undefined
       || input.executorMode !== undefined
       || input.startedAt !== undefined
       || input.finishedAt !== undefined;
   }
 
-  private shouldPublishTaskDispatchUpdate(input: UpdateTaskDispatchInput): boolean {
+  public shouldPublishTaskDispatchUpdate(input: UpdateTaskDispatchInput): boolean {
     return input.connectionId !== undefined
       || input.status !== undefined
       || input.claimedAt !== undefined
@@ -1455,7 +927,7 @@ export class ExecutionRepository {
       || input.errorMessage !== undefined;
   }
 
-  private notifyRealtimeForLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): void {
+  public notifyRealtimeForLease(scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string): void {
     const projectId = this.resolveLeaseProjectId(scopeType, scopeId);
     if (projectId) {
       this.notifyRealtime(projectId, false);
