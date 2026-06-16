@@ -47,6 +47,10 @@ export const useOnboardingExperience = () => {
     return () => window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
   }, [resetOnboardingState]);
 
+  const handleNext = useCallback(() => { setActiveStep((c) => Math.min(steps.length - 1, c + 1)); }, []);
+  const handlePrev = useCallback(() => { setActiveStep((c) => Math.max(0, c - 1)); }, []);
+  const handleJump = useCallback((index: number) => { setActiveStep(index); }, []);
+
   const handleIntroExitStart = useCallback(() => {
     setIntroPhase("transitioning");
   }, []);
@@ -323,6 +327,9 @@ export const useOnboardingExperience = () => {
     introPhase,
     handleIntroExitStart,
     handleIntroComplete,
+    handleNext,
+    handlePrev,
+    handleJump,
     load,
     active,
     readinessByProvider,

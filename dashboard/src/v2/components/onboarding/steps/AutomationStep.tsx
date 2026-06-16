@@ -4,10 +4,12 @@ import { Choice, ToggleRow } from "./SharedComponents.js";
 
 interface AutomationStepProps {
   settings: SystemSettings | null;
-  updateSettings: (recipe: (current: SystemSettings) => SystemSettings) => void;
+  updateSettings: (recipe: (current: any) => any) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export const AutomationStep: FunctionComponent<AutomationStepProps> = ({ settings, updateSettings }) => {
+export const AutomationStep: FunctionComponent<AutomationStepProps> = ({ settings, updateSettings, onNext, onPrev }) => {
   if (!settings) return null;
   return (
     <div className="grid gap-4 md:grid-cols-2">

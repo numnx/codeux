@@ -6,12 +6,22 @@ import { SectionCard } from "../../settings/panels/SharedPanelComponents.js";
 
 interface GitStepProps {
   settings: SystemSettings | null;
-  updateSettings: (recipe: (current: SystemSettings) => SystemSettings) => void;
-  updateCliWorkflow: (updates: Partial<SystemSettings["defaults"]["cliWorkflow"]>) => void;
-  gitMode: ProjectSettings["cliWorkflow"]["gitMode"];
+  onSave: (updates: any) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
+  saving?: boolean;
+  error?: string | null;
 }
 
-export const GitStep: FunctionComponent<GitStepProps> = ({ settings, updateSettings, updateCliWorkflow, gitMode }) => {
+export const GitStep: FunctionComponent<GitStepProps> = ({ settings, onSave, onNext, onPrev, saving, error }) => {
+  const gitMode = settings?.defaults.cliWorkflow.gitMode || "remote";
+  const updateCliWorkflow = (updates: any) => {
+    if (onSave) onSave(updates);
+    else console.log("GitStep onSave is undefined!");
+  };
+  const updateSettings = (recipe: any) => {
+    if (settings && onSave) onSave(recipe(settings));
+  };
   if (!settings) return null;
   return (
     <div className="space-y-4">
@@ -35,6 +45,11 @@ export const GitStep: FunctionComponent<GitStepProps> = ({ settings, updateSetti
             </div>
           </div>
         </div>
+      </div>
+      <div className="flex justify-end pt-4 border-t border-codeux-border mt-6">
+        <button type="button" onClick={onNext} className="h-10 px-4 rounded-xl bg-codeux-primary text-codeux-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+          Next
+        </button>
       </div>
       {gitMode === "local" ? (
         <div data-onboarding-card className="flex items-start gap-3 rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">

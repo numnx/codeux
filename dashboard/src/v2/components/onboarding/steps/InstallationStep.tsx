@@ -7,9 +7,12 @@ interface InstallationStepProps {
   readiness: OnboardingRuntimeReadiness;
   load: () => Promise<void>;
   platform: string;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export const InstallationStep: FunctionComponent<InstallationStepProps> = ({ readiness, load, platform }) => {
+export const InstallationStep: FunctionComponent<InstallationStepProps> = (props) => {
+  const { readiness, load, platform } = props;
   return (
     <div className="space-y-4">
       <div data-onboarding-card className="rounded-[2rem] border border-black/[0.06] bg-white/75 p-6 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
@@ -112,6 +115,11 @@ export const InstallationStep: FunctionComponent<InstallationStepProps> = ({ rea
         <RefreshCw className="h-4 w-4" />
         Recheck
       </button>
+      <div className="flex justify-end pt-4 border-t border-codeux-border mt-6">
+        <button type="button" onClick={props.onNext} className="h-10 px-4 rounded-xl bg-codeux-primary text-codeux-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+          Next
+        </button>
+      </div>
     </div>
   );
 };

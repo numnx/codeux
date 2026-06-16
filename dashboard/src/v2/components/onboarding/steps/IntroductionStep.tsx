@@ -2,7 +2,7 @@ import type { FunctionComponent } from "preact";
 import { Sparkles, Github, Star, BookOpen, ShieldCheck, Library } from "lucide-preact";
 import { CODEUX_REPO_URL, LICENSE_TEXT } from "../onboarding-utils.js";
 
-export const IntroductionStep: FunctionComponent = () => {
+export const IntroductionStep: FunctionComponent<{onNext?: () => void}> = ({onNext}) => {
   return (
     <div className="space-y-4">
       <div data-onboarding-card className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-6 shadow-[0_18px_48px_rgba(15,23,42,0.055)] dark:border-white/[0.06] dark:bg-white/[0.045]">
@@ -80,6 +80,11 @@ export const IntroductionStep: FunctionComponent = () => {
             <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{LICENSE_TEXT}</pre>
           </div>
         </div>
+      </div>
+      <div className="flex justify-end pt-4 border-t border-codeux-border mt-6">
+        <button type="button" onClick={onNext} className="h-10 px-4 rounded-xl bg-codeux-primary text-codeux-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+          Next
+        </button>
       </div>
     </div>
   );

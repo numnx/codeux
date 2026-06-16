@@ -2,14 +2,6 @@ import type { FunctionComponent } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  RefreshCw,
-  Sparkles,
-  X,
-} from "lucide-preact";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { OnboardingIntro } from "./OnboardingIntro.js";
 import { InstallationStep } from "./steps/InstallationStep.js";
@@ -21,8 +13,9 @@ import { JiraStep } from "./steps/JiraStep.js";
 import { AutomationStep } from "./steps/AutomationStep.js";
 import { AppearanceStep } from "./steps/AppearanceStep.js";
 import { DefaultProvidersStep } from "./steps/DefaultProvidersStep.js";
-import { platform, steps } from "./onboarding-utils.js";
+import { steps } from "./onboarding-utils.js";
 import { useOnboardingExperience } from "../../hooks/useOnboardingExperience.js";
+import { Loader2, Check } from "lucide-preact";
 
 const DeepOceanBackground = lazy(async () => {
   const mod = await import("../chat/DeepOceanBackground.js");
@@ -30,708 +23,237 @@ const DeepOceanBackground = lazy(async () => {
 });
 
 export const OnboardingExperience: FunctionComponent = () => {
-  const navigate = useNavigate();
   const backdropRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLElement>(null);
-  const [open, setOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
-  const [readiness, setReadiness] = useState<OnboardingRuntimeReadiness>(defaultReadiness);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
-  const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [introPhase, setIntroPhase] = useState<IntroPhase>("intro");
   const reducedMotion = useReducedMotion();
+
   const {
-    state: onboardingUserState,
-    loading: onboardingStateLoading,
-    markCompleted: markOnboardingCompleted,
-    reset: resetOnboardingState,
-  } = useOnboardingState();
+    open,
+    activeStep,
+    readiness,
+    settings,
+    selectedProviders,
+    saving,
+    error,
+    introPhase,
+    handleIntroComplete,
+    handleIntroExitStart,
+    handleNext,
+    handlePrev,
+    handleJump,
+    setIntroPhase,
+    updateSettings,
+    load,
+    updateCliWorkflow,
+    applyAppearanceSettings,
+    addProviderInstance,
+    configureProviderInstance,
+    removeProviderInstance,
+    configureProjectProvider,
+    toggleProviderInstance,
+    completeSetup
+  } = useOnboardingExperience();
 
   useEffect(() => {
-    if (onboardingStateLoading) {
-      return;
-    }
-    setOpen(!onboardingUserState.completed);
-  }, [onboardingStateLoading, onboardingUserState.completed]);
+    load();
+  }, [load]);
 
   useEffect(() => {
-    const handleOpen = () => {
-      setActiveStep(0);
-      void resetOnboardingState();
-      setOpen(true);
-      setIntroPhase("intro");
-    };
-    window.addEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
-    return () => window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
-  }, [resetOnboardingState]);
+    if (!open || reducedMotion) return;
 
-  const handleIntroExitStart = () => {
-    setIntroPhase("transitioning");
-  };
+    gsap.fromTo(
+      backdropRef.current,
+      { opacity: 0, backdropFilter: "blur(0px)" },
+      { opacity: 1, backdropFilter: "blur(8px)", duration: 0.8, ease: "power2.out" }
+    );
 
-  const handleIntroComplete = () => {
-    setIntroPhase("onboarding");
-  };
-
-  const load = async () => {
-    try {
-      const [nextReadiness, nextSettings] = await Promise.all([
-        fetchOnboardingReadiness(),
-        fetchSystemSettings(),
-      ]);
-      setReadiness(nextReadiness);
-      setSettings(nextSettings);
-      setSelectedProviders((current) => current.length > 0 ? current : getProviderInitialSelection(nextReadiness.providers, nextSettings));
-      setError(null);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : String(loadError));
-    }
-  };
-
-  useEffect(() => {
-    if (open) {
-      void load();
-    }
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open || !shellRef.current) {
-      return;
-    }
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        backdropRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: reducedMotion ? 0 : MODAL_MOTION.backdrop.duration, ease: MODAL_MOTION.backdrop.ease },
-      );
-      gsap.fromTo(
-        shellRef.current,
-        {
-          opacity: MODAL_MOTION.entry.opacityStart,
-          y: reducedMotion ? 0 : MODAL_MOTION.entry.yStart,
-          scale: reducedMotion ? 1 : MODAL_MOTION.entry.scaleStart,
-          filter: reducedMotion ? MODAL_MOTION.entry.filterEnd : MODAL_MOTION.entry.filterStart,
-        },
-        {
-          opacity: MODAL_MOTION.entry.opacityEnd,
-          y: MODAL_MOTION.entry.yEnd,
-          scale: MODAL_MOTION.entry.scaleEnd,
-          filter: MODAL_MOTION.entry.filterEnd,
-          duration: reducedMotion ? 0 : 0.72,
-          ease: MODAL_MOTION.entry.ease,
-          clearProps: "filter",
-        },
-      );
-      if (sideRef.current) {
-        gsap.fromTo(
-          sideRef.current.querySelectorAll("[data-step-item], [data-sidebar-copy]"),
-          { opacity: 0, x: reducedMotion ? 0 : -18 },
-          { opacity: 1, x: 0, duration: reducedMotion ? 0 : 0.65, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out", delay: reducedMotion ? 0 : 0.12 },
-        );
-      }
-    });
-    return () => ctx.revert();
+    gsap.fromTo(
+      shellRef.current,
+      { opacity: 0, y: 40, scale: 0.95 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.6, delay: 0.2, ease: "back.out(1.2)" }
+    );
   }, [open, reducedMotion]);
 
-  useLayoutEffect(() => {
-    if (!contentRef.current) {
-      return;
-    }
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        contentRef.current!.querySelectorAll("[data-onboarding-card]"),
-        { opacity: 0, y: reducedMotion ? 0 : 22, scale: reducedMotion ? 1 : 0.985 },
-        { opacity: 1, y: 0, scale: 1, duration: reducedMotion ? 0 : 0.55, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out" },
-      );
-    });
-    return () => ctx.revert();
-  }, [activeStep, selectedProviders.length, settings, reducedMotion]);
+  useEffect(() => {
+    if (reducedMotion || introPhase === "intro") return;
 
-  const active = steps[activeStep] ?? steps[0]!;
-  const readinessByProvider = useMemo(
-    () => Object.fromEntries(readiness.providers.map((provider) => [provider.provider, provider])) as Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>,
-    [readiness.providers],
-  );
-  const selectedProviderTypes = useMemo(
-    () => PROVIDER_TYPES.filter((provider) => selectedProviders.includes(provider)),
-    [readiness.providers, selectedProviders],
-  );
+    gsap.fromTo(
+      contentRef.current,
+      { opacity: 0, x: 20 },
+      { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }
+    );
 
-  const updateSettings = (recipe: (current: SystemSettings) => SystemSettings) => {
-    setSettings((current) => current ? recipe(cloneSettings(current)) : current);
-  };
+    gsap.fromTo(
+      sideRef.current,
+      { opacity: 0, x: -20 },
+      { opacity: 1, x: 0, duration: 0.4, ease: "power2.out", delay: 0.1 }
+    );
+  }, [activeStep, introPhase, reducedMotion]);
 
-  const updateAppearance = (updates: Partial<SystemSettings["defaults"]["appearance"]>) => {
-    updateSettings((current) => {
-      const nextAppearance = {
-        ...current.defaults.appearance,
-        ...updates,
-      };
-      applyAppearanceSettings(nextAppearance);
-      return {
-        ...current,
-        defaults: {
-          ...current.defaults,
-          appearance: nextAppearance,
-        },
-      };
-    });
-  };
+  if (!open) return null;
 
-  const toggleProvider = (provider: ProviderId) => {
-    setSelectedProviders((current) => {
-      const nextSelected = current.includes(provider)
-        ? current.filter((item) => item !== provider)
-        : [...current, provider];
-      if (!current.includes(provider)) {
-        ensureProviderInstance(provider);
-      }
-      return nextSelected;
-    });
-  };
-
-  const updateIntegrationProviders = (
-    transform: (providers: SystemSettings["integrations"]["providers"]) => SystemSettings["integrations"]["providers"],
-  ) => {
-    updateSettings((current) => {
-      const nextProviders = transform({ ...current.integrations.providers });
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
-  };
-
-  const ensureProviderInstance = (provider: ProviderId): void => {
-    updateSettings((current) => {
-      if (Object.values(current.integrations.providers).some((entry) => entry.provider === provider)) {
-        return current;
-      }
-      const providerConfigId = provider;
-      const nextProviders = {
-        ...current.integrations.providers,
-        [providerConfigId]: createSystemProviderDraft(provider, providerLabels[provider]),
-      };
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
-  };
-
-  const addProviderInstance = (provider: ProviderId): void => {
-    const count = getSystemProvidersByType(settings, provider).length + 1;
-    const providerConfigId = buildProviderConfigId(provider);
-    const providerName = `${getProviderTypeLabel(provider)} ${count}`;
-    updateIntegrationProviders((providers) => ({
-      ...providers,
-      [providerConfigId]: createSystemProviderDraft(provider, providerName),
-    }));
-    setSelectedProviders((current) => current.includes(provider) ? current : [...current, provider]);
-  };
-
-  const removeProviderInstance = (providerConfigId: ProviderConfigId): void => {
-    updateIntegrationProviders((providers) => {
-      const nextProviders = { ...providers };
-      delete nextProviders[providerConfigId];
-      return nextProviders;
-    });
-  };
-
-  const configureProviderInstance = (
-    providerConfigId: ProviderConfigId,
-    updates: Partial<SystemSettings["integrations"]["providers"][ProviderConfigId]>,
-  ) => {
-    updateSettings((current) => {
-      const provider = current.integrations.providers[providerConfigId];
-      if (!provider) {
-        return current;
-      }
-      const nextProviders = {
-        ...current.integrations.providers,
-        [providerConfigId]: {
-          ...provider,
-          ...updates,
-        },
-      };
-      const mountField = providerMountFields[provider.provider];
-      const syncedDefaults = syncProjectProvidersToIntegrationCatalog(current, nextProviders);
-      if (mountField && updates.mountAuth !== undefined) {
-        syncedDefaults.cliWorkflow[mountField] = updates.mountAuth as never;
-      }
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncedDefaults,
-      };
-    });
-  };
-
-  const configureProjectProvider = (
-    providerConfigId: ProviderConfigId,
-    updates: Partial<ProjectSettings["aiProvider"]["providers"][ProviderConfigId]>,
-  ) => {
-    updateSettings((current) => {
-      const projectProvider = current.defaults.aiProvider.providers[providerConfigId];
-      if (!projectProvider) {
-        return current;
-      }
-      return {
-        ...current,
-        defaults: {
-          ...current.defaults,
-          aiProvider: {
-            ...current.defaults.aiProvider,
-            providers: {
-              ...current.defaults.aiProvider.providers,
-              [providerConfigId]: {
-                ...projectProvider,
-                ...updates,
-              },
-            },
-          },
-        },
-      };
-    });
-  };
-
-  const updateCliWorkflow = (updates: Partial<ProjectSettings["cliWorkflow"]>) => {
-    updateSettings((current) => ({
-      ...current,
-      defaults: {
-        ...current.defaults,
-        cliWorkflow: {
-          ...current.defaults.cliWorkflow,
-          ...updates,
-        },
-      },
-    }));
-  };
-
-  const updateJira = (updates: Partial<SystemSettings["integrations"]["jira"]>) => {
-    updateSettings((current) => ({
-      ...current,
-      integrations: {
-        ...current.integrations,
-        jira: {
-          ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
-          ...updates,
-        },
-      },
-    }));
-  };
-
-  const gitMode = settings?.defaults.cliWorkflow.gitMode === "local" ? "local" : "remote";
-
-  const applyAndClose = async () => {
-    if (!settings) {
-      await markOnboardingCompleted("complete");
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
-      await navigate({ to: "/" });
-      window.setTimeout(startDashboardTour, 260);
-      return;
-    }
-    setSaving(true);
-    try {
-      let nextSettings = cloneSettings(settings);
-      for (const provider of selectedProviderTypes) {
-        if (!Object.values(nextSettings.integrations.providers).some((entry) => entry.provider === provider)) {
-          nextSettings.integrations.providers[provider] = createSystemProviderDraft(provider, providerLabels[provider]);
-          nextSettings.defaults = syncProjectProvidersToIntegrationCatalog(nextSettings, nextSettings.integrations.providers);
-        }
-        const readinessStatus = readinessByProvider[provider];
-        const providerConfigIds = Object.entries(nextSettings.integrations.providers)
-          .filter(([, entry]) => entry.provider === provider)
-          .map(([providerConfigId]) => providerConfigId);
-        for (const providerConfigId of providerConfigIds) {
-          const integrationProvider = nextSettings.integrations.providers[providerConfigId];
-          const projectProvider = nextSettings.defaults.aiProvider.providers[providerConfigId];
-          const mountField = providerMountFields[provider];
-          if (integrationProvider && readinessStatus?.available && !integrationProvider.apiKey.trim()) {
-            nextSettings.integrations.providers[providerConfigId] = {
-              ...integrationProvider,
-              mountAuth: integrationProvider.mountAuth || provider !== "jules",
-              authPath: integrationProvider.authPath || readinessStatus.authPath,
-            };
-          }
-          if (projectProvider) {
-            nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-              ...projectProvider,
-              enabled: true,
-            };
-          }
-          if (mountField && readinessStatus?.available) {
-            nextSettings.defaults.cliWorkflow[mountField] = true as never;
-          }
-        }
-      }
-      for (const [providerConfigId, projectProvider] of Object.entries(nextSettings.defaults.aiProvider.providers)) {
-        if (!selectedProviderTypes.includes(projectProvider.provider)) {
-          nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-            ...projectProvider,
-            enabled: false,
-          };
-        }
-      }
-      nextSettings.defaults = syncProjectProvidersToIntegrationCatalog(nextSettings, nextSettings.integrations.providers);
-      for (const [providerConfigId, projectProvider] of Object.entries(nextSettings.defaults.aiProvider.providers)) {
-        nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-          ...projectProvider,
-          enabled: selectedProviderTypes.includes(projectProvider.provider),
-        };
-      }
-      // Respect the explicit worker provider picked on the Default providers step; only
-      // fall back to the first enabled CLI provider when that choice is no longer valid.
-      const firstSelectedCliProvider = Object.entries(nextSettings.defaults.aiProvider.providers)
-        .find(([, provider]) => provider.enabled && provider.provider !== "jules")?.[0];
-      const chosenWorker = nextSettings.defaults.workers.virtualWorkerProvider;
-      const chosenWorkerProvider = nextSettings.defaults.aiProvider.providers[chosenWorker];
-      const chosenWorkerValid = Boolean(chosenWorkerProvider?.enabled && chosenWorkerProvider.provider !== "jules");
-      if (!chosenWorkerValid && firstSelectedCliProvider) {
-        nextSettings.defaults.workers.virtualWorkerProvider = firstSelectedCliProvider;
-      }
-      nextSettings = await saveSystemSettings(nextSettings);
-      setSettings(nextSettings);
-      await markOnboardingCompleted("complete");
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
-      await navigate({ to: "/" });
-      window.setTimeout(startDashboardTour, 260);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!open) {
-    return null;
+  if (introPhase === "intro") {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center isolate">
+        <div ref={backdropRef} className="absolute inset-0 bg-codeux-background/80" />
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={null}>
+            <DeepOceanBackground forceDark className="opacity-80" />
+          </Suspense>
+        </div>
+        <div ref={shellRef} className="relative z-10 w-full max-w-4xl mx-auto px-4">
+          <OnboardingIntro onStart={handleIntroExitStart} onComplete={handleIntroComplete} />
+        </div>
+      </div>
+    );
   }
 
-  const stepNeedsSettings: StepId[] = ["provider-setup", "git", "jira", "automation", "appearance", "defaults"];
-  const canGoNext = !stepNeedsSettings.includes(active.id) || Boolean(settings);
-  const clusterReady = readiness.cluster.status === "ready";
-  const dockerExecutionEnabled = settings?.defaults.cliWorkflow.executionMode === "DOCKER";
-  const jiraSettings = settings?.integrations.jira || DEFAULT_JIRA_SETTINGS;
-  const enabledProviderInstances = settings
-    ? sortProviderConfigEntries(Object.entries(settings.defaults.aiProvider.providers))
-      .filter(([, provider]) => provider.enabled)
-    : [];
-  const providerInstanceOptions = enabledProviderInstances.map(([providerConfigId, provider]) => ({
-    value: providerConfigId,
-    label: getProviderInstanceLabel(provider),
-    icon: <ProviderBrandIcon id={provider.provider} />,
-  }));
-  const workerInstanceOptions = enabledProviderInstances
-    .filter(([, provider]) => provider.provider !== "jules")
-    .map(([providerConfigId, provider]) => ({
-      value: providerConfigId,
-      label: getProviderInstanceLabel(provider),
-      icon: <ProviderBrandIcon id={provider.provider} />,
-    }));
+  const currentStepInfo = steps[activeStep];
+  if (!currentStepInfo) return null;
+
+  const renderCurrentStep = () => {
+    switch (currentStepInfo.id) {
+      case "installation":
+        return <InstallationStep readiness={readiness} onNext={handleNext} onPrev={handlePrev} />;
+      case "intro":
+        return <IntroductionStep onNext={handleNext} />;
+      case "providers":
+        return (
+          <SelectProvidersStep
+            selectedProviders={selectedProviders}
+            onToggle={toggleProviderInstance}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "provider-setup":
+        return (
+          <ProviderSetupStep
+            selectedProviders={selectedProviders}
+            onProviderSetup={(id, updates) => configureProviderInstance(id, updates)}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            saving={saving}
+          />
+        );
+      case "git":
+        return (
+          <GitStep
+            settings={settings}
+            onSave={(updates) => updateCliWorkflow(updates)}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            saving={saving}
+            error={error}
+          />
+        );
+      case "jira":
+        return (
+          <JiraStep
+            settings={settings}
+            updateSettings={updateSettings}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "automation":
+        return (
+          <AutomationStep
+            settings={settings}
+            updateSettings={updateSettings}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "appearance":
+        return (
+          <AppearanceStep
+            settings={settings}
+            updateSettings={updateSettings}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "default-providers":
+        return (
+          <DefaultProvidersStep
+            selectedProviders={selectedProviders}
+            onNext={handleIntroComplete}
+            onPrev={handlePrev}
+            saving={saving}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <>
-      {introPhase !== "onboarding" && (
-        <OnboardingIntro onExitStart={handleIntroExitStart} onComplete={handleIntroComplete} />
-      )}
-      {introPhase !== "intro" && (
-    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060A0D] px-3 py-4 md:px-6 md:py-8">
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <Suspense fallback={<div className="absolute inset-0 bg-[#060A0D]" />}>
-          <DeepOceanBackground forceDark className="opacity-75 saturate-[0.86] contrast-[0.92]" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 isolate">
+      <div ref={backdropRef} className="absolute inset-0 bg-codeux-background/80" />
+      <div className="absolute inset-0 z-0">
+        <Suspense fallback={null}>
+          <DeepOceanBackground forceDark className="opacity-80" />
         </Suspense>
-        <div className="absolute inset-0 bg-[#05070B]/54 backdrop-blur-[1px]" />
-        <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgba(0,224,160,0.12),rgba(5,7,11,0.02)_58%,transparent)]" />
-        <div className="absolute inset-x-0 bottom-0 h-72 bg-[linear-gradient(0deg,rgba(255,184,0,0.08),rgba(5,7,11,0.02)_62%,transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_17%_16%,rgba(0,224,160,0.1),transparent_31%),radial-gradient(circle_at_80%_78%,rgba(255,184,0,0.075),transparent_34%),linear-gradient(115deg,rgba(255,255,255,0.055)_0%,transparent_20%,transparent_72%,rgba(0,224,160,0.05)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,7,10,0.18),rgba(4,7,10,0.62))]" />
       </div>
-      <section
+
+      <div
         ref={shellRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-        className="relative z-10 grid h-[calc(100vh-2rem)] max-h-[940px] min-h-0 w-full max-w-[1360px] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:h-[calc(100vh-4rem)] md:grid-cols-[330px_1fr]"
+        className="relative z-10 w-full max-w-5xl h-[80vh] min-h-[600px] flex overflow-hidden rounded-2xl border border-codeux-border bg-codeux-background/50 shadow-2xl backdrop-blur-xl"
       >
-        <div aria-hidden className="pointer-events-none absolute inset-0 z-20 rounded-[2rem] ring-1 ring-inset ring-white/10" />
-        <aside ref={sideRef} className="relative hidden h-full min-h-0 overflow-hidden border-r border-white/10 bg-[#0B0F14] p-7 text-white md:block">
-          <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(0,224,160,0.16),transparent_34%),linear-gradient(330deg,rgba(255,184,0,0.13),transparent_38%)]" />
-          <span className="pointer-events-none absolute -left-5 -top-3 select-none font-display text-[8rem] font-black leading-none tracking-tighter text-white/[0.035]">
-            RUN
-          </span>
-          <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-56 w-56 animate-organic bg-signal-500/[0.08]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
-            <div className="absolute h-40 w-40 animate-organic-reverse bg-ember-500/[0.12]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
-            <div className="absolute h-24 w-24 animate-organic bg-signal-500/[0.18]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
+        <div ref={sideRef} className="w-64 border-r border-codeux-border bg-codeux-muted/20 p-6 flex flex-col shrink-0">
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-codeux-foreground">Setup</h2>
+            <p className="text-sm text-codeux-muted-foreground mt-1">Configure your environment</p>
           </div>
-          <div className="absolute inset-x-7 top-24 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <div className="relative z-10">
-            <div data-sidebar-copy className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 shadow-[0_0_35px_rgba(0,224,160,0.12)]">
-              <Compass className="h-5 w-5 text-signal-300" />
-            </div>
-            <div data-sidebar-copy className="mt-8 text-[10px] font-bold uppercase tracking-[0.24em] text-signal-300">Code UX Setup</div>
-            <h2 data-sidebar-copy id="onboarding-title" className="mt-3 font-display text-5xl font-black leading-[0.9] tracking-tight text-white">
-              Make the runtime ready.
-            </h2>
-            <div data-sidebar-copy className="mt-5 text-sm font-medium leading-relaxed text-slate-300">
-              Configure containers, provider auth, automation, and the workspace shell before the first sprint starts.
-            </div>
-            <div data-sidebar-copy className="mt-6 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Providers</div>
-                <div className="mt-1 text-2xl font-black text-white">{selectedProviders.length}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Cluster</div>
-                <div className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${clusterReady ? "bg-signal-400/15 text-signal-200" : "bg-status-amber/15 text-status-amber"}`}>
-                  {clusterReady ? "Ready" : "Blocked"}
-                </div>
-              </div>
-            </div>
-            <div className="mt-8 space-y-2">
-              {[
-                {
-                  id: "installation",
-                  label: "Installation",
-                  icon: Box,
-                  active: activeStep === 0,
-                  complete: activeStep > 0,
-                  onClick: () => setActiveStep(0),
-                },
-                {
-                  id: "introduction",
-                  label: "Introduction",
-                  icon: ShieldCheck,
-                  active: activeStep === 1,
-                  complete: activeStep > 1,
-                  onClick: () => setActiveStep(1),
-                },
-                {
-                  id: "providers",
-                  label: "Select Providers",
-                  icon: Cpu,
-                  active: activeStep === 2,
-                  complete: activeStep > 2,
-                  onClick: () => setActiveStep(2),
-                },
-                {
-                  id: "configure-flow",
-                  label:
-                    activeStep === 3 ? "Providers (1/4)"
-                    : activeStep === 4 ? "Git (2/4)"
-                    : activeStep === 5 ? "Jira (3/4)"
-                    : activeStep === 6 ? "Default providers (4/4)"
-                    : "Providers (1/4)",
-                  icon: Settings,
-                  active: activeStep >= 3 && activeStep <= 6,
-                  complete: activeStep > 6,
-                  onClick: () => {
-                    setActiveStep(activeStep >= 3 && activeStep <= 6 ? activeStep : 3);
-                  },
-                },
-                {
-                  id: "automation",
-                  label: "Automation",
-                  icon: Sparkles,
-                  active: activeStep === 7,
-                  complete: activeStep > 7,
-                  onClick: () => setActiveStep(7),
-                },
-                {
-                  id: "appearance",
-                  label: "Appearance",
-                  icon: Monitor,
-                  active: activeStep === 8,
-                  complete: activeStep > 8,
-                  onClick: () => setActiveStep(8),
-                },
-              ].map((step) => {
-                const StepIcon = step.icon;
-                const activeItem = step.active;
-                const complete = step.complete;
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-1">
+              {steps.map((step, index) => {
+                const isActive = index === activeStep;
+                const isPast = index < activeStep;
+
                 return (
                   <button
                     key={step.id}
-                    data-step-item
                     type="button"
-                    onClick={step.onClick}
-                    className={`group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-[background-color,border-color,transform] hover:translate-x-1 ${
-                      activeItem ? "border-white/30 bg-white text-slate-950 shadow-[0_16px_40px_rgba(0,0,0,0.18)]" : "border-white/0 text-slate-300 hover:border-white/10 hover:bg-white/8 hover:text-white"
-                    }`}
+                    onClick={() => handleJump(index)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full text-left ${isActive ? "bg-codeux-primary/10 text-codeux-primary" : isPast ? "text-codeux-foreground" : "text-codeux-muted-foreground"}`}
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeItem ? "bg-signal-500/14 text-signal-700" : complete ? "bg-signal-400/15 text-signal-300" : "bg-white/8 text-slate-300"}`}>
-                      {complete ? <Check className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                    <div className={`flex items-center justify-center w-6 h-6 rounded-full border text-xs font-medium ${isActive ? "border-codeux-primary bg-codeux-primary/20 text-codeux-primary" : isPast ? "border-codeux-primary bg-codeux-primary text-codeux-primary-foreground" : "border-codeux-border bg-codeux-muted/50"}`}>
+                      {isPast ? <Check className="w-3.5 h-3.5" /> : index + 1}
+                    </div>
+                    <span className={`text-sm font-medium ${isActive ? "text-codeux-primary" : ""}`}>
+                      {step.label}
                     </span>
-                    <span className="text-sm font-bold">{step.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-        </aside>
-
-        <div className="relative flex h-full max-h-full min-h-0 flex-col overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.38),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0))] dark:bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015)_34%,rgba(255,255,255,0))]" />
-          <header className="relative flex shrink-0 items-center justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06] md:px-8">
-            <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-signal-500/30 to-transparent" />
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                {activeStep < 3 ? `Step ${activeStep + 1} of 6`
-                  : activeStep >= 3 && activeStep <= 6 ? `Step 4 of 6 (${activeStep - 2}/4)`
-                  : `Step ${activeStep - 2} of 6`}
-              </div>
-              <h3 className="mt-1 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{active.label}</h3>
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await markOnboardingCompleted("cancel");
-                window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-                setOpen(false);
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-black/[0.05] hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 dark:hover:bg-white/[0.06] dark:hover:text-white"
-              aria-label="Close onboarding"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </header>
-
-          <main ref={contentRef} className="dashboard-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 dark:text-slate-100 md:px-8">
-            {error ? (
-              <div className="mb-4 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red">
-                {error}
-              </div>
-            ) : null}
-
-
-            {active.id === "installation" && <InstallationStep readiness={readiness} load={load} platform={platform} />}
-            {active.id === "introduction" && <IntroductionStep />}
-            {active.id === "providers" && <SelectProvidersStep selectedProviders={selectedProviders} toggleProvider={toggleProvider} readinessByProvider={readinessByProvider} settings={settings} />}
-            {active.id === "provider-setup" && <ProviderSetupStep selectedProviderTypes={selectedProviderTypes} settings={settings} readinessByProvider={readinessByProvider} addProviderInstance={addProviderInstance} configureProviderInstance={configureProviderInstance} removeProviderInstance={removeProviderInstance} configureProjectProvider={configureProjectProvider} dockerExecutionEnabled={dockerExecutionEnabled} />}
-            {active.id === "git" && settings && <GitStep settings={settings} updateSettings={updateSettings} updateCliWorkflow={updateCliWorkflow} gitMode={gitMode} />}
-            {active.id === "jira" && settings && <JiraStep settings={settings} jiraSettings={jiraSettings} updateJira={updateJira} />}
-            {active.id === "automation" && settings && <AutomationStep settings={settings} updateSettings={updateSettings} />}
-            {active.id === "appearance" && settings && <AppearanceStep settings={settings} updateAppearance={updateAppearance} />}
-            {active.id === "defaults" && settings && <DefaultProvidersStep settings={settings} updateSettings={updateSettings} enabledProviderInstances={enabledProviderInstances} providerInstanceOptions={providerInstanceOptions} workerInstanceOptions={workerInstanceOptions} />}
-          </main>
-
-          <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-black/[0.06] bg-white/45 px-5 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-950/28 md:px-8">
-            <button
-              type="button"
-              disabled={activeStep === 0}
-              onClick={() => setActiveStep((step: number) => Math.max(0, step - 1))}
-              className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <div className="flex items-center gap-2">
-              {[
-                { active: activeStep === 0, onClick: () => setActiveStep(0), label: "Installation" },
-                { active: activeStep === 1, onClick: () => setActiveStep(1), label: "Introduction" },
-                { active: activeStep === 2, onClick: () => setActiveStep(2), label: "Select Providers" },
-                { active: activeStep >= 3 && activeStep <= 6, onClick: () => setActiveStep(activeStep >= 3 && activeStep <= 6 ? activeStep : 3), label: "Providers" },
-                { active: activeStep === 7, onClick: () => setActiveStep(7), label: "Automation" },
-                { active: activeStep === 8, onClick: () => setActiveStep(8), label: "Appearance" },
-              ].map((dot, idx) => (
-                <button
-                  key={`dot-${idx}`}
-                  type="button"
-                  aria-label={`Go to ${dot.label}`}
-                  onClick={dot.onClick}
-                  className={`h-2 rounded-full transition-all ${dot.active ? "w-8 bg-signal-500" : "w-2 bg-slate-300 dark:bg-slate-700"}`}
-                />
-              ))}
-            </div>
-            {activeStep === steps.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => void applyAndClose()}
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
-              >
-                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Finish
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={!canGoNext}
-                onClick={() => setActiveStep((step: number) => Math.min(steps.length - 1, step + 1))}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
-              >
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
-          </footer>
         </div>
-      </section>
+
+        <div className="flex-1 flex flex-col min-w-0 bg-codeux-background">
+          <div className="flex items-center justify-between px-8 py-6 border-b border-codeux-border">
+            <div>
+              <h1 className="text-xl font-semibold text-codeux-foreground">{currentStepInfo.label}</h1>
+              <p className="text-sm text-codeux-muted-foreground mt-1">{currentStepInfo.description}</p>
+            </div>
+            {saving && (
+              <div className="flex items-center gap-2 text-sm text-codeux-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            )}
+          </div>
+
+          <div ref={contentRef} className="flex-1 overflow-y-auto p-8">
+            {renderCurrentStep()}
+          </div>
+        </div>
+      </div>
     </div>
-      )}
-    </>
   );
 };
-
-const Choice: FunctionComponent<{
-  title: string;
-  value: string;
-  options: Array<[string, string]>;
-  onChange: (value: string) => void;
-}> = ({ title, value, options, onChange }) => (
-  <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-    <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
-    <div className="mt-4 flex flex-wrap gap-2">
-      {options.map(([optionValue, label]) => (
-        <button
-          key={optionValue}
-          type="button"
-          onClick={() => onChange(optionValue)}
-          className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-colors ${value === optionValue ? "border-signal-500/30 bg-signal-500/12 text-signal-700 dark:text-signal-200" : "border-black/[0.06] bg-white text-slate-500 hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300"}`}
-        >
-          {value === optionValue ? <Check className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          {label}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const ToggleRow: FunctionComponent<{
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}> = ({ title, description, checked, onChange }) => (
-  <div data-onboarding-card className="flex items-center justify-between gap-4 rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-    <div>
-      <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
-      <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
-    </div>
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors ${checked ? "border-signal-500/30 bg-signal-500" : "border-black/[0.12] bg-slate-200 dark:border-white/[0.12] dark:bg-white/[0.08]"}`}
-      aria-pressed={checked}
-    >
-      <span className={`absolute left-1 top-1 block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
-    </button>
-  </div>
-);
