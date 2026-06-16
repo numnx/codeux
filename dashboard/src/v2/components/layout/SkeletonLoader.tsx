@@ -1,5 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 const Shimmer = () => (
   <div
@@ -7,23 +8,61 @@ const Shimmer = () => (
   />
 );
 
-export const SkeletonLoader: FunctionComponent<{ show: boolean; children: ComponentChildren; className?: string }> = ({ show, children, className }) => {
-  const [shouldRender, setShouldRender] = useState(show);
+export const SkeletonLoader: FunctionComponent<{
+  show: boolean;
+  children?: ComponentChildren;
+  skeleton?: ComponentChildren;
+  className?: string;
+}> = ({ show, children, skeleton, className }) => {
+  const [renderSkeleton, setRenderSkeleton] = useState(show);
+  const [renderChildren, setRenderChildren] = useState(!show);
+  const isReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (show) {
-      setShouldRender(true);
+      setRenderSkeleton(true);
+      if (isReducedMotion) {
+        setRenderChildren(false);
+      } else {
+        const timeout = setTimeout(() => setRenderChildren(false), 200);
+        return () => clearTimeout(timeout);
+      }
     } else {
-      const timeout = setTimeout(() => setShouldRender(false), 200);
-      return () => clearTimeout(timeout);
+      setRenderChildren(true);
+      if (isReducedMotion) {
+        setRenderSkeleton(false);
+      } else {
+        const timeout = setTimeout(() => setRenderSkeleton(false), 200);
+        return () => clearTimeout(timeout);
+      }
     }
-  }, [show]);
+  }, [show, isReducedMotion]);
 
-  if (!shouldRender) return null;
+  const durationClass = isReducedMotion ? "duration-0" : "duration-200";
 
   return (
-    <div className={`transition-opacity duration-200 ease-in-out pointer-events-none ${show ? 'opacity-100' : 'opacity-0'} ${className || ''}`}>
-      {children}
+    <div
+      className={`grid grid-cols-1 grid-rows-1 ${className || ""}`}
+      aria-busy={show}
+    >
+      {renderSkeleton && (
+        <div
+          className={`col-start-1 row-start-1 transition-opacity ${durationClass} ease-in-out ${
+            show ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {skeleton || children}
+        </div>
+      )}
+      {renderChildren && children && (
+        <div
+          className={`col-start-1 row-start-1 transition-opacity ${durationClass} ease-in-out ${
+            !show ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 };
@@ -31,7 +70,6 @@ export const SkeletonLoader: FunctionComponent<{ show: boolean; children: Compon
 export const SkeletonRow: FunctionComponent = () => (
   <div
     className="relative overflow-hidden flex h-16 w-full items-center gap-4 rounded-2xl border border-black/[0.04] bg-black/[0.02] px-5 dark:border-white/[0.04] dark:bg-white/[0.02]"
-    aria-busy="true"
   >
     <Shimmer />
     <span className="sr-only">Loading row...</span>
@@ -45,7 +83,6 @@ export const SkeletonRow: FunctionComponent = () => (
 export const SkeletonCard: FunctionComponent = () => (
   <div
     className="skeleton-card-entry relative overflow-hidden flex h-40 w-full flex-col gap-4 rounded-[1.25rem] border border-black/[0.04] bg-black/[0.02] p-5 dark:border-white/[0.04] dark:bg-white/[0.02]"
-    aria-busy="true"
   >
     <Shimmer />
     <span className="sr-only">Loading card...</span>
@@ -67,7 +104,6 @@ export const SkeletonCard: FunctionComponent = () => (
 export const SkeletonPanel: FunctionComponent = () => (
   <div
     className="skeleton-panel-entry relative overflow-hidden flex h-64 w-full flex-col gap-6 rounded-[1.75rem] border border-black/[0.04] bg-black/[0.02] p-7 dark:border-white/[0.04] dark:bg-white/[0.02]"
-    aria-busy="true"
   >
     <Shimmer />
     <span className="sr-only">Loading panel...</span>
