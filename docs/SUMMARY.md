@@ -47,6 +47,7 @@
 - [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
 - [Instruction Template System](./instructions/markdown-template-system.md)
 - [Dashboard Guide](./dashboard/dashboard-guide.md)
+- [Dashboard Accessibility Patterns](./dashboard/dashboard-guide.md#accessibility-patterns)
 - [Dashboard Onboarding](./dashboard/onboarding.md)
 - [Project Initialization](./dashboard/project-initialization.md)
 - [Sprint Imports](./dashboard/sprint-imports.md)
