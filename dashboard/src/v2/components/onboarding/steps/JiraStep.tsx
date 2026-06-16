@@ -9,9 +9,11 @@ interface JiraStepProps {
   settings: SystemSettings | null;
   jiraSettings: SystemSettings["integrations"]["jira"];
   updateJira: (updates: Partial<SystemSettings["integrations"]["jira"]>) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export const JiraStep: FunctionComponent<JiraStepProps> = ({ settings, jiraSettings, updateJira }) => {
+export const JiraStep: FunctionComponent<JiraStepProps> = ({ settings, jiraSettings, updateJira, onNext, onPrev }) => {
   if (!settings) return null;
   return (
     <div className="space-y-4">
@@ -49,6 +51,11 @@ export const JiraStep: FunctionComponent<JiraStepProps> = ({ settings, jiraSetti
             <Toggle value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
           </Row>
         </SectionCard>
+      </div>
+      <div className="flex justify-end pt-4 border-t border-codeux-border mt-6">
+        <button type="button" onClick={onNext} className="h-10 px-4 rounded-xl bg-codeux-primary text-codeux-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+          Next
+        </button>
       </div>
     </div>
   );

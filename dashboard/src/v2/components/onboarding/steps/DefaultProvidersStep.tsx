@@ -12,6 +12,9 @@ interface DefaultProvidersStepProps {
   enabledProviderInstances: Array<[ProviderConfigId, SystemSettings["integrations"]["providers"][ProviderConfigId]]>;
   providerInstanceOptions: Array<{ value: string; label: string }>;
   workerInstanceOptions: Array<{ value: string; label: string }>;
+  onNext?: () => void;
+  onPrev?: () => void;
+  saving?: boolean;
 }
 
 export const DefaultProvidersStep: FunctionComponent<DefaultProvidersStepProps> = ({
@@ -20,6 +23,9 @@ export const DefaultProvidersStep: FunctionComponent<DefaultProvidersStepProps> 
   enabledProviderInstances,
   providerInstanceOptions,
   workerInstanceOptions,
+  onNext,
+  onPrev,
+  saving,
 }) => {
   if (!settings) return null;
   return (

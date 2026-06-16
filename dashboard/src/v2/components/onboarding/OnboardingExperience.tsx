@@ -24,9 +24,9 @@ const DeepOceanBackground = lazy(async () => {
 
 export const OnboardingExperience: FunctionComponent = () => {
   const backdropRef = useRef<HTMLDivElement>(null);
-  const shellRef = useRef<HTMLElement>(null);
-  const sideRef = useRef<HTMLElement>(null);
-  const contentRef = useRef<HTMLElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
 
   const {
@@ -46,7 +46,11 @@ export const OnboardingExperience: FunctionComponent = () => {
     setIntroPhase,
     updateSettings,
     load,
+    readinessByProvider,
+    selectedProviderTypes,
     updateCliWorkflow,
+    updateJira,
+    applyAppearanceSettings: updateAppearance,
     applyAppearanceSettings,
     addProviderInstance,
     configureProviderInstance,
@@ -104,7 +108,7 @@ export const OnboardingExperience: FunctionComponent = () => {
           </Suspense>
         </div>
         <div ref={shellRef} className="relative z-10 w-full max-w-4xl mx-auto px-4">
-          <OnboardingIntro onStart={handleIntroExitStart} onComplete={handleIntroComplete} />
+          <OnboardingIntro onExitStart={handleIntroExitStart} onComplete={handleIntroComplete} />
         </div>
       </div>
     );
@@ -116,14 +120,16 @@ export const OnboardingExperience: FunctionComponent = () => {
   const renderCurrentStep = () => {
     switch (currentStepInfo.id) {
       case "installation":
-        return <InstallationStep readiness={readiness} onNext={handleNext} onPrev={handlePrev} />;
-      case "intro":
+        return <InstallationStep readiness={readiness} load={load} platform={window.navigator.userAgent} onNext={handleNext} onPrev={handlePrev} />;
+      case "introduction":
         return <IntroductionStep onNext={handleNext} />;
       case "providers":
         return (
           <SelectProvidersStep
             selectedProviders={selectedProviders}
-            onToggle={toggleProviderInstance}
+            toggleProvider={toggleProviderInstance}
+            readinessByProvider={readinessByProvider}
+            settings={settings}
             onNext={handleNext}
             onPrev={handlePrev}
           />
@@ -131,8 +137,14 @@ export const OnboardingExperience: FunctionComponent = () => {
       case "provider-setup":
         return (
           <ProviderSetupStep
-            selectedProviders={selectedProviders}
-            onProviderSetup={(id, updates) => configureProviderInstance(id, updates)}
+            selectedProviderTypes={selectedProviderTypes}
+            settings={settings}
+            readinessByProvider={readinessByProvider}
+            addProviderInstance={addProviderInstance}
+            configureProviderInstance={configureProviderInstance}
+            removeProviderInstance={removeProviderInstance}
+            configureProjectProvider={configureProjectProvider as any}
+            dockerExecutionEnabled={readiness.cluster?.status === "ready"}
             onNext={handleNext}
             onPrev={handlePrev}
             saving={saving}
@@ -153,7 +165,8 @@ export const OnboardingExperience: FunctionComponent = () => {
         return (
           <JiraStep
             settings={settings}
-            updateSettings={updateSettings}
+            jiraSettings={settings?.integrations.jira!}
+            updateJira={updateJira}
             onNext={handleNext}
             onPrev={handlePrev}
           />
@@ -171,15 +184,19 @@ export const OnboardingExperience: FunctionComponent = () => {
         return (
           <AppearanceStep
             settings={settings}
-            updateSettings={updateSettings}
+            updateAppearance={updateAppearance}
             onNext={handleNext}
             onPrev={handlePrev}
           />
         );
-      case "default-providers":
+      case "defaults":
         return (
           <DefaultProvidersStep
-            selectedProviders={selectedProviders}
+            settings={settings}
+            updateSettings={updateSettings}
+            enabledProviderInstances={Object.entries(settings?.integrations.providers || {})}
+            providerInstanceOptions={Object.entries(settings?.integrations.providers || {}).map(([id, p]) => ({ value: id, label: id }))}
+            workerInstanceOptions={Object.entries(settings?.integrations.providers || {}).map(([id, p]) => ({ value: id, label: id }))}
             onNext={handleIntroComplete}
             onPrev={handlePrev}
             saving={saving}
@@ -239,7 +256,7 @@ export const OnboardingExperience: FunctionComponent = () => {
           <div className="flex items-center justify-between px-8 py-6 border-b border-codeux-border">
             <div>
               <h1 className="text-xl font-semibold text-codeux-foreground">{currentStepInfo.label}</h1>
-              <p className="text-sm text-codeux-muted-foreground mt-1">{currentStepInfo.description}</p>
+              <p className="text-sm text-codeux-muted-foreground mt-1">{currentStepInfo.label}</p>
             </div>
             {saving && (
               <div className="flex items-center gap-2 text-sm text-codeux-muted-foreground">

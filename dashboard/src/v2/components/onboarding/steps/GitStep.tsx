@@ -66,7 +66,7 @@ export const GitStep: FunctionComponent<GitStepProps> = ({ settings, onSave, onN
               <Row label="GitHub token" description="System token used for GitHub repository, pull request, and CI integration.">
                 <TextInput
                   value={settings.integrations.githubToken || ""}
-                  onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, githubToken: value } }))}
+                  onChange={(value) => updateSettings((current: any) => ({ ...current, integrations: { ...current.integrations, githubToken: value } }))}
                   mono
                 />
               </Row>
@@ -91,7 +91,7 @@ export const GitStep: FunctionComponent<GitStepProps> = ({ settings, onSave, onN
               <Row label="GitLab token" description="System token used for GitLab repository, merge request, and CI integration." last>
                 <TextInput
                   value={(settings.integrations as any).gitlabToken || ""}
-                  onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, gitlabToken: value } }))}
+                  onChange={(value) => updateSettings((current: any) => ({ ...current, integrations: { ...current.integrations, gitlabToken: value } }))}
                   mono
                 />
               </Row>

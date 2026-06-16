@@ -14,6 +14,9 @@ interface ProviderSetupStepProps {
   removeProviderInstance: (providerConfigId: ProviderConfigId) => void;
   configureProjectProvider: (providerConfigId: ProviderConfigId, updates: { enabled: boolean }) => void;
   dockerExecutionEnabled: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
+  saving?: boolean;
 }
 
 export const ProviderSetupStep: FunctionComponent<ProviderSetupStepProps> = ({
@@ -25,6 +28,9 @@ export const ProviderSetupStep: FunctionComponent<ProviderSetupStepProps> = ({
   removeProviderInstance,
   configureProjectProvider,
   dockerExecutionEnabled,
+  onNext,
+  onPrev,
+  saving,
 }) => {
   if (!settings) return null;
   return (

@@ -9,9 +9,11 @@ interface SelectProvidersStepProps {
   toggleProvider: (providerId: ProviderId) => void;
   readinessByProvider: Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>;
   settings: SystemSettings | null;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export const SelectProvidersStep: FunctionComponent<SelectProvidersStepProps> = ({ selectedProviders, toggleProvider, readinessByProvider, settings }) => {
+export const SelectProvidersStep: FunctionComponent<SelectProvidersStepProps> = ({ selectedProviders, toggleProvider, readinessByProvider, settings, onNext, onPrev }) => {
   return (
     <div className="space-y-4">
       <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">

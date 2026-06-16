@@ -345,5 +345,9 @@ export const useOnboardingExperience = () => {
     configureProviderInstance,
     removeProviderInstance,
     configureProjectProvider,
+    setIntroPhase,
+    applyAppearanceSettings: updateAppearance,
+    toggleProviderInstance: toggleProvider,
+    completeSetup: applyAndClose,
   };
 };

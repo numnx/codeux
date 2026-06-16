@@ -5,9 +5,11 @@ import { PillChoiceGroup, SelectInput } from "../../settings/SettingsFormFields.
 interface AppearanceStepProps {
   settings: SystemSettings | null;
   updateAppearance: (updates: Partial<SystemSettings["defaults"]["appearance"]>) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export const AppearanceStep: FunctionComponent<AppearanceStepProps> = ({ settings, updateAppearance }) => {
+export const AppearanceStep: FunctionComponent<AppearanceStepProps> = ({ settings, updateAppearance, onNext, onPrev }) => {
   if (!settings) return null;
   return (
     <div className="space-y-6">
@@ -124,6 +126,11 @@ export const AppearanceStep: FunctionComponent<AppearanceStepProps> = ({ setting
             </div>
           )}
         </div>
+            </div>
+      <div className="flex justify-end pt-4 border-t border-codeux-border mt-6">
+        <button type="button" onClick={onNext} className="h-10 px-4 rounded-xl bg-codeux-primary text-codeux-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+          Next
+        </button>
       </div>
     </div>
   );
