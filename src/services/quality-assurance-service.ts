@@ -1167,9 +1167,11 @@ export class QualityAssuranceService {
     subtasks: Subtask[];
     currentTask: Subtask | null;
   }): string {
+    const isTaskLevelReview = args.triggerType === "task_completion" || args.triggerType === "completed_task_without_pr";
+    const reviewScopeInstructions = buildReviewScopeInstructions(args.triggerType, args.currentTask);
     const currentTaskSection = args.currentTask
       ? [
-        "## CURRENT TASK",
+        isTaskLevelReview ? "## CURRENT TASK UNDER REVIEW" : "## CURRENT TASK",
         `Task key: ${args.currentTask.id}`,
         `Title: ${args.currentTask.title}`,
         `Status: ${args.currentTask.status || "unknown"}`,
@@ -1187,6 +1189,9 @@ export class QualityAssuranceService {
         "## CURRENT TASK",
         "No single task is preselected. If fixes are required, choose the best target task from the sprint task list and return its task key in `targetTaskKey`.",
       ];
+    const fullTaskInstructionsHeading = isTaskLevelReview
+      ? "## FULL TASK INSTRUCTIONS (SPRINT CONTEXT; ONLY CURRENT TASK IS UNDER REVIEW)"
+      : "## FULL TASK INSTRUCTIONS";
     const fullTaskContextSections = args.subtasks.map((task) => [
       `### ${task.id}: ${task.title}`,
       `Status: ${task.status || "unknown"}`,
@@ -1211,6 +1216,9 @@ export class QualityAssuranceService {
       `Trigger: ${args.triggerType}`,
       triggerReviewModeDescription(args.triggerType),
       "",
+      "## REVIEW SCOPE",
+      reviewScopeInstructions,
+      "",
       "## PROJECT CONTEXT",
       `Project: ${args.projectName}`,
       `Sprint goal: ${args.sprintGoal || "No sprint goal provided."}`,
@@ -1220,7 +1228,7 @@ export class QualityAssuranceService {
         `- [${task.status || "unknown"}] ${task.id}: ${task.title} | provider=${task.provider || "unknown"} | branch=${task.worker_branch || "none"} | pr=${task.pr_url || "none"}`
       )).join("\n"),
       "",
-      "## FULL TASK INSTRUCTIONS",
+      fullTaskInstructionsHeading,
       fullTaskContextSections.join("\n\n"),
       "",
       ...currentTaskSection,
@@ -1249,6 +1257,8 @@ export class QualityAssuranceService {
       "Rules:",
       "- `summary` must be concise and factual.",
       "- If `verdict` is `changes_requested`, `fixInstructions` must tell the coding session exactly what to fix next.",
+      "- For task-level reviews, review only the current task and return `targetTaskKey` as the current task key when changes are required.",
+      "- For task-level reviews, keep `followUpTasks` empty unless this prompt explicitly asks you to create follow-up sprint tasks.",
       "- For sprint completion reviews, set `targetTaskKey` to the best task to continue when changes are required.",
       "- For sprint completion reviews, use `followUpTasks` when the required work should become new sprint tasks instead of only resuming one existing session.",
       "- Every `followUpTasks[].promptMarkdown` entry must contain the full task instructions, not just a short summary.",
@@ -1773,6 +1783,31 @@ export class QualityAssuranceService {
       sourcePath: args.sourceRunId,
     }));
   }
+}
+
+function buildReviewScopeInstructions(triggerType: QaReviewTriggerType, currentTask: Subtask | null): string {
+  if (triggerType === "sprint_completion") {
+    return [
+      "- This is a full sprint review. Evaluate the combined sprint outcome against the sprint goal and all task instructions.",
+      "- You may request fixes for cross-task integration issues, missing sprint deliverables, or regressions that affect the completed sprint.",
+      "- Use `targetTaskKey` or `followUpTasks` to route required work according to the output rules.",
+    ].join("\n");
+  }
+
+  const currentTaskKey = currentTask?.id || "the current task";
+  const dependencyList = currentTask?.depends_on?.length ? currentTask.depends_on.join(", ") : "none";
+
+  return [
+    `- This is a single-task QA review. The only task under review is ${currentTaskKey}.`,
+    "- Treat `SPRINT TASKS` and non-current entries in `FULL TASK INSTRUCTIONS` as context only, not as deliverables for this review.",
+    "- Assume the current workspace/branch contains only the current task's changes on top of its base branch. Independent sibling tasks may be completed in separate branches or PRs and may be absent here.",
+    "- A task-level review must pass when the current task satisfies its own prompt, even if other completed sprint tasks are not present in this branch.",
+    "- Do not request changes because files, commits, PRs, or behavior from other completed sibling tasks are missing from this branch.",
+    "- Do not tell the coding session to implement, restore, or modify another task's scope.",
+    "- Compare the implementation against the current task prompt, its declared scope, and regressions directly introduced by the current task.",
+    `- Current task dependencies: ${dependencyList}. Use dependencies only to understand the current task contract; do not require unrelated sibling task deliverables.`,
+    "- If changes are required, write `fixInstructions` only for the current task's coding session and set `targetTaskKey` to the current task key.",
+  ].join("\n");
 }
 
 function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string {

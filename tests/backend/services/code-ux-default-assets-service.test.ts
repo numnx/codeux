@@ -24,6 +24,7 @@ describe("Code UX default assets service", () => {
 
     await fs.mkdir(path.join(projectRoot, ".code-ux", "agents"), { recursive: true });
     await fs.mkdir(path.join(projectRoot, ".code-ux", "container"), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, ".code-ux", "quicksprints", "templates"), { recursive: true });
 
     for (const fileName of ["planning_agent.md", "project_manager.md", "quality_assurance_agent.md", "worker.md"]) {
       await fs.writeFile(
@@ -33,6 +34,17 @@ describe("Code UX default assets service", () => {
       );
     }
     await fs.writeFile(path.join(projectRoot, ".code-ux", "container", "setup.sh"), "#!/usr/bin/env bash\necho setup\n", "utf8");
+    await fs.writeFile(
+      path.join(projectRoot, ".code-ux", "quicksprints", "templates", "qs-default.md"),
+      `---json\n${JSON.stringify({
+        id: "qs-default",
+        name: "Default Quicksprint",
+        description: "Default quicksprint template",
+        icon: "Sparkles",
+        category: "engineering",
+      }, null, 2)}\n---\nPlan default work.\n`,
+      "utf8",
+    );
 
     await fs.mkdir(path.join(homeDir, ".code-ux", "agents"), { recursive: true });
     await fs.writeFile(path.join(homeDir, ".code-ux", "agents", "worker.md"), "custom worker\n", "utf8");
@@ -47,9 +59,11 @@ describe("Code UX default assets service", () => {
       "agents/project_manager.md",
       "agents/quality_assurance_agent.md",
       "container/setup.sh",
+      "quicksprints/templates/qs-default.md",
     ]);
     await expect(fs.readFile(path.join(homeDir, ".code-ux", "agents", "worker.md"), "utf8")).resolves.toBe("custom worker\n");
     await expect(fs.readFile(path.join(homeDir, ".code-ux", "agents", "planning_agent.md"), "utf8")).resolves.toBe("default planning_agent.md\n");
     await expect(fs.readFile(path.join(homeDir, ".code-ux", "container", "setup.sh"), "utf8")).resolves.toContain("echo setup");
+    await expect(fs.readFile(path.join(homeDir, ".code-ux", "quicksprints", "templates", "qs-default.md"), "utf8")).resolves.toContain("Default Quicksprint");
   });
 });

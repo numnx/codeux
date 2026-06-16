@@ -155,6 +155,68 @@ describe("QualityAssuranceService", () => {
     expect(prompt).toContain('"followUpTasks"');
   });
 
+  it("builds task review prompts that scope QA to only the current task branch", async () => {
+    const service = new QualityAssuranceService({
+      projectManagementRepository: {} as any,
+      executionRepository: {} as any,
+      guardrailService: qaGuardrailStub(),
+      sessionTracking: {} as any,
+      qaReviewRepository: {} as any,
+      taskService: {} as any,
+      agentPresetSyncService: {} as any,
+      providerRunner: {} as any,
+      getDashboardSettings: () => DEFAULT_DASHBOARD_SETTINGS,
+      getGithubToken: () => undefined,
+      sendSessionMessage: async () => ({}),
+    });
+
+    const currentTask = {
+      id: "T01",
+      title: "Update alpha.md",
+      prompt: "Write exactly one line to alpha.md.",
+      depends_on: [],
+      is_independent: true,
+      status: "CODING_COMPLETED",
+      provider: "qwen-code",
+      worker_branch: "task/update-alpha",
+      pr_url: "https://example.test/pull/1",
+      activities: [],
+    };
+    const prompt = (service as any).buildReviewPrompt({
+      triggerType: "task_completion",
+      projectName: "Smoke Sprint",
+      sprintGoal: "Update five markdown files.",
+      agentInstructions: "Review critically.",
+      subtasks: [
+        currentTask,
+        {
+          id: "T02",
+          title: "Update beta.md",
+          prompt: "Write exactly one line to beta.md.",
+          depends_on: [],
+          is_independent: true,
+          status: "COMPLETED",
+          provider: "qwen-code",
+          worker_branch: "task/update-beta",
+          pr_url: "https://example.test/pull/2",
+          activities: [],
+        },
+      ],
+      currentTask,
+    });
+
+    expect(prompt).toContain("## REVIEW SCOPE");
+    expect(prompt).toContain("This is a single-task QA review. The only task under review is T01.");
+    expect(prompt).toContain("## FULL TASK INSTRUCTIONS (SPRINT CONTEXT; ONLY CURRENT TASK IS UNDER REVIEW)");
+    expect(prompt).toContain("## CURRENT TASK UNDER REVIEW");
+    expect(prompt).toContain("Assume the current workspace/branch contains only the current task's changes on top of its base branch.");
+    expect(prompt).toContain("A task-level review must pass when the current task satisfies its own prompt");
+    expect(prompt).toContain("Do not request changes because files, commits, PRs, or behavior from other completed sibling tasks are missing from this branch.");
+    expect(prompt).toContain("Do not tell the coding session to implement, restore, or modify another task's scope.");
+    expect(prompt).toContain("For task-level reviews, review only the current task and return `targetTaskKey` as the current task key when changes are required.");
+    expect(prompt).toContain("Write exactly one line to beta.md.");
+  });
+
   it("creates sprint follow-up tasks from QA output", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "qa-service-"));
     tempDirs.push(dir);
