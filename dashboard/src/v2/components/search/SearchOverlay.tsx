@@ -208,6 +208,9 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
             />
 
             <div
+                role="dialog"
+                aria-label="Search"
+                aria-modal="true"
                 ref={containerRef}
                 className={anchorRef ? "flex flex-col bg-white dark:bg-void-800 rounded-2xl shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)]" : "relative w-full max-w-4xl mx-auto flex flex-col bg-white dark:bg-void-800 rounded-2xl shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)]"}
                 style={anchorRef ? modalStyle : {}}

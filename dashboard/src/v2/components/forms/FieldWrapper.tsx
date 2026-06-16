@@ -3,19 +3,22 @@ import { useEffect, useState, useId } from "preact/hooks";
 import { FormError } from "./FormError";
 
 export interface FieldWrapperProps {
+  helperTextId?: string;
   label: string;
   error?: string;
-  helperText?: string;
+  helperText?: ComponentChildren;
   children: ComponentChildren;
   htmlFor?: string;
   required?: boolean;
 }
 
-export function FieldWrapper({ label, error, helperText, children, htmlFor, required }: FieldWrapperProps) {
+export function FieldWrapper({ label, error, children, htmlFor, required, helperTextId, helperText }: FieldWrapperProps) {
   const [shake, setShake] = useState(false);
   const [previousError, setPreviousError] = useState<string | undefined>(undefined);
   const generatedId = useId();
   const inputId = htmlFor ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const actualHelperId = helperText ? (helperTextId || `${inputId}-helper`) : helperTextId;
 
   useEffect(() => {
     if (error && error !== previousError) {
@@ -30,15 +33,19 @@ export function FieldWrapper({ label, error, helperText, children, htmlFor, requ
     }
   }, [error]);
 
-  const errorId = error ? `${inputId}-error` : undefined;
-  const helperId = helperText ? `${inputId}-helper` : undefined;
+  // Combine multiple aria-describedby ids if needed
+  let ariaDescribedBy: string | undefined = undefined;
+  const ids = [actualHelperId, error ? errorId : undefined].filter(Boolean);
+  if (ids.length > 0) {
+    ariaDescribedBy = ids.join(' ');
+  }
 
   // Clone children to append aria attributes if valid
   const child = isValidElement(children) ? cloneElement(children as VNode<any>, {
     id: inputId,
-    "aria-invalid": !!error ? "true" : undefined,
-    ...(errorId ? { "aria-errormessage": errorId } : {}),
-    ...(helperId ? { "aria-describedby": helperId } : {}),
+    "aria-invalid": error ? "true" : undefined,
+    ...(ariaDescribedBy ? { "aria-describedby": ariaDescribedBy } : {}),
+    "aria-errormessage": errorId,
     ...(required ? { "aria-required": true } : {}),
   }) : children;
 
@@ -64,7 +71,7 @@ export function FieldWrapper({ label, error, helperText, children, htmlFor, requ
           {child}
         </div>
       </div>
-      <FormError error={error} id={errorId} helperText={helperText} helperId={helperId} />
+      <FormError error={error} id={errorId} helperText={helperText as string} helperId={actualHelperId} />
     </div>
   );
 }

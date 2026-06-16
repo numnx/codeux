@@ -10,6 +10,7 @@ import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { NavItem } from "./NavItem.js";
 import { useAnimatedActiveIndicator } from "../../lib/motion/index.js";
 import { RobotLogo } from "../brand/RobotLogo.js";
+import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 
 const ALL_NAV_ITEMS = [
     { icon: MessageCircle, label: "Chat",     path: "/chat" },
@@ -47,6 +48,8 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
         }
         return false;
     });
+
+    const trapRef = useFocusTrap(!!isMobile && !!isOpen, { onClose: isMobile ? onClose : undefined, restoreFocus: true });
 
     const browserVisible = !selectedProject || (
         (effectiveSettings?.settings.sprintPreview.enabled ?? true)
@@ -144,7 +147,10 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
         <aside
             id="primary-navigation"
             aria-label="Primary Navigation"
-            ref={sidebarRef}
+            role={isMobile ? "dialog" : undefined}
+            aria-modal={isMobile ? "true" : undefined}
+            tabIndex={-1}
+            ref={(el) => { (sidebarRef as any).current = el; (trapRef as any).current = el; }}
             className={`${isMobile ? 'h-[100dvh]' : 'h-full'} shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 z-50 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
                 isMobile 
                     ? 'fixed left-0 top-0 w-[260px] -translate-x-full opacity-0 shadow-2xl bg-[#F5F3EF] dark:bg-void-900 overflow-y-auto overflow-x-hidden'

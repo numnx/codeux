@@ -40,9 +40,10 @@ describe("FieldWrapper", () => {
     expect(helperText).toBeInTheDocument();
 
     const expectedHelperId = helperText.id;
+    const expectedErrorId = `${input?.id}-error`;
 
     expect(input?.getAttribute("aria-describedby")).toBe(expectedHelperId);
-    expect(input?.hasAttribute("aria-errormessage")).toBe(false);
+    expect(input?.getAttribute("aria-errormessage")).toBe(expectedErrorId);
     expect(input?.hasAttribute("aria-invalid")).toBe(false);
 
     // Add error
@@ -57,7 +58,7 @@ describe("FieldWrapper", () => {
     expect(errorText).toBeInTheDocument();
     expect(inputAfter?.getAttribute("aria-invalid")).toBe("true");
     expect(inputAfter?.getAttribute("aria-errormessage")).toBe(errorText.id);
-    expect(inputAfter?.getAttribute("aria-describedby")).toBe(expectedHelperId);
+    expect(inputAfter?.getAttribute("aria-describedby")).toBe(`${expectedHelperId} ${errorText.id}`);
   });
 
   it("triggers shake only when error changes to a new truthy value", async () => {
