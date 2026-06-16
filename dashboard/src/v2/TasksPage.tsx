@@ -54,6 +54,21 @@ const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "coding_completed"
 
 type StatusFilter = "all" | TaskStatus;
 type PriorityFilter = "all" | TaskPriority;
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "in_progress", label: "Running" },
+  { value: "pending", label: "Queued" },
+  { value: "completed", label: "Done" },
+] as const;
+
+const PRIORITY_FILTER_OPTIONS = [
+  { value: "all", label: "Any Priority" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+] as const;
 type TaskScopePlaceholderMode = "project" | "sprint";
 
 const TaskScopePlaceholder: FunctionComponent<{
@@ -721,24 +736,13 @@ export const TasksPage: FunctionComponent = () => {
           <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} sprintKeyPrefix={sprintKeyPrefix} />
 
           <FilterStrip
-            options={[
-              { value: "all", label: "All" },
-              { value: "in_progress", label: "Running" },
-              { value: "pending", label: "Queued" },
-              { value: "completed", label: "Done" },
-            ]}
+            options={STATUS_FILTER_OPTIONS}
             active={statusFilter}
             onChange={(val) => setStatusFilter(val as StatusFilter)}
           />
 
           <FilterStrip
-            options={[
-              { value: "all", label: "Any Priority" },
-              { value: "critical", label: "Critical" },
-              { value: "high", label: "High" },
-              { value: "medium", label: "Medium" },
-              { value: "low", label: "Low" },
-            ]}
+            options={PRIORITY_FILTER_OPTIONS}
             active={priorityFilter}
             onChange={(val) => setPriorityFilter(val as PriorityFilter)}
           />

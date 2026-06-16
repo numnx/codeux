@@ -300,6 +300,10 @@ export function useSprintsPageData() {
     return filterShowcaseSprints(sortedSprints);
   }, [sortedSprints]);
 
+  const sprintsById = useMemo(() => {
+    return new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
+  }, [sprints]);
+
   const completedCount = useMemo(() => (
     sortedSprints.filter((sprint) => sprint.status === "completed").length
   ), [sortedSprints]);
@@ -641,14 +645,13 @@ export function useSprintsPageData() {
     if (!selectedProject) return;
     try {
       const taskRecords = await fetchTasks(selectedProject.id, sprint.id);
-      const sprintsById = new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
       const tasks = taskRecords.map((t) => toTaskViewModel(t, new Map(), sprintsById));
       setAddTaskSprintTasks(tasks);
       setAddTaskForSprint(sprint);
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [selectedProject, sprints, setError]);
+  }, [selectedProject, sprintsById, setError]);
 
   const handleAppendTask = useCallback(async (draft: {
     sprintId: string;
@@ -666,10 +669,9 @@ export function useSprintsPageData() {
     // Refresh the task list for the modal so new task appears in dependencies
     if (addTaskForSprint) {
       const taskRecords = await fetchTasks(selectedProject.id, addTaskForSprint.id);
-      const sprintsById = new Map<string, Sprint>(sprints.map((s: Sprint) => [s.id, s]));
       setAddTaskSprintTasks(taskRecords.map((t) => toTaskViewModel(t, new Map(), sprintsById)));
     }
-  }, [addTaskForSprint, refresh, selectedProject, sprints]);
+  }, [addTaskForSprint, refresh, selectedProject, sprintsById]);
 
   const handleDeleteSprint = useCallback(async (sprintId: string) => {
     await deleteSprint(sprintId);

@@ -383,8 +383,8 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
   const startPosRef = useRef({ x: 0, y: 0 });
   const startScrollRef = useRef({ left: 0, top: 0 });
   const [isDraggingState, setIsDraggingState] = useState(false);
-  const safeTasks = Array.isArray(tasks) ? tasks : [];
-  const safeDispatches = Array.isArray(dispatches) ? dispatches : [];
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
 
   const model = useMemo(() => buildSprintDagModel(safeTasks), [safeTasks]);
 
