@@ -5,12 +5,13 @@ import { FormError } from "./FormError";
 export interface FieldWrapperProps {
   label: string;
   error?: string;
+  helperText?: string;
   children: ComponentChildren;
   htmlFor?: string;
   required?: boolean;
 }
 
-export function FieldWrapper({ label, error, children, htmlFor, required }: FieldWrapperProps) {
+export function FieldWrapper({ label, error, helperText, children, htmlFor, required }: FieldWrapperProps) {
   const [shake, setShake] = useState(false);
   const [previousError, setPreviousError] = useState<string | undefined>(undefined);
   const generatedId = useId();
@@ -24,18 +25,20 @@ export function FieldWrapper({ label, error, children, htmlFor, required }: Fiel
       }, 400); // Must be slightly longer than animation duration
       setPreviousError(error);
       return () => clearTimeout(timer);
-    } else if (!error) {
+    } else if (!error && previousError !== undefined) {
       setPreviousError(undefined);
     }
-  }, [error, previousError]);
+  }, [error]);
 
   const errorId = error ? `${inputId}-error` : undefined;
+  const helperId = helperText ? `${inputId}-helper` : undefined;
 
   // Clone children to append aria attributes if valid
   const child = isValidElement(children) ? cloneElement(children as VNode<any>, {
     id: inputId,
-    "aria-invalid": !!error,
+    "aria-invalid": !!error ? "true" : undefined,
     ...(errorId ? { "aria-errormessage": errorId } : {}),
+    ...(helperId ? { "aria-describedby": helperId } : {}),
     ...(required ? { "aria-required": true } : {}),
   }) : children;
 
@@ -61,7 +64,7 @@ export function FieldWrapper({ label, error, children, htmlFor, required }: Fiel
           {child}
         </div>
       </div>
-      <FormError error={error} id={errorId} />
+      <FormError error={error} id={errorId} helperText={helperText} helperId={helperId} />
     </div>
   );
 }
