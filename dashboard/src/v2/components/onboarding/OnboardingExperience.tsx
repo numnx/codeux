@@ -1,1625 +1,276 @@
 import type { FunctionComponent } from "preact";
 import { lazy, Suspense } from "preact/compat";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
-import { useNavigate } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Box,
-  Check,
-  ChevronRight,
-  ClipboardList,
-  Compass,
-  Cpu,
-  BookOpen,
-  FolderOpen,
-  GitBranch,
-  Github,
-  Info,
-  KeyRound,
-  Layers,
-  Library,
-  Monitor,
-  Plus,
-  RefreshCw,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  X,
-} from "lucide-preact";
-import { fetchOnboardingReadiness } from "../../../lib/api/dashboard-api.js";
-import { fetchSystemSettings, saveSystemSettings } from "../../lib/settings-api.js";
-import { ONBOARDING_OPEN_EVENT, ONBOARDING_STORAGE_KEY, startDashboardTour } from "../../lib/onboarding-control.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { useOnboardingState } from "../../hooks/useOnboardingState.js";
-import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import { OnboardingIntro } from "./OnboardingIntro.js";
-import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
-import { ProviderInstanceCard } from "../settings/ProviderInstanceCard.js";
-import { PillChoiceGroup, Row, SelectInput, TextInput, Toggle } from "../settings/SettingsFormFields.js";
-import { applyAppearanceSettings } from "../../lib/apply-appearance.js";
-import { SectionCard } from "../settings/panels/SharedPanelComponents.js";
-import { JiraIcon } from "../icons/JiraIcon.js";
-
-type IntroPhase = "intro" | "transitioning" | "onboarding";
-import type { OnboardingProviderCredentialStatus, OnboardingRuntimeReadiness, ProviderConfigId, ProviderId, ProjectSettings, SystemSettings } from "../../../types.js";
-import {
-  createProjectProviderDraft,
-  createSystemProviderDraft,
-  getProviderInstanceLabel,
-  getProviderTypeLabel,
-  sortProviderConfigEntries,
-} from "../../lib/settings-view-models.js";
-
-const CODEUX_REPO_URL = "https://github.com/codeux-ai/codeux";
-
-const LICENSE_TEXT = `MIT License
-
-Copyright (c) 2026 Pierre Voss
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`;
+import { InstallationStep } from "./steps/InstallationStep.js";
+import { IntroductionStep } from "./steps/IntroductionStep.js";
+import { SelectProvidersStep } from "./steps/SelectProvidersStep.js";
+import { ProviderSetupStep } from "./steps/ProviderSetupStep.js";
+import { GitStep } from "./steps/GitStep.js";
+import { JiraStep } from "./steps/JiraStep.js";
+import { AutomationStep } from "./steps/AutomationStep.js";
+import { AppearanceStep } from "./steps/AppearanceStep.js";
+import { DefaultProvidersStep } from "./steps/DefaultProvidersStep.js";
+import { steps } from "./onboarding-utils.js";
+import { useOnboardingExperience } from "../../hooks/useOnboardingExperience.js";
+import { Loader2, Check } from "lucide-preact";
 
 const DeepOceanBackground = lazy(async () => {
   const mod = await import("../chat/DeepOceanBackground.js");
   return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
 
-type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "git" | "jira" | "defaults" | "automation" | "appearance";
-
-const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
-  { id: "installation", label: "Installation", icon: Box },
-  { id: "introduction", label: "Introduction", icon: ShieldCheck },
-  { id: "providers", label: "Select Providers", icon: Cpu },
-  { id: "provider-setup", label: "Providers", icon: Settings },
-  { id: "git", label: "Git", icon: GitBranch },
-  { id: "jira", label: "Jira", icon: ClipboardList },
-  { id: "defaults", label: "Default providers", icon: Layers },
-  { id: "automation", label: "Automation", icon: Sparkles },
-  { id: "appearance", label: "Appearance", icon: Monitor },
-];
-
-const DEFAULT_JIRA_SETTINGS: SystemSettings["integrations"]["jira"] = {
-  host: "",
-  email: "",
-  apiToken: "",
-  autoCloseLinkedIssues: false,
-  defaultProject: "",
-  closeTransitionName: "Done",
-};
-
-const providerMountFields: Partial<Record<ProviderId, keyof SystemSettings["defaults"]["cliWorkflow"]>> = {
-  gemini: "containerMountGeminiAuth",
-  codex: "containerMountCodexAuth",
-  "claude-code": "containerMountClaudeCodeAuth",
-  "qwen-code": "containerMountQwenCodeAuth",
-  opencode: "containerMountOpenCodeAuth",
-  antigravity: "containerMountAntigravityAuth",
-};
-
-const providerLabels: Record<ProviderId, string> = {
-  jules: "Jules",
-  gemini: "Gemini",
-  codex: "Codex",
-  "claude-code": "Claude Code",
-  "qwen-code": "Qwen Code",
-  opencode: "OpenCode",
-  antigravity: "Antigravity",
-};
-
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "codex", "claude-code", "qwen-code", "opencode"];
-
-const providerDescriptions: Record<ProviderId, string> = {
-  jules: "Google Jules API service for agent session and workspace orchestration.",
-  gemini: "Gemini CLI with local OAuth auth-copy or API-key based execution.",
-  codex: "Codex CLI for OpenAI-powered local container execution.",
-  "claude-code": "Claude Code CLI with local auth-copy or provider API key.",
-  "qwen-code": "Qwen Code CLI with OAuth, Alibaba Coding Plan, or custom model provider config.",
-  opencode: "OpenCode CLI with local auth, provider keys, or OpenAI-compatible endpoints.",
-  antigravity: "Antigravity CLI (agy) for Google-powered local container execution.",
-};
-
-const getProviderWatermark = (providerId: ProviderId): string => (
-  providerId === "jules" ? "JLS"
-    : providerId === "gemini" ? "GMN"
-      : providerId === "codex" ? "CDX"
-        : providerId === "qwen-code" ? "QWN"
-          : providerId === "opencode" ? "OPC"
-            : providerId === "antigravity" ? "AGY"
-              : "CLD"
-);
-
-const buildProviderConfigId = (providerId: ProviderId): ProviderConfigId => (
-  `${providerId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-);
-
-const defaultReadiness: OnboardingRuntimeReadiness = {
-  checkedAt: "",
-  cluster: {
-    status: "not_ready",
-    label: "Checking",
-    detail: "Runtime checks are loading.",
-  },
-  dependencies: [],
-  providers: [],
-};
-
-const getProviderInitialSelection = (
-  providers: OnboardingProviderCredentialStatus[],
-  settings: SystemSettings,
-): ProviderId[] => {
-  const detected = providers
-    .filter((provider) => provider.available || provider.mountEnabled)
-    .map((provider) => provider.provider);
-  const enabled = Object.values(settings.defaults.aiProvider.providers)
-    .filter((provider) => provider.enabled)
-    .map((provider) => provider.provider);
-  return Array.from(new Set<ProviderId>(["jules", ...enabled, ...detected]));
-};
-
-const cloneSettings = (settings: SystemSettings): SystemSettings => JSON.parse(JSON.stringify(settings)) as SystemSettings;
-
-const getSystemProvidersByType = (
-  settings: SystemSettings | null,
-  providerId: ProviderId,
-): Array<[ProviderConfigId, SystemSettings["integrations"]["providers"][ProviderConfigId]]> => (
-  sortProviderConfigEntries(Object.entries(settings?.integrations.providers || {})
-    .filter(([, provider]) => provider.provider === providerId) as Array<[ProviderConfigId, SystemSettings["integrations"]["providers"][ProviderConfigId]]>)
-);
-
-const getFirstCliProviderConfigId = (providers: ProjectSettings["aiProvider"]["providers"]): ProviderConfigId | null => (
-  Object.entries(providers).find(([, provider]) => provider.provider !== "jules")?.[0] || null
-);
-
-const syncProjectProvidersToIntegrationCatalog = (
-  settings: SystemSettings,
-  nextIntegrationProviders: SystemSettings["integrations"]["providers"],
-): ProjectSettings => {
-  const nextProjectProviders = Object.fromEntries(
-    Object.entries(nextIntegrationProviders).map(([providerConfigId, provider]) => [
-      providerConfigId,
-      settings.defaults.aiProvider.providers[providerConfigId]
-        ? {
-          ...settings.defaults.aiProvider.providers[providerConfigId],
-          provider: provider.provider,
-          name: provider.name,
-        }
-        : createProjectProviderDraft(provider.provider, provider.name),
-    ]),
-  ) as ProjectSettings["aiProvider"]["providers"];
-
-  const nextInvocationRouting = Object.fromEntries(
-    Object.entries(settings.defaults.aiProvider.invocationRouting).map(([routeId, route]) => [
-      routeId,
-      {
-        ...route,
-        provider: route.provider && nextProjectProviders[route.provider] ? route.provider : null,
-        allowedProviders: route.allowedProviders.filter((providerConfigId) => nextProjectProviders[providerConfigId]),
-        providers: Object.fromEntries(
-          Object.entries(route.providers).filter(([providerConfigId]) => nextProjectProviders[providerConfigId]),
-        ),
-      },
-    ]),
-  ) as ProjectSettings["aiProvider"]["invocationRouting"];
-
-  const fallbackGlobalProvider = settings.defaults.aiProvider.provider && nextProjectProviders[settings.defaults.aiProvider.provider]
-    ? settings.defaults.aiProvider.provider
-    : Object.keys(nextProjectProviders)[0] || null;
-  const fallbackWorkerProvider = nextProjectProviders[settings.defaults.workers.virtualWorkerProvider]
-    ? settings.defaults.workers.virtualWorkerProvider
-    : getFirstCliProviderConfigId(nextProjectProviders) || fallbackGlobalProvider || settings.defaults.workers.virtualWorkerProvider;
-
-  return {
-    ...settings.defaults,
-    aiProvider: {
-      ...settings.defaults.aiProvider,
-      provider: fallbackGlobalProvider,
-      providers: nextProjectProviders,
-      invocationRouting: nextInvocationRouting,
-    },
-    workers: {
-      ...settings.defaults.workers,
-      virtualWorkerProvider: fallbackWorkerProvider,
-    },
-  };
-};
-
-const platform = (typeof window !== "undefined" && window.codeUxDesktop?.platform) || "linux";
-
-const getOSInfo = (plat: string) => {
-  const isMac = plat === "darwin";
-  const isWindows = plat === "win32";
-
-  let osLabel = "Linux";
-  if (isMac) osLabel = "macOS";
-  if (isWindows) osLabel = "Windows";
-
-  const dockerDesktopLink = isMac
-    ? "https://docs.docker.com/desktop/install/mac-install/"
-    : isWindows
-    ? "https://docs.docker.com/desktop/install/windows-install/"
-    : "https://docs.docker.com/desktop/install/linux-install/";
-
-  const dockerDownloadLink = isMac
-    ? "https://www.docker.com/products/docker-desktop/"
-    : isWindows
-    ? "https://www.docker.com/products/docker-desktop/"
-    : "https://docs.docker.com/engine/install/";
-
-  const gitLink = isMac
-    ? "https://git-scm.com/download/mac"
-    : isWindows
-    ? "https://git-scm.com/download/win"
-    : "https://git-scm.com/download/linux";
-
-  const gitInstruction = isMac
-    ? "Install via Homebrew: brew install git"
-    : isWindows
-    ? "Run the Git for Windows installer."
-    : "Install via apt or dnf: sudo apt install git";
-
-  return {
-    osLabel,
-    dockerDesktopLink,
-    dockerDownloadLink,
-    gitLink,
-    gitInstruction,
-  };
-};
-
 export const OnboardingExperience: FunctionComponent = () => {
-  const navigate = useNavigate();
   const backdropRef = useRef<HTMLDivElement>(null);
-  const shellRef = useRef<HTMLElement>(null);
-  const sideRef = useRef<HTMLElement>(null);
-  const contentRef = useRef<HTMLElement>(null);
-  const [open, setOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
-  const [readiness, setReadiness] = useState<OnboardingRuntimeReadiness>(defaultReadiness);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
-  const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [introPhase, setIntroPhase] = useState<IntroPhase>("intro");
+  const shellRef = useRef<HTMLDivElement>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
+
   const {
-    state: onboardingUserState,
-    loading: onboardingStateLoading,
-    markCompleted: markOnboardingCompleted,
-    reset: resetOnboardingState,
-  } = useOnboardingState();
+    open,
+    activeStep,
+    readiness,
+    settings,
+    selectedProviders,
+    saving,
+    error,
+    introPhase,
+    handleIntroComplete,
+    handleIntroExitStart,
+    handleNext,
+    handlePrev,
+    handleJump,
+    setIntroPhase,
+    updateSettings,
+    load,
+    readinessByProvider,
+    selectedProviderTypes,
+    updateCliWorkflow,
+    updateJira,
+    applyAppearanceSettings: updateAppearance,
+    applyAppearanceSettings,
+    addProviderInstance,
+    configureProviderInstance,
+    removeProviderInstance,
+    configureProjectProvider,
+    toggleProviderInstance,
+    completeSetup
+  } = useOnboardingExperience();
 
   useEffect(() => {
-    if (onboardingStateLoading) {
-      return;
-    }
-    setOpen(!onboardingUserState.completed);
-  }, [onboardingStateLoading, onboardingUserState.completed]);
+    load();
+  }, [load]);
 
   useEffect(() => {
-    const handleOpen = () => {
-      setActiveStep(0);
-      void resetOnboardingState();
-      setOpen(true);
-      setIntroPhase("intro");
-    };
-    window.addEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
-    return () => window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
-  }, [resetOnboardingState]);
+    if (!open || reducedMotion) return;
 
-  const handleIntroExitStart = () => {
-    setIntroPhase("transitioning");
-  };
+    gsap.fromTo(
+      backdropRef.current,
+      { opacity: 0, backdropFilter: "blur(0px)" },
+      { opacity: 1, backdropFilter: "blur(8px)", duration: 0.8, ease: "power2.out" }
+    );
 
-  const handleIntroComplete = () => {
-    setIntroPhase("onboarding");
-  };
-
-  const load = async () => {
-    try {
-      const [nextReadiness, nextSettings] = await Promise.all([
-        fetchOnboardingReadiness(),
-        fetchSystemSettings(),
-      ]);
-      setReadiness(nextReadiness);
-      setSettings(nextSettings);
-      setSelectedProviders((current) => current.length > 0 ? current : getProviderInitialSelection(nextReadiness.providers, nextSettings));
-      setError(null);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : String(loadError));
-    }
-  };
-
-  useEffect(() => {
-    if (open) {
-      void load();
-    }
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open || !shellRef.current) {
-      return;
-    }
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        backdropRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: reducedMotion ? 0 : MODAL_MOTION.backdrop.duration, ease: MODAL_MOTION.backdrop.ease },
-      );
-      gsap.fromTo(
-        shellRef.current,
-        {
-          opacity: MODAL_MOTION.entry.opacityStart,
-          y: reducedMotion ? 0 : MODAL_MOTION.entry.yStart,
-          scale: reducedMotion ? 1 : MODAL_MOTION.entry.scaleStart,
-          filter: reducedMotion ? MODAL_MOTION.entry.filterEnd : MODAL_MOTION.entry.filterStart,
-        },
-        {
-          opacity: MODAL_MOTION.entry.opacityEnd,
-          y: MODAL_MOTION.entry.yEnd,
-          scale: MODAL_MOTION.entry.scaleEnd,
-          filter: MODAL_MOTION.entry.filterEnd,
-          duration: reducedMotion ? 0 : 0.72,
-          ease: MODAL_MOTION.entry.ease,
-          clearProps: "filter",
-        },
-      );
-      if (sideRef.current) {
-        gsap.fromTo(
-          sideRef.current.querySelectorAll("[data-step-item], [data-sidebar-copy]"),
-          { opacity: 0, x: reducedMotion ? 0 : -18 },
-          { opacity: 1, x: 0, duration: reducedMotion ? 0 : 0.65, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out", delay: reducedMotion ? 0 : 0.12 },
-        );
-      }
-    });
-    return () => ctx.revert();
+    gsap.fromTo(
+      shellRef.current,
+      { opacity: 0, y: 40, scale: 0.95 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.6, delay: 0.2, ease: "back.out(1.2)" }
+    );
   }, [open, reducedMotion]);
 
-  useLayoutEffect(() => {
-    if (!contentRef.current) {
-      return;
-    }
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        contentRef.current!.querySelectorAll("[data-onboarding-card]"),
-        { opacity: 0, y: reducedMotion ? 0 : 22, scale: reducedMotion ? 1 : 0.985 },
-        { opacity: 1, y: 0, scale: 1, duration: reducedMotion ? 0 : 0.55, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out" },
-      );
-    });
-    return () => ctx.revert();
-  }, [activeStep, selectedProviders.length, settings, reducedMotion]);
+  useEffect(() => {
+    if (reducedMotion || introPhase === "intro") return;
 
-  const active = steps[activeStep] ?? steps[0]!;
-  const readinessByProvider = useMemo(
-    () => Object.fromEntries(readiness.providers.map((provider) => [provider.provider, provider])) as Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>,
-    [readiness.providers],
-  );
-  const selectedProviderTypes = useMemo(
-    () => PROVIDER_TYPES.filter((provider) => selectedProviders.includes(provider)),
-    [readiness.providers, selectedProviders],
-  );
+    gsap.fromTo(
+      contentRef.current,
+      { opacity: 0, x: 20 },
+      { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }
+    );
 
-  const updateSettings = (recipe: (current: SystemSettings) => SystemSettings) => {
-    setSettings((current) => current ? recipe(cloneSettings(current)) : current);
-  };
+    gsap.fromTo(
+      sideRef.current,
+      { opacity: 0, x: -20 },
+      { opacity: 1, x: 0, duration: 0.4, ease: "power2.out", delay: 0.1 }
+    );
+  }, [activeStep, introPhase, reducedMotion]);
 
-  const updateAppearance = (updates: Partial<SystemSettings["defaults"]["appearance"]>) => {
-    updateSettings((current) => {
-      const nextAppearance = {
-        ...current.defaults.appearance,
-        ...updates,
-      };
-      applyAppearanceSettings(nextAppearance);
-      return {
-        ...current,
-        defaults: {
-          ...current.defaults,
-          appearance: nextAppearance,
-        },
-      };
-    });
-  };
+  if (!open) return null;
 
-  const toggleProvider = (provider: ProviderId) => {
-    setSelectedProviders((current) => {
-      const nextSelected = current.includes(provider)
-        ? current.filter((item) => item !== provider)
-        : [...current, provider];
-      if (!current.includes(provider)) {
-        ensureProviderInstance(provider);
-      }
-      return nextSelected;
-    });
-  };
-
-  const updateIntegrationProviders = (
-    transform: (providers: SystemSettings["integrations"]["providers"]) => SystemSettings["integrations"]["providers"],
-  ) => {
-    updateSettings((current) => {
-      const nextProviders = transform({ ...current.integrations.providers });
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
-  };
-
-  const ensureProviderInstance = (provider: ProviderId): void => {
-    updateSettings((current) => {
-      if (Object.values(current.integrations.providers).some((entry) => entry.provider === provider)) {
-        return current;
-      }
-      const providerConfigId = provider;
-      const nextProviders = {
-        ...current.integrations.providers,
-        [providerConfigId]: createSystemProviderDraft(provider, providerLabels[provider]),
-      };
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncProjectProvidersToIntegrationCatalog(current, nextProviders),
-      };
-    });
-  };
-
-  const addProviderInstance = (provider: ProviderId): void => {
-    const count = getSystemProvidersByType(settings, provider).length + 1;
-    const providerConfigId = buildProviderConfigId(provider);
-    const providerName = `${getProviderTypeLabel(provider)} ${count}`;
-    updateIntegrationProviders((providers) => ({
-      ...providers,
-      [providerConfigId]: createSystemProviderDraft(provider, providerName),
-    }));
-    setSelectedProviders((current) => current.includes(provider) ? current : [...current, provider]);
-  };
-
-  const removeProviderInstance = (providerConfigId: ProviderConfigId): void => {
-    updateIntegrationProviders((providers) => {
-      const nextProviders = { ...providers };
-      delete nextProviders[providerConfigId];
-      return nextProviders;
-    });
-  };
-
-  const configureProviderInstance = (
-    providerConfigId: ProviderConfigId,
-    updates: Partial<SystemSettings["integrations"]["providers"][ProviderConfigId]>,
-  ) => {
-    updateSettings((current) => {
-      const provider = current.integrations.providers[providerConfigId];
-      if (!provider) {
-        return current;
-      }
-      const nextProviders = {
-        ...current.integrations.providers,
-        [providerConfigId]: {
-          ...provider,
-          ...updates,
-        },
-      };
-      const mountField = providerMountFields[provider.provider];
-      const syncedDefaults = syncProjectProvidersToIntegrationCatalog(current, nextProviders);
-      if (mountField && updates.mountAuth !== undefined) {
-        syncedDefaults.cliWorkflow[mountField] = updates.mountAuth as never;
-      }
-      return {
-        ...current,
-        integrations: {
-          ...current.integrations,
-          providers: nextProviders,
-        },
-        defaults: syncedDefaults,
-      };
-    });
-  };
-
-  const configureProjectProvider = (
-    providerConfigId: ProviderConfigId,
-    updates: Partial<ProjectSettings["aiProvider"]["providers"][ProviderConfigId]>,
-  ) => {
-    updateSettings((current) => {
-      const projectProvider = current.defaults.aiProvider.providers[providerConfigId];
-      if (!projectProvider) {
-        return current;
-      }
-      return {
-        ...current,
-        defaults: {
-          ...current.defaults,
-          aiProvider: {
-            ...current.defaults.aiProvider,
-            providers: {
-              ...current.defaults.aiProvider.providers,
-              [providerConfigId]: {
-                ...projectProvider,
-                ...updates,
-              },
-            },
-          },
-        },
-      };
-    });
-  };
-
-  const updateCliWorkflow = (updates: Partial<ProjectSettings["cliWorkflow"]>) => {
-    updateSettings((current) => ({
-      ...current,
-      defaults: {
-        ...current.defaults,
-        cliWorkflow: {
-          ...current.defaults.cliWorkflow,
-          ...updates,
-        },
-      },
-    }));
-  };
-
-  const updateJira = (updates: Partial<SystemSettings["integrations"]["jira"]>) => {
-    updateSettings((current) => ({
-      ...current,
-      integrations: {
-        ...current.integrations,
-        jira: {
-          ...(current.integrations.jira || DEFAULT_JIRA_SETTINGS),
-          ...updates,
-        },
-      },
-    }));
-  };
-
-  const gitMode = settings?.defaults.cliWorkflow.gitMode === "local" ? "local" : "remote";
-
-  const applyAndClose = async () => {
-    if (!settings) {
-      await markOnboardingCompleted("complete");
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
-      await navigate({ to: "/" });
-      window.setTimeout(startDashboardTour, 260);
-      return;
-    }
-    setSaving(true);
-    try {
-      let nextSettings = cloneSettings(settings);
-      for (const provider of selectedProviderTypes) {
-        if (!Object.values(nextSettings.integrations.providers).some((entry) => entry.provider === provider)) {
-          nextSettings.integrations.providers[provider] = createSystemProviderDraft(provider, providerLabels[provider]);
-          nextSettings.defaults = syncProjectProvidersToIntegrationCatalog(nextSettings, nextSettings.integrations.providers);
-        }
-        const readinessStatus = readinessByProvider[provider];
-        const providerConfigIds = Object.entries(nextSettings.integrations.providers)
-          .filter(([, entry]) => entry.provider === provider)
-          .map(([providerConfigId]) => providerConfigId);
-        for (const providerConfigId of providerConfigIds) {
-          const integrationProvider = nextSettings.integrations.providers[providerConfigId];
-          const projectProvider = nextSettings.defaults.aiProvider.providers[providerConfigId];
-          const mountField = providerMountFields[provider];
-          if (integrationProvider && readinessStatus?.available && !integrationProvider.apiKey.trim()) {
-            nextSettings.integrations.providers[providerConfigId] = {
-              ...integrationProvider,
-              mountAuth: integrationProvider.mountAuth || provider !== "jules",
-              authPath: integrationProvider.authPath || readinessStatus.authPath,
-            };
-          }
-          if (projectProvider) {
-            nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-              ...projectProvider,
-              enabled: true,
-            };
-          }
-          if (mountField && readinessStatus?.available) {
-            nextSettings.defaults.cliWorkflow[mountField] = true as never;
-          }
-        }
-      }
-      for (const [providerConfigId, projectProvider] of Object.entries(nextSettings.defaults.aiProvider.providers)) {
-        if (!selectedProviderTypes.includes(projectProvider.provider)) {
-          nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-            ...projectProvider,
-            enabled: false,
-          };
-        }
-      }
-      nextSettings.defaults = syncProjectProvidersToIntegrationCatalog(nextSettings, nextSettings.integrations.providers);
-      for (const [providerConfigId, projectProvider] of Object.entries(nextSettings.defaults.aiProvider.providers)) {
-        nextSettings.defaults.aiProvider.providers[providerConfigId] = {
-          ...projectProvider,
-          enabled: selectedProviderTypes.includes(projectProvider.provider),
-        };
-      }
-      // Respect the explicit worker provider picked on the Default providers step; only
-      // fall back to the first enabled CLI provider when that choice is no longer valid.
-      const firstSelectedCliProvider = Object.entries(nextSettings.defaults.aiProvider.providers)
-        .find(([, provider]) => provider.enabled && provider.provider !== "jules")?.[0];
-      const chosenWorker = nextSettings.defaults.workers.virtualWorkerProvider;
-      const chosenWorkerProvider = nextSettings.defaults.aiProvider.providers[chosenWorker];
-      const chosenWorkerValid = Boolean(chosenWorkerProvider?.enabled && chosenWorkerProvider.provider !== "jules");
-      if (!chosenWorkerValid && firstSelectedCliProvider) {
-        nextSettings.defaults.workers.virtualWorkerProvider = firstSelectedCliProvider;
-      }
-      nextSettings = await saveSystemSettings(nextSettings);
-      setSettings(nextSettings);
-      await markOnboardingCompleted("complete");
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
-      await navigate({ to: "/" });
-      window.setTimeout(startDashboardTour, 260);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!open) {
-    return null;
+  if (introPhase === "intro") {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center isolate">
+        <div ref={backdropRef} className="absolute inset-0 bg-codeux-background/80" />
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={null}>
+            <DeepOceanBackground forceDark className="opacity-80" />
+          </Suspense>
+        </div>
+        <div ref={shellRef} className="relative z-10 w-full max-w-4xl mx-auto px-4">
+          <OnboardingIntro onExitStart={handleIntroExitStart} onComplete={handleIntroComplete} />
+        </div>
+      </div>
+    );
   }
 
-  const stepNeedsSettings: StepId[] = ["provider-setup", "git", "jira", "automation", "appearance", "defaults"];
-  const canGoNext = !stepNeedsSettings.includes(active.id) || Boolean(settings);
-  const clusterReady = readiness.cluster.status === "ready";
-  const dockerExecutionEnabled = settings?.defaults.cliWorkflow.executionMode === "DOCKER";
-  const jiraSettings = settings?.integrations.jira || DEFAULT_JIRA_SETTINGS;
-  const enabledProviderInstances = settings
-    ? sortProviderConfigEntries(Object.entries(settings.defaults.aiProvider.providers))
-      .filter(([, provider]) => provider.enabled)
-    : [];
-  const providerInstanceOptions = enabledProviderInstances.map(([providerConfigId, provider]) => ({
-    value: providerConfigId,
-    label: getProviderInstanceLabel(provider),
-    icon: <ProviderBrandIcon id={provider.provider} />,
-  }));
-  const workerInstanceOptions = enabledProviderInstances
-    .filter(([, provider]) => provider.provider !== "jules")
-    .map(([providerConfigId, provider]) => ({
-      value: providerConfigId,
-      label: getProviderInstanceLabel(provider),
-      icon: <ProviderBrandIcon id={provider.provider} />,
-    }));
+  const currentStepInfo = steps[activeStep];
+  if (!currentStepInfo) return null;
+
+  const renderCurrentStep = () => {
+    switch (currentStepInfo.id) {
+      case "installation":
+        return <InstallationStep readiness={readiness} load={load} platform={window.navigator.userAgent} onNext={handleNext} onPrev={handlePrev} />;
+      case "introduction":
+        return <IntroductionStep onNext={handleNext} />;
+      case "providers":
+        return (
+          <SelectProvidersStep
+            selectedProviders={selectedProviders}
+            toggleProvider={toggleProviderInstance}
+            readinessByProvider={readinessByProvider}
+            settings={settings}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "provider-setup":
+        return (
+          <ProviderSetupStep
+            selectedProviderTypes={selectedProviderTypes}
+            settings={settings}
+            readinessByProvider={readinessByProvider}
+            addProviderInstance={addProviderInstance}
+            configureProviderInstance={configureProviderInstance}
+            removeProviderInstance={removeProviderInstance}
+            configureProjectProvider={configureProjectProvider as any}
+            dockerExecutionEnabled={readiness.cluster?.status === "ready"}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            saving={saving}
+          />
+        );
+      case "git":
+        return (
+          <GitStep
+            settings={settings}
+            onSave={(updates) => updateCliWorkflow(updates)}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            saving={saving}
+            error={error}
+          />
+        );
+      case "jira":
+        return (
+          <JiraStep
+            settings={settings}
+            jiraSettings={settings?.integrations.jira!}
+            updateJira={updateJira}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "automation":
+        return (
+          <AutomationStep
+            settings={settings}
+            updateSettings={updateSettings}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "appearance":
+        return (
+          <AppearanceStep
+            settings={settings}
+            updateAppearance={updateAppearance}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      case "defaults":
+        return (
+          <DefaultProvidersStep
+            settings={settings}
+            updateSettings={updateSettings}
+            enabledProviderInstances={Object.entries(settings?.integrations.providers || {})}
+            providerInstanceOptions={Object.entries(settings?.integrations.providers || {}).map(([id, p]) => ({ value: id, label: id }))}
+            workerInstanceOptions={Object.entries(settings?.integrations.providers || {}).map(([id, p]) => ({ value: id, label: id }))}
+            onNext={handleIntroComplete}
+            onPrev={handlePrev}
+            saving={saving}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <>
-      {introPhase !== "onboarding" && (
-        <OnboardingIntro onExitStart={handleIntroExitStart} onComplete={handleIntroComplete} />
-      )}
-      {introPhase !== "intro" && (
-    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060A0D] px-3 py-4 md:px-6 md:py-8">
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <Suspense fallback={<div className="absolute inset-0 bg-[#060A0D]" />}>
-          <DeepOceanBackground forceDark className="opacity-75 saturate-[0.86] contrast-[0.92]" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 isolate">
+      <div ref={backdropRef} className="absolute inset-0 bg-codeux-background/80" />
+      <div className="absolute inset-0 z-0">
+        <Suspense fallback={null}>
+          <DeepOceanBackground forceDark className="opacity-80" />
         </Suspense>
-        <div className="absolute inset-0 bg-[#05070B]/54 backdrop-blur-[1px]" />
-        <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgba(0,224,160,0.12),rgba(5,7,11,0.02)_58%,transparent)]" />
-        <div className="absolute inset-x-0 bottom-0 h-72 bg-[linear-gradient(0deg,rgba(255,184,0,0.08),rgba(5,7,11,0.02)_62%,transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_17%_16%,rgba(0,224,160,0.1),transparent_31%),radial-gradient(circle_at_80%_78%,rgba(255,184,0,0.075),transparent_34%),linear-gradient(115deg,rgba(255,255,255,0.055)_0%,transparent_20%,transparent_72%,rgba(0,224,160,0.05)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,7,10,0.18),rgba(4,7,10,0.62))]" />
       </div>
-      <section
+
+      <div
         ref={shellRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-        className="relative z-10 grid h-[calc(100vh-2rem)] max-h-[940px] min-h-0 w-full max-w-[1360px] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[2rem] border border-white/15 bg-[#F9F8F4]/96 shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl dark:bg-void-900/96 md:h-[calc(100vh-4rem)] md:grid-cols-[330px_1fr]"
+        className="relative z-10 w-full max-w-5xl h-[80vh] min-h-[600px] flex overflow-hidden rounded-2xl border border-codeux-border bg-codeux-background/50 shadow-2xl backdrop-blur-xl"
       >
-        <div aria-hidden className="pointer-events-none absolute inset-0 z-20 rounded-[2rem] ring-1 ring-inset ring-white/10" />
-        <aside ref={sideRef} className="relative hidden h-full min-h-0 overflow-hidden border-r border-white/10 bg-[#0B0F14] p-7 text-white md:block">
-          <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(0,224,160,0.16),transparent_34%),linear-gradient(330deg,rgba(255,184,0,0.13),transparent_38%)]" />
-          <span className="pointer-events-none absolute -left-5 -top-3 select-none font-display text-[8rem] font-black leading-none tracking-tighter text-white/[0.035]">
-            RUN
-          </span>
-          <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-56 w-56 animate-organic bg-signal-500/[0.08]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
-            <div className="absolute h-40 w-40 animate-organic-reverse bg-ember-500/[0.12]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
-            <div className="absolute h-24 w-24 animate-organic bg-signal-500/[0.18]" style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }} />
+        <div ref={sideRef} className="w-64 border-r border-codeux-border bg-codeux-muted/20 p-6 flex flex-col shrink-0">
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-codeux-foreground">Setup</h2>
+            <p className="text-sm text-codeux-muted-foreground mt-1">Configure your environment</p>
           </div>
-          <div className="absolute inset-x-7 top-24 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <div className="relative z-10">
-            <div data-sidebar-copy className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 shadow-[0_0_35px_rgba(0,224,160,0.12)]">
-              <Compass className="h-5 w-5 text-signal-300" />
-            </div>
-            <div data-sidebar-copy className="mt-8 text-[10px] font-bold uppercase tracking-[0.24em] text-signal-300">Code UX Setup</div>
-            <h2 data-sidebar-copy id="onboarding-title" className="mt-3 font-display text-5xl font-black leading-[0.9] tracking-tight text-white">
-              Make the runtime ready.
-            </h2>
-            <div data-sidebar-copy className="mt-5 text-sm font-medium leading-relaxed text-slate-300">
-              Configure containers, provider auth, automation, and the workspace shell before the first sprint starts.
-            </div>
-            <div data-sidebar-copy className="mt-6 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Providers</div>
-                <div className="mt-1 text-2xl font-black text-white">{selectedProviders.length}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-                <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Cluster</div>
-                <div className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${clusterReady ? "bg-signal-400/15 text-signal-200" : "bg-status-amber/15 text-status-amber"}`}>
-                  {clusterReady ? "Ready" : "Blocked"}
-                </div>
-              </div>
-            </div>
-            <div className="mt-8 space-y-2">
-              {[
-                {
-                  id: "installation",
-                  label: "Installation",
-                  icon: Box,
-                  active: activeStep === 0,
-                  complete: activeStep > 0,
-                  onClick: () => setActiveStep(0),
-                },
-                {
-                  id: "introduction",
-                  label: "Introduction",
-                  icon: ShieldCheck,
-                  active: activeStep === 1,
-                  complete: activeStep > 1,
-                  onClick: () => setActiveStep(1),
-                },
-                {
-                  id: "providers",
-                  label: "Select Providers",
-                  icon: Cpu,
-                  active: activeStep === 2,
-                  complete: activeStep > 2,
-                  onClick: () => setActiveStep(2),
-                },
-                {
-                  id: "configure-flow",
-                  label:
-                    activeStep === 3 ? "Providers (1/4)"
-                    : activeStep === 4 ? "Git (2/4)"
-                    : activeStep === 5 ? "Jira (3/4)"
-                    : activeStep === 6 ? "Default providers (4/4)"
-                    : "Providers (1/4)",
-                  icon: Settings,
-                  active: activeStep >= 3 && activeStep <= 6,
-                  complete: activeStep > 6,
-                  onClick: () => {
-                    setActiveStep(activeStep >= 3 && activeStep <= 6 ? activeStep : 3);
-                  },
-                },
-                {
-                  id: "automation",
-                  label: "Automation",
-                  icon: Sparkles,
-                  active: activeStep === 7,
-                  complete: activeStep > 7,
-                  onClick: () => setActiveStep(7),
-                },
-                {
-                  id: "appearance",
-                  label: "Appearance",
-                  icon: Monitor,
-                  active: activeStep === 8,
-                  complete: activeStep > 8,
-                  onClick: () => setActiveStep(8),
-                },
-              ].map((step) => {
-                const StepIcon = step.icon;
-                const activeItem = step.active;
-                const complete = step.complete;
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-1">
+              {steps.map((step, index) => {
+                const isActive = index === activeStep;
+                const isPast = index < activeStep;
+
                 return (
                   <button
                     key={step.id}
-                    data-step-item
                     type="button"
-                    onClick={step.onClick}
-                    className={`group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-[background-color,border-color,transform] hover:translate-x-1 ${
-                      activeItem ? "border-white/30 bg-white text-slate-950 shadow-[0_16px_40px_rgba(0,0,0,0.18)]" : "border-white/0 text-slate-300 hover:border-white/10 hover:bg-white/8 hover:text-white"
-                    }`}
+                    onClick={() => handleJump(index)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full text-left ${isActive ? "bg-codeux-primary/10 text-codeux-primary" : isPast ? "text-codeux-foreground" : "text-codeux-muted-foreground"}`}
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeItem ? "bg-signal-500/14 text-signal-700" : complete ? "bg-signal-400/15 text-signal-300" : "bg-white/8 text-slate-300"}`}>
-                      {complete ? <Check className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                    <div className={`flex items-center justify-center w-6 h-6 rounded-full border text-xs font-medium ${isActive ? "border-codeux-primary bg-codeux-primary/20 text-codeux-primary" : isPast ? "border-codeux-primary bg-codeux-primary text-codeux-primary-foreground" : "border-codeux-border bg-codeux-muted/50"}`}>
+                      {isPast ? <Check className="w-3.5 h-3.5" /> : index + 1}
+                    </div>
+                    <span className={`text-sm font-medium ${isActive ? "text-codeux-primary" : ""}`}>
+                      {step.label}
                     </span>
-                    <span className="text-sm font-bold">{step.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-        </aside>
-
-        <div className="relative flex h-full max-h-full min-h-0 flex-col overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.38),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0))] dark:bg-[radial-gradient(circle_at_78%_4%,rgba(0,224,160,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015)_34%,rgba(255,255,255,0))]" />
-          <header className="relative flex shrink-0 items-center justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06] md:px-8">
-            <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-signal-500/30 to-transparent" />
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                {activeStep < 3 ? `Step ${activeStep + 1} of 6`
-                  : activeStep >= 3 && activeStep <= 6 ? `Step 4 of 6 (${activeStep - 2}/4)`
-                  : `Step ${activeStep - 2} of 6`}
-              </div>
-              <h3 className="mt-1 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{active.label}</h3>
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await markOnboardingCompleted("cancel");
-                window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-                setOpen(false);
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-black/[0.05] hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 dark:hover:bg-white/[0.06] dark:hover:text-white"
-              aria-label="Close onboarding"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </header>
-
-          <main ref={contentRef} className="dashboard-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 dark:text-slate-100 md:px-8">
-            {error ? (
-              <div className="mb-4 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red">
-                {error}
-              </div>
-            ) : null}
-
-            {active.id === "installation" ? (
-              <div className="space-y-5">
-                <div data-onboarding-card className={`relative overflow-hidden rounded-3xl border p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] ${clusterReady ? "border-signal-500/20 bg-signal-500/8" : "border-status-amber/25 bg-status-amber/10"}`}>
-                  <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-                  <div className="flex items-start gap-4">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${clusterReady ? "bg-signal-500/12 text-signal-600" : "bg-status-amber/15 text-status-amber"}`}>
-                      {clusterReady ? <Check className="h-6 w-6" /> : <Info className="h-6 w-6" />}
-                    </div>
-                    <div>
-                      <div className="text-lg font-black text-slate-900 dark:text-white">{readiness.cluster.label}</div>
-                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{readiness.cluster.detail}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {readiness.dependencies.map((dependency) => (
-                    <div data-onboarding-card key={dependency.id} className="rounded-2xl border border-black/[0.06] bg-white/75 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.035)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">{dependency.label}</div>
-                        <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${dependency.status === "ready" ? "bg-signal-500/10 text-signal-700 dark:text-signal-300" : "bg-status-amber/10 text-status-amber"}`}>
-                          {dependency.status}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{dependency.description}</div>
-                      {dependency.status !== "ready" ? (
-                        <div className="mt-3 space-y-2.5">
-                          <div className="rounded-xl bg-black/[0.04] p-3 text-xs leading-relaxed text-slate-600 dark:bg-white/[0.05] dark:text-slate-300">
-                            {dependency.resolution}
-                          </div>
-                          {(dependency.id === "docker-cli" || dependency.id === "docker-daemon") && (
-                            <div className="flex flex-col gap-2 pt-1">
-                              <a
-                                href={getOSInfo(platform).dockerDesktopLink}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-signal-500/20 bg-signal-500/10 py-2 text-center text-xs font-bold uppercase tracking-[0.12em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-200"
-                              >
-                                Docker Desktop for {getOSInfo(platform).osLabel}
-                              </a>
-                              <a
-                                href={getOSInfo(platform).dockerDownloadLink}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.03] py-2 text-center text-xs font-bold uppercase tracking-[0.12em] text-slate-600 hover:bg-black/[0.06] dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:bg-white/[0.08]"
-                              >
-                                Docker Download
-                              </a>
-                            </div>
-                          )}
-                          {dependency.id === "git-cli" && (
-                            <div className="flex flex-col gap-2 pt-1">
-                              <a
-                                href={getOSInfo(platform).gitLink}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-signal-500/20 bg-signal-500/10 py-2 text-center text-xs font-bold uppercase tracking-[0.12em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-200"
-                              >
-                                Download Git for {getOSInfo(platform).osLabel}
-                              </a>
-                              <div className="rounded-lg bg-black/[0.04] px-2.5 py-1.5 font-mono text-[10px] text-slate-500 dark:bg-white/[0.05] dark:text-slate-400">
-                                {getOSInfo(platform).gitInstruction}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => void load()} className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200">
-                  <RefreshCw className="h-4 w-4" />
-                  Recheck
-                </button>
-              </div>
-            ) : null}
-
-            {active.id === "introduction" ? (
-              <div className="space-y-4">
-                <div data-onboarding-card className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-6 shadow-[0_18px_48px_rgba(15,23,42,0.055)] dark:border-white/[0.06] dark:bg-white/[0.045]">
-                  <div aria-hidden className="absolute -right-8 -top-10 font-display text-[7rem] font-black leading-none tracking-tight text-black/[0.025] dark:text-white/[0.025]">UX</div>
-                  <div className="relative z-10 max-w-3xl">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-signal-700 dark:text-signal-200">
-                      <Sparkles className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      Agentic runtime
-                    </div>
-                    <h4 className="mt-4 font-display text-3xl font-black leading-none tracking-tight text-slate-950 dark:text-white">Welcome to Code UX.</h4>
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-300">
-                      Code UX is an advanced containerized agentic workspace for turning projects into guided sprints, executable tasks, live previews, and measurable delivery. It coordinates provider CLIs inside isolated Docker runtimes, keeps credentials inside the intended tools, and gives you one polished control surface for agents, memory, knowledge base, browser sessions, and automation.
-                    </p>
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {[
-                        [Github, "GitHub", CODEUX_REPO_URL],
-                        [Star, "Star on GitHub", CODEUX_REPO_URL],
-                        [BookOpen, "Documentation", `${CODEUX_REPO_URL}#readme`],
-                      ].map(([Icon, label, href]) => {
-                        const BadgeIcon = Icon as typeof Github;
-                        return (
-                          <a
-                            key={String(label)}
-                            href={String(href)}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.06] bg-white/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-signal-500/25 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.08] dark:bg-white/[0.055] dark:text-slate-300 dark:hover:text-white"
-                          >
-                            <BadgeIcon className="h-3.5 w-3.5 text-signal-600 dark:text-signal-300" strokeWidth={2.4} />
-                            {String(label)}
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {[
-                    ["Container-first execution", "Provider CLIs run inside isolated Docker containers with a mounted workspace snapshot.", ShieldCheck],
-                    ["Credential boundary", "Local credentials are copied only into the intended CLI runtime and are not used as raw application secrets.", ShieldCheck],
-                    ["TOS-compliant workflow", "Authentication stays with each provider's supported CLI flow, so Code UX orchestrates tools instead of impersonating providers.", ShieldCheck],
-                    ["Knowledge Base", "Maintain a persistent technical knowledge base that agents use for deep architectural context.", Library],
-                  ].map(([title, description, Icon]) => {
-                    const CardIcon = Icon as typeof ShieldCheck;
-                    return (
-                      <div data-onboarding-card key={title as string} className="group rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.045)] transition-transform hover:-translate-y-1 dark:border-white/[0.06] dark:bg-white/[0.04]">
-                        <CardIcon className="h-6 w-6 text-signal-600 dark:text-signal-300" />
-                        <div className="mt-4 text-base font-black text-slate-900 dark:text-white">{title as string}</div>
-                        <div className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description as string}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div data-onboarding-card className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-6 shadow-[0_18px_48px_rgba(15,23,42,0.055)] dark:border-white/[0.06] dark:bg-white/[0.045]">
-                  <div aria-hidden className="absolute -right-8 -top-10 font-display text-[7rem] font-black leading-none tracking-tight text-black/[0.025] dark:text-white/[0.025]">MIT</div>
-                  <div className="relative z-10">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-signal-600 dark:text-signal-300" strokeWidth={2.4} />
-                        <div className="text-sm font-black uppercase tracking-[0.16em] text-slate-700 dark:text-slate-200">License</div>
-                      </div>
-                      <a
-                        href={`${CODEUX_REPO_URL}/blob/main/LICENSE`}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="text-[10px] font-black uppercase tracking-[0.14em] text-signal-600 hover:text-signal-700 dark:text-signal-300 dark:hover:text-signal-200"
-                      >
-                        View on GitHub
-                      </a>
-                    </div>
-                    <p className="mt-2 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                      Code UX is open source under the MIT License. By continuing you acknowledge the terms below.
-                    </p>
-                    <div className="dashboard-scrollbar mt-4 max-h-52 overflow-y-auto overscroll-contain rounded-[1.25rem] border border-black/[0.06] bg-black/[0.03] p-4 dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{LICENSE_TEXT}</pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {active.id === "providers" ? (
-              <div className="space-y-4">
-                <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                  <div className="flex items-start gap-3">
-                    <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-signal-600 dark:text-signal-300" />
-                    <div>
-                      <div className="text-base font-black text-slate-900 dark:text-white">Choose every provider you want available</div>
-                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                        You can use local auth-copy, API keys, or both. The next step lets you add multiple named instances for each provider.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {PROVIDER_TYPES.map((providerId) => {
-                    const provider = readinessByProvider[providerId];
-                    const selected = selectedProviders.includes(providerId);
-                    const instanceCount = getSystemProvidersByType(settings, providerId).length;
-                    return (
-                      <button
-                        data-onboarding-card
-                        key={providerId}
-                        type="button"
-                        onClick={() => toggleProvider(providerId)}
-                        className={`group relative overflow-hidden rounded-3xl border p-4 text-left shadow-[0_14px_34px_rgba(15,23,42,0.04)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-1 ${selected ? "border-signal-500/30 bg-signal-500/10 shadow-[0_18px_46px_rgba(0,224,160,0.08)]" : "border-black/[0.06] bg-white/75 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/[0.04]"}`}
-                      >
-                        <div aria-hidden className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full transition-opacity ${selected ? "bg-signal-500 opacity-100" : "bg-slate-300 opacity-0 group-hover:opacity-100 dark:bg-slate-600"}`} />
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <ProviderBrandIcon id={providerId} />
-                            <div>
-                              <div className="font-black text-slate-900 dark:text-white">{providerLabels[providerId]}</div>
-                              <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{instanceCount || 1} instance{(instanceCount || 1) === 1 ? "" : "s"}</div>
-                            </div>
-                          </div>
-                          <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${provider?.available ? "bg-signal-500/10 text-signal-700 dark:text-signal-300" : selected ? "bg-ember-500/10 text-ember-600 dark:text-ember-400" : "bg-slate-500/10 text-slate-500"}`}>
-                            {providerId === "jules" ? "API key" : provider?.available ? "Detected" : selected ? "Configure" : "Optional"}
-                          </span>
-                        </div>
-                        <div className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{provider?.description || providerDescriptions[providerId]}</div>
-                        <div className="mt-3 font-mono text-[11px] text-slate-400">{provider?.authPath || (providerId === "jules" ? "API key only" : "Auth path configurable")}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {active.id === "provider-setup" ? (
-              <div className="space-y-4">
-                {selectedProviderTypes.length === 0 ? (
-                  <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/75 p-6 text-sm text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04]">
-                    No providers selected. You can add provider credentials later in Settings.
-                  </div>
-                ) : selectedProviderTypes.map((providerId) => {
-                  const providerEntries = getSystemProvidersByType(settings, providerId);
-                  const readinessStatus = readinessByProvider[providerId];
-                  return (
-                    <div data-onboarding-card key={providerId} className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/78 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.055)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div aria-hidden className="pointer-events-none absolute -right-6 -top-8 font-display text-[7rem] font-black leading-none tracking-tight text-black/[0.025] dark:text-white/[0.025]">
-                        {getProviderWatermark(providerId)}
-                      </div>
-                      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] pb-4 dark:border-white/[0.06]">
-                        <div className="flex min-w-0 items-start gap-3">
-                          <ProviderBrandIcon id={providerId} />
-                          <div className="min-w-0">
-                            <div className="text-base font-black text-slate-900 dark:text-white">{providerLabels[providerId]}</div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              {readinessStatus?.detectedFiles.length ? `Detected: ${readinessStatus.detectedFiles.join(", ")}` : providerDescriptions[providerId]}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => addProviderInstance(providerId)}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-signal-500/20 bg-signal-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-200"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add instance
-                        </button>
-                      </div>
-
-                      <div className="relative z-10 mt-4 space-y-3">
-                        {providerEntries.length === 0 ? (
-                          <div className="rounded-2xl border border-ember-500/20 bg-ember-500/10 p-4 text-sm text-ember-700 dark:text-ember-300">
-                            Add an instance to configure {providerLabels[providerId]} credentials.
-                          </div>
-                        ) : providerEntries.map(([providerConfigId, integrationProvider], index) => {
-                          const projectProvider = settings?.defaults.aiProvider.providers[providerConfigId];
-                          const providerModel = projectProvider?.model
-                            || (integrationProvider.provider === "opencode" ? "anthropic/claude-sonnet-4-5" : "qwen3-coder-plus");
-                          return (
-                            <ProviderInstanceCard
-                              key={providerConfigId}
-                              providerConfigId={providerConfigId}
-                              provider={integrationProvider}
-                              providerModel={providerModel}
-                              dockerExecutionEnabled={dockerExecutionEnabled}
-                              onUpdate={(updates) => configureProviderInstance(providerConfigId, updates)}
-                              onRemove={providerEntries.length > 1 ? () => removeProviderInstance(providerConfigId) : undefined}
-                              enabled={projectProvider?.enabled ?? true}
-                              onToggleEnabled={(value) => configureProjectProvider(providerConfigId, { enabled: value })}
-                              index={index}
-                              total={providerEntries.length}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {active.id === "git" && settings ? (
-              <div className="space-y-4">
-                <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                  <div className="flex items-start gap-3">
-                    <GitBranch className="mt-0.5 h-5 w-5 shrink-0 text-signal-600 dark:text-signal-300" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-base font-black text-slate-900 dark:text-white">Git mode</div>
-                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                        Remote mode keeps pull requests and CI automation available. Local mode stays repo-local for offline or self-managed workflows.
-                      </div>
-                      <div className="mt-4">
-                        <PillChoiceGroup
-                          value={gitMode}
-                          onChange={(value) => updateCliWorkflow({ gitMode: value as ProjectSettings["cliWorkflow"]["gitMode"] })}
-                          options={[
-                            { value: "remote", label: "Remote", hint: "PRs, CI, and remote branch sync stay enabled." },
-                            { value: "local", label: "Local", hint: "Disable remote PR orchestration and stay repo-local." },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {gitMode === "local" ? (
-                  <div data-onboarding-card className="flex items-start gap-3 rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                    <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-500 dark:text-amber-300" />
-                    <div className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                      Local mode does not support automatic CI or pull requests. Remote mode is recommended for full feature access.
-                    </div>
-                  </div>
-                ) : null}
-                {gitMode !== "local" ? (
-                  <>
-                    <div data-onboarding-card>
-                      <SectionCard title="GitHub" watermark="GIT" icon={<Github strokeWidth={2.4} />}>
-                        <Row label="GitHub token" description="System token used for GitHub repository, pull request, and CI integration.">
-                          <TextInput
-                            value={settings.integrations.githubToken || ""}
-                            onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, githubToken: value } }))}
-                            mono
-                          />
-                        </Row>
-                        <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker.">
-                          <Toggle
-                            value={settings.defaults.cliWorkflow.containerMountGithubAuth}
-                            onChange={() => updateCliWorkflow({ containerMountGithubAuth: !settings.defaults.cliWorkflow.containerMountGithubAuth })}
-                          />
-                        </Row>
-                        <Row label="GitHub auth path" description="Host path copied into the Docker runtime for GitHub CLI auth." last>
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGithubAuthPath}
-                            onChange={(value) => updateCliWorkflow({ containerGithubAuthPath: value })}
-                            disabled={!settings.defaults.cliWorkflow.containerMountGithubAuth}
-                            mono
-                          />
-                        </Row>
-                      </SectionCard>
-                    </div>
-                    <div data-onboarding-card>
-                      <SectionCard title="GitLab" watermark="GLB" icon={<GitBranch strokeWidth={2.4} />}>
-                        <Row label="GitLab token" description="System token used for GitLab repository, merge request, and CI integration." last>
-                          <TextInput
-                            value={settings.integrations.gitlabToken || ""}
-                            onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, gitlabToken: value } }))}
-                            mono
-                          />
-                        </Row>
-                      </SectionCard>
-                    </div>
-                  </>
-                ) : null}
-                <div data-onboarding-card>
-                  <SectionCard title="Git identity" watermark="ID" icon={<GitBranch strokeWidth={2.4} />}>
-                    <Row label="Copy local git config" description="Use the host `.gitconfig` in Docker instead of the configured Code UX git identity." last={settings.defaults.cliWorkflow.containerMountGitConfig}>
-                      <Toggle
-                        value={settings.defaults.cliWorkflow.containerMountGitConfig}
-                        onChange={() => updateCliWorkflow({ containerMountGitConfig: !settings.defaults.cliWorkflow.containerMountGitConfig })}
-                      />
-                    </Row>
-                    {!settings.defaults.cliWorkflow.containerMountGitConfig ? (
-                      <>
-                        <Row label="Git user name" description="Git author name configured inside provider containers.">
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGitUserName}
-                            onChange={(value) => updateCliWorkflow({ containerGitUserName: value })}
-                            placeholder="Code UX"
-                          />
-                        </Row>
-                        <Row label="Git email" description="Git author email configured inside provider containers." last>
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGitUserEmail}
-                            onChange={(value) => updateCliWorkflow({ containerGitUserEmail: value })}
-                            placeholder="agents@codeux.ai"
-                            mono
-                          />
-                        </Row>
-                      </>
-                    ) : null}
-                  </SectionCard>
-                </div>
-              </div>
-            ) : null}
-
-            {active.id === "jira" && settings ? (
-              <div className="space-y-4">
-                <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#0052CC]/18 bg-[#0052CC]/10 text-[#0052CC] dark:border-[#4C9AFF]/18 dark:bg-[#4C9AFF]/10 dark:text-[#4C9AFF]">
-                      <JiraIcon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <div className="text-base font-black text-slate-900 dark:text-white">Connect Jira (optional)</div>
-                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                        Link an issue tracker to import work as tasks and auto-close issues after a sprint. You can skip this and configure it later in Settings.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div data-onboarding-card>
-                  <SectionCard title="Jira Configuration" watermark="JRA" icon={<ClipboardList strokeWidth={2.4} />}>
-                    <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`.">
-                      <TextInput value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
-                    </Row>
-                    <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments.">
-                      <TextInput value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
-                    </Row>
-                    <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions.">
-                      <TextInput value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
-                    </Row>
-                    <Row label="Default project" description="Project key used to prefill the Jira import JQL.">
-                      <TextInput value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
-                    </Row>
-                    <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion.">
-                      <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
-                    </Row>
-                    <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." last>
-                      <Toggle value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
-                    </Row>
-                  </SectionCard>
-                </div>
-              </div>
-            ) : null}
-
-            {active.id === "automation" && settings ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Choice title="Automation level" value={settings.defaults.automationLevel} options={[
-                  ["ALWAYS_ASK", "Manual"],
-                  ["SEMI_AUTO", "Semi-auto"],
-                  ["FULL", "Full auto"],
-                ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, automationLevel: value as SystemSettings["defaults"]["automationLevel"] } }))} />
-                <Choice title="Feature PR automerge" value={settings.defaults.ciIntelligence.featurePrAutoMergeMode} options={[
-                  ["OFF", "Off"],
-                  ["CREATE_PR", "Create PR"],
-                  ["WHEN_GREEN", "When green"],
-                  ["ALWAYS", "Always"],
-                ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, featurePrAutoMergeMode: value as SystemSettings["defaults"]["ciIntelligence"]["featurePrAutoMergeMode"] } } }))} />
-                <Choice title="Main PR automerge" value={settings.defaults.ciIntelligence.mainBranchAutoMergeMode} options={[
-                  ["OFF", "Off"],
-                  ["CREATE_PR", "Create PR"],
-                  ["WHEN_GREEN", "When green"],
-                  ["ALWAYS", "Always"],
-                ]} onChange={(value) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, mainBranchAutoMergeMode: value as SystemSettings["defaults"]["ciIntelligence"]["mainBranchAutoMergeMode"] } } }))} />
-                <ToggleRow title="Auto-approve plans" description="Let planning continue without manual approval when the generated plan is available." checked={settings.defaults.automationInterventions.autoApprovePlan} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, automationInterventions: { ...current.defaults.automationInterventions, autoApprovePlan: checked } } }))} />
-                <ToggleRow title="Memory system" description="Capture sprint and agent learnings for later retrieval." checked={settings.defaults.memory.enabled} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, memory: { ...current.defaults.memory, enabled: checked } } }))} />
-                <ToggleRow title="Resolve main merge conflicts" description="Let a virtual worker attempt conflicts on the main branch merge gate before escalating." checked={settings.defaults.ciIntelligence.resolveMainMergeConflicts} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, resolveMainMergeConflicts: checked } } }))} />
-                <ToggleRow title="Resolve feature merge conflicts" description="Let a virtual worker resolve feature PR conflicts against the sprint branch when safe." checked={settings.defaults.ciIntelligence.resolveMergeConflicts} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, ciIntelligence: { ...current.defaults.ciIntelligence, resolveMergeConflicts: checked } } }))} />
-                <ToggleRow title="Enable QA agent" description="Run quality-assurance reviews after task and sprint completion events." checked={settings.defaults.agents.qualityAssurance.enabled} onChange={(checked) => updateSettings((current) => ({ ...current, defaults: { ...current.defaults, agents: { ...current.defaults.agents, qualityAssurance: { ...current.defaults.agents.qualityAssurance, enabled: checked } } } }))} />
-              </div>
-            ) : null}
-
-            {active.id === "appearance" && settings ? (
-              <div className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2">
-                  {/* Left Column: Core Layout & Feel */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-signal-400">Core Display</h4>
-                    
-                    <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Theme</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Select light, dark, or sync with your system.</div>
-                      <div className="mt-4">
-                        <PillChoiceGroup
-                          value={settings.defaults.appearance.theme}
-                          onChange={(value) => updateAppearance({ theme: value as any })}
-                          options={[
-                            { value: "SYSTEM", label: "System" },
-                            { value: "LIGHT", label: "Light" },
-                            { value: "DARK", label: "Dark" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Navigation Mode</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose between floating dock or sidebar.</div>
-                      <div className="mt-4">
-                        <PillChoiceGroup
-                          value={settings.defaults.appearance.navigationMode}
-                          onChange={(value) => updateAppearance({ navigationMode: value as any })}
-                          options={[
-                            { value: "DOCK", label: "Dock" },
-                            { value: "SIDEBAR", label: "Sidebar" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Reduced Motion</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Limit interface animations.</div>
-                      <div className="mt-4">
-                        <PillChoiceGroup
-                          value={settings.defaults.appearance.reducedMotion}
-                          onChange={(value) => updateAppearance({ reducedMotion: value as any })}
-                          options={[
-                            { value: "AUTO", label: "Auto" },
-                            { value: "REDUCE", label: "Reduce" },
-                            { value: "NONE", label: "None" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    {typeof window !== "undefined" && Boolean(window.codeUxDesktop?.setZoom) && (
-                      <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                        <div className="text-sm font-black text-slate-900 dark:text-white">Zoom Level</div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Scale the desktop interface size.</div>
-                        <div className="mt-4">
-                          <SelectInput
-                            value={String(settings.defaults.appearance.zoomLevel ?? 1)}
-                            onChange={(value) => updateAppearance({ zoomLevel: Number(value) })}
-                            options={[
-                              { value: "0.75", label: "75%" },
-                              { value: "0.9", label: "90%" },
-                              { value: "1", label: "100%" },
-                              { value: "1.1", label: "110%" },
-                              { value: "1.25", label: "125%" },
-                              { value: "1.5", label: "150%" },
-                              { value: "1.75", label: "175%" },
-                              { value: "2", label: "200%" },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Column: Custom Aesthetics & Background */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-signal-400">Background & Styling</h4>
-
-                    <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Background Mode</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Select animated textures or a flat color.</div>
-                      <div className="mt-4">
-                        <PillChoiceGroup
-                          value={settings.defaults.appearance.backgroundMode || "ANIMATED"}
-                          onChange={(value) => updateAppearance({ backgroundMode: value as any })}
-                          options={[
-                            { value: "ANIMATED", label: "Animated" },
-                            { value: "STATIC", label: "Static" },
-                          ]}
-                        />
-                      </div>
-                    </div>
-
-                    {(settings.defaults.appearance.backgroundMode || "ANIMATED") === "STATIC" && (
-                      <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                        <div className="text-sm font-black text-slate-900 dark:text-white">Static Color</div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose a solid solid back color.</div>
-                        <div className="mt-4 flex items-center gap-3">
-                          <input
-                            type="color"
-                            value={settings.defaults.appearance.staticBackgroundColor || "#0d0f12"}
-                            onInput={(e) => updateAppearance({ staticBackgroundColor: (e.target as HTMLInputElement).value })}
-                            className="h-10 w-20 cursor-pointer rounded-lg border-2 border-black/[0.06] bg-transparent p-1 focus:outline-none focus:ring-2 focus:ring-signal-500 dark:border-white/[0.06]"
-                          />
-                          <span className="font-mono text-sm uppercase text-slate-500 dark:text-slate-400">
-                            {settings.defaults.appearance.staticBackgroundColor || "#0d0f12"}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {active.id === "defaults" && settings ? (
-              <div className="space-y-4">
-                <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                  <div className="flex items-start gap-3">
-                    <Layers className="mt-0.5 h-5 w-5 shrink-0 text-signal-600 dark:text-signal-300" />
-                    <div>
-                      <div className="text-base font-black text-slate-900 dark:text-white">Pick your default providers</div>
-                      <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                        Choose which configured instance answers by default, and which one virtual workers run inside containers. You can fine-tune per-route routing later on the AI Models page.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {enabledProviderInstances.length === 0 ? (
-                  <div data-onboarding-card className="rounded-3xl border border-ember-500/20 bg-ember-500/10 p-6 text-sm text-ember-700 dark:text-ember-300">
-                    No enabled providers yet. Go back to the Select Providers and Providers steps to enable at least one instance.
-                  </div>
-                ) : (
-                  <>
-                    <div data-onboarding-card>
-                      <SectionCard title="Default routing" watermark="DEF" icon={<Layers strokeWidth={2.4} />}>
-                        <Row label="Default AI provider" description="The instance used when a route has no explicit override.">
-                          <SelectInput
-                            value={settings.defaults.aiProvider.provider || ""}
-                            onChange={(value) => updateSettings((current) => ({
-                              ...current,
-                              defaults: {
-                                ...current.defaults,
-                                aiProvider: { ...current.defaults.aiProvider, provider: value as ProviderConfigId },
-                              },
-                            }))}
-                            options={providerInstanceOptions}
-                            aria-label="Default AI provider"
-                          />
-                        </Row>
-                        <Row label="Virtual worker provider" description="The CLI instance dispatched inside Docker containers to execute tasks." last>
-                          <SelectInput
-                            value={settings.defaults.workers.virtualWorkerProvider || ""}
-                            onChange={(value) => updateSettings((current) => ({
-                              ...current,
-                              defaults: {
-                                ...current.defaults,
-                                workers: { ...current.defaults.workers, virtualWorkerProvider: value as ProviderConfigId },
-                              },
-                            }))}
-                            options={workerInstanceOptions.length > 0 ? workerInstanceOptions : providerInstanceOptions}
-                            aria-label="Virtual worker provider"
-                          />
-                        </Row>
-                      </SectionCard>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {enabledProviderInstances.map(([providerConfigId, provider]) => {
-                        const isDefault = settings.defaults.aiProvider.provider === providerConfigId;
-                        const isWorker = settings.defaults.workers.virtualWorkerProvider === providerConfigId;
-                        return (
-                          <div data-onboarding-card key={providerConfigId} className="flex items-center justify-between gap-3 rounded-3xl border border-black/[0.06] bg-white/75 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <ProviderBrandIcon id={provider.provider} />
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-black text-slate-900 dark:text-white">{provider.name}</div>
-                                <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{getProviderTypeLabel(provider.provider)}</div>
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                              {isDefault ? (
-                                <span className="rounded-full border border-signal-500/25 bg-signal-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700 dark:text-signal-200">Default</span>
-                              ) : null}
-                              {isWorker ? (
-                                <span className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">Worker</span>
-                              ) : null}
-                              {!isDefault && !isWorker ? (
-                                <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:border-white/[0.08] dark:bg-white/[0.04]">Available</span>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
-          </main>
-
-          <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-black/[0.06] bg-white/45 px-5 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-950/28 md:px-8">
-            <button
-              type="button"
-              disabled={activeStep === 0}
-              onClick={() => setActiveStep((step) => Math.max(0, step - 1))}
-              className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <div className="flex items-center gap-2">
-              {[
-                { active: activeStep === 0, onClick: () => setActiveStep(0), label: "Installation" },
-                { active: activeStep === 1, onClick: () => setActiveStep(1), label: "Introduction" },
-                { active: activeStep === 2, onClick: () => setActiveStep(2), label: "Select Providers" },
-                { active: activeStep >= 3 && activeStep <= 6, onClick: () => setActiveStep(activeStep >= 3 && activeStep <= 6 ? activeStep : 3), label: "Providers" },
-                { active: activeStep === 7, onClick: () => setActiveStep(7), label: "Automation" },
-                { active: activeStep === 8, onClick: () => setActiveStep(8), label: "Appearance" },
-              ].map((dot, idx) => (
-                <button
-                  key={`dot-${idx}`}
-                  type="button"
-                  aria-label={`Go to ${dot.label}`}
-                  onClick={dot.onClick}
-                  className={`h-2 rounded-full transition-all ${dot.active ? "w-8 bg-signal-500" : "w-2 bg-slate-300 dark:bg-slate-700"}`}
-                />
-              ))}
-            </div>
-            {activeStep === steps.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => void applyAndClose()}
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
-              >
-                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Finish
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={!canGoNext}
-                onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
-              >
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
-          </footer>
         </div>
-      </section>
+
+        <div className="flex-1 flex flex-col min-w-0 bg-codeux-background">
+          <div className="flex items-center justify-between px-8 py-6 border-b border-codeux-border">
+            <div>
+              <h1 className="text-xl font-semibold text-codeux-foreground">{currentStepInfo.label}</h1>
+              <p className="text-sm text-codeux-muted-foreground mt-1">{currentStepInfo.label}</p>
+            </div>
+            {saving && (
+              <div className="flex items-center gap-2 text-sm text-codeux-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            )}
+          </div>
+
+          <div ref={contentRef} className="flex-1 overflow-y-auto p-8">
+            {renderCurrentStep()}
+          </div>
+        </div>
+      </div>
     </div>
-      )}
-    </>
   );
 };
-
-const Choice: FunctionComponent<{
-  title: string;
-  value: string;
-  options: Array<[string, string]>;
-  onChange: (value: string) => void;
-}> = ({ title, value, options, onChange }) => (
-  <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-    <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
-    <div className="mt-4 flex flex-wrap gap-2">
-      {options.map(([optionValue, label]) => (
-        <button
-          key={optionValue}
-          type="button"
-          onClick={() => onChange(optionValue)}
-          className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-colors ${value === optionValue ? "border-signal-500/30 bg-signal-500/12 text-signal-700 dark:text-signal-200" : "border-black/[0.06] bg-white text-slate-500 hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300"}`}
-        >
-          {value === optionValue ? <Check className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          {label}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const ToggleRow: FunctionComponent<{
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}> = ({ title, description, checked, onChange }) => (
-  <div data-onboarding-card className="flex items-center justify-between gap-4 rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-    <div>
-      <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
-      <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
-    </div>
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors ${checked ? "border-signal-500/30 bg-signal-500" : "border-black/[0.12] bg-slate-200 dark:border-white/[0.12] dark:bg-white/[0.08]"}`}
-      aria-pressed={checked}
-    >
-      <span className={`absolute left-1 top-1 block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
-    </button>
-  </div>
-);

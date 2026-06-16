@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 /** @jsx h */
 /** @jsxFrag Fragment */
+import userEvent from "@testing-library/user-event";
 import { h, Fragment } from "preact";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/preact";
@@ -30,8 +31,8 @@ vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
 }));
 
 vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", () => ({
-  OnboardingIntro: ({ onComplete }: { onComplete: () => void }) => {
-    onComplete();
+  OnboardingIntro: ({ onStart, onComplete }: { onStart?: () => void, onComplete?: () => void }) => {
+    if (onStart) onStart(); else if (onComplete) onComplete();
     return null;
   },
 }));
@@ -109,9 +110,16 @@ describe("Onboarding automation defaults", () => {
 
   it("shows requested defaults and allows editing", async () => {
     render(<OnboardingExperience />);
+    await waitFor(() => expect(screen.queryByText("Workspace runtime")).not.toBeNull());
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
+    // give state update a moment
+    await new Promise(r => setTimeout(r, 0));
 
-    const automationNav = await screen.findByRole("button", { name: "Automation" });
-    fireEvent.click(automationNav);
+    // Since we are skipping steps in the test by jumping straight via sidebar or expecting Automation, let's wait for it to be rendered first.
+    const navButtons = await screen.findAllByRole("button");
+    const btn = navButtons.find(b => b.textContent?.includes("Automation"));
+    if (btn) await userEvent.click(btn);
+    else throw new Error("Automation nav button not found");
 
     await waitFor(() => {
       expect(screen.getByText("Feature PR automerge")).toBeInTheDocument();

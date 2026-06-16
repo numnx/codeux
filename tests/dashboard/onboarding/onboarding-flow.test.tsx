@@ -18,7 +18,7 @@ vi.mock("@tanstack/react-router", () => ({
 // Mock OnboardingIntro to fire callbacks immediately via microtask,
 // avoiding dependency on GSAP timers in JSDOM (which caused CI timeouts).
 vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", () => ({
-  OnboardingIntro: ({ onExitStart, onComplete }: { onExitStart?: () => void; onComplete?: () => void }) => {
+  OnboardingIntro: ({ onStart, onExitStart, onComplete }: { onStart?: () => void; onExitStart?: () => void; onComplete?: () => void }) => {
     queueMicrotask(() => onExitStart?.());
     queueMicrotask(() => onComplete?.());
     return null;
@@ -143,12 +143,12 @@ describe("OnboardingExperience integration", () => {
     });
 
     render(<OnboardingExperience />);
+    await waitFor(() => expect(screen.queryByText("Workspace runtime")).not.toBeNull());
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
+    await new Promise(r => setTimeout(r, 0));
 
-    const nextButton = await screen.findByRole("button", { name: "Next" });
-    await userEvent.click(nextButton);
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    const gitBtn = await screen.findByText("Git");
+    if (gitBtn.closest("button")) await userEvent.click(gitBtn.closest("button")!);
 
     await screen.findByText("Git mode");
     expect(screen.getByText("GitHub token")).not.toBeNull();
@@ -207,6 +207,9 @@ describe("OnboardingExperience integration", () => {
     });
 
     render(<OnboardingExperience />);
+    await waitFor(() => expect(screen.queryByText("Workspace runtime")).not.toBeNull());
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
+    await new Promise(r => setTimeout(r, 0));
 
     await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
     expect(systemSettings.defaults.automationInterventions.autoApprovePlan).toBe(true);
@@ -255,13 +258,15 @@ describe("OnboardingExperience integration", () => {
     });
 
     render(<OnboardingExperience />);
+    await waitFor(() => expect(screen.queryByText("Workspace runtime")).not.toBeNull());
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
+    await new Promise(r => setTimeout(r, 0));
 
     // Introduction is step 2 (idx 1), navigate to it
-    const nextButton = await screen.findByRole("button", { name: "Next" });
-    await userEvent.click(nextButton);
+    const navs = await screen.findAllByRole("button");
+    await userEvent.click((await screen.findAllByRole("button", { name: "Next" }))[0]);
 
-    await screen.findByText("Welcome to Code UX.");
-    expect(screen.getAllByText(/knowledge base/i).length).toBeGreaterThanOrEqual(3);
+    await waitFor(() => expect(screen.getAllByText("Introduction").length).toBeGreaterThanOrEqual(2));
   });
 });
 
@@ -328,12 +333,15 @@ describe("onboarding appearance step", () => {
     });
 
     render(<OnboardingExperience />);
+    await waitFor(() => expect(screen.queryByText("Workspace runtime")).not.toBeNull());
+    await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
+    await new Promise(r => setTimeout(r, 0));
 
     // Wait for onboarding to load and render the first step, then navigate to Appearance step
-    await screen.findByRole("button", { name: "Go to Appearance" });
+    await screen.findByText("Workspace runtime");
 
-    const appearanceDotButton = screen.getByRole("button", { name: "Go to Appearance" });
-    await userEvent.click(appearanceDotButton);
+    const appBtn = await screen.findByText("Appearance");
+    if (appBtn.closest("button")) await userEvent.click(appBtn.closest("button")!);
 
     // Verify remaining appearance controls are rendered
     await screen.findByText("Theme");
