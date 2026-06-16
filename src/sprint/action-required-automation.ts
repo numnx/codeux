@@ -154,6 +154,38 @@ const buildClarificationAutoReply = (task: Subtask, template: string): string =>
   return `${contextBlock}${template}`;
 };
 
+/**
+ * Builds a human-readable description of an arbitrary thrown value. Plain
+ * `error.message` is frequently empty for transport-level failures (aborted
+ * sockets, some axios/network errors), which previously surfaced as a useless
+ * "Auto-intervention failed: " with no diagnostic context. This pulls in the
+ * error name and any HTTP response status/body so the failure is actionable.
+ */
+export const describeAutomationError = (error: unknown): string => {
+  if (error instanceof Error) {
+    const parts: string[] = [];
+    const response = (error as { response?: { status?: number; data?: unknown } }).response;
+    if (response?.status) {
+      parts.push(`HTTP ${response.status}`);
+    }
+    if (response?.data !== undefined) {
+      const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+      if (body && body !== "{}") {
+        parts.push(body.slice(0, 300));
+      }
+    }
+    if (error.message) {
+      parts.push(error.message);
+    } else {
+      const code = (error as { code?: string }).code;
+      parts.push(code ? `${error.name} (${code})` : error.name);
+    }
+    return parts.join(" - ");
+  }
+  const stringified = String(error);
+  return stringified === "[object Object]" ? JSON.stringify(error) : stringified;
+};
+
 export interface ApplyActionRequiredAutomationArgs {
   projectId: string;
   sprintGoal: string;
@@ -331,7 +363,7 @@ export const applyActionRequiredAutomation = async (
       }
     } catch (error) {
       task.intervention_owner = "AGENT";
-      task.intervention_hint = `Auto-intervention failed: ${error instanceof Error ? error.message : String(error)}`;
+      task.intervention_hint = `Auto-intervention failed: ${describeAutomationError(error)}`;
       emitTaskEvent(task, "action_required_auto_failed", {
         owner: task.intervention_owner,
         reason: task.intervention_hint,
