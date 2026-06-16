@@ -1,11 +1,16 @@
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 import type { ProjectSetupOptions, ProjectSummary } from "../contracts/project-management-types.js";
+import type { QuicksprintTemplateRecord } from "../contracts/quicksprint-types.js";
+import { formatQuicksprintTemplateMarkdown } from "../domain/quicksprint/quicksprint-template-markdown.js";
 import { buildGeneratedSprintPreviewScript } from "./sprint-preview-utils.js";
 
 
 export interface ProjectSetupPromptArgs {
   project: ProjectSummary;
   setupAgent: AgentPresetRecord;
+  baseAgentTemplates?: AgentPresetRecord[];
+  baseQuicksprintTemplates?: QuicksprintTemplateRecord[];
+  containerSetupScriptTemplate?: string | null;
   options: ProjectSetupOptions;
 }
 
@@ -31,6 +36,14 @@ export function buildDefaultProjectSetupAgentInstructions(): string {
     "- Infer the architecture, primary languages, frameworks, runtime commands, test commands, preview startup needs, deployment assumptions, and ownership boundaries from evidence in the repository.",
     "- Do not create generic agents. Each agent must be a specialist for an important part of this exact app, with explicit routing guidance, file/domain ownership, quality bar, constraints, and verification expectations.",
     "",
+    "## Base Template Adaptation Requirements",
+    "",
+    "- When the setup prompt includes Code UX base templates, use them as normative source material for generated artifacts.",
+    "- Generated coding agents must adapt the Worker template's execution discipline, repository discovery, verification standard, handoff style, and Code UX workspace protocol.",
+    "- Generated planning and quicksprint guidance must adapt the Planning agent's DAG-first precision and task-quality requirements.",
+    "- Generated QA guidance must adapt the Quality assurance agent's strict task-vs-sprint scope discipline.",
+    "- Do not copy base templates verbatim. Rewrite them into repository-specific specialist operating manuals grounded in actual paths, commands, and architecture.",
+    "",
     "## Agent Instruction Quality Bar",
     "",
     "Every generated coding agent must be a comprehensive senior-level specialist operating manual, NOT a brief role label. Each agent's `instructionMarkdown` MUST be between 2000 and 4000 tokens in length and follow this exact structure:",
@@ -54,7 +67,7 @@ export function buildDefaultProjectSetupAgentInstructions(): string {
     "   - How to handle dependencies and shared utilities",
     "   - How to write tests (which framework, patterns, coverage expectations)",
     "   - How to handle errors, logging, and observability",
-    "   - Git workflow expectations (commit style, branch conventions)",
+    "   - Code UX workspace expectations: workers edit files only; Code UX owns branches, commits, PRs, and merges",
     "",
     "6. **Architectural Constraints** — Hard boundaries the agent must never violate. Reference real module boundaries, data flow patterns, API contracts, and separation of concerns from the codebase.",
     "",
@@ -112,7 +125,7 @@ export function buildDefaultProjectSetupAgentInstructions(): string {
     "4. New routes must have corresponding test coverage in `tests/backend/`.",
     "5. Database schema changes require a numbered migration file.",
     "6. Shared utilities go in `src/shared/`, domain logic stays in `src/domain/`.",
-    "7. Commit messages follow Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`.",
+    "7. Do not run git write commands or open PRs. Code UX owns branches, commits, PRs, and merges; the agent leaves file changes in the working tree.",
     "",
     "## 5. Architectural Constraints",
     "",
@@ -141,7 +154,7 @@ export function buildDefaultProjectSetupAgentInstructions(): string {
     "",
     "- Work autonomously within the scope of the subtask prompt.",
     "- If a task requires changes outside your domain ownership, note the dependency and request orchestrator coordination.",
-    "- If requirements are ambiguous, make the safest assumption and document it in a code comment.",
+    "- If requirements are ambiguous, make the safest assumption and mention it in the final handoff unless the choice would materially change scope.",
     "```",
     "",
     "## Quicksprint Template Quality Bar",
@@ -178,12 +191,63 @@ export function buildDefaultProjectSetupAgentInstructions(): string {
 
 export function buildProjectSetupPrompt(args: ProjectSetupPromptArgs): string {
   const selected = requestedArtifacts(args.options);
+  const baseTemplateSection = args.options.agents && args.baseAgentTemplates?.length
+    ? [
+      "## Base Agent Templates To Adapt",
+      "",
+      "Use these Code UX base templates as the source pattern for generated repository-specific agents. Do not copy them verbatim. Adapt their operating model, quality bar, scope discipline, verification discipline, and interaction rules to the exact repository evidence you discover.",
+      "",
+      "Generated coding agents must inherit the Worker template's execution discipline, workspace protocol, verification mindset, and handoff style. Generated planning-oriented artifacts must inherit the Planning agent's DAG-first precision. Generated QA-oriented guidance must inherit the Quality assurance agent's scope discipline. Generated setup/routing decisions must follow the Project Setup Agent standard.",
+      "",
+      ...args.baseAgentTemplates.flatMap((template) => [
+        `### ${template.name}`,
+        template.description ? `Description: ${template.description}` : "Description: none",
+        "",
+        template.instructionMarkdown.trim(),
+        "",
+      ]),
+    ]
+    : [];
+  const quicksprintTemplateSection = args.options.quicksprints && args.baseQuicksprintTemplates?.length
+    ? [
+      "## Base Quicksprint Templates To Adapt",
+      "",
+      "Use these built-in Code UX quicksprint templates as the source pattern for generated repository-specific quicksprints. Do not copy them verbatim. Adapt their audit categories, reusable-template mindset, output discipline, and quality bar to the exact repository evidence you discover.",
+      "The source templates use Code UX's editable mixed Markdown format: JSON metadata in `---json` frontmatter, followed by the agent instruction Markdown body.",
+      "",
+      ...args.baseQuicksprintTemplates.map((template) => [
+        `### ${template.name}`,
+        "```md",
+        formatQuicksprintTemplateMarkdown(template).trimEnd(),
+        "```",
+      ].join("\n")),
+      "",
+    ]
+    : [];
+  const containerSetupTemplateSection = args.options.previewScript && args.containerSetupScriptTemplate?.trim()
+    ? [
+      "## Container Setup Script Template",
+      "",
+      "This is the exact Code UX container bootstrap script at `.code-ux/container/setup.sh`. Treat it as environment context for preview generation. The preview startup script you return must complement this bootstrap instead of duplicating provider/bootstrap installation work or replacing it.",
+      "",
+      "```bash",
+      args.containerSetupScriptTemplate.trimEnd(),
+      "```",
+      "",
+    ]
+    : [];
   return [
     "You are Code UX's Project Setup Agent.",
     "",
     "## Project Setup Agent Instructions",
     args.setupAgent.instructionMarkdown.trim() || buildDefaultProjectSetupAgentInstructions(),
     "",
+    ...baseTemplateSection,
+    ...(baseTemplateSection.length > 0 ? [""] : []),
+    ...quicksprintTemplateSection,
+    ...(quicksprintTemplateSection.length > 0 ? [""] : []),
+    ...containerSetupTemplateSection,
+    ...(containerSetupTemplateSection.length > 0 ? [""] : []),
     "## Task",
     "Research this complete codebase and return a repository-specific setup artifact plan. Code UX will apply the returned JSON to the real project.",
     "",
@@ -246,6 +310,7 @@ export function buildProjectSetupPrompt(args: ProjectSetupPromptArgs): string {
       "- DO NOT include `planning` in any agent's labels. Planning is handled separately.",
       "- Each agent's `instructionMarkdown` MUST be between 2000 and 4000 tokens — a comprehensive operating manual, not a brief description.",
       "- Each agent instruction MUST follow the exact structure defined in the setup agent instructions: Identity & Mission, Domain Ownership (real paths), Discovery Protocol (real files to read), Engineering Principles (5-8, stack-specific), Implementation Rules (numbered, referencing real build/test/lint commands), Architectural Constraints (real module boundaries), Quality Gates (real commands from package.json/Makefile), Problem-Solving Strategy, Interaction Constraints.",
+      "- Use the included Code UX base templates as the operating model. Preserve their scope control, no-commit/no-PR workspace protocol, verification discipline, and concise handoff, then specialize them for this repository.",
       "- Reference real file paths, real directory structures, real commands, real config files, and real type definitions discovered in the repository. Never use placeholder paths.",
       "- Each agent must clearly define its ownership boundary: what is IN scope and what is OUT of scope.",
       "- Agents should cover the major architectural surfaces such as: frontend/UI, backend/API, data layer, infrastructure/DevOps, testing, or whatever domain decomposition fits this specific codebase.",
@@ -259,6 +324,8 @@ export function buildProjectSetupPrompt(args: ProjectSetupPromptArgs): string {
       "- Good categories: documentation, test coverage, performance, code quality, accessibility, design consistency, error handling, observability, security hardening, API documentation, dependency health.",
       "- Each template's `agentInstructionMarkdown` MUST be between 800 and 2000 tokens.",
       "- Each template instruction must: (1) define the agent role and quality target, (2) list 8-12 specific audit categories with sub-items tailored to this stack, (3) define working rules, (4) specify output format.",
+      "- Use the included built-in quicksprint templates as the operating model. Preserve their reusable audit/improvement structure, priority rules, and actionable subtask output style, then specialize them for this repository.",
+      "- Although your response uses JSON, Code UX will persist generated quicksprints as editable mixed Markdown files with JSON metadata at the top and `agentInstructionMarkdown` as the Markdown body below.",
       "- Templates must reference the real stack, framework conventions, directory structure, test framework, and build system of this specific repository.",
       "- Set `defaultTaskCount` between 4 and 8 based on the typical scope of the template.",
       "",
@@ -268,6 +335,7 @@ export function buildProjectSetupPrompt(args: ProjectSetupPromptArgs): string {
       "",
       "- For previewScript, produce a POSIX shell script for `.code-ux/browser/start-preview.sh` that installs dependencies only when needed, uses the detected package manager, binds to `${PORT:-3000}`, and starts the correct dev/preview server.",
       "- The script must work in a Code UX preview container. Use HOST=0.0.0.0 and respect SPRINT_PREVIEW_PORT, PORT, SPRINT_PREVIEW_WORKSPACE, and SPRINT_PREVIEW_RUN_COMMAND when relevant.",
+      "- Use the included `.code-ux/container/setup.sh` template as container bootstrap context. Do not duplicate its provider CLI/bootstrap installation logic inside `start-preview.sh`; focus the preview script on repository dependency installation and app startup.",
       "- CRITICAL: Use the following full default startup script template as a baseline and build on top of it, customizing it for this repository's specific architecture, install commands, build commands, and dev servers:",
       "```bash",
       buildGeneratedSprintPreviewScript(),

@@ -379,6 +379,10 @@ export function createDashboardDependencies(
     (projectId, input) => projectManagementRepository.createSprint(projectId, input),
     (projectId, sprintId, options, signal) => planningAgentService.planSprint(projectId, sprintId, options, signal),
     (agentPresetId) => coreDeps.agentPresetRepository.getAgentPreset(agentPresetId),
+    {
+      projectRoot: typeof context.getProjectRoot === "function" ? context.getProjectRoot() : process.cwd(),
+      logger: logger.child({ component: "quicksprint-service" }),
+    },
   );
   (managementToolHandler as any).deps.quicksprintService = quicksprintService;
 
@@ -390,6 +394,7 @@ export function createDashboardDependencies(
     quicksprintService,
     providerRunner,
     providerConcurrencyService: coreDeps.providerConcurrencyService,
+    projectRoot: typeof context.getProjectRoot === "function" ? context.getProjectRoot() : process.cwd(),
     getGithubToken: () => context.getEffectiveGithubToken(),
     logger: logger.child({ component: "project-setup-service" }),
   });

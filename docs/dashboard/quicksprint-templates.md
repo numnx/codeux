@@ -6,14 +6,44 @@ This page documents the built-in template catalog, how the dashboard organizes i
 
 ## Source Of Truth
 
-Built-in templates live in:
-- `src/domain/quicksprint/quicksprint-catalog.ts`
+Default file-backed templates live in:
+- `.code-ux/quicksprints/templates/*.md`
 
-Custom project templates live in:
+Project overrides and custom project templates live in:
+- `<project>/.code-ux/quicksprints/templates/*.md`
+
+Home-level overrides live in:
+- `~/.code-ux/quicksprints/templates/*.md`
+
+Legacy JSON templates are still read from:
+- `<project>/.code-ux/quicksprints/templates/*.json`
 - `<project>/.quicksprints/*.json`
+
+The TypeScript catalog in `src/domain/quicksprint/quicksprint-catalog.ts` is now only a compatibility fallback that loads the bundled `.code-ux/quicksprints/templates` files.
 
 The shared template record contract lives in:
 - `src/contracts/quicksprint-types.ts`
+
+## File Format
+
+Quicksprint templates use the same editable mixed Markdown pattern as agent files:
+
+```md
+---json
+{
+  "id": "qs-example",
+  "name": "Example Audit",
+  "description": "Reusable audit template.",
+  "icon": "Sparkles",
+  "category": "engineering",
+  "categoryColor": "#22c55e",
+  "defaultTaskCount": 5
+}
+---
+Write the full agentInstructionMarkdown body here.
+```
+
+Everything above the second `---` is JSON metadata. Everything below it is the prompt body persisted as `agentInstructionMarkdown` in the runtime API.
 
 ## Dashboard Behavior
 
@@ -62,3 +92,14 @@ Every Quicksprint prompt should drive the planner toward subtasks that include:
 - verification work
 
 The runtime appends the exact subtask count for the specific execution, so templates should focus on quality and scope, not on hardcoding a fixed number of tasks inside the prompt body.
+
+## Override Resolution
+
+Templates are resolved by stable `id` in this order:
+- project `.code-ux/quicksprints/templates`
+- legacy project `.quicksprints`
+- home `.code-ux/quicksprints/templates`
+- bundled `.code-ux/quicksprints/templates`
+- TypeScript fallback catalog
+
+The first template for an id wins. This lets a project override a home/default template by writing a mixed Markdown file with the same `id`, while home-level files can override bundled defaults for all projects.
