@@ -1,42 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { RepositoryError, ConcurrencyConflictError, EntityNotFoundError } from "../repository-utils.js";
-import {
-  requireProject,
-  requireSprint,
-  requireSprintRun,
-  requireSprintRunScoped,
-  requireTask,
-  requireTaskDispatch,
-  requireConnection,
-  requireTaskRun,
-  requireLease,
-  requireProviderInvocationUsage
-} from "./execution-validators.js";
-import { serializePayloadJson } from "../repository-utils.js";
-import type { ExecutionRepository } from "../execution-repository.js";
-import type {
-  SprintRunRecord, CreateSprintRunInput, UpdateSprintRunInput,
-  TaskRunRecord, CreateTaskRunInput, UpdateTaskRunInput,
-  TaskDispatchRecord, CreateTaskDispatchInput, UpdateTaskDispatchInput,
-  ExecutionLeaseRecord, AcquireExecutionLeaseInput, RenewExecutionLeaseInput,
-  CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, ProviderInvocationUsageRecord
-} from "../../contracts/execution-types.js";
-import type {
-  ExecutionInvocationRecord,
-  ExecutionInvocationMessageRecord,
-  CreateExecutionInvocationInput,
-  UpdateExecutionInvocationInput,
-  AppendExecutionInvocationMessageInput
-} from "../../contracts/invocation-types.js";
+import { CreateSprintRunInput, UpdateSprintRunInput, SprintRunRecord } from "../../contracts/execution-types.js";
+import { RepositoryError, serializePayloadJson } from "../repository-utils.js";
+import { requireProject, requireSprint, requireSprintRun } from "./execution-validators.js";
+import { DatabaseAdapter } from "../db/database-adapter.js";
+import { ExecutionWriteContext } from "./execution-repository-types.js";
+import { releaseStaleSprintLeaseWrite } from "./execution-lease-writes.js";
 
-export function createSprintRun(repo: ExecutionRepository, input: CreateSprintRunInput): SprintRunRecord {
+export function createSprintRunWrite(db: DatabaseAdapter, input: CreateSprintRunInput, ctx: ExecutionWriteContext): SprintRunRecord {
     try {
-      requireProject(repo.db, input.projectId);
-      requireSprint(repo.db, input.sprintId, input.projectId);
+      requireProject(db, input.projectId);
+      requireSprint(db, input.sprintId, input.projectId);
       const id = randomUUID();
       const now = new Date().toISOString();
 
-      repo.db.prepare(`
+      db.prepare(`
         INSERT INTO sprint_runs (
           id, project_id, sprint_id, status, trigger_type, triggered_by, executor_mode,
           started_at, finished_at, last_heartbeat_at, created_at, updated_at
@@ -47,63 +24,57 @@ export function createSprintRun(repo: ExecutionRepository, input: CreateSprintRu
         input.sprintId,
         input.status || "queued",
         input.triggerType || "manual",
-        input.triggeredBy ?? null,
-        input.executorMode || "mixed",
+        input.triggeredBy || null,
+        input.executorMode || "legacy-orchestrator",
+        input.status === "running" ? now : null,
         null,
-        null,
-        null,
+        now,
         now,
         now
       );
 
-      const created = requireSprintRun((id: string) => repo.getSprintRun(id), id);
-      repo.notifyRealtime(created.projectId, true);
+      const created = requireSprintRun((id: string) => ctx.getSprintRun(id), id);
+      ctx.notifyRealtime(created.projectId, true);
       return created;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, projectId: input.projectId });
+      ctx.logger.error("Operation failed", { error, projectId: input.projectId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function updateSprintRun(repo: ExecutionRepository, runId: string, input: UpdateSprintRunInput): SprintRunRecord {
+export function updateSprintRunWrite(db: DatabaseAdapter, runId: string, input: UpdateSprintRunInput, ctx: ExecutionWriteContext): SprintRunRecord {
     try {
-      const current = requireSprintRun((id: string) => repo.getSprintRun(id), runId);
+      const current = requireSprintRun((id: string) => ctx.getSprintRun(id), runId);
       const now = new Date().toISOString();
-      repo.db.prepare(`
+      db.prepare(`
         UPDATE sprint_runs
         SET status = ?, executor_mode = ?, started_at = ?, finished_at = ?, last_heartbeat_at = ?, updated_at = ?
         WHERE id = ?
       `).run(
         input.status || current.status,
         input.executorMode || current.executorMode,
-        input.startedAt === undefined ? current.startedAt : input.startedAt,
-        input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
-        input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : input.lastHeartbeatAt,
+        input.startedAt || current.startedAt,
+        input.finishedAt || current.finishedAt,
+        input.lastHeartbeatAt || current.lastHeartbeatAt,
         now,
         runId
       );
-      const updated = requireSprintRun((id: string) => repo.getSprintRun(id), runId);
-      if (repo.shouldPublishSprintRunUpdate(input)) {
-        repo.notifyRealtime(updated.projectId, true);
+      const updated = requireSprintRun((id: string) => ctx.getSprintRun(id), runId);
+      if (ctx.shouldPublishSprintRunUpdate(input)) {
+        ctx.notifyRealtime(updated.projectId, true);
       }
       return updated;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, runId });
+      ctx.logger.error("Operation failed", { error, runId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function appendSprintRunEvent(repo: ExecutionRepository,
-    sprintRunId: string,
-    eventType: string,
-    originator: string,
-    payload: Record<string, unknown>,
-    options?: { createdAt?: string; sourceEventKey?: string | null },
-  ): boolean {
-    const sprintRun = requireSprintRun((id: string) => repo.getSprintRun(id), sprintRunId);
-    const result = repo.db.prepare(`
+export function appendSprintRunEventWrite(db: DatabaseAdapter, sprintRunId: string, eventType: string, originator: string, payload: Record<string, unknown>, options: { createdAt?: string; sourceEventKey?: string | null } | undefined, ctx: ExecutionWriteContext): boolean {
+    const sprintRun = requireSprintRun((id: string) => ctx.getSprintRun(id), sprintRunId);
+    const result = db.prepare(`
       INSERT OR IGNORE INTO sprint_run_events (id, sprint_run_id, event_type, originator, payload_json, source_event_key, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -113,32 +84,32 @@ export function appendSprintRunEvent(repo: ExecutionRepository,
       originator,
       serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
-      options?.createdAt || new Date().toISOString(),
+      options?.createdAt ?? new Date().toISOString()
     );
     const inserted = Number((result as { changes?: number }).changes || 0) > 0;
     if (inserted) {
-      repo.notifyRealtime(sprintRun.projectId, true);
+      ctx.notifyRealtime(sprintRun.projectId, true);
     }
     return inserted;
-  }
+}
 
-export function finalizeSprintRunCancellationIfIdle(repo: ExecutionRepository, sprintRunId: string): SprintRunRecord | null {
-    const sprintRun = repo.getSprintRun(sprintRunId);
-    if (!sprintRun || sprintRun.status !== "cancel_requested" || repo.hasActiveTaskDispatches(sprintRunId)) {
+export function finalizeSprintRunCancellationIfIdleWrite(db: DatabaseAdapter, sprintRunId: string, ctx: ExecutionWriteContext): SprintRunRecord | null {
+    const sprintRun = ctx.getSprintRun(sprintRunId);
+    if (!sprintRun || sprintRun.status !== "cancel_requested" || ctx.hasActiveTaskDispatches(sprintRunId)) {
       return null;
     }
 
     const now = new Date().toISOString();
-    const updated = repo.updateSprintRun(sprintRunId, {
+    const updated = updateSprintRunWrite(db, sprintRunId, {
       status: "cancelled",
       finishedAt: now,
       lastHeartbeatAt: now,
-    });
-    repo.appendSprintRunEvent(sprintRunId, "sprint_cancelled", "system", {
+    }, ctx);
+    appendSprintRunEventWrite(db, sprintRunId, "sprint_cancelled", "system", {
       reason: "cancel_request_completed",
     }, {
       sourceEventKey: `sprint-cancelled:${sprintRunId}:cancel-request-completed`,
-    });
-    repo.releaseStaleSprintLease(updated.projectId, updated.sprintId);
+    }, ctx);
+    releaseStaleSprintLeaseWrite(db, updated.projectId, updated.sprintId, ctx);
     return updated;
-  }
+}

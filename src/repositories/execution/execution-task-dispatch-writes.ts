@@ -1,49 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { RepositoryError, ConcurrencyConflictError, EntityNotFoundError } from "../repository-utils.js";
-import {
-  requireProject,
-  requireSprint,
-  requireSprintRun,
-  requireSprintRunScoped,
-  requireTask,
-  requireTaskDispatch,
-  requireConnection,
-  requireTaskRun,
-  requireLease,
-  requireProviderInvocationUsage
-} from "./execution-validators.js";
-import { serializePayloadJson } from "../repository-utils.js";
-import type { ExecutionRepository } from "../execution-repository.js";
-import type {
-  SprintRunRecord, CreateSprintRunInput, UpdateSprintRunInput,
-  TaskRunRecord, CreateTaskRunInput, UpdateTaskRunInput,
-  TaskDispatchRecord, CreateTaskDispatchInput, UpdateTaskDispatchInput,
-  ExecutionLeaseRecord, AcquireExecutionLeaseInput, RenewExecutionLeaseInput,
-  CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, ProviderInvocationUsageRecord
-} from "../../contracts/execution-types.js";
-import type {
-  ExecutionInvocationRecord,
-  ExecutionInvocationMessageRecord,
-  CreateExecutionInvocationInput,
-  UpdateExecutionInvocationInput,
-  AppendExecutionInvocationMessageInput
-} from "../../contracts/invocation-types.js";
+import { CreateTaskDispatchInput, UpdateTaskDispatchInput, TaskDispatchRecord } from "../../contracts/execution-types.js";
+import { RepositoryError } from "../repository-utils.js";
+import { requireProject, requireSprint, requireTask, requireSprintRunScoped, requireTaskDispatch, requireConnection } from "./execution-validators.js";
 import { claimNextTaskDispatchTransaction } from "./task-dispatch-claim-query.js";
+import { DatabaseAdapter } from "../db/database-adapter.js";
+import { ExecutionWriteContext } from "./execution-repository-types.js";
 
-export function createTaskDispatch(repo: ExecutionRepository, input: CreateTaskDispatchInput): TaskDispatchRecord {
+export function createTaskDispatchWrite(db: DatabaseAdapter, input: CreateTaskDispatchInput, ctx: ExecutionWriteContext): TaskDispatchRecord {
     try {
-      requireProject(repo.db, input.projectId);
-      requireSprint(repo.db, input.sprintId, input.projectId);
-      requireTask(repo.db, input.taskId, input.projectId, input.sprintId);
-      requireSprintRunScoped((id: string) => repo.getSprintRun(id), input.sprintRunId, input.projectId, input.sprintId);
+      requireProject(db, input.projectId);
+      requireSprint(db, input.sprintId, input.projectId);
+      requireTask(db, input.taskId, input.projectId, input.sprintId);
+      requireSprintRunScoped((id: string) => ctx.getSprintRun(id), input.sprintRunId, input.projectId, input.sprintId);
       if (input.connectionId) {
-        requireConnection(repo.db, input.connectionId);
+        requireConnection(db, input.connectionId);
       }
 
       const id = randomUUID();
       const now = new Date().toISOString();
       const queuedAt = input.queuedAt || now;
-      repo.db.prepare(`
+      db.prepare(`
         INSERT INTO task_dispatches (
           id, project_id, sprint_id, task_id, sprint_run_id, connection_id, executor_type, status, priority,
           queued_at, claimed_at, started_at, finished_at, last_heartbeat_at, error_message, created_at, updated_at
@@ -54,10 +30,10 @@ export function createTaskDispatch(repo: ExecutionRepository, input: CreateTaskD
         input.sprintId,
         input.taskId,
         input.sprintRunId,
-        input.connectionId ?? null,
+        input.connectionId || null,
         input.executorType,
         input.status || "queued",
-        input.priority ?? 0,
+        input.priority || 0,
         queuedAt,
         null,
         null,
@@ -68,68 +44,68 @@ export function createTaskDispatch(repo: ExecutionRepository, input: CreateTaskD
         now
       );
 
-      const created = requireTaskDispatch((id: string) => repo.getTaskDispatch(id), id);
-      repo.notifyRealtime(created.projectId, true);
+      const created = requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), id);
+      ctx.notifyRealtime(created.projectId, true);
       return created;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, projectId: input.projectId });
+      ctx.logger.error("Operation failed", { error, projectId: input.projectId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function updateTaskDispatch(repo: ExecutionRepository, dispatchId: string, input: UpdateTaskDispatchInput): TaskDispatchRecord {
+export function updateTaskDispatchesBatchWrite(db: DatabaseAdapter, dispatches: Array<{id: string} & UpdateTaskDispatchInput>, ctx: ExecutionWriteContext): void {
+    if (dispatches.length === 0) return;
+    db.transaction(() => {
+      for (const dispatch of dispatches) {
+        updateTaskDispatchWrite(db, dispatch.id, dispatch, ctx);
+      }
+    });
+}
+
+export function updateTaskDispatchWrite(db: DatabaseAdapter, dispatchId: string, input: UpdateTaskDispatchInput, ctx: ExecutionWriteContext): TaskDispatchRecord {
     try {
-      const current = requireTaskDispatch((id: string) => repo.getTaskDispatch(id), dispatchId);
+      const current = requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), dispatchId);
       if (input.connectionId) {
-        requireConnection(repo.db, input.connectionId);
+        requireConnection(db, input.connectionId);
       }
       const now = new Date().toISOString();
-      repo.db.prepare(`
+      db.prepare(`
         UPDATE task_dispatches
         SET connection_id = ?, status = ?, claimed_at = ?, started_at = ?, finished_at = ?, last_heartbeat_at = ?, error_message = ?, updated_at = ?
         WHERE id = ?
       `).run(
         input.connectionId === undefined ? current.connectionId : input.connectionId,
         input.status || current.status,
-        input.claimedAt === undefined ? current.claimedAt : input.claimedAt,
-        input.startedAt === undefined ? current.startedAt : input.startedAt,
-        input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
-        input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : input.lastHeartbeatAt,
+        input.claimedAt || current.claimedAt,
+        input.startedAt || current.startedAt,
+        input.finishedAt || current.finishedAt,
+        input.lastHeartbeatAt || current.lastHeartbeatAt,
         input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
         now,
         dispatchId
       );
-      const updated = requireTaskDispatch((id: string) => repo.getTaskDispatch(id), dispatchId);
-      if (repo.shouldPublishTaskDispatchUpdate(input)) {
-        repo.notifyRealtime(updated.projectId, true);
+      const updated = requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), dispatchId);
+      if (ctx.shouldPublishTaskDispatchUpdate(input)) {
+        ctx.notifyRealtime(updated.projectId, true);
       }
       return updated;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, dispatchId });
+      ctx.logger.error("Operation failed", { error, dispatchId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function updateTaskDispatchesBatch(repo: ExecutionRepository, dispatches: Array<{id: string} & UpdateTaskDispatchInput>): void {
-    if (dispatches.length === 0) return;
-    repo.db.transaction(() => {
-      for (const dispatch of dispatches) {
-        repo.updateTaskDispatch(dispatch.id, dispatch);
-      }
-    });
-  }
-
-export function claimNextTaskDispatch(repo: ExecutionRepository, args: {
-    projectId: string;
-    executorType: TaskDispatchRecord["executorType"];
-    connectionId?: string | null;
-    sprintId?: string;
-    sprintRunId?: string;
-  }): TaskDispatchRecord | null {
+export function claimNextTaskDispatchWrite(db: DatabaseAdapter, args: {
+        projectId: string;
+        executorType: TaskDispatchRecord["executorType"];
+        connectionId?: string | null;
+        sprintId?: string;
+        sprintRunId?: string;
+      }, ctx: ExecutionWriteContext): TaskDispatchRecord | null {
     const nowIso = new Date().toISOString();
-    const claimedId = claimNextTaskDispatchTransaction(repo.db, {
+    const claimedId = claimNextTaskDispatchTransaction(db, {
       ...args,
       nowIso,
     });
@@ -138,7 +114,7 @@ export function claimNextTaskDispatch(repo: ExecutionRepository, args: {
       return null;
     }
 
-    const updated = requireTaskDispatch((id: string) => repo.getTaskDispatch(id), claimedId);
-    repo.notifyRealtime(updated.projectId, true);
+    const updated = requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), claimedId);
+    ctx.notifyRealtime(updated.projectId, true);
     return updated;
-  }
+}

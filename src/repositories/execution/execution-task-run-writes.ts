@@ -1,51 +1,27 @@
 import { randomUUID } from "node:crypto";
-import { RepositoryError, ConcurrencyConflictError, EntityNotFoundError } from "../repository-utils.js";
-import {
-  requireProject,
-  requireSprint,
-  requireSprintRun,
-  requireSprintRunScoped,
-  requireTask,
-  requireTaskDispatch,
-  requireConnection,
-  requireTaskRun,
-  requireLease,
-  requireProviderInvocationUsage
-} from "./execution-validators.js";
-import { serializePayloadJson } from "../repository-utils.js";
-import type { ExecutionRepository } from "../execution-repository.js";
-import type {
-  SprintRunRecord, CreateSprintRunInput, UpdateSprintRunInput,
-  TaskRunRecord, CreateTaskRunInput, UpdateTaskRunInput,
-  TaskDispatchRecord, CreateTaskDispatchInput, UpdateTaskDispatchInput,
-  ExecutionLeaseRecord, AcquireExecutionLeaseInput, RenewExecutionLeaseInput,
-  CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, ProviderInvocationUsageRecord
-} from "../../contracts/execution-types.js";
-import type {
-  ExecutionInvocationRecord,
-  ExecutionInvocationMessageRecord,
-  CreateExecutionInvocationInput,
-  UpdateExecutionInvocationInput,
-  AppendExecutionInvocationMessageInput
-} from "../../contracts/invocation-types.js";
+import { CreateTaskRunInput, UpdateTaskRunInput, TaskRunRecord } from "../../contracts/execution-types.js";
+import { RepositoryError, serializePayloadJson } from "../repository-utils.js";
+import { requireProject, requireSprint, requireTask, requireSprintRunScoped, requireTaskDispatch, requireTaskRun, requireConnection } from "./execution-validators.js";
+import { DatabaseAdapter } from "../db/database-adapter.js";
+import { ExecutionWriteContext } from "./execution-repository-types.js";
 
-export function createTaskRun(repo: ExecutionRepository, input: CreateTaskRunInput): TaskRunRecord {
+export function createTaskRunWrite(db: DatabaseAdapter, input: CreateTaskRunInput, ctx: ExecutionWriteContext): TaskRunRecord {
     try {
-      requireProject(repo.db, input.projectId);
-      requireSprint(repo.db, input.sprintId, input.projectId);
-      requireTask(repo.db, input.taskId, input.projectId, input.sprintId);
+      requireProject(db, input.projectId);
+      requireSprint(db, input.sprintId, input.projectId);
+      requireTask(db, input.taskId, input.projectId, input.sprintId);
       if (input.sprintRunId) {
-        requireSprintRunScoped((id: string) => repo.getSprintRun(id), input.sprintRunId, input.projectId, input.sprintId);
+        requireSprintRunScoped((id: string) => ctx.getSprintRun(id), input.sprintRunId, input.projectId, input.sprintId);
       }
       if (input.dispatchId) {
-        requireTaskDispatch((id: string) => repo.getTaskDispatch(id), input.dispatchId);
+        requireTaskDispatch((id: string) => ctx.getTaskDispatch(id), input.dispatchId);
       }
       if (input.connectionId) {
-        requireConnection(repo.db, input.connectionId);
+        requireConnection(db, input.connectionId);
       }
 
       const id = randomUUID();
-      repo.db.prepare(`
+      db.prepare(`
         INSERT INTO task_runs (
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, connection_id, provider, mode,
           session_id, session_name, state, worker_branch, pr_url, started_at, finished_at, duration_ms
@@ -55,37 +31,46 @@ export function createTaskRun(repo: ExecutionRepository, input: CreateTaskRunInp
         input.projectId,
         input.sprintId,
         input.taskId,
-        input.sprintRunId ?? null,
-        input.dispatchId ?? null,
-        input.connectionId ?? null,
-        input.provider ?? null,
-        input.mode ?? null,
-        input.sessionId ?? null,
-        input.sessionName ?? null,
-        input.state,
-        input.workerBranch ?? null,
-        input.prUrl ?? null,
-        input.startedAt ?? null,
-        input.finishedAt ?? null,
+        input.sprintRunId || null,
+        input.dispatchId || null,
+        input.connectionId || null,
+        input.provider || null,
+        input.mode || "legacy-orchestrator",
+        input.sessionId || null,
+        input.sessionName || null,
+        input.state || "PENDING",
+        input.workerBranch || null,
+        input.prUrl || null,
+        input.startedAt || null,
+        input.finishedAt || null,
         input.durationMs ?? null
       );
 
-      const created = requireTaskRun((id: string) => repo.getTaskRun(id), id);
-      if (created.taskId) repo.taskWallTimeCache.delete(created.taskId);
-      if (created.sprintRunId) repo.sprintRunWallTimeCache.delete(created.sprintRunId);
-      repo.notifyRealtime(created.projectId, false);
+      const created = requireTaskRun((id: string) => ctx.getTaskRun(id), id);
+      if (created.taskId) ctx.taskWallTimeCache.delete(created.taskId);
+      if (created.sprintRunId) ctx.sprintRunWallTimeCache.delete(created.sprintRunId);
+      ctx.notifyRealtime(created.projectId, false);
       return created;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, projectId: input.projectId });
+      ctx.logger.error("Operation failed", { error, projectId: input.projectId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function updateTaskRun(repo: ExecutionRepository, taskRunId: string, input: UpdateTaskRunInput): TaskRunRecord {
+export function updateTaskRunsBatchWrite(db: DatabaseAdapter, runs: Array<{id: string} & UpdateTaskRunInput>, ctx: ExecutionWriteContext): void {
+    if (runs.length === 0) return;
+    db.transaction(() => {
+      for (const run of runs) {
+        updateTaskRunWrite(db, run.id, run, ctx);
+      }
+    });
+}
+
+export function updateTaskRunWrite(db: DatabaseAdapter, taskRunId: string, input: UpdateTaskRunInput, ctx: ExecutionWriteContext): TaskRunRecord {
     try {
-      const current = requireTaskRun((id: string) => repo.getTaskRun(id), taskRunId);
-      repo.db.prepare(`
+      const current = requireTaskRun((id: string) => ctx.getTaskRun(id), taskRunId);
+      db.prepare(`
         UPDATE task_runs
         SET connection_id = ?, provider = ?, mode = ?, session_id = ?, session_name = ?, state = ?, worker_branch = ?,
             pr_url = ?, started_at = ?, finished_at = ?, duration_ms = ?
@@ -96,7 +81,7 @@ export function updateTaskRun(repo: ExecutionRepository, taskRunId: string, inpu
         input.mode === undefined ? current.mode : input.mode,
         input.sessionId === undefined ? current.sessionId : input.sessionId,
         input.sessionName === undefined ? current.sessionName : input.sessionName,
-        input.state === undefined ? current.state : input.state,
+        input.state || current.state,
         input.workerBranch === undefined ? current.workerBranch : input.workerBranch,
         input.prUrl === undefined ? current.prUrl : input.prUrl,
         input.startedAt === undefined ? current.startedAt : input.startedAt,
@@ -104,38 +89,23 @@ export function updateTaskRun(repo: ExecutionRepository, taskRunId: string, inpu
         input.durationMs === undefined ? current.durationMs : input.durationMs,
         taskRunId
       );
-      const updated = requireTaskRun((id: string) => repo.getTaskRun(id), taskRunId);
-      if (updated.taskId) repo.taskWallTimeCache.delete(updated.taskId);
-      if (updated.sprintRunId) repo.sprintRunWallTimeCache.delete(updated.sprintRunId);
-      repo.notifyRealtime(updated.projectId, false);
+      const updated = requireTaskRun((id: string) => ctx.getTaskRun(id), taskRunId);
+      if (updated.taskId) ctx.taskWallTimeCache.delete(updated.taskId);
+      if (updated.sprintRunId) ctx.sprintRunWallTimeCache.delete(updated.sprintRunId);
+      ctx.notifyRealtime(updated.projectId, false);
       return updated;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, taskRunId });
+      ctx.logger.error("Operation failed", { error, taskRunId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function updateTaskRunsBatch(repo: ExecutionRepository, runs: Array<{id: string} & UpdateTaskRunInput>): void {
-    if (runs.length === 0) return;
-    repo.db.transaction(() => {
-      for (const run of runs) {
-        repo.updateTaskRun(run.id, run);
-      }
-    });
-  }
-
-export function appendTaskRunEvent(repo: ExecutionRepository,
-    taskRunId: string,
-    eventType: string,
-    originator: string,
-    payload: Record<string, unknown>,
-    options?: { createdAt?: string; sourceEventKey?: string | null },
-  ): boolean {
-    const taskRun = requireTaskRun((id: string) => repo.getTaskRun(id), taskRunId);
-    if (taskRun.taskId) repo.taskWallTimeCache.delete(taskRun.taskId);
-    if (taskRun.sprintRunId) repo.sprintRunWallTimeCache.delete(taskRun.sprintRunId);
-    const result = repo.db.prepare(`
+export function appendTaskRunEventWrite(db: DatabaseAdapter, taskRunId: string, eventType: string, originator: string, payload: Record<string, unknown>, options: { createdAt?: string; sourceEventKey?: string | null } | undefined, ctx: ExecutionWriteContext): boolean {
+    const taskRun = requireTaskRun((id: string) => ctx.getTaskRun(id), taskRunId);
+    if (taskRun.taskId) ctx.taskWallTimeCache.delete(taskRun.taskId);
+    if (taskRun.sprintRunId) ctx.sprintRunWallTimeCache.delete(taskRun.sprintRunId);
+    const result = db.prepare(`
       INSERT OR IGNORE INTO task_run_events (id, task_run_id, event_type, originator, payload_json, source_event_key, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -145,11 +115,11 @@ export function appendTaskRunEvent(repo: ExecutionRepository,
       originator,
       serializePayloadJson(payload),
       options?.sourceEventKey ?? null,
-      options?.createdAt || new Date().toISOString()
+      options?.createdAt ?? new Date().toISOString()
     );
     const inserted = Number((result as { changes?: number }).changes || 0) > 0;
     if (inserted) {
-      repo.notifyRealtime(taskRun.projectId, false);
+      ctx.notifyRealtime(taskRun.projectId, false);
     }
     return inserted;
-  }
+}

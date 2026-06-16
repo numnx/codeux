@@ -1,37 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { RepositoryError, ConcurrencyConflictError, EntityNotFoundError } from "../repository-utils.js";
-import {
-  requireProject,
-  requireSprint,
-  requireSprintRun,
-  requireSprintRunScoped,
-  requireTask,
-  requireTaskDispatch,
-  requireConnection,
-  requireTaskRun,
-  requireLease,
-  requireProviderInvocationUsage
-} from "./execution-validators.js";
-import { serializePayloadJson } from "../repository-utils.js";
-import type { ExecutionRepository } from "../execution-repository.js";
-import type {
-  SprintRunRecord, CreateSprintRunInput, UpdateSprintRunInput,
-  TaskRunRecord, CreateTaskRunInput, UpdateTaskRunInput,
-  TaskDispatchRecord, CreateTaskDispatchInput, UpdateTaskDispatchInput,
-  ExecutionLeaseRecord, AcquireExecutionLeaseInput, RenewExecutionLeaseInput,
-  CreateProviderInvocationUsageInput, UpdateProviderInvocationUsageInput, ProviderInvocationUsageRecord
-} from "../../contracts/execution-types.js";
-import type {
-  ExecutionInvocationRecord,
-  ExecutionInvocationMessageRecord,
-  CreateExecutionInvocationInput,
-  UpdateExecutionInvocationInput,
-  AppendExecutionInvocationMessageInput
-} from "../../contracts/invocation-types.js";
+import { AcquireExecutionLeaseInput, RenewExecutionLeaseInput, ExecutionLeaseRecord } from "../../contracts/execution-types.js";
+import { ConcurrencyConflictError, RepositoryError } from "../repository-utils.js";
+import { requireProject, requireSprint, requireLease } from "./execution-validators.js";
+import { DatabaseAdapter } from "../db/database-adapter.js";
+import { ExecutionWriteContext } from "./execution-repository-types.js";
 
-export function acquireLease(repo: ExecutionRepository, input: AcquireExecutionLeaseInput): ExecutionLeaseRecord {
+export function acquireLeaseWrite(db: DatabaseAdapter, input: AcquireExecutionLeaseInput, ctx: ExecutionWriteContext): ExecutionLeaseRecord {
     try {
-      const existing = repo.getLease(input.scopeType, input.scopeId);
+      const existing = ctx.getLease(input.scopeType, input.scopeId);
       const now = new Date().toISOString();
 
       if (existing && existing.expiresAt > now && existing.leaseToken !== input.leaseToken) {
@@ -39,7 +15,7 @@ export function acquireLease(repo: ExecutionRepository, input: AcquireExecutionL
       }
 
       if (existing) {
-        repo.db.prepare(`
+        db.prepare(`
           UPDATE execution_leases
           SET owner_key = ?, lease_token = ?, acquired_at = ?, expires_at = ?, last_heartbeat_at = ?
           WHERE scope_type = ? AND scope_id = ?
@@ -52,13 +28,13 @@ export function acquireLease(repo: ExecutionRepository, input: AcquireExecutionL
           input.scopeType,
           input.scopeId
         );
-        const updated = requireLease((type: ExecutionLeaseRecord["scopeType"], id: string) => repo.getLease(type, id), input.scopeType, input.scopeId);
-        repo.notifyRealtimeForLease(input.scopeType, input.scopeId);
+        const updated = requireLease((type, id) => ctx.getLease(type, id), input.scopeType, input.scopeId);
+        ctx.notifyRealtimeForLease(input.scopeType, input.scopeId);
         return updated;
       }
 
       const id = randomUUID();
-      repo.db.prepare(`
+      db.prepare(`
         INSERT INTO execution_leases (id, scope_type, scope_id, owner_key, lease_token, acquired_at, expires_at, last_heartbeat_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
@@ -71,91 +47,91 @@ export function acquireLease(repo: ExecutionRepository, input: AcquireExecutionL
         input.expiresAt,
         now
       );
-      const created = requireLease((type: ExecutionLeaseRecord["scopeType"], id: string) => repo.getLease(type, id), input.scopeType, input.scopeId);
-      repo.notifyRealtimeForLease(input.scopeType, input.scopeId);
+      const created = requireLease((type, id) => ctx.getLease(type, id), input.scopeType, input.scopeId);
+      ctx.notifyRealtimeForLease(input.scopeType, input.scopeId);
       return created;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, scopeType: input.scopeType, scopeId: input.scopeId });
+      ctx.logger.error("Operation failed", { error, scopeType: input.scopeType, scopeId: input.scopeId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function renewLease(repo: ExecutionRepository, input: RenewExecutionLeaseInput): ExecutionLeaseRecord {
+export function renewLeaseWrite(db: DatabaseAdapter, input: RenewExecutionLeaseInput, ctx: ExecutionWriteContext): ExecutionLeaseRecord {
     try {
-      const current = requireLease((type: ExecutionLeaseRecord["scopeType"], id: string) => repo.getLease(type, id), input.scopeType, input.scopeId);
+      const current = requireLease((type, id) => ctx.getLease(type, id), input.scopeType, input.scopeId);
       if (current.leaseToken !== input.leaseToken) {
         throw new ConcurrencyConflictError(`Lease token mismatch for ${input.scopeType}:${input.scopeId}`);
       }
       const now = new Date().toISOString();
-      repo.db.prepare(`
+      db.prepare(`
         UPDATE execution_leases
         SET expires_at = ?, last_heartbeat_at = ?
         WHERE scope_type = ? AND scope_id = ? AND lease_token = ?
       `).run(input.expiresAt, now, input.scopeType, input.scopeId, input.leaseToken);
-      return requireLease((type: ExecutionLeaseRecord["scopeType"], id: string) => repo.getLease(type, id), input.scopeType, input.scopeId);
+      return requireLease((type, id) => ctx.getLease(type, id), input.scopeType, input.scopeId);
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, scopeType: input.scopeType, scopeId: input.scopeId });
+      ctx.logger.error("Operation failed", { error, scopeType: input.scopeType, scopeId: input.scopeId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function releaseLease(repo: ExecutionRepository, scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string, leaseToken?: string): void {
+export function releaseLeaseWrite(db: DatabaseAdapter, scopeType: ExecutionLeaseRecord["scopeType"], scopeId: string, leaseToken: string | undefined, ctx: ExecutionWriteContext): void {
     try {
-      const projectId = repo.resolveLeaseProjectId(scopeType, scopeId);
-      repo.leaseProjectCache.delete(`${scopeType}:${scopeId}`);
+      const projectId = ctx.resolveLeaseProjectId(scopeType, scopeId);
+      ctx.leaseProjectCache.delete(`${scopeType}:${scopeId}`);
 
       if (leaseToken) {
-        repo.db.prepare(`
+        db.prepare(`
           DELETE FROM execution_leases
           WHERE scope_type = ? AND scope_id = ? AND lease_token = ?
         `).run(scopeType, scopeId, leaseToken);
         if (projectId) {
-          repo.notifyRealtime(projectId, false);
+          ctx.notifyRealtime(projectId, false);
         }
         return;
       }
 
-      repo.db.prepare(`
+      db.prepare(`
         DELETE FROM execution_leases
         WHERE scope_type = ? AND scope_id = ?
       `).run(scopeType, scopeId);
       if (projectId) {
-        repo.notifyRealtime(projectId, false);
+        ctx.notifyRealtime(projectId, false);
       }
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, scopeType, scopeId });
+      ctx.logger.error("Operation failed", { error, scopeType, scopeId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
 
-export function releaseStaleSprintLease(repo: ExecutionRepository, projectId: string, sprintId: string): boolean {
+export function releaseStaleSprintLeaseWrite(db: DatabaseAdapter, projectId: string, sprintId: string, ctx: ExecutionWriteContext): boolean {
     try {
-      requireProject(repo.db, projectId);
-      requireSprint(repo.db, sprintId, projectId);
+      requireProject(db, projectId);
+      requireSprint(db, sprintId, projectId);
 
-      const lease = repo.getLease("sprint", sprintId);
+      const lease = ctx.getLease("sprint", sprintId);
       if (!lease) {
         return false;
       }
 
-      const activeRun = repo.findActiveSprintRun(projectId, sprintId);
+      const activeRun = ctx.findActiveSprintRun(projectId, sprintId);
       if (activeRun) {
         if (activeRun.status === "running" || activeRun.status === "queued") {
           return false;
         }
-        if (activeRun.status === "cancel_requested" && repo.hasActiveTaskDispatches(activeRun.id)) {
+        if (activeRun.status === "cancel_requested" && ctx.hasActiveTaskDispatches(activeRun.id)) {
           return false;
         }
       }
 
-      repo.releaseLease("sprint", sprintId, lease.leaseToken);
+      releaseLeaseWrite(db, "sprint", sprintId, lease.leaseToken, ctx);
       return true;
       } catch (error) {
       if (error instanceof RepositoryError) throw error;
-      repo.logger.error("Operation failed", { error, projectId, sprintId });
+      ctx.logger.error("Operation failed", { error, projectId, sprintId });
       throw new RepositoryError(error instanceof Error ? error.message : "Operation failed", error);
     }
-  }
+}
