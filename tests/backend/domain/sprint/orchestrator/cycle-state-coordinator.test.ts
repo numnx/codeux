@@ -70,5 +70,51 @@ describe("CycleStateCoordinator", () => {
       expect(openedItems[1].attentionType).toBe("action_required");
       expect(openedItems[1].taskId).toBe("rec-2");
     });
+
+    it("includes the resolved session id on action_required payloads so the virtual worker can intervene", async () => {
+      const deps = {
+        projectAttentionService: {
+          openItems: vi.fn(),
+          resolveItems: vi.fn(),
+        },
+      } as any;
+
+      const coordinator = new CycleStateCoordinator(deps);
+
+      const subtasks = [{ id: "task-1", record_id: "rec-1" }] as any[];
+
+      const protocolResult = {
+        awaitingMerge: [] as any[],
+        actionRequiredTasks: [
+          {
+            id: "task-1",
+            record_id: "rec-1",
+            title: "Task 1",
+            prompt: "Prompt 1",
+            intervention_owner: "AGENT",
+            session_state: "AWAITING_USER_FEEDBACK",
+            session_id: "sessions/3478292433877515748",
+            session_name: "sessions/3478292433877515748",
+          },
+        ] as any[],
+      };
+
+      const args = {
+        executionContext: { project: { id: "proj-1" }, sprint: { id: "sprint-1" } },
+        sprintRunId: "run-1",
+        defaultFeatureBranch: "main",
+        defaultBranch: "main",
+        repoPath: "/repo",
+        ciIntelligence: { resolveMergeConflicts: false },
+      } as any;
+
+      await coordinator.syncProtocolAttentionItems(subtasks, protocolResult, args, null, new Set());
+
+      const openedItems = deps.projectAttentionService.openItems.mock.calls[0][0];
+      const actionItem = openedItems.find((item: any) => item.attentionType === "action_required");
+      expect(actionItem).toBeDefined();
+      // Bare id (sessions/ prefix stripped) is what julesApi.sendSessionMessage expects.
+      expect(actionItem.payload.sessionId).toBe("3478292433877515748");
+    });
   });
 });

@@ -502,8 +502,20 @@ export class VirtualWorkerService {
   private async resolveActionRequiredAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {
     const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
     const payload = item.payload || {};
-    const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : null;
     const sessionState = typeof payload.sessionState === "string" ? payload.sessionState : null;
+    // Prefer the session id captured on the attention payload, but fall back to
+    // the task's latest run so that an item missing the field (older items, or
+    // any code path that forgot to populate it) can still be handled instead of
+    // being needlessly escalated to a human and pausing the sprint.
+    let sessionId = typeof payload.sessionId === "string" && payload.sessionId.trim().length > 0
+      ? payload.sessionId.trim()
+      : null;
+    if (!sessionId && item.taskId) {
+      const latestRun = this.deps.executionRepository.getLatestTaskRun(item.taskId);
+      sessionId = latestRun?.sessionId?.trim()
+        || latestRun?.sessionName?.replace(/^sessions\//, "").trim()
+        || null;
+    }
 
     if (!sessionId) {
       this.escalateAttentionToHuman(workerEndpointId, item, "No session ID available for action-required attention.");
