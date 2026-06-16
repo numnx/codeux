@@ -87,7 +87,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
         aria-labelledby={ariaLabelledBy || ariaLabelledby}
         aria-describedby={ariaDescribedBy || ariaDescribedby}
         tabIndex={-1}
-        className={`relative z-50 bg-white dark:bg-void-800 rounded-[12px] shadow-lg border border-black/[0.06] dark:border-white/[0.06] outline-none ${className}`}
+        className={`relative z-50 bg-white dark:bg-void-800 rounded-[12px] shadow-lg border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

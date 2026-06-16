@@ -13,6 +13,34 @@ export interface JulesApiClientOptions {
    * Jules API into 429s. Defaults to 250ms (~4 req/s).
    */
   minRequestIntervalMs?: number;
+  /**
+   * Per-request timeout in milliseconds. Bounds how long a single call may hang
+   * before it is aborted and retried, instead of relying on the OS-level TCP
+   * timeout (which can leave a `sendMessage` stuck for over a minute and surface
+   * as an opaque `ETIMEDOUT`). Defaults to 30s.
+   */
+  requestTimeoutMs?: number;
+  /**
+   * Maximum automatic retries for transient transport failures (network resets,
+   * timeouts, DNS hiccups) and 429s. Defaults to 4.
+   */
+  maxTransientRetries?: number;
+  /**
+   * Time-to-live for the shared session snapshot returned by
+   * {@link JulesApiClient.getCachedSessions}. Across many concurrent sprint
+   * watch loops this collapses N `listSessions` calls per cycle into a single
+   * shared fetch. Defaults to 12s (just above the 10s watch-loop interval so
+   * concurrent loops share one fetch while state stays near-real-time).
+   */
+  sessionsCacheTtlMs?: number;
+  /**
+   * Upper bound on how many sessions the shared snapshot paginates through per
+   * refresh. Active sessions are always the most recent, so this caps work on
+   * accounts with thousands of historical sessions. Defaults to 300.
+   */
+  maxSnapshotSessions?: number;
+  /** Injectable clock for deterministic tests. Defaults to `Date.now`. */
+  now?: () => number;
 }
 
 export interface JulesPageRequest {
@@ -81,17 +109,65 @@ interface JulesListSourcesQuery extends JulesPageQuery {
   filter?: string;
 }
 
+const TRANSIENT_NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ECONNABORTED",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "EPIPE",
+  "ECONNREFUSED",
+  "ERR_NETWORK",
+  "ERR_CANCELED",
+]);
+
+const isTransientNetworkError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  // A request that never produced a response (DNS/connect/reset/timeout). Node
+  // may also surface these as an AggregateError (happy-eyeballs) whose own code
+  // is unset, so fall back to scanning the message.
+  const err = error as { response?: unknown; code?: string; name?: string; message?: string };
+  if (err.response) {
+    return false;
+  }
+  if (err.code && TRANSIENT_NETWORK_CODES.has(err.code)) {
+    return true;
+  }
+  if (err.name === "AggregateError") {
+    return true;
+  }
+  const message = (err.message || "").toLowerCase();
+  return message.includes("timeout")
+    || message.includes("etimedout")
+    || message.includes("econnreset")
+    || message.includes("socket hang up")
+    || message.includes("network error");
+};
+
 export class JulesApiClient implements JulesClient {
   private readonly axiosInstance: AxiosInstance;
   private apiKey: string | null;
   private readonly minRequestIntervalMs: number;
+  private readonly maxTransientRetries: number;
+  private readonly sessionsCacheTtlMs: number;
+  private readonly maxSnapshotSessions: number;
+  private readonly now: () => number;
   private nextRequestSlot = 0;
+  private sessionSnapshot: { at: number; sessions: JulesSession[] } | null = null;
+  private sessionSnapshotInFlight: Promise<JulesSession[]> | null = null;
 
   constructor(options: JulesApiClientOptions) {
     this.apiKey = this.normalizeApiKey(options.apiKey);
     this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? 250);
+    this.maxTransientRetries = Math.max(0, options.maxTransientRetries ?? 4);
+    this.sessionsCacheTtlMs = Math.max(0, options.sessionsCacheTtlMs ?? 12_000);
+    this.maxSnapshotSessions = Math.max(1, options.maxSnapshotSessions ?? 300);
+    this.now = options.now ?? Date.now;
     this.axiosInstance = axios.create({
       baseURL: options.baseUrl,
+      timeout: Math.max(0, options.requestTimeoutMs ?? 30_000),
       headers: {
         "Content-Type": "application/json",
       },
@@ -119,21 +195,24 @@ export class JulesApiClient implements JulesClient {
           return Promise.reject(error);
         }
 
-        if (error.response && error.response.status === 429) {
-          const retryCount = retryCounts.get(config) || 0;
-          const maxRetries = 5;
+        const is429 = Boolean(error.response && error.response.status === 429);
+        const isTransient = !error.response && isTransientNetworkError(error);
 
-          if (retryCount < maxRetries) {
+        if (is429 || isTransient) {
+          const retryCount = retryCounts.get(config) || 0;
+
+          if (retryCount < this.maxTransientRetries) {
             const nextCount = retryCount + 1;
             retryCounts.set(config, nextCount);
 
             // Honor a server-provided Retry-After when present; otherwise fall
-            // back to exponential backoff (1s, 2s, 4s, 8s, 16s) with jitter.
-            const retryAfterMs = this.parseRetryAfterMs(error.response.headers?.["retry-after"]);
+            // back to exponential backoff (1s, 2s, 4s, 8s, …) with jitter.
+            const retryAfterMs = is429 ? this.parseRetryAfterMs(error.response.headers?.["retry-after"]) : null;
             const backoffMs = Math.pow(2, nextCount - 1) * 1000 + Math.random() * 500;
             const delay = Math.min(Math.max(retryAfterMs ?? backoffMs, backoffMs), 30000);
 
-            console.warn(`Jules API returned 429. Retrying request to ${config.url} (Attempt ${nextCount}/${maxRetries}) after ${Math.round(delay)}ms...`);
+            const reason = is429 ? "returned 429" : `hit a transient network error (${error.code || error.name || "unknown"})`;
+            console.warn(`Jules API ${reason}. Retrying request to ${config.url} (Attempt ${nextCount}/${this.maxTransientRetries}) after ${Math.round(delay)}ms...`);
 
             // Push the global request schedule out so concurrent in-flight
             // requests also back off, instead of all hammering at once.
@@ -282,6 +361,7 @@ export class JulesApiClient implements JulesClient {
   async createSession(data: JulesCreateSessionRequest): Promise<JulesSession> {
     this.ensureApiKey();
     const response = await this.axiosInstance.post<JulesSession>("/sessions", data);
+    this.invalidateSessionsCache();
     return response.data;
   }
 
@@ -299,10 +379,64 @@ export class JulesApiClient implements JulesClient {
     return response.data;
   }
 
+  /**
+   * Returns a shared, short-lived snapshot of every session on the account
+   * (most-recent first, up to `maxSnapshotSessions`).
+   *
+   * Each sprint's watch loop needs the full session list every cycle to map
+   * remote state back onto its tasks. Fetching that per sprint per cycle
+   * (×N sprints, every 10s) is what drives the account into 429s and timeouts.
+   * This coalesces all concurrent callers onto a single in-flight fetch and
+   * caches the result for `sessionsCacheTtlMs`, so the whole orchestrator makes
+   * at most one `listSessions` pagination per TTL window regardless of how many
+   * sprints are running. On a transient failure it serves the last good
+   * snapshot rather than disrupting every sprint's sync.
+   */
+  async getCachedSessions(): Promise<JulesSession[]> {
+    const fresh = this.sessionSnapshot && (this.now() - this.sessionSnapshot.at) < this.sessionsCacheTtlMs;
+    if (fresh) {
+      return this.sessionSnapshot!.sessions;
+    }
+    if (this.sessionSnapshotInFlight) {
+      return this.sessionSnapshotInFlight;
+    }
+    this.sessionSnapshotInFlight = this.refreshSessionSnapshot()
+      .finally(() => { this.sessionSnapshotInFlight = null; });
+    return this.sessionSnapshotInFlight;
+  }
+
+  /** Drops the cached session snapshot so the next read re-fetches fresh state. */
+  invalidateSessionsCache(): void {
+    this.sessionSnapshot = null;
+  }
+
+  private async refreshSessionSnapshot(): Promise<JulesSession[]> {
+    try {
+      const all: JulesSession[] = [];
+      let pageToken: string | undefined = undefined;
+      do {
+        const response: JulesListSessionsResponse = await this.listSessions({ page_size: 100, page_token: pageToken });
+        const sessions = response.sessions || [];
+        all.push(...sessions);
+        pageToken = sessions.length > 0 ? response.nextPageToken : undefined;
+      } while (pageToken && all.length < this.maxSnapshotSessions);
+      this.sessionSnapshot = { at: this.now(), sessions: all };
+      return all;
+    } catch (error) {
+      if (this.sessionSnapshot) {
+        // Serve stale rather than failing every sprint's sync on a blip; the
+        // timestamp is left untouched so the next call retries promptly.
+        return this.sessionSnapshot.sessions;
+      }
+      throw error;
+    }
+  }
+
   async approveSessionPlan(sessionId: string): Promise<JulesSessionActionResponse> {
     this.ensureApiKey();
     const name = this.toSessionName(sessionId);
     const response = await this.axiosInstance.post<JulesSessionActionResponse>(`/${name}:approvePlan`);
+    this.invalidateSessionsCache();
     return response.data;
   }
 
@@ -310,6 +444,7 @@ export class JulesApiClient implements JulesClient {
     this.ensureApiKey();
     const name = this.toSessionName(sessionId);
     const response = await this.axiosInstance.post<JulesSessionActionResponse>(`/${name}:sendMessage`, { prompt });
+    this.invalidateSessionsCache();
     return response.data;
   }
 

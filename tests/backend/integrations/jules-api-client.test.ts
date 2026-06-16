@@ -170,4 +170,101 @@ describe("JulesApiClient coverage", () => {
         expect(res.map((a) => a.id)).toEqual(["a0", "a1"]);
         expect(mockInstance.get).toHaveBeenCalledTimes(2);
     });
+
+    it("getCachedSessions coalesces concurrent callers into a single fetch", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        let resolveGet: (v: unknown) => void = () => {};
+        vi.mocked(mockInstance.get).mockReturnValueOnce(new Promise((r) => { resolveGet = r; }));
+
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, now: () => 0 });
+        const p1 = client.getCachedSessions();
+        const p2 = client.getCachedSessions();
+        resolveGet({ data: { sessions: [{ id: "1" }] } });
+        const [r1, r2] = await Promise.all([p1, p2]);
+
+        expect(mockInstance.get).toHaveBeenCalledTimes(1);
+        expect(r1).toBe(r2);
+        expect(r1.map((s) => s.id)).toEqual(["1"]);
+    });
+
+    it("getCachedSessions serves the cached snapshot within the TTL and re-fetches after expiry", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.get)
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "2" }] } });
+
+        let t = 0;
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, sessionsCacheTtlMs: 1000, now: () => t });
+
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
+        t = 500; // within TTL -> cached
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
+        expect(mockInstance.get).toHaveBeenCalledTimes(1);
+        t = 1500; // expired -> refetch
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["2"]);
+        expect(mockInstance.get).toHaveBeenCalledTimes(2);
+    });
+
+    it("getCachedSessions paginates and stops at maxSnapshotSessions", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.get)
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }, { id: "2" }], nextPageToken: "t" } })
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "3" }] } });
+
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, now: () => 0 });
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1", "2", "3"]);
+    });
+
+    it("sendSessionMessage invalidates the session snapshot so the next read refetches", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.post).mockReset();
+        vi.mocked(mockInstance.get)
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "2" }] } });
+        vi.mocked(mockInstance.post).mockResolvedValueOnce({ data: {} });
+
+        // Long TTL so a re-fetch can only happen via invalidation.
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, sessionsCacheTtlMs: 1_000_000, now: () => 0 });
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
+        await client.sendSessionMessage("s", "hello");
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["2"]);
+        expect(mockInstance.get).toHaveBeenCalledTimes(2);
+    });
+
+    it("getCachedSessions serves the last good snapshot when a refresh fails", async () => {
+        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.get)
+            .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
+            .mockRejectedValueOnce(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }));
+
+        let t = 0;
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, sessionsCacheTtlMs: 1000, now: () => t });
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
+        t = 2000; // expired -> refresh fails -> serve stale
+        expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
+    });
+
+    it("retries transient network errors (ETIMEDOUT) then resolves", async () => {
+        vi.useFakeTimers();
+        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, maxTransientRetries: 2 });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+
+        (mockInstance as any).mockReset();
+        (mockInstance as any).mockResolvedValueOnce({ data: "recovered" });
+        const config = { url: "/sessions" };
+        const err = Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT", config });
+
+        const p = errorCb(err);
+        await vi.advanceTimersByTimeAsync(35000);
+        await expect(p).resolves.toEqual({ data: "recovered" });
+        expect(mockInstance).toHaveBeenCalledWith(config);
+        vi.useRealTimers();
+    });
+
+    it("does not retry non-transient HTTP errors", async () => {
+        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+        const err = { response: { status: 404 }, config: { url: "/x" }, message: "Request failed with status code 404" };
+        await expect(errorCb(err)).rejects.toBe(err);
+    });
 });

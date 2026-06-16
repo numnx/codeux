@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preac
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { calculatePosition, Position, Alignment } from "../../lib/positioning/index.js";
+import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface PopoverProps {
   children: ComponentChildren;
@@ -29,6 +31,7 @@ export const Popover = ({
   triggerRef: externalTriggerRef,
   isTooltip = false,
 }: PopoverProps) => {
+  const isReducedMotion = useReducedMotion();
   const [isRendered, setIsRendered] = useState(false);
   const localTriggerRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
@@ -58,6 +61,16 @@ export const Popover = ({
       setIsRendered(true);
       if (!isTooltip) {
         previousFocusRef.current = document.activeElement as HTMLElement | null;
+      }
+    } else if (isRendered) { // Only restore if it was previously open
+      // Restore focus on close
+      if (!isTooltip) {
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
       }
     }
   }, [isOpen, isTooltip]);
@@ -93,26 +106,27 @@ export const Popover = ({
         {
           opacity: 0,
           scale: 0.95,
-          y: position === "bottom" ? -10 : position === "top" ? 10 : 0,
+          y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
         },
         {
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: 0.3,
-          ease: "back.out(1.7)",
+          duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+          ease: MOTION_TOKENS.easing.standard,
         }
       );
     } else if (isRendered) {
       gsap.to(popoverRef.current, {
         opacity: 0,
         scale: 0.95,
-        duration: 0.15,
-        ease: "power2.in",
+        y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
+        duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+        ease: MOTION_TOKENS.easing.standard,
         onComplete: () => setIsRendered(false),
       });
     }
-  }, [isOpen, isRendered, position]);
+  }, [isOpen, isRendered, position, isReducedMotion]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -131,12 +145,13 @@ export const Popover = ({
       if (e.key === "Escape" && isOpen) {
         onOpenChange(false);
         if (!isTooltip) {
-          if (triggerRef.current) {
-            triggerRef.current.focus();
-          } else if (previousFocusRef.current) {
-            previousFocusRef.current.focus();
-          }
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
         }
+      }
       }
     };
 

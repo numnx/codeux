@@ -6,6 +6,14 @@ import { Sidebar } from "../../../src/v2/components/layout/Sidebar";
 import { BrandSection } from "../../../src/v2/components/top-nav/BrandSection";
 import "@testing-library/jest-dom/vitest";
 
+global.ResizeObserver = vi.fn().mockImplementation(function() {
+    return {
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+    };
+});
+
 // Mock @tanstack/react-router
 const linkClickHandlers: Record<string, Function> = {};
 export const triggerLinkClick = (to: string) => {

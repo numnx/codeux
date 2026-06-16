@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preac
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { calculatePosition, Position, Alignment } from "../../lib/positioning/index.js";
+import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface DropdownMenuProps {
@@ -46,6 +47,7 @@ export const DropdownMenu = ({
   const localTriggerRef = useRef<HTMLDivElement>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
   const menuRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const [transformOrigin, setTransformOrigin] = useState<string>("top center");
 
@@ -88,6 +90,19 @@ export const DropdownMenu = ({
   useEffect(() => {
     if (isOpen) {
       setIsRendered(true);
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      setTimeout(() => {
+        const first = menuRef.current?.querySelector('[role="menuitem"]:not([aria-disabled="true"])') as HTMLElement | null;
+        first?.focus();
+      }, 0);
+    } else if (isRendered) { // Only restore if it was previously open
+      // Restore focus on close
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+        previousFocusRef.current = null;
+      } else if (triggerRef.current) {
+        triggerRef.current.focus();
+      }
     }
   }, [isOpen]);
 
@@ -112,29 +127,31 @@ export const DropdownMenu = ({
 
     gsap.killTweensOf(menuRef.current);
 
-    const duration = isReducedMotion ? 0 : 0.2;
-    const exitDuration = isReducedMotion ? 0 : 0.15;
+
 
     if (isOpen) {
       gsap.fromTo(
         menuRef.current,
         {
           opacity: 0,
-          scale: 0.98,
+          scale: 0.95,
+          y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
         },
         {
           opacity: 1,
           scale: 1,
-          duration: duration,
-          ease: "power2.out",
+          y: 0,
+          duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+          ease: MOTION_TOKENS.easing.standard,
         }
       );
     } else if (isRendered) {
       gsap.to(menuRef.current, {
         opacity: 0,
-        scale: 0.98,
-        duration: exitDuration,
-        ease: "power2.in",
+        scale: 0.95,
+        y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
+        duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+        ease: MOTION_TOKENS.easing.standard,
         onComplete: () => setIsRendered(false),
       });
     }
@@ -154,9 +171,48 @@ export const DropdownMenu = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (!isOpen) return;
+
+      if (e.key === "Escape") {
         onOpenChange(false);
-        triggerRef.current?.focus(); // Restore focus
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+        return;
+      }
+
+      if (!menuRef.current) return;
+
+      const items = Array.from(menuRef.current.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"]), button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
+      if (items.length === 0) return;
+
+      const currentIndex = items.findIndex((item) => item === document.activeElement);
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        items[(currentIndex + 1) % items.length]?.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const nextIndex = currentIndex === -1 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+        items[nextIndex]?.focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        items[0]?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (document.activeElement && items.includes(document.activeElement as HTMLElement)) {
+          // Check if the element handles Enter/Space itself, otherwise we click it.
+          // Native buttons and links handle Enter/Space natively on focus, but we'll manually dispatch a click if it's a generic menuitem
+          if (document.activeElement.getAttribute('role') === 'menuitem') {
+            e.preventDefault();
+            (document.activeElement as HTMLElement).click();
+          }
+        }
       }
     };
 

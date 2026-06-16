@@ -296,7 +296,7 @@ export class ProviderRunner implements IProviderRunner {
       codexProviderArgs,
       antigravityLogPath,
     );
-    const { command, args } = spec;
+    let { command, args } = spec;
 
     const localMcpCleanup: Array<{ path: string; originalContent: string | null }> = [];
     const localRuntimeCleanup: Array<string> = [];
@@ -320,9 +320,15 @@ export class ProviderRunner implements IProviderRunner {
 
     let accumulatedStdout = "";
     let accumulatedStderr = "";
+    // Raw stdout including structured JSON lines that are suppressed from the
+    // activity feed. The codex live-telemetry watcher parses this so the
+    // conversation is built from the exec --json stream in real time even when
+    // the rollout file isn't yet readable.
+    let accumulatedRawStdout = "";
     const trackingOnActivity = (desc: string, originator?: string) => {
       if (originator === "agent") {
         accumulatedStdout += desc + "\n";
+        accumulatedRawStdout += desc + "\n";
       } else if (originator === "provider") {
         accumulatedStderr += desc + "\n";
       }
@@ -348,6 +354,9 @@ export class ProviderRunner implements IProviderRunner {
         signal,
         onStdoutLine: (line) => {
           if (this.shouldSuppressStructuredStdout(provider, line)) {
+            // Keep the structured line out of the activity feed but retain it
+            // for the telemetry watcher's stream parsing.
+            accumulatedRawStdout += line + "\n";
             return;
           }
           trackingOnActivity(line, "agent");
@@ -398,7 +407,7 @@ export class ProviderRunner implements IProviderRunner {
               model: runModel,
               prompt,
               cwd,
-              stdout: accumulatedStdout,
+              stdout: accumulatedRawStdout,
               stderr: accumulatedStderr,
               capturedText: "",
               nativeSessionId: resolvedNativeSessionId || nativeSessionId,
@@ -429,6 +438,31 @@ export class ProviderRunner implements IProviderRunner {
       if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
         trackingOnActivity("Codex transport disconnected. Retrying once automatically...");
         await new Promise(r => setTimeout(r, 1500));
+        result = await runCmd();
+      }
+      // `claude --resume <id>` fails with "No conversation found" when the prior
+      // conversation is gone (e.g. the DOCKER container that held it was torn
+      // down between retries). Resuming a lost session can never recover, so it
+      // would fail identically every attempt until the coding guardrail caps the
+      // task and parks it. Retry once with a fresh session instead.
+      if (!result.ok && provider === "claude-code" && continueSession && this.isClaudeConversationNotFoundError(result)) {
+        trackingOnActivity("Claude Code could not resume the previous conversation (no conversation found). Retrying once with a fresh session...", "provider");
+        const freshSpec = this.buildCommandSpec(
+          provider,
+          runModel,
+          prompt,
+          workflowSettings.executionMode === "DOCKER" ? CONTAINER_WORKSPACE_ROOT : cwd,
+          input.codexOutputPath,
+          randomUUID(),
+          false,
+          hasMcpConfig,
+          input.qwenAuthMode,
+          input.qwenProtocol,
+          codexProviderArgs,
+          antigravityLogPath,
+        );
+        command = freshSpec.command;
+        args = freshSpec.args;
         result = await runCmd();
       }
       // Antigravity's `agy` CLI writes quota/auth/executor failures only to its log file
@@ -1317,6 +1351,11 @@ export class ProviderRunner implements IProviderRunner {
   private isTransientCodexTransportError(result: CommandResult): boolean {
     const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
     return text.includes("stream disconnected before completion") || text.includes("error sending request for url") || text.includes("channel closed");
+  }
+
+  private isClaudeConversationNotFoundError(result: CommandResult): boolean {
+    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
+    return text.includes("no conversation found");
   }
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {
