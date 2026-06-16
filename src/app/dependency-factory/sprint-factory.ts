@@ -119,6 +119,8 @@ export function createSprintDependencies(
     providerRunner: coreDeps.providerRunner,
     providerConcurrencyService: coreDeps.providerConcurrencyService,
     knowledgeService: coreDeps.knowledgeService,
+    fetchSessionActivities: (sessionName, pageSize) =>
+      coreDeps.julesApi.fetchRecentActivitiesLite(sessionName, pageSize ?? 15),
     logger: logger.child({ component: "worker-inbox-reply-service" }),
   });
 
@@ -189,6 +191,8 @@ export function createSprintDependencies(
     projectManagementRepository,
     taskService,
     coreDeps.guardrailService,
+    coreDeps.providerConcurrencyService,
+    resolveDashboardSettings,
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
 

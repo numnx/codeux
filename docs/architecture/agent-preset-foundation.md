@@ -119,6 +119,8 @@ Code UX currently recognizes these markdown-backed preset conventions under `.co
 - `planning_agent.md` -> `Planning agent`
 - `worker.md` -> `Worker`
 - `project_manager.md` -> `Project manager`
+- `quality_assurance_agent.md` -> `Quality assurance agent`
+- `project_setup_agent.md` -> `Project Setup Agent`
 
 `Project manager` is now used by worker-routed clarification auto-answer. That prompt injects the preset's markdown, includes sprint context, and passes through the latest explicit Jules clarification message when recent session activities contain one.
 

@@ -178,9 +178,9 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
     >
       <div
         ref={cardRef}
-        className="relative w-full max-w-4xl overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)] flex"
+        className="relative w-[calc(100vw-2rem)] sm:w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden sm:overflow-y-auto rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)] flex flex-col sm:flex-row"
       >
-        <div className="relative w-56 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
+        <div className="relative hidden sm:flex w-56 shrink-0 bg-void-900 dark:bg-void-950 flex-col justify-between p-8 overflow-hidden">
           <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">
             {initialTask ? "EDIT" : "TASK"}
           </span>
@@ -213,11 +213,11 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
             </div>
             <button
               onClick={handleClose}
-              aria-label="Close"
+              aria-label="Close dialog"
               disabled={isSubmitting}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.05] dark:bg-white/[0.05] hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500"
             >
-              <X className="w-4 h-4" />
+              <X aria-hidden="true" className="w-4 h-4" />
             </button>
           </div>
 

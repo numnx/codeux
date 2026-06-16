@@ -79,6 +79,8 @@ export interface TaskRerunServiceDependencies {
   }) => Promise<void>;
   resumeSprintRun?: (sprintRunId: string) => Promise<void>;
   resolveTaskAttention?: (args: { taskId: string; projectId: string }) => Promise<void>;
+  /** Clear prior QA verdict history so the fresh attempt gets a fresh review budget. */
+  resetTaskQaState?: (args: { taskId: string; projectId: string; sprintId: string }) => void;
   updateTaskExecutorOverride?: (taskId: string, provider: ProviderId) => void;
   cancelActiveDispatch?: (taskId: string, projectId: string) => Promise<void>;
   logger?: Logger;
@@ -247,6 +249,19 @@ export class TaskRerunService {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.deps.logger?.warn("Failed to resolve task attention during reset", { taskId, message });
+      }
+    }
+
+    if (this.deps.resetTaskQaState) {
+      try {
+        this.deps.resetTaskQaState({
+          taskId,
+          projectId: context.projectId,
+          sprintId: context.sprintId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.deps.logger?.warn("Failed to reset QA state during task reset", { taskId, message });
       }
     }
 

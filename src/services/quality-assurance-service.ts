@@ -94,6 +94,8 @@ interface QualityAssuranceServiceDependencies {
   dockerService?: Pick<{ listContainers: () => Promise<DockerContainer[]> }, "listContainers">;
 }
 
+const QA_INFRA_FAILURE_GRACE = 3;
+
 export class QualityAssuranceService {
   private readonly workspaceManager = new WorkspaceManager();
   private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
@@ -660,6 +662,7 @@ export class QualityAssuranceService {
 
     const latestRun = this.reconcileRunningQaRun(this.deps.qaReviewRepository.getLatestTaskRun(taskId));
     const runsUsed = this.deps.qaReviewRepository.countTaskRuns(taskId);
+    const decisiveCount = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
     const maxRuns = qaSettings.maxTaskReviewRuns;
 
     if (latestRun?.status === "running") {
@@ -695,24 +698,13 @@ export class QualityAssuranceService {
       };
     }
 
-    const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
+    const infraCeiling = maxRuns + QA_INFRA_FAILURE_GRACE;
 
-    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
+    if (decisiveCount >= maxRuns || runsUsed >= infraCeiling) {
       return {
         mergeAllowed: false,
-        reason: "review_failed",
-        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
-        latestRun,
-        runsUsed,
-        maxRuns,
-      };
-    }
-
-    if (runsUsed >= maxRuns) {
-      return {
-        mergeAllowed: true,
         reason: "retries_exhausted",
-        summary: latestRun?.summaryMarkdown || `QA retry budget exhausted (${runsUsed}/${maxRuns}).`,
+        summary: latestRun?.summaryMarkdown || `QA could not clear this task (${decisiveCount}/${maxRuns} verdicts, ${runsUsed} attempts) — human attention required.`,
         latestRun,
         runsUsed,
         maxRuns,
@@ -1532,10 +1524,13 @@ export class QualityAssuranceService {
   }
 
   private resolveTaskTriggerType(
-    task: Pick<Subtask, "pr_url">,
+    task: Pick<Subtask, "pr_url" | "worker_branch" | "is_merged">,
     qaSettings: DashboardSettings["agents"]["qualityAssurance"],
   ): QaReviewTriggerType | null {
-    if (!task.pr_url && qaSettings.completedTaskWithoutPr.enabled) {
+    const hasMergeEvidence = Boolean(task.pr_url?.trim())
+      || Boolean(task.worker_branch?.trim())
+      || Boolean(task.is_merged);
+    if (!hasMergeEvidence && qaSettings.completedTaskWithoutPr.enabled) {
       return "completed_task_without_pr";
     }
     return qaSettings.taskCompletion.enabled ? "task_completion" : null;

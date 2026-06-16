@@ -45,6 +45,8 @@ export interface ProviderRunLifecycleInput {
   parseAntigravityConversationId: (cwd: string, logPath: string, executionMode: CliWorkflowSettings["executionMode"]) => Promise<string | null>;
   resolveAntigravityDatabase: (cwd: string, conversationId: string, executionMode: CliWorkflowSettings["executionMode"], hostTempDb: string) => Promise<boolean>;
   readProviderOutputPath: (cwd: string, outputPath: string, executionMode: CliWorkflowSettings["executionMode"]) => Promise<string>;
+  continueSession?: boolean;
+  rebuildSpec?: (nativeSessionId: string | null, continueSession: boolean) => { command: string; args: string[] };
 }
 
 export async function runProviderLifecycle(input: ProviderRunLifecycleInput): Promise<ProviderRunResult> {
@@ -53,19 +55,26 @@ export async function runProviderLifecycle(input: ProviderRunLifecycleInput): Pr
 
   let accumulatedStdout = "";
   let accumulatedStderr = "";
+  // Raw stdout including structured JSON lines that are suppressed from the
+  // activity feed. The codex live-telemetry watcher parses this so the
+  // conversation is built from the exec --json stream in real time even when
+  // the rollout file isn't yet readable.
+  let accumulatedRawStdout = "";
+
   const trackingOnActivity = (desc: string, originator?: string) => {
     if (originator === "agent") {
       accumulatedStdout += desc + "\n";
+      accumulatedRawStdout += desc + "\n";
     } else if (originator === "provider") {
       accumulatedStderr += desc + "\n";
     }
     onActivity(desc, originator);
   };
 
-  const runCmd = async () => {
+  const runCmd = async (currentSpec: { command: string; args: string[] }) => {
     if (workflowSettings.executionMode === "DOCKER") {
       const result = await dockerRunner.runProviderInDocker({
-        command: spec.command, args: spec.args, cwd, providerEnv, sessionId,
+        command: currentSpec.command, args: currentSpec.args, cwd, providerEnv, sessionId,
         providerLabel: provider, workflowSettings, repoPath: input.repoPath, signal, onActivity: trackingOnActivity,
         providerMountAuth: input.providerMountAuth,
         providerAuthPath: input.providerAuthPath,
@@ -77,10 +86,13 @@ export async function runProviderLifecycle(input: ProviderRunLifecycleInput): Pr
       }
       return result;
     }
-    return await runStreamingCommand(spec.command, spec.args, cwd, providerEnv, {
+    return await runStreamingCommand(currentSpec.command, currentSpec.args, cwd, providerEnv, {
       signal,
       onStdoutLine: (line) => {
         if (input.shouldSuppressStructuredStdout(provider, line)) {
+          // Keep the structured line out of the activity feed but retain it
+          // for the telemetry watcher's stream parsing.
+          accumulatedRawStdout += line + "\n";
           return;
         }
         trackingOnActivity(line, "agent");
@@ -123,7 +135,7 @@ export async function runProviderLifecycle(input: ProviderRunLifecycleInput): Pr
             dockerRunner,
             prompt,
             model,
-            stdout: accumulatedStdout,
+            stdout: accumulatedRawStdout,
             stderr: accumulatedStderr,
             capturedText: "",
             antigravityLogPath: input.antigravityLogPath,
@@ -142,11 +154,17 @@ export async function runProviderLifecycle(input: ProviderRunLifecycleInput): Pr
   }
 
   try {
-    let result = await runCmd();
+    let result = await runCmd(spec);
     if (!result.ok && provider === "codex" && input.isTransientCodexTransportError(result)) {
       trackingOnActivity("Codex transport disconnected. Retrying once automatically...");
       await new Promise(r => setTimeout(r, 1500));
-      result = await runCmd();
+      result = await runCmd(spec);
+    }
+
+    if (!result.ok && provider === "claude-code" && input.continueSession && input.rebuildSpec && result.stderr?.includes("No conversation found")) {
+      trackingOnActivity("Claude Code could not resume the previous conversation (no conversation found). Retrying once with a fresh session...", "provider");
+      const freshSpec = input.rebuildSpec(randomUUID(), false);
+      result = await runCmd(freshSpec);
     }
 
     if (provider === "antigravity" && input.antigravityLogPath) {

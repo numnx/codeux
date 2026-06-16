@@ -98,6 +98,9 @@ export interface ProviderInvocationUsageRecord {
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
+  /** Number of tool-style operations performed during the invocation
+   *  (CLI tool calls, Jules patch applications / progress steps). */
+  toolCallCount: number;
   julesTokens: number;
   usageSource: TokenUsageSource;
   invocationSource: ProviderInvocationSource;
@@ -215,6 +218,7 @@ export interface CreateProviderInvocationUsageInput {
   startedAt?: string;
   promptChars?: number;
   julesTokens?: number;
+  toolCallCount?: number;
 }
 
 export interface UpdateTaskRunInput {
@@ -244,6 +248,7 @@ export interface UpdateProviderInvocationUsageInput {
   outputTokens?: number;
   reasoningOutputTokens?: number;
   totalTokens?: number;
+  toolCallCount?: number;
   julesTokens?: number;
   usageSource?: TokenUsageSource;
   invocationSource?: ProviderInvocationSource;

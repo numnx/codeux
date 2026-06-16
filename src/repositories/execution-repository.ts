@@ -74,7 +74,7 @@ import { createExecutionInvocationWrite, updateExecutionInvocationWrite, listExe
 import { createSprintRunWrite, updateSprintRunWrite, appendSprintRunEventWrite, finalizeSprintRunCancellationIfIdleWrite } from "./execution/execution-sprint-run-writes.js";
 import { createTaskDispatchWrite, updateTaskDispatchesBatchWrite, updateTaskDispatchWrite, claimNextTaskDispatchWrite } from "./execution/execution-task-dispatch-writes.js";
 import { createTaskRunWrite, updateTaskRunsBatchWrite, updateTaskRunWrite, appendTaskRunEventWrite } from "./execution/execution-task-run-writes.js";
-import { createProviderInvocationUsageWrite, tryCreateProviderInvocationUsageWrite, updateProviderInvocationUsageWrite } from "./execution/execution-provider-invocation-writes.js";
+import { createProviderInvocationUsageWrite, tryCreateProviderInvocationUsageWrite, updateProviderInvocationUsageWrite, associateProviderInvocationSessionWrite } from "./execution/execution-provider-invocation-writes.js";
 import { acquireLeaseWrite, renewLeaseWrite, releaseLeaseWrite, releaseStaleSprintLeaseWrite } from "./execution/execution-lease-writes.js";
 import { ExecutionWriteContext, SprintRunRow, TaskDispatchRow, ExecutionLeaseRow, TaskRunRow, TaskRunEventRow, SprintRunEventRow, ExecutionTaskDispatchSummaryRow, ExecutionRuntimeEventSummaryRow, ProjectAttentionSummaryRow } from "./execution/execution-repository-types.js";
 import { queryExecutionSprintRuns } from "./execution/execution-sprint-runs-query.js";
@@ -355,6 +355,10 @@ export class ExecutionRepository {
 
   updateProviderInvocationUsage(invocationId: string, input: UpdateProviderInvocationUsageInput): ProviderInvocationUsageRecord {
       return updateProviderInvocationUsageWrite(this.db, invocationId, input, this.getWriteContext());
+  }
+
+  associateProviderInvocationSession(invocationId: string, sessionId: string, nativeSessionId?: string | null): void {
+      return associateProviderInvocationSessionWrite(this.db, invocationId, sessionId, nativeSessionId);
   }
 
   getTaskRun(taskRunId: string): TaskRunRecord | null {
@@ -761,6 +765,7 @@ export class ExecutionRepository {
           SUM(output_tokens) as outputTokens,
           SUM(reasoning_output_tokens) as reasoningOutputTokens,
           SUM(total_tokens) as totalTokens,
+          SUM(tool_call_count) as toolCallCount,
           SUM(CASE WHEN usage_source = 'reported' THEN 1 ELSE 0 END) as reportedInvocationCount,
           SUM(CASE WHEN usage_source = 'estimated' THEN 1 ELSE 0 END) as estimatedInvocationCount,
           SUM(CASE WHEN usage_source = 'unsupported' THEN 1 ELSE 0 END) as unsupportedInvocationCount,
@@ -783,6 +788,7 @@ export class ExecutionRepository {
         outputTokens: toNumber(row.outputTokens),
         reasoningOutputTokens: toNumber(row.reasoningOutputTokens),
         totalTokens: toNumber(row.totalTokens),
+        toolCallCount: toNumber(row.toolCallCount),
         reportedInvocationCount: toNumber(row.reportedInvocationCount),
         estimatedInvocationCount: toNumber(row.estimatedInvocationCount),
         unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
@@ -807,6 +813,7 @@ export class ExecutionRepository {
           SUM(output_tokens) as outputTokens,
           SUM(reasoning_output_tokens) as reasoningOutputTokens,
           SUM(total_tokens) as totalTokens,
+          SUM(tool_call_count) as toolCallCount,
           SUM(CASE WHEN usage_source = 'reported' THEN 1 ELSE 0 END) as reportedInvocationCount,
           SUM(CASE WHEN usage_source = 'estimated' THEN 1 ELSE 0 END) as estimatedInvocationCount,
           SUM(CASE WHEN usage_source = 'unsupported' THEN 1 ELSE 0 END) as unsupportedInvocationCount,
@@ -829,6 +836,7 @@ export class ExecutionRepository {
         outputTokens: toNumber(row.outputTokens),
         reasoningOutputTokens: toNumber(row.reasoningOutputTokens),
         totalTokens: toNumber(row.totalTokens),
+        toolCallCount: toNumber(row.toolCallCount),
         reportedInvocationCount: toNumber(row.reportedInvocationCount),
         estimatedInvocationCount: toNumber(row.estimatedInvocationCount),
         unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),

@@ -3,6 +3,7 @@ import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/projec
 import type { ProjectAttentionItemRecord, ProjectAttentionOwnerType } from "../../../contracts/project-attention-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
+import { resolveTaskSessionId } from "../../../sprint/action-required-automation.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts, type MergeConflictTaskContext } from "./conflict-summary-utils.js";
 import type { CycleRunnerArgs } from "./cycle-runner.js";
@@ -220,6 +221,12 @@ export class CycleStateCoordinator {
           defaultBranch: args.defaultBranch,
           taskKey: task.id,
           taskTitle: task.title,
+          // Without the session id the virtual worker cannot drive the
+          // intervention (approve plan / answer clarification / resume) and is
+          // forced to escalate every agent-owned item to a human with
+          // "No session ID available", which pauses the whole sprint.
+          sessionId: resolveTaskSessionId(task),
+          sessionName: task.session_name || null,
           sessionState: task.session_state || null,
           provider: task.provider || null,
           interventionOwner: task.intervention_owner || "HUMAN",

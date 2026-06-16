@@ -1,14 +1,17 @@
 import type { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
 import { useRef } from "preact/hooks";
+import type { TargetedEvent } from "preact/compat";
 import gsap from "gsap";
 import { Clock, FolderGit2, GitPullRequest, Settings, Trash2 } from "lucide-preact";
 import { WaveFluid } from "../ui/WaveFluid.js";
 import { BorderTrace } from "../ui/BorderTrace.js";
 import type { Task } from "../../types.js";
 import { PRIORITY_CFG, STATUS_CFG } from "../../lib/tasks-constants.js";
-import { useTaskCardMotion } from "../../lib/motion/task-card-motion.js";
+import { useTaskCardMotion, useTaskCardDragMotion } from "../../lib/motion/task-card-motion.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+import { useConfirmDialog } from "../../hooks/use-confirm-dialog.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
 import { type TaskCardViewModel, formatTimeAgo } from "../../lib/tasks/task-card-view-model.js";
 import { useState, useEffect } from "preact/hooks";
 import { DependencyStatusIndicators } from "./DependencyStatusIndicators.js";
@@ -24,11 +27,15 @@ export const KanbanTaskCard: FunctionComponent<{
   onDelete: (task: Task) => void;
   agentPresetName?: string | null;
   agentPresetAvatarConfig?: AgentAvatarConfig;
-}> = memo(({ viewModel, index = 0, onEdit, onDelete, agentPresetName, agentPresetAvatarConfig }) => {
+  isDragging?: boolean;
+  onDragStart?: (e: DragEvent) => void;
+  onDragEnd?: (e: DragEvent) => void;
+}> = memo(({ viewModel, index = 0, onEdit, onDelete, agentPresetName, agentPresetAvatarConfig, isDragging = false, onDragStart, onDragEnd }) => {
   const { task, humanizedCreatedAt, dependencyIndicators, sessionId, sessionState, prUrl, liveRunningTime, liveStartedAt } = viewModel;
   const cardRef = useRef<HTMLDivElement>(null);
   const pri = PRIORITY_CFG[task.priority];
   const isReducedMotion = useReducedMotion();
+  const { isOpen: isConfirmOpen, options: confirmOptions, requestConfirm, handleConfirm, handleCancel, triggerRef } = useConfirmDialog();
 
   const [flashTriggerCount, setFlashTriggerCount] = useState(0);
   const prevStatusRef = useRef(task.status);
@@ -56,6 +63,7 @@ export const KanbanTaskCard: FunctionComponent<{
   }, [task.status, liveRunningTime]);
 
   useTaskCardMotion(cardRef, task.status, isReducedMotion, index);
+  useTaskCardDragMotion(cardRef, isDragging, isReducedMotion);
 
   const handleMouseMove = (event: MouseEvent) => {
     const element = cardRef.current;
@@ -96,6 +104,18 @@ export const KanbanTaskCard: FunctionComponent<{
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       tabIndex={0}
+      draggable={!isReducedMotion}
+      onDragStart={onDragStart as any}
+      onDragEnd={onDragEnd as any}
+      aria-roledescription="sortable"
+      aria-describedby={`task-card-kbd-${task.recordId}`}
+      onKeyDown={(e) => {
+        // Placeholder for accessible reordering
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          // Optional: Toggle accessible drag mode if implemented
+        }
+      }}
       className={`kanban-card group relative flex flex-col bg-white/80 dark:bg-void-800/75 backdrop-blur-sm rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"} ${isReducedMotion ? 'kanban-card-reduced-motion' : ''}`}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
@@ -199,11 +219,31 @@ export const KanbanTaskCard: FunctionComponent<{
           type="button"
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-status-red rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/30"
           title="Delete task"
-          onClick={() => onDelete(task)}
+          onClick={async (e) => {
+            e.stopPropagation();
+            const confirmed = await requestConfirm({
+              title: "Delete Task",
+              body: `Are you sure you want to delete "${task.title}"?`,
+              confirmLabel: "Delete Task",
+              cancelLabel: "Cancel",
+              destructive: true
+            });
+            if (confirmed) {
+              onDelete(task);
+            }
+          }}
         >
           <Trash2 className="w-3 h-3" />
         </button>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        options={confirmOptions}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        triggerRef={triggerRef}
+      />
     </div>
   );
 }, (prev, next) => {
@@ -227,5 +267,6 @@ export const KanbanTaskCard: FunctionComponent<{
          prev.viewModel.liveRunningTime === next.viewModel.liveRunningTime &&
          prev.agentPresetName === next.agentPresetName &&
          prev.onEdit === next.onEdit &&
-         prev.onDelete === next.onDelete;
+         prev.onDelete === next.onDelete &&
+         prev.isDragging === next.isDragging;
 });

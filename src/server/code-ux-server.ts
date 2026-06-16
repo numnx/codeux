@@ -714,8 +714,11 @@ export class CodeUxServer {
     let julesSessions: JulesSession[] = [];
     if (this.isJulesApiConfigured()) {
       try {
-        const remote = await this.julesApi.listSessions({ page_size: 100 });
-        julesSessions = (remote.sessions || []).map((session) => ({ ...session, provider: "jules" }));
+        // Shared, coalesced, TTL-cached snapshot: every sprint watch loop reads
+        // from one fetch per window instead of each calling listSessions per
+        // cycle (which drove the account into 429s/timeouts on high throughput).
+        const remote = await this.julesApi.getCachedSessions();
+        julesSessions = remote.map((session) => ({ ...session, provider: "jules" }));
       } catch {
         // Keep tracked sessions available even if Jules API is unavailable.
       }

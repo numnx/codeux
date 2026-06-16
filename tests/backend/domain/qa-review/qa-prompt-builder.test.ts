@@ -62,7 +62,7 @@ describe("QaPromptBuilder", () => {
 
       expect(prompt).toContain("## QUALITY ASSURANCE AGENT INSTRUCTIONS\nAgent Instructions");
       expect(prompt).toContain("## PROJECT CONTEXT\nProject: Test Project\nSprint goal: Test Goal");
-      expect(prompt).toContain("## CURRENT TASK\nTask key: T01");
+      expect(prompt).toContain("## CURRENT TASK UNDER REVIEW\nTask key: T01");
       expect(prompt).toContain("## REQUIRED OUTPUT");
     });
 

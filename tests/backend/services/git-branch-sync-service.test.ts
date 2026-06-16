@@ -14,6 +14,12 @@ describe("git branch sync service", () => {
       delete process.env[`GIT_CONFIG_VALUE_${i}`];
     }
     setProviderTokenResolverForTests(async () => null);
+
+    for (let i = 0; i < 10; i++) {
+      delete process.env[`GIT_CONFIG_KEY_${i}`];
+      delete process.env[`GIT_CONFIG_VALUE_${i}`];
+    }
+    delete process.env.GIT_CONFIG_COUNT;
   });
   afterEach(() => {
     if (originalFetchTimeout === undefined) {

@@ -108,6 +108,7 @@ export const UsageChartMinimap: FunctionComponent<{
         onPointerUp={handlePointerUp}
       >
         <svg
+          aria-hidden="true"
           viewBox={`0 0 ${MINIMAP_WIDTH} ${MINIMAP_HEIGHT}`}
           preserveAspectRatio="none"
           className="absolute inset-0 h-full w-full"

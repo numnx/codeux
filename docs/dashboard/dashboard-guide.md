@@ -286,7 +286,7 @@ Legacy runtime:
 - QA review badge overlays on sprint cells and ledger rows render beside the badge icon through a viewport-level overlay, so review summaries and findings are not clipped by the ledger controls or table layout.
 - Sprint markdown export now includes direct download actions and per-section copy-to-clipboard buttons (with brief `Copied` confirmation) in the export modal
 - The in-page sprint composer collapses into a stacked single-column layout on smaller screens, and both create and edit now use that same inline flow. The Quicksprint panel and the Sprint Composer are mutually exclusive; opening one automatically dismisses the other to maintain focus.
-- The Quicksprint panel now separates `Default Templates` from custom templates and includes a purpose selector for built-in template sets. The first shipped built-in purpose is `Fullstack JS App`, which groups six project-agnostic engineering and UI quicksprint templates. See [Quicksprint Templates](./quicksprint-templates.md).
+- The Quicksprint panel separates `Default Templates` from custom templates and includes a purpose selector for built-in template sets. The first shipped built-in purpose is `Fullstack JS App`, which groups six project-agnostic engineering and UI quicksprint templates loaded from `.code-ux/quicksprints/templates` and overrideable from project or home `.code-ux` directories. See [Quicksprint Templates](./quicksprint-templates.md).
 - The refreshed sprint ledger below the showcase renders as a responsive card/table hybrid: mobile rows collapse into touch-friendly sprint cards, desktop keeps sortable table scanning, and the header includes live visible/pinned/active/completed counters.
 - The desktop ledger table now enforces mirrored per-column width guards (`w-*` + `min-w-*`) with a container-scoped horizontal scroller, preventing header/body overlap at narrow widths while avoiding page-level horizontal overflow.
 - Sprint ledger rows now include dedicated mobile field labels (`Sprint ID`, `Sprint`, `Status`, `Tasks`, `Completion`, `Created`, `Controls`) so narrow viewports keep critical values readable without clipping.
@@ -700,3 +700,15 @@ For provider-backed runs, session polling is now used to ingest durable runtime 
 - Extensionless dashboard routes like `/sprints` are served by the SPA app shell on direct load or refresh. This routing behavior remains consistent even when Code UX itself is running inside a preview container.
 
 - A "Live Preview" CTA link now appears in the Live view header when the relevant sprint has an active (`running`) preview session with a resolved `hostPort`. The link securely routes directly to the iframe preview origin (`buildPreviewUrl`) at the `lastKnownPath`.
+
+## Accessibility Patterns
+
+This dashboard enforces accessibility best practices to ensure an inclusive experience:
+
+- **Dialogs & Modals**: Implemented using proper ARIA roles (`role="dialog"` or `role="alertdialog"`). They manage focus by trapping it within the overlay and restoring it to the trigger upon closing. If a dialog has no focusable elements, the container itself uses `tabIndex={-1}` and an outline-removal class for programmatic focus.
+- **Menus & Overlays**: Use explicit ARIA roles such as `menu`, `menuitem`, `listbox`, and `option`. Keyboard navigation (up/down arrows, Enter/Space, Escape) is strictly supported.
+- **Forms**: All inputs must have associated labels (`<label>` or `aria-label`/`aria-labelledby`). Validation feedback uses `aria-invalid` and dynamically injects messages into `aria-live` regions.
+- **Live Regions**: Non-visual state changes (like toast notifications or saving states) are announced using `aria-live="polite"` or `aria-live="assertive"`. Loading spinners use `aria-hidden="true"` with a visually hidden fallback, while their containers use `aria-busy="true"`.
+- **Tables & Ledgers**: Complex data displays like the Sprint Ledger use semantic HTML (`<table>`, `<th>`, `<td>`) or explicit ARIA grid roles to support screen reader cell navigation.
+- **Charts**: Data visualizations are wrapped in a region with `role="region"` and an `aria-label`, providing an accessible name for the visual content.
+- **Reduced Motion**: Component animations using GSAP and Tailwind respect user preferences via the `prefers-reduced-motion` media query, disabling unnecessary visual transitions where appropriate.

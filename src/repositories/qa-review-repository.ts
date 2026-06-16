@@ -175,6 +175,44 @@ export class QaReviewRepository {
     return row ? Number(row.count || 0) : 0;
   }
 
+  /**
+   * Clear a task's per-task QA review history so an explicit rerun starts with a
+   * fresh verdict budget. Without this, the fail-closed merge gate would see the
+   * previous attempt's exhausted/changes-requested runs and immediately re-block
+   * or escalate the fresh attempt before it can even be reviewed. Sprint-level
+   * runs are left untouched. Returns the number of runs cleared.
+   */
+  resetTaskReviewRuns(taskId: string): number {
+    const info = this.db.prepare(`
+      DELETE FROM qa_review_runs
+      WHERE task_id = ?
+        AND trigger_type IN ('task_completion', 'completed_task_without_pr')
+    `).run(taskId);
+    return Number(info.changes || 0);
+  }
+
+  /**
+   * Count only QA runs that reached a real verdict (`completed`). Runs that
+   * `failed` for infrastructure reasons — the QA reviewer crashing on missing
+   * auth/config, a container error, an unparseable response — produced no
+   * judgement about the task and must not consume the verdict retry budget.
+   * Otherwise a single flaky reviewer error would exhaust QA and let a task
+   * settle without ever having been reviewed. Use this for the merge-gate
+   * exhaustion decision; {@link countTaskRuns} (which includes infra failures)
+   * bounds total attempts so a permanently broken reviewer still escalates.
+   */
+  countDecisiveTaskRuns(taskId: string): number {
+    const row = this.db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM qa_review_runs
+      WHERE task_id = ?
+        AND trigger_type IN ('task_completion', 'completed_task_without_pr')
+        AND status = 'completed'
+    `).get(taskId) as { count?: number | string } | undefined;
+
+    return row ? Number(row.count || 0) : 0;
+  }
+
   getLatestTaskRun(taskId: string): QaReviewRunRecord | null {
     const row = this.db.prepare(`
       SELECT *

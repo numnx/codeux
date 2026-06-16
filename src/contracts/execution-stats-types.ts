@@ -168,6 +168,7 @@ export interface ExecutionUsageTotals {
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
+  toolCallCount: number;
   reportedInvocationCount: number;
   estimatedInvocationCount: number;
   unavailableInvocationCount: number;

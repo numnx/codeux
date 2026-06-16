@@ -348,6 +348,21 @@ export class ProviderRunner implements IProviderRunner {
         parseAntigravityConversationId: this.parseAntigravityConversationId.bind(this),
         resolveAntigravityDatabase: this.resolveAntigravityDatabase.bind(this),
         readProviderOutputPath: this.readProviderOutputPath.bind(this),
+        continueSession,
+        rebuildSpec: (newNativeSessionId: string | null, newContinueSession: boolean) => this.buildCommandSpec(
+          provider,
+          runModel,
+          prompt,
+          workflowSettings.executionMode === "DOCKER" ? CONTAINER_WORKSPACE_ROOT : cwd,
+          input.codexOutputPath,
+          newNativeSessionId,
+          newContinueSession,
+          hasMcpConfig,
+          input.qwenAuthMode,
+          input.qwenProtocol,
+          codexProviderArgs,
+          antigravityLogPath,
+        ),
       });
     } finally {
       for (const entry of localMcpCleanup) {

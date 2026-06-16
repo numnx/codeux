@@ -3,18 +3,22 @@ import { useEffect, useState, useId } from "preact/hooks";
 import { FormError } from "./FormError";
 
 export interface FieldWrapperProps {
+  helperTextId?: string;
   label: string;
   error?: string;
+  helperText?: ComponentChildren;
   children: ComponentChildren;
   htmlFor?: string;
   required?: boolean;
 }
 
-export function FieldWrapper({ label, error, children, htmlFor, required }: FieldWrapperProps) {
+export function FieldWrapper({ label, error, children, htmlFor, required, helperTextId, helperText }: FieldWrapperProps) {
   const [shake, setShake] = useState(false);
   const [previousError, setPreviousError] = useState<string | undefined>(undefined);
   const generatedId = useId();
   const inputId = htmlFor ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const actualHelperId = helperText ? (helperTextId || `${inputId}-helper`) : helperTextId;
 
   useEffect(() => {
     if (error && error !== previousError) {
@@ -24,25 +28,33 @@ export function FieldWrapper({ label, error, children, htmlFor, required }: Fiel
       }, 400); // Must be slightly longer than animation duration
       setPreviousError(error);
       return () => clearTimeout(timer);
-    } else if (!error) {
+    } else if (!error && previousError !== undefined) {
       setPreviousError(undefined);
     }
-  }, [error, previousError]);
+  }, [error]);
 
-  const errorId = error ? `${inputId}-error` : undefined;
+  // Combine multiple aria-describedby ids if needed
+  let ariaDescribedBy: string | undefined = undefined;
+  const ids = [actualHelperId, error ? errorId : undefined].filter(Boolean);
+  if (ids.length > 0) {
+    ariaDescribedBy = ids.join(' ');
+  }
 
   // Clone children to append aria attributes if valid
   const child = isValidElement(children) ? cloneElement(children as VNode<any>, {
     id: inputId,
-    "aria-invalid": !!error,
-    ...(errorId ? { "aria-errormessage": errorId } : {}),
+    "aria-invalid": error ? "true" : undefined,
+    ...(ariaDescribedBy ? { "aria-describedby": ariaDescribedBy } : {}),
+    "aria-errormessage": errorId,
+    ...(required ? { "aria-required": true } : {}),
   }) : children;
 
   return (
     <div class="flex flex-col mb-4">
       <label htmlFor={inputId} class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex gap-1">
         {label}
-        {required && <span class="text-status-red">*</span>}
+        {required && <span class="text-status-red" aria-hidden="true">*</span>}
+        {required && <span class="sr-only">(required)</span>}
       </label>
       <div
         class={`
@@ -59,7 +71,7 @@ export function FieldWrapper({ label, error, children, htmlFor, required }: Fiel
           {child}
         </div>
       </div>
-      <FormError error={error} id={errorId} />
+      <FormError error={error} id={errorId} helperText={helperText as string} helperId={actualHelperId} />
     </div>
   );
 }
