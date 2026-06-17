@@ -80,6 +80,7 @@ export const ProviderInstanceCard: FunctionComponent<{
       {provider.provider !== "jules" ? (
         <Row label="Authentication mode" description="Choose how this instance authenticates. API key, local copy, or dashboard-guided Docker login.">
           <PillChoiceGroup
+            aria-label="Authentication mode"
             value={currentAuthType}
             onChange={(value) => {
               const authType = value as "apiKey" | "localAuth" | "dashboardAuth";
@@ -148,6 +149,7 @@ export const ProviderInstanceCard: FunctionComponent<{
             <>
               <Row label="Authentication sub-mode" description="Configure whether to use Alibaba Cloud Coding Plan or custom modelProviders.">
                 <PillChoiceGroup
+                  aria-label="Authentication sub-mode"
                   value={provider.qwenAuthMode || "MODEL_PROVIDER"}
                   onChange={(value) => onUpdate({
                     qwenAuthMode: value as SystemProviderConfig["qwenAuthMode"],
@@ -227,6 +229,7 @@ export const ProviderInstanceCard: FunctionComponent<{
             <>
               <Row label="Authentication sub-mode" description="Configure whether to use custom model endpoint or standard environment key.">
                 <PillChoiceGroup
+                  aria-label="Authentication sub-mode"
                   value={provider.openCodeAuthMode || "ENV_KEY"}
                   onChange={(value) => onUpdate({
                     openCodeAuthMode: value as SystemProviderConfig["openCodeAuthMode"],

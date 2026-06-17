@@ -382,6 +382,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         ) : null}
         <Row label="Global default instance" description="Fallback instance for global-profile routes that inherit their primary provider." badge={getFieldBadge("aiProvider.provider")}>
           <SelectInput
+            aria-label="Global default instance"
             value={editableSettings.aiProvider.provider || providerEntries[0]?.[0] || ""}
             onChange={(value) => updateEditableSettings((current) => ({
               ...current,
@@ -406,6 +407,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         </Row>
         <Row label="Global default model" description="Base model used when the global default instance is selected without a route-specific model override." badge={getFieldBadge("aiProvider.providers")}>
           <SelectInput
+            aria-label="Global default model"
             value={globalProviderSettings?.model || "default"}
             onChange={(value) => editableSettings.aiProvider.provider
               ? updateProviderSettings(editableSettings.aiProvider.provider, { model: value })
@@ -418,6 +420,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         </Row>
         <Row label="Worker default instance" description="Fallback instance for worker-profile routes that inherit their primary provider." badge={getFieldBadge("workers.virtualWorkerProvider")}>
           <SelectInput
+            aria-label="Worker default instance"
             value={editableSettings.workers.virtualWorkerProvider}
             onChange={(value) => updateEditableSettings((current) => ({
               ...current,
@@ -436,6 +439,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
         </Row>
         <Row label="Worker default model" description="Model used by inherited worker-profile routes. Default uses the selected worker instance’s base model." badge={getFieldBadge("workers.model")}>
           <SelectInput
+            aria-label="Worker default model"
             value={editableSettings.workers.model || "default"}
             onChange={(value) => updateEditableSettings((current) => ({
               ...current,
@@ -538,6 +542,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   {providerSupportsModelSelection(provider.provider) ? (
                     <Row label="Base model" description="Inherited by routes unless a route-specific model override is set.">
                       <SelectInput
+                        aria-label="Base model"
                         value={provider.model}
                         onChange={(value) => updateProviderSettings(providerConfigId, { model: value })}
                         options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
@@ -547,6 +552,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                   {providerSupportsThinkingMode(provider.provider) ? (
                     <Row label="Base thinking" description="Inherited reasoning depth for this provider instance.">
                       <SelectInput
+                        aria-label="Base thinking"
                         value={provider.thinkingMode}
                         onChange={(value) => updateProviderSettings(providerConfigId, { thinkingMode: value as ThinkingMode })}
                         options={thinkingModeOptions}
@@ -707,6 +713,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
             <div className="mt-4">
               <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Primary instance</div>
               <SelectInput
+                aria-label="Primary instance"
                 value={activeRoute.provider || INHERIT_VALUE}
                 onChange={(value) => {
                   const providerConfigId = value === INHERIT_VALUE ? null : value;
@@ -891,6 +898,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                         {supportsModel ? (
                           <Row label="Model override" description={`Inherited: ${provider.model}`}>
                             <SelectInput
+                              aria-label="Model override"
                               value={override.model || provider.model}
                               onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { model: value })}
                               options={getProviderInstanceModelOptions(providerConfigId, provider, systemSettings)}
@@ -900,6 +908,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                         {providerSupportsThinkingMode(provider.provider) ? (
                           <Row label="Thinking override" description={`Inherited: ${provider.thinkingMode}`}>
                             <SelectInput
+                              aria-label="Thinking override"
                               value={(override.thinkingMode || provider.thinkingMode) as string}
                               onChange={(value) => updateRouteProviderOverride(activeRouteDefinition.id, providerConfigId, { thinkingMode: value as ThinkingMode })}
                               options={thinkingModeOptions}

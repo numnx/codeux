@@ -75,21 +75,24 @@ export function MarkdownEditorField({
     >
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 border-b border-black/[0.05] bg-white/40 px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
-        <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+        <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500" id={id ? `${id}-label` : undefined}>
           Markdown
         </span>
         <div className="flex items-center gap-2">
           {toolbarNote}
-          <div className="flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/50 p-0.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <div role="tablist" aria-label="Markdown mode" className="flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/50 p-0.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
             {(["write", "preview"] as const).map((value_) => {
               const active = mode === value_;
               const Icon = value_ === "write" ? PenLine : Eye;
               return (
                 <button
                   key={value_}
+                  id={id ? `${id}-tab-${value_}` : undefined}
+                  role="tab"
                   type="button"
                   onClick={() => setMode(value_)}
-                  aria-pressed={active}
+                  aria-selected={active}
+                  aria-controls={active && id ? `${id}-panel` : undefined}
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
                     active
                       ? "bg-signal-500 text-void-900 shadow-[0_0_10px_rgba(0,224,160,0.22)]"
@@ -109,6 +112,8 @@ export function MarkdownEditorField({
         <textarea
           ref={textareaRef}
           id={id}
+          role={id ? "tabpanel" : undefined}
+          aria-labelledby={id ? `${id}-tab-write` : undefined}
           value={value}
           onInput={handleInput}
           onBlur={onBlur}
@@ -122,11 +127,19 @@ export function MarkdownEditorField({
         />
       ) : value.trim() ? (
         <div
+          id={id ? `${id}-panel` : undefined}
+          role={id ? "tabpanel" : undefined}
+          aria-labelledby={id ? `${id}-tab-preview` : undefined}
           className={`overflow-auto px-4 py-3.5 ${minHeightClass} ${MARKDOWN_PROSE_CLASS}`}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
         />
       ) : (
-        <div className={`flex items-center px-4 py-3.5 text-[13px] italic text-slate-400 dark:text-slate-500 ${minHeightClass}`}>
+        <div
+          id={id ? `${id}-panel` : undefined}
+          role={id ? "tabpanel" : undefined}
+          aria-labelledby={id ? `${id}-tab-preview` : undefined}
+          className={`flex items-center px-4 py-3.5 text-[13px] italic text-slate-400 dark:text-slate-500 ${minHeightClass}`}
+        >
           {emptyPreviewHint}
         </div>
       )}

@@ -88,6 +88,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
         <div className="grid gap-4 lg:grid-cols-2">
           <Row label="GitHub mode" description="Local disables PR intelligence, remote enables PR and CI awareness." badge={getBadge("git.githubMode")}>
             <SelectInput
+              aria-label="GitHub mode"
               value={settings.git.githubMode}
               onChange={(value) => update({
                 git: {
@@ -213,6 +214,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
           </Row>
           <Row label="Feature PR auto-merge" description="Policy for leaving feature work at PR creation or merging after checks and comments are satisfied." badge={getBadge("ciIntelligence.featurePrAutoMergeMode")}>
             <SelectInput
+              aria-label="Feature PR auto-merge"
               value={settings.git.githubMode === "LOCAL" ? "OFF" : settings.ciIntelligence.featurePrAutoMergeMode}
               disabled={settings.git.githubMode === "LOCAL"}
               onChange={(value) => update({
@@ -231,6 +233,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
           </Row>
           <Row label="Main branch auto-merge" description="Policy for leaving the final main PR at creation or merging it after checks and comments are satisfied." badge={getBadge("ciIntelligence.mainBranchAutoMergeMode")}>
             <SelectInput
+              aria-label="Main branch auto-merge"
               value={settings.git.githubMode === "LOCAL" ? "OFF" : settings.ciIntelligence.mainBranchAutoMergeMode}
               disabled={settings.git.githubMode === "LOCAL"}
               onChange={(value) => update({
@@ -318,6 +321,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
         <div className="grid gap-4 lg:grid-cols-2">
           <Row label="Execution mode" description="Run provider CLIs on the host or inside a containerized runtime." badge={getBadge("cliWorkflow.executionMode")}>
             <SelectInput
+              aria-label="Execution mode"
               value={settings.cliWorkflow.executionMode}
               onChange={(value) => update({
                 cliWorkflow: {

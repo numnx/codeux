@@ -26,14 +26,18 @@ export const PillChoiceGroup: FunctionComponent<{
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string; hint?: string }>;
   disabled?: boolean;
-}> = ({ value, onChange, options, disabled }) => (
-  <div className="flex flex-wrap gap-2">
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+}> = ({ value, onChange, options, disabled, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledby }) => (
+  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={ariaLabel} aria-labelledby={ariaLabelledby}>
     {options.map((option) => {
       const active = option.value === value;
       return (
         <button
           key={option.value}
           type="button"
+          role="radio"
+          aria-checked={active}
           disabled={disabled}
           onClick={() => onChange(option.value)}
           className={`group relative min-w-[104px] overflow-hidden rounded-[1rem] border px-4 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 ${
@@ -72,13 +76,17 @@ export const TextInput: FunctionComponent<{
   placeholder?: string;
   mono?: boolean;
   disabled?: boolean;
-}> = ({ value, onChange, placeholder, mono, disabled }) => (
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+}> = ({ value, onChange, placeholder, mono, disabled, "aria-label": ariaLabel, "aria-describedby": ariaDescribedby }) => (
   <UiInput
     value={value}
     placeholder={placeholder}
     disabled={disabled}
     onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
     className={mono ? "font-mono" : "font-sans"}
+    aria-label={ariaLabel}
+    aria-describedby={ariaDescribedby}
   />
 );
 
@@ -87,13 +95,15 @@ export const TextAreaInput: FunctionComponent<{
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
-}> = ({ value, onChange, placeholder, rows = 12 }) => (
+  "aria-label"?: string;
+}> = ({ value, onChange, placeholder, rows = 12, "aria-label": ariaLabel }) => (
   <textarea
     value={value}
     rows={rows}
     placeholder={placeholder}
     onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
     className="min-h-[320px] w-full rounded-[1rem] border border-black/[0.06] hover:border-black/[0.12] bg-black/[0.04] px-4 py-3 text-sm leading-relaxed text-slate-700 placeholder-slate-400 transition-colors duration-200 focus:border-signal-500/40 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 focus:ring-0 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:bg-white/[0.04] dark:text-slate-200"
+    aria-label={ariaLabel}
   />
 );
 
@@ -104,7 +114,8 @@ export const NumberInput: FunctionComponent<{
   max?: number;
   step?: number;
   disabled?: boolean;
-}> = ({ value, onChange, min, max, step = 1, disabled }) => (
+  "aria-label"?: string;
+}> = ({ value, onChange, min, max, step = 1, disabled, "aria-label": ariaLabel }) => (
   <input
     type="number"
     value={value}
@@ -114,6 +125,7 @@ export const NumberInput: FunctionComponent<{
     disabled={disabled}
     onInput={(event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
     className="w-32 rounded-[1rem] border border-black/[0.06] hover:border-black/[0.12] bg-white/80 px-3.5 py-2.5 text-sm font-mono text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:bg-white/[0.05] dark:text-slate-200"
+    aria-label={ariaLabel}
   />
 );
 
@@ -163,6 +175,7 @@ export const Row: FunctionComponent<{
             {onReset && badge === "Project override" ? (
               <button
                 type="button"
+                aria-label="Delete project override"
                 onClick={(e) => {
                   e.stopPropagation();
                   onReset();

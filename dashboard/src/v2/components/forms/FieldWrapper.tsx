@@ -1,4 +1,4 @@
-import { h, ComponentChildren, VNode, cloneElement, isValidElement } from "preact";
+import { h, ComponentChildren, VNode, cloneElement, isValidElement, toChildArray } from "preact";
 import { useEffect, useState, useId } from "preact/hooks";
 import { FormError } from "./FormError";
 
@@ -55,19 +55,28 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
   }
 
   // Clone children to append aria attributes if valid
-  const existingOnBlur = (children as any)?.props?.onBlur;
-  const child = isValidElement(children) ? cloneElement(children as VNode<any>, {
-    id: inputId,
-    "aria-invalid": showError ? "true" : undefined,
-    ...(ariaDescribedBy ? { "aria-describedby": ariaDescribedBy } : {}),
-    "aria-errormessage": errorId,
-    ...(required ? { "aria-required": true } : {}),
-    onBlur: (e: any) => {
-      setTouched(true);
-      existingOnBlur?.(e);
-    },
-    valid: !error ? valid : undefined,
-  }) : children;
+  const childrenArray = toChildArray(children);
+  const mappedChildren = childrenArray.map(child => {
+    if (!isValidElement(child)) return child;
+    const existingProps = child.props as any;
+    const existingOnBlur = existingProps.onBlur;
+
+    // Combine existing aria-describedby with our new one if present
+    const combinedAriaDescribedBy = [existingProps["aria-describedby"], ariaDescribedBy].filter(Boolean).join(" ") || undefined;
+
+    return cloneElement(child as VNode<any>, {
+      id: existingProps.id || inputId,
+      "aria-invalid": showError ? true : undefined,
+      ...(combinedAriaDescribedBy ? { "aria-describedby": combinedAriaDescribedBy } : {}),
+      "aria-errormessage": errorId,
+      ...(required || existingProps["aria-required"] ? { "aria-required": true } : {}),
+      onBlur: (e: any) => {
+        setTouched(true);
+        existingOnBlur?.(e);
+      },
+      valid: !error ? valid : undefined,
+    });
+  });
 
   return (
     <div class="flex flex-col mb-4">
@@ -88,7 +97,7 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
           [&_textarea]:transition-colors [&_textarea]:duration-200 [&_textarea]:ease-in-out
           ${showError ? '[&_input]:border-status-red [&_textarea]:border-status-red [&_input]:ring-status-red [&_textarea]:ring-status-red' : ''}
         `}>
-          {child}
+          {mappedChildren}
         </div>
       </div>
       <FormError error={showError ? error : undefined} id={errorId} helperText={helperText as string} helperId={actualHelperId} />

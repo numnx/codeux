@@ -164,6 +164,7 @@ export const OverrideBadge: FunctionComponent<{ label: string; onReset?: () => v
     {onReset && label === "Project override" ? (
       <button
         type="button"
+        aria-label="Delete project override"
         onClick={(e) => {
           e.stopPropagation();
           onReset();

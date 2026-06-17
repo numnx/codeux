@@ -171,7 +171,7 @@ describe("FieldWrapper", () => {
     expect(errorElement).toBeInTheDocument();
 
     expect(helperElement.className).toContain("opacity-0");
-    expect(helperElement.className).toContain("invisible");
+    expect(helperElement.className).not.toContain("invisible");
 
     expect(errorElement.className).toContain("opacity-100");
     expect(errorElement.className).toContain("visible");

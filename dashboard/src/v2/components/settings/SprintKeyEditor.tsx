@@ -28,6 +28,7 @@ export const SprintKeyEditor: FunctionComponent<SprintKeyEditorProps> = ({
         value={value}
         onChange={handleChange}
         mono
+        aria-label="Sprint key prefix"
       />
     </Row>
   );
