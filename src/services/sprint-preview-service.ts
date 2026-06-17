@@ -89,7 +89,9 @@ export class SprintPreviewService {
 
   async listSessions(projectId?: string): Promise<SprintPreviewSession[]> {
     const sessions = this.deps.sprintPreviewRepository.listSessions(projectId);
-    return await Promise.all(sessions.map((session) => this.refreshRuntimeState(session)));
+    // One `docker ps` for the whole batch instead of one per session.
+    const containers = await this.listPreviewContainers(process.cwd());
+    return await Promise.all(sessions.map((session) => this.refreshRuntimeState(session, containers)));
   }
 
   async getSession(sessionId: string): Promise<SprintPreviewSession | null> {
@@ -541,15 +543,28 @@ export class SprintPreviewService {
 
   async reconcileSessions(): Promise<void> {
     const sessions = this.deps.sprintPreviewRepository.listSessions();
+    // Fetch the preview container listing once for the whole pass (was one `docker ps` per session).
+    const containers = await this.listPreviewContainers(process.cwd());
+    // Memoize the per-project execution snapshot within this pass; many sessions share a project and
+    // it is an expensive DB rollup, so recomputing it per session was a second N+1.
+    const executionSnapshotByProject = new Map<string, ReturnType<typeof this.deps.executionRepository.getProjectExecutionSnapshot>>();
+    const getExecutionSnapshot = (projectId: string) => {
+      let snapshot = executionSnapshotByProject.get(projectId);
+      if (!snapshot) {
+        snapshot = this.deps.executionRepository.getProjectExecutionSnapshot(projectId);
+        executionSnapshotByProject.set(projectId, snapshot);
+      }
+      return snapshot;
+    };
     for (const session of sessions) {
       const sprint = this.deps.projectManagementRepository.getSprint(session.sprintId);
       if (!sprint) {
         continue;
       }
       const settings = this.resolveSettings(session.projectId, session.sprintId).sprintPreview;
-      const refreshed = await this.refreshRuntimeState(session);
+      const refreshed = await this.refreshRuntimeState(session, containers);
       const completedTaskCount = this.countCompletedTasks(session.projectId, session.sprintId);
-      const activeRun = this.deps.executionRepository.getProjectExecutionSnapshot(session.projectId)
+      const activeRun = getExecutionSnapshot(session.projectId)
         .sprintRuns
         .some((run) => run.sprintId === session.sprintId && run.status === "running");
 
@@ -615,7 +630,7 @@ export class SprintPreviewService {
 
     const projects = this.deps.projectManagementRepository.listProjects().projects;
     for (const project of projects) {
-      const execution = this.deps.executionRepository.getProjectExecutionSnapshot(project.id);
+      const execution = getExecutionSnapshot(project.id);
       const activeSprintRunIds = new Set(
         execution.sprintRuns
           .filter((run) => run.status === "running")
@@ -637,8 +652,11 @@ export class SprintPreviewService {
     }
   }
 
-  private async refreshRuntimeState(session: SprintPreviewSession): Promise<SprintPreviewSession> {
-    const container = await this.findManagedContainerForSession(session);
+  private async refreshRuntimeState(
+    session: SprintPreviewSession,
+    preFetchedContainers?: DockerContainerSummary[],
+  ): Promise<SprintPreviewSession> {
+    const container = await this.findManagedContainerForSession(session, preFetchedContainers);
     if (!container) {
       if (!session.containerId && !session.containerName) {
         return session;
@@ -818,8 +836,14 @@ export class SprintPreviewService {
     }
   }
 
-  private async findManagedContainerForSession(session: SprintPreviewSession): Promise<DockerContainerSummary | null> {
-    const containers = await this.listPreviewContainers(process.cwd());
+  private async findManagedContainerForSession(
+    session: SprintPreviewSession,
+    preFetchedContainers?: DockerContainerSummary[],
+  ): Promise<DockerContainerSummary | null> {
+    // Callers reconciling/listing many sessions pass a single shared container listing so we run one
+    // `docker ps` for the whole pass instead of one per session (previously an N+1 that, with a few
+    // hundred sessions, spawned hundreds of identical `docker ps` per 15s reconcile cycle).
+    const containers = preFetchedContainers ?? await this.listPreviewContainers(process.cwd());
     const bySession = containers.find((container) => container.labels["code-ux.session-id"] === session.id);
     if (bySession) {
       return bySession;
