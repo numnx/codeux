@@ -54,6 +54,7 @@ export function TableRow({ children, className = "", selected, onClick }: { chil
 }
 
 interface TableCellProps {
+  ariaSort?: "none" | "ascending" | "descending" | "other";
   children: ComponentChildren;
   className?: string;
   isFirst?: boolean;
@@ -64,15 +65,14 @@ interface TableCellProps {
   mobileLabel?: string;
 }
 
-export function TableCell({ children, className = "", isFirst, isLast, isHeader, align = "left", colSpan, mobileLabel }: TableCellProps) {
+export function TableCell({ children, className = "", isFirst, isLast, isHeader, align = "left", colSpan, mobileLabel, ariaSort }: TableCellProps) {
   const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
 
   if (isHeader) {
     const roundedClass = isFirst ? "rounded-l-2xl border-l" : isLast ? "rounded-r-2xl border-r pr-6" : "";
     const plClass = isFirst ? "pl-6" : "";
     return (
-      <th
-        scope="col"
+      <th scope="col" aria-sort={ariaSort}
         className={`border-y border-black/[0.06] bg-white/55 px-4 py-2 ${alignClass} dark:border-white/[0.06] dark:bg-white/[0.035] ${roundedClass} ${plClass} ${className}`}
       >
         {children}
