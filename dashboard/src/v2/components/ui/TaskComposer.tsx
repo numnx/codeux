@@ -173,8 +173,13 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </div>
 
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Status</div>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Status</div>
+                {(state.hasAttemptedSubmit || state.touchedFields.status) && state.statusError && (
+                  <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.statusError}</div>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap" onBlur={() => state.setFieldTouched('status')}>
                 {STATUS_OPTIONS.map((option) => (
                   <button
                     key={option}
@@ -229,22 +234,60 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
-                <textarea
-                  value={state.description}
-                  onInput={(event) => state.setDescription((event.target as HTMLTextAreaElement).value)}
-                  placeholder="Summarize the intent and outcome."
-                  className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
-                />
+              <div className="flex flex-col">
+                <div className={`rounded-[1.7rem] border bg-black/[0.025] dark:bg-white/[0.03] transition-colors ${(state.hasAttemptedSubmit || state.touchedFields.description) && !state.isDescriptionValid ? 'border-red-500' : 'border-black/[0.07] dark:border-white/[0.08]'}`}>
+                  <textarea
+                    value={state.description}
+                    onInput={(event) => state.setDescription((event.target as HTMLTextAreaElement).value)}
+                    onBlur={() => state.setFieldTouched('description')}
+                    placeholder="Summarize the intent and outcome."
+                    className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
+                    aria-invalid={!state.isDescriptionValid}
+                  />
+                </div>
+                <div
+                  className="grid transition-all duration-200 ease-out mt-1 ml-4"
+                  style={{
+                    gridTemplateRows: ((state.hasAttemptedSubmit || state.touchedFields.description) && state.descriptionError) ? '1fr' : '0fr',
+                    opacity: ((state.hasAttemptedSubmit || state.touchedFields.description) && state.descriptionError) ? 1 : 0
+                  }}
+                  aria-live="assertive"
+                >
+                  <div className="overflow-hidden">
+                    <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium pt-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {state.descriptionError}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
-                <textarea
-                  value={state.promptMarkdown}
-                  onInput={(event) => state.setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
-                  placeholder="Detailed markdown instructions for the agent."
-                  className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed font-mono text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
-                />
+              <div className="flex flex-col">
+                <div className={`rounded-[1.7rem] border bg-black/[0.025] dark:bg-white/[0.03] transition-colors ${(state.hasAttemptedSubmit || state.touchedFields.promptMarkdown) && !state.isPromptMarkdownValid ? 'border-red-500' : 'border-black/[0.07] dark:border-white/[0.08]'}`}>
+                  <textarea
+                    value={state.promptMarkdown}
+                    onInput={(event) => state.setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
+                    onBlur={() => state.setFieldTouched('promptMarkdown')}
+                    placeholder="Detailed markdown instructions for the agent."
+                    className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed font-mono text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
+                    aria-invalid={!state.isPromptMarkdownValid}
+                  />
+                </div>
+                <div
+                  className="grid transition-all duration-200 ease-out mt-1 ml-4"
+                  style={{
+                    gridTemplateRows: ((state.hasAttemptedSubmit || state.touchedFields.promptMarkdown) && state.promptMarkdownError) ? '1fr' : '0fr',
+                    opacity: ((state.hasAttemptedSubmit || state.touchedFields.promptMarkdown) && state.promptMarkdownError) ? 1 : 0
+                  }}
+                  aria-live="assertive"
+                >
+                  <div className="overflow-hidden">
+                    <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium pt-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {state.promptMarkdownError}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -254,6 +297,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
                 <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Dependencies</label>
+                {state.dependencyOptions.length === 0 && availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 0 && (
+                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-500 ml-2 bg-amber-500/10 px-1.5 py-0.5 rounded">Cycle Prevented</span>
+                )}
               </div>
               {availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 5 && (
                 <input
@@ -305,8 +351,13 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">Priority</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Priority</div>
+              {(state.hasAttemptedSubmit || state.touchedFields.priority) && state.priorityError && (
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.priorityError}</div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2" onBlur={() => state.setFieldTouched('priority')}>
               {PRIORITY_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -328,8 +379,11 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <div className="flex items-center gap-2 mb-3">
               <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
               <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</label>
+              {(state.hasAttemptedSubmit || state.touchedFields.executorType) && state.executorTypeError && (
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.executorTypeError}</div>
+              )}
             </div>
-            <div className="grid gap-3">
+            <div className="grid gap-3" onBlur={() => state.setFieldTouched('executorType')}>
               {EXECUTOR_OPTIONS.map((option) => {
                 const isActive = state.executorType === option.value;
                 return (
