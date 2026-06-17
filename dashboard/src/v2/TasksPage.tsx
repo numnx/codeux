@@ -892,7 +892,7 @@ export const TasksPage: FunctionComponent = () => {
             <div key={status} className="flex flex-col">
               <ColumnHeader status={status} count={count} />
               <div
-              className="flex-1 grid grid-cols-1 grid-rows-1 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border border-black/[0.03] dark:border-white/[0.03] relative"
+              className={`flex-1 grid grid-cols-1 grid-rows-1 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border relative transition-colors duration-300 ${dropTargetContext?.status === status ? "border-signal-500/50 bg-signal-500/5" : "border-black/[0.03] dark:border-white/[0.03]"}`}
               onDragOver={(e) => handleDragOver(status, columnTasks.length, e)}
               onDrop={(e) => handleDrop(status, columnTasks.length, e)}
             >
@@ -908,7 +908,7 @@ export const TasksPage: FunctionComponent = () => {
                   )}
                 >
                 {!loading && columnTasks.length === 0 ? (
-                  <div className="col-start-1 row-start-1 flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed border-black/[0.04] dark:border-white/[0.04] rounded-[1rem]">
+                  <div className={`col-start-1 row-start-1 flex items-center justify-center text-center p-6 text-xs font-medium text-slate-400 dark:text-slate-500 border-2 border-dashed rounded-[1rem] transition-colors ${dropTargetContext?.status === status ? "border-signal-500/30" : "border-black/[0.04] dark:border-white/[0.04]"}`}>
                     No {status.replace("_", " ")} tasks
                     <br />
                     {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
