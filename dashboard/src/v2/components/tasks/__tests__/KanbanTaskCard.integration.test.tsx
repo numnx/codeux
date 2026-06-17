@@ -4,6 +4,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import userEvent from "@testing-library/user-event";
+import gsap from "gsap";
 import { KanbanTaskCard } from "../KanbanTaskCard.js";
 import type { TaskCardViewModel } from "../../../lib/tasks/task-card-view-model.js";
 
@@ -20,24 +21,23 @@ vi.mock("../../../hooks/use-confirm-dialog.js", () => ({
   })
 }));
 
-// Mock gsap since it's used heavily in motion hooks
-vi.mock("gsap", () => {
-  return {
-    default: {
-      killTweensOf: vi.fn(),
-      set: vi.fn(),
-      to: vi.fn().mockImplementation((el, config) => {
-        if (config?.onComplete) config.onComplete();
-      }),
-      fromTo: vi.fn().mockImplementation((el, from, to) => {
-        if (to?.onComplete) to.onComplete();
-      }),
-      context: vi.fn().mockImplementation((fn) => {
-        if (fn) fn();
-        return { revert: vi.fn() };
-      }),
-    },
+vi.mock("gsap", async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  const mockGsap = {
+    killTweensOf: vi.fn(),
+    set: vi.fn(),
+    to: vi.fn().mockImplementation((el, config) => {
+      if (config?.onComplete) config.onComplete();
+    }),
+    fromTo: vi.fn().mockImplementation((el, from, to) => {
+      if (to?.onComplete) to.onComplete();
+    }),
+    context: vi.fn().mockImplementation((fn) => {
+      if (fn) fn();
+      return { revert: vi.fn() };
+    }),
   };
+  return { ...actual, default: mockGsap, gsap: mockGsap };
 });
 
 describe("KanbanTaskCard Integration", () => {
@@ -210,6 +210,59 @@ describe("KanbanTaskCard Integration", () => {
     if (card) {
       await user.click(card);
       expect(card).toHaveFocus();
+    }
+
+    const actionsContainer = editBtn.parentElement;
+    expect(actionsContainer).toHaveClass("group-focus:opacity-100");
+    });
+
+  it("renders status transition clearly when a task status updates", () => {
+    const { container, rerender } = render(
+      <KanbanTaskCard
+        viewModel={mockViewModel} // status: in_progress
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    );
+
+    // Rerender with a new status to trigger the status flash animation
+    const updatedViewModel = {
+      ...mockViewModel,
+      task: { ...mockViewModel.task, status: "completed" as const }
+    };
+
+    rerender(
+      <KanbanTaskCard
+        viewModel={updatedViewModel}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    );
+
+    // Using gsap.fromTo for status flash, mock should have been called
+    expect(vi.mocked(gsap.fromTo)).toHaveBeenCalled();
+    // The specific flash logic creates a temporary div, but the test ensures the component renders without crashing
+    expect(container).toBeInTheDocument();
+  });
+
+  it("ensures dependency indicators have clear screen-reader support", () => {
+    const { getAllByText, getByTitle } = render(
+      <KanbanTaskCard
+        viewModel={mockViewModel}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    );
+
+    // Check that 'Depends on' text is in the document (from the new sr-only span)
+    const srTexts = getAllByText("Depends on");
+    expect(srTexts.length).toBeGreaterThan(0);
+    expect(srTexts[0]).toHaveClass("sr-only");
+
+    // Check aria-hidden is applied to visually distinct but screen-reader-hidden icons
+    const indicatorIcon = getByTitle(/Depends on Backend API/i).querySelector("svg");
+    if (indicatorIcon) {
+       expect(indicatorIcon).toHaveAttribute("aria-hidden", "true");
     }
   });
 });

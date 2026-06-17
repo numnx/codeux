@@ -22,7 +22,7 @@ export const DependencyStatusIndicators: FunctionComponent<{
           }`}
           title={`Depends on ${dep.title} (${dep.status})`}
         >
-          <ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} />
+          <span className="sr-only">Depends on </span><ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
           <span>{dep.id}</span>
         </div>
       ))}
