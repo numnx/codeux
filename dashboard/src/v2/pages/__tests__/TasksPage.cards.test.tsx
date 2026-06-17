@@ -20,6 +20,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 // Mock GSAP
 vi.mock("gsap", () => ({
+  gsap: { set: vi.fn(), to: vi.fn(), killTweensOf: vi.fn() },
   default: {
     context: vi.fn((fn) => {
       if (fn) fn();
