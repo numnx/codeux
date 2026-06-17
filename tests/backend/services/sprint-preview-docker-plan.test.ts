@@ -1,7 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { buildSprintPreviewDockerCreateArgs } from "../../../src/services/sprint-preview-docker-plan.js";
 
 describe("SprintPreviewDockerPlanBuilder", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.stubGlobal("process", {
+      ...process,
+      env: {
+        ...originalEnv,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GEMINI_CLI_TRUST_WORKSPACE: undefined,
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("builds the correct docker arguments", () => {
     const args = buildSprintPreviewDockerCreateArgs({
       projectId: "proj-1",
