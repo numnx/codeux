@@ -12,10 +12,12 @@ export interface LiveTransportBannerProps {
 
 export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = ({
   transportState,
-  isRecovering,
   error,
 }) => {
-  if (transportState === "connected" && !isRecovering && !error) {
+  // Only surface genuine connection problems. The initial connect / state-recovery phase resolves
+  // near-instantly now, so a banner for it just flashes and shifts the layout on every reload — we
+  // deliberately render nothing for connecting/connected/recovering states.
+  if (!error && transportState !== "disconnected" && transportState !== "reconnecting") {
     return null;
   }
 
@@ -37,13 +39,6 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
     icon = <RefreshCcw className="w-5 h-5 shrink-0 animate-spin" />;
     title = "Reconnecting";
     message = "Attempting to restore connection...";
-    wrapperClass = "bg-status-amber/10 border-status-amber/20 text-status-amber";
-    iconClass = "text-status-amber";
-    isUrgent = false;
-  } else if (isRecovering || transportState === "connecting") {
-    icon = <RefreshCcw className="w-5 h-5 shrink-0 animate-spin" />;
-    title = "Recovering State";
-    message = "Fetching latest snapshot to ensure data consistency...";
     wrapperClass = "bg-status-amber/10 border-status-amber/20 text-status-amber";
     iconClass = "text-status-amber";
     isUrgent = false;

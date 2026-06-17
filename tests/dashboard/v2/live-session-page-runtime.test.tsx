@@ -116,7 +116,7 @@ describe("LiveSessionPage Runtime Status", () => {
     expect(screen.getByText(/Lost connection to the live stream/)).toBeInTheDocument();
   });
 
-  it("renders the LiveTransportBanner in a recovering state", () => {
+  it("does not show a recovering banner (transient state must not flash/shift layout)", () => {
     vi.mocked(useDashboardRuntimeData).mockReturnValue({
       error: null,
       gitStatus: null,
@@ -135,7 +135,7 @@ describe("LiveSessionPage Runtime Status", () => {
     });
 
     render(<LiveSessionPage />);
-    expect(screen.getByText("Recovering State")).toBeInTheDocument();
+    expect(screen.queryByText("Recovering State")).not.toBeInTheDocument();
   });
 
   it("renders the LiveTransportBanner with an error message", () => {

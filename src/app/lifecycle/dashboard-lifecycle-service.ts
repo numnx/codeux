@@ -485,6 +485,10 @@ export async function bootDashboard(deps: BootDashboardDeps): Promise<DashboardS
         includeProjects: false,
       });
       deps.dashboardRealtimeService.scheduleProjectStructureRefresh(projectId, { includeProjects: true });
+      // Switching the selected sprint is an explicit user action and the Live page reflects it only
+      // via the (throttled) project.live.updated push. Expedite that one publish so the new sprint's
+      // data appears immediately instead of after the steady-state throttle window.
+      deps.dashboardRealtimeService.expediteProjectLiveRefresh(projectId);
       return selectedSprintId;
     },
     listSprints: (projectId) => deps.projectManagementRepository.listSprints(projectId),

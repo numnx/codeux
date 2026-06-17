@@ -195,6 +195,24 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
   }
 
   /**
+   * Schedules a project.live.updated publish that bypasses the steady-state throttle. Used for
+   * explicit user actions — e.g. switching the selected sprint — where waiting up to
+   * PROJECT_LIVE_MIN_INTERVAL_MS for the live snapshot to reflect the change feels sluggish. Clearing
+   * the last-published watermark makes the throttle treat this as the first publish, so the next
+   * flush (within the normal ~75ms debounce) emits immediately; normal throttling resumes after.
+   */
+  expediteProjectLiveRefresh(projectId: string): void {
+    const normalizedProjectId = String(projectId || "").trim();
+    if (!normalizedProjectId) {
+      return;
+    }
+
+    this.projectLivePublishedAt.delete(normalizedProjectId);
+    this.pendingProjectLiveIds.add(normalizedProjectId);
+    this.scheduleFlush();
+  }
+
+  /**
    * Schedule a publish of the project's git/CI/PR status on the dedicated `project.git.updated`
    * channel. Kept separate from the live tick so the slow, large git payload is throttled hard
    * and only reaches the Live page (which subscribes to this event), and only when it changes.
