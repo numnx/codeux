@@ -356,4 +356,39 @@ describe("DashboardRealtimeService extracted publisher helper", () => {
       expect.objectContaining({ type: "project.live.updated" })
     );
   });
+
+  it("expediteProjectLiveRefresh bypasses the live throttle for an immediate publish", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    // Distinct payload each call so the duplicate-skip never suppresses a publish.
+    let counter = 0;
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockImplementation(async () => ({
+        selectedSprintId: `sprint-${counter++}`,
+      })),
+    } as any);
+
+    const livePublishes = () =>
+      eventRepoMock.appendEvent.mock.calls.filter((c) => c[0].eventType === "project.live.updated").length;
+
+    // First publish establishes the throttle watermark.
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(livePublishes()).toBe(1);
+
+    // A normal refresh within the 5s window is throttled — no new publish.
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(livePublishes()).toBe(1);
+
+    // Expedite bypasses the throttle and publishes on the next flush.
+    service.expediteProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(livePublishes()).toBe(2);
+  });
 });

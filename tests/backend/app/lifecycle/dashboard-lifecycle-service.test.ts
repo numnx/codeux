@@ -180,6 +180,7 @@ describe("dashboard-lifecycle-service", () => {
       } as any,
       dashboardRealtimeService: {
         scheduleProjectLiveRefresh: vi.fn(),
+        expediteProjectLiveRefresh: vi.fn(),
         scheduleProjectExecutionRefresh: vi.fn(),
         scheduleProjectStructureRefresh: vi.fn(),
         scheduleOverviewRefresh: vi.fn(),
