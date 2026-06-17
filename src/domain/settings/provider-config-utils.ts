@@ -58,7 +58,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.jules,
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.gemini]: {
     provider: "gemini",
@@ -67,7 +67,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.gemini,
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.codex]: {
     provider: "codex",
@@ -76,7 +76,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.codex,
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
   [DEFAULT_PROVIDER_CONFIG_IDS["claude-code"]]: {
     provider: "claude-code",
@@ -85,7 +85,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS["claude-code"],
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
   [DEFAULT_PROVIDER_CONFIG_IDS["qwen-code"]]: {
     provider: "qwen-code",
@@ -101,7 +101,7 @@ export const buildDefaultIntegrationProviders = (
     qwenModelId: "glm-4.7-flash",
     qwenProtocol: "openai",
     qwenAdditionalModelProviders: [],
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
   [DEFAULT_PROVIDER_CONFIG_IDS.opencode]: {
     provider: "opencode",
@@ -110,7 +110,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.opencode,
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
     openCodeAuthMode: "LOCAL_AUTH",
     openCodeProviderId: "ollama",
     openCodeModelId: "glm-4.7-flash",
@@ -125,7 +125,7 @@ export const buildDefaultIntegrationProviders = (
     mountAuth: false,
     authPath: DEFAULT_PROVIDER_AUTH_PATHS.antigravity,
     authType: "apiKey",
-    pricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    tokenPricing: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   },
 });
 
@@ -201,7 +201,7 @@ export const normalizeSystemIntegrationProviders = (
       continue;
     }
 
-    const rawPricing = rawValue.pricing as Record<string, unknown> | undefined;
+    const rawPricing = rawValue.tokenPricing as Record<string, unknown> | undefined;
     const pricing = rawPricing ? {
       inputTokens: typeof rawPricing.inputTokens === "number" ? rawPricing.inputTokens : 0,
       outputTokens: typeof rawPricing.outputTokens === "number" ? rawPricing.outputTokens : 0,
@@ -246,7 +246,7 @@ export const normalizeSystemIntegrationProviders = (
       ...(typeof rawValue.customModel === "string" && rawValue.customModel.trim().length > 0
         ? { customModel: rawValue.customModel.trim() }
         : {}),
-      pricing,
+      tokenPricing: pricing,
       ...(providerId === "qwen-code" ? {
         qwenAuthMode: normalizeQwenAuthMode(rawValue.qwenAuthMode),
         qwenRegion: normalizeQwenRegion(rawValue.qwenRegion),
@@ -391,7 +391,7 @@ export const buildDashboardProviderSettings = (
           weight: normalizeWeight(projectProvider.weight, defaults.weight),
           thinkingMode: normalizeThinkingMode(projectProvider.thinkingMode, defaults.thinkingMode),
           maxConcurrentTasks: normalizeMaxConcurrentTasks(projectProvider.maxConcurrentTasks, defaults.maxConcurrentTasks),
-          pricing: integrationProviders[providerConfigId]?.pricing || { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+          pricing: integrationProviders[providerConfigId]?.tokenPricing || { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
           apiKey: integrationProviders[providerConfigId]?.apiKey
             || Object.entries(integrationProviders).find(([, integrationProvider]) => integrationProvider.provider === providerId)?.[1]?.apiKey
             || "",
