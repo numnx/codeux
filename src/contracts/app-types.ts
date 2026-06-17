@@ -372,6 +372,9 @@ export interface ExecutionUsageTotals {
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
+  /** Total tool-style operations across the aggregated invocations. Optional so
+   *  existing literal consumers stay valid; backend aggregators populate it. */
+  toolCallCount?: number;
   reportedInvocationCount: number;
   estimatedInvocationCount: number;
   unavailableInvocationCount: number;
@@ -455,7 +458,7 @@ export interface ExecutionStatsEntitySummary {
 }
 
 export type ProjectStatsWindow = "1h" | "24h" | "7d" | "30d" | "all" | "custom";
-export type ProjectStatsResolution = "hour" | "day" | "week";
+export type ProjectStatsResolution = "5min" | "hour" | "day" | "week";
 
 export interface ProjectStatsQuery {
   window: ProjectStatsWindow;

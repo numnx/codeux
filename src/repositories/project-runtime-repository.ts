@@ -17,7 +17,7 @@ import {
 } from "./project-runtime/runtime-status-projection.js";
 import { toNumber } from "./repository-utils.js";
 
-const TERMINAL_TASK_STATES = new Set<TaskRunState>(["CODING_COMPLETED", "COMPLETED", "FAILED", "BLOCKED"]);
+const TERMINAL_TASK_STATES = new Set<TaskRunState>(["CODING_COMPLETED", "COMPLETED", "FAILED", "BLOCKED", "QA_REVIEW_FAILED"]);
 
 function normalizePath(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -43,8 +43,15 @@ function subtaskSignature(subtask: Subtask): string {
   });
 }
 
-function toPersistedTaskRunState(status: TaskRunState): Exclude<TaskRunState, "CODING_COMPLETED"> {
-  return status === "CODING_COMPLETED" ? "COMPLETED" : status;
+function toPersistedTaskRunState(status: TaskRunState): Exclude<TaskRunState, "CODING_COMPLETED" | "QA_REVIEW_FAILED"> {
+  // `QA_REVIEW_FAILED` is a task/planning state, not a provider-run state: the
+  // underlying session genuinely COMPLETED (that is what QA reviewed). Persist
+  // the run as COMPLETED so the task_runs.state column stays within the valid
+  // execution-state set; the escalation lives on the task row, not the run.
+  if (status === "CODING_COMPLETED" || status === "QA_REVIEW_FAILED") {
+    return "COMPLETED";
+  }
+  return status;
 }
 
 export class ProjectRuntimeRepository {
@@ -488,8 +495,32 @@ export class ProjectRuntimeRepository {
       ORDER BY rowid DESC
       LIMIT 1
     `).get(taskId) as TaskRunRow | undefined;
+    if (row) {
+      return row;
+    }
 
-    return row || null;
+    // A task can re-sync in a terminal state with no session id — e.g. a task
+    // parked BLOCKED by the coding guardrail. Terminal runs have finished_at
+    // set, so the unfinished-run lookup above misses them, and without this
+    // fallback syncTaskRun would INSERT a fresh BLOCKED run on every watch-loop
+    // cycle (observed as hundreds of duplicate rows / a CPU-burning spin).
+    // Reuse the latest run already in this terminal state so the sync is
+    // idempotent.
+    const persistedState = toPersistedTaskRunState(subtask.status || "PENDING");
+    if (TERMINAL_TASK_STATES.has(persistedState)) {
+      const terminalRow = this.db.prepare(`
+        SELECT *
+        FROM task_runs
+        WHERE task_id = ? AND state = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+      `).get(taskId, persistedState) as TaskRunRow | undefined;
+      if (terminalRow) {
+        return terminalRow;
+      }
+    }
+
+    return null;
   }
 
   private shouldCreateTaskRun(subtask: Subtask): boolean {
@@ -509,11 +540,14 @@ export class ProjectRuntimeRepository {
   }
 
   private insertRunEvent(taskRunId: string, eventType: string, payload: Record<string, unknown>, createdAt: string): void {
+    // project_id is denormalized from the parent task_run (PK lookup, negligible cost) so the live
+    // execution feed can read a project's recent events straight off idx_task_run_events_project_created.
     this.db.prepare(`
-      INSERT INTO task_run_events (id, task_run_id, event_type, originator, payload_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO task_run_events (id, task_run_id, project_id, event_type, originator, payload_json, created_at)
+      VALUES (?, ?, (SELECT project_id FROM task_runs WHERE id = ?), ?, ?, ?, ?)
     `).run(
       randomUUID(),
+      taskRunId,
       taskRunId,
       eventType,
       "system",

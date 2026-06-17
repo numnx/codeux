@@ -109,8 +109,11 @@ describe("SystemStudio", () => {
 
     expect(container.querySelectorAll(".text-red-600").length).toBeGreaterThan(0);
     expect(container.querySelectorAll(".text-blue-600").length).toBeGreaterThan(0);
+    expect(container.textContent).toContain("Sprint Overview");
     expect(container.textContent).toContain("Status Distribution");
     expect(container.textContent).toContain("Success Rate");
+    expect(container.textContent).toContain("Error Log");
+    expect(container.textContent).toContain("Detailed Log");
 
     fireEvent.click(screen.getByRole("button", { name: "Errors" }));
 
@@ -140,7 +143,7 @@ describe("SystemStudio", () => {
     expect(screen.queryByText("Rate limited")).toBeNull();
     expect(screen.getByText("codex-1")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand invocation inv-running" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand invocation inv-running" })[0]);
 
     expect(screen.getByText("Loading messages")).toBeTruthy();
     await waitFor(() => {
@@ -148,7 +151,7 @@ describe("SystemStudio", () => {
     });
     expect(container.querySelectorAll("tbody > tr").length).toBe(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse invocation inv-running" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Collapse invocation inv-running" })[0]);
 
     expect(screen.queryByText("No messages recorded for this invocation")).toBeNull();
     expect(container.querySelectorAll("tbody > tr").length).toBe(1);

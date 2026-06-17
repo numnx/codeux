@@ -1,5 +1,5 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
-import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
+import { useEffect, useRef, useState, useLayoutEffect, useId } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { tooltipMotion } from "../../utils/motion.js";
@@ -33,13 +33,17 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
 
     const [coords, setCoords] = useState({ top: 0, left: 0 });
     const durations = useGsapDurations();
+    const gsapCtx = useRef<gsap.Context | null>(null);
+    const [tooltipId] = useState(() => `tooltip-${Math.random().toString(36).substr(2, 9)}`);
 
-    const handleMouseEnter = () => {
-        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-        hoverTimeout.current = window.setTimeout(() => {
-            setIsVisible(true);
-            setIsRendered(true);
-        }, delay);
+    const handlePointerEnter = (e: PointerEvent) => {
+        if (e.pointerType === "mouse" || e.pointerType === "pen") {
+            if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+            hoverTimeout.current = window.setTimeout(() => {
+                setIsVisible(true);
+                setIsRendered(true);
+            }, delay);
+        }
     };
 
     const handleFocus = (e: FocusEvent) => {
@@ -49,10 +53,14 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
         } catch {
             // fallback for older browsers or test environments
         }
-        handleMouseEnter();
+        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+        hoverTimeout.current = window.setTimeout(() => {
+            setIsVisible(true);
+            setIsRendered(true);
+        }, delay);
     };
 
-    const handleMouseLeave = () => {
+    const handlePointerLeave = (e?: PointerEvent | FocusEvent) => {
         if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
         setIsVisible(false);
     };
@@ -74,14 +82,30 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
     useLayoutEffect(() => {
         if (!tooltipRef.current) return;
 
-        gsap.killTweensOf(tooltipRef.current);
-
-        if (isVisible) {
-            tooltipMotion.enter(tooltipRef.current, position, { duration: durations.fast, ease: GSAP_EASINGS.spring });
-        } else if (isRendered) {
-            tooltipMotion.exit(tooltipRef.current, position, () => setIsRendered(false), { duration: durations.fast, ease: GSAP_EASINGS.smooth });
+        if (!gsapCtx.current) {
+            gsapCtx.current = gsap.context(() => {});
         }
+
+        gsapCtx.current.add(() => {
+            if (!tooltipRef.current) return;
+            gsap.killTweensOf(tooltipRef.current);
+
+            if (isVisible) {
+                tooltipMotion.enter(tooltipRef.current, position, { duration: durations.fast, ease: GSAP_EASINGS.spring });
+            } else if (isRendered) {
+                tooltipMotion.exit(tooltipRef.current, position, () => setIsRendered(false), { duration: durations.fast, ease: GSAP_EASINGS.smooth });
+            }
+        });
     }, [isVisible, isRendered, position]);
+
+    useEffect(() => {
+        return () => {
+            if (gsapCtx.current) {
+                gsapCtx.current.revert();
+            }
+            if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+        };
+    }, []);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -106,25 +130,21 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
             window.removeEventListener("scroll", handleScroll, { capture: true });
-            if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
         };
     }, [isVisible]);
 
     // Return just the children if no content
     if (!content) return <>{children}</>;
 
-    // Generate unique ID for ARIA wiring
-    const tooltipId = `tooltip-${Math.random().toString(36).substr(2, 9)}`;
-
     return (
         <div
             ref={wrapperRef}
             className={`inline-flex relative ${triggerClassName}`}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
             onFocusCapture={handleFocus}
-            onBlurCapture={handleMouseLeave}
-            aria-describedby={isVisible ? tooltipId : undefined}
+            onBlurCapture={handlePointerLeave}
+            aria-describedby={isRendered ? tooltipId : undefined}
         >
             {children}
             {isRendered && createPortal(

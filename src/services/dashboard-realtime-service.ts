@@ -40,7 +40,12 @@ export interface DashboardRealtimeMutationNotifier {
 type DashboardRealtimeListener = (event: DashboardRealtimeEvent) => void;
 
 const DEFAULT_FLUSH_DELAY_MS = 75;
-const PROJECT_LIVE_MIN_INTERVAL_MS = 100;
+// The live snapshot is the heaviest realtime payload (~480KB: full execution tree + runtime event
+// feed) and is reassembled from several DB queries on each publish. The throttle below is checked
+// *before* the loader runs, so it caps how often that assembly happens. A 5s floor keeps the Live
+// page fresh enough while roughly halving the assemble/serialize/broadcast load versus the previous
+// ~2s mutation-driven cadence.
+const PROJECT_LIVE_MIN_INTERVAL_MS = 5_000;
 const PROJECT_GIT_MIN_INTERVAL_MS = 5_000;
 const PROJECT_EXECUTION_MIN_INTERVAL_MS = 300;
 const PROJECT_RUNTIME_STATUS_MIN_INTERVAL_MS = 250;
@@ -185,6 +190,24 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       return;
     }
 
+    this.pendingProjectLiveIds.add(normalizedProjectId);
+    this.scheduleFlush();
+  }
+
+  /**
+   * Schedules a project.live.updated publish that bypasses the steady-state throttle. Used for
+   * explicit user actions — e.g. switching the selected sprint — where waiting up to
+   * PROJECT_LIVE_MIN_INTERVAL_MS for the live snapshot to reflect the change feels sluggish. Clearing
+   * the last-published watermark makes the throttle treat this as the first publish, so the next
+   * flush (within the normal ~75ms debounce) emits immediately; normal throttling resumes after.
+   */
+  expediteProjectLiveRefresh(projectId: string): void {
+    const normalizedProjectId = String(projectId || "").trim();
+    if (!normalizedProjectId) {
+      return;
+    }
+
+    this.projectLivePublishedAt.delete(normalizedProjectId);
     this.pendingProjectLiveIds.add(normalizedProjectId);
     this.scheduleFlush();
   }

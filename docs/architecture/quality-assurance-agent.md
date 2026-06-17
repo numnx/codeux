@@ -92,6 +92,17 @@ Behavior:
    - QA determines a no-PR task should not have a PR
    - task QA retry budget is exhausted
 
+Task-level prompt scope:
+
+- task completion and completed-without-PR reviews are explicitly single-task reviews
+- the selected current task is the only deliverable under review
+- the sprint task list and full non-current task instructions are included as context only, so QA can understand dependencies and sprint intent without treating sibling work as missing from the current task
+- the prompt tells QA to assume the current workspace or branch contains only the current task's changes on top of its base branch
+- a task-level review must pass when the current task satisfies its own prompt, even if completed sibling tasks are absent from the branch
+- QA must not request fixes because completed sibling tasks, files, commits, PRs, or behavior are absent from the current task branch
+- QA must not tell the current coding session to implement, restore, or modify another task's scope
+- when task-level QA requests changes, `fixInstructions` must target the current task's coding session and `targetTaskKey` must identify that current task
+
 If task QA is still pending, running, or has failed without exhausting `maxTaskReviewRuns`, Code UX marks the task merge state as `QA_PENDING` and keeps the sprint active instead of auto-merging.
 
 Recovery guarantees:

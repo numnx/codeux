@@ -133,7 +133,7 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
     >
       <div
         ref={cardRef}
-        className="flex max-h-[92vh] w-full max-w-7xl cursor-default flex-col overflow-hidden rounded-[2.5rem] bg-[#f9f8f4] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:bg-void-900 dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] sm:w-full max-w-7xl cursor-default flex-col overflow-hidden rounded-[2.5rem] bg-[#f9f8f4] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:bg-void-900 dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
       >
         <SettingsHeader
           icon={SlidersHorizontal}
@@ -157,6 +157,7 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
                 type="button"
                 onClick={() => { void handleSave(); }}
                 disabled={!dirty || saving}
+                aria-busy={saving}
                 className={`group inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 ${
                   message && !error
                     ? "bg-status-green text-white shadow-[0_4px_20px_rgba(0,171,132,0.3)]"
@@ -165,7 +166,7 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
               >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.2} />
+                    <><RefreshCw aria-hidden="true" className="h-3.5 w-3.5 animate-spin" strokeWidth={2.2} /><span className="sr-only">Loading</span></>
                     Saving
                   </>
                 ) : message && !error ? (
@@ -183,9 +184,10 @@ export const SprintSettingsOverrideModal: FunctionComponent<SprintSettingsOverri
               <button
                 type="button"
                 onClick={onClose}
+                aria-label="Close dialog"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-slate-500 transition-colors hover:text-slate-900 dark:bg-white/[0.05] dark:text-slate-400 dark:hover:text-white"
               >
-                <X className="h-4 w-4" strokeWidth={2.1} />
+                <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.1} />
               </button>
             </>
           }

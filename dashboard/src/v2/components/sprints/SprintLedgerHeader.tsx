@@ -52,7 +52,11 @@ export const SprintLedgerHeader: FunctionComponent<SprintLedgerHeaderProps> = ({
   };
 
   return (
-    <div className="relative overflow-visible border-b border-black/[0.06] px-4 py-5 dark:border-white/[0.06] sm:px-6 lg:px-7">
+    <div
+      role="region"
+      aria-label="Sprint Ledger"
+      className="relative overflow-visible border-b border-black/[0.06] px-4 py-5 dark:border-white/[0.06] sm:px-6 lg:px-7"
+    >
       <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="min-w-0">
           <div className="inline-flex items-center gap-2 rounded-full border border-ember-500/20 bg-ember-500/10 px-3 py-1 text-[11px] font-bold text-ember-600 dark:text-ember-400">

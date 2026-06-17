@@ -10,7 +10,8 @@ Use this page as the main entrypoint.
 1. [Quickstart](./getting-started/quickstart.md)
 2. [System Overview](./architecture/system-overview.md)
 3. [Dashboard Guide](./dashboard/dashboard-guide.md)
-4. [Sprint Imports](./dashboard/sprint-imports.md)
+4. [Dashboard Accessibility Patterns](./dashboard/dashboard-guide.md#accessibility-patterns)
+5. [Sprint Imports](./dashboard/sprint-imports.md)
 5. [Project Initialization](./dashboard/project-initialization.md)
 6. [Quicksprint Templates](./dashboard/quicksprint-templates.md)
 7. [Scheduler](./dashboard/scheduler.md)
@@ -117,6 +118,7 @@ Use this page as the main entrypoint.
 - [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
 - [Instruction Template System](./instructions/markdown-template-system.md)
 - [Dashboard Guide](./dashboard/dashboard-guide.md)
+- [Dashboard Accessibility Patterns](./dashboard/dashboard-guide.md#accessibility-patterns)
 - [Dashboard Onboarding](./dashboard/onboarding.md)
 - [Project Initialization](./dashboard/project-initialization.md)
 - [Sprint Imports](./dashboard/sprint-imports.md)
@@ -145,3 +147,4 @@ These docs cover:
 - Operational and development workflows.
 
 These docs do not replace the source code. They are designed to make the source easier to navigate and safer to change.
+- [Mobile Responsiveness](./dashboard/mobile-responsiveness.md)

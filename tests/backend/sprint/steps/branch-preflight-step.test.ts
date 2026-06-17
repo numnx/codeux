@@ -8,6 +8,12 @@ import { setProviderTokenResolverForTests } from "../../../../src/services/git-h
 
 beforeEach(() => {
   setProviderTokenResolverForTests(async () => null);
+
+  for (let i = 0; i < 10; i++) {
+    delete process.env[`GIT_CONFIG_KEY_${i}`];
+    delete process.env[`GIT_CONFIG_VALUE_${i}`];
+  }
+  delete process.env.GIT_CONFIG_COUNT;
 });
 
 const buildDeps = () => {

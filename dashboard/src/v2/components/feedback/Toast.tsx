@@ -110,6 +110,9 @@ export const Toast: FunctionComponent<ToastProps> = ({
   return (
     <div
       ref={containerRef}
+      role={type === "error" ? "alert" : "status"}
+      aria-live={type === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
       className={`pointer-events-auto flex items-start gap-3 w-full max-w-sm p-4 rounded-xl shadow-lg border backdrop-blur-md bg-white/95 dark:bg-void-900/95 ${colorClass} ${className}`}
     >
       <Icon aria-hidden="true" className="w-5 h-5 shrink-0 mt-0.5" />

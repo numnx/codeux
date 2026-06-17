@@ -17,6 +17,27 @@ describe("QuicksprintService", () => {
 
   const projectId = "test-project-id";
   const projectBaseDirResolver = (id: string) => `/mocked/base/dir/${id}`;
+  const templatesDir = path.join(`/mocked/base/dir/${projectId}`, ".code-ux", "quicksprints", "templates");
+  const customTemplatePayload = {
+    id: "qs-custom-template1",
+    projectId,
+    name: "Custom Template",
+    description: "Custom description",
+    icon: "Sparkles",
+    category: "engineering",
+    agentInstructionMarkdown: "Plan useful custom quicksprint work.",
+    defaultTaskCount: 4,
+    isBuiltIn: false,
+  };
+  const templateFileContent = (payload: typeof customTemplatePayload | {
+    id: string;
+    name: string;
+    description?: string;
+    agentInstructionMarkdown: string;
+  }) => {
+    const { agentInstructionMarkdown, ...metadata } = payload;
+    return `---json\n${JSON.stringify(metadata, null, 2)}\n---\n${agentInstructionMarkdown}\n`;
+  };
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -41,13 +62,8 @@ describe("QuicksprintService", () => {
 
   describe("listTemplates", () => {
     it("should return built-in templates and custom templates if present", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+      (fs.readdir as any).mockResolvedValue(["template1.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       const templates = await service.listTemplates(projectId);
       expect(templates.length).toBe(BUILTIN_QUICKSPRINT_TEMPLATES.length + 1);
@@ -55,26 +71,21 @@ describe("QuicksprintService", () => {
     });
 
     it("should return cached result if mtimeMs is unchanged", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+      (fs.readdir as any).mockResolvedValue(["template1.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       // First call reads from disk
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(1);
+      expect(fs.readFile).toHaveBeenCalledTimes(1);
 
       // Second call should return cached result
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(1); // Not called again
+      expect(fs.readFile).toHaveBeenCalledTimes(1); // Not called again
 
       // Update mtimeMs, should read from disk again
       (fs.stat as any).mockResolvedValue({ mtimeMs: 2000 });
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(2);
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
     });
 
     it("should safely handle errors reading templates directory", async () => {
@@ -93,9 +104,11 @@ describe("QuicksprintService", () => {
     });
 
     it("should return a custom template by id", async () => {
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
+      (fs.readdir as any).mockResolvedValue(["qs-custom-test.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent({
         id: "qs-custom-test",
         name: "Test",
+        agentInstructionMarkdown: "Plan test work.",
       }));
 
       const template = await service.getTemplate(projectId, "qs-custom-test");
@@ -126,36 +139,34 @@ describe("QuicksprintService", () => {
       expect(template.isBuiltIn).toBe(false);
 
       expect(fs.writeFile).toHaveBeenCalledWith(
-        path.join(`/mocked/base/dir/${projectId}/.quicksprints`, `${template.id}.json`),
-        expect.any(String)
+        path.join(templatesDir, `${template.id}.md`),
+        expect.stringContaining("---json"),
+        "utf8",
       );
     });
 
     it("should invalidate the cache", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+      (fs.readdir as any).mockResolvedValue(["template1.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(1);
+      expect(fs.readFile).toHaveBeenCalledTimes(1);
 
       await service.createCustomTemplate(projectId, { name: "Test", agentInstructionMarkdown: "Test" });
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(2);
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("updateCustomTemplate", () => {
     it("should update an existing custom template", async () => {
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
+      (fs.readdir as any).mockResolvedValue(["qs-custom-123.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent({
         id: "qs-custom-123",
         name: "Old Name",
         description: "Old Desc",
+        agentInstructionMarkdown: "Plan old work.",
       }));
 
       const input = {
@@ -170,21 +181,16 @@ describe("QuicksprintService", () => {
     });
 
     it("should invalidate the cache", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+      (fs.readdir as any).mockResolvedValue(["template1.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(1);
+      expect(fs.readFile).toHaveBeenCalledTimes(1);
 
       await service.updateCustomTemplate(projectId, "qs-custom-template1", { name: "Test" });
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(2);
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
     });
 
     it("should throw if trying to update a built-in template", async () => {
@@ -209,21 +215,16 @@ describe("QuicksprintService", () => {
     });
 
     it("should invalidate the cache", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+      (fs.readdir as any).mockResolvedValue(["template1.md"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(1);
+      expect(fs.readFile).toHaveBeenCalledTimes(1);
 
       await service.deleteCustomTemplate(projectId, "qs-custom-123");
 
       await service.listTemplates(projectId);
-      expect(fs.readdir).toHaveBeenCalledTimes(2);
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
     });
 
     it("should throw if trying to delete a built-in template", async () => {
@@ -274,28 +275,23 @@ describe("QuicksprintService", () => {
     it("should create directory if it doesn't exist", async () => {
       await service.listTemplates(projectId);
       expect(fs.mkdir).toHaveBeenCalledWith(
-        path.join(`/mocked/base/dir/${projectId}`, ".quicksprints"),
+        templatesDir,
         { recursive: true }
       );
     });
   });
 
   describe("Error branches during read", () => {
-    it("should ignore JSON parse errors in getTemplate", async () => {
+    it("should ignore malformed template files in getTemplate", async () => {
       (fs.readFile as any).mockResolvedValue("invalid json");
 
       const template = await service.getTemplate(projectId, "qs-custom-invalid");
       expect(template).toBeNull();
     });
 
-    it("should ignore non-JSON files in listTemplates", async () => {
-      (fs.readdir as any).mockResolvedValue(["template1.json", "notjson.txt"]);
-      (fs.readFile as any).mockResolvedValue(JSON.stringify({
-        id: "qs-custom-template1",
-        projectId,
-        name: "Custom Template",
-        isBuiltIn: false,
-      }));
+    it("should ignore unsupported files in listTemplates", async () => {
+      (fs.readdir as any).mockResolvedValue(["template1.md", "notjson.txt"]);
+      (fs.readFile as any).mockResolvedValue(templateFileContent(customTemplatePayload));
 
       const templates = await service.listTemplates(projectId);
       expect(templates.length).toBe(BUILTIN_QUICKSPRINT_TEMPLATES.length + 1);

@@ -10,6 +10,18 @@ vi.mock("../../../src/app/lifecycle/mcp-lifecycle-service.js", () => ({
   bootMcpTransport: vi.fn().mockResolvedValue(undefined),
   bootMcpHttpTransport: vi.fn().mockResolvedValue(null)
 }));
+// `server.run()` triggers startup maintenance (sprint-preview/file-browser cleanup,
+// docker asset prune) that shells out to the real `docker` CLI. Stub the process
+// runner so these become instant no-ops — otherwise the suite spawns real Docker
+// commands, making it slow (~8s) and flaky/CI-dependent.
+vi.mock("../../../src/services/cli-process-runner.js", () => {
+  const ok = async () => ({ ok: true, stdout: "", stderr: "", code: 0, signal: null });
+  return {
+    runCommandStrict: vi.fn(ok),
+    runStreamingCommand: vi.fn(ok),
+    commandRunner: { run: vi.fn(ok), runStrict: vi.fn(ok) },
+  };
+});
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll, afterEach } from "vitest";
 import { CodeUxServer } from "../../../src/server/code-ux-server.js";
@@ -309,7 +321,7 @@ describe("CodeUxServer", () => {
       };
 
       const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
-      const julesApiListSessionsSpy = vi.spyOn((server as any).julesApi, "listSessions").mockResolvedValue({ sessions: [remoteSession] });
+      const getCachedSessionsSpy = vi.spyOn((server as any).julesApi, "getCachedSessions").mockResolvedValue([remoteSession]);
 
       const result = await (server as any).listSessionsForSync();
       expect(result.sessions).toEqual([
@@ -317,7 +329,7 @@ describe("CodeUxServer", () => {
         { ...remoteSession, provider: "jules" }
       ]);
       expect((server as any).sessionTracking.listSessions).toHaveBeenCalledWith(300);
-      expect(julesApiListSessionsSpy).toHaveBeenCalledWith({ page_size: 100 });
+      expect(getCachedSessionsSpy).toHaveBeenCalled();
 
       isJulesApiConfiguredSpy.mockRestore();
     });
@@ -330,7 +342,7 @@ describe("CodeUxServer", () => {
       };
 
       const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
-      const julesApiListSessionsSpy = vi.spyOn((server as any).julesApi, "listSessions").mockRejectedValue(new Error("API Error"));
+      vi.spyOn((server as any).julesApi, "getCachedSessions").mockRejectedValue(new Error("API Error"));
 
       const result = await (server as any).listSessionsForSync();
       expect(result.sessions).toEqual([trackedSession]);
@@ -346,11 +358,11 @@ describe("CodeUxServer", () => {
       };
 
       const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(false);
-      const julesApiListSessionsSpy = vi.spyOn((server as any).julesApi, "listSessions");
+      const getCachedSessionsSpy = vi.spyOn((server as any).julesApi, "getCachedSessions");
 
       const result = await (server as any).listSessionsForSync();
       expect(result.sessions).toEqual([trackedSession]);
-      expect(julesApiListSessionsSpy).not.toHaveBeenCalled();
+      expect(getCachedSessionsSpy).not.toHaveBeenCalled();
 
       isJulesApiConfiguredSpy.mockRestore();
     });
@@ -367,7 +379,7 @@ describe("CodeUxServer", () => {
         };
 
         const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
-        const julesApiListSessionsSpy = vi.spyOn((server as any).julesApi, "listSessions").mockResolvedValue({ sessions: [remoteSession1, remoteSession2, remoteSession3] });
+        vi.spyOn((server as any).julesApi, "getCachedSessions").mockResolvedValue([remoteSession1, remoteSession2, remoteSession3]);
 
         const extractSessionIdSpy = vi.spyOn(server as any, "extractSessionId").mockReturnValue(undefined);
 

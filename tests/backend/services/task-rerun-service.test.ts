@@ -19,6 +19,7 @@ describe("TaskRerunService", () => {
   const createResetTaskRun = vi.fn();
   const resumeSprintRun = vi.fn();
   const resolveTaskAttention = vi.fn();
+  const resetTaskQaState = vi.fn();
   const cancelActiveDispatch = vi.fn();
   const clearTaskWorktree = vi.fn();
   let service: TaskRerunService;
@@ -70,6 +71,7 @@ describe("TaskRerunService", () => {
       createResetTaskRun,
       resumeSprintRun,
       resolveTaskAttention,
+      resetTaskQaState,
       cancelActiveDispatch,
       clearTaskWorktree,
     });
@@ -129,6 +131,13 @@ describe("TaskRerunService", () => {
     expect(resolveTaskAttention).toHaveBeenCalledWith({
       taskId: "task-record-1",
       projectId: "project-1",
+    });
+    // A rerun is a fresh attempt — prior QA verdict budget must be cleared so the
+    // fail-closed merge gate reviews the new run instead of blocking on history.
+    expect(resetTaskQaState).toHaveBeenCalledWith({
+      taskId: "task-record-1",
+      projectId: "project-1",
+      sprintId: "sprint-1",
     });
     expect(createResetTaskRun).not.toHaveBeenCalled();
   });

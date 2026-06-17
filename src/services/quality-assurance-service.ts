@@ -37,6 +37,15 @@ const SPRINT_RUN_KEEPALIVE_MS = 30_000;
 const SPRINT_LEASE_EXTENSION_MS = 5 * 60 * 1000;
 const QA_RUN_START_TIMEOUT_MS = 60_000;
 const RECOVERED_STALE_QA_SUMMARY_PREFIX = "Recovered stale QA review run";
+/**
+ * How many extra QA attempts beyond `maxTaskReviewRuns` we tolerate when the
+ * reviewer keeps failing for infrastructure reasons (auth/config/container).
+ * Infra failures don't consume the verdict budget (see
+ * {@link QaReviewRepository.countDecisiveTaskRuns}), but a permanently broken
+ * reviewer must still stop retrying eventually and escalate the task to a human
+ * (QA_REVIEW_FAILED) rather than loop forever or — worse — fail open.
+ */
+const QA_INFRA_FAILURE_GRACE = 3;
 
 export interface TaskQaReviewOutcome {
   reviewed: boolean;
@@ -167,12 +176,19 @@ export class QualityAssuranceService {
     }
 
     const existingRuns = this.deps.qaReviewRepository.countTaskRuns(taskId);
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
     const latestRun = this.deps.qaReviewRepository.getLatestTaskRun(taskId);
-    const allowPostContinuationVerification = existingRuns >= qaSettings.maxTaskReviewRuns
+    // The budget is spent once we have enough real verdicts, or once total
+    // attempts (including reviewer infra crashes) hit the infra ceiling. Until
+    // then, keep retrying — a reviewer that crashed on auth/config produced no
+    // verdict and the task still needs reviewing before it can merge.
+    const budgetSpent = decisiveRuns >= qaSettings.maxTaskReviewRuns
+      || existingRuns >= qaSettings.maxTaskReviewRuns + QA_INFRA_FAILURE_GRACE;
+    const allowPostContinuationVerification = budgetSpent
       && this.shouldVerifyContinuedQaFix(latestRun);
-    const allowRecoveredStaleRetry = existingRuns >= qaSettings.maxTaskReviewRuns
+    const allowRecoveredStaleRetry = budgetSpent
       && this.isRecoveredStaleQaRun(latestRun);
-    if (existingRuns >= qaSettings.maxTaskReviewRuns && !allowPostContinuationVerification && !allowRecoveredStaleRetry) {
+    if (budgetSpent && !allowPostContinuationVerification && !allowRecoveredStaleRetry) {
       await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
@@ -450,7 +466,13 @@ export class QualityAssuranceService {
         : hasTaskUpdatesSinceLatestRun)
       : true;
     const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
-    const retriesExhausted = typeof latestRun?.runIndex === "number" && latestRun.runIndex >= maxRuns;
+    // Only count the budget as exhausted when the latest run actually produced a
+    // verdict (`completed`) at/over the cap. A reviewer that crashed for infra
+    // reasons (`failed`) yielded no judgement and must not let the sprint settle
+    // as reviewed — fall through so it is retried or held instead.
+    const retriesExhausted = typeof latestRun?.runIndex === "number"
+      && latestRun.runIndex >= maxRuns
+      && latestRun.status === "completed";
 
     if (latestRun?.status === "running") {
       return {
@@ -702,22 +724,35 @@ export class QualityAssuranceService {
 
     const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
 
-    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
+    // Only runs that produced a real verdict (pass / changes_requested) spend
+    // the review budget. Reviewer crashes (missing auth, container/parse
+    // failures) are infra noise that produced no judgement, so they are retried
+    // — bounded by an infra ceiling so a permanently broken reviewer still
+    // stops and escalates instead of looping or failing open.
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
+    const infraCeiling = maxRuns + QA_INFRA_FAILURE_GRACE;
+
+    // Fail CLOSED on exhaustion. A genuine pass returns above, so reaching here
+    // means QA never affirmatively cleared the task. Never let an exhausted gate
+    // allow the merge/settle — that is exactly what silently shipped tasks with
+    // no PR. Hold the merge; the orchestrator escalates the task to a human.
+    if (decisiveRuns >= maxRuns || runsUsed >= infraCeiling) {
       return {
         mergeAllowed: false,
-        reason: "review_failed",
-        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
+        reason: "retries_exhausted",
+        summary: latestRun?.summaryMarkdown
+          || `QA could not clear this task (${decisiveRuns}/${maxRuns} verdicts, ${runsUsed} attempts) — human attention required.`,
         latestRun,
         runsUsed,
         maxRuns,
       };
     }
 
-    if (runsUsed >= maxRuns) {
+    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
       return {
-        mergeAllowed: true,
-        reason: "retries_exhausted",
-        summary: latestRun?.summaryMarkdown || `QA retry budget exhausted (${runsUsed}/${maxRuns}).`,
+        mergeAllowed: false,
+        reason: "review_failed",
+        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
         latestRun,
         runsUsed,
         maxRuns,
@@ -1132,9 +1167,11 @@ export class QualityAssuranceService {
     subtasks: Subtask[];
     currentTask: Subtask | null;
   }): string {
+    const isTaskLevelReview = args.triggerType === "task_completion" || args.triggerType === "completed_task_without_pr";
+    const reviewScopeInstructions = buildReviewScopeInstructions(args.triggerType, args.currentTask);
     const currentTaskSection = args.currentTask
       ? [
-        "## CURRENT TASK",
+        isTaskLevelReview ? "## CURRENT TASK UNDER REVIEW" : "## CURRENT TASK",
         `Task key: ${args.currentTask.id}`,
         `Title: ${args.currentTask.title}`,
         `Status: ${args.currentTask.status || "unknown"}`,
@@ -1152,6 +1189,9 @@ export class QualityAssuranceService {
         "## CURRENT TASK",
         "No single task is preselected. If fixes are required, choose the best target task from the sprint task list and return its task key in `targetTaskKey`.",
       ];
+    const fullTaskInstructionsHeading = isTaskLevelReview
+      ? "## FULL TASK INSTRUCTIONS (SPRINT CONTEXT; ONLY CURRENT TASK IS UNDER REVIEW)"
+      : "## FULL TASK INSTRUCTIONS";
     const fullTaskContextSections = args.subtasks.map((task) => [
       `### ${task.id}: ${task.title}`,
       `Status: ${task.status || "unknown"}`,
@@ -1176,6 +1216,9 @@ export class QualityAssuranceService {
       `Trigger: ${args.triggerType}`,
       triggerReviewModeDescription(args.triggerType),
       "",
+      "## REVIEW SCOPE",
+      reviewScopeInstructions,
+      "",
       "## PROJECT CONTEXT",
       `Project: ${args.projectName}`,
       `Sprint goal: ${args.sprintGoal || "No sprint goal provided."}`,
@@ -1185,7 +1228,7 @@ export class QualityAssuranceService {
         `- [${task.status || "unknown"}] ${task.id}: ${task.title} | provider=${task.provider || "unknown"} | branch=${task.worker_branch || "none"} | pr=${task.pr_url || "none"}`
       )).join("\n"),
       "",
-      "## FULL TASK INSTRUCTIONS",
+      fullTaskInstructionsHeading,
       fullTaskContextSections.join("\n\n"),
       "",
       ...currentTaskSection,
@@ -1214,6 +1257,8 @@ export class QualityAssuranceService {
       "Rules:",
       "- `summary` must be concise and factual.",
       "- If `verdict` is `changes_requested`, `fixInstructions` must tell the coding session exactly what to fix next.",
+      "- For task-level reviews, review only the current task and return `targetTaskKey` as the current task key when changes are required.",
+      "- For task-level reviews, keep `followUpTasks` empty unless this prompt explicitly asks you to create follow-up sprint tasks.",
       "- For sprint completion reviews, set `targetTaskKey` to the best task to continue when changes are required.",
       "- For sprint completion reviews, use `followUpTasks` when the required work should become new sprint tasks instead of only resuming one existing session.",
       "- Every `followUpTasks[].promptMarkdown` entry must contain the full task instructions, not just a short summary.",
@@ -1668,10 +1713,18 @@ export class QualityAssuranceService {
   }
 
   private resolveTaskTriggerType(
-    task: Pick<Subtask, "pr_url">,
+    task: Pick<Subtask, "pr_url" | "worker_branch" | "is_merged">,
     qaSettings: DashboardSettings["agents"]["qualityAssurance"],
   ): QaReviewTriggerType | null {
-    if (!task.pr_url && qaSettings.completedTaskWithoutPr.enabled) {
+    // A task with merge evidence clearly did NOT complete without a PR. We must
+    // check `is_merged`/`worker_branch` too, not just `pr_url`: `pr_url` is not a
+    // persisted task column — it is reconstructed at runtime — so when an old
+    // merged task is reloaded (e.g. a sprint resumes) its `pr_url` comes back
+    // empty and the no-PR trigger would misfire QA on already-merged work.
+    const hasMergeEvidence = Boolean(task.pr_url?.trim())
+      || Boolean(task.worker_branch?.trim())
+      || Boolean(task.is_merged);
+    if (!hasMergeEvidence && qaSettings.completedTaskWithoutPr.enabled) {
       return "completed_task_without_pr";
     }
     return qaSettings.taskCompletion.enabled ? "task_completion" : null;
@@ -1730,6 +1783,31 @@ export class QualityAssuranceService {
       sourcePath: args.sourceRunId,
     }));
   }
+}
+
+function buildReviewScopeInstructions(triggerType: QaReviewTriggerType, currentTask: Subtask | null): string {
+  if (triggerType === "sprint_completion") {
+    return [
+      "- This is a full sprint review. Evaluate the combined sprint outcome against the sprint goal and all task instructions.",
+      "- You may request fixes for cross-task integration issues, missing sprint deliverables, or regressions that affect the completed sprint.",
+      "- Use `targetTaskKey` or `followUpTasks` to route required work according to the output rules.",
+    ].join("\n");
+  }
+
+  const currentTaskKey = currentTask?.id || "the current task";
+  const dependencyList = currentTask?.depends_on?.length ? currentTask.depends_on.join(", ") : "none";
+
+  return [
+    `- This is a single-task QA review. The only task under review is ${currentTaskKey}.`,
+    "- Treat `SPRINT TASKS` and non-current entries in `FULL TASK INSTRUCTIONS` as context only, not as deliverables for this review.",
+    "- Assume the current workspace/branch contains only the current task's changes on top of its base branch. Independent sibling tasks may be completed in separate branches or PRs and may be absent here.",
+    "- A task-level review must pass when the current task satisfies its own prompt, even if other completed sprint tasks are not present in this branch.",
+    "- Do not request changes because files, commits, PRs, or behavior from other completed sibling tasks are missing from this branch.",
+    "- Do not tell the coding session to implement, restore, or modify another task's scope.",
+    "- Compare the implementation against the current task prompt, its declared scope, and regressions directly introduced by the current task.",
+    `- Current task dependencies: ${dependencyList}. Use dependencies only to understand the current task contract; do not require unrelated sibling task deliverables.`,
+    "- If changes are required, write `fixInstructions` only for the current task's coding session and set `targetTaskKey` to the current task key.",
+  ].join("\n");
 }
 
 function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string {

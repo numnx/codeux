@@ -28,9 +28,12 @@ const usageTelemetry = {
 };
 
 class FakeProviderRunner implements IProviderRunner {
+  lastPrompt: string | null = null;
+
   constructor(private readonly text: string) {}
 
-  async runProvider(): Promise<ProviderRunResult> {
+  async runProvider(input: Parameters<IProviderRunner["runProvider"]>[0]): Promise<ProviderRunResult> {
+    this.lastPrompt = input.prompt;
     return {
       ok: true,
       stdout: this.text,
@@ -41,7 +44,8 @@ class FakeProviderRunner implements IProviderRunner {
     };
   }
 
-  async runProviderForText(): Promise<ProviderRunResult & { text: string }> {
+  async runProviderForText(input: Parameters<IProviderRunner["runProviderForText"]>[0]): Promise<ProviderRunResult & { text: string }> {
+    this.lastPrompt = input.prompt;
     return {
       ok: true,
       stdout: this.text,
@@ -56,6 +60,7 @@ class FakeProviderRunner implements IProviderRunner {
 
 class DeferredProviderRunner implements IProviderRunner {
   resolveRun!: (text: string) => void;
+  lastPrompt: string | null = null;
   readonly runStarted: Promise<void>;
   private markStarted!: () => void;
 
@@ -65,11 +70,12 @@ class DeferredProviderRunner implements IProviderRunner {
     });
   }
 
-  async runProvider(): Promise<ProviderRunResult> {
-    return await this.runProviderForText();
+  async runProvider(input: Parameters<IProviderRunner["runProvider"]>[0]): Promise<ProviderRunResult> {
+    return await this.runProviderForText(input);
   }
 
-  async runProviderForText(): Promise<ProviderRunResult & { text: string }> {
+  async runProviderForText(input: Parameters<IProviderRunner["runProviderForText"]>[0]): Promise<ProviderRunResult & { text: string }> {
+    this.lastPrompt = input.prompt;
     this.markStarted();
     const text = await new Promise<string>((resolve) => {
       this.resolveRun = resolve;
@@ -102,6 +108,12 @@ describe("ProjectSetupService", () => {
         build: "vite build",
       },
     }, null, 2));
+    await fs.mkdir(path.join(repoDir, ".code-ux", "agents"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoDir, ".code-ux", "agents", "worker.md"),
+      "Repository worker base template. Preserve workspace protocol and verification discipline.\n",
+      "utf8",
+    );
 
     const storage = new AppDbStorage();
     const projectManagementRepository = new ProjectManagementRepository(storage);
@@ -157,20 +169,30 @@ describe("ProjectSetupService", () => {
       ],
     };
 
+    const providerRunner = new FakeProviderRunner(JSON.stringify(providerPayload));
     const service = new ProjectSetupService({
       projectManagementRepository,
       settingsRepository,
       executionRepository,
       agentPresetSyncService,
       quicksprintService,
-      providerRunner: new FakeProviderRunner(JSON.stringify(providerPayload)),
+      providerRunner,
+      projectRoot: process.cwd(),
     });
 
     const result = await service.setupProject(project.id, {
       options: { agents: true, quicksprints: true, previewScript: true, ci: true },
     });
 
+    const fullSetupPrompt = providerRunner.lastPrompt || "";
     expect(result.summary).toContain("Vite app");
+    expect(fullSetupPrompt).toContain("## Base Agent Templates To Adapt");
+    expect(fullSetupPrompt).toContain("### Worker");
+    expect(fullSetupPrompt).toContain("Repository worker base template");
+    expect(fullSetupPrompt).toContain("## Base Quicksprint Templates To Adapt");
+    expect(fullSetupPrompt).toContain("Code Quality & Performance Audit");
+    expect(fullSetupPrompt).toContain("## Container Setup Script Template");
+    expect(fullSetupPrompt).toContain("Force rebuild version");
     expect(result.createdAgentIds.length).toBeGreaterThanOrEqual(1);
     expect(result.createdQuicksprintTemplateIds).toHaveLength(1);
     const writtenFiles = result.writtenFiles.map(normalizeSeparators);
@@ -222,6 +244,7 @@ describe("ProjectSetupService", () => {
       executionRepository,
       agentPresetSyncService,
       providerRunner,
+      projectRoot: process.cwd(),
     });
 
     const started = await service.startProjectSetup(project.id, {
@@ -239,6 +262,10 @@ describe("ProjectSetupService", () => {
         reject(new Error(`Provider runner did not start; invocation status=${invocation?.status} error=${invocation?.errorMessage}`));
       }, 1000)),
     ]);
+    const noArtifactPrompt = providerRunner.lastPrompt || "";
+    expect(noArtifactPrompt).not.toContain("## Base Agent Templates To Adapt");
+    expect(noArtifactPrompt).not.toContain("## Base Quicksprint Templates To Adapt");
+    expect(noArtifactPrompt).not.toContain("## Container Setup Script Template");
     providerRunner.resolveRun(JSON.stringify({
       summary: "No artifacts requested.",
       agents: [],

@@ -176,6 +176,33 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("retries Claude Code with a fresh session when resume fails with 'No conversation found'", async () => {
+    dockerRunner.runProviderInDocker
+      .mockResolvedValueOnce({ ok: false, stdout: "", stderr: "Claude Code failed: No conversation found with session ID: native-123", code: 1, signal: null })
+      .mockResolvedValueOnce({ ok: true, stdout: "ok", stderr: "", code: 0, signal: null });
+
+    await runner.runProvider({
+      provider: "claude-code",
+      prompt: "continue",
+      cwd: "/repo",
+      model: "sonnet",
+      apiKey: "key",
+      sessionId: "session-1",
+      continueSessionId: "native-123",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    });
+
+    expect(dockerRunner.runProviderInDocker).toHaveBeenCalledTimes(2);
+    const firstArgs = dockerRunner.runProviderInDocker.mock.calls[0][0].args as string[];
+    const secondArgs = dockerRunner.runProviderInDocker.mock.calls[1][0].args as string[];
+    // First attempt resumes the lost session; the retry starts a fresh one.
+    expect(firstArgs).toEqual(expect.arrayContaining(["--resume", "native-123"]));
+    expect(secondArgs).not.toContain("--resume");
+    expect(secondArgs).toContain("--session-id");
+  });
+
   it("keeps JSON output enabled for Gemini when MCP config is injected", async () => {
     await runner.runProvider({
       provider: "gemini",
