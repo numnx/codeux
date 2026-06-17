@@ -1,8 +1,8 @@
 import { CliWorkflowSettings, ProviderId } from "../../../contracts/app-types.js";
 import type { CustomMcpServer, QwenModelProviderSettings } from "../../../contracts/app-types.js";
-import { isUsableCustomMcpServer } from "../../../mcp/mcp-tool-availability.js";
 import { buildClaudeMcpServerEntry, buildCodexMcpServerTomlLines, buildGeminiMcpServerEntry, escapeTomlString } from "./mcp-config-format.js";
 import type { McpConnectionInfo } from "../../../contracts/mcp-connection-types.js";
+import { CliProviderId, enabledCustomServersFor, isOpenCodeNativeSessionId, ProviderCommandSpec, providerSpecs } from "./provider-command-specs.js";
 import { CommandResult, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import type { IDockerRunner } from "./docker-runner.js";
 import { isDockerWorkspaceMountError } from "../../../services/cli-docker-utils.js";
@@ -34,62 +34,11 @@ const QWEN_OPENAI_LOG_DIRNAME = "qwen-openai-logs";
 // volume (so the host can read them) but excluded from exported patches.
 const CONTAINER_QWEN_OPENAI_LOG_DIR = pathPosix.join(CONTAINER_RUNTIME_HOME, QWEN_OPENAI_LOG_DIRNAME);
 
-const enabledCustomServersFor = (servers: CustomMcpServer[] | undefined, provider: ProviderId): CustomMcpServer[] =>
-  (servers || []).filter((server) =>
-    server.enabled
-    && isUsableCustomMcpServer(server)
-    && (!server.providers || server.providers.length === 0 || server.providers.includes(provider))
-  );
-
-const isOpenCodeNativeSessionId = (value: string | null | undefined): boolean => (
-  typeof value === "string" && /^ses_[A-Za-z0-9]+$/.test(value)
-);
-
-export type ProviderCommandSpec = (model: string, prompt: string) => { command: string; args: string[] };
-
 export interface ProviderRunResult extends CommandResult {
   usageTelemetry: ProviderUsageTelemetry;
   nativeSessionId: string | null;
   text?: string;
 }
-
-export type CliProviderId = Extract<ProviderId, "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity">;
-
-export const providerSpecs: Record<CliProviderId, ProviderCommandSpec> = {
-  "gemini": (model: string, prompt: string) => ({
-    command: "gemini",
-    args: ["--yolo", "--output-format", "json", "--p", prompt]
-  }),
-  "claude-code": (model: string, prompt: string) => {
-    const args = ["--dangerously-skip-permissions"];
-    if (model && model !== "default") args.push("--model", model);
-    args.push("-p", prompt);
-    return { command: "claude", args };
-  },
-  "codex": (model: string, prompt: string) => {
-    const args = ["exec", "--yolo", "--json", "--output-last-message", "codex-last-message.txt"];
-    if (model && model !== "default") args.push("--model", model);
-    args.push(prompt);
-    return { command: "codex", args };
-  },
-  "qwen-code": (model: string, prompt: string) => {
-    const args = ["--yolo"];
-    if (model && model !== "default") args.push("--model", model);
-    args.push("-p", prompt);
-    return { command: "qwen", args };
-  },
-  opencode: (model: string, prompt: string) => {
-    const args = ["run", "--format", "json"];
-    if (model && model !== "default") args.push("--model", model);
-    args.push(prompt);
-    return { command: "opencode", args };
-  },
-  antigravity: (model: string, prompt: string) => {
-    const args = ["--dangerously-skip-permissions"];
-    args.push("-p", prompt);
-    return { command: "agy", args };
-  },
-};
 
 interface OpenCodeRuntimeSettings {
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
@@ -306,7 +255,7 @@ export class ProviderRunner implements IProviderRunner {
   }): Promise<ProviderRunResult> {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, gitlabToken, signal, onActivity, onTelemetry } = input;
     const startedMs = Date.now();
-    const runModel = this.resolveRunModel(provider, model, input);
+    const runModel = model;
     // Resolve where qwen-code should write its OpenAI request/response logs, as seen
     // by the qwen process. Kept outside the committed worktree in both execution modes.
     const qwenProcessLogDir = provider === "qwen-code"
@@ -347,7 +296,7 @@ export class ProviderRunner implements IProviderRunner {
       codexProviderArgs,
       antigravityLogPath,
     );
-    const { command, args } = spec;
+    let { command, args } = spec;
 
     const localMcpCleanup: Array<{ path: string; originalContent: string | null }> = [];
     const localRuntimeCleanup: Array<string> = [];
@@ -371,9 +320,15 @@ export class ProviderRunner implements IProviderRunner {
 
     let accumulatedStdout = "";
     let accumulatedStderr = "";
+    // Raw stdout including structured JSON lines that are suppressed from the
+    // activity feed. The codex live-telemetry watcher parses this so the
+    // conversation is built from the exec --json stream in real time even when
+    // the rollout file isn't yet readable.
+    let accumulatedRawStdout = "";
     const trackingOnActivity = (desc: string, originator?: string) => {
       if (originator === "agent") {
         accumulatedStdout += desc + "\n";
+        accumulatedRawStdout += desc + "\n";
       } else if (originator === "provider") {
         accumulatedStderr += desc + "\n";
       }
@@ -399,6 +354,9 @@ export class ProviderRunner implements IProviderRunner {
         signal,
         onStdoutLine: (line) => {
           if (this.shouldSuppressStructuredStdout(provider, line)) {
+            // Keep the structured line out of the activity feed but retain it
+            // for the telemetry watcher's stream parsing.
+            accumulatedRawStdout += line + "\n";
             return;
           }
           trackingOnActivity(line, "agent");
@@ -449,7 +407,7 @@ export class ProviderRunner implements IProviderRunner {
               model: runModel,
               prompt,
               cwd,
-              stdout: accumulatedStdout,
+              stdout: accumulatedRawStdout,
               stderr: accumulatedStderr,
               capturedText: "",
               nativeSessionId: resolvedNativeSessionId || nativeSessionId,
@@ -480,6 +438,31 @@ export class ProviderRunner implements IProviderRunner {
       if (!result.ok && provider === "codex" && this.isTransientCodexTransportError(result)) {
         trackingOnActivity("Codex transport disconnected. Retrying once automatically...");
         await new Promise(r => setTimeout(r, 1500));
+        result = await runCmd();
+      }
+      // `claude --resume <id>` fails with "No conversation found" when the prior
+      // conversation is gone (e.g. the DOCKER container that held it was torn
+      // down between retries). Resuming a lost session can never recover, so it
+      // would fail identically every attempt until the coding guardrail caps the
+      // task and parks it. Retry once with a fresh session instead.
+      if (!result.ok && provider === "claude-code" && continueSession && this.isClaudeConversationNotFoundError(result)) {
+        trackingOnActivity("Claude Code could not resume the previous conversation (no conversation found). Retrying once with a fresh session...", "provider");
+        const freshSpec = this.buildCommandSpec(
+          provider,
+          runModel,
+          prompt,
+          workflowSettings.executionMode === "DOCKER" ? CONTAINER_WORKSPACE_ROOT : cwd,
+          input.codexOutputPath,
+          randomUUID(),
+          false,
+          hasMcpConfig,
+          input.qwenAuthMode,
+          input.qwenProtocol,
+          codexProviderArgs,
+          antigravityLogPath,
+        );
+        command = freshSpec.command;
+        args = freshSpec.args;
         result = await runCmd();
       }
       // Antigravity's `agy` CLI writes quota/auth/executor failures only to its log file
@@ -588,30 +571,6 @@ export class ProviderRunner implements IProviderRunner {
         }
       }
     }
-  }
-
-  private resolveRunModel(
-    provider: CliProviderId,
-    model: string,
-    config: Pick<ProviderRunInput, "qwenAuthMode" | "qwenModelId" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "customModel">,
-  ): string {
-    // claude-code / codex routed through a custom base URL (e.g. OpenRouter) use the
-    // gateway's own model slug, which overrides the preset model the agent selected.
-    if ((provider === "claude-code" || provider === "codex") && config.customModel && config.customModel.trim().length > 0) {
-      return config.customModel.trim();
-    }
-    if (provider === "qwen-code" && config.qwenAuthMode === "MODEL_PROVIDER") {
-      if (model === "custom/model" || model === "local-model") {
-        return (config.qwenModelId || "glm-4.7-flash").trim();
-      }
-      return (config.qwenModelId || model || "glm-4.7-flash").trim();
-    }
-    if (provider !== "opencode" || config.openCodeAuthMode !== "CUSTOM_PROVIDER") {
-      return model;
-    }
-    const providerId = (config.openCodeProviderId || model.split("/")[0] || "custom").trim();
-    const modelId = (config.openCodeModelId || model.split("/").slice(1).join("/") || "model").trim();
-    return `${providerId}/${modelId}`;
   }
 
   private async writeLocalOpenCodeConfig(
@@ -1084,16 +1043,16 @@ export class ProviderRunner implements IProviderRunner {
       } else if (apiKey && !useProviderMount) {
         env.ANTHROPIC_API_KEY = apiKey;
       }
-      if (providerConfig?.customModel && providerConfig.customModel.trim().length > 0) {
-        // A custom (gateway) model usually exposes a single slug, so point every Claude
-        // Code model tier at it — including the background "small/fast" tier that would
-        // otherwise request a Haiku model the gateway does not serve.
-        const customModel = providerConfig.customModel.trim();
-        env.ANTHROPIC_MODEL = customModel;
-        env.ANTHROPIC_SMALL_FAST_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_OPUS_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_SONNET_MODEL = customModel;
-        env.ANTHROPIC_DEFAULT_HAIKU_MODEL = customModel;
+
+      // If a custom model is provided (and thus passed in `model`), point every Claude
+      // Code model tier at it — including the background "small/fast" tier that would
+      // otherwise request a Haiku model the gateway does not serve.
+      if (model && model !== "default") {
+        env.ANTHROPIC_MODEL = model;
+        env.ANTHROPIC_SMALL_FAST_MODEL = model;
+        env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
+        env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
+        env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
       }
     } else if (provider === "codex") {
       if (model && model !== "default") env.CODEX_MODEL = model;
@@ -1392,6 +1351,11 @@ export class ProviderRunner implements IProviderRunner {
   private isTransientCodexTransportError(result: CommandResult): boolean {
     const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
     return text.includes("stream disconnected before completion") || text.includes("error sending request for url") || text.includes("channel closed");
+  }
+
+  private isClaudeConversationNotFoundError(result: CommandResult): boolean {
+    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
+    return text.includes("no conversation found");
   }
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {

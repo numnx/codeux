@@ -6,10 +6,10 @@ import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-mana
 import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
-import { ProviderExecutionService } from "./provider-execution-service.js";
+import { ProviderExecutionService, resolveEffectiveModel } from "./provider-execution-service.js";
 import { ProviderConcurrencyService } from "./provider-concurrency-service.js";
-import type { DashboardSettings, DashboardSettingsScope, ProviderId, Subtask } from "../contracts/app-types.js";
-import type { TaskRunRecord } from "../contracts/execution-types.js";
+import type { DashboardSettings, DashboardSettingsScope, DockerContainer, ProviderId, Subtask } from "../contracts/app-types.js";
+import type { ProviderInvocationUsageRecord, TaskRunRecord } from "../contracts/execution-types.js";
 import type { ExecutionInvocationRecord } from "../contracts/invocation-types.js";
 import type { TaskPriority } from "../contracts/project-management-types.js";
 import type { ProjectManagementRepository } from "../repositories/project-management-repository.js";
@@ -26,52 +26,26 @@ import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
 import type { MemoryService } from "./memory-service.js";
 import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
 import { parseQaError, type QaReviewError } from "../domain/qa-review/qa-review-types.js";
+import { normalizeQaReviewResult } from "../domain/qa-review/qa-review-result-normalizer.js";
+import type { NormalizedQaReviewResult } from "../domain/qa-review/qa-review-types.js";
+
 import { clearMergeProjectionForRerun, MERGE_PROJECTION_RESET } from "../domain/sprint/task-reset-state.js";
 
 type CliQaProvider = Exclude<ProviderId, "jules">;
-
-interface QaReviewResultPayload {
-  verdict?: unknown;
-  summary?: unknown;
-  findings?: unknown;
-  fixInstructions?: unknown;
-  targetTaskKey?: unknown;
-  shouldHavePr?: unknown;
-  followUpTasks?: unknown;
-}
-
-interface QaFollowUpTaskPayload {
-  title?: unknown;
-  promptMarkdown?: unknown;
-  prompt?: unknown;
-  description?: unknown;
-  dependsOnTaskKeys?: unknown;
-  priority?: unknown;
-}
-
-interface NormalizedQaFollowUpTask {
-  title: string;
-  promptMarkdown: string;
-  description: string | null;
-  dependsOnTaskKeys: string[];
-  priority: TaskPriority;
-}
-
-interface NormalizedQaReviewResult {
-  verdict: "pass" | "changes_requested";
-  summary: string;
-  findings: string[];
-  fixInstructions: string | null;
-  targetTaskKey: string | null;
-  shouldHavePr: boolean | null;
-  followUpTasks: NormalizedQaFollowUpTask[];
-  raw: Record<string, unknown>;
-}
 
 const SPRINT_RUN_KEEPALIVE_MS = 30_000;
 const SPRINT_LEASE_EXTENSION_MS = 5 * 60 * 1000;
 const QA_RUN_START_TIMEOUT_MS = 60_000;
 const RECOVERED_STALE_QA_SUMMARY_PREFIX = "Recovered stale QA review run";
+/**
+ * How many extra QA attempts beyond `maxTaskReviewRuns` we tolerate when the
+ * reviewer keeps failing for infrastructure reasons (auth/config/container).
+ * Infra failures don't consume the verdict budget (see
+ * {@link QaReviewRepository.countDecisiveTaskRuns}), but a permanently broken
+ * reviewer must still stop retrying eventually and escalate the task to a human
+ * (QA_REVIEW_FAILED) rather than loop forever or — worse — fail open.
+ */
+const QA_INFRA_FAILURE_GRACE = 3;
 
 export interface TaskQaReviewOutcome {
   reviewed: boolean;
@@ -112,6 +86,7 @@ interface QualityAssuranceServiceDependencies {
   logger?: Logger;
   memoryService?: MemoryService;
   structuredAgentRequestService?: StructuredAgentRequestService;
+  dockerService?: Pick<{ listContainers: () => Promise<DockerContainer[]> }, "listContainers">;
 }
 
 export class QualityAssuranceService {
@@ -201,7 +176,19 @@ export class QualityAssuranceService {
     }
 
     const existingRuns = this.deps.qaReviewRepository.countTaskRuns(taskId);
-    if (existingRuns >= qaSettings.maxTaskReviewRuns) {
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
+    const latestRun = this.deps.qaReviewRepository.getLatestTaskRun(taskId);
+    // The budget is spent once we have enough real verdicts, or once total
+    // attempts (including reviewer infra crashes) hit the infra ceiling. Until
+    // then, keep retrying — a reviewer that crashed on auth/config produced no
+    // verdict and the task still needs reviewing before it can merge.
+    const budgetSpent = decisiveRuns >= qaSettings.maxTaskReviewRuns
+      || existingRuns >= qaSettings.maxTaskReviewRuns + QA_INFRA_FAILURE_GRACE;
+    const allowPostContinuationVerification = budgetSpent
+      && this.shouldVerifyContinuedQaFix(latestRun);
+    const allowRecoveredStaleRetry = budgetSpent
+      && this.isRecoveredStaleQaRun(latestRun);
+    if (budgetSpent && !allowPostContinuationVerification && !allowRecoveredStaleRetry) {
       await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
@@ -417,6 +404,27 @@ export class QualityAssuranceService {
     }
   }
 
+  async reconcileRunningTaskQaReviews(args: {
+    projectId: string;
+    sprintId: string;
+    tasks: Subtask[];
+  }): Promise<void> {
+    const runningRuns = args.tasks
+      .map((task) => task.record_id?.trim())
+      .filter((taskId): taskId is string => Boolean(taskId))
+      .map((taskId) => this.deps.qaReviewRepository.getLatestTaskRun(taskId))
+      .filter((run): run is QaReviewRunRecord => Boolean(run && run.status === "running"));
+
+    if (runningRuns.length === 0) {
+      return;
+    }
+
+    const activeContainerSessionIds = await this.listActiveContainerSessionIds();
+    for (const run of runningRuns) {
+      this.reconcileRunningQaRun(run, { activeContainerSessionIds });
+    }
+  }
+
   async reviewSprintCompletion(args: {
     projectId: string;
     sprintId: string;
@@ -458,7 +466,13 @@ export class QualityAssuranceService {
         : hasTaskUpdatesSinceLatestRun)
       : true;
     const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
-    const retriesExhausted = typeof latestRun?.runIndex === "number" && latestRun.runIndex >= maxRuns;
+    // Only count the budget as exhausted when the latest run actually produced a
+    // verdict (`completed`) at/over the cap. A reviewer that crashed for infra
+    // reasons (`failed`) yielded no judgement and must not let the sprint settle
+    // as reviewed — fall through so it is retried or held instead.
+    const retriesExhausted = typeof latestRun?.runIndex === "number"
+      && latestRun.runIndex >= maxRuns
+      && latestRun.status === "completed";
 
     if (latestRun?.status === "running") {
       return {
@@ -697,22 +711,48 @@ export class QualityAssuranceService {
       };
     }
 
-    if (runsUsed >= maxRuns) {
+    if (latestRun?.outcome === "changes_requested") {
       return {
-        mergeAllowed: true,
-        reason: "retries_exhausted",
-        summary: latestRun?.summaryMarkdown || `QA retry budget exhausted (${runsUsed}/${maxRuns}).`,
+        mergeAllowed: false,
+        reason: "changes_requested",
+        summary: latestRun.summaryMarkdown || "QA requested follow-up fixes.",
         latestRun,
         runsUsed,
         maxRuns,
       };
     }
 
-    if (latestRun?.outcome === "changes_requested") {
+    const recoveredStaleLatestRun = this.isRecoveredStaleQaRun(latestRun);
+
+    // Only runs that produced a real verdict (pass / changes_requested) spend
+    // the review budget. Reviewer crashes (missing auth, container/parse
+    // failures) are infra noise that produced no judgement, so they are retried
+    // — bounded by an infra ceiling so a permanently broken reviewer still
+    // stops and escalates instead of looping or failing open.
+    const decisiveRuns = this.deps.qaReviewRepository.countDecisiveTaskRuns(taskId);
+    const infraCeiling = maxRuns + QA_INFRA_FAILURE_GRACE;
+
+    // Fail CLOSED on exhaustion. A genuine pass returns above, so reaching here
+    // means QA never affirmatively cleared the task. Never let an exhausted gate
+    // allow the merge/settle — that is exactly what silently shipped tasks with
+    // no PR. Hold the merge; the orchestrator escalates the task to a human.
+    if (decisiveRuns >= maxRuns || runsUsed >= infraCeiling) {
       return {
         mergeAllowed: false,
-        reason: "changes_requested",
-        summary: latestRun.summaryMarkdown || "QA requested follow-up fixes.",
+        reason: "retries_exhausted",
+        summary: latestRun?.summaryMarkdown
+          || `QA could not clear this task (${decisiveRuns}/${maxRuns} verdicts, ${runsUsed} attempts) — human attention required.`,
+        latestRun,
+        runsUsed,
+        maxRuns,
+      };
+    }
+
+    if (latestRun?.status === "failed" && recoveredStaleLatestRun) {
+      return {
+        mergeAllowed: false,
+        reason: "review_failed",
+        summary: latestRun.summaryMarkdown || "QA review failed and must be retried before merge.",
         latestRun,
         runsUsed,
         maxRuns,
@@ -891,13 +931,19 @@ export class QualityAssuranceService {
     });
   }
 
-  private reconcileRunningQaRun(run: QaReviewRunRecord | null): QaReviewRunRecord | null {
+  private reconcileRunningQaRun(
+    run: QaReviewRunRecord | null,
+    options: { activeContainerSessionIds?: ReadonlySet<string> } = {},
+  ): QaReviewRunRecord | null {
     if (!run || run.status !== "running") {
       return run;
     }
 
     const latestInvocation = this.findLatestQaExecutionInvocation(run);
-    if (latestInvocation?.status === "running" || latestInvocation?.status === "paused") {
+    const staleRunningInvocationReason = latestInvocation
+      ? this.resolveStaleRunningQaInvocationReason(latestInvocation, options.activeContainerSessionIds)
+      : null;
+    if ((latestInvocation?.status === "running" || latestInvocation?.status === "paused") && !staleRunningInvocationReason) {
       return run;
     }
 
@@ -907,17 +953,53 @@ export class QualityAssuranceService {
       return run;
     }
 
+    const finishedAt = latestInvocation?.finishedAt || new Date().toISOString();
+    const summaryMarkdown = staleRunningInvocationReason
+      || (latestInvocation
+        ? `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing invocation ${latestInvocation.status}. Code UX will retry the review.`
+        : `${RECOVERED_STALE_QA_SUMMARY_PREFIX} that never started its backing invocation. Code UX will retry the review.`);
+
+    if (latestInvocation && (latestInvocation.status === "running" || latestInvocation.status === "paused")) {
+      this.deps.executionRepository.updateExecutionInvocation(latestInvocation.id, {
+        status: "failed",
+        finishedAt,
+        errorMessage: summaryMarkdown,
+      });
+      this.deps.executionRepository.appendExecutionInvocationMessage(latestInvocation.id, {
+        role: "system",
+        contentMarkdown: summaryMarkdown,
+        metadata: {
+          recovery: "qa_runtime_reconcile",
+          qaRunId: run.id,
+        },
+        createdAt: finishedAt,
+      });
+
+      const providerInvocation = this.resolveProviderInvocationUsage(latestInvocation);
+      if (providerInvocation?.status === "running") {
+        this.deps.executionRepository.updateProviderInvocationUsage(providerInvocation.id, {
+          status: "failed",
+          finishedAt,
+          durationMs: this.calculateProviderInvocationDurationMs(providerInvocation, finishedAt),
+        });
+      }
+    }
+
     return this.deps.qaReviewRepository.updateRun(run.id, {
       status: "failed",
-      summaryMarkdown: latestInvocation
-        ? `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing invocation ${latestInvocation.status}. Code UX will retry the review.`
-        : `${RECOVERED_STALE_QA_SUMMARY_PREFIX} that never started its backing invocation. Code UX will retry the review.`,
-      finishedAt: latestInvocation?.finishedAt || new Date().toISOString(),
+      summaryMarkdown,
+      finishedAt,
     });
   }
 
   private isRecoveredStaleQaRun(run: QaReviewRunRecord | null): boolean {
     return typeof run?.summaryMarkdown === "string" && run.summaryMarkdown.startsWith(RECOVERED_STALE_QA_SUMMARY_PREFIX);
+  }
+
+  private shouldVerifyContinuedQaFix(run: QaReviewRunRecord | null): boolean {
+    return run?.status === "completed"
+      && run.outcome === "changes_requested"
+      && run.payload?.continued === true;
   }
 
   private findLatestQaExecutionInvocation(run: QaReviewRunRecord): ExecutionInvocationRecord | null {
@@ -944,6 +1026,67 @@ export class QualityAssuranceService {
       invocation.type === "qa_review"
       && Date.parse(invocation.startedAt) >= Date.parse(run.startedAt)
     )) || null;
+  }
+
+  private resolveStaleRunningQaInvocationReason(
+    invocation: ExecutionInvocationRecord,
+    activeContainerSessionIds?: ReadonlySet<string>,
+  ): string | null {
+    if (invocation.status !== "running" && invocation.status !== "paused") {
+      return `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing invocation ${invocation.status}. Code UX will retry the review.`;
+    }
+
+    const referenceAt = Date.parse(invocation.lastMessageAt || invocation.startedAt);
+    const ageMs = Number.isFinite(referenceAt) ? Date.now() - referenceAt : 0;
+    const providerInvocation = this.resolveProviderInvocationUsage(invocation);
+    if (!providerInvocation) {
+      if (ageMs < QA_RUN_START_TIMEOUT_MS) {
+        return null;
+      }
+      return `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing invocation stayed running without provider runtime linkage. Code UX will retry the review.`;
+    }
+
+    if (providerInvocation.status !== "running") {
+      return `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing provider invocation ${providerInvocation.status}. Code UX will retry the review.`;
+    }
+
+    if (
+      providerInvocation.executionMode === "DOCKER"
+      && activeContainerSessionIds
+      && !activeContainerSessionIds.has(providerInvocation.sessionId)
+    ) {
+      return `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after its Docker container disappeared for session ${providerInvocation.sessionId}. Code UX will retry the review.`;
+    }
+
+    return null;
+  }
+
+  private resolveProviderInvocationUsage(invocation: ExecutionInvocationRecord): ProviderInvocationUsageRecord | null {
+    if (!invocation.providerInvocationId) {
+      return null;
+    }
+    return this.deps.executionRepository.getProviderInvocationUsage(invocation.providerInvocationId);
+  }
+
+  private async listActiveContainerSessionIds(): Promise<ReadonlySet<string> | undefined> {
+    if (!this.deps.dockerService?.listContainers) {
+      return undefined;
+    }
+    const containers = await this.deps.dockerService.listContainers().catch(() => []);
+    return new Set(
+      containers
+        .map((container) => container.labels?.["code-ux.session-id"]?.trim())
+        .filter((sessionId): sessionId is string => Boolean(sessionId)),
+    );
+  }
+
+  private calculateProviderInvocationDurationMs(invocation: ProviderInvocationUsageRecord, finishedAt: string): number {
+    const startedAtMs = Date.parse(invocation.startedAt);
+    const finishedAtMs = Date.parse(finishedAt);
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(finishedAtMs)) {
+      return invocation.durationMs || 0;
+    }
+    return Math.max(0, finishedAtMs - startedAtMs);
   }
 
   private async withSprintRunKeepAlive<T>(
@@ -1024,9 +1167,11 @@ export class QualityAssuranceService {
     subtasks: Subtask[];
     currentTask: Subtask | null;
   }): string {
+    const isTaskLevelReview = args.triggerType === "task_completion" || args.triggerType === "completed_task_without_pr";
+    const reviewScopeInstructions = buildReviewScopeInstructions(args.triggerType, args.currentTask);
     const currentTaskSection = args.currentTask
       ? [
-        "## CURRENT TASK",
+        isTaskLevelReview ? "## CURRENT TASK UNDER REVIEW" : "## CURRENT TASK",
         `Task key: ${args.currentTask.id}`,
         `Title: ${args.currentTask.title}`,
         `Status: ${args.currentTask.status || "unknown"}`,
@@ -1044,6 +1189,9 @@ export class QualityAssuranceService {
         "## CURRENT TASK",
         "No single task is preselected. If fixes are required, choose the best target task from the sprint task list and return its task key in `targetTaskKey`.",
       ];
+    const fullTaskInstructionsHeading = isTaskLevelReview
+      ? "## FULL TASK INSTRUCTIONS (SPRINT CONTEXT; ONLY CURRENT TASK IS UNDER REVIEW)"
+      : "## FULL TASK INSTRUCTIONS";
     const fullTaskContextSections = args.subtasks.map((task) => [
       `### ${task.id}: ${task.title}`,
       `Status: ${task.status || "unknown"}`,
@@ -1068,6 +1216,9 @@ export class QualityAssuranceService {
       `Trigger: ${args.triggerType}`,
       triggerReviewModeDescription(args.triggerType),
       "",
+      "## REVIEW SCOPE",
+      reviewScopeInstructions,
+      "",
       "## PROJECT CONTEXT",
       `Project: ${args.projectName}`,
       `Sprint goal: ${args.sprintGoal || "No sprint goal provided."}`,
@@ -1077,7 +1228,7 @@ export class QualityAssuranceService {
         `- [${task.status || "unknown"}] ${task.id}: ${task.title} | provider=${task.provider || "unknown"} | branch=${task.worker_branch || "none"} | pr=${task.pr_url || "none"}`
       )).join("\n"),
       "",
-      "## FULL TASK INSTRUCTIONS",
+      fullTaskInstructionsHeading,
       fullTaskContextSections.join("\n\n"),
       "",
       ...currentTaskSection,
@@ -1106,6 +1257,8 @@ export class QualityAssuranceService {
       "Rules:",
       "- `summary` must be concise and factual.",
       "- If `verdict` is `changes_requested`, `fixInstructions` must tell the coding session exactly what to fix next.",
+      "- For task-level reviews, review only the current task and return `targetTaskKey` as the current task key when changes are required.",
+      "- For task-level reviews, keep `followUpTasks` empty unless this prompt explicitly asks you to create follow-up sprint tasks.",
       "- For sprint completion reviews, set `targetTaskKey` to the best task to continue when changes are required.",
       "- For sprint completion reviews, use `followUpTasks` when the required work should become new sprint tasks instead of only resuming one existing session.",
       "- Every `followUpTasks[].promptMarkdown` entry must contain the full task instructions, not just a short summary.",
@@ -1300,6 +1453,18 @@ export class QualityAssuranceService {
         this.deps.logger?.warn("Failed to resolve follow-up provider via taskService routing", { error });
       }
     }
+
+    const effectiveModel = resolveEffectiveModel({
+      provider: args.provider,
+      model: followUpProviderSettings.model,
+      customModel: followUpProviderSettings.customModel,
+      qwenAuthMode: followUpProviderSettings.qwenAuthMode,
+      qwenModelId: followUpProviderSettings.qwenModelId,
+      openCodeAuthMode: followUpProviderSettings.openCodeAuthMode,
+      openCodeProviderId: followUpProviderSettings.openCodeProviderId,
+      openCodeModelId: followUpProviderSettings.openCodeModelId,
+    });
+
     const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, followUpProviderSettings.thinkingMode);
     const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
     const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
@@ -1321,7 +1486,7 @@ export class QualityAssuranceService {
       provider: args.provider,
       prompt: providerPrompt,
       cwd: worktreePath,
-      model: followUpProviderSettings.model,
+      model: effectiveModel,
       apiKey: followUpProviderSettings.apiKey,
       qwenAuthMode: followUpProviderSettings.qwenAuthMode,
       qwenRegion: followUpProviderSettings.qwenRegion,
@@ -1548,10 +1713,18 @@ export class QualityAssuranceService {
   }
 
   private resolveTaskTriggerType(
-    task: Pick<Subtask, "pr_url">,
+    task: Pick<Subtask, "pr_url" | "worker_branch" | "is_merged">,
     qaSettings: DashboardSettings["agents"]["qualityAssurance"],
   ): QaReviewTriggerType | null {
-    if (!task.pr_url && qaSettings.completedTaskWithoutPr.enabled) {
+    // A task with merge evidence clearly did NOT complete without a PR. We must
+    // check `is_merged`/`worker_branch` too, not just `pr_url`: `pr_url` is not a
+    // persisted task column — it is reconstructed at runtime — so when an old
+    // merged task is reloaded (e.g. a sprint resumes) its `pr_url` comes back
+    // empty and the no-PR trigger would misfire QA on already-merged work.
+    const hasMergeEvidence = Boolean(task.pr_url?.trim())
+      || Boolean(task.worker_branch?.trim())
+      || Boolean(task.is_merged);
+    if (!hasMergeEvidence && qaSettings.completedTaskWithoutPr.enabled) {
       return "completed_task_without_pr";
     }
     return qaSettings.taskCompletion.enabled ? "task_completion" : null;
@@ -1612,6 +1785,31 @@ export class QualityAssuranceService {
   }
 }
 
+function buildReviewScopeInstructions(triggerType: QaReviewTriggerType, currentTask: Subtask | null): string {
+  if (triggerType === "sprint_completion") {
+    return [
+      "- This is a full sprint review. Evaluate the combined sprint outcome against the sprint goal and all task instructions.",
+      "- You may request fixes for cross-task integration issues, missing sprint deliverables, or regressions that affect the completed sprint.",
+      "- Use `targetTaskKey` or `followUpTasks` to route required work according to the output rules.",
+    ].join("\n");
+  }
+
+  const currentTaskKey = currentTask?.id || "the current task";
+  const dependencyList = currentTask?.depends_on?.length ? currentTask.depends_on.join(", ") : "none";
+
+  return [
+    `- This is a single-task QA review. The only task under review is ${currentTaskKey}.`,
+    "- Treat `SPRINT TASKS` and non-current entries in `FULL TASK INSTRUCTIONS` as context only, not as deliverables for this review.",
+    "- Assume the current workspace/branch contains only the current task's changes on top of its base branch. Independent sibling tasks may be completed in separate branches or PRs and may be absent here.",
+    "- A task-level review must pass when the current task satisfies its own prompt, even if other completed sprint tasks are not present in this branch.",
+    "- Do not request changes because files, commits, PRs, or behavior from other completed sibling tasks are missing from this branch.",
+    "- Do not tell the coding session to implement, restore, or modify another task's scope.",
+    "- Compare the implementation against the current task prompt, its declared scope, and regressions directly introduced by the current task.",
+    `- Current task dependencies: ${dependencyList}. Use dependencies only to understand the current task contract; do not require unrelated sibling task deliverables.`,
+    "- If changes are required, write `fixInstructions` only for the current task's coding session and set `targetTaskKey` to the current task key.",
+  ].join("\n");
+}
+
 function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string {
   switch (triggerType) {
     case "completed_task_without_pr":
@@ -1622,95 +1820,6 @@ function triggerReviewModeDescription(triggerType: QaReviewTriggerType): string 
     default:
       return "Review a completed task for correctness, completeness, and integration quality.";
   }
-}
-
-function normalizeQaReviewResult(bodyMarkdown: string): NormalizedQaReviewResult {
-  const extraction = extractJsonFromText(bodyMarkdown);
-  if (!extraction.success) {
-    throw new Error(`Invalid JSON format: ${(extraction as any).error?.message || "Unknown error"}`);
-  }
-
-  const parsed = extraction.data;
-
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Result must be a JSON object.");
-  }
-
-  const payload = parsed as Record<string, unknown>;
-
-  if (payload.verdict !== "pass" && payload.verdict !== "changes_requested") {
-    throw new Error("Missing or invalid 'verdict'. Must be 'pass' or 'changes_requested'.");
-  }
-
-  const verdict = payload.verdict;
-
-  if (typeof payload.summary !== "string" || payload.summary.trim() === "") {
-    throw new Error("Missing or invalid 'summary'. Must be a non-empty string.");
-  }
-
-  const summary = payload.summary.trim();
-
-  const findings = Array.isArray(payload.findings)
-    ? payload.findings.map((entry) => String(entry || "").trim()).filter(Boolean)
-    : [];
-  const fixInstructions = typeof payload.fixInstructions === "string" && payload.fixInstructions.trim().length > 0
-    ? payload.fixInstructions.trim()
-    : null;
-  const targetTaskKey = typeof payload.targetTaskKey === "string" && payload.targetTaskKey.trim().length > 0
-    ? payload.targetTaskKey.trim()
-    : null;
-  const shouldHavePr = typeof payload.shouldHavePr === "boolean" ? payload.shouldHavePr : null;
-  const followUpTasks = Array.isArray(payload.followUpTasks)
-    ? payload.followUpTasks
-      .map((entry) => normalizeFollowUpTask(entry))
-      .filter((entry): entry is NormalizedQaFollowUpTask => entry !== null)
-    : [];
-
-  return {
-    verdict,
-    summary,
-    findings,
-    fixInstructions,
-    targetTaskKey,
-    shouldHavePr,
-    followUpTasks,
-    raw: payload,
-  };
-}
-
-function normalizeFollowUpTask(value: unknown): NormalizedQaFollowUpTask | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const payload = value as QaFollowUpTaskPayload;
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
-  const promptMarkdown = typeof payload.promptMarkdown === "string"
-    ? payload.promptMarkdown.trim()
-    : typeof payload.prompt === "string"
-      ? payload.prompt.trim()
-      : "";
-  if (!title || !promptMarkdown) {
-    return null;
-  }
-
-  const description = typeof payload.description === "string" && payload.description.trim().length > 0
-    ? payload.description.trim()
-    : null;
-  const dependsOnTaskKeys = Array.isArray(payload.dependsOnTaskKeys)
-    ? payload.dependsOnTaskKeys.map((entry) => String(entry || "").trim()).filter(Boolean)
-    : [];
-  const priority = payload.priority === "critical" || payload.priority === "high" || payload.priority === "low"
-    ? payload.priority
-    : "medium";
-
-  return {
-    title,
-    promptMarkdown,
-    description,
-    dependsOnTaskKeys,
-    priority,
-  };
 }
 
 function buildSprintQaSnapshot(subtasks: Subtask[]): string {

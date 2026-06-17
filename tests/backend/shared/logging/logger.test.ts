@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import {
   CORRELATION_ID_HEADER,
   correlationIdMiddleware,
@@ -8,13 +11,26 @@ import {
 import { createLogger } from "../../../../src/shared/logging/logger.js";
 
 describe("createLogger", () => {
+  // The global test setup forces console logging to "error" via CODEUX_FORCE_LOG_LEVEL
+  // to keep the reporter clean. These tests verify the real level-resolution logic,
+  // so they opt out of the global override and restore it afterward.
+  const savedForcedLogLevel = process.env.CODEUX_FORCE_LOG_LEVEL;
+  beforeEach(() => {
+    delete process.env.CODEUX_FORCE_LOG_LEVEL;
+  });
+
   afterEach(() => {
+    if (savedForcedLogLevel === undefined) {
+      delete process.env.CODEUX_FORCE_LOG_LEVEL;
+    } else {
+      process.env.CODEUX_FORCE_LOG_LEVEL = savedForcedLogLevel;
+    }
     vi.restoreAllMocks();
   });
 
   it("logs human-readable output in development", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const logger = createLogger({ environment: "development", level: "debug", consoleLogLevel: "full" });
+    const logger = createLogger({ environment: "development", consoleLogLevel: "debug", consoleLogMode: "full" });
 
     logger.info("request finished", { method: "GET", statusCode: 200 });
 
@@ -28,7 +44,7 @@ describe("createLogger", () => {
 
   it("suppresses routine request logs from standard console output", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const logger = createLogger({ environment: "development", level: "debug", consoleLogLevel: "standard" });
+    const logger = createLogger({ environment: "development", consoleLogLevel: "debug", consoleLogMode: "standard" });
 
     logger.info("Dashboard request completed", { logPurpose: "request", method: "GET", statusCode: 200 });
     logger.info("Provider invocation started", { logPurpose: "invocation", provider: "codex" });
@@ -39,7 +55,7 @@ describe("createLogger", () => {
 
   it("prints request logs when console log level is full", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const logger = createLogger({ environment: "development", level: "debug", consoleLogLevel: "full" });
+    const logger = createLogger({ environment: "development", consoleLogLevel: "debug", consoleLogMode: "full" });
 
     logger.info("Dashboard request completed", { logPurpose: "request", method: "GET", statusCode: 200 });
 
@@ -49,7 +65,7 @@ describe("createLogger", () => {
 
   it("emits ANSI-colored classified console output when color is enabled", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const logger = createLogger({ environment: "development", level: "debug", consoleLogLevel: "full", color: true });
+    const logger = createLogger({ environment: "development", consoleLogLevel: "debug", consoleLogMode: "full", color: true });
 
     logger.info("Provider invocation started", { logPurpose: "invocation", provider: "codex" });
 
@@ -81,7 +97,7 @@ describe("createLogger", () => {
 
   it("respects log level filtering", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const logger = createLogger({ environment: "development", level: "warn" });
+    const logger = createLogger({ environment: "development", consoleLogLevel: "warn" });
 
     logger.info("skip this");
     logger.warn("keep this");
@@ -90,6 +106,48 @@ describe("createLogger", () => {
     const output = String(stderrSpy.mock.calls[0][0]);
     expect(output).not.toContain("skip this");
     expect(output).toContain("keep this");
+  });
+
+  it("filters console and debug file output independently", async () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-logger-"));
+    const logFilePath = path.join(dir, "debug.log");
+    const logger = createLogger({
+      environment: "development",
+      consoleLogLevel: "info",
+      debugLogFileLevel: "error",
+      consoleLogMode: "full",
+      logFilePath,
+    });
+
+    logger.info("visible on console only");
+    logger.error("visible everywhere");
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(stderrSpy).toHaveBeenCalledTimes(2);
+    const fileOutput = await fs.readFile(logFilePath, "utf8");
+    expect(fileOutput).not.toContain("visible on console only");
+    expect(fileOutput).toContain("visible everywhere");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("does not open the debug file when file log level is off", async () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-logger-off-"));
+    const logFilePath = path.join(dir, "debug.log");
+    const logger = createLogger({
+      environment: "development",
+      consoleLogLevel: "off",
+      debugLogFileLevel: "off",
+      logFilePath,
+    });
+
+    logger.error("suppressed");
+
+    expect(stderrSpy).not.toHaveBeenCalled();
+    await expect(fs.stat(logFilePath)).rejects.toMatchObject({ code: "ENOENT" });
+    await fs.rm(dir, { recursive: true, force: true });
   });
 });
 

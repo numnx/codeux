@@ -92,21 +92,42 @@ Behavior:
    - QA determines a no-PR task should not have a PR
    - task QA retry budget is exhausted
 
+Task-level prompt scope:
+
+- task completion and completed-without-PR reviews are explicitly single-task reviews
+- the selected current task is the only deliverable under review
+- the sprint task list and full non-current task instructions are included as context only, so QA can understand dependencies and sprint intent without treating sibling work as missing from the current task
+- the prompt tells QA to assume the current workspace or branch contains only the current task's changes on top of its base branch
+- a task-level review must pass when the current task satisfies its own prompt, even if completed sibling tasks are absent from the branch
+- QA must not request fixes because completed sibling tasks, files, commits, PRs, or behavior are absent from the current task branch
+- QA must not tell the current coding session to implement, restore, or modify another task's scope
+- when task-level QA requests changes, `fixInstructions` must target the current task's coding session and `targetTaskKey` must identify that current task
+
 If task QA is still pending, running, or has failed without exhausting `maxTaskReviewRuns`, Code UX marks the task merge state as `QA_PENDING` and keeps the sprint active instead of auto-merging.
 
 Recovery guarantees:
 
 - task QA no longer depends only on catching a single in-cycle transition edge; if a task is already code-complete and still has no successful QA run, Code UX will enqueue the missing review on the next orchestration cycle instead of leaving the task parked in `QA_PENDING`
 - if a QA run row is left behind in `running` state after its backing execution invocation has already finished, Code UX now automatically converts that stale row into a retryable failed run so the gate can recover instead of blocking indefinitely
+- before task QA starts, Code UX polls feature PR status with any task-level PR URLs already recorded by Jules. This lets orchestration recover the PR head branch even when the Jules PR base branch has drifted from the currently configured sprint feature branch.
+- if a prior QA run requested changes and a later Jules or CLI task run completed after that QA result, Code UX treats the later completion as meaningful work and reruns task QA on the next orchestration cycle even when the task was already persisted as `coding_completed`.
+- CLI QA follow-up work is tracked through `cli_task_followup` execution invocations. If that follow-up finishes inside the same task run after a `changes_requested` QA result, the next orchestration cycle now treats it as fresh work and queues the verification QA run instead of leaving the task parked at the CI/QA merge gate.
+- each sprint cycle reconciles running task QA reviews against their backing provider runtime. If a running QA invocation never links to provider runtime, or if a Docker-backed QA provider invocation no longer has a running `code-ux.session-id` container, Code UX marks the stale QA run failed so the next cycle can retry it instead of leaving the task at `QA_PENDING`.
+- provider concurrency slot waits also reconcile stale Docker-backed provider invocations before counting active slots. This releases orphaned `qwen-code`/CLI QA slots when their containers disappeared before the invocation reached a terminal state, but only after linked execution activity has been idle long enough to avoid racing normal container startup.
+- if QA/runtime recovery closes a provider or execution invocation while the provider process is still unwinding, later telemetry and completion callbacks do not rewrite the recovered terminal rows back to `running` or `completed`.
+- sprint-scoped task loading falls back to the latest unscoped task run when no task run exists for the active sprint run. This keeps continued Jules sessions visible to QA and merge gates after restarts or follow-up messages.
+- remote branch refreshes for task QA are serialized per repository, preventing parallel QA checks from racing while creating local tracking branches and failing on `.git/config` locks.
 
 Run budgeting:
 
 - the initial completed task review always counts as run `1`
 - extra QA runs only happen after QA requested fixes and the task reaches code-complete again
-- `maxTaskReviewRuns = 1` means only the initial task review runs; QA does not re-check later fixes
+- `maxTaskReviewRuns = 1` normally means only the initial task review runs; when QA itself requested and successfully applied an automatic CLI continuation, Code UX still permits the follow-up verification run so the task cannot remain indefinitely QA-blocked after completed fix work
+- recovered stale QA rows do not consume the task's final retry opportunity. If Code UX marks a running QA row failed because its provider runtime disappeared, the next cycle treats that as a retryable infrastructure recovery rather than a semantic QA failure.
 - `maxTaskReviewRuns = 2` means the initial task review plus one QA re-check after fixes
 - `maxTaskReviewRuns = N` means the initial task review plus up to `N - 1` QA re-checks for later fix iterations
-- if QA still has not produced a green light after that cap, Code UX stops holding the merge on QA alone and treats the retry budget as exhausted
+- if QA has failed at the cap without an explicit `changes_requested` verdict, Code UX treats the retry budget as exhausted
+- if the latest QA verdict is `changes_requested`, Code UX keeps the merge blocked at the retry cap unless a completed Code UX-applied QA continuation is waiting for verification
 - a passing task QA result is final for that completion state and is not retriggered just because orchestration loops again
 - task-level QA runs are now surfaced in task list records and live runtime snapshots. The Tasks page and Live page both show a compact QA badge, including a spinner state while the latest task QA run is still `running`.
 
@@ -163,6 +184,8 @@ The QA provider is prompted to return JSON only with:
 - `targetTaskKey`
 - `shouldHavePr`
 - `followUpTasks`
+
+Result parsing and structure normalization are fully delegated to `src/domain/qa-review/qa-review-result-normalizer.ts`.
 
 That contract keeps the follow-up automation deterministic instead of scraping prose heuristically.
 

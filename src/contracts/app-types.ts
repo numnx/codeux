@@ -372,6 +372,9 @@ export interface ExecutionUsageTotals {
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
+  /** Total tool-style operations across the aggregated invocations. Optional so
+   *  existing literal consumers stay valid; backend aggregators populate it. */
+  toolCallCount?: number;
   reportedInvocationCount: number;
   estimatedInvocationCount: number;
   unavailableInvocationCount: number;
@@ -455,7 +458,7 @@ export interface ExecutionStatsEntitySummary {
 }
 
 export type ProjectStatsWindow = "1h" | "24h" | "7d" | "30d" | "all" | "custom";
-export type ProjectStatsResolution = "hour" | "day" | "week";
+export type ProjectStatsResolution = "5min" | "hour" | "day" | "week";
 
 export interface ProjectStatsQuery {
   window: ProjectStatsWindow;
@@ -912,12 +915,14 @@ export interface CustomMcpServer {
   providers?: ProviderId[];
 }
 
-export type ConsoleLogLevel = "standard" | "full";
+export type RuntimeLogLevel = "off" | "debug" | "info" | "warn" | "error";
+export type ConsoleLogMode = "standard" | "full";
 
 export interface DashboardSettings {
   dashboardPort: number;
-  enableDebugLogFile: boolean;
-  consoleLogLevel: ConsoleLogLevel;
+  consoleLogLevel: RuntimeLogLevel;
+  debugLogFileLevel: RuntimeLogLevel;
+  consoleLogMode: ConsoleLogMode;
   dbAutoVacuumOnStartup: boolean;
   dbPruningEnabled: boolean;
   dbRetentionDays: number;
@@ -1071,10 +1076,11 @@ export interface ExternalSettingsHints {
 
 export interface GetCiStatusForScopeArgs {
   repoPath: string;
-  scope: "FEATURE_PR_CI" | "MAIN_MERGE_PR_CI";
+  scope: "FEATURE_PR_CI" | "MAIN_MERGE_PR_CI" | "MAIN_BRANCH_CI";
   featureBranch: string;
   defaultBranch: string;
   featureBranchPrefix: string;
+  taskPrUrls?: string[];
   cacheTtlMs?: number;
 }
 

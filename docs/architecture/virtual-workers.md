@@ -113,6 +113,10 @@ For CI autofix, Code UX now prefers reusing the existing task workspace when one
 
 Workspace artifact export captures both tracked edits and newly created untracked files from the worker workspace. This matters for CI autofix follow-ups that add missing modules or tests after the original task run; the exporter uses a temporary Git index for untracked files and still excludes the transient `.task-learnings.md` memory-capture file and `.code-ux-home/` provider home from commits.
 
+CI autofix finalization now refuses to resolve worker attention as fixed when the invocation produced no patch and there are no unpublished commits on the worker branch. Existing commits ahead of the feature branch are not treated as CI-fix evidence on their own; a no-op CI-fix run is escalated instead of consuming an attempt with a misleading "pushed" resolution.
+
+CI autofix prompts are explicitly framed as repair jobs, not fresh task implementation jobs. The prompt starts with the target PR, worker branch, original task key/title, failed check names, failed job labels, and structured failed-run details. Each collected run includes run id, URL, status, conclusion, event, head branch, update time, failed job ids, failed steps, log commands, and fetched failed-job log excerpts. The original task prompt is included only under a "Reference Only" section so the worker understands the already-completed scope without redoing it.
+
 If Docker is unavailable when the CI autofix flow starts, Code UX degrades that specific repair run to a host-backed worktree instead of looping on an unrecoverable Docker failure. Merge-conflict resolution does not use this fallback: it remains Docker-only so conflict repair stays isolated from the reusable task workspace.
 
 For QA review execution, Code UX now runs the review itself against a fresh snapshot workspace rather than the mutable task workspace. This keeps review inspection isolated while still allowing QA-requested coding follow-ups to continue in the original task workspace when appropriate. Both the review agent and QA-requested coding follow-ups now receive their current memory context, and QA follow-up edits capture fresh learnings back into memory from the actual workspace used for the fix.
@@ -126,7 +130,9 @@ Startup cleanup prunes orphaned `virtual_cli` endpoints from previous runs.
 Startup cleanup also aggressively removes stale Code UX Docker assets:
 
 - stale workspace volumes for finished, failed, unrecoverable, or outdated sessions
-- cached setup-script Docker images from previous runs
+- orphaned helper/login containers from previous runs
+
+Cached setup-script Docker images are content-addressed by base image, setup script content, and setup-cache Dockerfile content. They are preserved across dashboard restarts and reused until one of those inputs changes or Docker no longer has the image.
 
 Interrupted Docker-backed sessions that were running before restart are treated as failed during recovery unless a live backing container is still present. This keeps restart recovery deterministic and prevents dead sessions from holding disk space or waiting forever for callbacks that will never arrive.
 
@@ -138,3 +144,11 @@ If a virtual cycle dies mid-attention:
 - claimed worker attention becomes reclaimable by the next virtual cycle
 
 This prevents dead virtual workers from pinning merge-conflict items indefinitely.
+
+### Claiming and Workspace Recovery for Containerized Executions
+
+When running inside isolated or containerized worker environments (e.g., Gemini CLI in a Docker container):
+
+- **Virtual Worker Claiming**: Virtual workers (using claim reason prefixes starting with `virtual_worker_`) or automated attention types (`ci_fix_required`, `merge_conflict`) can bypass the `assignedWorkerEndpointId` mismatch check. This ensures that when a virtual worker reconciles and attempts to claim/reclaim an attention item that was originally opened/assigned to a different containerized worker endpoint, the claim is successfully allowed instead of stalling.
+- **Path and Workspace Normalization**: Remote origins and git remote URLs under `/workspace` container directories are dynamically resolved to correctly identify the host repository name. This allows `buildTaskRunKey` to match and reuse the correct containerized workspace targets when runs are resumed.
+- **POSIX and Windows Path Matching**: CLI session queries in the tracking repository match using both Windows and POSIX-normalized host paths, falling back to `/workspace` when matching containerized sessions.

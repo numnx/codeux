@@ -1,12 +1,24 @@
 import type { PipelineContext } from "./pipeline-context.js";
 import { resolveProviderForInvocation } from "../../provider-routing.js";
-import { ProviderExecutionService } from "../../provider-execution-service.js";
+import { ProviderExecutionService, resolveEffectiveModel } from "../../provider-execution-service.js";
 
 export async function executeProviderStage(ctx: PipelineContext, providerPrompt: string): Promise<void> {
   const providerSettings = ctx.providerSettingsOverride || resolveProviderForInvocation(ctx.settings, {
     invocation: "task_coding",
     task: ctx.task,
   }).providers[ctx.provider];
+
+  const effectiveModel = resolveEffectiveModel({
+    provider: ctx.provider,
+    model: providerSettings.model,
+    customModel: providerSettings.customModel,
+    qwenAuthMode: providerSettings.qwenAuthMode,
+    qwenModelId: providerSettings.qwenModelId,
+    openCodeAuthMode: providerSettings.openCodeAuthMode,
+    openCodeProviderId: providerSettings.openCodeProviderId,
+    openCodeModelId: providerSettings.openCodeModelId,
+  });
+
   const providerMountAuth = "mountAuth" in providerSettings
     ? providerSettings.mountAuth
     : providerSettings.providerMountAuth;
@@ -31,6 +43,11 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
     getGithubToken: ctx.deps.getGithubToken,
   });
 
+  // The provider concurrency cap is a provider-level setting (already clamped to the system
+  // ceiling during settings resolution). Pass it through explicitly so containerized tasks
+  // enforce the configured cap instead of falling back to provider defaults.
+  const concurrencyLimit = ctx.settings.aiProvider.providers[ctx.provider]?.maxConcurrentTasks;
+
   const result = await providerExecutionService.executeProvider({
     projectId: taskRun?.projectId || "",
     sprintId: taskRun?.sprintId,
@@ -41,9 +58,10 @@ export async function executeProviderStage(ctx: PipelineContext, providerPrompt:
     purpose: "task_coding",
     type: "cli_task_coding",
     provider: ctx.provider,
+    maxConcurrentTasks: concurrencyLimit,
     prompt: providerPrompt,
     cwd: ctx.worktreePath,
-    model: providerSettings.model,
+    model: effectiveModel,
     apiKey: providerSettings.apiKey,
     qwenAuthMode: providerSettings.qwenAuthMode,
     qwenRegion: providerSettings.qwenRegion,

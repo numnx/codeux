@@ -16,6 +16,7 @@ import { resolveEffectiveDashboardSettings } from "../../services/settings-resol
 import type { DashboardSettings, DashboardSettingsScope, DashboardStatusSnapshot } from "../../contracts/app-types.js";
 import { DEFAULT_DASHBOARD_SETTINGS } from "../../repositories/settings-defaults.js";
 import { WorkspaceManager } from "../../infrastructure/providers/cli/workspace-manager.js";
+import { DockerService } from "../../services/docker-service.js";
 
 export interface SprintDependencies {
   cliWorkflowService: CliWorkflowService;
@@ -118,6 +119,8 @@ export function createSprintDependencies(
     providerRunner: coreDeps.providerRunner,
     providerConcurrencyService: coreDeps.providerConcurrencyService,
     knowledgeService: coreDeps.knowledgeService,
+    fetchSessionActivities: (sessionName, pageSize) =>
+      coreDeps.julesApi.fetchRecentActivitiesLite(sessionName, pageSize ?? 15),
     logger: logger.child({ component: "worker-inbox-reply-service" }),
   });
 
@@ -136,6 +139,7 @@ export function createSprintDependencies(
     sendSessionMessage: (sessionId, prompt) => julesApi.sendSessionMessage(sessionId, prompt),
     logger: logger.child({ component: "quality-assurance-service" }),
     memoryService: coreDeps.memoryService,
+    dockerService: new DockerService(),
   });
 
   const virtualWorkerService = new VirtualWorkerService({
@@ -187,6 +191,8 @@ export function createSprintDependencies(
     projectManagementRepository,
     taskService,
     coreDeps.guardrailService,
+    coreDeps.providerConcurrencyService,
+    resolveDashboardSettings,
     logger.child({ component: "sprint-task-dispatch-service" }),
   );
 

@@ -139,10 +139,16 @@ Project setup uses the virtual provider execution path but applies artifacts thr
 Behavior:
 
 1. Code UX ensures a project-local `Project Setup Agent` exists.
-2. The setup prompt requires repository discovery across assistant instruction markdown, documentation, dependency manifests, package scripts, source layout, preview/runtime configuration, and existing CI files.
-3. The provider returns strict JSON containing selected artifacts.
-4. Code UX writes agents through `AgentPresetSyncService`, quicksprints through `QuicksprintService`, preview startup to `.code-ux/browser/start-preview.sh`, and CI files to the returned GitHub/GitLab paths.
-5. Agent routing is updated so the setup agent is the planning default and generated worker specialists become the task-coding orchestrator roster.
+2. When agent generation is selected, Code UX resolves the current base templates for `Project Setup Agent`, `Worker`, `Planning agent`, `Project manager`, and `Quality assurance agent` when they are available.
+3. The setup prompt includes those base templates as normative source material only for agent generation, requiring generated repository-specific agents to adapt their scope discipline, workspace protocol, verification standards, DAG planning model, and QA review boundaries instead of inventing a generic role prompt from scratch.
+4. When quicksprint generation is selected, Code UX injects the built-in quicksprint templates as the reusable-template quality baseline so generated project templates preserve the audit/improvement structure while adapting to repository evidence.
+5. When preview-script generation is selected, Code UX injects the exact bundled `.code-ux/container/setup.sh` bootstrap script so the generated `.code-ux/browser/start-preview.sh` complements the container bootstrap instead of duplicating provider CLI or OS setup work.
+6. The setup prompt requires repository discovery across assistant instruction markdown, documentation, dependency manifests, package scripts, source layout, preview/runtime configuration, and existing CI files.
+7. The provider returns strict JSON containing selected artifacts.
+8. Code UX writes agents through `AgentPresetSyncService`, quicksprints through `QuicksprintService`, preview startup to `.code-ux/browser/start-preview.sh`, and CI files to the returned GitHub/GitLab paths.
+9. Agent routing is updated so the setup agent is the planning default and generated worker specialists become the task-coding orchestrator roster.
+
+The base-template handoff is fail-soft: if a user intentionally deleted a built-in default role, project setup continues with the remaining templates rather than recreating the deleted role implicitly. Template injection is conditional by artifact category, so disabling agents, quicksprints, or preview generation also omits that category's template context from the provider prompt.
 
 The dashboard exposes this flow from project creation and from existing project cards. The HTTP endpoint is `POST /api/projects/:projectId/setup`.
 
@@ -187,13 +193,13 @@ Existing sprints can be explicitly replanned. When the `replan` flag is set, Cod
 
 ### Planning Contracts
 
-The planning contract is now strictly enforced by the `PlanningPayloadValidator` during ingestion. The validator ensures that the planner emits database-ready tasks without improvising formatting, and triggers automatic JSON retries with explicit error guidance if the contract is violated:
+The planning contract is now strictly enforced by the `PlanningPayloadValidator` during ingestion. The validator ensures that the planner emits deterministic DAG payloads without improvising formatting, and triggers automatic JSON retries with explicit error guidance if the contract is violated:
 
-- task keys should use `T01`, `T02`, `T03`, ... in topological order
+- task keys must use `T01`, `T02`, `T03`, ... in strict topological order (no gaps)
 - the `tasks` array itself is the DAG order
-- dependencies must only reference keys defined earlier in the task list (forward references are rejected)
+- dependencies must only reference unique keys defined earlier in the task list (forward references and duplicate dependencies are rejected)
 - every task must include `title`, `description`, `promptMarkdown`, `priority`, `executorType`, and `dependsOn`
-- `priority` and `executorType` are validated against allowed enum values
+- `priority` and `executorType` are strictly validated against allowed enum values (unsupported values are rejected rather than coerced)
 - `promptMarkdown` is standardized to five sections in this exact order:
   - `## Objective`
   - `## Scope`

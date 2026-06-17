@@ -302,6 +302,13 @@ export function createDashboardDependencies(
         "ci_fix_required",
       ], "task_rerun_reset");
     },
+    resetTaskQaState: ({ taskId }) => {
+      // A manual rerun is a fresh attempt — clear the prior QA verdict budget and
+      // guardrail ledger so the new run is reviewed instead of being blocked or
+      // escalated on the previous attempt's exhausted/changes-requested history.
+      coreDeps.qaReviewRepository.resetTaskReviewRuns(taskId);
+      coreDeps.guardrailService.reset(taskId);
+    },
     updateTaskExecutorOverride: (taskId, provider) => {
       const executorType = provider === "jules" ? "jules" : "docker_cli";
       projectManagementRepository.updateTask(taskId, { executorType });
@@ -372,6 +379,10 @@ export function createDashboardDependencies(
     (projectId, input) => projectManagementRepository.createSprint(projectId, input),
     (projectId, sprintId, options, signal) => planningAgentService.planSprint(projectId, sprintId, options, signal),
     (agentPresetId) => coreDeps.agentPresetRepository.getAgentPreset(agentPresetId),
+    {
+      projectRoot: typeof context.getProjectRoot === "function" ? context.getProjectRoot() : process.cwd(),
+      logger: logger.child({ component: "quicksprint-service" }),
+    },
   );
   (managementToolHandler as any).deps.quicksprintService = quicksprintService;
 
@@ -383,6 +394,7 @@ export function createDashboardDependencies(
     quicksprintService,
     providerRunner,
     providerConcurrencyService: coreDeps.providerConcurrencyService,
+    projectRoot: typeof context.getProjectRoot === "function" ? context.getProjectRoot() : process.cwd(),
     getGithubToken: () => context.getEffectiveGithubToken(),
     logger: logger.child({ component: "project-setup-service" }),
   });

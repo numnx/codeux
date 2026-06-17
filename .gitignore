@@ -21,6 +21,7 @@ release/
 .code-ux-home/
 .claude/
 .antigravitycli*
+logs/openai/
 # Stray gitlink that recurs from running tools with HOME=~ inside the repo
 /~/
 
@@ -30,3 +31,4 @@ release/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+.qwen

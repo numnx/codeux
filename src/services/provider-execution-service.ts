@@ -6,7 +6,8 @@ import { resolveAgentMcpRuntime } from "./agent-mcp-access.js";
 import type { ProviderInvocationPurpose } from "../contracts/execution-types.js";
 import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { SessionTrackingRepository } from "../repositories/session-tracking-repository.js";
-import type { CliProviderId, IProviderRunner, ProviderRunResult } from "../infrastructure/providers/cli/provider-runner.js";
+import type { IProviderRunner, ProviderRunResult } from "../infrastructure/providers/cli/provider-runner.js";
+import type { CliProviderId } from "../infrastructure/providers/cli/provider-command-specs.js";
 import type { ParsedConversationTurn, ProviderUsageTelemetry } from "../infrastructure/providers/cli/provider-usage.js";
 import type { AppendExecutionInvocationMessageInput } from "../contracts/invocation-types.js";
 import type { Logger } from "../shared/logging/logger.js";
@@ -16,7 +17,17 @@ import { classifyProviderError, ProviderQuotaError } from "../shared/providers/p
 import { resolveProviderRetryDecision, sleepWithSignal } from "../shared/providers/provider-retry-policy.js";
 import { DEFAULT_PROVIDER_SETTINGS } from "../repositories/settings-defaults.js";
 import type { ProviderId } from "../contracts/app-types.js";
+import type { CreateProviderInvocationUsageInput } from "../contracts/execution-types.js";
 import { sanitizeInvocationOutputText } from "./invocation-output-sanitizer.js";
+import { conversationTurnToMessage } from "./provider-conversation-message-mapper.js";
+
+/** Counts tool-call turns in a parsed provider conversation, for tool-call stats. */
+function countConversationToolCalls(conversation: ParsedConversationTurn[] | undefined | null): number {
+  if (!conversation) {
+    return 0;
+  }
+  return conversation.reduce((count, turn) => (turn.kind === "tool_call" ? count + 1 : count), 0);
+}
 
 export interface ProviderExecutionServiceDeps {
   executionRepository?: ExecutionRepository;
@@ -96,49 +107,24 @@ export interface ExecutionProviderRunArgs {
   mcpAgentId?: string | null;
 }
 
-/**
- * Maps a parsed provider conversation turn to an invocation message. Reasoning
- * and tool turns stay within the existing role union (assistant / tool) and are
- * distinguished by `metadata.kind`, which the dashboard uses to pick a rich
- * widget. No DB/schema change is required.
- */
-function conversationTurnToMessage(
-  turn: ParsedConversationTurn,
-  provider: string,
-  model: string | null,
-): AppendExecutionInvocationMessageInput {
-  const sanitizedTurnText = sanitizeInvocationOutputText(turn.text || "");
-  const base: Record<string, unknown> = { provider, model };
-  if (turn.toolCallId) base.toolCallId = turn.toolCallId;
-
-  switch (turn.kind) {
-    case "user":
-      return { role: "user", contentMarkdown: sanitizedTurnText, metadata: base };
-    case "assistant":
-      return { role: "assistant", contentMarkdown: sanitizedTurnText, metadata: base };
-    case "reasoning":
-      return { role: "assistant", contentMarkdown: sanitizedTurnText, metadata: { ...base, kind: "reasoning" } };
-    case "tool_call":
-      return {
-        role: "tool",
-        contentMarkdown: sanitizedTurnText,
-        toolCallsJson: { arguments: turn.toolArguments ?? null, callId: turn.toolCallId ?? null },
-        metadata: {
-          ...base,
-          kind: "tool_call",
-          toolName: turn.toolName ?? null,
-          toolStatus: turn.toolStatus ?? null,
-          ...(turn.tokens ? { tokens: turn.tokens } : {}),
-        },
-      };
-    case "tool_result":
-      return {
-        role: "tool",
-        contentMarkdown: sanitizedTurnText,
-        toolCallsJson: { output: turn.toolOutput ?? null },
-        metadata: { ...base, kind: "tool_result", toolName: turn.toolName ?? null },
-      };
+/** Resolves the effective model name to use for telemetry and recording. */
+export function resolveEffectiveModel(args: Pick<ExecutionProviderRunArgs, "provider" | "model" | "customModel" | "qwenAuthMode" | "qwenModelId" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId">): string {
+  const { provider, model, customModel } = args;
+  if ((provider === "claude-code" || provider === "codex") && customModel && customModel.trim().length > 0) {
+    return customModel.trim();
   }
+  if (provider === "qwen-code" && args.qwenAuthMode === "MODEL_PROVIDER") {
+    if (model === "custom/model" || model === "local-model") {
+      return (args.qwenModelId || "glm-4.7-flash").trim();
+    }
+    return (args.qwenModelId || model || "glm-4.7-flash").trim();
+  }
+  if (provider === "opencode" && args.openCodeAuthMode === "CUSTOM_PROVIDER") {
+    const providerId = (args.openCodeProviderId || model.split("/")[0] || "custom").trim();
+    const modelId = (args.openCodeModelId || model.split("/").slice(1).join("/") || "model").trim();
+    return `${providerId}/${modelId}`;
+  }
+  return model;
 }
 
 export class ProviderExecutionService {
@@ -146,6 +132,7 @@ export class ProviderExecutionService {
 
   async executeProvider(args: ExecutionProviderRunArgs): Promise<ProviderRunResult> {
     let execInvocationId: string | null = args.invocationId || null;
+    const effectiveModel = resolveEffectiveModel(args);
 
     const resolvedMcp = resolveAgentMcpRuntime({
       access: args.agentMcpAccess,
@@ -169,7 +156,7 @@ export class ProviderExecutionService {
           attentionItemId: args.attentionItemId,
           type: args.type,
           provider: args.provider,
-          model: args.model,
+          model: effectiveModel,
           startedAt,
           invocationSource: args.invocationSource,
         })?.id || null;
@@ -190,49 +177,39 @@ export class ProviderExecutionService {
       }
 
       let invocation;
-      if (this.deps.providerConcurrencyService) {
-        const limit = args.maxConcurrentTasks !== undefined
-          ? args.maxConcurrentTasks
-          : (DEFAULT_PROVIDER_SETTINGS[args.provider as ProviderId]?.maxConcurrentTasks ?? 0);
+      const limit = args.maxConcurrentTasks !== undefined
+        ? args.maxConcurrentTasks
+        : (DEFAULT_PROVIDER_SETTINGS[args.provider as ProviderId]?.maxConcurrentTasks ?? 0);
 
+      const usageInput: CreateProviderInvocationUsageInput = {
+        projectId: args.projectId,
+        sprintId: args.sprintId,
+        taskId: args.taskId,
+        sprintRunId: args.sprintRunId,
+        dispatchId: args.dispatchId,
+        taskRunId: args.taskRunId,
+        attentionItemId: args.attentionItemId,
+        sessionId: args.sessionId,
+        provider: args.provider,
+        purpose: args.purpose,
+        model: effectiveModel,
+        executionMode: args.workflowSettings.executionMode,
+        startedAt,
+        promptChars: p.length,
+      };
+
+      if (this.deps.providerConcurrencyService) {
         invocation = await this.deps.providerConcurrencyService.waitForSlotAndClaim(
           args.provider as ProviderId,
           limit,
-          {
-            projectId: args.projectId,
-            sprintId: args.sprintId,
-            taskId: args.taskId,
-            sprintRunId: args.sprintRunId,
-            dispatchId: args.dispatchId,
-            taskRunId: args.taskRunId,
-            attentionItemId: args.attentionItemId,
-            sessionId: args.sessionId,
-            provider: args.provider,
-            purpose: args.purpose,
-            model: args.model,
-            executionMode: args.workflowSettings.executionMode,
-            startedAt,
-            promptChars: p.length,
-          },
+          usageInput,
           args.signal
         );
       } else {
-        invocation = this.deps.executionRepository?.createProviderInvocationUsage({
-          projectId: args.projectId,
-          sprintId: args.sprintId,
-          taskId: args.taskId,
-          sprintRunId: args.sprintRunId,
-          dispatchId: args.dispatchId,
-          taskRunId: args.taskRunId,
-          attentionItemId: args.attentionItemId,
-          sessionId: args.sessionId,
-          provider: args.provider,
-          purpose: args.purpose,
-          model: args.model,
-          executionMode: args.workflowSettings.executionMode,
-          startedAt,
-          promptChars: p.length,
-        });
+        // Fallback for cases where ProviderConcurrencyService is not provided, 
+        // e.g. in some specialized service tests, though in production it should be present
+        // when an execution repository is present.
+        invocation = this.deps.executionRepository?.createProviderInvocationUsage(usageInput);
       }
 
       if (invocation && execInvocationId) {
@@ -250,7 +227,7 @@ export class ProviderExecutionService {
         sprintId: args.sprintId,
         taskId: args.taskId,
         provider: args.provider,
-        model: args.model,
+        model: effectiveModel,
         purpose: args.purpose,
         executionMode: args.workflowSettings.executionMode,
       });
@@ -259,7 +236,7 @@ export class ProviderExecutionService {
         provider: args.provider,
         prompt: p,
         cwd: args.cwd || args.repoPath,
-        model: args.model,
+        model: effectiveModel,
         apiKey: args.apiKey,
         qwenAuthMode: args.qwenAuthMode,
         qwenRegion: args.qwenRegion,
@@ -299,11 +276,11 @@ export class ProviderExecutionService {
           }
         },
         onTelemetry: (telemetry: ProviderUsageTelemetry) => {
-          if (invocation && this.deps.executionRepository) {
+          if (invocation && this.deps.executionRepository && this.isProviderInvocationStillRunning(invocation.id)) {
             const durationMs = Date.now() - startedMs;
             this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
               status: "running",
-              model: args.model,
+              model: effectiveModel,
               nativeSessionId: telemetry.nativeSessionId || undefined,
               durationMs,
               transcriptChars: telemetry.transcriptText.length,
@@ -312,19 +289,24 @@ export class ProviderExecutionService {
               outputTokens: telemetry.outputTokens,
               reasoningOutputTokens: telemetry.reasoningOutputTokens,
               totalTokens: telemetry.totalTokens,
+              toolCallCount: countConversationToolCalls(telemetry.conversation),
               usageSource: telemetry.usageSource,
               rawUsageJson: telemetry.rawUsageJson || undefined,
             });
           }
 
-          if (execInvocationId && this.deps.executionRepository) {
+          if (
+            execInvocationId
+            && this.deps.executionRepository
+            && this.isExecutionInvocationStillRunning(execInvocationId)
+          ) {
             if (args.trackAssistantInInvocation !== false) {
               if (!args.expectTextOutput && telemetry.conversation && telemetry.conversation.length > 0) {
                 this.deps.executionRepository.clearExecutionInvocationMessages(execInvocationId);
                 for (const turn of telemetry.conversation) {
                   this.deps.executionRepository.appendExecutionInvocationMessage(
                     execInvocationId,
-                    conversationTurnToMessage(turn, args.provider, args.model),
+                    conversationTurnToMessage(turn, args.provider, effectiveModel),
                   );
                 }
               } else {
@@ -370,7 +352,7 @@ export class ProviderExecutionService {
             sprintId: args.sprintId,
             taskId: args.taskId,
             provider: args.provider,
-            model: args.model,
+            model: effectiveModel,
             purpose: args.purpose,
             durationMs: Date.now() - startedMs,
             error,
@@ -382,26 +364,29 @@ export class ProviderExecutionService {
       if (invocation && this.deps.executionRepository) {
         const finishedAt = new Date().toISOString();
         const durationMs = Date.now() - startedMs;
-        this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
-          status: result.ok ? "completed" : "failed",
-          model: args.model,
-          nativeSessionId: result.nativeSessionId,
-          finishedAt,
-          durationMs,
-          transcriptChars: result.usageTelemetry.transcriptText.length,
-          inputTokens: result.usageTelemetry.inputTokens,
-          cachedInputTokens: result.usageTelemetry.cachedInputTokens,
-          outputTokens: result.usageTelemetry.outputTokens,
-          reasoningOutputTokens: result.usageTelemetry.reasoningOutputTokens,
-          totalTokens: result.usageTelemetry.totalTokens,
-          usageSource: result.usageTelemetry.usageSource,
-          rawUsageJson: result.usageTelemetry.rawUsageJson,
-        });
+        if (this.isProviderInvocationStillRunning(invocation.id)) {
+          this.deps.executionRepository.updateProviderInvocationUsage(invocation.id, {
+            status: result.ok ? "completed" : "failed",
+            model: effectiveModel,
+            nativeSessionId: result.nativeSessionId,
+            finishedAt,
+            durationMs,
+            transcriptChars: result.usageTelemetry.transcriptText.length,
+            inputTokens: result.usageTelemetry.inputTokens,
+            cachedInputTokens: result.usageTelemetry.cachedInputTokens,
+            outputTokens: result.usageTelemetry.outputTokens,
+            reasoningOutputTokens: result.usageTelemetry.reasoningOutputTokens,
+            totalTokens: result.usageTelemetry.totalTokens,
+            toolCallCount: countConversationToolCalls(result.usageTelemetry.conversation),
+            usageSource: result.usageTelemetry.usageSource,
+            rawUsageJson: result.usageTelemetry.rawUsageJson,
+          });
+        }
 
         if (args.taskRunId) {
             this.deps.executionRepository.appendTaskRunEvent(args.taskRunId, "cli_provider_usage_reported", "system", {
             provider: args.provider,
-            model: args.model,
+            model: effectiveModel,
             purpose: args.purpose,
             inputTokens: result.usageTelemetry.inputTokens,
             cachedInputTokens: result.usageTelemetry.cachedInputTokens,
@@ -424,7 +409,7 @@ export class ProviderExecutionService {
         sprintId: args.sprintId,
         taskId: args.taskId,
         provider: args.provider,
-        model: args.model,
+        model: effectiveModel,
         purpose: args.purpose,
         ok: result.ok,
         durationMs: Date.now() - startedMs,
@@ -463,12 +448,12 @@ export class ProviderExecutionService {
       }
 
       if (providerResult.ok) {
-        if (execInvocationId) {
+        if (execInvocationId && this.isExecutionInvocationStillRunning(execInvocationId)) {
           if (args.finalizeExecutionInvocation !== false) {
             this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
               status: "completed",
               provider: args.provider,
-              model: args.model,
+              model: effectiveModel,
               finishedAt: new Date().toISOString(),
             });
           }
@@ -481,7 +466,7 @@ export class ProviderExecutionService {
               for (const turn of conversation) {
                 this.deps.executionRepository?.appendExecutionInvocationMessage(
                   execInvocationId,
-                  conversationTurnToMessage(turn, args.provider, args.model),
+                  conversationTurnToMessage(turn, args.provider, effectiveModel),
                 );
               }
             } else {
@@ -576,25 +561,37 @@ export class ProviderExecutionService {
 
       // If no retry policy handles the failure, propagate it to the caller if not OK
       if (execInvocationId) {
-        this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
-          status: "failed",
-          provider: args.provider,
-          model: args.model,
-          finishedAt: new Date().toISOString(),
-        });
-        // Include both streams so the real failure detail is never hidden: some
-        // providers (notably codex) print only a benign "Reading additional input
-        // from stdin..." to stderr while the actionable error events go to stdout.
-        const rawOutput = [providerResult.stderr, providerResult.stdout]
-          .map((stream) => (stream ?? "").trim())
-          .filter((stream) => stream.length > 0)
-          .join("\n\n");
-        this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
-          role: "tool",
-          contentMarkdown: sanitizeInvocationOutputText(rawOutput || "Provider failed without output."),
-        });
+        if (this.isExecutionInvocationStillRunning(execInvocationId)) {
+          this.deps.executionRepository?.updateExecutionInvocation(execInvocationId, {
+            status: "failed",
+            provider: args.provider,
+            model: args.model,
+            finishedAt: new Date().toISOString(),
+          });
+          // Include both streams so the real failure detail is never hidden: some
+          // providers (notably codex) print only a benign "Reading additional input
+          // from stdin..." to stderr while the actionable error events go to stdout.
+          const rawOutput = [providerResult.stderr, providerResult.stdout]
+            .map((stream) => (stream ?? "").trim())
+            .filter((stream) => stream.length > 0)
+            .join("\n\n");
+          this.deps.executionRepository?.appendExecutionInvocationMessage(execInvocationId, {
+            role: "tool",
+            contentMarkdown: sanitizeInvocationOutputText(rawOutput || "Provider failed without output."),
+          });
+        }
       }
       return providerResult;
     }
+  }
+
+  private isProviderInvocationStillRunning(providerInvocationId: string): boolean {
+    const current = this.deps.executionRepository?.getProviderInvocationUsage?.(providerInvocationId);
+    return !current || current.status === "running";
+  }
+
+  private isExecutionInvocationStillRunning(executionInvocationId: string): boolean {
+    const current = this.deps.executionRepository?.getExecutionInvocation?.(executionInvocationId);
+    return !current || current.status === "running" || current.status === "paused";
   }
 }

@@ -1,4 +1,6 @@
 import { type FunctionComponent } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
+import gsap from "gsap";
 import { Check, CheckCheck, XCircle, Loader2 } from "lucide-preact";
 import type { ChatMessageRecord, AgentAvatarConfig } from "../../types.js";
 import { renderMarkdown } from "../../../lib/markdown.js";
@@ -7,12 +9,15 @@ import { formatChatTime } from "../../lib/chat-time.js";
 import { PlanningRequestWidget } from "./widgets/PlanningRequestWidget.js";
 import { ChatAvatar, type AvatarRole } from "./ChatAvatar.js";
 import { resolveDisplayDeliveryStatus } from "../../hooks/use-chat-thread-data.js";
+import { useGsapDurations } from "../../lib/motion/constants.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export interface ChatMessageBubbleProps {
   message: ChatMessageRecord;
   allMessages?: ChatMessageRecord[];
   agentAvatarConfig?: AgentAvatarConfig;
   agentName?: string;
+  animationDelay?: number;
 }
 
 export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
@@ -20,9 +25,24 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
   allMessages = [],
   agentAvatarConfig,
   agentName,
+  animationDelay = 0,
 }) => {
   const fromDashboard = message.direction === "dashboard_to_connection";
   const widgetData = getChatWidgetData(message);
+
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const durations = useGsapDurations();
+  const reducedMotion = useReducedMotion();
+
+  useLayoutEffect(() => {
+    if (bubbleRef.current) {
+      gsap.fromTo(
+        bubbleRef.current,
+        { opacity: 0, y: reducedMotion ? 0 : 8 },
+        { opacity: 1, y: 0, duration: durations.base, ease: 'power2.out', delay: animationDelay }
+      );
+    }
+  }, []);
 
   let role: AvatarRole = "agent";
   if (fromDashboard) {
@@ -46,7 +66,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
     : "opacity-100";
 
   return (
-    <div className={`flex ${fromDashboard ? "justify-end" : "justify-start"} ${opacityClass}`}>
+    <div ref={bubbleRef} className={`flex ${fromDashboard ? "justify-end" : "justify-start"} ${opacityClass}`}>
       <div className={`flex max-w-[760px] items-start gap-3 w-full ${fromDashboard ? "flex-row-reverse" : "flex-row"}`}>
         <div className="mt-1 shrink-0 w-8 h-8 flex items-center justify-center">
           <ChatAvatar
@@ -57,7 +77,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
           />
         </div>
 
-        <div className={`flex flex-col w-full max-w-[calc(100%-3rem)] rounded-2xl border bg-slate-100/80 backdrop-blur-md p-4 shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:bg-white/5 ${
+        <div className={`flex flex-col min-w-0 w-full max-w-[calc(100%-3rem)] rounded-2xl border bg-slate-100/80 backdrop-blur-md p-4 shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:bg-white/5 ${
           fromDashboard
             ? "rounded-tr-sm border-signal-500/20"
             : "rounded-tl-sm border-slate-200/60 dark:border-white/10"
@@ -66,7 +86,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
           <div className={`flex items-center gap-3 mb-2 text-[11px] font-mono text-slate-400 ${fromDashboard ? "justify-end flex-row-reverse" : "justify-start"}`}>
             <span className="font-semibold text-slate-900 dark:text-slate-300">{senderName}</span>
             {providerLabel && (
-              <span className="px-1.5 py-0.5 rounded-sm bg-slate-200 text-slate-600 dark:bg-black/20 dark:text-slate-300">
+              <span className="px-1.5 py-0.5 rounded-sm bg-slate-200 text-slate-600 dark:bg-black/20 dark:text-slate-300 truncate max-w-[150px] inline-block">
                 {providerLabel}
               </span>
             )}
@@ -74,7 +94,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
           </div>
 
           {/* Message Body */}
-          <div className="prose prose-sm max-w-none text-[14px] leading-7 text-slate-800 dark:text-slate-200 prose-headings:text-inherit prose-p:text-inherit prose-strong:text-inherit prose-code:text-inherit break-words"
+          <div className="prose prose-sm max-w-none text-[14px] leading-7 text-slate-800 dark:text-slate-200 prose-headings:text-inherit prose-p:text-inherit prose-strong:text-inherit prose-code:text-inherit break-words overflow-wrap-anywhere min-w-0"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(message.bodyMarkdown) }}
           />
 

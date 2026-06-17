@@ -1,8 +1,10 @@
-import { h, ComponentChildren, RefObject } from "preact";
+import { h, ComponentChildren, RefObject, isValidElement } from "preact";
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { calculatePosition, Position, Alignment } from "../../lib/positioning/index.js";
+import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface PopoverProps {
   children: ComponentChildren;
@@ -14,6 +16,7 @@ interface PopoverProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   triggerRef?: RefObject<HTMLElement>;
+  isTooltip?: boolean;
 }
 
 export const Popover = ({
@@ -26,11 +29,14 @@ export const Popover = ({
   isOpen,
   onOpenChange,
   triggerRef: externalTriggerRef,
+  isTooltip = false,
 }: PopoverProps) => {
+  const isReducedMotion = useReducedMotion();
   const [isRendered, setIsRendered] = useState(false);
-  const localTriggerRef = useRef<HTMLDivElement>(null);
+  const localTriggerRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
   const popoverRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   // Generate a unique ID for ARIA wiring if none exists
@@ -53,8 +59,21 @@ export const Popover = ({
   useEffect(() => {
     if (isOpen) {
       setIsRendered(true);
+      if (!isTooltip) {
+        previousFocusRef.current = document.activeElement as HTMLElement | null;
+      }
+    } else if (isRendered) { // Only restore if it was previously open
+      // Restore focus on close
+      if (!isTooltip) {
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isTooltip]);
 
   // Position once the portal has actually mounted. `isRendered` flips in a
   // separate effect after `isOpen`, so depending on it here guarantees the
@@ -87,26 +106,27 @@ export const Popover = ({
         {
           opacity: 0,
           scale: 0.95,
-          y: position === "bottom" ? -10 : position === "top" ? 10 : 0,
+          y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
         },
         {
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: 0.3,
-          ease: "back.out(1.7)",
+          duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+          ease: MOTION_TOKENS.easing.standard,
         }
       );
     } else if (isRendered) {
       gsap.to(popoverRef.current, {
         opacity: 0,
         scale: 0.95,
-        duration: 0.15,
-        ease: "power2.in",
+        y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
+        duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+        ease: MOTION_TOKENS.easing.standard,
         onComplete: () => setIsRendered(false),
       });
     }
-  }, [isOpen, isRendered, position]);
+  }, [isOpen, isRendered, position, isReducedMotion]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -124,7 +144,14 @@ export const Popover = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
         onOpenChange(false);
-        triggerRef.current?.focus(); // Restore focus
+        if (!isTooltip) {
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+      }
       }
     };
 
@@ -141,23 +168,40 @@ export const Popover = ({
 
   return (
     <>
-      <div
+      {isValidElement(children) && (children.type === 'button' || (children.props as any).role === 'button') ? (
+        <div
+            ref={externalTriggerRef ? undefined : (localTriggerRef as unknown as RefObject<HTMLDivElement>)}
+            className="inline-flex cursor-pointer text-left"
+            onClick={(e) => {
+                onOpenChange(!isOpen);
+            }}
+            aria-haspopup={isTooltip ? "true" : "dialog"}
+            aria-expanded={isOpen}
+            aria-controls={isOpen ? popoverId : undefined}
+        >
+            {children}
+        </div>
+      ) : (
+      <button
+        type="button"
         ref={externalTriggerRef ? undefined : localTriggerRef}
-        className="inline-flex cursor-pointer"
+        className="inline-flex cursor-pointer text-left"
         onClick={() => onOpenChange(!isOpen)}
-        aria-haspopup="dialog"
+        aria-haspopup={isTooltip ? "true" : "dialog"}
         aria-expanded={isOpen}
         aria-controls={isOpen ? popoverId : undefined}
       >
         {children}
-      </div>
+      </button>
+      )}
 
       {isRendered &&
         createPortal(
           <div
             id={popoverId}
             ref={popoverRef}
-            role="dialog"
+            role={isTooltip ? "tooltip" : "dialog"}
+            tabIndex={-1}
             className={`fixed z-[9999] bg-white dark:bg-void-800 border border-black/[0.08] dark:border-white/[0.08] shadow-[0_16px_36px_rgba(15,23,42,0.14)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.4)] rounded-2xl p-4 ${className}`}
             style={{ top: coords.top, left: coords.left }}
           >

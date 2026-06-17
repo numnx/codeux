@@ -299,3 +299,96 @@ describe("DashboardRealtimeService observability", () => {
     expect(getOverviewTelemetrySnapshot).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("DashboardRealtimeService extracted publisher helper", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("skips duplicate snapshot payloads natively via helper cache checks", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    // We return the same payload shape on two back-to-back loader calls.
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockResolvedValue({
+        selectedSprintId: "sprint-1",
+        updatedAt: new Date().toISOString(), // This is ignored by getFingerprint
+        dummyValue: "bar",
+      }),
+      getProjectExecutionSnapshot: vi.fn().mockResolvedValue({
+        projectId: "proj-1",
+        updatedAt: new Date().toISOString(), // This is ignored by getFingerprint
+        dummyValue: "foo",
+      }),
+    } as any);
+
+    service.scheduleProjectExecutionRefresh("proj-1", { includeOverview: false });
+    await vi.advanceTimersByTimeAsync(100);
+
+    // The first execution refresh queues an execution_refresh event in the debouncer,
+    // plus a project.execution.updated AND a project.live.updated.
+    expect(eventRepoMock.appendEvent).toHaveBeenCalledTimes(3);
+
+    // Trigger second publish attempt
+    service.scheduleProjectExecutionRefresh("proj-1", { includeOverview: false });
+
+    // Advance well past the throttle window (PROJECT_LIVE_MIN_INTERVAL_MS is 5s); the async variant
+    // also flushes the loader microtasks so the re-attempted publish actually runs.
+    await vi.advanceTimersByTimeAsync(6000);
+
+    // We should get another execution_refresh event (since it doesn't skip dupes)
+    // but NO new project.execution.updated or project.live.updated events.
+    expect(eventRepoMock.appendEvent).toHaveBeenCalledTimes(4);
+
+
+    expect(loggerMock.debug).toHaveBeenCalledWith(
+      "skipping_duplicate_realtime_snapshot",
+      expect.objectContaining({ type: "project.live.updated" })
+    );
+  });
+
+  it("expediteProjectLiveRefresh bypasses the live throttle for an immediate publish", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    // Distinct payload each call so the duplicate-skip never suppresses a publish.
+    let counter = 0;
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockImplementation(async () => ({
+        selectedSprintId: `sprint-${counter++}`,
+      })),
+    } as any);
+
+    const livePublishes = () =>
+      eventRepoMock.appendEvent.mock.calls.filter((c) => c[0].eventType === "project.live.updated").length;
+
+    // First publish establishes the throttle watermark.
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(livePublishes()).toBe(1);
+
+    // A normal refresh within the 5s window is throttled — no new publish.
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(livePublishes()).toBe(1);
+
+    // Expedite bypasses the throttle and publishes on the next flush.
+    service.expediteProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(livePublishes()).toBe(2);
+  });
+});

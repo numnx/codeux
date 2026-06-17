@@ -1,17 +1,19 @@
 import { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
 import { useState } from "preact/hooks";
-import { activeMemoryIdSignal, lobotomizeModeSignal, memoriesSignal } from "./memoryState.js";
+import { activeMemoryIdSignal, lobotomizeModeSignal, memoriesSignal, memoryMutationsSignal } from "./memoryState.js";
 import { useComputed } from "@preact/signals";
 import { X } from "lucide-preact";
 import { deleteMemory } from "../../lib/memory-api.js";
+import { useConfirmDialog } from "../../hooks/use-confirm-dialog.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
 
 interface MemoryCardProps {
     id: string;
     content: string;
     category: string;
     strength: number;
-        onClick: () => void;
+    onClick: () => void;
 }
 
 const CAT: Record<string, { label: string; hex: string }> = {
@@ -32,22 +34,24 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
     strength,
     onClick,
 }) => {
-    const [deleted, setDeleted] = useState(false);
     const cat = CAT[category] || CAT.context;
     const isSelected = useComputed(() => activeMemoryIdSignal.value === id);
+    const { isOpen: isConfirmOpen, options: confirmOptions, requestConfirm, handleConfirm, handleCancel, triggerRef } = useConfirmDialog();
 
     const handleDelete = async (e: Event) => {
         e.stopPropagation();
-        setDeleted(true);
-        memoriesSignal.value = memoriesSignal.value.filter((m) => m.id !== id);
-        try {
-            await deleteMemory(id);
-        } catch {
-            // Silently fail as per requirements
+        const confirmed = await requestConfirm({
+            title: "Delete Memory",
+            body: `Are you sure you want to delete this memory from ${cat.label}?`,
+            confirmLabel: "Delete Memory",
+            cancelLabel: "Cancel",
+            destructive: true
+        });
+
+        if (confirmed) {
+            memoryMutationsSignal.value.removeMemory(id);
         }
     };
-
-    if (deleted) return null;
 
     return (
         <div
@@ -82,6 +86,14 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
             <p className="text-[13px] text-slate-700 dark:text-slate-300 font-medium leading-relaxed line-clamp-3">
                 {content}
             </p>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                options={confirmOptions}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+                triggerRef={triggerRef}
+            />
         </div>
     );
 }, (prevProps, nextProps) => {

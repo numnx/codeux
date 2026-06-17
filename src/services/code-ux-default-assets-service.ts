@@ -12,6 +12,7 @@ const DEFAULT_AGENT_FILES = [
 ] as const;
 
 const DEFAULT_CONTAINER_SETUP_FILE = "setup.sh";
+const DEFAULT_QUICKSPRINT_TEMPLATE_DIR = path.join("quicksprints", "templates");
 
 interface EnsureDefaultCodeUxAssetsOptions {
   projectRoot?: string;
@@ -33,6 +34,26 @@ export async function ensureDefaultCodeUxAssetsInstalled(
   options: EnsureDefaultCodeUxAssetsOptions = {},
 ): Promise<EnsureDefaultCodeUxAssetsResult> {
   return await installDefaultCodeUxAssets(options);
+}
+
+export async function readDefaultContainerSetupScript(
+  options: Pick<EnsureDefaultCodeUxAssetsOptions, "projectRoot" | "logger"> = {},
+): Promise<string | null> {
+  const sourceDir = await resolveBundledCodeUxDir(options.projectRoot);
+  if (!sourceDir) {
+    options.logger?.warn("Code UX default container setup script was not found.");
+    return null;
+  }
+
+  try {
+    return await fs.readFile(path.join(sourceDir, "container", DEFAULT_CONTAINER_SETUP_FILE), "utf8");
+  } catch (error) {
+    options.logger?.warn("Failed to read Code UX default container setup script.", {
+      sourceDir,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 async function installDefaultCodeUxAssets(
@@ -67,6 +88,19 @@ async function installDefaultCodeUxAssets(
   );
   if (setupAsset) installed.push(setupAsset);
 
+  const quicksprintTemplateDir = path.join(sourceDir, DEFAULT_QUICKSPRINT_TEMPLATE_DIR);
+  const quicksprintTemplateFiles = await fs.readdir(quicksprintTemplateDir).catch(() => []);
+  for (const fileName of quicksprintTemplateFiles) {
+    if (!isQuicksprintTemplateFile(fileName)) {
+      continue;
+    }
+    const asset = await copyIfMissing(
+      path.join(quicksprintTemplateDir, fileName),
+      getHomeCodeUxPath("quicksprints", "templates", fileName),
+    );
+    if (asset) installed.push(asset);
+  }
+
   if (installed.length > 0) {
     options.logger?.info("Seeded missing Code UX default assets into the user directory.", {
       sourceDir,
@@ -100,6 +134,7 @@ async function hasRequiredDefaultAssets(candidate: string): Promise<boolean> {
   const requiredPaths = [
     ...DEFAULT_AGENT_FILES.map((fileName) => path.join(candidate, "agents", fileName)),
     path.join(candidate, "container", DEFAULT_CONTAINER_SETUP_FILE),
+    path.join(candidate, DEFAULT_QUICKSPRINT_TEMPLATE_DIR),
   ];
 
   for (const requiredPath of requiredPaths) {
@@ -131,6 +166,10 @@ async function copyIfMissing(
     await fs.chmod(targetPath, mode);
   }
   return { sourcePath, targetPath };
+}
+
+function isQuicksprintTemplateFile(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith(".md");
 }
 
 async function copyOrUpdateSetupScript(

@@ -22,11 +22,14 @@ import { DockerRunner } from "../infrastructure/providers/cli/docker-runner.js";
 import { resolveProviderForInvocation } from "./provider-routing.js";
 import { DEFAULT_CLI_WORKFLOW_SETTINGS } from "./cli-workflow-utils.js";
 import { extractJsonFromText } from "../domain/llm/json-extraction.js";
+import { BUILTIN_QUICKSPRINT_TEMPLATES } from "../domain/quicksprint/quicksprint-catalog.js";
 import {
   buildDefaultProjectSetupAgentInstructions,
   buildProjectSetupPrompt,
 } from "./project-setup-prompt-builder.js";
+import { readDefaultContainerSetupScript } from "./code-ux-default-assets-service.js";
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
+import type { QuicksprintTemplateRecord } from "../contracts/quicksprint-types.js";
 import type { DashboardRealtimeMutationNotifier } from "./dashboard-realtime-service.js";
 
 export const PROJECT_SETUP_AGENT_NAME = "Project Setup Agent";
@@ -48,6 +51,7 @@ interface ProjectSetupServiceDeps {
   providerConcurrencyService?: ProviderConcurrencyService;
   realtimeNotifier?: DashboardRealtimeMutationNotifier;
   logger?: Logger;
+  projectRoot?: string;
   getGithubToken?: () => string | undefined;
 }
 
@@ -57,6 +61,9 @@ interface PreparedProjectSetupRun {
   project: ProjectSummary;
   options: ProjectSetupOptions;
   setupAgent: AgentPresetRecord;
+  baseAgentTemplates: AgentPresetRecord[];
+  baseQuicksprintTemplates: QuicksprintTemplateRecord[];
+  containerSetupScriptTemplate: string | null;
   settings: DashboardSettings;
   providerConfig: ProjectSetupProviderConfig;
   prompt: string;
@@ -129,6 +136,14 @@ export class ProjectSetupService {
 
     const options = this.normalizeOptions(input?.options);
     const setupAgent = await this.ensureProjectSetupAgent(projectId);
+    const baseAgentTemplates = options.agents ? await this.resolveBaseAgentTemplates(projectId, setupAgent) : [];
+    const baseQuicksprintTemplates = options.quicksprints ? await this.resolveBaseQuicksprintTemplates(projectId) : [];
+    const containerSetupScriptTemplate = options.previewScript
+      ? await readDefaultContainerSetupScript({
+        projectRoot: this.deps.projectRoot,
+        logger: this.deps.logger,
+      })
+      : null;
     const settings = this.deps.settingsRepository.resolveProjectDashboardSettings(projectId).settings;
     const providerConfig = this.resolveProvider(settings, setupAgent);
 
@@ -143,7 +158,14 @@ export class ProjectSetupService {
       systemPrompt: null,
     });
 
-    const prompt = buildProjectSetupPrompt({ project, setupAgent, options });
+    const prompt = buildProjectSetupPrompt({
+      project,
+      setupAgent,
+      baseAgentTemplates,
+      baseQuicksprintTemplates,
+      containerSetupScriptTemplate,
+      options,
+    });
     if (invocation) {
       this.deps.executionRepository?.appendExecutionInvocationMessage(invocation.id, {
         role: "user",
@@ -155,11 +177,43 @@ export class ProjectSetupService {
       project,
       options,
       setupAgent,
+      baseAgentTemplates,
+      baseQuicksprintTemplates,
+      containerSetupScriptTemplate,
       settings,
       providerConfig,
       prompt,
       invocationId: invocation?.id || "",
     };
+  }
+
+  private async resolveBaseAgentTemplates(projectId: string, setupAgent: AgentPresetRecord): Promise<AgentPresetRecord[]> {
+    const attempts = await Promise.all([
+      this.deps.agentPresetSyncService.getWorkerAgent(projectId).catch(() => null),
+      this.deps.agentPresetSyncService.getPlanningAgent(projectId).catch(() => null),
+      this.deps.agentPresetSyncService.getProjectManagerAgent(projectId).catch(() => null),
+      this.deps.agentPresetSyncService.getQualityAssuranceAgent(projectId).catch(() => null),
+    ]);
+    const templates = [setupAgent, ...attempts].filter((preset): preset is AgentPresetRecord => Boolean(preset));
+    const byId = new Map<string, AgentPresetRecord>();
+    for (const template of templates) {
+      byId.set(template.id, template);
+    }
+    return Array.from(byId.values());
+  }
+
+  private async resolveBaseQuicksprintTemplates(projectId: string): Promise<QuicksprintTemplateRecord[]> {
+    if (this.deps.quicksprintService) {
+      try {
+        return await this.deps.quicksprintService.listTemplates(projectId);
+      } catch (error) {
+        this.deps.logger?.warn("Failed to resolve file-backed quicksprint templates for setup prompt; using fallback catalog.", {
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return BUILTIN_QUICKSPRINT_TEMPLATES;
   }
 
   private async executePreparedSetupRun(

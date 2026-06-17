@@ -932,8 +932,8 @@ export class ExecutionRepository {
           id, project_id, sprint_id, task_id, sprint_run_id, dispatch_id, task_run_id, attention_item_id,
           session_id, provider, purpose, status, model, execution_mode, native_session_id, started_at, finished_at, duration_ms,
           prompt_chars, transcript_chars, input_tokens, cached_input_tokens, output_tokens, reasoning_output_tokens,
-          total_tokens, jules_tokens, usage_source, invocation_source, raw_usage_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          total_tokens, tool_call_count, jules_tokens, usage_source, invocation_source, raw_usage_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         input.projectId,
@@ -954,6 +954,7 @@ export class ExecutionRepository {
         null,
         null,
         input.promptChars ?? 0,
+        0,
         0,
         0,
         0,
@@ -988,6 +989,8 @@ export class ExecutionRepository {
     }
 
     return this.db.transaction(() => {
+      // Use queryRunningProviderInvocationUsages logic but inside the transaction for atomicity.
+      // We count rows where status is 'running' for this specific provider.
       const runningRow = this.db.prepare(`
         SELECT COUNT(*) as count
         FROM provider_invocations
@@ -1002,6 +1005,25 @@ export class ExecutionRepository {
     });
   }
 
+  /**
+   * Re-keys a provider invocation onto its real provider session id once it is known.
+   * Used by the Jules dispatch path, which claims a concurrency slot (with a placeholder
+   * session id) before calling the Jules API, then associates the returned session id so
+   * the session-sync lifecycle can release the slot when the session reaches a terminal state.
+   */
+  associateProviderInvocationSession(invocationId: string, sessionId: string, nativeSessionId?: string | null): void {
+    const trimmed = sessionId.trim();
+    if (!trimmed) {
+      return;
+    }
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE provider_invocations
+      SET session_id = ?, native_session_id = ?, updated_at = ?
+      WHERE id = ?
+    `).run(trimmed, nativeSessionId ?? trimmed, now, invocationId);
+  }
+
   updateProviderInvocationUsage(invocationId: string, input: UpdateProviderInvocationUsageInput): ProviderInvocationUsageRecord {
     try {
       const current = requireProviderInvocationUsage((id) => this.getProviderInvocationUsage(id), invocationId);
@@ -1010,7 +1032,7 @@ export class ExecutionRepository {
         UPDATE provider_invocations
         SET status = ?, model = ?, execution_mode = ?, native_session_id = ?, finished_at = ?, duration_ms = ?, transcript_chars = ?,
           input_tokens = ?, cached_input_tokens = ?, output_tokens = ?, reasoning_output_tokens = ?, total_tokens = ?,
-          jules_tokens = ?, usage_source = ?, invocation_source = ?, raw_usage_json = ?, updated_at = ?
+          tool_call_count = ?, jules_tokens = ?, usage_source = ?, invocation_source = ?, raw_usage_json = ?, updated_at = ?
         WHERE id = ?
       `).run(
         input.status || current.status,
@@ -1025,6 +1047,7 @@ export class ExecutionRepository {
         input.outputTokens === undefined ? current.outputTokens : input.outputTokens,
         input.reasoningOutputTokens === undefined ? current.reasoningOutputTokens : input.reasoningOutputTokens,
         input.totalTokens === undefined ? current.totalTokens : input.totalTokens,
+        input.toolCallCount === undefined ? current.toolCallCount : input.toolCallCount,
         input.julesTokens === undefined ? current.julesTokens : input.julesTokens,
         input.usageSource === undefined ? current.usageSource : input.usageSource,
         input.invocationSource === undefined ? current.invocationSource : input.invocationSource,
@@ -1262,6 +1285,52 @@ export class ExecutionRepository {
       return new Map();
     }
 
+    const syntheticBlockedStatusSyncPredicate = `
+        state = 'BLOCKED'
+        AND mode = 'legacy-orchestrator'
+        AND dispatch_id IS NULL
+        AND connection_id IS NULL
+        AND provider IS NULL
+        AND session_id IS NULL
+        AND session_name IS NULL
+        AND worker_branch IS NULL
+        AND pr_url IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM task_run_events status_sync_events
+          WHERE status_sync_events.task_run_id = task_runs.id
+            AND status_sync_events.event_type = 'status_sync'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM task_run_events non_status_sync_events
+          WHERE non_status_sync_events.task_run_id = task_runs.id
+            AND non_status_sync_events.event_type != 'status_sync'
+        )`;
+
+    if (sprintRunId) {
+      const rows = this.storage.executeChunkedInQuery<TaskRunRow>({
+        sqlPrefix: `SELECT *
+        FROM task_runs
+        WHERE task_id`,
+        sqlSuffix: `AND (sprint_run_id = ? OR sprint_run_id IS NULL)
+        AND NOT (${syntheticBlockedStatusSyncPredicate})
+        ORDER BY task_id ASC,
+          CASE WHEN sprint_run_id = ? THEN 0 ELSE 1 END ASC,
+          rowid DESC`,
+        items: uniqueTaskIds,
+        bindParamsAfter: [sprintRunId, sprintRunId],
+      });
+
+      const map = new Map<string, TaskRunRecord>();
+      for (const row of rows) {
+        if (!map.has(row.task_id)) {
+          map.set(row.task_id, this.mapTaskRunRow(row));
+        }
+      }
+      return map;
+    }
+
     const runClause = sprintRunId ? "AND sprint_run_id = ?" : "";
     const rows = this.storage.executeChunkedInQuery<TaskRunRow>({
       sqlPrefix: `SELECT tr.*
@@ -1270,12 +1339,13 @@ export class ExecutionRepository {
         SELECT task_id, MAX(rowid) AS latest_rowid
         FROM task_runs
         WHERE task_id`,
-      sqlSuffix: `${runClause}
+      sqlSuffix: `AND NOT (${syntheticBlockedStatusSyncPredicate})
+        ${runClause}
         GROUP BY task_id
       ) latest ON latest.latest_rowid = tr.rowid
       ORDER BY tr.rowid DESC`,
       items: uniqueTaskIds,
-      bindParamsAfter: sprintRunId ? [sprintRunId] : [],
+      bindParamsAfter: [],
     });
 
     const map = new Map<string, TaskRunRecord>();
@@ -1298,11 +1368,12 @@ export class ExecutionRepository {
     if (taskRun.taskId) this.taskWallTimeCache.delete(taskRun.taskId);
     if (taskRun.sprintRunId) this.sprintRunWallTimeCache.delete(taskRun.sprintRunId);
     const result = this.db.prepare(`
-      INSERT OR IGNORE INTO task_run_events (id, task_run_id, event_type, originator, payload_json, source_event_key, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO task_run_events (id, task_run_id, project_id, event_type, originator, payload_json, source_event_key, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       randomUUID(),
       taskRunId,
+      taskRun.projectId ?? null,
       eventType,
       originator,
       JSON.stringify(payload),
@@ -1616,6 +1687,7 @@ export class ExecutionRepository {
           SUM(output_tokens) as outputTokens,
           SUM(reasoning_output_tokens) as reasoningOutputTokens,
           SUM(total_tokens) as totalTokens,
+          SUM(tool_call_count) as toolCallCount,
           SUM(CASE WHEN usage_source = 'reported' THEN 1 ELSE 0 END) as reportedInvocationCount,
           SUM(CASE WHEN usage_source = 'estimated' THEN 1 ELSE 0 END) as estimatedInvocationCount,
           SUM(CASE WHEN usage_source = 'unsupported' THEN 1 ELSE 0 END) as unsupportedInvocationCount,
@@ -1638,6 +1710,7 @@ export class ExecutionRepository {
         outputTokens: toNumber(row.outputTokens),
         reasoningOutputTokens: toNumber(row.reasoningOutputTokens),
         totalTokens: toNumber(row.totalTokens),
+        toolCallCount: toNumber(row.toolCallCount),
         reportedInvocationCount: toNumber(row.reportedInvocationCount),
         estimatedInvocationCount: toNumber(row.estimatedInvocationCount),
         unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
@@ -1662,6 +1735,7 @@ export class ExecutionRepository {
           SUM(output_tokens) as outputTokens,
           SUM(reasoning_output_tokens) as reasoningOutputTokens,
           SUM(total_tokens) as totalTokens,
+          SUM(tool_call_count) as toolCallCount,
           SUM(CASE WHEN usage_source = 'reported' THEN 1 ELSE 0 END) as reportedInvocationCount,
           SUM(CASE WHEN usage_source = 'estimated' THEN 1 ELSE 0 END) as estimatedInvocationCount,
           SUM(CASE WHEN usage_source = 'unsupported' THEN 1 ELSE 0 END) as unsupportedInvocationCount,
@@ -1684,6 +1758,7 @@ export class ExecutionRepository {
         outputTokens: toNumber(row.outputTokens),
         reasoningOutputTokens: toNumber(row.reasoningOutputTokens),
         totalTokens: toNumber(row.totalTokens),
+        toolCallCount: toNumber(row.toolCallCount),
         reportedInvocationCount: toNumber(row.reportedInvocationCount),
         estimatedInvocationCount: toNumber(row.estimatedInvocationCount),
         unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),

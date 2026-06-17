@@ -52,13 +52,34 @@ const AppLayout = () => {
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [appearancePreview, setAppearancePreview] = useState<DashboardSettings["appearance"] | null>(null);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleResize = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches);
+      if (!e.matches) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    // Initial sync
+    handleResize(mediaQuery);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleResize);
+    } else {
+      mediaQuery.addListener(handleResize);
+    }
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleResize);
+      } else {
+        mediaQuery.removeListener(handleResize);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -171,9 +192,6 @@ const AppLayout = () => {
       {showSidebar && <Sidebar isMobile={isMobile} isOpen={isMobileSidebarOpen} onClose={() => setIsMobileSidebarOpen(false)} />}
 
       <div className="flex flex-col flex-1 h-full overflow-hidden relative">
-        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:font-bold focus:rounded-br-lg ">
-          Skip to main content
-        </a>
         {/*
           Keep the Suspense boundary permanently mounted and only toggle its
           child. Replacing the boundary with a plain <div> when a background
@@ -216,6 +234,7 @@ const AppLayout = () => {
             onMenuToggle={() => setIsMobileSidebarOpen(prev => !prev)}
             isMobile={isMobile}
             hideLogo={!isMobile && navMode === "SIDEBAR"}
+            isMobileMenuOpen={isMobileSidebarOpen}
           />
 
           <main id="main-content" tabIndex={-1} aria-label="Main content" className={`flex-1 overflow-y-auto dashboard-scrollbar relative ${showSidebar ? '' : 'pb-32'}`} style={{ contain: 'layout style' }}>

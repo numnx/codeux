@@ -20,6 +20,7 @@ import type { ProjectAttentionOwnerType } from "../../../contracts/project-atten
 import type { ProjectAttentionItemRecord } from "../../../contracts/project-attention-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
+import type { TaskQaMergeGateStatus } from "../../../services/quality-assurance-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import { resolveCiEscalationOwner } from "../ci/feature-pr/ci-autofix-policy.js";
@@ -143,7 +144,6 @@ export class CycleRunner {
         githubMode: args.githubMode,
       });
       await this.captureTaskCompletionMemories(subtasks, cycleEntryStates, args, dashboardSettings);
-      await this.reviewCompletedTasks(subtasks, cycleEntryStates, args, dashboardSettings);
     }
 
     let reportText = "";
@@ -193,9 +193,14 @@ export class CycleRunner {
             featureBranch: args.defaultFeatureBranch,
             defaultBranch: args.defaultBranch,
             featureBranchPrefix: args.featureBranchPrefix,
+            taskPrUrls: collectTaskPrUrls(subtasks),
             cacheTtlMs: resolveCiStatusCacheTtlMs(args.loopSteps.watchLoopIntervalSeconds),
           })
         : null;
+      this.backfillTaskPrMetadataFromGitStatus(subtasks, gitStatus, args.sprintRunId);
+      if (args.loopSteps.statusDerivation) {
+        await this.reviewCompletedTasks(subtasks, cycleEntryStates, args, dashboardSettings);
+      }
 
       const ciAutofixResult = await this.featurePrGate.evaluateCiGate(subtasks, {
         evaluateTaskQaGate: (() => {
@@ -537,6 +542,72 @@ export class CycleRunner {
     }
   }
 
+  /**
+   * Park a code-complete task that QA could never clear into QA_REVIEW_FAILED
+   * and raise a human-escalation attention item. This is the fail-closed end of
+   * the QA gate: rather than letting an exhausted/unverified task settle as
+   * COMPLETED (which silently shipped tasks with no PR), we hold it for a human.
+   * Idempotent — the status flip and the deduped attention item make repeat
+   * cycles no-ops once the task is already escalated.
+   */
+  private escalateUnverifiedTaskToHuman(
+    task: Subtask,
+    qaGate: TaskQaMergeGateStatus,
+    args: CycleRunnerArgs,
+  ): void {
+    const taskId = task.record_id?.trim();
+    const hint = "QA could not verify this task and the review budget is exhausted. Inspect the produced work and finish or close the task manually.";
+
+    task.status = "QA_REVIEW_FAILED";
+    task.merge_indicator = undefined;
+    task.intervention_owner = "HUMAN";
+    task.intervention_hint = hint;
+
+    if (!taskId) {
+      return;
+    }
+
+    this.deps.projectManagementRepository.updateTask(taskId, {
+      status: "QA_REVIEW_FAILED",
+      mergeIndicator: null,
+    });
+
+    this.deps.projectAttentionService?.openItems?.([
+      {
+        projectId: args.executionContext.project.id,
+        sprintId: args.executionContext.sprint.id,
+        taskId,
+        sprintRunId: args.sprintRunId,
+        attentionType: "human_escalation_required",
+        severity: "high",
+        ownerType: "human" as ProjectAttentionOwnerType,
+        title: `QA could not verify ${task.id}`,
+        summaryMarkdown: [
+          `Task \`${task.id}\` (${task.title ?? "untitled"}) finished coding but QA never cleared it.`,
+          qaGate.summary ? `\nLatest QA signal: ${qaGate.summary}` : "",
+          `\nReviews used: ${qaGate.runsUsed}/${qaGate.maxRuns}. The task is held in QA_REVIEW_FAILED and will not be merged or marked complete until a human resolves it.`,
+        ].filter(Boolean).join("\n"),
+        payload: {
+          taskKey: task.id,
+          qaReason: qaGate.reason,
+          runsUsed: qaGate.runsUsed,
+          maxRuns: qaGate.maxRuns,
+        },
+      },
+    ]);
+
+    this.deps.logger.warn("QA exhausted without clearing task — escalated to human", {
+      projectId: args.executionContext.project.id,
+      sprintId: args.executionContext.sprint.id,
+      sprintRunId: args.sprintRunId,
+      taskId,
+      taskKey: task.id,
+      qaReason: qaGate.reason,
+      runsUsed: qaGate.runsUsed,
+      maxRuns: qaGate.maxRuns,
+    });
+  }
+
   private async reviewCompletedTasks(
     subtasks: Subtask[],
     previousStates: Map<string, Subtask["status"]>,
@@ -546,6 +617,12 @@ export class CycleRunner {
     if (!this.deps.qualityAssuranceService || !settings.agents.qualityAssurance.enabled) {
       return;
     }
+
+    await this.deps.qualityAssuranceService.reconcileRunningTaskQaReviews?.({
+      projectId: args.executionContext.project.id,
+      sprintId: args.executionContext.sprint.id,
+      tasks: subtasks,
+    });
 
     const limit = pLimit(5);
     const reviewPromises: Promise<void>[] = [];
@@ -558,12 +635,26 @@ export class CycleRunner {
         task,
       });
       const taskIsCodeComplete = isTaskCodeComplete(task);
+
+      // Fail closed: QA spent its budget without ever clearing this task (no
+      // pass — either changes still outstanding at the cap or the reviewer kept
+      // failing for infra reasons). Never let it quietly settle as completed:
+      // hold it in QA_REVIEW_FAILED and raise a human-escalation attention item.
+      if (taskIsCodeComplete && qaGate.reason === "retries_exhausted" && task.status !== "QA_REVIEW_FAILED") {
+        this.escalateUnverifiedTaskToHuman(task, qaGate, args);
+        continue;
+      }
+
       const newlyCodeComplete = taskIsCodeComplete && !isTaskCodeComplete({ status: prev });
       const shouldRunQaReview = taskIsCodeComplete
         && (
           qaGate.reason === "pending_review"
           || qaGate.reason === "review_failed"
-          || (qaGate.reason === "changes_requested" && newlyCodeComplete)
+          || (qaGate.reason === "changes_requested" && (
+            newlyCodeComplete
+            || this.hasCompletedTaskRunAfterLatestQaRequest(task, qaGate, args.sprintRunId)
+            || this.hasCompletedTaskFollowUpAfterLatestQaRequest(task, qaGate, args.sprintRunId)
+          ))
         );
 
       if (!shouldRunQaReview) {
@@ -618,4 +709,125 @@ export class CycleRunner {
     }
   }
 
+  private backfillTaskPrMetadataFromGitStatus(
+    subtasks: Subtask[],
+    gitStatus: GitTrackingStatus | null,
+    sprintRunId?: string,
+  ): void {
+    if (!gitStatus?.available) {
+      return;
+    }
+
+    for (const task of subtasks) {
+      const pr = matchPrForTask(task, gitStatus);
+      if (!pr) {
+        continue;
+      }
+
+      const nextWorkerBranch = pr.headRefName?.trim() || task.worker_branch;
+      const nextPrUrl = pr.url?.trim() || task.pr_url;
+      const workerBranchChanged = Boolean(nextWorkerBranch && nextWorkerBranch !== task.worker_branch);
+      const prUrlChanged = Boolean(nextPrUrl && nextPrUrl !== task.pr_url);
+      if (!workerBranchChanged && !prUrlChanged) {
+        continue;
+      }
+
+      if (nextWorkerBranch) {
+        task.worker_branch = nextWorkerBranch;
+      }
+      if (nextPrUrl) {
+        task.pr_url = nextPrUrl;
+      }
+
+      if (!task.record_id || !sprintRunId) {
+        continue;
+      }
+      const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId)
+        || (task.session_id ? this.deps.executionRepository.getLatestTaskRunBySessionId(task.session_id) : null);
+      if (!taskRun) {
+        continue;
+      }
+      this.deps.executionRepository.updateTaskRun(taskRun.id, {
+        workerBranch: nextWorkerBranch || taskRun.workerBranch,
+        prUrl: nextPrUrl || taskRun.prUrl,
+      });
+    }
+  }
+
+  private hasCompletedTaskRunAfterLatestQaRequest(
+    task: Subtask,
+    qaGate: TaskQaMergeGateStatus,
+    sprintRunId?: string,
+  ): boolean {
+    if (qaGate.reason !== "changes_requested" || !qaGate.latestRun?.finishedAt || !task.record_id) {
+      return false;
+    }
+
+    const latestRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId)
+      || (task.session_id ? this.deps.executionRepository.getLatestTaskRunBySessionId(task.session_id) : null);
+    if (latestRun?.state !== "COMPLETED" || !latestRun.finishedAt) {
+      return false;
+    }
+
+    const taskFinishedAt = Date.parse(latestRun.finishedAt);
+    const qaFinishedAt = Date.parse(qaGate.latestRun.finishedAt);
+    return Number.isFinite(taskFinishedAt)
+      && Number.isFinite(qaFinishedAt)
+      && taskFinishedAt > qaFinishedAt;
+  }
+
+  private hasCompletedTaskFollowUpAfterLatestQaRequest(
+    task: Subtask,
+    qaGate: TaskQaMergeGateStatus,
+    sprintRunId?: string,
+  ): boolean {
+    if (qaGate.reason !== "changes_requested" || !qaGate.latestRun?.finishedAt || !task.record_id) {
+      return false;
+    }
+
+    const executionRepository = this.deps.executionRepository as Partial<SprintOrchestratorDependencies["executionRepository"]>;
+    if (typeof executionRepository.listExecutionInvocations !== "function") {
+      return false;
+    }
+
+    const taskRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId)
+      || (task.session_id ? this.deps.executionRepository.getLatestTaskRunBySessionId(task.session_id) : null);
+    const invocations = taskRun
+      ? executionRepository.listExecutionInvocations({
+          projectId: task.project_id || qaGate.latestRun.projectId,
+          taskRunId: taskRun.id,
+          limit: 20,
+        })
+      : [];
+
+    const qaFinishedAt = Date.parse(qaGate.latestRun.finishedAt);
+    if (!Number.isFinite(qaFinishedAt)) {
+      return false;
+    }
+    const qaContinuedTask = qaGate.latestRun.payload?.continued === true;
+    const qaStartedAt = Date.parse(qaGate.latestRun.startedAt);
+
+    return invocations.some((invocation) => {
+      if (invocation.type !== "cli_task_followup" || invocation.status !== "completed" || !invocation.finishedAt) {
+        return false;
+      }
+      const followUpFinishedAt = Date.parse(invocation.finishedAt);
+      if (!Number.isFinite(followUpFinishedAt)) {
+        return false;
+      }
+      if (qaContinuedTask && Number.isFinite(qaStartedAt)) {
+        return followUpFinishedAt >= qaStartedAt;
+      }
+      return followUpFinishedAt > qaFinishedAt;
+    });
+  }
+
+}
+
+function collectTaskPrUrls(subtasks: Subtask[]): string[] {
+  return Array.from(new Set(
+    subtasks
+      .map((task) => task.pr_url?.trim())
+      .filter((url): url is string => Boolean(url))
+  ));
 }

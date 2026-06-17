@@ -1,8 +1,10 @@
-import { h, ComponentChildren, RefObject } from "preact";
+import { h, ComponentChildren, RefObject, isValidElement } from "preact";
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { calculatePosition, Position, Alignment } from "../../lib/positioning/index.js";
+import { MOTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface MenuProps {
   children: ComponentChildren;
@@ -27,10 +29,12 @@ export const Menu = ({
   onOpenChange,
   triggerRef: externalTriggerRef,
 }: MenuProps) => {
+  const isReducedMotion = useReducedMotion();
   const [isRendered, setIsRendered] = useState(false);
   const localTriggerRef = useRef<HTMLDivElement>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
   const menuRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   // Generate a unique ID for ARIA wiring if none exists
@@ -53,6 +57,19 @@ export const Menu = ({
   useEffect(() => {
     if (isOpen) {
       setIsRendered(true);
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      setTimeout(() => {
+        const first = menuRef.current?.querySelector('[role="menuitem"]:not([aria-disabled="true"])') as HTMLElement | null;
+        first?.focus();
+      }, 0);
+    } else if (isRendered) { // Only restore if it was previously open
+      // Restore focus on close
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+        previousFocusRef.current = null;
+      } else if (triggerRef.current) {
+        triggerRef.current.focus();
+      }
     }
   }, [isOpen]);
 
@@ -83,26 +100,27 @@ export const Menu = ({
         {
           opacity: 0,
           scale: 0.95,
-          y: position === "bottom" ? -10 : position === "top" ? 10 : 0,
+          y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
         },
         {
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: 0.3,
-          ease: "back.out(1.7)",
+          duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+          ease: MOTION_TOKENS.easing.standard,
         }
       );
     } else if (isRendered) {
       gsap.to(menuRef.current, {
         opacity: 0,
         scale: 0.95,
-        duration: 0.15,
-        ease: "power2.in",
+        y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
+        duration: isReducedMotion ? 0 : parseFloat(MOTION_TOKENS.timing.fast) / 1000,
+        ease: MOTION_TOKENS.easing.standard,
         onComplete: () => setIsRendered(false),
       });
     }
-  }, [isOpen, isRendered, position]);
+  }, [isOpen, isRendered, position, isReducedMotion]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -118,9 +136,48 @@ export const Menu = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (!isOpen) return;
+
+      if (e.key === "Escape") {
         onOpenChange(false);
-        triggerRef.current?.focus(); // Restore focus
+        if (previousFocusRef.current) {
+          previousFocusRef.current.focus();
+          previousFocusRef.current = null;
+        } else if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+        return;
+      }
+
+      if (!menuRef.current) return;
+
+      const items = Array.from(menuRef.current.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"]), button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
+      if (items.length === 0) return;
+
+      const currentIndex = items.findIndex((item) => item === document.activeElement);
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        items[(currentIndex + 1) % items.length]?.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const nextIndex = currentIndex === -1 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+        items[nextIndex]?.focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        items[0]?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (document.activeElement && items.includes(document.activeElement as HTMLElement)) {
+          // Check if the element handles Enter/Space itself, otherwise we click it.
+          // Native buttons and links handle Enter/Space natively on focus, but we'll manually dispatch a click if it's a generic menuitem
+          if (document.activeElement.getAttribute('role') === 'menuitem') {
+            e.preventDefault();
+            (document.activeElement as HTMLElement).click();
+          }
+        }
       }
     };
 
@@ -137,16 +194,30 @@ export const Menu = ({
 
   return (
     <>
-      <div
-        ref={externalTriggerRef ? undefined : localTriggerRef}
-        className="inline-flex cursor-pointer"
-        onClick={() => onOpenChange(!isOpen)}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        aria-controls={isOpen ? menuId : undefined}
-      >
-        {children}
-      </div>
+      {isValidElement(children) && (children.type === 'button' || (children.props as any).role === 'button') ? (
+        <div
+          ref={externalTriggerRef ? undefined : (localTriggerRef as unknown as RefObject<HTMLDivElement>)}
+          className="inline-flex cursor-pointer"
+          onClick={() => onOpenChange(!isOpen)}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? menuId : undefined}
+        >
+          {children}
+        </div>
+      ) : (
+        <button
+          type="button"
+          ref={externalTriggerRef ? undefined : (localTriggerRef as unknown as RefObject<HTMLButtonElement>)}
+          className="inline-flex cursor-pointer text-left"
+          onClick={() => onOpenChange(!isOpen)}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? menuId : undefined}
+        >
+          {children}
+        </button>
+      )}
 
       {isRendered &&
         createPortal(

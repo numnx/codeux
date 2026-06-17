@@ -55,11 +55,11 @@ export const SystemFilterBar: FunctionComponent<SystemFilterBarProps> = ({
   totalCount,
   filteredCount,
 }) => {
-  const hasActiveFilters = filters.status.length > 0 || filters.purpose.length > 0 || filters.provider.length > 0 || search !== "";
+  const hasActiveFilters = filters.status.length > 0 || filters.purpose.length > 0 || filters.provider.length > 0 || (filters.errorCategories && filters.errorCategories.length > 0) || search !== "";
 
   return (
     <div className={`${SUBPANEL_CLASS} flex flex-wrap items-center gap-3 p-4`}>
-      <div className="relative min-w-0 flex-1 basis-[18rem]">
+      <div className="relative min-w-0 w-full lg:flex-1 lg:basis-[18rem]">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" strokeWidth={2} />
         <input
           type="search"
@@ -145,18 +145,37 @@ export const SystemFilterBar: FunctionComponent<SystemFilterBarProps> = ({
         </div>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className={`inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 ${CHIP_CLASS}`}>
+          Error Category
+        </div>
+        {["timeout", "rateLimit", "apiError", "modelError", "cancelled"].map((errorCat) => {
+          const active = filters.errorCategories?.includes(errorCat) ?? false;
+          return (
+            <button
+              key={errorCat}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onFiltersChange({ ...filters, errorCategories: toggleValue(filters.errorCategories || [], errorCat) })}
+              className={buildChipClass(active, "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300")}
+            >
+              {formatChipLabel(errorCat)}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex w-full items-center justify-between gap-2 lg:ml-auto lg:w-auto lg:justify-end">
         {hasActiveFilters ? (
           <button
             type="button"
             onClick={() => {
-              onFiltersChange({ status: [], purpose: [], provider: [] });
+              onFiltersChange({ status: [], purpose: [], provider: [], errorCategories: [] });
               onSearchChange("");
             }}
-            className={`inline-flex items-center gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white ${CHIP_CLASS}`}
+            className="text-xs text-slate-400 hover:text-slate-700"
           >
-            <X className="h-3.5 w-3.5" strokeWidth={2.4} />
-            Clear
+            Clear all
           </button>
         ) : null}
         <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">

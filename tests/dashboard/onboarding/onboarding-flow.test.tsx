@@ -17,6 +17,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 // Mock OnboardingIntro to fire callbacks immediately via microtask,
 // avoiding dependency on GSAP timers in JSDOM (which caused CI timeouts).
+vi.mock("gsap", () => ({ default: { set: vi.fn(), to: vi.fn(), fromTo: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn() })), context: (cb: any) => { cb(); return { revert: vi.fn() }; } } }));
 vi.mock("../../../dashboard/src/v2/components/onboarding/OnboardingIntro.js", () => ({
   OnboardingIntro: ({ onExitStart, onComplete }: { onExitStart?: () => void; onComplete?: () => void }) => {
     queueMicrotask(() => onExitStart?.());
@@ -103,8 +104,9 @@ describe("OnboardingExperience integration", () => {
     const systemSettings = {
       runtime: {
         dashboardPort: defaultSettings.dashboardPort,
-        enableDebugLogFile: defaultSettings.enableDebugLogFile,
         consoleLogLevel: defaultSettings.consoleLogLevel,
+        debugLogFileLevel: defaultSettings.debugLogFileLevel,
+        consoleLogMode: defaultSettings.consoleLogMode,
       },
       integrations: {
         julesApiKey: "",
@@ -167,8 +169,9 @@ describe("OnboardingExperience integration", () => {
     const systemSettings = {
       runtime: {
         dashboardPort: defaultSettings.dashboardPort,
-        enableDebugLogFile: defaultSettings.enableDebugLogFile,
         consoleLogLevel: defaultSettings.consoleLogLevel,
+        debugLogFileLevel: defaultSettings.debugLogFileLevel,
+        consoleLogMode: defaultSettings.consoleLogMode,
       },
       integrations: {
         julesApiKey: "",
@@ -209,6 +212,58 @@ describe("OnboardingExperience integration", () => {
     await waitFor(() => expect(settingsApi.fetchSystemSettings).toHaveBeenCalled());
     expect(systemSettings.defaults.automationInterventions.autoApprovePlan).toBe(true);
   });
+
+  it("mentions Knowledge Base in the introduction step", async () => {
+    const defaultSettings = cloneDefaultSettings();
+    const systemSettings = {
+      runtime: {
+        dashboardPort: defaultSettings.dashboardPort,
+        consoleLogLevel: defaultSettings.consoleLogLevel,
+        debugLogFileLevel: defaultSettings.debugLogFileLevel,
+        consoleLogMode: defaultSettings.consoleLogMode,
+      },
+      integrations: {
+        julesApiKey: "",
+        geminiApiKey: "",
+        codexApiKey: "",
+        claudeCodeApiKey: "",
+        githubToken: "",
+      },
+      defaults: defaultSettings,
+    };
+    vi.mocked(settingsApi.fetchSystemSettings).mockResolvedValue(systemSettings as any);
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.endsWith("/api/user/onboarding")) {
+        return new Response(JSON.stringify({ completed: false, onboardingCompletedAt: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/api/onboarding/readiness")) {
+        return new Response(
+          JSON.stringify({
+            checkedAt: "2026-06-01T00:00:00.000Z",
+            cluster: { status: "ready", label: "Healthy", detail: "Runtime environment is ready." },
+            dependencies: [],
+            providers: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+
+    render(<OnboardingExperience />);
+
+    // Introduction is step 2 (idx 1), navigate to it
+    const nextButton = await screen.findByRole("button", { name: "Next" });
+    await userEvent.click(nextButton);
+
+    await screen.findByText("Welcome to Code UX.");
+    expect(screen.getAllByText(/knowledge base/i).length).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe("onboarding appearance step", () => {
@@ -224,7 +279,7 @@ describe("onboarding appearance step", () => {
     } as any;
 
     const mockSystemSettings = {
-      runtime: { dashboardPort: 4444, enableDebugLogFile: false, consoleLogLevel: "standard" },
+      runtime: { dashboardPort: 4444, consoleLogLevel: "info", debugLogFileLevel: "error", consoleLogMode: "standard" },
       integrations: {
         providers: {},
         githubToken: "",

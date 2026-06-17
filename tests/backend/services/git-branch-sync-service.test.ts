@@ -9,6 +9,12 @@ describe("git branch sync service", () => {
     // Disable host CLI fallbacks so tests don't depend on a logged-in gh/glab.
     delete process.env.CODE_UX_GIT_FETCH_TIMEOUT_MS;
     setProviderTokenResolverForTests(async () => null);
+
+    for (let i = 0; i < 10; i++) {
+      delete process.env[`GIT_CONFIG_KEY_${i}`];
+      delete process.env[`GIT_CONFIG_VALUE_${i}`];
+    }
+    delete process.env.GIT_CONFIG_COUNT;
   });
   afterEach(() => {
     if (originalFetchTimeout === undefined) {
@@ -148,6 +154,50 @@ describe("git branch sync service", () => {
       timeoutMs: 120000,
     });
     expect(runner).toHaveBeenCalledWith("git", ["branch", "--track", "feature/sprint-1", "origin/feature/sprint-1"], "/repo");
+  });
+
+  it("serializes branch sync operations per repository to avoid git config lock races", async () => {
+    const calls: string[] = [];
+    const runner = vi.fn(async (_command: string, args: string[]) => {
+      calls.push(args.join(" "));
+      if (args[0] === "remote") {
+        return { stdout: "git@github.com:owner/repo.git\n", stderr: "", exitCode: 0 };
+      }
+      if (args[0] === "fetch") {
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }
+      if (args[0] === "show-ref" && String(args[3]).startsWith("refs/remotes/origin/")) {
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }
+      if (args[0] === "show-ref" && String(args[3]).startsWith("refs/heads/")) {
+        throw new Error("missing local branch");
+      }
+      if (args[0] === "branch" && args[1] === "--track") {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }
+      return { stdout: "", stderr: "", exitCode: 0 };
+    });
+
+    await Promise.all([
+      syncRemoteBranchIfAvailable("/repo", "feature/a", runner),
+      syncRemoteBranchIfAvailable("/repo", "feature/b", runner),
+    ]);
+
+    expect(calls.slice(0, 5)).toEqual([
+      "remote get-url origin",
+      "fetch origin --prune +refs/heads/feature/a:refs/remotes/origin/feature/a",
+      "show-ref --verify --quiet refs/remotes/origin/feature/a",
+      "show-ref --verify --quiet refs/heads/feature/a",
+      "branch --track feature/a origin/feature/a",
+    ]);
+    expect(calls.slice(5, 10)).toEqual([
+      "remote get-url origin",
+      "fetch origin --prune +refs/heads/feature/b:refs/remotes/origin/feature/b",
+      "show-ref --verify --quiet refs/remotes/origin/feature/b",
+      "show-ref --verify --quiet refs/heads/feature/b",
+      "branch --track feature/b origin/feature/b",
+    ]);
   });
 
   it("refreshes only the requested remote branch before branch-sensitive work", async () => {

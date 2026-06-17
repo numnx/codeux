@@ -54,6 +54,9 @@ function closeSocket(socket: Socket): void {
   }
 }
 
+const MAX_WS_BUFFER_SIZE = 1024 * 1024; // 1MB
+const MAX_WS_FRAME_SIZE = 512 * 1024; // 512KB
+
 function parseClientFrames(buffer: Buffer): {
   messages: string[];
   nextBuffer: Buffer;
@@ -72,6 +75,7 @@ function parseClientFrames(buffer: Buffer): {
     let headerLength = 2;
 
     if (!masked) {
+      closed = true;
       break;
     }
 
@@ -92,6 +96,11 @@ function parseClientFrames(buffer: Buffer): {
       }
       payloadLength = bigLength;
       headerLength = 10;
+    }
+
+    if (payloadLength > MAX_WS_FRAME_SIZE) {
+      closed = true;
+      break;
     }
 
     const totalLength = headerLength + 4 + payloadLength;
@@ -155,15 +164,25 @@ export function bootDashboardRealtimeWebSocketServer(args: {
   const clients = new Map<Socket, RealtimeClientState>();
 
   const unsubscribe = args.realtimeService.subscribe((event) => {
+    // The serialized frame is identical for every subscriber of this scope, so encode it once
+    // (lazily, only if at least one client is subscribed) and reuse the same Buffer for all of them.
+    // The live snapshot can be ~480KB; re-running JSON.stringify + frame encoding per connected tab
+    // was pure duplicated CPU/allocation that scaled with the number of open dashboards.
+    let frame: Buffer | null = null;
     for (const client of clients.values()) {
       if (!client.subscriptions.has(event.scope)) {
         continue;
       }
+      if (frame === null) {
+        frame = encodeFrame(JSON.stringify({ type: "event", event } satisfies DashboardRealtimeServerMessage));
+      }
       client.lastPushedSequence = event.sequence;
-      sendJson(client.socket, {
-        type: "event",
-        event,
-      });
+      try {
+        client.socket.write(frame);
+      } catch {
+        // A failed write means the socket is already torn down; the close/error handlers
+        // remove it from the client set, so there is nothing to do here.
+      }
     }
   });
 
@@ -208,6 +227,11 @@ export function bootDashboardRealtimeWebSocketServer(args: {
 
     let buffered: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     socket.on("data", (chunk: Buffer) => {
+      if (buffered.length + chunk.length > MAX_WS_BUFFER_SIZE) {
+        closeSocket(socket);
+        return;
+      }
+
       buffered = Buffer.concat([buffered, chunk]);
       const parsed = parseClientFrames(buffered);
       buffered = parsed.nextBuffer;

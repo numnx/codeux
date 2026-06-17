@@ -13,6 +13,7 @@ export interface GitTrackingRequest {
   featureBranch?: string | null;
   defaultBranch?: string | null;
   featureBranchPrefix?: string | null;
+  taskPrUrls?: string[];
 }
 
 export const isFailedConclusion = (value: string | null): boolean => {
@@ -70,11 +71,16 @@ export const filterOpenPrs = (prs: GitPullRequestStatus[], tracking?: GitTrackin
 
   const featureBranch = normalizeBranch(tracking.featureBranch);
   const defaultBranch = normalizeBranch(tracking.defaultBranch);
+  const taskPrUrls = new Set(
+    (tracking.taskPrUrls || [])
+      .map((url) => url.trim())
+      .filter(Boolean)
+  );
 
   switch (tracking.scope) {
     case "FEATURE_PR_CI":
       return featureBranch
-        ? prs.filter((pr) => normalizeBranch(pr.baseRefName) === featureBranch)
+        ? prs.filter((pr) => normalizeBranch(pr.baseRefName) === featureBranch || taskPrUrls.has(pr.url.trim()))
         : prs;
     case "MAIN_MERGE_PR_CI":
       if (!featureBranch || !defaultBranch) {
@@ -172,7 +178,14 @@ export const trimLogExcerpt = (logText: string): string => {
   if (normalized.length <= FAILED_JOB_LOG_MAX_CHARS) {
     return normalized;
   }
-  return `...${normalized.slice(normalized.length - FAILED_JOB_LOG_MAX_CHARS)}`;
+  const headLength = Math.ceil(FAILED_JOB_LOG_MAX_CHARS / 2);
+  const tailLength = Math.floor(FAILED_JOB_LOG_MAX_CHARS / 2);
+  const omittedChars = normalized.length - headLength - tailLength;
+  return [
+    normalized.slice(0, headLength),
+    `... [trimmed ${omittedChars} chars from middle of failed-job log] ...`,
+    normalized.slice(normalized.length - tailLength),
+  ].join("\n");
 };
 
 export const filterMergedPrs = (merged: GitMergeStatus[], tracking?: GitTrackingRequest): GitMergeStatus[] => {
