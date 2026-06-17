@@ -73,10 +73,10 @@ export function useListReorder(
                 absolute: true,
                 onEnter: (elements) => gsap.fromTo(elements,
                     { opacity: 0, y: 15 },
-                    { opacity: 1, y: 0, duration, stagger, ease }
+                    { opacity: 1, y: 0, duration, stagger, ease, overwrite: "auto" }
                 ),
                 onLeave: (elements) => gsap.to(elements,
-                    { opacity: 0, y: -15, duration, onComplete: () => elements.forEach(el => el.remove()) }
+                    { opacity: 0, y: -15, duration, onComplete: () => elements.forEach(el => el.remove()), overwrite: "auto" }
                 ),
                 onComplete: () => {
                     if (containerRef.current) containerRef.current.style.minHeight = '';
