@@ -2,6 +2,7 @@ import type { FunctionComponent } from 'preact';
 import type { JSX } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import gsap from 'gsap';
+import { useReducedMotion } from "../../../hooks/use-reduced-motion.js";
 import type {
   ProjectExecutionStatsSnapshot,
 } from '../../../types.js';
@@ -80,6 +81,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     setEnabledSeries,
   } = chartState;
 
+  const isReducedMotion = useReducedMotion();
   const buckets = stats.buckets;
 
   const dimensionsRef = useRef({ width: 1200, height: 256 });
@@ -258,6 +260,19 @@ export const InteractiveUsageChart: FunctionComponent<{
     const areas = Array.from(panelRef.current.querySelectorAll<SVGPathElement>("[data-chart-area]"));
     const pointsNodes = Array.from(panelRef.current.querySelectorAll<SVGCircleElement>("[data-chart-point]"));
     const cards = Array.from(panelRef.current.querySelectorAll<HTMLElement>("[data-chart-card]"));
+
+    if (isReducedMotion) {
+      if (areas.length > 0) {
+        gsap.set(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3") });
+      }
+      if (pointsNodes.length > 0) {
+        gsap.set(pointsNodes, { opacity: 1, scale: 1, transformOrigin: "center center" });
+      }
+      paths.forEach((path) => {
+        gsap.set(path, { strokeDasharray: "none", strokeDashoffset: 0 });
+      });
+      return;
+    }
 
     const timeline = gsap.timeline();
     if (areas.length > 0) {
