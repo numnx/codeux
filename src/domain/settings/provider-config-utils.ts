@@ -391,7 +391,7 @@ export const buildDashboardProviderSettings = (
           weight: normalizeWeight(projectProvider.weight, defaults.weight),
           thinkingMode: normalizeThinkingMode(projectProvider.thinkingMode, defaults.thinkingMode),
           maxConcurrentTasks: normalizeMaxConcurrentTasks(projectProvider.maxConcurrentTasks, defaults.maxConcurrentTasks),
-          pricing: integrationProviders[providerConfigId]?.tokenPricing || { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+          tokenPricing: integrationProviders[providerConfigId]?.tokenPricing || { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
           apiKey: integrationProviders[providerConfigId]?.apiKey
             || Object.entries(integrationProviders).find(([, integrationProvider]) => integrationProvider.provider === providerId)?.[1]?.apiKey
             || "",
