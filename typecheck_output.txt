@@ -1,0 +1,8 @@
+
+> codeux@0.7.0 typecheck:dashboard /app
+> tsc -p dashboard/tsconfig.json --noEmit --incremental --tsBuildInfoFile .cache/tsc/dashboard.tsbuildinfo
+
+dashboard/src/v2/components/agents/AgentMcpManageModal.tsx(126,133): error TS17001: JSX elements cannot have multiple attributes with the same name.
+dashboard/src/v2/components/agents/AgentMcpManageModal.tsx(135,146): error TS17001: JSX elements cannot have multiple attributes with the same name.
+dashboard/src/v2/components/agents/AgentMcpManageModal.tsx(183,133): error TS17001: JSX elements cannot have multiple attributes with the same name.
+ ELIFECYCLE  Command failed with exit code 2.
