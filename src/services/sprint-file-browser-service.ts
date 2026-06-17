@@ -62,6 +62,7 @@ interface GitRunResult {
 
 export class SprintFileBrowserService {
   private readonly lifecycle = new DockerSessionLifecycle();
+  private readonly treeCache = new Map<string, { tree: FileBrowserTree; containerId: string; lastBuildAt: string | null }>();
 
   constructor(private readonly deps: SprintFileBrowserServiceDeps) {}
 
@@ -79,6 +80,7 @@ export class SprintFileBrowserService {
 
   async startSession(projectId: string, sprintId: string, options?: { rebuild?: boolean }): Promise<FileBrowserSession> {
     return await this.lifecycle.withSessionLock(`${projectId}:${sprintId}`, async () => {
+
       const project = this.requireProject(projectId);
       const sprint = this.requireSprint(projectId, sprintId);
       const effectiveSettings = this.resolveSettings(projectId, sprintId);
@@ -94,6 +96,9 @@ export class SprintFileBrowserService {
       await this.stopOtherSessions(project.baseDir, projectId, sprintId);
 
       const existing = this.deps.sprintFileBrowserRepository.getSessionByProjectSprint(projectId, sprintId);
+      if (existing) {
+        this.treeCache.delete(existing.id);
+      }
       if (existing && !options?.rebuild) {
         const refreshedExisting = await this.refreshRuntimeState(existing);
         if (refreshedExisting.status === "running" || refreshedExisting.status === "starting") {
@@ -205,6 +210,7 @@ export class SprintFileBrowserService {
 
   async stopSession(sessionId: string): Promise<FileBrowserSession> {
     const session = await this.requireSession(sessionId);
+    this.treeCache.delete(sessionId);
     return await this.lifecycle.withSessionLock(`${session.projectId}:${session.sprintId}`, async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
       await this.lifecycle.removeContainerIfPresent(containerRef, process.cwd());
@@ -220,6 +226,7 @@ export class SprintFileBrowserService {
 
   async removeSession(sessionId: string): Promise<void> {
     const session = await this.requireSession(sessionId);
+    this.treeCache.delete(sessionId);
     await this.lifecycle.withSessionLock(`${session.projectId}:${session.sprintId}`, async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
       await this.lifecycle.removeContainerIfPresent(containerRef, process.cwd());
@@ -230,6 +237,10 @@ export class SprintFileBrowserService {
 
   async getTree(sessionId: string): Promise<FileBrowserTree> {
     const session = await this.requireRunningSession(sessionId);
+    const cached = this.treeCache.get(sessionId);
+    if (cached && cached.containerId === session.containerId && cached.lastBuildAt === session.lastBuildAt) {
+      return cached.tree;
+    }
     const script = this.buildTreeScript();
     const result = await commandRunner.run("docker", ["exec", session.containerId!, "sh", "-c", script], {
       cwd: process.cwd(),
@@ -237,7 +248,9 @@ export class SprintFileBrowserService {
     if (!result.ok) {
       throw new Error(result.stderr.trim() || "Failed to read file tree from container.");
     }
-    return this.buildTree(sessionId, result.stdout);
+    const tree = this.buildTree(sessionId, result.stdout);
+    this.treeCache.set(sessionId, { tree, containerId: session.containerId!, lastBuildAt: session.lastBuildAt });
+    return tree;
   }
 
   async readFile(sessionId: string, requestedPath: string): Promise<FileBrowserFileContent> {
@@ -452,6 +465,7 @@ export class SprintFileBrowserService {
       if (!session.containerId && !session.containerName) {
         return session;
       }
+      this.treeCache.delete(session.id);
       return this.deps.sprintFileBrowserRepository.updateSession(session.id, {
         status: "stopped",
         containerId: null,
@@ -467,6 +481,7 @@ export class SprintFileBrowserService {
       });
 
     if (container.status !== "running") {
+      this.treeCache.delete(session.id);
       return this.deps.sprintFileBrowserRepository.updateSession(adopted.id, {
         status: "error",
         lastError: adopted.lastError || `File browser container is ${container.status}.`,
