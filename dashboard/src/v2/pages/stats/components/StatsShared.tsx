@@ -161,21 +161,21 @@ export const TrendStudio: FunctionComponent<{
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-8">
       <TrendKpiTile
         label="Total Cost"
-        value={(stats.usage as any).costCents !== null ? formatCost((stats.usage as any).costCents) : "No pricing configured"}
+        value={stats.usage.totalCostUsd > 0 ? formatCost(stats.usage.totalCostUsd) : (stats.usage.totalTokens > 0 ? "No pricing configured" : "$0.00")}
         delta={undefined}
         detail="across all providers"
       />
       <TrendKpiTile
         label="Cost per Invocation"
-        value={(stats.usage as any).costCents !== null && stats.usage.invocationCount > 0 ? formatCost(((stats.usage as any).costCents ?? 0) / stats.usage.invocationCount) : "—"}
+        value={stats.usage.totalCostUsd > 0 && stats.usage.invocationCount > 0 ? formatCost(stats.usage.totalCostUsd / stats.usage.invocationCount) : "—"}
       />
       <TrendKpiTile
         label="Cost per Active Hour"
-        value={(stats.usage as any).costCents !== null && stats.usage.activeTimeMs > 0 ? formatCost(((stats.usage as any).costCents ?? 0) / (stats.usage.activeTimeMs / 3600000)) : "—"}
+        value={stats.usage.totalCostUsd > 0 && stats.usage.activeTimeMs > 0 ? formatCost(stats.usage.totalCostUsd / (stats.usage.activeTimeMs / 3600000)) : "—"}
       />
       <TrendKpiTile
         label="Peak Bucket Cost"
-        value={(chartState as any)?.metrics?.peakCostCents > 0 ? formatCost((chartState as any)?.metrics?.peakCostCents) : "—"}
+        value={(chartState as any)?.metrics?.peakCostUsd > 0 ? formatCost((chartState as any)?.metrics?.peakCostUsd) : "—"}
       />
       <TrendKpiTile
         label="Total Tokens"
@@ -411,7 +411,7 @@ export const CompositionStudio: FunctionComponent<{
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-black text-slate-900 dark:text-white">{(provider.usage as any).costCents !== null ? formatCost((provider.usage as any).costCents) : "—"}</div>
+                      <div className="text-lg font-black text-slate-900 dark:text-white">{provider.usage.totalCostUsd > 0 ? formatCost(provider.usage.totalCostUsd) : "—"}</div>
                       <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">cost</div>
                     </div>
                     <div className="text-right">

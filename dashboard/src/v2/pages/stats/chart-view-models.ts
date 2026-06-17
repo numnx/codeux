@@ -26,8 +26,8 @@ export interface ChartMetrics {
   peakTime: number;
   peakInvocations: number;
   averageTokens: number;
-  peakCostCents: number;
-  totalCostCents: number;
+  peakCostUsd: number;
+  totalCostUsd: number;
 }
 
 export interface TooltipState {
@@ -60,11 +60,12 @@ export function normalizeChartSeries(
     const formatter = series.formatter === 'duration'
       ? formatDuration
       : series.formatter === 'number'
-        ? (val: number) => NUMBER_FORMATTER.format(val)
+        ? (val: number) => {
+            if (series.id.includes('cost')) return formatCost(val);
+            return NUMBER_FORMATTER.format(val);
+          }
         : series.formatter === 'percent'
           ? (val: number) => `${val.toFixed(1)}%`
-          : (series as any).formatter === 'currency'
-            ? (val: number) => formatCost(val)
           : formatTokens;
 
     const values = visibleBuckets.map((_, bucketIdx) => series.data[viewStart + bucketIdx] || 0);
@@ -97,8 +98,8 @@ export function calculateChartMetrics(visibleBuckets: ExecutionUsageBucketSummar
   const peakTokens = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.totalTokens));
   const peakTime = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.activeTimeMs));
   const peakInvocations = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.invocationCount));
-  const peakCostCents = Math.max(0, ...visibleBuckets.map((bucket) => (bucket.usage as any).costCents || 0));
-  const totalCostCents = visibleBuckets.reduce((acc, bucket) => acc + ((bucket.usage as any).costCents || 0), 0);
+  const peakCostUsd = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.totalCostUsd || 0));
+  const totalCostUsd = visibleBuckets.reduce((acc, bucket) => acc + (bucket.usage.totalCostUsd || 0), 0);
   const averageTokens = visibleBuckets.length > 0 ? Math.round(sumUsage(visibleBuckets.map((bucket) => ({
     id: bucket.bucketStart,
     label: bucket.label,
@@ -115,8 +116,8 @@ export function calculateChartMetrics(visibleBuckets: ExecutionUsageBucketSummar
     peakTime,
     peakInvocations,
     averageTokens,
-    peakCostCents,
-    totalCostCents,
+    peakCostUsd,
+    totalCostUsd,
   };
 }
 

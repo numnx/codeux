@@ -589,13 +589,13 @@ export const InteractiveUsageChart: FunctionComponent<{
                   : `${stats.range.bucketCount} buckets in ${stats.range.label.toLowerCase()}`}
               </div>
               {activeBucket ? (() => {
-                const hasCost = (activeBucket?.usage as any)?.costCents !== null && (activeBucket?.usage as any)?.costCents !== undefined;
+                const hasCost = activeBucket.usage.totalCostUsd > 0;
                 return (
                 <div className="mt-6 space-y-4">
                   {hasCost ? (
                   <div className="flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 shadow-sm transition-all hover:bg-emerald-500/[0.15]">
                     <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Total Cost</div>
-                    <div className="text-base font-black text-[var(--stats-value-color)]">{formatCost((activeBucket.usage as any).costCents)}</div>
+                    <div className="text-base font-black text-[var(--stats-value-color)]">{formatCost(activeBucket.usage.totalCostUsd)}</div>
                   </div>
                 ) : null}
                   <div className="flex items-center justify-between rounded-2xl border border-signal-500/20 bg-signal-500/10 px-5 py-4 shadow-sm transition-all hover:bg-signal-500/[0.15]">
