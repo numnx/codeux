@@ -3,7 +3,7 @@ import type {
   ProjectExecutionStatsChartSeries,
   ProjectExecutionStatsSnapshot
 } from '../../../types.js';
-import { formatDuration, formatTokens, NUMBER_FORMATTER, sumUsage } from './stats-utils.js';
+import { formatDuration, formatTokens, NUMBER_FORMATTER, sumUsage, formatCost } from './stats-utils.js';
 import {
   buildPoints,
   buildSmoothPath,
@@ -26,6 +26,8 @@ export interface ChartMetrics {
   peakTime: number;
   peakInvocations: number;
   averageTokens: number;
+  peakCostCents: number;
+  totalCostCents: number;
 }
 
 export interface TooltipState {
@@ -61,6 +63,8 @@ export function normalizeChartSeries(
         ? (val: number) => NUMBER_FORMATTER.format(val)
         : series.formatter === 'percent'
           ? (val: number) => `${val.toFixed(1)}%`
+          : (series as any).formatter === 'currency'
+            ? (val: number) => formatCost(val)
           : formatTokens;
 
     const values = visibleBuckets.map((_, bucketIdx) => series.data[viewStart + bucketIdx] || 0);
@@ -93,6 +97,8 @@ export function calculateChartMetrics(visibleBuckets: ExecutionUsageBucketSummar
   const peakTokens = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.totalTokens));
   const peakTime = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.activeTimeMs));
   const peakInvocations = Math.max(0, ...visibleBuckets.map((bucket) => bucket.usage.invocationCount));
+  const peakCostCents = Math.max(0, ...visibleBuckets.map((bucket) => (bucket.usage as any).costCents || 0));
+  const totalCostCents = visibleBuckets.reduce((acc, bucket) => acc + ((bucket.usage as any).costCents || 0), 0);
   const averageTokens = visibleBuckets.length > 0 ? Math.round(sumUsage(visibleBuckets.map((bucket) => ({
     id: bucket.bucketStart,
     label: bucket.label,
@@ -109,6 +115,8 @@ export function calculateChartMetrics(visibleBuckets: ExecutionUsageBucketSummar
     peakTime,
     peakInvocations,
     averageTokens,
+    peakCostCents,
+    totalCostCents,
   };
 }
 

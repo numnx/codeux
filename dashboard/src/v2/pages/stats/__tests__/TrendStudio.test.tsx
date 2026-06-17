@@ -48,7 +48,7 @@ describe("TrendStudio", () => {
         error={null}
         refresh={vi.fn()}
         planningUsage={null}
-        chartState={{} as any}
+        chartState={{ metrics: { peakCostCents: 150 } } as any}
       />,
     );
 

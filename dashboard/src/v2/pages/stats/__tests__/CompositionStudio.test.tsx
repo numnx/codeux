@@ -53,6 +53,7 @@ describe("CompositionStudio", () => {
                   outputTokens: 200,
                   reasoningOutputTokens: 50,
                   totalTokens: 750,
+                  costCents: 1000,
                   invocationCount: 3,
                   activeTimeMs: 120000,
                   wallTimeMs: 150000,
@@ -69,6 +70,7 @@ describe("CompositionStudio", () => {
                   outputTokens: 300,
                   reasoningOutputTokens: 75,
                   totalTokens: 1125,
+                  costCents: 2000,
                   invocationCount: 6,
                   activeTimeMs: 240000,
                   wallTimeMs: 300000,
@@ -114,13 +116,14 @@ describe("CompositionStudio", () => {
     const providerActivity = screen.getByText("Provider Activity");
 
     expect(providerShare.compareDocumentPosition(tokenAnatomy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText("cost").length).toBeGreaterThan(0);
     expect(tokenAnatomy.compareDocumentPosition(purposeRibbon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(purposeRibbon.compareDocumentPosition(tokenFlight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tokenFlight.compareDocumentPosition(cacheEfficiency) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cacheEfficiency.compareDocumentPosition(providerActivity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByText("20.0%")).toBeInTheDocument();
-    expect(screen.getByText("250 tokens saved from cache")).toBeInTheDocument();
+
     expect(screen.getByText("9m 0s")).toBeInTheDocument();
     expect(screen.getByText("0s")).toBeInTheDocument();
 

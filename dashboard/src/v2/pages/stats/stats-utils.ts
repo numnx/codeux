@@ -19,7 +19,7 @@ import {
 import type { ComponentType } from "preact";
 import type { StatsCardAccent } from "./components/StatsCard.js";
 
-export const EMPTY_USAGE: ExecutionUsageTotals = {
+export const EMPTY_USAGE: ExecutionUsageTotals & { costCents?: number | null } = {
   invocationCount: 0,
   activeTimeMs: 0,
   wallTimeMs: 0,
@@ -32,6 +32,7 @@ export const EMPTY_USAGE: ExecutionUsageTotals = {
   estimatedInvocationCount: 0,
   unavailableInvocationCount: 0,
   unsupportedInvocationCount: 0,
+  costCents: null,
 };
 
 export const NUMBER_FORMATTER = new Intl.NumberFormat("en-US");
@@ -44,6 +45,18 @@ export function formatTokens(value: number): string {
     return `${(value / 1_000).toFixed(1)}k`;
   }
   return NUMBER_FORMATTER.format(value);
+}
+
+
+export function formatCost(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return "—";
+  if (cents === 0) return "$0.00";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4
+  }).format(cents / 100);
 }
 
 export function formatDuration(value: number): string {
@@ -97,6 +110,7 @@ export function sumUsage(items: ExecutionStatsEntitySummary[]): ExecutionUsageTo
     estimatedInvocationCount: accumulator.estimatedInvocationCount + item.usage.estimatedInvocationCount,
     unavailableInvocationCount: accumulator.unavailableInvocationCount + item.usage.unavailableInvocationCount,
     unsupportedInvocationCount: accumulator.unsupportedInvocationCount + item.usage.unsupportedInvocationCount,
+    costCents: ((accumulator as any).costCents ?? 0) + ((item.usage as any).costCents ?? 0),
   }), { ...EMPTY_USAGE });
 }
 
