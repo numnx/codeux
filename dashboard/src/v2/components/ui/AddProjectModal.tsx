@@ -2,10 +2,11 @@ import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef, useState, useMemo } from "preact/hooks";
 import gsap from "gsap";
 import { AlertCircle, Bot, Check, ChevronUp, Cloud, FolderOpen, GitBranch, FolderInput, Globe, Home, Info, Link2, Loader2, Lock, PlaySquare, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow, X } from "lucide-preact";
-import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import { FormError } from "../forms/FormError.js";
+import { Dialog } from "./Dialog.js";
+import { ActionFeedbackRegion } from "./ActionFeedbackRegion.js";
 import { fetchLocalDirectories } from "../../lib/project-api.js";
 import type { LocalDirectoryBrowserResponse } from "../../types.js";
 
@@ -109,45 +110,12 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         return errors;
     }, [name, gitUrl, sourceType]);
 
-    useLayoutEffect(() => {
-        const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
-        const d_card = reducedMotion ? 0 : MODAL_MOTION.entry.duration;
-        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: d_backdrop, ease: MODAL_MOTION.backdrop.ease });
-        gsap.fromTo(cardRef.current,
-            { y: reducedMotion ? 0 : MODAL_MOTION.entry.yStart, opacity: MODAL_MOTION.entry.opacityStart, scale: reducedMotion ? 1 : MODAL_MOTION.entry.scaleStart, filter: reducedMotion ? MODAL_MOTION.entry.filterEnd : MODAL_MOTION.entry.filterStart },
-            { y: MODAL_MOTION.entry.yEnd, opacity: MODAL_MOTION.entry.opacityEnd, scale: MODAL_MOTION.entry.scaleEnd, filter: MODAL_MOTION.entry.filterEnd, duration: d_card, ease: MODAL_MOTION.entry.ease, clearProps: "filter" }
-        );
-        if (fieldsRef.current) {
-            gsap.fromTo(Array.from(fieldsRef.current.children),
-                { y: reducedMotion ? 0 : MODAL_MOTION.fieldStagger.yStart, opacity: 0 },
-                {
-                    y: 0,
-                    opacity: 1,
-                    stagger: reducedMotion ? 0 : MODAL_MOTION.fieldStagger.stagger,
-                    duration: reducedMotion ? 0 : MODAL_MOTION.fieldStagger.duration,
-                    ease: MODAL_MOTION.fieldStagger.ease,
-                    delay: reducedMotion ? 0 : MODAL_MOTION.fieldStagger.delay
-                }
-            );
-        }
-    }, [reducedMotion]);
-
     const handleClose = () => {
         if (isSubmitting) return;
-        setIsClosing(true);
-
-        const d_card = reducedMotion ? 0 : MODAL_MOTION.exit.duration;
-        const d_backdrop = reducedMotion ? 0 : MODAL_MOTION.backdrop.duration;
-
-        gsap.to(cardRef.current, { y: MODAL_MOTION.exit.yEnd, opacity: MODAL_MOTION.exit.opacityEnd, scale: MODAL_MOTION.exit.scaleEnd, filter: MODAL_MOTION.exit.filterEnd, duration: d_card, ease: MODAL_MOTION.exit.ease });
-        gsap.to(backdropRef.current, { opacity: 0, duration: d_backdrop, delay: reducedMotion ? 0 : 0.05, onComplete: onClose });
+        onClose();
     };
 
-    const backdropRef = useFocusTrap(!isClosing, { onClose: handleClose, restoreFocus: true });
 
-    const handleBackdropClick = (e: PointerEvent) => {
-        if (e.target === backdropRef.current) handleClose();
-    };
 
     const submitProject = async () => {
         setIsSubmitting(true);
@@ -320,7 +288,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <><RefreshCw aria-hidden="true" className={`h-4 w-4 ${isDirectoryPickerLoading ? "animate-spin" : ""}`} />{isDirectoryPickerLoading && <span className="sr-only">Loading</span>}</>
                     </button>
                     <div className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-600 dark:bg-white/[0.055] dark:text-slate-300">
-                        {directoryListing?.currentPath || "Loading directories..."}
+                        <span aria-live="polite">{directoryListing?.currentPath || "Loading directories..."}</span>
                     </div>
                     <button
                         type="button"
@@ -333,7 +301,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     </button>
                 </div>
                 {directoryPickerError ? (
-                    <div id="directory-picker-error" role="alert" aria-live="assertive" className="flex items-center gap-2 px-3 py-3 text-xs font-semibold text-status-red">
+                    <div id="directory-picker-error" className="flex items-center gap-2 px-3 py-3 text-xs font-semibold text-status-red">
+                        <span className="sr-only" aria-live="assertive">Directory picker error: {directoryPickerError}</span>
                         <AlertCircle className="h-4 w-4 shrink-0" />
                         <span>{directoryPickerError}</span>
                     </div>
@@ -377,17 +346,15 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     ] as const;
 
     return (
-        <div
-            ref={backdropRef}
-            onPointerDown={handleBackdropClick}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-project-modal-title"
-            className="fixed inset-0 z-[200] flex items-center justify-center px-6 bg-black/50 dark:bg-black/70 backdrop-blur-xl"
+        <Dialog
+            isOpen={true}
+            onClose={handleClose}
+            ariaLabelledBy="add-project-modal-title"
+            className="w-full max-w-2xl lg:max-w-3xl"
         >
             <div
                 ref={cardRef}
-                className="relative flex flex-col sm:flex-row w-[calc(100vw-2rem)] sm:w-full max-w-2xl lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-hidden sm:overflow-y-auto rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+                className="relative flex flex-col sm:flex-row w-full max-h-[calc(100dvh-2rem)] overflow-hidden sm:overflow-y-auto rounded-[2.5rem] bg-white/98 dark:bg-void-800/98 shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
                 style={{ minHeight: modalMinHeight }}
             >
                 {/* ── Left decorative panel ── */}
@@ -439,13 +406,10 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                         <div ref={fieldsRef} className="flex flex-col gap-5 lg:gap-6 flex-1">
 
                             {submitError && (
-                                // form errors demand immediate user attention to proceed.
-                                <div role="alert" aria-live="assertive" id="project-form-error" className="text-status-red text-sm font-medium">
-                                    {submitError}
-                                </div>
+                                <ActionFeedbackRegion status="error" message={submitError} onDismiss={() => setSubmitError(null)} />
                             )}
 
-                            {/* Project Name */}
+{/* Project Name */}
                             <div className="group/field">
                                 <label htmlFor="add-project-name" className={fieldLabelClass}>
                                     Project Name <span className="sr-only">(required)</span>
@@ -889,6 +853,6 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     </form>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 };
