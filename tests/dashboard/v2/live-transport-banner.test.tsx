@@ -63,8 +63,8 @@ describe("LiveTransportBanner", () => {
     expect(screen.getByText("Reconnecting")).toBeInTheDocument();
   });
 
-  it("renders Recovering State when isRecovering is true", () => {
-    render(
+  it("renders nothing while recovering (transient state must not flash/shift layout)", () => {
+    const { container } = render(
       <LiveTransportBanner
         transportState="connected"
         isRecovering={true}
@@ -72,11 +72,12 @@ describe("LiveTransportBanner", () => {
         error={null}
       />
     );
-    expect(screen.getByText("Recovering State")).toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText("Recovering State")).not.toBeInTheDocument();
   });
 
-  it("renders Recovering State when transportState is connecting", () => {
-    render(
+  it("renders nothing while connecting (initial connect resolves near-instantly)", () => {
+    const { container } = render(
       <LiveTransportBanner
         transportState="connecting"
         isRecovering={false}
@@ -84,7 +85,8 @@ describe("LiveTransportBanner", () => {
         error={null}
       />
     );
-    expect(screen.getByText("Recovering State")).toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText("Recovering State")).not.toBeInTheDocument();
   });
 
   it("returns null when connected with an old snapshot", () => {
