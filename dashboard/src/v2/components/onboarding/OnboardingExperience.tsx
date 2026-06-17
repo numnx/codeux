@@ -1189,8 +1189,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                           />
                         </Row>
                         <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker.">
-                          <Toggle
-                            value={settings.defaults.cliWorkflow.containerMountGithubAuth}
+                          <Toggle aria-label="Toggle setting"                             value={settings.defaults.cliWorkflow.containerMountGithubAuth}
                             onChange={() => updateCliWorkflow({ containerMountGithubAuth: !settings.defaults.cliWorkflow.containerMountGithubAuth })}
                           />
                         </Row>
@@ -1220,8 +1219,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                 <div data-onboarding-card>
                   <SectionCard title="Git identity" watermark="ID" icon={<GitBranch strokeWidth={2.4} />}>
                     <Row label="Copy local git config" description="Use the host `.gitconfig` in Docker instead of the configured Code UX git identity." last={settings.defaults.cliWorkflow.containerMountGitConfig}>
-                      <Toggle
-                        value={settings.defaults.cliWorkflow.containerMountGitConfig}
+                      <Toggle aria-label="Toggle setting"                         value={settings.defaults.cliWorkflow.containerMountGitConfig}
                         onChange={() => updateCliWorkflow({ containerMountGitConfig: !settings.defaults.cliWorkflow.containerMountGitConfig })}
                       />
                     </Row>
@@ -1282,7 +1280,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                       <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
                     </Row>
                     <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." last>
-                      <Toggle value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
+                      <Toggle aria-label="Toggle setting" value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
                     </Row>
                   </SectionCard>
                 </div>
