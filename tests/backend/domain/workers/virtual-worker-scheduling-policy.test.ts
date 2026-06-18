@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   isOrchestratorHandledClarificationItem,
   resolveWorkerExecutionMode,
@@ -86,6 +86,18 @@ describe("Virtual Worker Scheduling Policy", () => {
     it("returns default worker item", () => {
       const item = { ownerType: "worker", status: "open", summaryMarkdown: "", attentionType: "custom" } as ProjectAttentionItemRecord;
       expect(peekNextWorkerAttention([item], () => mockSettings({}))).toBe(item);
+    });
+
+    it("calls the resolver only for eligible worker-owned attention items", () => {
+      const resolver = vi.fn().mockReturnValue(mockSettings({}));
+      const humanItem = { ownerType: "human", status: "open", summaryMarkdown: "", attentionType: "custom" } as ProjectAttentionItemRecord;
+      const claimedItem = { ownerType: "worker", status: "claimed", assignedWorkerEndpointId: "e1", summaryMarkdown: "" } as ProjectAttentionItemRecord;
+      const openWorkerItem = { ownerType: "worker", status: "open", summaryMarkdown: "", attentionType: "custom" } as ProjectAttentionItemRecord;
+
+      const result = peekNextWorkerAttention([humanItem, claimedItem, openWorkerItem], resolver);
+
+      expect(result).toBe(openWorkerItem);
+      expect(resolver).toHaveBeenCalledTimes(1); // Should only be called once, for openWorkerItem
     });
   });
 });

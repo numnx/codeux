@@ -177,6 +177,51 @@ describe("SprintFileBrowserService", () => {
     expect(removedForeign).toBe(true);
   });
 
+
+  it("caches tree results and invalidates on rebuild or stop", async () => {
+    const { service, fileBrowserRepository, project, sprint } = await createHarness();
+    const containerTsv = `cid123\tcode-ux-filebrowser-x-y\tUp 2 seconds\t${project.id}\t${sprint.id}\tsess`;
+    const session = fileBrowserRepository.createSession({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      featureBranch: "feature/test",
+      defaultBranch: "main",
+      workspacePath: "/runtime-root/file-browser/x/workspace",
+    });
+    fileBrowserRepository.updateSession(session.id, { status: "running", containerId: "cid123", containerName: "code-ux-filebrowser-x-y" });
+
+    runCommandStrict.mockImplementation(async (cmd: string, args: string[]) =>
+      cmd === "docker" && args[0] === "ps" && args.includes("--format") ? ok(containerTsv) : ok(),
+    );
+    commandRun.mockImplementation(async (cmd: string, args: string[]) => {
+      if (cmd === "docker" && args[0] === "exec") {
+        return ok("D./src\nF./src/index.ts\nF./README.md\nD./src/lib\nF./src/lib/util.ts\n");
+      }
+      return ok();
+    });
+
+    const tree1 = await service.getTree(session.id);
+    expect(tree1.fileCount).toBe(3);
+    const firstCallCount = commandRun.mock.calls.length;
+
+    const tree2 = await service.getTree(session.id);
+    expect(tree2.fileCount).toBe(3);
+    expect(commandRun.mock.calls.length).toBe(firstCallCount);
+
+    fileBrowserRepository.updateSession(session.id, { lastBuildAt: new Date().toISOString() });
+    const tree3 = await service.getTree(session.id);
+    expect(tree3.fileCount).toBe(3);
+    expect(commandRun.mock.calls.length).toBeGreaterThan(firstCallCount);
+    const secondCallCount = commandRun.mock.calls.length;
+
+    await service.stopSession(session.id);
+    fileBrowserRepository.updateSession(session.id, { status: "running", containerId: "cid123", containerName: "code-ux-filebrowser-x-y" });
+    const tree4 = await service.getTree(session.id);
+    expect(tree4.fileCount).toBe(3);
+    expect(commandRun.mock.calls.length).toBeGreaterThan(secondCallCount);
+  });
+
   it("parses the container file listing into a sorted tree", async () => {
     const { service, fileBrowserRepository, project, sprint } = await createHarness();
     const containerTsv = `cid123\tcode-ux-filebrowser-x-y\tUp 2 seconds\t${project.id}\t${sprint.id}\tsess`;
