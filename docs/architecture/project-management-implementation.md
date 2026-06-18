@@ -10,7 +10,7 @@ It includes:
 - Code UX app database tables in `~/.code-ux/app.db`
 - typed project/sprint/task repositories
 - selected-project persistence in sqlite
-- project-scoped dashboard HTTP endpoints
+- project-scoped dashboard HTTP endpoints with runtime type validation using dedicated parser helpers
 - v2 dashboard wiring for Projects, Sprints, Tasks, top-nav selection, and overview widgets
 - a structured import flyout supporting markdown import (and placeholders for future providers like Jira), plus export for sprints and tasks
 - selected-project runtime projection for live dashboard status

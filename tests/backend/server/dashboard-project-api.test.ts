@@ -594,7 +594,7 @@ describe("dashboard project management API", () => {
         title: "Wire selected project state",
         promptMarkdown: "Connect the top nav to the DB-backed project selector.",
         priority: "high",
-        executorType: "mcp_worker",
+        executorType: "auto",
         status: "in_progress",
       }),
     });
@@ -613,7 +613,7 @@ describe("dashboard project management API", () => {
 
     const taskRecords = await fetch(`${baseUrl}/api/projects/${project.id}/tasks`)
       .then(async (response) => response.json()) as Array<{ executorType: string }>;
-    expect(taskRecords[0]?.executorType).toBe("mcp_worker");
+    expect(taskRecords[0]?.executorType).toBe("auto");
 
     const systemSettingsResponse = await fetch(`${baseUrl}/api/system-settings`);
     expect(systemSettingsResponse.status).toBe(200);
