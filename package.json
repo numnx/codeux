@@ -87,7 +87,7 @@
     "electron-builder": "26.8.1",
     "gsap": "^3.14.2",
     "happy-dom": "^20.8.9",
-    "jsdom": "^29.0.1",
+    "jsdom": "^29.1.1",
     "lucide-preact": "^0.577.0",
     "lucide-react": "^1.7.0",
     "marked": "^17.0.3",
