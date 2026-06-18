@@ -66,7 +66,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
         return (
           <div className={`${CHIP_CLASS} flex items-center gap-1.5 border-blue-500/40 bg-blue-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-300`}>
             <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+            <Loader2 className="h-3 w-3 animate-spin" />
             Running
           </div>
         );
@@ -133,12 +133,9 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-separate border-spacing-y-2 block lg:table">
-        <caption className="sr-only">
-        System invocations ledger. Sortable columns for Time, Total Tokens, and Avg Duration.
-      </caption>
-      <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm dark:bg-void-900/80 hidden lg:table-header-group">
+        <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm dark:bg-void-900/80 hidden lg:table-header-group">
           <tr className="text-left text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            <th className="pb-2 pl-6" aria-sort={sort.key === "startedAt" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+            <th className="pb-2 pl-6">
               <button
                 type="button"
                 onClick={() => handleSort("startedAt")}
@@ -169,7 +166,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
               </button>
             </th>
             <th className="pb-2">Cached</th>
-            <th className="pb-2" aria-sort={sort.key === "totalTokens" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+            <th className="pb-2">
               <button
                 type="button"
                 onClick={() => handleSort("totalTokens")}
@@ -178,7 +175,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                 Total {renderSortIcon("totalTokens")}
               </button>
             </th>
-            <th className="hidden pb-2 md:table-cell" aria-sort={sort.key === "durationMs" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+            <th className="hidden pb-2 md:table-cell">
               <button
                 type="button"
                 onClick={() => handleSort("durationMs")}
@@ -218,9 +215,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                             <button
                               type="button"
                               onClick={() => onRowExpand(isExpanded ? null : invocation.id)}
-                              aria-label={isExpanded ? `Collapse invocation ${invocation.type || "unknown"} ${invocation.model || ""} at ${formatDateTime(invocation.startedAt)}` : `Expand invocation ${invocation.type || "unknown"} ${invocation.model || ""} at ${formatDateTime(invocation.startedAt)}`}
-                              aria-expanded={isExpanded}
-                              aria-controls={`invocation-details-${invocation.id}`}
+                              aria-label={isExpanded ? `Collapse invocation ${invocation.id}` : `Expand invocation ${invocation.id}`}
                               className={`rounded-full p-2 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5 ${
                                 isExpanded ? "text-signal-500" : "text-slate-400"
                               }`}
@@ -259,7 +254,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                         <div className="grid grid-cols-4 gap-2 rounded-lg border border-slate-200/60 bg-slate-50 p-2 dark:border-white/5 dark:bg-white/[0.02] lg:contents lg:border-0 lg:bg-transparent lg:p-0">
                           {/* In Tokens */}
                           <div>
-                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Input Tokens</div>
+                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">In</div>
                             <div className="text-[11px] text-blue-600 dark:text-blue-400">
 
                           {formatTokens(invocation.inputTokens ?? 0)}
@@ -268,7 +263,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
 
                         {/* Out Tokens */}
                           <div>
-                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Output Tokens</div>
+                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Out</div>
                             <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
 
                           {formatTokens(invocation.outputTokens ?? 0)}
@@ -277,7 +272,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
 
                         {/* Cached Tokens */}
                           <div>
-                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Cached Tokens</div>
+                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Cached</div>
                             <div className="text-[11px] text-purple-600 dark:text-purple-400">
 
                           {formatTokens(invocation.cachedInputTokens ?? 0)}
@@ -286,7 +281,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
 
                         {/* Total Tokens */}
                           <div>
-                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Total Tokens</div>
+                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Total</div>
                             <div className="text-[11px] font-bold text-slate-900 dark:text-white">
 
                           {formatTokens(invocation.totalTokens ?? 0)}
@@ -295,15 +290,14 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                         </div>
 
                         {/* Duration */}
-                          <div className={`md:block text-[11px] ${invocation.finishedAt ? "text-slate-600 dark:text-slate-300" : "text-blue-600 dark:text-blue-400"}`}>
-                            <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 md:hidden">Duration</div>
+                          <div className={`hidden md:block text-[11px] ${invocation.finishedAt ? "text-slate-600 dark:text-slate-300" : "text-blue-600 dark:text-blue-400"}`}>
+
                           {duration}
                         </div>
                         </div>
 
                         {/* Context Chips */}
-                        <div className="flex flex-col gap-1 lg:contents">
-                          <div className="mb-1 text-[9px] font-bold uppercase text-slate-400 lg:hidden">Context</div>
+                        <div className="flex flex-wrap gap-1 lg:contents">
                           <div className="flex flex-wrap gap-1">
                           {(invocation.sprintNumber !== null || invocation.taskKey !== null) && (
                             <>
@@ -328,9 +322,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                           <button
                             type="button"
                             onClick={() => onRowExpand(isExpanded ? null : invocation.id)}
-                            aria-label={isExpanded ? `Collapse invocation ${invocation.type || "unknown"} ${invocation.model || ""} at ${formatDateTime(invocation.startedAt)}` : `Expand invocation ${invocation.type || "unknown"} ${invocation.model || ""} at ${formatDateTime(invocation.startedAt)}`}
-                              aria-expanded={isExpanded}
-                              aria-controls={`invocation-details-${invocation.id}`}
+                            aria-label={isExpanded ? `Collapse invocation ${invocation.id}` : `Expand invocation ${invocation.id}`}
                             className={`rounded-full p-2 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5 ${
                               isExpanded ? "text-signal-500" : "text-slate-400"
                             }`}
@@ -355,7 +347,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
 
                 {/* Expanded Detail Row */}
                 {isExpanded && expandedInvocation ? (
-                  <tr key={`${invocation.id}-detail`} id={`invocation-details-${invocation.id}`} className="block lg:table-row">
+                  <tr key={`${invocation.id}-detail`} className="block lg:table-row">
                     <td colSpan={11} className="px-0 pb-2 lg:px-6 block lg:table-cell">
                       <InvocationMessagesPanel invocation={expandedInvocation} />
                     </td>
