@@ -21,12 +21,12 @@ const ProjectContextCard: FunctionComponent<{
       </div>
     </Row>
     <Row label="Project id" description="Stable identifier used by the API and runtime." >
-      <div className="rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+      <div className="rounded-xl min-w-0 truncate bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
         {projectId}
       </div>
     </Row>
     <Row label="Base directory" description="Workers and local execution enter this directory before acting." >
-      <div className="max-w-[28rem] rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+      <div className="max-w-[28rem] min-w-0 truncate rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
         {baseDir}
       </div>
     </Row>

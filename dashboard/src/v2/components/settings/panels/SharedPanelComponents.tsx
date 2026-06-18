@@ -18,7 +18,7 @@ export const SectionCard: FunctionComponent<{
   }`}>
     <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
 
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] ${danger ? "text-status-red/80" : "text-slate-500 dark:text-slate-300"}`}>
         {icon ? <span className="inline-flex h-3.5 w-3.5 items-center justify-center [&_svg]:h-3.5 [&_svg]:w-3.5" aria-hidden>{icon}</span> : null}
         <h3>{title}</h3>
