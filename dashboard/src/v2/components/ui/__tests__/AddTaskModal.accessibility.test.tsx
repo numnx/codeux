@@ -2,7 +2,7 @@
 import { h } from "preact";
 import { render, screen, waitFor } from "@testing-library/preact";
 import { expect, test, describe, vi } from "vitest";
-import { AddTaskModal } from "../../../src/v2/components/ui/AddTaskModal.js";
+import { AddTaskModal } from "../AddTaskModal.js";
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
