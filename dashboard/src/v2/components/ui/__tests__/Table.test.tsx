@@ -1,12 +1,81 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/preact";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 expect.extend(matchers);
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../Table";
 
 describe("Table component", () => {
+  it("renders a hidden desktop header properly", () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableCell isHeader>Hidden</TableCell>
+        </TableHeader>
+      </Table>
+    );
+    const thead = container.querySelector("thead");
+    expect(thead).toBeInTheDocument();
+    expect(thead).toHaveClass("sr-only");
+    expect(thead).toHaveClass("lg:not-sr-only");
+    expect(thead).toHaveClass("lg:table-header-group");
+  });
+  it("supports sortable headers and ids/headers attributes", () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableCell isHeader id="col1" ariaSort="ascending">Sortable</TableCell>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell headers="col1">Data</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+    const th = screen.getByRole("columnheader");
+    expect(th).toHaveAttribute("aria-sort", "ascending");
+    expect(th).toHaveAttribute("id", "col1");
+
+    const td = screen.getByRole("cell");
+    expect(td).toHaveAttribute("headers", "col1");
+  });
+
+  it("makes row interactive and keyboard accessible only when onClick is provided", () => {
+    const handleClick = vi.fn();
+    const { rerender } = render(
+      <Table>
+        <TableBody>
+          <TableRow onClick={handleClick}>Clickable</TableRow>
+        </TableBody>
+      </Table>
+    );
+    const clickableRow = screen.getByRole("row");
+    expect(clickableRow).toHaveAttribute("tabindex", "0");
+
+    clickableRow.focus();
+    expect(document.activeElement).toBe(clickableRow);
+
+    // Check click
+    clickableRow.click();
+    expect(handleClick).toHaveBeenCalledTimes(1);
+
+    // Check keydown
+    const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+    clickableRow.dispatchEvent(enterEvent);
+    expect(handleClick).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <Table>
+        <TableBody>
+          <TableRow>Not Clickable</TableRow>
+        </TableBody>
+      </Table>
+    );
+    const unclickableRow = screen.getByRole("row");
+    expect(unclickableRow).not.toHaveAttribute("tabindex");
+  });
   afterEach(() => {
     cleanup();
   });
@@ -76,6 +145,7 @@ describe("Table component", () => {
     const mobileLabel = screen.getByText("Mobile Label 1");
     expect(mobileLabel).toBeInTheDocument();
     expect(mobileLabel).toHaveClass("lg:hidden");
+    expect(mobileLabel).toHaveAttribute("aria-hidden", "true");
     expect(cells[0]).toHaveTextContent("Data 1");
   });
 
