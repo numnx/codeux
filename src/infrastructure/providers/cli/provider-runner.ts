@@ -15,6 +15,7 @@ import * as pathPosix from "path/posix";
 import { randomUUID } from "crypto";
 import { getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
 import { runProviderExecutionLoop } from "./provider-execution-loop.js";
+import { isTransientCodexTransportError, isClaudeConversationNotFoundError } from "../../../shared/providers/provider-error-classifier.js";
 import {
   CONTAINER_RUNTIME_HOME,
   CONTAINER_WORKSPACE_ROOT,
@@ -373,8 +374,7 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     try {
-      const isTransientCodexTransportError = (r: CommandResult) => this.isTransientCodexTransportError(r);
-      const isClaudeConversationNotFoundError = (r: CommandResult) => this.isClaudeConversationNotFoundError(r);
+
       const buildFreshClaudeSpec = () => {
         return this.buildCommandSpec(
           provider,
@@ -1090,15 +1090,7 @@ export class ProviderRunner implements IProviderRunner {
     return rawUrl;
   }
 
-  private isTransientCodexTransportError(result: CommandResult): boolean {
-    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
-    return text.includes("stream disconnected before completion") || text.includes("error sending request for url") || text.includes("channel closed");
-  }
 
-  private isClaudeConversationNotFoundError(result: CommandResult): boolean {
-    const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
-    return text.includes("no conversation found");
-  }
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {
     if (provider !== "gemini" && provider !== "codex" && provider !== "opencode") {
