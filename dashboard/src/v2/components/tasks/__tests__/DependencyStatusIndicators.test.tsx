@@ -12,7 +12,7 @@ describe("DependencyStatusIndicators", () => {
   });
 
   it("renders correctly with indicators", () => {
-    const { getByText, container } = render(
+    const { getByText, getByLabelText, container } = render(
       <DependencyStatusIndicators
         indicators={[
           { recordId: "1", id: "TASK-1", title: "Test task 1", status: "completed" },
@@ -23,6 +23,9 @@ describe("DependencyStatusIndicators", () => {
 
     expect(getByText("TASK-1")).toBeTruthy();
     expect(getByText("TASK-2")).toBeTruthy();
+
+    expect(getByLabelText("Depends on Test task 1, status: completed")).toBeInTheDocument();
+    expect(getByLabelText("Depends on Test task 2, status: pending")).toBeInTheDocument();
   });
 
   it("returns null when no indicators provided", () => {
