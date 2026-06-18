@@ -36,7 +36,7 @@ export const PillChoiceGroup: FunctionComponent<{
           type="button"
           disabled={disabled}
           onClick={() => onChange(option.value)}
-          className={`group relative min-w-[104px] overflow-hidden rounded-[1rem] border px-4 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 ${
+          className={`group relative min-w-[104px] max-w-full overflow-hidden rounded-[1rem] border px-4 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 ${
             active
               ? "border-signal-500/30 bg-signal-500/[0.11] text-signal-700 shadow-[0_10px_20px_rgba(0,224,160,0.08)] hover:bg-signal-500/[0.15] dark:border-signal-400/30 dark:bg-signal-400/[0.12] dark:text-signal-200 dark:hover:bg-signal-400/[0.16]"
               : "border-black/[0.06] bg-white/70 text-slate-600 hover:-translate-y-px hover:border-black/[0.12] hover:bg-black/[0.02] hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -47,7 +47,7 @@ export const PillChoiceGroup: FunctionComponent<{
               active ? "opacity-100 transform-none" : "opacity-0 -translate-x-full"
             }`}
           />
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]">{option.label}</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] min-w-0 truncate">{option.label}</div>
           {option.hint ? (
             <div className={`mt-1 text-[11px] leading-relaxed transition-colors duration-200 ${active ? "text-signal-600/80 dark:text-signal-300/80" : "text-slate-400 dark:text-slate-500"}`}>
               {option.hint}
@@ -195,7 +195,7 @@ export const Row: FunctionComponent<{
         <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400 group-hover:text-slate-500 dark:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-200">{description}</div>
       ) : null}
     </div>
-    <div className="w-full shrink-0 md:w-auto md:max-w-[34rem] lg:max-w-none">
+    <div className="w-full shrink-0 min-w-0 md:w-auto md:max-w-[34rem] lg:max-w-none">
       {children}
     </div>
   </div>
