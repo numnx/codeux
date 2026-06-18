@@ -23,6 +23,7 @@ import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orch
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import type { TaskQaMergeGateStatus } from "../../../services/quality-assurance-service.js";
 import { FeaturePrGateService } from "../ci/feature-pr-gate.js";
+import { MergeConflictDebouncer } from "../ci/merge-conflict-debouncer.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import { resolveCiEscalationOwner } from "../ci/feature-pr/ci-autofix-policy.js";
 import type { MemoryCategory, CreateMemoryInput } from "../../../contracts/memory-types.js";
@@ -63,6 +64,9 @@ export class CycleRunner {
   private readonly featurePrGate = new FeaturePrGateService();
   private readonly lastAutomatedInterventionKeys = new Map<string, string>();
   private readonly stateCoordinator: CycleStateCoordinator;
+  // Persists across cycles (CycleRunner is long-lived per orchestrator) so a
+  // transient `DIRTY` PR state must persist before it escalates a conflict.
+  private readonly mergeConflictDebouncer = new MergeConflictDebouncer();
 
   constructor(private readonly deps: SprintOrchestratorDependencies) {
     this.stateCoordinator = new CycleStateCoordinator(this.deps);
@@ -77,6 +81,10 @@ export class CycleRunner {
       projectId: args.executionContext.project.id,
       sprintId: args.executionContext.sprint.id,
     });
+
+    // Advance the conflict debouncer once per cycle so per-PR `DIRTY` streaks are
+    // counted per cycle even though several call sites observe the same PR below.
+    this.mergeConflictDebouncer.beginCycle();
 
     let subtasks: Subtask[] = args.loopSteps.loadSubtasks
       ? await this.deps.sprintExecutionStateService.loadSubtasks(
@@ -285,6 +293,7 @@ export class CycleRunner {
         },
         executionRepository: this.deps.executionRepository,
         sprintRunId: args.sprintRunId,
+        mergeConflictDebouncer: this.mergeConflictDebouncer,
       });
       subtasks = ciAutofixResult.subtasks;
       reportText += ciAutofixResult.reportText;
@@ -322,13 +331,14 @@ export class CycleRunner {
         args,
         gitStatus,
         activeWorkerMergeConflictTaskIds,
+        this.mergeConflictDebouncer,
       ),
       renderInstruction: (templateId, variables) => this.deps.renderInstruction(templateId, variables, args.repoPath),
       onTaskEvent: ({ task, eventType, payload, sourceEventKey }) => {
         appendTaskEvent(task, eventType, payload, sourceEventKey);
       },
     });
-    this.stateCoordinator.syncProtocolAttentionItems(subtasks, protocolResult, args, gitStatus, activeWorkerMergeConflictTaskIds);
+    this.stateCoordinator.syncProtocolAttentionItems(subtasks, protocolResult, args, gitStatus, activeWorkerMergeConflictTaskIds, this.mergeConflictDebouncer);
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
 

@@ -193,10 +193,10 @@ describe("CycleRunner attention sync", () => {
     ]));
   });
 
-  it("opens a dedicated merge_conflict attention item with worker context when the PR is DIRTY", async () => {
+  it("escalates a merge_conflict only after the PR stays DIRTY across cycles (debounced)", async () => {
     const deps = buildDeps();
     const runner = new CycleRunner(deps);
-    vi.mocked(deps.sprintExecutionStateService.loadSubtasks).mockResolvedValue([
+    const makeSubtasks = () => [
       {
         id: "T1",
         record_id: "task-1",
@@ -221,7 +221,10 @@ describe("CycleRunner attention sync", () => {
         worker_branch: "worker/T0",
         pr_url: "https://example.com/pr/100",
       },
-    ] as any);
+    ];
+    // Fresh subtask objects each cycle (the gate mutates them in place) so the
+    // second cycle starts from the same COMPLETED+DIRTY state the DB would reload.
+    vi.mocked(deps.sprintExecutionStateService.loadSubtasks).mockImplementation(async () => makeSubtasks() as any);
     deps.getCiStatusForScope = vi.fn().mockResolvedValue({
       available: true,
       openPullRequests: [
@@ -243,7 +246,7 @@ describe("CycleRunner attention sync", () => {
       ciRuns: [],
     });
 
-    const result = await runner.run({
+    const runArgs = {
       action: "status",
       automationLevel: "SEMI_AUTO",
       automationInterventions: DEFAULT_DASHBOARD_SETTINGS.automationInterventions,
@@ -273,11 +276,21 @@ describe("CycleRunner attention sync", () => {
         enabled: true,
         resolveMergeConflicts: true,
       },
-      githubMode: "REMOTE",
+      githubMode: "REMOTE" as const,
       defaultBranch: "main",
       featureBranchPrefix: "feature/",
       sprintRunId: "run-1",
-    });
+    };
+
+    // First DIRTY reading is debounced — a transient conflict must not escalate.
+    const firstResult = await runner.run(runArgs as any);
+    expect(firstResult.workerEscalatedMergeConflictTasks).toEqual([]);
+    expect(deps.projectAttentionService.openItems).not.toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ attentionType: "merge_conflict" })]),
+    );
+
+    // Second consecutive DIRTY cycle confirms the conflict and escalates it.
+    const result = await runner.run(runArgs as any);
 
     expect(result.manualMergeTasks).toEqual([]);
     expect(result.workerEscalatedMergeConflictTasks).toHaveLength(1);
