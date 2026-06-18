@@ -27,6 +27,13 @@ export const SprintControls: FunctionComponent<SprintControlsProps> = ({
       <button
         type="button"
         onClick={onPauseResume}
+        aria-label={
+          isPauseResumePending
+            ? (isPaused ? "Resuming..." : "Pausing...")
+            : isPaused
+              ? `Resume ${sprintName}`
+              : `Pause ${sprintName}`
+        }
         disabled={!canPauseResume || isPauseResumePending || isStartStopPending}
         title={
           isPauseResumePending || isStartStopPending
@@ -56,6 +63,13 @@ export const SprintControls: FunctionComponent<SprintControlsProps> = ({
       <button
         type="button"
         onClick={onStartStop}
+        aria-label={
+          isStartStopPending
+            ? (isActive ? "Stopping..." : "Starting...")
+            : isActive
+              ? `Stop ${sprintName}`
+              : `Start ${sprintName}`
+        }
         disabled={isStartStopPending || isPauseResumePending}
         title={
           isStartStopPending || isPauseResumePending

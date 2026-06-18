@@ -95,14 +95,20 @@ describe("Global Search", () => {
     });
 
     describe("SearchOverlay Component", () => {
+        // "Searching..." / "No results" intentionally render twice: once in the
+        // sr-only aria-live announcer and once in the visible results area. Assert
+        // on the visible (non sr-only) element so the test reflects what users see.
+        const visibleText = (text: string) =>
+            screen.getAllByText(text).find((el) => !el.closest(".sr-only"));
+
         it("shows loading state when isLoading is true", () => {
             render(<SearchOverlay isOpen={true} onClose={vi.fn()} searchQuery="test" onSearchChange={vi.fn()} results={{sprints:[], tasks:[], agents:[], containers:[]}} isLoading={true} />);
-            expect(screen.getByText("Searching...")).toBeInTheDocument();
+            expect(visibleText("Searching...")).toBeInTheDocument();
         });
 
         it("shows empty state when no results are found", () => {
             render(<SearchOverlay isOpen={true} onClose={vi.fn()} searchQuery="test" onSearchChange={vi.fn()} results={{sprints:[], tasks:[], agents:[], containers:[]}} isLoading={false} />);
-            expect(screen.getByText("No results found for 'test'")).toBeInTheDocument();
+            expect(visibleText("No results found for 'test'")).toBeInTheDocument();
         });
 
         it("closes on Escape", () => {
