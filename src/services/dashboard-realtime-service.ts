@@ -36,6 +36,15 @@ export interface DashboardRealtimeSnapshotLoaders {
   getOverviewTelemetrySnapshot: () => MaybePromise<OverviewTelemetrySnapshot>;
 }
 
+
+export interface DashboardRealtimeMetrics {
+  coalesced: number;
+  throttled: number;
+  unchanged: number;
+  published: number;
+  failures: number;
+}
+
 export interface DashboardRealtimeMutationNotifier {
   scheduleProjectsRefresh: () => void;
   scheduleProjectLiveRefresh: (projectId: string) => void;
@@ -61,6 +70,45 @@ const PROJECTS_MIN_INTERVAL_MS = 750;
 const OVERVIEW_MIN_INTERVAL_MS = 1_000;
 
 export class DashboardRealtimeService implements DashboardRealtimeMutationNotifier {
+  private readonly metrics = new Map<string, DashboardRealtimeMetrics>();
+
+  getMetrics(eventType: string): DashboardRealtimeMetrics {
+    return (
+      this.metrics.get(eventType) || {
+        coalesced: 0,
+        throttled: 0,
+        unchanged: 0,
+        published: 0,
+        failures: 0,
+      }
+    );
+  }
+
+  private incrementMetric(eventType: string, metric: keyof DashboardRealtimeMetrics): void {
+    let current = this.metrics.get(eventType);
+    if (!current) {
+      current = { coalesced: 0, throttled: 0, unchanged: 0, published: 0, failures: 0 };
+      this.metrics.set(eventType, current);
+    }
+    current[metric]++;
+  }
+
+  private addPendingWithCoalesce(set: Set<string>, id: string, eventType: string): void {
+    if (set.has(id)) {
+      this.incrementMetric(eventType, "coalesced");
+    } else {
+      set.add(id);
+    }
+  }
+
+  private trackCoalesceFlag(currentValue: boolean, eventType: string): boolean {
+    if (currentValue) {
+      this.incrementMetric(eventType, "coalesced");
+      return true;
+    }
+    return true;
+  }
+
   private readonly listeners = new Set<DashboardRealtimeListener>();
   private readonly pendingProjectLiveIds = new Set<string>();
   private readonly pendingProjectGitIds = new Set<string>();
@@ -144,6 +192,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
           payload: { projectIds },
           replayable: false,
         });
+        this.incrementMetric("execution_refresh", "published");
       }
     }, 10);
   }
@@ -167,13 +216,13 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
        this.cacheInvalidator?.invalidateProjects();
     }
 
-    this.pendingProjectLiveIds.add(normalizedProjectId);
-    this.pendingProjectIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectLiveIds, normalizedProjectId, "project.live.updated");
+    this.addPendingWithCoalesce(this.pendingProjectIds, normalizedProjectId, "project.execution.updated");
     if (options?.includeProjects === true) {
-      this.pendingProjects = true;
+      this.pendingProjects = this.trackCoalesceFlag(this.pendingProjects, "projects.updated");
     }
     if (options?.includeOverview !== false) {
-      this.pendingOverview = true;
+      this.pendingOverview = this.trackCoalesceFlag(this.pendingOverview, "overview.telemetry.updated");
     }
     this.scheduleFlush();
 
@@ -187,8 +236,8 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       return;
     }
 
-    this.pendingProjectLiveIds.add(normalizedProjectId);
-    this.pendingProjectStatusIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectLiveIds, normalizedProjectId, "project.live.updated");
+    this.addPendingWithCoalesce(this.pendingProjectStatusIds, normalizedProjectId, "project.runtime_status.updated");
     this.scheduleFlush();
   }
 
@@ -198,10 +247,10 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       return;
     }
 
-    this.pendingProjectLiveIds.add(normalizedProjectId);
-    this.pendingProjectStructureIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectLiveIds, normalizedProjectId, "project.live.updated");
+    this.addPendingWithCoalesce(this.pendingProjectStructureIds, normalizedProjectId, "project.structure.updated");
     if (options?.includeProjects !== false) {
-      this.pendingProjects = true;
+      this.pendingProjects = this.trackCoalesceFlag(this.pendingProjects, "projects.updated");
     }
     this.scheduleFlush();
   }
@@ -212,7 +261,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       return;
     }
 
-    this.pendingProjectLiveIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectLiveIds, normalizedProjectId, "project.live.updated");
     this.scheduleFlush();
   }
 
@@ -230,7 +279,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
     }
 
     this.projectLivePublishedAt.delete(normalizedProjectId);
-    this.pendingProjectLiveIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectLiveIds, normalizedProjectId, "project.live.updated");
     this.scheduleFlush();
   }
 
@@ -245,19 +294,19 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       return;
     }
 
-    this.pendingProjectGitIds.add(normalizedProjectId);
+    this.addPendingWithCoalesce(this.pendingProjectGitIds, normalizedProjectId, "project.git.updated");
     this.scheduleFlush();
   }
 
   scheduleOverviewRefresh(): void {
     this.cacheInvalidator?.invalidateOverview();
-    this.pendingOverview = true;
+    this.pendingOverview = this.trackCoalesceFlag(this.pendingOverview, "overview.telemetry.updated");
     this.scheduleFlush();
   }
 
   scheduleProjectsRefresh(): void {
     this.cacheInvalidator?.invalidateProjects();
-    this.pendingProjects = true;
+    this.pendingProjects = this.trackCoalesceFlag(this.pendingProjects, "projects.updated");
     this.scheduleFlush();
 
     this.queuedExecutionRefreshProjectIds.add("projects");
@@ -309,10 +358,10 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
   }): { task: Promise<void> | null; waitMs: number } {
     const waitMs = this.getThrottleDelay(options.lastPublishedAt, options.minIntervalMs, options.now);
     if (waitMs > 0) {
+      this.incrementMetric(options.eventType, "throttled");
       return { task: null, waitMs };
     }
-
-    const task = (async () => {
+const task = (async () => {
       try {
         const payload = await Promise.resolve(options.loader());
         let sprintId: string | undefined;
@@ -329,6 +378,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
               type: options.eventType,
               ...(options.projectId ? { projectId: options.projectId } : {}),
             });
+            this.incrementMetric(options.eventType, "unchanged");
             options.onPublished(options.now);
             return;
           }
@@ -352,6 +402,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
           payload,
           replayable: false,
         });
+        this.incrementMetric(options.eventType, "published");
 
         if (options.logType) {
           if (options.logType === "realtime_snapshot_published") {
@@ -368,6 +419,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
 
         options.onPublished(options.now);
       } catch (error) {
+        this.incrementMetric(options.eventType, "failures");
         this.logger.error(`Failed to publish ${options.eventType.replace(/\./g, " ")} realtime snapshot`, {
           ...(options.projectId ? { projectId: options.projectId } : {}),
           error,
@@ -428,7 +480,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       });
 
       if (result.waitMs > 0) {
-        this.pendingProjects = true;
+        this.pendingProjects = this.trackCoalesceFlag(this.pendingProjects, "projects.updated");
         nextDelayMs = this.getNextDelay(nextDelayMs, result.waitMs);
       } else if (result.task) {
         publishTasks.push(result.task);
@@ -596,7 +648,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
       });
 
       if (result.waitMs > 0) {
-        this.pendingOverview = true;
+        this.pendingOverview = this.trackCoalesceFlag(this.pendingOverview, "overview.telemetry.updated");
         nextDelayMs = this.getNextDelay(nextDelayMs, result.waitMs);
       } else if (result.task) {
         publishTasks.push(result.task);
