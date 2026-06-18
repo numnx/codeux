@@ -114,9 +114,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = "Project Name is required.";
 
-        if (sourceType === 'local' || (sourceType === 'new_project' && newInitMode === 'new-local')) {
-            if (!localPath.trim()) errors.path = "Directory Path is required.";
-        } else if (sourceType === 'git') {
+        if (sourceType === 'git') {
             if (!gitUrl.trim()) {
                 errors.path = "Repository URL is required.";
             }
