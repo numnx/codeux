@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 .card {
+  @apply min-w-0;
   @apply relative overflow-hidden flex flex-col justify-between motion-safe:transition-all duration-300;
   background: var(--stats-card-bg);
   backdrop-filter: none;
@@ -25,10 +26,12 @@
 }
 
 .titleGroup {
+  @apply min-w-0;
   @apply flex items-center gap-2;
 }
 
 .title {
+  @apply min-w-0 truncate;
   @apply text-xs font-medium uppercase tracking-widest transition-colors duration-300;
   color: var(--stats-label-color);
 }
@@ -47,10 +50,12 @@
 }
 
 .valueRow {
+  @apply gap-3 min-w-0;
   @apply flex items-end justify-between mb-1;
 }
 
 .value {
+  @apply min-w-0 truncate;
   @apply text-[2.25rem] font-semibold font-mono tracking-tighter leading-none;
   color: var(--stats-value-color);
 }

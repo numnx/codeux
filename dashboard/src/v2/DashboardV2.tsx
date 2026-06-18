@@ -67,23 +67,23 @@ export const DashboardV2: FunctionComponent = () => {
             <SectionDivider label="Data Streams" />
 
             {/* Main Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 md:gap-24 flex-grow relative z-20">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12 xl:gap-16 flex-grow relative z-20">
                 {/* Sources and Tasks */}
-                <div className="xl:col-span-8 flex flex-col gap-24">
+                <div className="lg:col-span-12 xl:col-span-8 flex flex-col gap-12 xl:gap-24 min-w-0">
                     <section aria-label="Sources" className="w-full relative">
                         {/* Subtle signal glow — very restrained */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(0,224,160,0.03) 0%, rgba(0,224,160,0.01) 40%, transparent 70%)' }} />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-full overflow-hidden rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(0,224,160,0.03) 0%, rgba(0,224,160,0.01) 40%, transparent 70%)' }} />
                         <SourcesGrid />
                     </section>
 
                     <section aria-label="Tasks" className="w-full relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[130%] rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(255,184,0,0.03) 0%, rgba(255,184,0,0.01) 40%, transparent 70%)' }} />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-full overflow-hidden rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(255,184,0,0.03) 0%, rgba(255,184,0,0.01) 40%, transparent 70%)' }} />
                         <TasksList pageData={pageData} />
                     </section>
                 </div>
 
                 {/* Live Telemetry */}
-                <aside aria-label="Live Telemetry" className="xl:col-span-4 h-full relative">
+                <aside aria-label="Live Telemetry" className="lg:col-span-12 xl:col-span-4 h-full relative min-w-0">
                     <Suspense fallback={<SkeletonPanel />}>
                         <OverviewTelemetry />
                     </Suspense>

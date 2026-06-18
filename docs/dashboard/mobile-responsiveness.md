@@ -25,3 +25,8 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 5. **Page Containers & Safe Areas**:
    *   Pages that scroll vertically behind fixed bottom navigation elements (like the `KineticDock`) must append a safe bottom padding (e.g., `pb-36 md:pb-32`) to ensure final controls are reachable.
+
+6. **Overview Layout Constraints**:
+   *   The main overview grid must collapse to stack the Live Telemetry panel vertically below the Tasks/Sources columns on screens smaller than `xl` (`< 1280px`).
+   *   Metric cards, telemetry rows, and source names must implement `min-w-0` and text truncation to prevent large numeric values or long names from blowing out column widths and triggering horizontal scrolling.
+   *   Decorative gradients and backgrounds must not expand beyond `100%` of their container's width or cause horizontal scrollbars.
