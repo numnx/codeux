@@ -161,8 +161,8 @@ describe("UsageFilterMenu", () => {
     const activeBtn = getByRole("button", { name: /Active Time/i });
 
     // Since tokens is the only active series, it should be disabled to prevent 0 active series
-    expect(tokensBtn).toBeDisabled();
-    expect(activeBtn).not.toBeDisabled();
+    expect(tokensBtn).toHaveAttribute('aria-disabled', 'true');
+    expect(activeBtn).toHaveAttribute('aria-disabled', 'false');
   });
 });
 
