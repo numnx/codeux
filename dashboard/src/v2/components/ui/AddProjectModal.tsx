@@ -95,6 +95,16 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const [isDirectoryPickerLoading, setIsDirectoryPickerLoading] = useState(false);
 
     const reducedMotion = useReducedMotion();
+
+    useLayoutEffect(() => {
+        if (showSetupOptions) {
+            const timer = setTimeout(() => {
+                const heading = document.getElementById('setup-scope-heading');
+                if (heading) heading.focus();
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [showSetupOptions]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -104,13 +114,15 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = "Project Name is required.";
 
-        if (sourceType === 'git') {
+        if (sourceType === 'local' || (sourceType === 'new_project' && newInitMode === 'new-local')) {
+            if (!localPath.trim()) errors.path = "Directory Path is required.";
+        } else if (sourceType === 'git') {
             if (!gitUrl.trim()) {
                 errors.path = "Repository URL is required.";
             }
         }
         return errors;
-    }, [name, gitUrl, sourceType]);
+    }, [name, gitUrl, localPath, newInitMode, sourceType]);
 
 
     const handleClose = () => {
@@ -254,6 +266,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
         return (
             <div
                 id={pickerId}
+                role="region"
+                aria-label="Directory picker"
                 className="mt-3 overflow-hidden rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.035]"
             >
                 <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 py-2.5 dark:border-white/[0.08]">
@@ -291,7 +305,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     >
                         <><RefreshCw aria-hidden="true" className={`h-4 w-4 ${isDirectoryPickerLoading ? "animate-spin" : ""}`} />{isDirectoryPickerLoading && <span className="sr-only">Loading</span>}</>
                     </button>
-                    <div className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-600 dark:bg-white/[0.055] dark:text-slate-300">
+                    <div aria-live="polite" className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-600 dark:bg-white/[0.055] dark:text-slate-300">
                         {directoryListing?.currentPath || "Loading directories..."}
                     </div>
                     <button
@@ -412,9 +426,32 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1">
                         <div ref={fieldsRef} className="flex flex-col gap-5 lg:gap-6 flex-1">
 
+
                             {submitError && (
                                 <ActionFeedbackRegion status="error" message={submitError} onDismiss={() => setSubmitError(null)} />
                             )}
+
+                            {Object.keys(validationErrors).some(key => touched[key as keyof typeof touched]) && (
+                                <div role="alert" aria-live="assertive" className="rounded-[1.15rem] border border-status-red/30 bg-status-red/10 p-4">
+                                    <h3 className="text-sm font-bold text-status-red mb-2">Please fix the following errors:</h3>
+                                    <ul className="list-disc pl-5 text-xs text-status-red/90 space-y-1 font-medium">
+                                        {touched.name && validationErrors.name && (
+                                            <li><a href="#add-project-name" className="hover:underline focus:outline-none focus:ring-2 focus:ring-status-red rounded px-1">{validationErrors.name}</a></li>
+                                        )}
+                                        {touched.path && validationErrors.path && (
+                                            <li>
+                                                <a
+                                                    href={sourceType === 'local' ? "#add-project-path" : sourceType === 'git' ? "#add-project-git-url" : "#add-project-new-path"}
+                                                    className="hover:underline focus:outline-none focus:ring-2 focus:ring-status-red rounded px-1"
+                                                >
+                                                    {validationErrors.path}
+                                                </a>
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                            )}
+
 
                             {/* Project Name */}
                             <div className="group/field">
@@ -434,7 +471,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         }
                                         setTouched(prev => ({ ...prev, name: true }));
                                     }}
-                                    aria-invalid={!!validationErrors.name && touched.name}
+                                    aria-invalid={!!validationErrors.name && touched.name ? "true" : "false"}
                                     aria-errormessage="project-name-error"
                                     aria-describedby={validationErrors.name && touched.name ? "project-name-error" : undefined}
                                     aria-required="true"
@@ -490,7 +527,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             placeholder="/home/user/projects/my-project"
                                             className={`${detailInputSurfaceClass} min-w-0 flex-1`}
                                             autoComplete="off"
-                                            aria-invalid={!!validationErrors.path && touched.path}
+                                            aria-invalid={!!validationErrors.path && touched.path ? "true" : "false"}
                                             aria-errormessage="project-path-error"
                                             aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
                                             aria-required="true"
@@ -531,7 +568,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             className={detailInputClass}
                                             required
                                             autoComplete="url"
-                                            aria-invalid={!!validationErrors.path && touched.path}
+                                            aria-invalid={!!validationErrors.path && touched.path ? "true" : "false"}
                                             aria-errormessage="project-git-error"
                                             aria-describedby={validationErrors.path && touched.path ? "project-git-error" : undefined}
                                             aria-required="true"
@@ -604,12 +641,17 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     </div>
 
                                     {showSetupOptions && (
-                                        <div className="rounded-[1.35rem] border border-ember-500/25 bg-ember-500/[0.045] p-4 shadow-[0_14px_38px_rgba(255,184,0,0.08)] dark:bg-ember-500/[0.06]">
+                                        <div
+                                            role="region"
+                                            aria-label="Setup Scope Options"
+                                            tabIndex={-1}
+                                            className="rounded-[1.35rem] border border-ember-500/25 bg-ember-500/[0.045] p-4 shadow-[0_14px_38px_rgba(255,184,0,0.08)] dark:bg-ember-500/[0.06]">
+
                                             <div className="mb-3 flex items-center justify-between gap-4">
                                                 <div>
-                                                    <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-ember-600 dark:text-ember-400">
+                                                    <h3 id="setup-scope-heading" tabIndex={-1} className="text-[9px] font-bold uppercase tracking-[0.2em] text-ember-600 dark:text-ember-400 focus:outline-none">
                                                         Setup Scope
-                                                    </div>
+                                                    </h3>
                                                     <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">
                                                         Choose project assets
                                                     </div>
@@ -622,7 +664,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     All
                                                 </button>
                                             </div>
-                                            <div className="grid gap-2 sm:grid-cols-2">
+                                            <div role="group" aria-labelledby="setup-scope-heading" className="grid gap-2 sm:grid-cols-2">
                                                 {setupOptionRows.map(({ key, label, description, icon: Icon }) => {
                                                     const checked = setupOptions[key];
                                                     return (
@@ -732,7 +774,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     }}
                                                     placeholder="/home/user/projects/my-project"
                                                     className={`${detailInputSurfaceClass} min-w-0 flex-1`}
-                                                    aria-invalid={!!validationErrors.path && touched.path}
+                                                    aria-invalid={!!validationErrors.path && touched.path ? "true" : "false"}
                                                     aria-describedby={validationErrors.path && touched.path ? "project-new-path-error" : undefined}
                                                     onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
                                                 />
@@ -753,16 +795,16 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="group/field">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <label className={fieldLabelClass}>
-                                                        Provider
-                                                    </label>
+                                            <fieldset className="group/field relative">
+                                                <legend className={fieldLabelClass + " mb-2.5"}>
+                                                    Provider
+                                                </legend>
+                                                <div className="absolute top-0 right-0">
                                                     <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
                                                         Provider detection is optional here; both buttons are shown.
                                                     </span>
                                                 </div>
-                                                <div className="mt-2.5 inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
+                                                <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
                                                     <button
                                                         type="button"
                                                         onClick={() => setNewProvider('github')}
@@ -786,7 +828,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                         GitLab
                                                     </button>
                                                 </div>
-                                            </div>
+                                            </fieldset>
 
                                             <fieldset>
                                                 <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">
@@ -828,7 +870,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             <div className="flex-1" />
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between pt-1">
+                            <div role="group" aria-label="Form actions" className="flex items-center justify-between pt-1">
                                 <button
                                     type="button"
                                     onClick={handleClose}
