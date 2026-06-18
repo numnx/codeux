@@ -271,7 +271,17 @@ export class QualityAssuranceService {
         baseBranch: sprintFeatureBranch,
       });
 
-      if (review.verdict === "pass" || (triggerType === "completed_task_without_pr" && review.shouldHavePr === false)) {
+      // A `completed_task_without_pr` task may legitimately need no PR (the work
+      // was a no-op / nothing to commit) — `shouldHavePr === false` lets it pass
+      // instead of blocking forever on a PR that should not exist. But an explicit
+      // `changes_requested` verdict must win over that flag: a reviewer that finds
+      // the work wrong yet also reports "no PR needed" would otherwise force-pass
+      // broken work, which then resurfaces at sprint-completion QA and drives the
+      // change loop. Trust the changes_requested verdict (fail-closed).
+      const noPrNeeded = triggerType === "completed_task_without_pr"
+        && review.shouldHavePr === false
+        && review.verdict !== "changes_requested";
+      if (review.verdict === "pass" || noPrNeeded) {
         this.deps.qaReviewRepository.updateRun(run.id, {
           status: "completed",
           outcome: "pass",
