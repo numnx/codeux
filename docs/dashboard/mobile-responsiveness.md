@@ -25,3 +25,8 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 5. **Page Containers & Safe Areas**:
    *   Pages that scroll vertically behind fixed bottom navigation elements (like the `KineticDock`) must append a safe bottom padding (e.g., `pb-36 md:pb-32`) to ensure final controls are reachable.
+
+6. **Browser Preview UI**:
+   *   The embedded browser surface and window chrome must use viewport-aware height constraints (e.g., `h-[calc(100dvh-20rem)] sm:h-[calc(100vh-23rem)]`) and short-height safe minimums (e.g., `min-h-[400px] sm:min-h-[540px]`).
+   *   Toolbar controls, address bars, and slider cards should use flexible constraints (like `flex-wrap` and bounded `min-w-*` limits) to prevent horizontal scrolling on mobile.
+   *   Side control grids stack automatically on narrow devices (e.g., `grid-cols-1 sm:grid-cols-3`).

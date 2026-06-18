@@ -463,7 +463,7 @@ export const BrowserPage: FunctionComponent = () => {
       )}
 
       {showInAppBrowser && previewEnabled && (
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
         <PreviewWindowChrome
           session={visibleSelectedSession}
           onNavigateBack={() => postNavigationCommand("back")}
@@ -542,7 +542,7 @@ export const BrowserPage: FunctionComponent = () => {
                   {script?.path || visibleSelectedSession?.startupScriptPath || "Open editor to load script"}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={handleRebuild}

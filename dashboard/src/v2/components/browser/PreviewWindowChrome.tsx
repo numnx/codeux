@@ -49,7 +49,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
   if (!session) {
     return (
       <div className="overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/72 shadow-[0_24px_72px_rgba(15,23,42,0.08)] dark:border-white/[0.06] dark:bg-void-900/55 dark:shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-        <div className="relative h-[calc(100vh-23rem)] min-h-[540px] bg-slate-100/70 dark:bg-void-950">
+        <div className="relative h-[calc(100dvh-20rem)] sm:h-[calc(100vh-23rem)] min-h-[400px] sm:min-h-[540px] bg-slate-100/70 dark:bg-void-950">
           <div className="flex h-full flex-col items-center justify-center px-8 text-center">
             <Compass className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.5} />
             <h2 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">No preview active</h2>
@@ -98,7 +98,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
       {/* Closed state presentation */}
       {isClosed && !isFullscreen && !isMinimized && (
         <div className="mb-5 overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/72 shadow-[0_24px_72px_rgba(15,23,42,0.08)] dark:border-white/[0.06] dark:bg-void-900/55 dark:shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-          <div className="relative flex h-[calc(100vh-23rem)] min-h-[540px] flex-col items-center justify-center bg-slate-100/70 px-8 text-center dark:bg-void-950">
+          <div className="relative flex h-[calc(100dvh-20rem)] sm:h-[calc(100vh-23rem)] min-h-[400px] sm:min-h-[540px] flex-col items-center justify-center bg-slate-100/70 px-8 text-center dark:bg-void-950">
             <div className="h-12 w-12 rounded-full border border-black/[0.08] flex items-center justify-center mb-4 dark:border-white/[0.08]">
               <X className="h-5 w-5 text-slate-400" strokeWidth={2} />
             </div>
@@ -192,7 +192,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             <RefreshCw className="h-4 w-4" strokeWidth={2.2} />
           </button>
           <form
-            className="flex min-w-[240px] flex-1 items-center"
+            className="flex min-w-[150px] sm:min-w-[240px] flex-1 items-center"
             onSubmit={(event) => {
               event.preventDefault();
               onAddressSubmit(addressValue);
@@ -213,7 +213,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
         className={
           isFullscreen
             ? "flex-1 bg-slate-100/70 dark:bg-void-950"
-            : "relative h-[calc(100vh-23rem)] min-h-[540px] bg-slate-100/70 dark:bg-void-950"
+            : "relative h-[calc(100dvh-20rem)] sm:h-[calc(100vh-23rem)] min-h-[400px] sm:min-h-[540px] bg-slate-100/70 dark:bg-void-950"
         }
       >
         {children}
