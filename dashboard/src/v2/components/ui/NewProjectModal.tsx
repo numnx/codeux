@@ -178,11 +178,11 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
         >
             <div
                 ref={cardRef}
-                className="relative flex w-full max-w-2xl lg:max-w-3xl max-h-[calc(100vh-2rem)] overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+                className="relative flex flex-col sm:flex-row w-[calc(100vw-2rem)] sm:w-full max-w-2xl lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto sm:overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
                 style={{ minHeight: modalMinHeight }}
             >
                 {/* ── Left decorative panel ── */}
-                <div className="relative w-52 shrink-0 bg-void-900 dark:bg-void-950 flex flex-col justify-between p-8 overflow-hidden">
+                <div className="relative hidden sm:flex w-52 shrink-0 bg-void-900 dark:bg-void-950 flex-col justify-between p-8 overflow-hidden">
                     <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">
                         NEW
                     </span>
@@ -205,7 +205,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                 </div>
 
                 {/* ── Right form panel ── */}
-                <div className="flex-1 overflow-y-auto bg-white/98 dark:bg-void-800/98 p-7 lg:p-8 flex flex-col">
+                <div className="flex-1 overflow-y-visible sm:overflow-y-auto bg-white/98 dark:bg-void-800/98 p-5 sm:p-7 lg:p-8 flex flex-col min-h-0">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-6 lg:mb-8">
                         <div>
@@ -264,7 +264,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                 <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">
                                     Init Mode
                                 </legend>
-                                <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
+                                <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                                     <button
                                         type="button"
                                         onClick={() => handleInitModeChange('new-local')}
@@ -317,7 +317,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                         <button
                                             type="button"
                                             onClick={() => handleOpenDirectoryPicker('localPath')}
-                                            className="flex shrink-0 items-center justify-center gap-2 rounded-[1.15rem] border border-black/[0.06] bg-void-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition-all duration-250 hover:-translate-y-px hover:bg-void-800 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:border-white/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12]"
+                                            className="flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 rounded-[1.15rem] border border-black/[0.06] bg-void-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition-all duration-250 hover:-translate-y-px hover:bg-void-800 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:border-white/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12]"
                                             title="Browse directories"
                                         >
                                             <FolderOpen className="h-4 w-4" />
@@ -340,7 +340,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                                     <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">
                                                         Provider
                                                     </legend>
-                                                    <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
+                                                    <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                                                         <button
                                                             type="button"
                                                             onClick={() => setRemoteProvider('github')}
@@ -406,7 +406,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                                     <button
                                                         type="button"
                                                         onClick={() => handleOpenDirectoryPicker('cloneDir')}
-                                                        className="flex shrink-0 items-center justify-center gap-2 rounded-[1.15rem] border border-black/[0.06] bg-void-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition-all duration-250 hover:-translate-y-px hover:bg-void-800 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:border-white/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12]"
+                                                        className="flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 rounded-[1.15rem] border border-black/[0.06] bg-void-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition-all duration-250 hover:-translate-y-px hover:bg-void-800 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 dark:border-white/[0.08] dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12]"
                                                         title="Browse clone directory"
                                                     >
                                                         <FolderOpen className="h-4 w-4" />
@@ -419,7 +419,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                                 <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 block mb-2.5">
                                                     Visibility
                                                 </legend>
-                                                <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1">
+                                                <div className="inline-flex p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-2xl gap-1 flex-wrap">
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsPrivate(true)}
@@ -455,11 +455,11 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                             <div className="flex-1" />
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between pt-1">
+                            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-1">
                                 <button
                                     type="button"
                                     onClick={handleClose}
-                                    className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 rounded"
+                                    className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 rounded w-full sm:w-auto py-2"
                                 >
                                     Cancel
                                 </button>
@@ -467,7 +467,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                                     type="submit"
                                     disabled={isSubmitting || (initMode === 'new-remote' && noProviders)}
                                     aria-busy={isSubmitting}
-                                    className="group/btn flex items-center gap-2.5 px-6 py-3 bg-ember-500 hover:bg-ember-400 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(255,184,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)] disabled:shadow-none active:scale-95 disabled:active:scale-100 hover:-translate-y-px disabled:hover:-translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500"
+                                    className="group/btn flex justify-center items-center gap-2.5 px-6 py-3 bg-ember-500 hover:bg-ember-400 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(255,184,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)] disabled:shadow-none active:scale-95 disabled:active:scale-100 hover:-translate-y-px disabled:hover:-translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 w-full sm:w-auto"
                                 >
                                     {isSubmitting ? (
                                         <><Loader2 aria-hidden="true" className="w-4 h-4 animate-spin" /><span className="sr-only">Loading</span></>

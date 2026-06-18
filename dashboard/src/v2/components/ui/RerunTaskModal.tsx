@@ -164,13 +164,13 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
             isOpen={true}
             onClose={handleClose}
             ariaLabelledBy="rerun-modal-title"
-            className="w-full max-w-md !p-0 !rounded-[2rem]"
+            className="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-0 !rounded-[2rem] flex flex-col"
         >
             <div
-                className="w-full cursor-default overflow-hidden bg-white dark:bg-void-900"
+                className="w-full cursor-default overflow-y-auto sm:overflow-hidden bg-white dark:bg-void-900"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-7 pt-6 pb-4">
+                <div className="flex items-center justify-between px-5 sm:px-7 pt-6 pb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-status-amber/10">
                             <RotateCcw className="w-4 h-4 text-status-amber" strokeWidth={2} />
@@ -193,7 +193,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                 </div>
 
                 {/* Body */}
-                <div className="px-7 pb-6 space-y-5">
+                <div className="flex-1 overflow-y-visible sm:overflow-y-auto px-5 sm:px-7 pb-6 space-y-5 min-h-0">
                     <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed">
                         This will reset <span className="font-semibold text-slate-700 dark:text-slate-200">{task.title}</span> and start a fresh execution.
                     </p>
@@ -335,12 +335,12 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 px-7 py-4 border-t border-black/[0.05] dark:border-white/[0.05] bg-black/[0.01] dark:bg-white/[0.01]">
+                <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 px-5 sm:px-7 py-4 border-t border-black/[0.05] dark:border-white/[0.05] bg-black/[0.01] dark:bg-white/[0.01]">
                     <button
                         type="button"
                         onClick={handleClose}
                         disabled={isSubmitting}
-                        className="px-4 py-2 rounded-xl text-[12px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 disabled:opacity-50"
+                        className="w-full sm:w-auto px-4 py-2 rounded-xl text-[12px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 disabled:opacity-50"
                     >
                         Cancel
                     </button>
@@ -348,7 +348,7 @@ export const RerunTaskModal: FunctionComponent<RerunTaskModalProps> = ({
                         type="button"
                         onClick={handleSubmit}
                         disabled={isSubmitting}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold bg-status-amber text-white shadow-[0_4px_16px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_24px_rgba(245,158,11,0.35)] hover:-translate-y-px transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 disabled:opacity-50"
+                        className="inline-flex justify-center items-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl text-[12px] font-bold bg-status-amber text-white shadow-[0_4px_16px_rgba(245,158,11,0.25)] hover:shadow-[0_6px_24px_rgba(245,158,11,0.35)] hover:-translate-y-px transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 disabled:opacity-50"
                     >
                         <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
                         {isSubmitting ? "Rerunning..." : "Rerun Task"}
