@@ -100,7 +100,7 @@ export const InteractiveUsageChart: FunctionComponent<{
   const padding = 34;
   const viewStart = viewStartRef.current;
   const viewEnd = viewEndRef.current;
-  const visibleBuckets = getVisibleBuckets(buckets, viewStart, viewEnd);
+  const visibleBuckets = useMemo(() => getVisibleBuckets(buckets, viewStart, viewEnd), [buckets, viewStart, viewEnd]);
 
   // Keep the visibleBucketsRef updated
   const visibleBucketsRef = useRef(visibleBuckets);
@@ -217,9 +217,9 @@ export const InteractiveUsageChart: FunctionComponent<{
 
   const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
 
-  const { activeIndex, activeBucket, tooltipLeft, xPositions } = getTooltipState(
+  const { activeIndex, activeBucket, tooltipLeft, xPositions } = useMemo(() => getTooltipState(
     visibleBuckets, chartData, hoveredIndex, padding, width
-  );
+  ), [visibleBuckets, chartData, hoveredIndex, padding, width]);
 
   const selectionBounds = dragStartIndex !== null && dragCurrentIndex !== null
     ? {
@@ -232,7 +232,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     : stats.range.label;
   const axisLabelStep = getAxisLabelStep(stats.range);
 
-  const { peakTokens, peakTime, peakInvocations, averageTokens } = calculateChartMetrics(visibleBuckets);
+  const { peakTokens, peakTime, peakInvocations, averageTokens } = useMemo(() => calculateChartMetrics(visibleBuckets), [visibleBuckets]);
 
   useEffect(() => {
     const handleMouseUp = () => {
