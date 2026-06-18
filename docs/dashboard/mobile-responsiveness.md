@@ -25,3 +25,8 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 5. **Page Containers & Safe Areas**:
    *   Pages that scroll vertically behind fixed bottom navigation elements (like the `KineticDock`) must append a safe bottom padding (e.g., `pb-36 md:pb-32`) to ensure final controls are reachable.
+
+6. **Scheduler & Calendar Layouts**:
+   * Scheduler navigation rows and segmented controls must utilize responsive wrapping or truncation strategies (e.g., `flex-wrap`, `min-w-0`, `truncate`) to avoid pushing horizontal page scroll on mobile and tablet widths.
+   * Long titles, recurrences, and inline data chips on scheduled event rows should adopt `flex-wrap` and allow individual components to wrap cleanly without overlapping or pushing outside the grid columns.
+   * Horizontal calendar strips must contain their own `overflow-x-auto` to allow sideways scrolling without causing a page-level horizontal overflow. Form layouts sharing space with calendars should switch from a unified row to a single column (`grid-cols-1 sm:grid-cols-3`) when width decreases.
