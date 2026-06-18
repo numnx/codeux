@@ -1,4 +1,8 @@
 import type {
+  ProjectStatsQuery,
+  ProjectStatsWindow,
+} from "../contracts/app-types.js";
+import type {
   CreateProjectInput,
   UpdateProjectInput,
   CreateSprintInput,
@@ -494,4 +498,59 @@ export function parseCreateDashboardConversationMessageInput(body: unknown): Cre
     connectionId: typeof typedBody.connectionId === "string" ? typedBody.connectionId.trim() : (typedBody.connectionId === null ? null : undefined),
     metadata: typedBody.metadata as CreateDashboardConversationMessageInput["metadata"],
   };
+}
+
+export function parseStatsDateInput(value: string | undefined, edge: "start" | "end"): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`);
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function parseProjectStatsQuery(query: Record<string, unknown>): ProjectStatsQuery {
+  const requestedWindow = typeof query.window === "string" ? query.window.trim() : "";
+  const window: ProjectStatsWindow = (
+    requestedWindow === "1h" ||
+    requestedWindow === "24h" ||
+    requestedWindow === "7d" ||
+    requestedWindow === "30d" ||
+    requestedWindow === "all" ||
+    requestedWindow === "custom"
+  ) ? (requestedWindow as ProjectStatsWindow) : "7d";
+
+  let from = typeof query.from === "string" && query.from.trim().length > 0 ? query.from.trim() : undefined;
+  let to = typeof query.to === "string" && query.to.trim().length > 0 ? query.to.trim() : undefined;
+
+  if (window === "custom") {
+    const fromDate = parseStatsDateInput(from, "start");
+    const toDate = parseStatsDateInput(to, "end");
+
+    if (!fromDate || !toDate) {
+      throw new Error("Custom stats windows require valid from and to values.");
+    }
+    if (fromDate.getTime() > toDate.getTime()) {
+      throw new Error("Custom stats window start must be earlier than end.");
+    }
+
+    const MIN_DATE = new Date("2000-01-01T00:00:00.000Z").getTime();
+    const MAX_DATE = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+    if (fromDate.getTime() < MIN_DATE) {
+      from = "2000-01-01T00:00:00.000Z";
+    } else {
+      from = fromDate.toISOString();
+    }
+
+    if (toDate.getTime() > MAX_DATE) {
+      to = new Date(MAX_DATE).toISOString();
+    } else {
+      to = toDate.toISOString();
+    }
+  }
+
+  return { window, from, to };
 }
