@@ -25,7 +25,7 @@ describe("ActionFeedbackRegion", () => {
   it("displays the correct message and status", () => {
     render(<ActionFeedbackRegion status="success" message="Saved successfully" />);
     expect(screen.getByText("Saved successfully")).toBeInTheDocument();
-    const region = screen.getByRole("status");
+    const region = screen.getByRole("alert");
     expect(region).toHaveAttribute("aria-live", "polite");
   });
 
