@@ -31,6 +31,7 @@ interface SearchOverlayProps {
 export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef, isOpen, onClose, searchQuery, onSearchChange, results, isLoading }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const triggerElementRef = useRef<HTMLElement | null>(null);
     const containerRef = useFocusTrap(isOpen, {
         onClose,
         initialFocusRef: inputRef,
@@ -124,6 +125,9 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
         gsap.killTweensOf(containerRef.current);
 
         if (isOpen) {
+            if (!triggerElementRef.current) {
+                triggerElementRef.current = document.activeElement as HTMLElement;
+            }
             gsap.set(overlayRef.current, { display: 'flex' });
 
             const tl = gsap.timeline();
@@ -149,6 +153,10 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                 onComplete: () => {
                     if (overlayRef.current) {
                         gsap.set(overlayRef.current, { display: 'none' });
+                    }
+                    if (triggerElementRef.current) {
+                        triggerElementRef.current.focus();
+                        triggerElementRef.current = null;
                     }
                 }
             });
@@ -309,9 +317,14 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                                 if (category.items?.length === 0) return null;
                                 return (
                                     <div key={category.id} className="flex flex-col">
-                                        <div className="flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                            <category.icon className="w-4 h-4" />
-                                            {category.title}
+                                        <div className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                            <div className="flex items-center gap-2">
+                                                <category.icon className="w-4 h-4" />
+                                                {category.title}
+                                            </div>
+                                            <span className="text-[10px] font-mono opacity-60 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">
+                                                {category.items.length}
+                                            </span>
                                         </div>
                                         <div className="flex flex-col gap-1">
                                             {category.items.map((item) => {

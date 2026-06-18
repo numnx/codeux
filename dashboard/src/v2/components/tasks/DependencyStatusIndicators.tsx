@@ -22,8 +22,8 @@ export const DependencyStatusIndicators: FunctionComponent<{
           }`}
           title={`Depends on ${dep.title} (${dep.status})`} aria-label={`Depends on ${dep.title}, status: ${dep.status.replace('_', ' ')}`}
         >
-          <ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
-          <span className="sr-only">Depends on task </span><span>{dep.id}</span>
+          <span className="sr-only">Depends on task </span><ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          <span>{dep.id}</span>
         </div>
       ))}
     </div>

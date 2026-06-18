@@ -30,7 +30,7 @@ export function FormError({ id, error, helperId, helperText }: FormErrorProps) {
           id={id}
           role="alert"
           aria-live="assertive"
-          class="col-start-1 row-start-1 text-xs font-medium text-status-red motion-safe:animate-form-slide-down"
+          class="col-start-1 row-start-1 text-xs font-medium text-status-red motion-safe:animate-form-slide-down opacity-100 visible"
         >
           {error}
         </div>
