@@ -22,3 +22,6 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 4.  **Notification Panels**:
     *   Flyout menus and notification surfaces should be collision-aware with width and max-height constraints (e.g., `max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)]`) so they remain fully visible from the top nav at tablet widths without clipping.
+
+5. **Page Containers & Safe Areas**:
+   *   Pages that scroll vertically behind fixed bottom navigation elements (like the `KineticDock`) must append a safe bottom padding (e.g., `pb-36 md:pb-32`) to ensure final controls are reachable.
