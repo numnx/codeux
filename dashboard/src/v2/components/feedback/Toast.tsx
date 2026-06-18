@@ -93,9 +93,6 @@ export const Toast: FunctionComponent<ToastProps> = ({
     if (document.activeElement === dismissButtonRef.current || document.activeElement === actionButtonRef.current) {
       const fallback = document.querySelector('[role="main"]') || document.body;
       (fallback as HTMLElement).focus();
-      if (document.activeElement === dismissButtonRef.current || document.activeElement === actionButtonRef.current) {
-          (document.activeElement as HTMLElement)?.blur();
-      }
     }
 
     gsap.to(containerRef.current, {
@@ -133,6 +130,7 @@ export const Toast: FunctionComponent<ToastProps> = ({
               action.onClick();
               handleDismiss();
             }}
+            aria-label={`${action.label}: ${message}`}
             className="mt-2 text-xs font-bold uppercase tracking-wider underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current rounded"
           >
             {action.label}
@@ -147,7 +145,7 @@ export const Toast: FunctionComponent<ToastProps> = ({
           handleDismiss();
         }}
         className="shrink-0 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
-        aria-label="Dismiss toast"
+        aria-label={`Dismiss toast: ${message}`}
       >
         <X className="w-4 h-4" />
       </button>
