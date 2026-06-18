@@ -60,7 +60,7 @@ export const ProviderInstanceCard: FunctionComponent<{
           {onToggleEnabled ? (
             <label className="flex items-center gap-2 rounded-full border border-black/[0.06] bg-black/[0.02] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
               Enabled
-              <Toggle aria-label="Toggle setting" value={enabled ?? true} onChange={() => onToggleEnabled(!(enabled ?? true))} />
+              <Toggle aria-label={`Enable provider ${provider.name}`} aria-description={`Toggle whether ${provider.name} is enabled.`} value={enabled ?? true} onChange={() => onToggleEnabled(!(enabled ?? true))} />
             </label>
           ) : null}
           <button

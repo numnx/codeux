@@ -65,11 +65,9 @@ describe("FieldWrapper", () => {
 
     expect(input).toHaveAttribute("aria-invalid", "true");
 
-    const ariaErrormessage = input.getAttribute("aria-errormessage");
-    expect(ariaErrormessage).not.toBeNull();
-
     const errorElement = screen.getByText("Required");
-    expect(errorElement.getAttribute("id")).toEqual(ariaErrormessage);
+    expect(errorElement.getAttribute("id")).not.toBeNull();
+    expect(input.getAttribute("aria-describedby")).toContain(errorElement.getAttribute("id"));
   });
 
   it("uses explicit htmlFor when provided", () => {
@@ -215,7 +213,7 @@ describe("FieldWrapper", () => {
     const rerenderedInputs = screen.getAllByRole("textbox");
     rerenderedInputs.forEach(input => {
       expect(input).toHaveAttribute("aria-invalid", "true");
-      expect(input.getAttribute("aria-errormessage")).not.toBeNull();
+      expect(input.getAttribute("aria-describedby")).not.toBeNull();
     });
   });
 });

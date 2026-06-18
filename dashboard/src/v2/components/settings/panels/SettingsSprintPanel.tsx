@@ -123,7 +123,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
         </Row>
 
         <Row label="Auto-create PRs" description={editableSettings.git.githubMode === "LOCAL" ? "Open pull requests automatically for remote git workflows. (Disabled in Local mode)" : "Open pull requests automatically for remote git workflows."} badge={getFieldBadge("git.autoCreatePr")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.git.autoCreatePr}
+          <Toggle aria-label="Auto-create PRs"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.git.autoCreatePr}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -135,7 +135,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Auto-close linked issues" description={editableSettings.git.githubMode === "LOCAL" ? "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete. (Disabled in Local mode)" : "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete."} badge={getFieldBadge("git.autoCloseLinkedIssues")} last>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.git.autoCloseLinkedIssues}
+          <Toggle aria-label="Auto-close linked issues"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.git.autoCloseLinkedIssues}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -155,7 +155,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
         icon={<GitMerge strokeWidth={2.4} />}
       >
         <Row label="Resolve comments before main merge" description="Require review comments to be resolved before finishing the main merge." badge={getFieldBadge("ciIntelligence.resolveAllCommentsBeforeMainMerge")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveAllCommentsBeforeMainMerge}
+          <Toggle aria-description="Require review comments to be resolved before finishing the main merge." aria-label="Resolve comments before main merge"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveAllCommentsBeforeMainMerge}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -167,7 +167,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Resolve main merge conflicts" description="Escalate `feature -> main` merge conflicts to the virtual worker with sprint context." badge={getFieldBadge("ciIntelligence.resolveMainMergeConflicts")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveMainMergeConflicts}
+          <Toggle aria-description="Escalate `feature -> main` merge conflicts to the virtual worker with sprint context." aria-label="Resolve main merge conflicts"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveMainMergeConflicts}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -179,7 +179,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Resolve comments before feature merge" description="Do not auto-merge a feature branch until review comments are closed." badge={getFieldBadge("ciIntelligence.resolveAllCommentsBeforeFeatureMerge")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveAllCommentsBeforeFeatureMerge}
+          <Toggle aria-description="Do not auto-merge a feature branch until review comments are closed." aria-label="Resolve comments before feature merge"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveAllCommentsBeforeFeatureMerge}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -191,7 +191,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Resolve feature merge conflicts" description="Escalate feature-branch merge conflicts to the virtual worker with full branch and task context." badge={getFieldBadge("ciIntelligence.resolveMergeConflicts")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveMergeConflicts}
+          <Toggle aria-description="Escalate feature-branch merge conflicts to the virtual worker with full branch and task context." aria-label="Resolve feature merge conflicts"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.resolveMergeConflicts}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -203,7 +203,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Jules CI autofix" description="Allow Jules to attempt CI autofixes before escalating to a worker." badge={getFieldBadge("ciIntelligence.waitForJulesCiAutofix")}>
-          <Toggle aria-label="Toggle setting"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.waitForJulesCiAutofix}
+          <Toggle aria-description="Allow Jules to attempt CI autofixes before escalating to a worker." aria-label="Jules CI autofix"             value={editableSettings.git.githubMode === "LOCAL" ? false : editableSettings.ciIntelligence.waitForJulesCiAutofix}
             disabled={editableSettings.git.githubMode === "LOCAL"}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
@@ -256,7 +256,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
 
         <SectionCard title="Guardrails" watermark="CAP" badge={getBadge("guardrails")} icon={<ShieldAlert strokeWidth={2.4} />}>
           <Row label="Guardrails enabled" description="Cap how many times each agent job type runs per task to stop runaway loops. Counts persist per task across restarts." badge={getFieldBadge("guardrails.enabled")}>
-            <Toggle aria-label="Toggle setting"               value={editableSettings.guardrails.enabled}
+            <Toggle aria-description="Cap how many times each agent job type runs per task to stop runaway loops. Counts persist per task across restarts." aria-label="Guardrails enabled"               value={editableSettings.guardrails.enabled}
               onChange={() => updateEditableSettings((current) => ({
                 ...current,
                 guardrails: { ...current.guardrails, enabled: !current.guardrails.enabled },
@@ -329,7 +329,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
 
         <SectionCard title="Rate Limit" watermark="RATE" badge={getBadge("cliWorkflow")} icon={<Timer strokeWidth={2.4} />}>
           <Row label="Retry after quota reset" description="When a provider reports a concrete quota reset time, wait for that reset and retry automatically." badge={getFieldBadge("cliWorkflow.retryOnQuotaReset")}>
-            <Toggle aria-label="Toggle setting" value={editableSettings.cliWorkflow.retryOnQuotaReset} onChange={() => updateEditableSettings((current) => ({
+            <Toggle aria-description="When a provider reports a concrete quota reset time, wait for that reset and retry automatically." aria-label="Retry after quota reset" value={editableSettings.cliWorkflow.retryOnQuotaReset} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
                 ...current.cliWorkflow,
@@ -338,7 +338,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             }))} />
           </Row>
           <Row label="Retry on rate limit" description="Retry transient rate-limit failures after a fixed delay until the configured max retry count is reached." badge={getFieldBadge("cliWorkflow.retryOnRateLimit")}>
-            <Toggle aria-label="Toggle setting" value={editableSettings.cliWorkflow.retryOnRateLimit} onChange={() => updateEditableSettings((current) => ({
+            <Toggle aria-description="Retry transient rate-limit failures after a fixed delay until the configured max retry count is reached." aria-label="Retry on rate limit" value={editableSettings.cliWorkflow.retryOnRateLimit} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
                 ...current.cliWorkflow,
@@ -392,7 +392,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
 
         <SectionCard title="Watch Loop" watermark="LOOP" badge={getBadge("sprintLoopSteps")} icon={<Eye strokeWidth={2.4} />}>
           <Row label="Watch loop" description="Keep the live watch loop running between orchestration ticks." badge={getFieldBadge("sprintLoopSteps.watchLoop")}>
-            <Toggle aria-label="Toggle setting" value={editableSettings.sprintLoopSteps.watchLoop} onChange={() => updateEditableSettings((current) => ({
+            <Toggle aria-description="Keep the live watch loop running between orchestration ticks." aria-label="Watch loop" value={editableSettings.sprintLoopSteps.watchLoop} onChange={() => updateEditableSettings((current) => ({
               ...current,
               sprintLoopSteps: {
                 ...current.sprintLoopSteps,
@@ -432,7 +432,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
 
         <SectionCard title="Workspace Hygiene" watermark="CLI" badge={getBadge("cliWorkflow")} icon={<Sparkles strokeWidth={2.4} />}>
           <Row label="Cleanup worktree on success" description="Remove temporary worktree state after successful CLI execution." badge={getFieldBadge("cliWorkflow.cleanupWorktreeOnSuccess")}>
-            <Toggle aria-label="Toggle setting" value={editableSettings.cliWorkflow.cleanupWorktreeOnSuccess} onChange={() => updateEditableSettings((current) => ({
+            <Toggle aria-description="Remove temporary worktree state after successful CLI execution." aria-label="Cleanup worktree on success" value={editableSettings.cliWorkflow.cleanupWorktreeOnSuccess} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
                 ...current.cliWorkflow,
@@ -441,7 +441,7 @@ export const SettingsSprintPanel: FunctionComponent<{ state: SettingsPageState }
             }))} />
           </Row>
           <Row label="Cleanup worktree on failure" description="Clean up failed workspaces after execution terminates unsuccessfully." badge={getFieldBadge("cliWorkflow.cleanupWorktreeOnFailure")} last>
-            <Toggle aria-label="Toggle setting" value={editableSettings.cliWorkflow.cleanupWorktreeOnFailure} onChange={() => updateEditableSettings((current) => ({
+            <Toggle aria-description="Clean up failed workspaces after execution terminates unsuccessfully." aria-label="Cleanup worktree on failure" value={editableSettings.cliWorkflow.cleanupWorktreeOnFailure} onChange={() => updateEditableSettings((current) => ({
               ...current,
               cliWorkflow: {
                 ...current.cliWorkflow,

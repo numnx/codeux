@@ -2,6 +2,7 @@
 import { h } from "preact";
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, screen } from "@testing-library/preact";
+import "@testing-library/jest-dom/vitest";
 import { ProviderInstanceCard } from "../../../../../../dashboard/src/v2/components/settings/ProviderInstanceCard";
 import type { SystemProviderConfig } from "../../../../../../dashboard/src/v2/lib/provider-runtime-preview";
 
@@ -56,5 +57,35 @@ describe("ProviderInstanceCard", () => {
         cachedInputTokens: 0.05,
       },
     });
+  });
+
+  it("renders a toggle button for enabled state with aria-label", async () => {
+    const provider: SystemProviderConfig = {
+      provider: "opencode",
+      name: "Test Provider",
+      apiKey: "test",
+      mountAuth: false,
+      authPath: ""
+    };
+    const onToggleEnabled = vi.fn();
+
+    render(
+      <ProviderInstanceCard
+        providerConfigId="test-id"
+        provider={provider}
+        providerModel="test-model"
+        dockerExecutionEnabled={false}
+        onUpdate={vi.fn()}
+        enabled={true}
+        onToggleEnabled={onToggleEnabled}
+      />
+    );
+
+    const toggle = screen.getByRole("switch");
+    expect(toggle).toHaveAttribute("aria-label", "Enable provider Test Provider");
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(toggle);
+    expect(onToggleEnabled).toHaveBeenCalledWith(false);
   });
 });

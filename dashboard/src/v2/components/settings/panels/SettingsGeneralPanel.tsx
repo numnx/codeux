@@ -52,7 +52,7 @@ const AutomationCard: FunctionComponent<{
       />
     </Row>
     <Row label="Auto-approve plans" description="Use the orchestrator path for routine plan confirmations." badge={getFieldBadge("automationInterventions.autoApprovePlan")}>
-      <Toggle aria-label="Toggle setting"         value={settings.automationInterventions.autoApprovePlan}
+      <Toggle aria-description="Use the orchestrator path for routine plan confirmations." aria-label="Auto-approve plans"         value={settings.automationInterventions.autoApprovePlan}
         onChange={() => update((current) => ({
           ...current,
           automationInterventions: {
@@ -63,7 +63,7 @@ const AutomationCard: FunctionComponent<{
       />
     </Row>
     <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
-      <Toggle aria-label="Toggle setting"         value={settings.automationInterventions.autoAnswerClarification}
+      <Toggle aria-description="Answer routine clarification requests automatically when the configured template is sufficient." aria-label="Auto-answer clarifications"         value={settings.automationInterventions.autoAnswerClarification}
         onChange={() => update((current) => ({
           ...current,
           automationInterventions: {
@@ -107,7 +107,7 @@ const AutomationCard: FunctionComponent<{
       </Row>
     )}
     <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
-      <Toggle aria-label="Toggle setting"         value={settings.automationInterventions.autoResumePaused}
+      <Toggle aria-description="Resume a project automatically when a transient pause clears." aria-label="Auto-resume paused runs"         value={settings.automationInterventions.autoResumePaused}
         onChange={() => update((current) => ({
           ...current,
           automationInterventions: {
@@ -154,7 +154,7 @@ const DockerRuntimeCard: FunctionComponent<{
       />
     </Row>
     <Row label="Cache setup as image" description="Build and reuse a derived Docker image from the base image plus setup script contents." badge={getFieldBadge("cliWorkflow.containerCacheSetupScriptImage")} last>
-      <Toggle aria-label="Toggle setting" value={settings.cliWorkflow.containerCacheSetupScriptImage} onChange={() => update((current) => ({
+      <Toggle aria-description="Build and reuse a derived Docker image from the base image plus setup script contents." aria-label="Cache setup as image" value={settings.cliWorkflow.containerCacheSetupScriptImage} onChange={() => update((current) => ({
         ...current,
         cliWorkflow: {
           ...current.cliWorkflow,
@@ -263,7 +263,7 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
 
           <SectionCard title="Database Settings" watermark="DBM" icon={<Database strokeWidth={2.4} />}>
             <Row label="Automatic pruning" description="Automatically prune completed task runs, VM activities, attention items, and realtime events on startup.">
-              <Toggle aria-label="Toggle setting"                 value={systemSettings?.runtime.dbPruningEnabled ?? true}
+              <Toggle aria-description="Automatically prune completed task runs, VM activities, attention items, and realtime events on startup." aria-label="Automatic pruning"                 value={systemSettings?.runtime.dbPruningEnabled ?? true}
                 onChange={() => updateSystem((current) => ({
                   ...current,
                   runtime: {
@@ -290,7 +290,7 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
               </Row>
             )}
             <Row label="Automatic vacuum on startup" description="Reclaim fragmented SQLite page storage space and shrink DB files on disk after pruning." last>
-              <Toggle aria-label="Toggle setting"                 value={systemSettings?.runtime.dbAutoVacuumOnStartup ?? true}
+              <Toggle aria-description="Reclaim fragmented SQLite page storage space and shrink DB files on disk after pruning." aria-label="Automatic vacuum on startup"                 value={systemSettings?.runtime.dbAutoVacuumOnStartup ?? true}
                 onChange={() => updateSystem((current) => ({
                   ...current,
                   runtime: {

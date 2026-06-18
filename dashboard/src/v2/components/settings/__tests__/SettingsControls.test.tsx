@@ -8,6 +8,9 @@ import "@testing-library/jest-dom/vitest";
 import { BranchNameSchemeEditor } from "../BranchNameSchemeEditor";
 import { SprintKeyEditor } from "../SprintKeyEditor";
 import { TextInput, NumberInput, TextAreaInput } from "../SettingsFormFields";
+import { Toggle } from "../../ui/Toggle";
+import { ActionButton } from "../SettingsSurface";
+import { OverrideBadge } from "../panels/SharedPanelComponents";
 
 describe("SettingsControls Accessibility", () => {
   afterEach(() => {
@@ -78,5 +81,43 @@ describe("SettingsControls Accessibility", () => {
     const input = screen.getByRole("textbox");
     expect(input).toHaveAttribute("aria-label", "Textarea Label");
     expect(input).toHaveAttribute("aria-description", "Textarea Description");
+  });
+
+  it("Toggle passes aria-label and aria-checked", () => {
+    render(
+      <Toggle
+        value={true}
+        onChange={() => {}}
+        aria-label="Toggle Label"
+      />
+    );
+    const toggle = screen.getByRole("switch");
+    expect(toggle).toHaveAttribute("aria-label", "Toggle Label");
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("ActionButton passes disabled correctly and retains its accessible name", () => {
+    render(
+      <ActionButton
+        label="Destroy Action"
+        onClick={() => {}}
+        tone="danger"
+        disabled={true}
+      />
+    );
+    const button = screen.getByRole("button", { name: "Destroy Action" });
+    expect(button).toBeDisabled();
+  });
+
+  it("OverrideBadge reset button has accessible name", () => {
+    render(
+      <OverrideBadge
+        label="Project override"
+        contextLabel="Setting name"
+        onReset={() => {}}
+      />
+    );
+    const button = screen.getByRole("button", { name: "Delete project override for Setting name" });
+    expect(button).toBeInTheDocument();
   });
 });

@@ -22,7 +22,7 @@ export const QAPanel: FunctionComponent<{
           description="Runs a senior QA pass after completion events, using full sprint context and continuing the current task session when fixes are required."
           badge={getBadge("agents.qualityAssurance.enabled")}
         >
-          <Toggle aria-label="Toggle setting"             value={settings.enabled}
+          <Toggle aria-description="Runs a senior QA pass after completion events, using full sprint context and continuing the current task session when fixes are required." aria-label="Enable QA agent"             value={settings.enabled}
             onChange={(value) => update({ enabled: value })}
           />
         </Row>
@@ -92,7 +92,7 @@ export const QAPanel: FunctionComponent<{
               badge={getBadge("agents.qualityAssurance.taskCompletion.enabled")}
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle aria-label="Toggle setting"                   value={settings.taskCompletion.enabled}
+                <Toggle aria-description="Runs once after a task completes, then only repeats for QA-driven follow-up loops until the max run count is reached." aria-label="Review every completed task"                   value={settings.taskCompletion.enabled}
                   onChange={(value) => update({
                     taskCompletion: {
                       ...settings.taskCompletion,
@@ -121,7 +121,7 @@ export const QAPanel: FunctionComponent<{
               badge={getBadge("agents.qualityAssurance.sprintCompletion.enabled")}
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle aria-label="Toggle setting"                   value={settings.sprintCompletion.enabled}
+                <Toggle aria-description="Blocks final sprint completion when QA finds integration problems and can route the fix back into the most relevant task." aria-label="Review before sprint completion"                   value={settings.sprintCompletion.enabled}
                   onChange={(value) => update({
                     sprintCompletion: {
                       ...settings.sprintCompletion,
@@ -151,7 +151,7 @@ export const QAPanel: FunctionComponent<{
               last
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle aria-label="Toggle setting"                   value={settings.completedTaskWithoutPr.enabled}
+                <Toggle aria-description="Lets QA investigate whether a missing PR is valid or whether the task still needs branch and PR hygiene before it can stay complete." aria-label="Review completed tasks without a PR"                   value={settings.completedTaskWithoutPr.enabled}
                   onChange={(value) => update({
                     completedTaskWithoutPr: {
                       ...settings.completedTaskWithoutPr,
