@@ -106,4 +106,56 @@ describe("Table component", () => {
     const rowFalse = screen.getAllByRole("row")[0];
     expect(rowFalse).toHaveAttribute("aria-selected", "false");
   });
+
+  it("renders a sortable header", () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableCell isHeader ariaSort="ascending">Sorted Header</TableCell>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>Data</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+
+    const header = screen.getByRole("columnheader");
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+  });
+
+  it("handles mobile long content without clipping", () => {
+    render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell mobileLabel="Long Label">
+              <div className="truncate w-full">Very long content that should truncate instead of causing overflow</div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+
+    const cell = screen.getAllByRole("cell")[0];
+    expect(cell).toHaveClass("break-words");
+    expect(cell).toHaveClass("min-w-0");
+  });
+
+  it("applies correct class contracts to prevent mobile table overflow", () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell>Data</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+
+    const tableWrapper = container.firstChild;
+    expect(tableWrapper).toHaveClass("overflow-x-auto");
+    expect(tableWrapper).not.toHaveClass("overflow-x-hidden");
+  });
 });

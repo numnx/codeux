@@ -22,3 +22,8 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 4.  **Notification Panels**:
     *   Flyout menus and notification surfaces should be collision-aware with width and max-height constraints (e.g., `max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)]`) so they remain fully visible from the top nav at tablet widths without clipping.
+
+5.  **Tables**:
+    *   Tables should use `overflow-x-auto` instead of `overflow-x-hidden` to ensure long rows are scrollable without clipping content, while keeping `lg:overflow-visible` for desktop views.
+    *   Table rows (`TableRow`) and cells (`TableCell`) should support constrained wrapping and responsive widths (`min-w-0 max-w-full break-words`).
+    *   Mobile labels should properly align and wrap long strings.
