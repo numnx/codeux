@@ -706,13 +706,4 @@ For provider-backed runs, session polling is now used to ingest durable runtime 
 
 ## Accessibility Patterns
 
-This dashboard enforces accessibility best practices to ensure an inclusive experience:
-
-- **Dialogs & Modals**: Implemented using proper ARIA roles (`role="dialog"` or `role="alertdialog"`). They manage focus by trapping it within the overlay and restoring it to the trigger upon closing. If a dialog has no focusable elements, the container itself uses `tabIndex={-1}` and an outline-removal class for programmatic focus.
-- **Menus & Overlays**: Use explicit ARIA roles such as `menu`, `menuitem`, `listbox`, and `option`. Keyboard navigation (up/down arrows, Enter/Space, Escape) is strictly supported.
-- **Forms**: All inputs must have associated labels (`<label>` or `aria-label`/`aria-labelledby`). Validation feedback uses `aria-invalid` and dynamically injects messages into `aria-live` regions.
-- **Live Regions**: Non-visual state changes (like toast notifications or saving states) are announced using `aria-live="polite"` or `aria-live="assertive"`. Loading spinners use `aria-hidden="true"` with a visually hidden fallback, while their containers use `aria-busy="true"`.
-- **Tables & Ledgers**: Complex data displays like the Sprint Ledger use semantic HTML (`<table>`, `<th>`, `<td>`) or explicit ARIA grid roles to support screen reader cell navigation.
-- **Charts**: Data visualizations are wrapped in a region with `role="region"` and an `aria-label`, providing an accessible name for the visual content.
-- **Reduced Motion**: Component animations using GSAP and Tailwind respect user preferences via the `prefers-reduced-motion` media query, disabling unnecessary visual transitions where appropriate.
-- **Task Board State Ownership:** To prevent lane mapping drift across views, `dashboard/src/v2/lib/task-board-state.ts` is the strict single source of truth for all task status to lane derivations (via `getTaskLane`). It correctly groups transient implementation statuses like `coding_completed` and `QA_REVIEW_FAILED` into the "in_progress" lane for consistent Kanban rendering.
+This dashboard enforces accessibility best practices to ensure an inclusive experience. See the comprehensive [Accessibility and Usability Document](./accessibility-and-usability.md) for full implementation contracts, component ownership, and validation commands.
