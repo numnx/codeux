@@ -39,7 +39,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
 
   const trapRef = useFocusTrap(isOpen, { onClose, restoreFocus: true, initialFocusRef });
 
-  const hasAccessibleName = ariaLabel || ariaLabelledBy || ariaLabelledby;
+  const hasAccessibleName = Boolean(ariaLabel || ariaLabelledBy || ariaLabelledby);
   const fallbackAriaLabel = !hasAccessibleName ? "Dialog" : undefined;
 
   useEffect(() => {
@@ -62,12 +62,12 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   if (!shouldRender) return null;
 
   return (
-    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={150}>
+    <Overlay isOpen={isOpen} onClose={onClose} disableBackdropClick={disableBackdropClick} blur exitDuration={150}>
       <div
         ref={trapRef}
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel || fallbackAriaLabel}
+        aria-label={ariaLabel || (!ariaLabelledBy && !ariaLabelledby ? fallbackAriaLabel : undefined)}
         aria-labelledby={ariaLabelledBy || ariaLabelledby}
         aria-describedby={ariaDescribedBy || ariaDescribedby}
         tabIndex={-1}
