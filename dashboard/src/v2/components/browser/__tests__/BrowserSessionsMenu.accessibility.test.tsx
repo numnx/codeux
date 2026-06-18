@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 
-function TestWrapper({ children, project = createMockProject() }: { children: any, project?: any }) {
+function TestWrapper({ children, project = createMockProject() as any }: { children: any, project?: any }) {
     return (
         <ProjectDataContext.Provider value={Object.assign({}, {
             projects: [],
@@ -62,7 +62,7 @@ test('trigger button has accessible names based on loading/empty states', async 
         <TestWrapper>
             <ProjectDataContext.Provider value={{
                 projects: [],
-                selectedProject: createMockProject(),
+                selectedProject: createMockProject() as any,
                 selectedProjectId: createMockProject().id,
                 loading: true,
                 error: null,
