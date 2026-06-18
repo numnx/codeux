@@ -141,6 +141,21 @@ export class ProviderConcurrencyService {
    * (e.g. Jules sprint dispatch, which blocks the task and retries next cycle) use this so the
    * cap is enforced globally and atomically across all sprints and projects.
    */
+
+  /**
+   * Checks if there is available concurrency capacity for the given provider without claiming a slot.
+   */
+  async hasAvailableCapacity(provider: ProviderId, limit: number): Promise<boolean> {
+    if (limit <= 0) return true;
+
+    await this.reconcileStaleDockerProviderInvocations(provider);
+    this.reconcileStaleJulesProviderInvocations(provider);
+
+    const counts = this.getGlobalRunningCounts([provider]);
+    const current = counts[provider] || 0;
+    return current < limit;
+  }
+
   async tryClaimSlot(
     provider: ProviderId,
     limit: number,
