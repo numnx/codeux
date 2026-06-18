@@ -112,7 +112,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
         <button
             type="button"
             onClick={onClick}
-            id={`search-result-${globalItemIndex}`}
+            id={`search-result-${itemId}`}
             ref={activeItemRef as any}
             onMouseEnter={onFocus}
             aria-label={`${categoryType} result: ${title}`}

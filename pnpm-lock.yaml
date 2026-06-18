@@ -34,6 +34,8 @@ overrides:
   qs: ^6.15.2
   tar@<=7.5.15: '>=7.5.16'
   tmp@>=0.2.6 <0.2.7: '>=0.2.7'
+  undici@>=7.0.0 <7.28.0: '>=7.28.0'
+  undici@>=7.23.0 <7.28.0: '>=7.28.0'
   vite@<=6.4.1: '>=6.4.2'
   vite@<=6.4.2: '>=6.4.3'
   vite@>=8.0.0 <=8.0.15: '>=8.0.16'
@@ -3749,9 +3751,9 @@ packages:
     resolution: {integrity: sha512-4yqz8a3n5HmGTlsbADNtr/dJlhkh/55Rq798G6ibiULcXbDtaLpTl1pvdqcbFfeoj3iSi52lePFM7h9H21cw/A==}
     engines: {node: '>=18.17'}
 
-  undici@7.25.0:
-    resolution: {integrity: sha512-xXnp4kTyor2Zq+J1FfPI6Eq3ew5h6Vl0F/8d9XU5zZQf1tX9s2Su1/3PiMmUANFULpmksxkClamIZcaUqryHsQ==}
-    engines: {node: '>=20.18.1'}
+  undici@8.5.0:
+    resolution: {integrity: sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg==}
+    engines: {node: '>=22.19.0'}
 
   unist-util-is@6.0.1:
     resolution: {integrity: sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==}
@@ -4484,7 +4486,7 @@ snapshots:
       semver: 7.7.4
       sumchecker: 3.0.1
     optionalDependencies:
-      undici: 7.25.0
+      undici: 8.5.0
     transitivePeerDependencies:
       - supports-color
 
@@ -6728,7 +6730,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 7.25.0
+      undici: 8.5.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -7822,7 +7824,7 @@ snapshots:
 
   undici@6.26.0: {}
 
-  undici@7.25.0: {}
+  undici@8.5.0: {}
 
   unist-util-is@6.0.1:
     dependencies:

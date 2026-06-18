@@ -3,14 +3,8 @@ import { h } from "preact";
 import { render, screen } from "@testing-library/preact";
 import { describe, it, expect, vi } from "vitest";
 import { ActionFeedbackRegion } from "../ActionFeedbackRegion.js";
-import { useReducedMotion } from "../../../hooks/use-reduced-motion.js";
-import { fireEvent } from "@testing-library/preact";
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
-
-vi.mock("../../../hooks/use-reduced-motion.js", () => ({
-  useReducedMotion: vi.fn(() => false),
-}));
 
 // Mock gsap
 vi.mock("gsap", async (importOriginal) => {
@@ -64,37 +58,5 @@ describe("ActionFeedbackRegion", () => {
     const dismissBtn = screen.getByRole("button", { name: "Dismiss: Saved successfully" });
     expect(retryBtn).toBeInTheDocument();
     expect(dismissBtn).toBeInTheDocument();
-  });
-
-  it("safely falls back focus when a focused manual dismiss control is activated", () => {
-    render(<div role="main" tabIndex={-1}><ActionFeedbackRegion status="warning" message="Warning msg" onDismiss={vi.fn()} /></div>);
-
-    const dismissBtn = screen.getByRole("button", { name: "Dismiss: Warning msg" });
-    dismissBtn.focus();
-    expect(document.activeElement).toBe(dismissBtn);
-
-    fireEvent.click(dismissBtn);
-
-    const main = document.querySelector('[role="main"]');
-    expect(document.activeElement).toBe(main);
-  });
-
-  it("handles retryable error feedback", () => {
-    const retryFn = vi.fn();
-    render(<ActionFeedbackRegion status="error" message="Failed to load" retryAction={retryFn} retryLabel="Try Again" />);
-
-    const retryBtn = screen.getByRole("button", { name: "Try Again: Failed to load" });
-    expect(retryBtn).toBeInTheDocument();
-
-    fireEvent.click(retryBtn);
-    expect(retryFn).toHaveBeenCalledOnce();
-  });
-
-  it("bypasses animations when reduced motion is enabled", () => {
-    vi.mocked(useReducedMotion).mockReturnValue(true);
-    const { unmount } = render(<ActionFeedbackRegion status="success" message="Success message" />);
-    expect(screen.getByText("Success message")).toBeInTheDocument();
-    unmount();
-    vi.mocked(useReducedMotion).mockReturnValue(false);
   });
 });

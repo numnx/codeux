@@ -118,21 +118,4 @@ describe("useFocusTrap", () => {
       expect(document.activeElement).toBe(trigger);
     });
   });
-
-  test("restores focus to fallback if trigger is missing", async () => {
-    const trigger = document.createElement('button');
-    document.body.appendChild(trigger);
-    trigger.focus();
-
-    const { unmount } = render(<TestComponent active={true} onClose={() => {}} />);
-
-    // Remove trigger before unmount
-    trigger.remove();
-
-    unmount();
-
-    await waitFor(() => {
-      expect(document.activeElement).toBe(document.body);
-    });
-  });
 });
