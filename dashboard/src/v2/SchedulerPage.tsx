@@ -477,7 +477,7 @@ export const SchedulerPage: FunctionComponent = () => {
           >
             Next
           </Button>
-          <div className="ml-0 flex rounded-full border border-[color:var(--color-border-muted)] bg-white/72 p-1 dark:border-white/[0.06] dark:bg-white/[0.03] backdrop-blur-md lg:ml-2">
+          <div className="ml-0 flex flex-wrap rounded-[1.2rem] sm:rounded-full border border-[color:var(--color-border-muted)] bg-white/72 p-1 dark:border-white/[0.06] dark:bg-white/[0.03] backdrop-blur-md lg:ml-2">
             {(["calendar", "day"] as SchedulerView[]).map((item) => (
               <button
                 key={item}
@@ -538,7 +538,7 @@ export const SchedulerPage: FunctionComponent = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {TARGET_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -551,7 +551,7 @@ export const SchedulerPage: FunctionComponent = () => {
                 }`}
               >
                 <option.icon className={`mb-2 h-4 w-4 ${option.tone}`} />
-                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600 dark:text-slate-300">{option.label}</span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600 dark:text-slate-300 break-words">{option.label}</span>
               </button>
             ))}
           </div>
@@ -638,7 +638,7 @@ export const SchedulerPage: FunctionComponent = () => {
                 onInput={(event) => setScheduledFor(event.currentTarget.value)}
                 className={`mt-2 min-h-[44px] w-full ${SCHEDULER_FIELD_CLASS}`}
               />
-              <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { label: "In 1h", date: () => { const date = new Date(); date.setHours(date.getHours() + 1, 0, 0, 0); return date; } },
                   { label: "Tomorrow 9", date: () => { const date = addDays(new Date(), 1); date.setHours(9, 0, 0, 0); return date; } },
@@ -851,7 +851,7 @@ export const SchedulerPage: FunctionComponent = () => {
                           const option = targetOptionByType.get(occurrence.targetType);
                           return (
                             <div key={occurrence.id} className="rounded-xl border border-black/[0.04] bg-white/80 p-3 shadow-sm dark:border-white/[0.05] dark:bg-white/[0.04]">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="inline-flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
                                   <Clock3 className={`h-3.5 w-3.5 ${option?.tone || "text-signal-500"}`} />
                                   {formatTimeLabel(occurrence.startsAt)}
@@ -901,7 +901,7 @@ export const SchedulerPage: FunctionComponent = () => {
               {(schedule?.entries || []).map((entry) => {
                 const option = targetOptionByType.get(entry.targetType);
                 return (
-                  <div key={entry.id} className="grid gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-4 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:border-white/[0.05] dark:bg-white/[0.03] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div key={entry.id} className="flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-4 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:border-white/[0.05] dark:bg-white/[0.03]">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${option?.chipClassName || "bg-slate-500/10 text-slate-500"}`}>

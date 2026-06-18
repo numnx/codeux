@@ -113,7 +113,7 @@ export const NotificationPanel: FunctionComponent<{
         </div>
       </div>
 
-      <ul className="dashboard-scrollbar max-h-96 overflow-y-auto p-2 m-0 list-none">
+      <ul className="dashboard-scrollbar flex-1 overflow-y-auto p-2 m-0 list-none min-h-0">
         {notifications.length === 0 ? (
           <li className="flex flex-col items-center justify-center px-5 py-10 text-center">
             <div className="rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-700 dark:text-signal-300">

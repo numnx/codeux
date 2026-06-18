@@ -511,7 +511,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                     <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700/70 dark:text-signal-200/80">Model</div>
                     <Cpu className="h-3 w-3 text-signal-600/70 dark:text-signal-300/70" strokeWidth={2.4} />
                   </div>
-                  <div className="mt-1 truncate font-mono text-sm font-bold text-slate-900 dark:text-white" title={providerSupportsModelSelection(provider.provider) ? provider.model : undefined}>
+                  <div className="mt-1 truncate min-w-0 font-mono text-sm font-bold text-slate-900 dark:text-white" title={providerSupportsModelSelection(provider.provider) ? provider.model : undefined}>
                     {providerSupportsModelSelection(provider.provider) ? provider.model : "Managed by provider"}
                   </div>
                 </div>
@@ -572,7 +572,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
       </SectionCard>
 
       <SectionCard title="Route Mapping" watermark="MAP" badge={getBadge("aiProvider.invocationRouting")} icon={<GitBranch strokeWidth={2.4} />}>
-        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
           <div className="rounded-[1.6rem] border border-black/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.028),rgba(15,23,42,0.012))] p-3 dark:border-white/[0.06] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]">
             <div className="mb-3 px-2.5 pt-1">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
@@ -864,7 +864,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
                           <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-signal-700/70 dark:text-signal-200/80">Model</div>
                           <Cpu className="h-3 w-3 text-signal-600/70 dark:text-signal-300/70" strokeWidth={2.4} />
                         </div>
-                        <div className="mt-1 truncate font-mono text-sm font-bold text-slate-900 dark:text-white" title={supportsModel ? effectiveModel : undefined}>
+                        <div className="mt-1 truncate min-w-0 font-mono text-sm font-bold text-slate-900 dark:text-white" title={supportsModel ? effectiveModel : undefined}>
                           {supportsModel ? effectiveModel : "Managed by provider"}
                         </div>
                       </div>

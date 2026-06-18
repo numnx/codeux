@@ -432,7 +432,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   return (
     <section
       ref={cardRef}
-      className="relative w-full overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)]"
+      className="relative w-[calc(100vw-2rem)] sm:w-full overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/78 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/72 dark:shadow-[0_24px_56px_rgba(0,0,0,0.28)]"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.08),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.1),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.09),transparent_34%)]" />
 
@@ -461,10 +461,10 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       <form
         ref={fieldsRef}
         onSubmit={handleSubmit}
-        className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1fr)_21rem]"
+        className="relative z-10 flex flex-col lg:flex-row"
         tabIndex={-1}
       >
-        <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
+        <div className="flex-1 min-w-0 p-6 dark:border-white/[0.06] sm:p-8 lg:p-10">
           <div data-composer-stagger className="mb-8">
             <ActionFeedbackRegion status={actionFeedback.status} message={actionFeedback.message} onDismiss={clearFeedback} autoDismiss={actionFeedback.autoDismiss} retryAction={actionFeedback.retryAction} retryLabel={actionFeedback.retryLabel} />
           </div>
@@ -694,7 +694,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           </div>
         </div>
 
-        <aside className="flex flex-col gap-4 p-6 sm:p-8">
+        <aside className="flex flex-col gap-4 p-6 sm:p-8 lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-black/[0.05] dark:border-white/[0.05]">
           <div data-composer-stagger>
             <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Agent Routing</div>
@@ -790,7 +790,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             </div>
           </div>
 
-          <div data-composer-stagger className="mt-auto flex flex-col gap-3 pt-2">
+          <div data-composer-stagger className="mt-4 lg:mt-auto flex flex-col gap-3 pt-2">
             {isBusy && isOverlayDismissed && feedback && (
               <div className="flex w-full flex-col gap-3 rounded-xl border border-signal-500/30 bg-signal-500/[0.06] p-3 dark:bg-signal-500/[0.08] sm:flex-row sm:items-center sm:justify-between">
                 <button

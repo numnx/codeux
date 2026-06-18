@@ -145,7 +145,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
     >
       <div
         ref={cardRef}
-        className="relative flex flex-col sm:flex-row w-[calc(100vw-2rem)] sm:w-full max-w-5xl max-h-[calc(100dvh-2rem)] cursor-default overflow-hidden sm:overflow-y-auto rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
+        className="relative flex flex-col sm:flex-row w-[calc(100vw-2rem)] sm:w-full max-w-5xl max-h-[calc(100dvh-2rem)] cursor-default overflow-y-auto sm:overflow-hidden rounded-[2.5rem] shadow-[0_48px_96px_rgba(0,0,0,0.25)] dark:shadow-[0_48px_96px_rgba(0,0,0,0.7)]"
       >
         <div className="relative hidden sm:flex w-56 shrink-0 bg-void-900 dark:bg-void-950 flex-col justify-between p-8 overflow-hidden">
           <span className="absolute -top-2 -left-4 text-[7.5rem] font-black text-white/[0.035] font-display leading-none pointer-events-none select-none tracking-tighter">
@@ -168,7 +168,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
           </div>
         </div>
 
-        <div className="flex-1 bg-white/98 dark:bg-void-800/98 p-8 flex flex-col">
+        <div className="flex-1 bg-white/98 dark:bg-void-800/98 p-5 sm:p-8 flex flex-col sm:overflow-y-auto min-h-0">
           <div className="flex items-start justify-between mb-8">
             <div>
               <h2 className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
@@ -221,7 +221,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                       Load Example
                     </button>
                   ) : (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}.md`, sprintText)}
@@ -254,7 +254,7 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Bundle</label>
                   {mode === "export" && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() => handleDownload(`${(sprintLabel || "sprint").replace(/\s+/g, "-").toLowerCase()}-tasks.md`, tasksText)}
@@ -284,22 +284,22 @@ export const SprintMarkdownModal: FunctionComponent<SprintMarkdownModalProps> = 
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <div className="text-xs text-slate-400">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+              <div className="text-xs text-slate-400 text-center sm:text-left">
                 {mode === "import" ? "Task markers are optional. Supported fields: title, depends_on, is_independent, merged/is_merged, merge_indicator, status, prompt." : "Export reflects current DB state, not repo-local markdown files."}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  className="text-sm font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors w-full sm:w-auto py-2"
                 >
                   Close
                 </button>
                 {mode === "import" && (
                   <button
                     type="submit"
-                    className="group/btn flex items-center gap-2.5 px-6 py-3 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.4)] hover:-translate-y-px"
+                    className="group/btn flex justify-center items-center gap-2.5 px-6 py-3 bg-signal-500 hover:bg-signal-400 text-void-900 font-bold text-sm rounded-2xl transition-all duration-300 shadow-[0_4px_20px_rgba(0,224,160,0.25)] hover:shadow-[0_8px_32px_rgba(0,224,160,0.4)] hover:-translate-y-px w-full sm:w-auto"
                   >
                     <Upload className="w-4 h-4" />
                     Import Sprint

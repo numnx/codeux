@@ -19,7 +19,7 @@ export const BrandSection: FunctionComponent<BrandSectionProps> = ({ isMobile, o
     }
 
     return (
-        <div className="flex shrink-0 items-center gap-4 md:gap-10">
+        <div className="flex shrink-0 items-center gap-4 md:gap-10 min-w-0">
             {isMobile && (
                 <button
                     type="button"
@@ -49,7 +49,7 @@ export const BrandSection: FunctionComponent<BrandSectionProps> = ({ isMobile, o
                         className="relative z-10 transition-transform duration-500 ease-out group-hover:scale-[1.06]"
                     />
                 </div>
-                <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white hidden sm:flex items-center gap-0.5">
+                <span className="font-display font-bold text-base tracking-tight text-slate-900 dark:text-white hidden sm:flex items-center gap-0.5 truncate">
                     Code<span className="text-signal-500">UX</span>
                 </span>
             </Link>
