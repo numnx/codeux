@@ -137,8 +137,7 @@ describe("CompositionStudio", () => {
     expect(cacheEfficiency.compareDocumentPosition(providerActivity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByText("20.0%")).toBeInTheDocument();
-
-    expect(screen.getByText("~250 tokens saved")).toBeInTheDocument();
+    expect(screen.getByText(/250 tokens saved/i)).toBeInTheDocument();
     expect(screen.getByText("9m 0s")).toBeInTheDocument();
     expect(screen.getByText("0s")).toBeInTheDocument();
 

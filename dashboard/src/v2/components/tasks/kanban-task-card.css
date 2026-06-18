@@ -14,6 +14,13 @@
   outline: none;
   box-shadow: var(--v2-shadow-premium), 0 0 0 4px rgba(0, 224, 160, 0.4);
 }
+
+.kanban-card.is-dragging {
+  opacity: 0.5;
+  scale: 1.02;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  outline: 2px solid rgba(0, 224, 160, 1);
+}
 .kanban-card-reduced-motion {
   transition: none !important;
   transform: none !important;
