@@ -515,6 +515,90 @@ describe("SprintPreviewService unit tests", () => {
       ).rejects.toThrow("does not have an active host port");
     });
 
+
+
+    it("suppresses set-cookie header from proxied response", async () => {
+      const session = makeSession({ containerId: null, containerName: null });
+      deps.sprintPreviewRepository.getSession.mockReturnValue(session);
+      deps.sprintPreviewRepository.updateSession.mockImplementation(
+        (id: string, patch: Partial<SprintPreviewSession>) => makeSession({ id, ...patch }),
+      );
+
+      vi.mocked(normalizePreviewPath).mockReturnValue("/test");
+
+      const mockResponse = {
+        status: 200,
+        headers: new Headers({ "set-cookie": "secret=true", "x-custom": "allowed" }),
+        body: (async function* () {
+          yield new TextEncoder().encode("hello");
+        })(),
+      };
+      vi.stubGlobal("fetch", vi.fn(async () => mockResponse));
+
+      const service = new SprintPreviewService(deps as any);
+      const res = await service.proxyRequest({ sessionId: "session-1", method: "GET", path: "/" });
+
+      expect(res.headers).not.toHaveProperty("set-cookie");
+      expect(res.headers).toHaveProperty("x-custom", "allowed");
+    });
+
+    it("strips sensitive and hop-by-hop headers from proxied request", async () => {
+      const session = makeSession({ containerId: null, containerName: null });
+      deps.sprintPreviewRepository.getSession.mockReturnValue(session);
+      deps.sprintPreviewRepository.updateSession.mockImplementation(
+        (id: string, patch: Partial<SprintPreviewSession>) => makeSession({ id, ...patch }),
+      );
+
+      vi.mocked(normalizePreviewPath).mockReturnValue("/test");
+
+      const mockResponse = {
+        status: 200,
+        headers: new Headers(),
+        arrayBuffer: vi.fn(async () => new TextEncoder().encode("hello").buffer),
+      };
+      const fetchMock = vi.fn(async () => mockResponse); vi.stubGlobal("fetch", fetchMock);
+
+      const service = new SprintPreviewService(deps as any);
+      await service.proxyRequest({
+        sessionId: "session-1",
+        method: "GET",
+        path: "/",
+        headers: {
+          "authorization": "token",
+          "cookie": "val",
+          "connection": "close",
+          "x-custom": "allowed",
+        },
+      });
+
+      const calledOptions = fetchMock.mock.calls[0][1];
+      expect(calledOptions.headers).not.toHaveProperty("authorization");
+      expect(calledOptions.headers).not.toHaveProperty("cookie");
+      expect(calledOptions.headers).not.toHaveProperty("connection");
+      expect(calledOptions.headers).toHaveProperty("x-custom", "allowed");
+    });
+
+    it("throws error when proxied response exceeds maximum allowed size", async () => {
+      const session = makeSession({ containerId: null, containerName: null });
+      deps.sprintPreviewRepository.getSession.mockReturnValue(session);
+      deps.sprintPreviewRepository.updateSession.mockImplementation(
+        (id: string, patch: Partial<SprintPreviewSession>) => makeSession({ id, ...patch }),
+      );
+
+      vi.mocked(normalizePreviewPath).mockReturnValue("/test");
+
+      const mockResponse = {
+        status: 200,
+        headers: new Headers(),
+        arrayBuffer: vi.fn(async () => new ArrayBuffer(5 * 1024 * 1024 + 10)), // Exceeds 5MB
+      };
+      vi.stubGlobal("fetch", vi.fn(async () => mockResponse));
+
+      const service = new SprintPreviewService(deps as any);
+      await expect(service.proxyRequest({ sessionId: "session-1", method: "GET", path: "/" }))
+        .rejects.toThrow("Response body exceeds maximum allowed size for proxied preview");
+    });
+
     it("proxies request and returns response", async () => {
       const session = makeSession({ containerId: null, containerName: null });
       deps.sprintPreviewRepository.getSession.mockReturnValue(session);
@@ -667,7 +751,7 @@ describe("SprintPreviewService unit tests", () => {
 
       const passedHeaders = capturedInit?.headers as Record<string, string>;
       expect(passedHeaders["X-Custom"]).toBe("keep-me");
-      expect(passedHeaders["Authorization"]).toBe("Bearer token");
+      expect(passedHeaders["Authorization"]).toBeUndefined();
       expect(passedHeaders["Host"]).toBeUndefined();
       expect(passedHeaders["Content-Length"]).toBeUndefined();
       expect(passedHeaders["Accept-Encoding"]).toBeUndefined();

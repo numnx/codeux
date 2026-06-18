@@ -475,7 +475,24 @@ export class SprintPreviewService {
       responseHeaders[key] = value;
     });
 
-    const bodyBuffer = Buffer.from(await response.arrayBuffer());
+    const chunks: Buffer[] = [];
+    let totalSize = 0;
+    if (response.body) {
+      for await (const chunk of response.body as any) {
+        totalSize += chunk.length;
+        if (totalSize > 5 * 1024 * 1024) {
+          throw new Error("Response body exceeds maximum allowed size for proxied preview");
+        }
+        chunks.push(Buffer.from(chunk));
+      }
+    } else {
+      const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > 5 * 1024 * 1024) {
+        throw new Error("Response body exceeds maximum allowed size for proxied preview");
+      }
+      chunks.push(Buffer.from(arrayBuffer));
+    }
+    const bodyBuffer = Buffer.concat(chunks);
     const rewrittenBody = this.shouldRewriteBody(contentType)
       ? Buffer.from(this.rewriteProxyBody(bodyBuffer.toString("utf8"), rewritePrefix))
       : bodyBuffer;
@@ -680,10 +697,11 @@ export class SprintPreviewService {
 
   private buildProxyHeaders(headers: Record<string, string | undefined> = {}): Record<string, string> {
     const next: Record<string, string> = {};
+    const stripList = ["authorization", "cookie", "set-cookie", "connection", "upgrade", "transfer-encoding", "host", "content-length", "accept-encoding"];
     for (const [key, value] of Object.entries(headers)) {
       if (!value) continue;
       const normalized = key.toLowerCase();
-      if (normalized === "host" || normalized === "content-length" || normalized === "accept-encoding") {
+      if (stripList.includes(normalized) || normalized.startsWith("proxy-") || normalized.startsWith("x-code-ux-")) {
         continue;
       }
       next[key] = value;
