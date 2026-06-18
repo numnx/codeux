@@ -170,9 +170,14 @@ describe("FieldWrapper", () => {
     expect(helperElement).toBeInTheDocument();
     expect(errorElement).toBeInTheDocument();
 
+    // The helper text is hidden (collapsed) while an error is shown.
     expect(helperElement.className).toContain("opacity-0");
     expect(helperElement.className).toContain("pointer-events-none");
 
+    // The error element is only rendered when there is an error, so its presence
+    // is what makes it visible; it animates in via the slide-down keyframes.
+    expect(errorElement.className).toContain("text-status-red");
+    expect(errorElement.className).toContain("motion-safe:animate-form-slide-down");
     expect(errorElement.className).not.toContain("pointer-events-none");
   });
 
