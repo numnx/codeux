@@ -190,7 +190,7 @@ export const SettingsMcpPanel: FunctionComponent<{ state: SettingsPageState }> =
               badge={`${toolsInCategory.filter((def) => enabledByName.get(def.name) ?? true).length}/${toolsInCategory.length}`}
             >
               <Row label={`Enable all ${meta.label.toLowerCase()} tools`} description={meta.description}>
-                <Toggle aria-label="Toggle setting" value={allEnabled} onChange={(value) => setCategoryEnabled(category, value)} />
+                <Toggle aria-label={`Enable all ${category} MCP tools`} value={allEnabled} onChange={(value) => setCategoryEnabled(category, value)} />
               </Row>
               {toolsInCategory.map((def, index) => (
                 <Row
@@ -199,7 +199,7 @@ export const SettingsMcpPanel: FunctionComponent<{ state: SettingsPageState }> =
                   description={def.description}
                   last={index === toolsInCategory.length - 1}
                 >
-                  <Toggle aria-label="Toggle setting"                     value={enabledByName.get(def.name) ?? true}
+                  <Toggle aria-label={`Enable MCP tool ${def.name}`}                     value={enabledByName.get(def.name) ?? true}
                     onChange={(value) => setToolEnabled(def.name, value)}
                   />
                 </Row>
@@ -303,7 +303,7 @@ export const SettingsMcpPanel: FunctionComponent<{ state: SettingsPageState }> =
                       <Pill label={!server.providers || server.providers.length === 0 ? "All CLIs" : `${server.providers.length} CLIs`} />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Toggle aria-label="Toggle setting" value={server.enabled} onChange={(value) => updateServer(server.id, { enabled: value })} />
+                      <Toggle aria-label={`Enable MCP server ${server.id}`} value={server.enabled} onChange={(value) => updateServer(server.id, { enabled: value })} />
                       <ActionChip label="Manage" icon={Settings2} onClick={() => setView({ kind: "custom", id: server.id })} />
                     </div>
                   </div>

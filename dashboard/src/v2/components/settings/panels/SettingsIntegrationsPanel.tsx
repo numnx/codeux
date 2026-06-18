@@ -413,7 +413,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
             {isGitLab ? null : (
               <>
                 <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker for this scope." badge={getFieldBadge("cliWorkflow.containerMountGithubAuth")}>
-                  <Toggle aria-label="Toggle setting"                     value={editableSettings.cliWorkflow.containerMountGithubAuth}
+                  <Toggle aria-description="Copy the host `gh` credential directory into Docker for this scope." aria-label="Mount GitHub auth"                     value={editableSettings.cliWorkflow.containerMountGithubAuth}
                     onChange={() => updateEditableSettings((current) => ({
                       ...current,
                       cliWorkflow: {
@@ -440,7 +440,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               </>
             )}
             <Row label="Copy local git config" description="Use host `.gitconfig` in Docker instead of the configured Code UX git identity." badge={getFieldBadge("cliWorkflow.containerMountGitConfig")} last={editableSettings.cliWorkflow.containerMountGitConfig}>
-              <Toggle aria-label="Toggle setting"                 value={editableSettings.cliWorkflow.containerMountGitConfig}
+              <Toggle aria-description="Use host `.gitconfig` in Docker instead of the configured Code UX git identity." aria-label="Copy local git config"                 value={editableSettings.cliWorkflow.containerMountGitConfig}
                 onChange={() => updateEditableSettings((current) => ({
                   ...current,
                   cliWorkflow: {
@@ -538,7 +538,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
             </Row>
             <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." badge={activeScope === "system" ? undefined : getFieldBadge("jira.autoCloseLinkedIssues")} last>
-              <Toggle aria-label="Toggle setting"                 value={jiraSettings.autoCloseLinkedIssues}
+              <Toggle aria-description="Move linked Jira issues through the configured transition after the sprint completes." aria-label="Auto-close Jira issues"                 value={jiraSettings.autoCloseLinkedIssues}
                 onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })}
               />
             </Row>
