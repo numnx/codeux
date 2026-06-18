@@ -1310,6 +1310,7 @@ export interface FileBrowserDiff {
   modified: string | null;
   binary: boolean;
   language: string | null;
+  truncated?: boolean;
 }
 
 export interface DashboardStatusSnapshot {
