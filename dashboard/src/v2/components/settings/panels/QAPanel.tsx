@@ -22,8 +22,7 @@ export const QAPanel: FunctionComponent<{
           description="Runs a senior QA pass after completion events, using full sprint context and continuing the current task session when fixes are required."
           badge={getBadge("agents.qualityAssurance.enabled")}
         >
-          <Toggle
-            value={settings.enabled}
+          <Toggle aria-label="Toggle setting"             value={settings.enabled}
             onChange={(value) => update({ enabled: value })}
           />
         </Row>
@@ -93,8 +92,7 @@ export const QAPanel: FunctionComponent<{
               badge={getBadge("agents.qualityAssurance.taskCompletion.enabled")}
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle
-                  value={settings.taskCompletion.enabled}
+                <Toggle aria-label="Toggle setting"                   value={settings.taskCompletion.enabled}
                   onChange={(value) => update({
                     taskCompletion: {
                       ...settings.taskCompletion,
@@ -123,8 +121,7 @@ export const QAPanel: FunctionComponent<{
               badge={getBadge("agents.qualityAssurance.sprintCompletion.enabled")}
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle
-                  value={settings.sprintCompletion.enabled}
+                <Toggle aria-label="Toggle setting"                   value={settings.sprintCompletion.enabled}
                   onChange={(value) => update({
                     sprintCompletion: {
                       ...settings.sprintCompletion,
@@ -154,8 +151,7 @@ export const QAPanel: FunctionComponent<{
               last
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Toggle
-                  value={settings.completedTaskWithoutPr.enabled}
+                <Toggle aria-label="Toggle setting"                   value={settings.completedTaskWithoutPr.enabled}
                   onChange={(value) => update({
                     completedTaskWithoutPr: {
                       ...settings.completedTaskWithoutPr,

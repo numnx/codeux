@@ -454,6 +454,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                             <button
                                 type="button"
                                 onClick={handleToggleFeed}
+                                aria-label={`${showFeed ? 'Hide' : 'Show'} runtime feed for task ${task.id}`}
                                 className={`flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800
                                            transition-all duration-200 border
                                            ${showFeed
@@ -468,6 +469,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         <button
                             type="button"
                             onClick={handleToggleExpand}
+                                aria-label={`${expanded ? 'Collapse' : 'Expand'} prompt for task ${task.id}`}
                             className={`flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-xl text-[10px] font-bold uppercase tracking-[0.1em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800
                                        transition-all duration-200 border
                                        ${expanded
@@ -481,6 +483,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         <Button
                             type="button"
                             onClick={handleEditClick}
+                            aria-label={`Edit task ${task.id}`}
                             variant="ghost"
                             icon={PencilLine}
                             className="px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.1em] hover:text-signal-500 hover:border-signal-500/15 disabled:opacity-40 disabled:pointer-events-none focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
@@ -490,6 +493,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         <Button
                             type="button"
                             onClick={handleForceCompleteClick}
+                            aria-label={`Force complete task ${task.id}`}
                             isLoading={isForceCompleting}
                             disabled={taskPhase === "COMPLETED"}
                             variant="ghost"
@@ -501,6 +505,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                         <Button
                             type="button"
                             onClick={handleRerunClick}
+                            aria-label={`Rerun task ${task.id}`}
                             isLoading={isRerunning}
                             variant="ghost"
                             icon={RotateCcw}
@@ -514,11 +519,13 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                             href={getSafeUrl(task.pr_url)}
                             target="_blank"
                             rel="noopener noreferrer"
+                            aria-label={`View Pull Request for task ${task.id}`}
                             className="text-[10px] font-mono text-signal-500 hover:text-signal-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800 focus-visible:rounded"
                         >
                             <span className="py-2.5 min-h-[44px] inline-flex items-center gap-1.5">
-                                <GitPullRequest className="w-3 h-3" strokeWidth={2} />
-                                PR
+                                <GitPullRequest className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                                <span className="sr-only">Pull Request</span>
+                                <span aria-hidden="true">PR</span>
                                 <ExternalLink className="w-2.5 h-2.5 opacity-50" strokeWidth={2} />
                             </span>
                         </a>

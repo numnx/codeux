@@ -2,6 +2,7 @@ import type { FunctionComponent } from 'preact';
 import type { JSX } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import gsap from 'gsap';
+import { useReducedMotion } from "../../../hooks/use-reduced-motion.js";
 import type {
   ProjectExecutionStatsSnapshot,
 } from '../../../types.js';
@@ -81,6 +82,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     setEnabledSeries,
   } = chartState;
 
+  const isReducedMotion = useReducedMotion();
   const buckets = stats.buckets;
 
   const dimensionsRef = useRef({ width: 1200, height: 256 });
@@ -260,6 +262,19 @@ export const InteractiveUsageChart: FunctionComponent<{
     const pointsNodes = Array.from(panelRef.current.querySelectorAll<SVGCircleElement>("[data-chart-point]"));
     const cards = Array.from(panelRef.current.querySelectorAll<HTMLElement>("[data-chart-card]"));
 
+    if (isReducedMotion) {
+      if (areas.length > 0) {
+        gsap.set(areas, { opacity: (_index, target) => Number((target as SVGPathElement).dataset.areaOpacity || "0.3") });
+      }
+      if (pointsNodes.length > 0) {
+        gsap.set(pointsNodes, { opacity: 1, scale: 1, transformOrigin: "center center" });
+      }
+      paths.forEach((path) => {
+        gsap.set(path, { strokeDasharray: "none", strokeDashoffset: 0 });
+      });
+      return;
+    }
+
     const timeline = gsap.timeline();
     if (areas.length > 0) {
       gsap.set(areas, { opacity: 0 });
@@ -296,13 +311,33 @@ export const InteractiveUsageChart: FunctionComponent<{
       <div className="relative flex flex-col gap-8">
         {/* Screen reader summary */}
         <div className="sr-only" aria-live="polite" aria-atomic="true">
-          <h2 className="sr-only">Data Visualization for {zoomRange ? "zoomed timeframe" : stats.range.label}</h2>
+          <h2 id="chart-summary-heading" className="sr-only">Data Visualization for {zoomRange ? "zoomed timeframe" : stats.range.label}</h2>
           <p>
             Currently showing {visibleBuckets.length} buckets.
             {activeBucket ? `Focused bucket: ${activeBucket.label}. Tokens: ${activeBucket.usage.totalTokens}` : "No bucket focused."}
             Active series: {visibleSeries.map(s => s.label).join(", ")}.
             Peak Tokens: {formatTokens(peakTokens)}. Peak Time: {formatDuration(peakTime)}. Average Tokens: {formatTokens(averageTokens)}. Peak Invocations: {peakInvocations.toLocaleString()}.
           </p>
+          <table className="sr-only">
+            <thead>
+              <tr>
+                <th>Time</th>
+                {visibleSeries.map(s => (
+                  <th key={s.id}>{s.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleBuckets.map((bucket, i) => (
+                <tr key={bucket.bucketStart}>
+                  <td>{bucket.label}</td>
+                  {visibleSeries.map(s => (
+                    <td key={s.id}>{s.formatter(s.values[i] ?? 0)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <UsageGraphHeader
           title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
@@ -421,7 +456,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                   <UsageGraphEmpty />
                 </div>
               ) : (
-                <svg aria-hidden="true" viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+                <svg role="img" aria-labelledby="chart-summary-heading" viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
                   <defs>
                     {chartData.map((series) => (
                       <linearGradient key={`fill-${series.id}`} id={`stats-area-${series.id}`} x1="0" x2="0" y1="0" y2="1">
