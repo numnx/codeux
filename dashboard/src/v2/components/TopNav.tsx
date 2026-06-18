@@ -48,6 +48,10 @@ export function useDropdownKeyboard(
         }
 
         if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+            // Do not steal focus if we are typing in the filter input and using Home/End
+            if ((e.key === "Home" || e.key === "End") && document.activeElement?.tagName === "INPUT") {
+                return;
+            }
             e.preventDefault();
 
             const focusableElements = Array.from(
@@ -285,7 +289,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                         aria-haspopup="listbox"
                         aria-expanded={dropdownOpen}
                         id="project-selector-button"
-                        aria-label={`Selected project: ${selectedProject?.name || "None"}`}
+                        aria-label={loading ? "Loading projects" : `Selected project: ${selectedProject?.name || "None"}`}
                         aria-controls="project-listbox"
                         aria-activedescendant={dropdownOpen && filteredProjects.length > 0 ? `project-option-${selectedProject?.id || 'none'}` : undefined}
                         aria-busy={projectSwitchBusy || loading ? "true" : "false"}
@@ -308,7 +312,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                 <input
                                     type="text"
                                     id="project-filter-input"
-                                    aria-label="Filter projects"
+                                    aria-label="Filter projects by name"
                                     aria-controls="project-listbox"
                                     placeholder="Filter projects..."
                                     value={projectFilter}
@@ -379,7 +383,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                             aria-haspopup="listbox"
                             aria-expanded={sprintDropdownOpen}
                             id="sprint-selector-button"
-                            aria-label={`Selected sprint: ${sprintsLoading ? "Loading..." : selectedSprint ? formatSprintDisplay(selectedSprint, sprintKeyPrefix) : "All Sprints"}`}
+                            aria-label={sprintsLoading ? "Loading sprints" : `Selected sprint: ${selectedSprint ? formatSprintDisplay(selectedSprint, sprintKeyPrefix) : "All Sprints"}`}
                             aria-controls="sprint-listbox"
                             aria-activedescendant={sprintDropdownOpen && sprints.length > 0 ? `sprint-option-${selectedSprintId || 'none'}` : undefined}
                             aria-busy={sprintSwitchBusy || sprintsLoading ? "true" : "false"}
@@ -418,7 +422,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     <input
                                         type="text"
                                         id="sprint-filter-input"
-                                        aria-label="Filter sprints"
+                                        aria-label="Filter sprints by name"
                                         aria-controls="sprint-listbox"
                                         placeholder="Filter sprints..."
                                         value={sprintFilter}
@@ -506,7 +510,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                             onBlur={handleNotificationBlur}
                             aria-haspopup="menu"
                             aria-expanded={isNotificationMenuVisible}
-                            aria-label={`Notifications: ${notifications.unreadCount} unread`}
+                            aria-label={`Notifications: ${notifications.unreadCount} unread message${notifications.unreadCount !== 1 ? "s" : ""}`}
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:ring-2 focus-visible:ring-signal-500/30"
                         >
                             <Bell aria-hidden="true" className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" strokeWidth={1.5} />
@@ -533,7 +537,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                 <Tooltip content={isDark ? "Switch to light mode" : "Switch to dark mode"}>
                     <button
                         onClick={() => setTheme(isDark ? "LIGHT" : "DARK")}
-                        aria-label={`Current theme: ${isDark ? "Dark" : "Light"}. ${isDark ? "Switch to light mode" : "Switch to dark mode"}`}
+                        aria-label={`Current theme: ${isDark ? "dark mode" : "light mode"}. ${isDark ? "Switch to light mode" : "Switch to dark mode"}`}
                         className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors focus-visible:ring-2 focus-visible:ring-signal-500/30"
                     >
                         {isDark

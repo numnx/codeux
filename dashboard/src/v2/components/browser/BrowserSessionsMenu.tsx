@@ -151,7 +151,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                 aria-haspopup="menu"
                 aria-expanded={isMenuVisible}
                 aria-controls={isMenuVisible ? menuId : undefined}
-                aria-label={`Browser Sessions: ${sessions.length} active`}
+                aria-label={`Browser sessions: ${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`}
                 className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
                     isMenuVisible
                     ? "bg-signal-500/8 dark:bg-signal-400/10"
