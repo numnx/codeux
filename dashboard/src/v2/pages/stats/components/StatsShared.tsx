@@ -406,7 +406,7 @@ export const CompositionStudio: FunctionComponent<{
                         <Icon className="h-4 w-4" strokeWidth={2.1} />
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-base font-black text-slate-900 dark:text-white">{provider.label}</div>
+                        <div className="truncate text-base font-black text-slate-900 dark:text-white" title={provider.label}>{provider.label}</div>
                         <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{provider.secondaryLabel ?? ""}</div>
                       </div>
                     </div>
@@ -584,7 +584,7 @@ export const ReliabilityStudio: FunctionComponent<{
                         <Icon className="h-4 w-4" strokeWidth={2.1} />
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-base font-black text-slate-900 dark:text-white">{provider.label}</div>
+                        <div className="truncate text-base font-black text-slate-900 dark:text-white" title={provider.label}>{provider.label}</div>
                         <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{provider.secondaryLabel ?? ""}</div>
                       </div>
                     </div>
@@ -592,8 +592,8 @@ export const ReliabilityStudio: FunctionComponent<{
                   <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-right text-[10px] font-bold uppercase tracking-[0.18em] ${successTone}`}>
                     {formatPercent(reliabilityScore * 100)}
                   </div>
-                  <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-right text-[10px] font-bold uppercase tracking-[0.18em] ${CHIP_CLASS}`}>
-                    <span className="text-base font-black normal-case tracking-tight text-slate-900 dark:text-white">
+                  <div className={`inline-flex min-w-0 items-center gap-2 rounded-full px-3 py-1.5 text-right text-[10px] font-bold uppercase tracking-[0.18em] ${CHIP_CLASS}`}>
+                    <span className="truncate text-base font-black normal-case tracking-tight text-slate-900 dark:text-white">
                       {formatTokens(provider.usage.totalTokens)}
                     </span>
                     <span className="text-slate-400">tokens</span>
