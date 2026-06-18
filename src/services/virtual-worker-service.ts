@@ -42,6 +42,7 @@ import {
   peekNextWorkerAttention,
   resolveWorkerExecutionMode,
 } from "../domain/workers/virtual-worker-scheduling-policy.js";
+import { planVirtualWorkerCycle } from "../domain/workers/virtual-worker-cycle-plan.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
@@ -261,11 +262,16 @@ export class VirtualWorkerService {
   }
 
   private async runProjectCycle(projectId: string, reason: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): Promise<void> {
-    const cycleSettings = this.resolveCycleSettings(projectId, resolver);
-    const cycleProviderType = cycleSettings.aiProvider.providers[cycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
+    const effectiveResolver = resolver || ((pId, sId) => this.resolveDashboardSettings(pId, sId));
+
+    // Create the virtual endpoint first so that downstream operations (like task dispatch) have a valid target ID.
+    // If the planner determines no work is needed, the endpoint is safely cleaned up in the finally block.
+    const initialCycleSettings = this.resolveCycleSettings(projectId, resolver);
+    const initialCycleProviderType = initialCycleSettings.aiProvider.providers[initialCycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
+
     const endpoint = this.deps.workerEndpointRepository.createVirtualEndpoint({
       endpointKey: `virtual:${projectId}:${Date.now().toString(36)}:${sanitizeToken(randomUUID().slice(0, 8))}`,
-      displayName: `Virtual ${this.getProviderLabel(cycleProviderType)} Worker`,
+      displayName: `Virtual ${this.getProviderLabel(initialCycleProviderType)} Worker`,
       status: "connected",
       transport: "internal",
       capabilities: {
@@ -277,9 +283,31 @@ export class VirtualWorkerService {
     this.deps.projectWorkerAssignmentService.ensureWorkerAssignment(projectId, endpoint.id);
 
     try {
-      const attentionItem = this.pickNextWorkerAttention(projectId, resolver);
-      if (attentionItem) {
-        await this.handleAttentionItem(endpoint.id, attentionItem, reason);
+      const attentionItem = this.peekNextWorkerAttention(projectId, resolver);
+      const dispatchClaim = this.deps.workerTaskDispatchService.claimNextDispatchForWorker({
+        projectId,
+        workerEndpointId: endpoint.id,
+        executionMode: "VIRTUAL"
+      });
+
+      const plan = await planVirtualWorkerCycle({
+        projectId,
+        attentionItem,
+        dispatchClaim,
+        isProviderConcurrencyAvailable: async (pId, limit) => await this.deps.providerConcurrencyService.hasAvailableCapacity(pId, limit),
+        resolveSettings: effectiveResolver
+      });
+
+      if (plan.type === "HANDLE_ATTENTION") {
+        // We peeked earlier, so we need to properly claim it now exactly as pickNextWorkerAttention did
+        const nextItem = plan.attentionItem;
+        if (nextItem.status === "open") {
+          this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
+          nextItem.status = "claimed";
+        }
+        await this.handleAttentionItem(endpoint.id, nextItem, reason);
+      } else if (plan.type === "DISPATCH_READY") {
+        await this.handleTaskDispatch(endpoint.id, plan.dispatchClaim);
       }
     } finally {
       this.deps.projectWorkerAssignmentService.releaseWorkerAssignment(projectId, endpoint.id, "virtual_worker_cycle_complete");
@@ -293,17 +321,7 @@ export class VirtualWorkerService {
     return peekNextWorkerAttention(items, effectiveResolver);
   }
 
-  private pickNextWorkerAttention(projectId: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): ProjectAttentionItemRecord | null {
-    const nextItem = this.peekNextWorkerAttention(projectId, resolver);
 
-    if (nextItem && nextItem.status === "open") {
-      // Explicitly set the item's status to claimed so subsequent HI queries filter it out
-      this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
-      nextItem.status = "claimed";
-    }
-
-    return nextItem;
-  }
 
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);

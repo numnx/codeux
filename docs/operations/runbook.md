@@ -186,6 +186,13 @@ Checks:
   - `Recovered runtime state on startup`
 - Verify the affected sprint run returns to active monitoring without creating a brand-new sprint run record.
 
+
+### Transient Provider Failures
+Transient provider failures are classified and managed in `src/shared/providers/provider-error-classifier.ts`. These shared helpers encapsulate the operational meaning of failures such as:
+- **Codex transport errors**: Disconnections or channel closures (e.g., "stream disconnected before completion", "channel closed").
+- **Claude missing conversations**: Attempts to resume a non-existent session resulting in "no conversation found".
+- **Silent quota signals**: Provider tools (like Antigravity) failing due to capacity limits without explicit failure output.
+
 ## Recovery Techniques
 
 - Temporarily disable selected loop steps for diagnosis.

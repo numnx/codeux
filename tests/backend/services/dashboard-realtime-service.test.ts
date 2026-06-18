@@ -421,3 +421,116 @@ describe("DashboardRealtimeService extracted publisher helper", () => {
     });
   });
 });
+
+
+describe("DashboardRealtimeService backpressure and metrics", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("increments coalesced metric when scheduling the same scope rapidly", async () => {
+    const { service } = await createService();
+
+    // Initial call shouldn't coalesce (metrics stay 0)
+    service.scheduleProjectLiveRefresh("proj-1");
+    let metrics = service.getMetrics("project.live.updated");
+    expect(metrics.coalesced).toBe(0);
+
+    // Subsequent calls before flush should increment coalesced
+    service.scheduleProjectLiveRefresh("proj-1");
+    service.scheduleProjectLiveRefresh("proj-1");
+    metrics = service.getMetrics("project.live.updated");
+    expect(metrics.coalesced).toBe(2);
+  });
+
+  it("increments throttled metric when publishing too soon after previous publish", async () => {
+    const { service } = await createService();
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: () => ({ selectedSprintId: "s1" } as any),
+      getProjectsSnapshot: () => ({} as any),
+      getProjectExecutionSnapshot: () => ({} as any),
+      getProjectStatusSnapshot: () => ({} as any),
+      getOverviewTelemetrySnapshot: () => ({} as any),
+    });
+
+    // First publish establishes the watermark
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+
+    let metrics = service.getMetrics("project.live.updated");
+    expect(metrics.published).toBe(1);
+    expect(metrics.throttled).toBe(0);
+
+    // Schedule again immediately (throttle window is 5s)
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+
+    metrics = service.getMetrics("project.live.updated");
+    expect(metrics.throttled).toBe(1);
+    expect(metrics.published).toBe(1);
+  });
+
+            it("increments unchanged metric and skips broadcast when payload is identical", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    // We return the same payload shape on two back-to-back loader calls.
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockResolvedValue({
+        selectedSprintId: "sprint-1",
+        updatedAt: new Date().toISOString(), // This is ignored by getFingerprint
+        dummyValue: "bar",
+      }),
+      getProjectExecutionSnapshot: vi.fn().mockResolvedValue({
+        projectId: "proj-1",
+        updatedAt: new Date().toISOString(), // This is ignored by getFingerprint
+        dummyValue: "foo",
+      }),
+    } as any);
+
+    service.scheduleProjectExecutionRefresh("proj-1", { includeOverview: false });
+    await vi.advanceTimersByTimeAsync(100);
+
+    let metrics = service.getMetrics("project.live.updated");
+    expect(metrics.published).toBe(1);
+    expect(metrics.unchanged).toBe(0);
+
+    // Trigger second publish attempt
+    service.scheduleProjectExecutionRefresh("proj-1", { includeOverview: false });
+
+    // Advance well past the throttle window (PROJECT_LIVE_MIN_INTERVAL_MS is 5s); the async variant
+    // also flushes the loader microtasks so the re-attempted publish actually runs.
+    await vi.advanceTimersByTimeAsync(6000);
+
+    metrics = service.getMetrics("project.live.updated");
+    expect(metrics.published).toBe(1); // not incremented
+    expect(metrics.unchanged).toBe(1);
+  });
+
+  it("increments failures metric when snapshot loader throws", async () => {
+    const { service } = await createService();
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: () => { throw new Error("Loader failed"); },
+      getProjectsSnapshot: () => ({} as any),
+      getProjectExecutionSnapshot: () => ({} as any),
+      getProjectStatusSnapshot: () => ({} as any),
+      getOverviewTelemetrySnapshot: () => ({} as any),
+    });
+
+    service.scheduleProjectLiveRefresh("proj-error");
+    await vi.advanceTimersByTimeAsync(100);
+
+    let metrics = service.getMetrics("project.live.updated");
+    expect(metrics.failures).toBe(1);
+    expect(metrics.published).toBe(0);
+  });
+});

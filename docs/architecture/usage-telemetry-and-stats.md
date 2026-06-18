@@ -170,7 +170,7 @@ Usage data now appears in two read models:
 - `GET /api/projects/:projectId/execution`
   - task and sprint execution summaries now include usage rollups
 - `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
-  - project-scoped statistics snapshot for the Stats page
+  - project-scoped statistics snapshot for the Stats page. Custom ranges must be parseable dates, where from <= to, and are capped to historical (e.g. Jan 1 2000) and future limits.
 
 Historical Docker-backed CLI invocations that were persisted as `unavailable` before container telemetry fallback support are backfilled at startup when they have prompt or transcript character counts. The backfill marks them as `estimated` using the same conservative character heuristic, preserving rows that already have provider-reported or provider-specific estimated usage.
 
@@ -263,3 +263,5 @@ Because the canonical source is per invocation, additional reporting surfaces ca
 ### ProviderTelemetryWatcher
 
 Live provider telemetry polling is extracted into `ProviderTelemetryWatcher`. This helper is responsible for the periodic read of provider log artifacts during an active session (e.g. while `provider-runner` waits for the CLI to complete). It handles the polling loop, background error swallowing, and temporary database cleanup without affecting the core completion result. Note that telemetry emitted by `ProviderTelemetryWatcher` is best-effort for live dashboarding; the final usage data collected by `ProviderRunner` after process exit remains authoritative.
+
+Client-side chart state persistence (such as enabled chart series) is scoped per project id to prevent visual regressions when switching between projects.
