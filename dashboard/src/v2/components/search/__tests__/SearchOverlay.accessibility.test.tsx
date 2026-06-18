@@ -149,15 +149,23 @@ describe("SearchOverlay Accessibility", () => {
 
         // Press down
         await user.keyboard("{ArrowDown}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-0");
 
         // Press down again
         await user.keyboard("{ArrowDown}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tsk-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-1");
 
         // Press up
         await user.keyboard("{ArrowUp}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-0");
+
+        // Press End
+        await user.keyboard("{End}");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-1");
+
+        // Press Home
+        await user.keyboard("{Home}");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-0");
     });
 
     it("closes on Escape", async () => {
