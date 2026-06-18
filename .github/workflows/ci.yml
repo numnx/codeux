@@ -92,7 +92,7 @@ jobs:
       - name: Restore Vitest cache
         uses: actions/cache@v5
         with:
-          path: .cache/vitest
+          path: node_modules/.vitest
           key: ${{ runner.os }}-vitest-backend-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vitest.config.ts') }}
 
       - name: Run Backend Tests with Coverage
@@ -134,7 +134,7 @@ jobs:
       - name: Restore Vitest cache
         uses: actions/cache@v5
         with:
-          path: .cache/vitest
+          path: node_modules/.vitest
           key: ${{ runner.os }}-vitest-dashboard-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vitest.config.ts') }}
 
       - name: Run Dashboard Tests
