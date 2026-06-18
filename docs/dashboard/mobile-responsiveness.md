@@ -22,3 +22,7 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 4.  **Notification Panels**:
     *   Flyout menus and notification surfaces should be collision-aware with width and max-height constraints (e.g., `max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)]`) so they remain fully visible from the top nav at tablet widths without clipping.
+
+5.  **Compact Controls**:
+    *   Inline control rows like filter strips or list window selectors should not force a hard minimum width that can push sibling controls out of the viewport. Use `min-w-0` and text truncation or scrollable areas to ensure they stay contained.
+    *   For `FilterStrip`, apply a `ResizeObserver` so active indicator positions recalculate if the container resizes or reflows.

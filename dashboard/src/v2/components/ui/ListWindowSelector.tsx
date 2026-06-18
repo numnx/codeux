@@ -28,7 +28,7 @@ export const ListWindowSelector: FunctionComponent<ListWindowSelectorProps> = ({
       }}
       options={options}
       variant="default"
-      className="min-w-[8.75rem]"
+      className="min-w-0 sm:min-w-[8.75rem]"
       aria-label="Select number of ledger entries"
     />
   );

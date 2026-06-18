@@ -37,6 +37,11 @@ export function FilterStrip<T extends string>({
     const isFirstRender = useRef(true);
     const durations = useGsapDurations();
 
+    const activeIndexRef = useRef(activeIndex);
+    useLayoutEffect(() => {
+        activeIndexRef.current = activeIndex;
+    }, [activeIndex]);
+
     useLayoutEffect(() => {
         const btn = buttonRefs.current[activeIndex];
         if (!btn || !pillRef.current) return;
@@ -53,6 +58,22 @@ export function FilterStrip<T extends string>({
             });
         }
     }, [activeIndex, durations.base, options]);
+
+    useLayoutEffect(() => {
+        const observer = new ResizeObserver(() => {
+            const currentBtn = buttonRefs.current[activeIndexRef.current];
+            if (!currentBtn || !pillRef.current) return;
+            gsap.set(pillRef.current, { x: currentBtn.offsetLeft, width: currentBtn.offsetWidth });
+        });
+
+        if (listRef.current) {
+            observer.observe(listRef.current);
+        }
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
 
     const handleKeyDown = (e: KeyboardEvent, index: number) => {
         let newIndex = index;
@@ -79,7 +100,7 @@ export function FilterStrip<T extends string>({
     };
 
     return (
-        <div ref={listRef} className="relative flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl overflow-x-auto scrollbar-hide max-w-full" role="tablist" aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
+        <div ref={listRef} className="relative flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl overflow-x-auto scrollbar-hide max-w-full min-w-0" role="tablist" aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
             {/* Animated active indicator background */}
             <div
                 ref={pillRef}
@@ -105,7 +126,7 @@ export function FilterStrip<T extends string>({
                         onClick={() => onChange(value)}
                         onKeyDown={(e) => handleKeyDown(e as any, idx)}
                         // Note the z-10 so the button text is on top of the absolute indicator behind it
-                        className={`relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors duration-200 touch-target ${
+                        className={`relative z-10 flex-none max-w-full truncate focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors duration-200 touch-target ${
                             isActive
                                 ? 'text-slate-900 dark:text-white'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'

@@ -143,3 +143,25 @@ test('renders clear button with accessible name when showClear is true', () => {
     const clearBtnDefault = screen.getByRole('button', { name: 'Clear filters' });
     expect(clearBtnDefault).toBeInTheDocument();
 });
+
+test('renders with very long labels without crashing and has proper CSS classes', () => {
+    const options = [
+        { value: 'short', label: 'Short' },
+        { value: 'long', label: 'This is a very very long label that might otherwise cause overflow issues' }
+    ] as const;
+
+    render(<FilterStrip options={options} active="short" onChange={vi.fn()} />);
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs).toHaveLength(2);
+    expect(tabs[1]).toHaveTextContent('This is a very very long label that might otherwise cause overflow issues');
+
+    // Verify our new truncate and overflow classes exist
+    const tablist = screen.getByRole('tablist');
+    expect(tablist).toHaveClass('min-w-0');
+    expect(tablist).toHaveClass('overflow-x-auto');
+
+    expect(tabs[0]).toHaveClass('truncate');
+    expect(tabs[1]).toHaveClass('truncate');
+    expect(tabs[1]).toHaveClass('max-w-full');
+});
