@@ -51,7 +51,7 @@ export const SourcesGrid: FunctionComponent = () => {
 
             <div
                 ref={containerRef}
-                className="flex flex-wrap justify-center gap-10 md:gap-14 lg:gap-20"
+                className="flex flex-wrap justify-center gap-6 md:gap-10 lg:gap-14"
             >
                 {projectsLoading ? (
                     <>

@@ -70,7 +70,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-6 sm:gap-8">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
                     <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Active Streams</h2>
-                    <div className="w-full sm:w-auto">
+                    <div className="w-full sm:w-auto min-w-0 overflow-x-auto">
                         <FilterStrip
                             options={FILTER_OPTIONS}
                             active={activeFilter}
