@@ -146,7 +146,7 @@ export const GlobalSearch: FunctionComponent<GlobalSearchProps> = ({ projectId, 
     return (
         <>
             {/* Search Bar */}
-            <div ref={searchBarContainerRef} role="search" className="relative group w-full max-w-[140px] sm:max-w-xs hidden md:block rounded-xl">
+            <div ref={searchBarContainerRef} role="search" className="relative group w-full max-w-[140px] sm:max-w-xs hidden md:block rounded-xl min-w-0 shrink">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                     <Search aria-hidden="true" className="w-3.5 h-3.5 text-slate-400 group-focus-within:text-signal-500 transition-colors" strokeWidth={2} />
                 </div>
@@ -158,7 +158,7 @@ export const GlobalSearch: FunctionComponent<GlobalSearchProps> = ({ projectId, 
                     onMouseLeave={handleSearchLeave}
                     onFocus={handleSearchEnter}
                     onBlur={handleSearchLeave}
-                    className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl text-sm text-left text-slate-400 focus:outline-none focus-visible:outline-none transition-all relative z-0"
+                    className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl text-sm text-left text-slate-400 focus:outline-none focus-visible:outline-none transition-all relative z-0 truncate"
                     aria-expanded={isSearchOpen}
                     aria-haspopup="dialog"
                 >
