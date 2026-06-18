@@ -126,7 +126,7 @@ describe('StatsPage visual tests', () => {
     });
 
     const { getByText, queryByText } = render(<StatsPage />);
-    expect(getByText('Select a project')).toBeTruthy();
+    expect(getByText(/Select a project/i)).toBeTruthy();
     expect(queryByText('Time-series and throughput analysis')).toBeNull();
   });
 

@@ -24,7 +24,6 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     if (!menuRef.current) return;
@@ -36,7 +35,6 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
         { opacity: 1, scale: 1, y: 0, duration: 0.25, ease: 'power2.out' }
       );
       // Focus the close button when opened for keyboard support
-      if (!triggerRef.current) triggerRef.current = document.activeElement as HTMLElement;
       closeButtonRef.current?.focus();
     } else {
       gsap.to(menuRef.current, {
@@ -45,12 +43,6 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
         y: -10,
         duration: 0.2,
         ease: 'power2.in',
-        onComplete: () => {
-          if (triggerRef.current) {
-            triggerRef.current.focus();
-            triggerRef.current = null;
-          }
-        }
       });
     }
   }, [isOpen]);
@@ -72,28 +64,24 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      role="dialog"
-      aria-labelledby="usage-filter-menu-title"
-      aria-modal="false"
       className={styles.menu}
       style={{ display: isOpen || (menuRef.current && gsap.getProperty(menuRef.current, 'opacity') as number > 0) ? 'block' : 'none' }}
     >
       <div className={styles.content}>
         <div className={`${styles.header} flex items-center justify-between`}>
           <div className="flex items-center gap-3">
-            <span id="usage-filter-menu-title" className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-900 dark:text-white">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-900 dark:text-white">
               Graph Filters
             </span>
-            <button
+            {activeSeriesCount > 0 && (
+              <button
                 type="button"
-                aria-label="Reset graph filters"
-                disabled={activeSeriesCount === 0}
-                style={{ display: activeSeriesCount === 0 ? "none" : undefined }}
                 onClick={() => setEnabledSeries({})}
                 className="text-xs text-slate-400 transition-colors hover:text-amber-600"
               >
                 Reset filters
               </button>
+            )}
           </div>
           <button
             ref={closeButtonRef}
@@ -110,7 +98,6 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
           <div className={styles.section}>
             <label className={styles.label}>Metric Series</label>
             <div className="flex max-h-[280px] flex-col gap-2 overflow-y-auto pr-2">
-              <div id="last-series-warning" className="sr-only">At least one series must remain visible</div>
               {(() => {
                 const groups = stats.chartSeries.reduce((acc, s) => {
                   (acc[s.grouping] ??= []).push(s);
@@ -136,8 +123,8 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
                   );
 
                   return (
-                    <div key={groupKey} className="flex flex-col" role="group" aria-labelledby={`group-title-${groupKey}`}>
-                      <div id={`group-title-${groupKey}`} className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mt-3 mb-1 px-1">
+                    <div key={groupKey} className="flex flex-col">
+                      <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mt-3 mb-1 px-1">
                         {groupLabel}
                       </div>
                       <div className="flex flex-col gap-2">
@@ -153,9 +140,8 @@ export const UsageFilterMenu: FunctionComponent<UsageFilterMenuProps> = ({
                                 if (activeSeriesCount === 1 && enabledSeries[s.id]) return;
                                 setEnabledSeries((curr) => ({ ...curr, [s.id]: !curr[s.id] }));
                               }}
-                              aria-disabled={disabled ? "true" : "false"}
+                              disabled={disabled}
                               aria-pressed={active}
-                              aria-describedby={disabled ? "last-series-warning" : undefined}
                               className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-all ${
                                 active
                                   ? 'border-amber-500/28 bg-amber-500/12 text-amber-700 dark:text-amber-300'

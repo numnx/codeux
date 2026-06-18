@@ -77,16 +77,11 @@ export const NotificationPanel: FunctionComponent<{
 
   return (
     <div
-      id="notification-panel"
       ref={panelRef}
-      role="region"
       aria-label="Notifications Panel"
       className="absolute right-0 top-full mt-2 w-[23rem] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-black/[0.06] bg-white/95 shadow-[0_20px_40px_rgba(0,0,0,0.12)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/95 dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] z-50 flex flex-col"
     >
       <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-signal-500/40 to-transparent" />
-      <div aria-live="polite" className="sr-only">
-        {unreadCount === 1 ? '1 unread notification' : `${unreadCount} unread notifications`}
-      </div>
 
       <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
         <div>
@@ -111,7 +106,7 @@ export const NotificationPanel: FunctionComponent<{
             onClick={onMarkAllRead}
             disabled={unreadCount === 0}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-black/[0.05] hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
-            aria-label={`Mark all ${unreadCount} notifications read`}
+            aria-label="Mark all notifications read"
           >
             <CheckCheck className="h-3.5 w-3.5" />
           </button>
@@ -140,6 +135,8 @@ export const NotificationPanel: FunctionComponent<{
             <li
               key={notification.id}
               data-notification-item
+              tabIndex={0}
+              onFocus={() => onMarkRead(notification.id)}
               className="group relative mb-2 rounded-2xl border border-black/[0.05] bg-white/75 p-3 text-left transition-colors hover:border-black/[0.1] hover:bg-black/[0.025] last:mb-0 dark:border-white/[0.06] dark:bg-white/[0.04] dark:hover:border-white/[0.1] dark:hover:bg-white/[0.06]"
             >
               {notification.unread ? (
@@ -147,8 +144,7 @@ export const NotificationPanel: FunctionComponent<{
               ) : null}
               <div className="flex items-start gap-3">
                 <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${classes.badge}`}>
-                  <Icon className={`h-4 w-4 ${iconClass}`} strokeWidth={2.3} aria-hidden="true" />
-                  <span className="sr-only">{notification.severity} notification</span>
+                  <Icon className={`h-4 w-4 ${iconClass}`} strokeWidth={2.3} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
@@ -164,7 +160,6 @@ export const NotificationPanel: FunctionComponent<{
                     <button
                       type="button"
                       onClick={() => onMarkRead(notification.id)}
-                      aria-label={notification.unread ? `Mark "${notification.title}" as read` : `"${notification.title}" is read`}
                       className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 hover:bg-black/[0.04] hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
                     >
                       {notification.unread ? "Mark read" : "Read"}
@@ -177,7 +172,6 @@ export const NotificationPanel: FunctionComponent<{
                             onMarkRead(notification.id);
                             notification.onAction?.();
                           }}
-                          aria-label={`${notification.actionLabel} for "${notification.title}"`}
                           className="rounded-full border border-signal-500/20 bg-signal-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-300"
                         >
                           {notification.actionLabel}
@@ -188,7 +182,7 @@ export const NotificationPanel: FunctionComponent<{
                           type="button"
                           onClick={() => onDismiss(notification.id)}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-black/[0.05] hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
-                          aria-label={`Dismiss "${notification.title}"`}
+                          aria-label={`Dismiss ${notification.title}`}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>

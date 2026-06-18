@@ -305,7 +305,7 @@ describe("TopNav Selectors Accessibility", () => {
     it("includes current state in theme toggle naming", async () => {
         renderNav();
         const themeBtn = screen.getByRole("button", { name: /Current theme:/i });
-        expect(themeBtn).toHaveAttribute("aria-label", expect.stringContaining("Light"));
+        expect(themeBtn).toHaveAttribute("aria-label", expect.stringContaining("light"));
     });
 
 });

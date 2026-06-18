@@ -163,16 +163,6 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
     }, [isOpen, reducedMotion]);
 
     useEffect(() => {
-        if (!isOpen) {
-            setFocusedIndex(-1);
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        setFocusedIndex(-1);
-    }, [searchQuery, allItems?.length]);
-
-    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isOpen) return;
 
@@ -185,12 +175,6 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 setFocusedIndex(prev => (prev > 0 ? prev - 1 : (allItems?.length || 0) - 1));
-            } else if (e.key === 'Home') {
-                e.preventDefault();
-                setFocusedIndex(allItems?.length > 0 ? 0 : -1);
-            } else if (e.key === 'End') {
-                e.preventDefault();
-                setFocusedIndex(allItems?.length > 0 ? allItems.length - 1 : -1);
             } else if (e.key === 'Enter' && focusedIndex >= 0) {
                 e.preventDefault();
                 const selectedItem = allItems[focusedIndex];
@@ -244,7 +228,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                         aria-autocomplete="list"
                         aria-expanded={isOpen}
                         aria-controls="search-results-list"
-                        aria-activedescendant={focusedIndex >= 0 ? `search-result-${focusedIndex}` : undefined}
+                        aria-activedescendant={focusedIndex >= 0 ? `search-result-${allItems[focusedIndex]?.id}` : undefined}
                         aria-label="Global search"
                         placeholder="Search sprints, tasks, agents..."
                         value={searchQuery}
@@ -310,12 +294,12 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                             </div>
                         </div>
                     ) : isLoading ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                             <Loader2 className="w-8 h-8 mb-4 animate-spin opacity-50" />
                             <span className="text-sm">Searching...</span>
                         </div>
                     ) : allItems.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                             <Inbox className="w-8 h-8 mb-4 opacity-50" />
                             <span className="text-sm">No results found for '{searchQuery}'</span>
                         </div>

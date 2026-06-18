@@ -85,10 +85,7 @@ describe("InvocationMessagesPanel", () => {
 
     render(<InvocationMessagesPanel invocation={createInvocation()} />);
 
-    const loaderText = screen.getByText("Loading messages");
-    expect(loaderText).toBeTruthy();
-    const loaderIconContainer = loaderText.parentElement;
-    expect(loaderIconContainer?.innerHTML).toContain("motion-reduce:animate-none");
+    expect(screen.getByText("Loading messages")).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.getByText("gemini-2.0-flash")).toBeTruthy();

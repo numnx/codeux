@@ -9,7 +9,6 @@ interface OverlayProps {
   className?: string;
   blur?: boolean;
   exitDuration?: number;
-  disableBackdropClick?: boolean;
 }
 
 export const Overlay: FunctionComponent<OverlayProps> = ({
@@ -19,7 +18,6 @@ export const Overlay: FunctionComponent<OverlayProps> = ({
   className = "",
   blur = true,
   exitDuration = 150,
-  disableBackdropClick = false,
 }) => {
   const reducedMotion = useReducedMotion();
   const [shouldRender, setShouldRender] = useState(isOpen);
@@ -55,7 +53,7 @@ export const Overlay: FunctionComponent<OverlayProps> = ({
       <div
         className={`absolute inset-0 bg-void-900/50 ${blur ? 'backdrop-blur-sm' : ''}`}
         onClick={(e) => {
-          if (e.target === e.currentTarget && onClose && !disableBackdropClick) {
+          if (e.target === e.currentTarget && onClose) {
             onClose();
           }
         }}

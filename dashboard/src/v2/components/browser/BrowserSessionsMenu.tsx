@@ -91,12 +91,6 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
             e.preventDefault();
             const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
             items[prevIndex]?.focus();
-        } else if (e.key === 'Home') {
-            e.preventDefault();
-            items[0]?.focus();
-        } else if (e.key === 'End') {
-            e.preventDefault();
-            items[items.length - 1]?.focus();
         }
     };
 
@@ -157,11 +151,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                 aria-haspopup="menu"
                 aria-expanded={isMenuVisible}
                 aria-controls={isMenuVisible ? menuId : undefined}
-                aria-label={
-                    loading ? "Browser Sessions: loading" :
-                    !selectedProject ? "Browser Sessions: no project selected" :
-                    `Browser Sessions: ${sessions.length} active`
-                }
+                aria-label={`Browser sessions: ${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`}
                 className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
                     isMenuVisible
                     ? "bg-signal-500/8 dark:bg-signal-400/10"
@@ -208,13 +198,9 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className="flex items-center gap-1.5 shrink-0 bg-black/[0.04] dark:bg-white/[0.04] px-1.5 py-0.5 rounded-md">
                                                 <div className={`w-1.5 h-1.5 rounded-full ${statusColors[session.status] || "bg-slate-400"}`} />
-                                                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                                                    <span className="sr-only">Status: </span>
-                                                    {session.status}
-                                                </span>
+                                                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{session.status}</span>
                                             </div>
                                             <span className="text-sm font-semibold truncate text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                                                <span className="sr-only">Sprint: </span>
                                                 {session.sprintName || "Unknown Sprint"}
                                             </span>
                                         </div>
@@ -222,7 +208,6 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                     </div>
                                     <div className="flex items-center pl-1">
                                         <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
-                                            <span className="sr-only">Port: </span>
                                             {formatPort(session)}
                                         </span>
                                     </div>

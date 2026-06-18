@@ -100,7 +100,7 @@ export const KanbanTaskCard: FunctionComponent<{
   };
 
   return (
-    <article
+    <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -108,14 +108,14 @@ export const KanbanTaskCard: FunctionComponent<{
       draggable={!isReducedMotion}
       onDragStart={onDragStart as any}
       onDragEnd={onDragEnd as any}
-      aria-labelledby={`task-title-${task.recordId}`}
+      aria-roledescription="sortable"
       aria-describedby={`task-card-kbd-${task.recordId}`}
 
       className={`kanban-card group relative flex flex-col bg-white/80 dark:bg-void-800/75 backdrop-blur-sm rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"} ${isReducedMotion ? 'kanban-card-reduced-motion' : ''}`}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       <span id={`task-card-kbd-${task.recordId}`} className="sr-only">
-        {(!isReducedMotion && onDragStart) ? "Keyboard reordering is not supported. Use pointer drag and drop to reorder." : "Task card. Keyboard and drag reordering are currently unavailable."}
+        Keyboard reordering is not supported. Use drag and drop to reorder.
       </span>
       <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
       <WaveFluid accentHex={STATUS_CFG[task.status].hex} />
@@ -132,7 +132,7 @@ export const KanbanTaskCard: FunctionComponent<{
         </div>
       </div>
 
-      <h4 id={`task-title-${task.recordId}`} className={`text-[15px] font-bold tracking-tight leading-snug mb-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-300 ${
+      <h4 className={`text-[15px] font-bold tracking-tight leading-snug mb-4 relative z-10 group-hover:translate-x-0.5 transition-transform duration-300 ${
         task.status === "completed" ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-700" : "text-slate-900 dark:text-white"
       }`}>
         {task.title}
@@ -140,23 +140,22 @@ export const KanbanTaskCard: FunctionComponent<{
 
       <div className="relative z-10 mb-4 flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
         <span className="rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2.5 py-1">
-          <span className="sr-only">Executor: </span>{viewModel.executorLabel}
+          {viewModel.executorLabel}
         </span>
         {agentPresetName && (
           <span className="inline-flex items-center gap-1 rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2 py-0.5">
             <AgentSelectAvatarIcon avatarConfig={agentPresetAvatarConfig} seed={agentPresetName} />
-            <span className="sr-only">Agent preset: </span>
             <span className="max-w-[60px] truncate">{agentPresetName}</span>
           </span>
         )}
         {sessionState && (
           <span className="rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2.5 py-1 max-w-[72px] truncate">
-            <span className="sr-only">Session state: </span>{sessionState}
+            {sessionState}
           </span>
         )}
         {sessionId && (
           <span className="rounded-full border border-black/[0.06] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.03] px-2.5 py-1 font-mono max-w-[80px] truncate">
-            <span className="sr-only">Session ID: </span>{sessionId}
+            {sessionId}
           </span>
         )}
       </div>
@@ -164,7 +163,7 @@ export const KanbanTaskCard: FunctionComponent<{
       <div className="flex items-center gap-3 mt-auto relative z-10">
         <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
           <FolderGit2 className="w-3 h-3 text-slate-300 dark:text-slate-600 group-hover:text-signal-500 transition-colors" strokeWidth={2} />
-          <span className="sr-only">Source: </span><span className="font-mono truncate max-w-[100px]">{task.source}</span>
+          <span className="font-mono truncate max-w-[100px]">{task.source}</span>
         </div>
 
         <span className="text-slate-200 dark:text-slate-700 text-[9px]">·</span>
@@ -175,7 +174,7 @@ export const KanbanTaskCard: FunctionComponent<{
               {task.assignee[0]}
             </span>
           </div>
-          <span className="sr-only">Assignee: </span><span className="font-medium">{task.assignee}</span>
+          <span className="font-medium">{task.assignee}</span>
         </div>
       </div>
 
@@ -196,19 +195,15 @@ export const KanbanTaskCard: FunctionComponent<{
               href={getSafeUrl(prUrl)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[9px] font-mono text-signal-500 hover:text-signal-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 rounded px-1 -mx-1"
-              aria-label="Pull Request"
+              className="flex items-center gap-1 text-[9px] font-mono text-signal-500 hover:text-signal-400 transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
               <GitPullRequest className="w-3 h-3" strokeWidth={2} />
-              <span className="sr-only">Pull Request</span><span aria-hidden="true">PR</span>
+              <span>PR</span>
             </a>
           )}
         </div>
-        <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">
-          <span className="sr-only">Date: </span>
-          {liveStartedAt ? `· ${formatTimeAgo(liveStartedAt)}` : humanizedCreatedAt}
-        </span>
+        <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">{liveStartedAt ? `· ${formatTimeAgo(liveStartedAt)}` : humanizedCreatedAt}</span>
       </div>
 
       <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 focus-within:opacity-100 focus-within:translate-y-0 group-focus:opacity-100 group-focus:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
@@ -249,7 +244,7 @@ export const KanbanTaskCard: FunctionComponent<{
         onCancel={handleCancel}
         triggerRef={triggerRef}
       />
-    </article>
+    </div>
   );
 }, (prev, next) => {
   const prevTask = prev.viewModel.task;

@@ -41,7 +41,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const trapRef = useFocusTrap(isOpen && shouldRender, { onClose, restoreFocus: true, initialFocusRef });
 
-  const hasAccessibleName = Boolean(ariaLabel || titleId || ariaLabelledBy || ariaLabelledby);
+  const hasAccessibleName = ariaLabel || titleId || ariaLabelledBy || ariaLabelledby;
   const fallbackAriaLabel = !hasAccessibleName ? "Dialog" : undefined;
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
   if (!shouldRender) return null;
 
   return (
-    <Overlay isOpen={isOpen} onClose={onClose} disableBackdropClick={disableBackdropClick} blur exitDuration={150}>
+    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={150}>
       <div className="absolute inset-0 bg-slate-900/50 pointer-events-none" />
       <div
         ref={(el) => {
@@ -88,7 +88,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel || (!titleId && !ariaLabelledBy && !ariaLabelledby ? fallbackAriaLabel : undefined)}
+        aria-label={ariaLabel || fallbackAriaLabel}
         aria-labelledby={titleId || ariaLabelledBy || ariaLabelledby}
         aria-describedby={ariaDescribedBy || ariaDescribedby}
         tabIndex={-1}
