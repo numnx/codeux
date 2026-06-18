@@ -110,7 +110,7 @@
   "pnpm": {
     "overrides": {
       "undici": "^7.28.0",
-      "vite": "^6.4.3"
+      "vitepress>vite": "^6.4.3"
     }
   }
 }

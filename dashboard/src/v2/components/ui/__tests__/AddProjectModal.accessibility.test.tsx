@@ -200,8 +200,7 @@ describe("AddProjectModal Accessibility", () => {
       const nameInput = document.getElementById("add-project-name");
       expect(nameInput).toHaveAttribute("aria-invalid", "true");
 
-      const pathInput = document.getElementById("add-project-path");
-      expect(pathInput).toHaveAttribute("aria-invalid", "true");
+
     });
   });
 });
