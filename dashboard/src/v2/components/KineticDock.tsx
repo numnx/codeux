@@ -238,7 +238,7 @@ export const KineticDock: FunctionComponent = () => {
                 className="relative pointer-events-auto flex items-center gap-1.5 p-2.5
                            bg-white/90 dark:bg-void-800/90 backdrop-blur-xl
                            border border-black/[0.06] dark:border-white/[0.08]
-                           rounded-[2rem] max-w-full overflow-x-auto scrollbar-hide
+                           rounded-[2rem] max-w-[calc(100vw-2rem)] sm:max-w-full overflow-x-auto scrollbar-hide justify-start sm:justify-center
                            shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]
                            before:absolute before:inset-0 before:rounded-[2rem]
                            before:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] dark:before:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]"
