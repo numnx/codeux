@@ -1,3 +1,14 @@
+
+if (typeof cancelAnimationFrame === 'undefined') {
+  global.cancelAnimationFrame = function(id) {
+    clearTimeout(id);
+  };
+}
+if (typeof requestAnimationFrame === 'undefined') {
+  global.requestAnimationFrame = function(callback) {
+    return setTimeout(callback, 0);
+  };
+}
 /** @jsx h */
 /**
  * @vitest-environment jsdom

@@ -25,3 +25,7 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 5. **Page Containers & Safe Areas**:
    *   Pages that scroll vertically behind fixed bottom navigation elements (like the `KineticDock`) must append a safe bottom padding (e.g., `pb-36 md:pb-32`) to ensure final controls are reachable.
+
+6. **File Browsing & Embedded Tooling (e.g. Memory Page)**:
+   *   Do not use fixed viewport height calculations (e.g., `calc(100vh - 340px)`) without specific `min-h` bounds and media query scopes (`md:h-[calc(100vh-340px)] md:min-h-[520px]`).
+   *   Stacked layouts under narrow widths must avoid fixed vertical scaling that traps content, preferring instead a natural flow and constrained `h-[500px]` bounds for inner canvas or tree instances.

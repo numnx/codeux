@@ -421,9 +421,9 @@ export const FileBrowserPage: FunctionComponent = () => {
           lastError={selectedSession?.status === "error" ? selectedSession.lastError : null}
         />
       ) : (
-        <div class="grid h-[calc(100vh-340px)] min-h-[520px] grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]" data-testid="file-browser-main-tool-panel">
+        <div class="grid grid-cols-1 gap-5 lg:h-[calc(100vh-340px)] lg:min-h-[520px] lg:grid-cols-[340px_minmax(0,1fr)]" data-testid="file-browser-main-tool-panel">
           {/* Sidebar panel */}
-          <div class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
+          <div class="flex h-[400px] lg:h-auto min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
             {mode === "files" ? (
               <>
                 <div class="border-b border-black/[0.05] p-3 dark:border-white/[0.05]">
@@ -494,7 +494,7 @@ export const FileBrowserPage: FunctionComponent = () => {
           </div>
 
           {/* Viewer panel */}
-          <div class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/46">
+          <div class="flex h-[500px] lg:h-auto min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/46">
             <div class="flex items-center justify-between gap-3 border-b border-black/[0.05] px-4 py-2.5 dark:border-white/[0.06]">
               <div class="min-w-0 truncate font-mono text-[12px] text-slate-500 dark:text-slate-400">
                 {mode === "files"

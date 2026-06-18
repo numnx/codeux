@@ -32,7 +32,7 @@ export const MemoryFilters: FunctionComponent<{
     const selectedAgentPresetId = selectedAgentPresetIdSignal.value;
 
     return (
-        <div className="flex flex-col items-end gap-3.5 shrink-0">
+        <div className="flex flex-col md:items-end gap-3.5 shrink-0 mt-4 md:mt-0 w-full md:w-auto overflow-x-auto overflow-y-hidden pb-1 md:pb-0 scrollbar-hide items-start">
             <div className="flex items-center gap-2.5" role="tablist">
                 {TIER_TABS.map(tab => {
                     const count = tab.key === "short_term"

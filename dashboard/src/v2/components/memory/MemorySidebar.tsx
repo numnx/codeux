@@ -27,7 +27,7 @@ const MemorySidebar = ({ nodes, onSelectNode }: MemorySidebarProps) => {
   return (
     <div
       className={`relative h-full bg-void-900 border-l border-void-700 transition-all duration-300 ease-in-out flex flex-col ${
-        isExpanded ? "w-80" : "w-0"
+        isExpanded ? "w-full sm:w-80" : "w-0"
       }`}
     >
       <style>
@@ -56,7 +56,7 @@ const MemorySidebar = ({ nodes, onSelectNode }: MemorySidebarProps) => {
 
       {/* Content Area */}
       <div
-        className={`w-80 flex-1 flex flex-col transition-opacity duration-300 ${
+        className={`w-full sm:w-80 flex-1 flex flex-col transition-opacity duration-300 ${
           isExpanded ? "opacity-100" : "opacity-0 pointer-events-none overflow-hidden"
         }`}
       >

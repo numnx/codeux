@@ -9,6 +9,23 @@ import { activeTierSignal } from "../memoryState.js";
 expect.extend(matchers);
 
 describe("MemoryFilters Accessibility", () => {
+    test("maintains correct semantic structure with scrolling wrapper", () => {
+        const { container } = render(
+            <MemoryFilters
+                stats={{ sprint: 5, agent: 2, project: 10, activeModel: "test", staleEmbeddings: 0 }}
+                sprints={[]}
+                agentPresets={[]}
+                showModels={false}
+                setShowModels={() => {}}
+                setShowAddModal={() => {}}
+                lobotomize={false}
+                handleLobotomizeToggle={() => {}}
+            />
+        );
+        const wrapper = container.querySelector('.overflow-x-auto');
+        expect(wrapper).toBeInTheDocument();
+    });
+
     afterEach(() => {
         document.body.innerHTML = "";
     });
