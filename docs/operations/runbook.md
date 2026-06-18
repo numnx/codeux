@@ -225,3 +225,9 @@ When reporting issues include:
 - Relevant dashboard warnings
 - Latest protocol instructions
 - Any recent settings changes
+
+## Exposure and Access Control
+
+- **Accidentally Exposed Endpoints**: If the dashboard or MCP Gateway is accidentally exposed to a public network without authentication, shut down the Code UX process immediately.
+- **Rollback**: Rotate all API keys that were present in the settings database or environment variables during the exposure period. Review the `ExecutionInvocations` log to determine if unauthorized actions were taken.
+- **Reverse Proxy**: If binding beyond loopback (e.g., exposing the dashboard to a local team network), you must front the service with a reverse proxy that handles authentication (e.g., Basic Auth, OAuth2 Proxy).

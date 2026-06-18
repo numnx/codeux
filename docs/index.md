@@ -129,6 +129,7 @@ Use this page as the main entrypoint.
 - [Qwen Code Integration](./settings/qwen-code-integration.md)
 - [OpenCode Integration](./settings/opencode-integration.md)
 - [Operations Runbook](./operations/runbook.md)
+- [Security Hardening](./operations/security-hardening.md)
 - [Logging and Correlation IDs](./operations/logging-and-correlation.md)
 - [Testing and Quality](./development/testing-and-quality.md)
 - [Electron Desktop App](./deployment/electron-desktop.md)
