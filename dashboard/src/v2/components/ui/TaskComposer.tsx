@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import { Bot, Plus, Target, X, Save, AlertCircle } from "lucide-preact";
 import { Tooltip } from "./Tooltip.js";
@@ -37,6 +37,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
   onSubmit,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const sprintSelectRef = useRef<HTMLSelectElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fieldsRef = useRef<HTMLFormElement>(null);
 
@@ -71,13 +72,43 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
     return () => ctx.revert();
   }, [initialTask?.recordId, reducedMotion]);
 
+  const [validationSummary, setValidationSummary] = useState("");
   const { feedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
+  const handleRadioKeyDown = (e: KeyboardEvent, options: any[], currentValue: any, setValue: (v: any) => void) => {
+    const currentIndex = options.indexOf(currentValue);
+    let nextIndex = currentIndex;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % options.length;
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIndex = (currentIndex - 1 + options.length) % options.length;
+      e.preventDefault();
+    }
+    if (nextIndex !== currentIndex) {
+      setValue(options[nextIndex]);
+      setTimeout(() => {
+        const newEl = document.querySelector(`[role="radio"][data-value="${options[nextIndex]}"]`) as HTMLElement;
+        newEl?.focus();
+      }, 0);
+    }
+  };
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
     if (!state.isValid) {
       state.setHasAttemptedSubmit(true);
-      if (!state.isTitleValid && titleInputRef.current) {
+
+      const errors = [];
+      if (!state.isSprintIdValid) errors.push('Sprint is required.');
+      if (!state.isTitleValid) errors.push(state.titleError || 'Title is invalid.');
+
+      // Update validation summary
+      setValidationSummary("Validation failed: " + errors.join(" "));
+
+      if (!state.isSprintIdValid && sprintSelectRef.current) {
+        setTimeout(() => sprintSelectRef.current?.focus(), 0);
+      } else if (!state.isTitleValid && titleInputRef.current) {
+        setTimeout(() => titleInputRef.current?.focus(), 0);
         if (!reducedMotion) {
           gsap.to(titleInputRef.current, {
             keyframes: [{ x: -6 }, { x: 6 }, { x: -4 }, { x: 4 }, { x: 0 }],
@@ -89,6 +120,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
       return;
     }
 
+    setValidationSummary("");
     state.setIsSubmitting(true);
     state.setSubmitError(null);
     clearFeedback();
@@ -114,6 +146,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.08),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,224,160,0.1),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.09),transparent_34%)]" />
 
+      <div aria-live="polite" className="sr-only">{validationSummary}</div>
       <form
         ref={fieldsRef}
         onSubmit={handleSubmit}
@@ -149,8 +182,11 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
           <div data-composer-stagger className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Sprint</div>
+              <label htmlFor="sprint-select" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block">Sprint</label>
               <select
+                ref={sprintSelectRef}
+                id="sprint-select"
+                aria-describedby={((state.hasAttemptedSubmit || state.touchedFields.sprintId) && state.sprintIdError) ? "sprint-error" : undefined}
                 value={state.sprintId}
                 onInput={(event) => state.setSprintId((event.target as HTMLSelectElement).value)}
                 onBlur={() => state.setFieldTouched('sprintId')}
@@ -164,7 +200,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               </select>
               <div className="min-h-[20px] mt-1">
                 {(state.hasAttemptedSubmit || state.touchedFields.sprintId) && state.sprintIdError && (
-                  <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
+                  <div id="sprint-error" className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
                     <AlertCircle className="w-3.5 h-3.5" />
                     {state.sprintIdError}
                   </div>
@@ -173,13 +209,18 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </div>
 
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Status</div>
-              <div className="flex gap-2 flex-wrap">
+              <div id="status-group-label" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Status</div>
+              <div role="radiogroup" aria-labelledby="status-group-label" className="flex gap-2 flex-wrap">
                 {STATUS_OPTIONS.map((option) => (
                   <button
                     key={option}
                     type="button"
                     onClick={() => state.setStatus(option)}
+                    onKeyDown={(e) => handleRadioKeyDown(e, STATUS_OPTIONS, state.status, state.setStatus)}
+                    tabIndex={state.status === option ? 0 : -1}
+                    role="radio"
+                    data-value={option}
+                    aria-checked={state.status === option}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.14em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
                       state.status === option
                         ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
@@ -193,10 +234,12 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </div>
           </div>
 
-          <label data-composer-stagger className="mt-8 block space-y-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Title</span>
+          <div data-composer-stagger className="mt-8 block space-y-2">
+            <label htmlFor="task-title-input" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Title</label>
             <input
               ref={titleInputRef}
+              id="task-title-input"
+              aria-describedby={((state.hasAttemptedSubmit || state.touchedFields.title) && state.titleError) ? "task-title-error" : undefined}
               type="text"
               value={state.title}
               onInput={(event) => state.setTitle((event.target as HTMLInputElement).value)}
@@ -215,22 +258,23 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               aria-live="assertive"
             >
               <div className="overflow-hidden">
-                <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium pt-1">
+                <div id="task-title-error" className="flex items-center gap-1.5 text-xs text-red-500 font-medium pt-1">
                   <AlertCircle className="w-4 h-4" />
                   {state.titleError}
                 </div>
               </div>
             </div>
-          </label>
+          </div>
 
           <div data-composer-stagger className="mt-8 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Details</label>
+              <div id="task-details-label" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Task Details</div>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
                 <textarea
+                  aria-label="Description"
                   value={state.description}
                   onInput={(event) => state.setDescription((event.target as HTMLTextAreaElement).value)}
                   placeholder="Summarize the intent and outcome."
@@ -240,6 +284,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
               <div className="rounded-[1.7rem] border border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]">
                 <textarea
+                  aria-label="Prompt Markdown"
                   value={state.promptMarkdown}
                   onInput={(event) => state.setPromptMarkdown((event.target as HTMLTextAreaElement).value)}
                   placeholder="Detailed markdown instructions for the agent."
@@ -253,10 +298,12 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
-                <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Dependencies</label>
+                <label htmlFor="dependency-search" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Dependencies</label>
               </div>
               {availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 5 && (
                 <input
+                  id="dependency-search"
+                  aria-label="Filter tasks"
                   type="search"
                   placeholder="Filter tasks..."
                   value={state.dependencySearchQuery}
@@ -279,6 +326,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                       type="button"
                       onClick={() => state.toggleDependency(task.recordId)}
                       aria-pressed={active}
+                      aria-label={`${task.title} - Status: ${task.status}`}
                       className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
                         active
                           ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400"
@@ -305,13 +353,18 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">Priority</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div id="priority-group-label" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">Priority</div>
+            <div role="radiogroup" aria-labelledby="priority-group-label" className="grid grid-cols-2 gap-2">
               {PRIORITY_OPTIONS.map((option) => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => state.setPriority(option)}
+                  onKeyDown={(e) => handleRadioKeyDown(e, PRIORITY_OPTIONS, state.priority, state.setPriority)}
+                  tabIndex={state.priority === option ? 0 : -1}
+                  role="radio"
+                  data-value={option}
+                  aria-checked={state.priority === option}
                   className={`px-3 py-2 rounded-[1.1rem] border text-[10px] font-bold uppercase tracking-[0.14em] transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-95 ${
                     state.priority === option
                       ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400 shadow-[0_4px_12px_rgba(255,184,0,0.15)]"
@@ -327,9 +380,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
           <div data-composer-stagger>
             <div className="flex items-center gap-2 mb-3">
               <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
-              <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</label>
+              <div id="executor-group-label" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</div>
             </div>
-            <div className="grid gap-3">
+            <div role="radiogroup" aria-labelledby="executor-group-label" className="grid gap-3">
               {EXECUTOR_OPTIONS.map((option) => {
                 const isActive = state.executorType === option.value;
                 return (
@@ -337,6 +390,11 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     key={option.value}
                     type="button"
                     onClick={() => state.setExecutorType(option.value)}
+                    onKeyDown={(e) => handleRadioKeyDown(e, EXECUTOR_OPTIONS.map(o => o.value), state.executorType, state.setExecutorType)}
+                    tabIndex={isActive ? 0 : -1}
+                    role="radio"
+                    data-value={option.value}
+                    aria-checked={isActive}
                     className={`rounded-[1.35rem] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-[0.98] ${
                       isActive
                         ? "border-signal-500/30 bg-signal-500/[0.08] shadow-[0_12px_24px_rgba(0,224,160,0.08)]"
