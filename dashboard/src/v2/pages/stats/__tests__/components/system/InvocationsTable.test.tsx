@@ -56,6 +56,67 @@ function createInvocation(overrides: Partial<ExecutionInvocationRecord> = {}): E
 }
 
 describe("InvocationsTable", () => {
+  it("exposes accessible table caption and sort directions", () => {
+    const sort: SystemSort = { key: "startedAt", dir: "desc" };
+    render(
+      <InvocationsTable
+        invocations={[]}
+        sort={sort}
+        onSortChange={vi.fn()}
+        expandedId={null}
+        onRowExpand={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/System invocations ledger/)).toBeInTheDocument();
+
+    const timeHeader = screen.getByRole("columnheader", { name: /Time/i });
+    expect(timeHeader).toHaveAttribute("aria-sort", "descending");
+
+    const totalHeader = screen.getByRole("columnheader", { name: /Total/i });
+    expect(totalHeader).toHaveAttribute("aria-sort", "none");
+  });
+
+  it("exposes accessible expansion controls", () => {
+    const invocations = [createInvocation({ id: "inv-1", type: "task_run", model: "claude-sonnet-4", startedAt: "2026-06-03T10:00:00.000Z" })];
+    render(
+      <InvocationsTable
+        invocations={invocations}
+        sort={{ key: "startedAt", dir: "desc" }}
+        onSortChange={vi.fn()}
+        expandedId="inv-1"
+        onRowExpand={vi.fn()}
+      />,
+    );
+
+    // Get the mobile and desktop expand toggle buttons using role
+    const buttons = screen.getAllByRole("button", { name: /Collapse invocation task_run claude-sonnet-4/i });
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons[0]).toHaveAttribute("aria-expanded", "true");
+    expect(buttons[0]).toHaveAttribute("aria-controls", "invocation-details-inv-1");
+  });
+
+  it("exposes text labels for status chips and mobile metric headers", () => {
+    const invocations = [createInvocation({ id: "inv-1", status: "running" })];
+    render(
+      <InvocationsTable
+        invocations={invocations}
+        sort={{ key: "startedAt", dir: "desc" }}
+        onSortChange={vi.fn()}
+        expandedId={null}
+        onRowExpand={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Running")).toBeInTheDocument();
+
+    // Check mobile labels
+    expect(screen.getAllByText("Input Tokens").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Total Tokens").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Duration").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Context").length).toBeGreaterThan(0);
+  });
+
   beforeEach(() => {
     mockedFetchInvocationMessages.mockReset();
   });

@@ -176,7 +176,7 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
 
       {loading ? (
         <div className="flex items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-3 text-sm text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
           Loading messages
         </div>
       ) : error ? (
