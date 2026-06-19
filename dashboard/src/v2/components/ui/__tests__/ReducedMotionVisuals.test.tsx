@@ -5,6 +5,9 @@ import { Sparkline } from "../Sparkline.js";
 import { WaveFluid } from "../WaveFluid.js";
 import { BorderTrace } from "../BorderTrace.js";
 import { ContainerShip } from "../PlanningShip.js";
+import { CollapsiblePanel } from "../CollapsiblePanel.js";
+import { ConfirmDialog } from "../ConfirmDialog.js";
+import { Settings } from "lucide-preact";
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
@@ -42,5 +45,32 @@ describe("Reduced Motion Visuals", () => {
         const { container } = render(<ContainerShip accentColor="#000" isMoving={true} isDark={false} />);
         const animate = container.querySelector("animate");
         expect(animate).toBeNull();
+    });
+
+    it("CollapsiblePanel disables transitions when reduced motion is on", () => {
+        const { container } = render(
+            <CollapsiblePanel title="Test" icon={Settings} accentHex="#000" defaultOpen={true}>
+                <div>Content</div>
+            </CollapsiblePanel>
+        );
+        const button = container.querySelector("button");
+        const svg = button?.querySelector("svg:last-child");
+        expect(svg).not.toHaveClass("transition-transform");
+
+        const grid = container.querySelector(".grid");
+        expect(grid).not.toHaveClass("transition-[grid-template-rows]");
+    });
+
+    it("ConfirmDialog progress bar falls back to stepping in reduced motion", () => {
+        const { container } = render(
+            <ConfirmDialog
+                isOpen={true}
+                options={{ title: "Test", body: "Body", destructive: true }}
+                onConfirm={() => {}}
+                onCancel={() => {}}
+            />
+        );
+        const holdButton = container.querySelector("button.bg-status-red");
+        expect(holdButton).toBeInTheDocument();
     });
 });

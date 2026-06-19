@@ -714,7 +714,8 @@ The dashboard relies on consistent interaction primitives across all v2 views:
 - **Reduced Motion**: All animated feedback (like CI spinners or GSAP transitions) uses Tailwind's `motion-reduce:animate-none` or explicit reduced-motion checks to disable looping animations if the user prefers reduced motion.
 - **Overlays & Modals**: Dismissible surfaces (dialogs, side panels, search overlays) can be closed via explicit buttons, clicking the backdrop, or pressing the Escape key. Focus is trapped within the overlay while open and restored to the trigger when closed.
 - **Data Views**: Complex data views (like the Sprint Ledger or Stats page) maintain sticky sort/filter controls while the data scrolls. List windowing and progressive rendering ensure smooth interactions even with large datasets.
-- **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges) and provides localized options to clean up state before proceeding.
+- **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges) and provides localized options to clean up state before proceeding. Destructive buttons use a hold-to-confirm pattern, which must display a progress fallback if reduced motion is enabled to ensure the holding state remains visible without smooth animation.
+- **Collapsible Disclosures**: Components like `CollapsiblePanel` explicitly link triggers and content via `aria-controls` and `aria-expanded`, and their height/chevron transitions are disabled during reduced-motion modes.
 
 ## Accessibility Patterns
 

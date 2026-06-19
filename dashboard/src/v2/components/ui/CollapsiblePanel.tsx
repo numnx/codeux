@@ -3,6 +3,7 @@ import { useState, useId } from "preact/hooks";
 import { ChevronDown } from "lucide-preact";
 import { WaveFluid } from "./WaveFluid.js";
 import { BorderTrace } from "./BorderTrace.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export const CollapsiblePanel: FunctionComponent<{
     title: string;
@@ -14,6 +15,7 @@ export const CollapsiblePanel: FunctionComponent<{
 }> = ({ title, icon: Icon, accentHex, defaultOpen = false, badge, children }) => {
     const [open, setOpen] = useState(defaultOpen);
     const contentId = useId();
+    const reducedMotion = useReducedMotion();
 
     return (
         <div className="group/collapse relative overflow-hidden bg-white/80 dark:bg-void-800/75 backdrop-blur-sm border border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
@@ -38,7 +40,7 @@ export const CollapsiblePanel: FunctionComponent<{
                     )}
                 </div>
                 <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                    className={`w-3.5 h-3.5 text-slate-400 ${reducedMotion ? "" : "transition-transform duration-300"} ${open ? "rotate-0" : "-rotate-90"}`}
                     strokeWidth={2}
                 />
             </button>
@@ -47,10 +49,10 @@ export const CollapsiblePanel: FunctionComponent<{
             <div
                 id={contentId}
                 aria-hidden={!open}
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                className={`grid ${reducedMotion ? "" : "transition-[grid-template-rows] duration-300 ease-in-out"} ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
             >
                 <div
-                    className={`relative z-10 px-5 pt-0 overflow-hidden transition-all duration-300 ease-in-out ${
+                    className={`relative z-10 px-5 pt-0 overflow-hidden ${reducedMotion ? "" : "transition-all duration-300 ease-in-out"} ${
                         open ? "opacity-100 translate-y-0 pb-5" : "opacity-0 -translate-y-2 pb-0"
                     }`}
                 >

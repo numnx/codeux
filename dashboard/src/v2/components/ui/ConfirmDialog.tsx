@@ -138,8 +138,8 @@ function DestructiveConfirmButton({
     >
       {isHolding && (
         <div
-          className="absolute inset-0 bg-black/20 dark:bg-white/20 origin-left transition-transform duration-100"
-          style={{ transform: `scaleX(${progress / 100})` }}
+          className={`absolute inset-0 bg-black/20 dark:bg-white/20 origin-left ${reducedMotion ? "" : "transition-transform duration-100"}`}
+          style={{ transform: `scaleX(${reducedMotion ? Math.floor(progress / 20) * 0.2 : progress / 100})` }}
         />
       )}
 
@@ -237,7 +237,12 @@ export function ConfirmDialog({ isOpen, options, onConfirm, onCancel, triggerRef
         setIsClosing(false);
 
         if (actualTriggerRef.current) {
-          actualTriggerRef.current.focus();
+          const trigger = actualTriggerRef.current;
+          setTimeout(() => {
+            if (trigger.isConnected) {
+              trigger.focus();
+            }
+          }, 0);
           actualTriggerRef.current = null;
         }
 
@@ -268,6 +273,7 @@ export function ConfirmDialog({ isOpen, options, onConfirm, onCancel, triggerRef
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-void-900/50 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(onCancel); }}
     >
       <div
         ref={(el) => {

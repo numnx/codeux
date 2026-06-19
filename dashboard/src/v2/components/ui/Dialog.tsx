@@ -1,3 +1,4 @@
+import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import { h, ComponentChildren, FunctionComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
@@ -54,7 +55,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       setVisible(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
-      }, reducedMotion ? 0 : 150); // Exit transition time
+      }, reducedMotion ? 0 : MODAL_MOTION.exit.duration * 1000); // Exit transition time
       return () => clearTimeout(timer);
     }
   }, [isOpen, reducedMotion]);
@@ -62,7 +63,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   if (!shouldRender) return null;
 
   return (
-    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={150}>
+    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={MODAL_MOTION.exit.duration * 1000}>
       <div
         ref={trapRef}
         role="dialog"
@@ -75,7 +76,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? 'scale(1)' : 'scale(0.95)',
-          transition: reducedMotion ? 'none' : visible ? 'opacity 200ms ease-out, transform 200ms ease-out' : 'opacity 150ms ease-in, transform 150ms ease-in',
+          transition: reducedMotion ? 'none' : visible ? `opacity ${MODAL_MOTION.entry.duration}s ease-out, transform ${MODAL_MOTION.entry.duration}s ease-out` : `opacity ${MODAL_MOTION.exit.duration}s ease-in, transform ${MODAL_MOTION.exit.duration}s ease-in`,
         }}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dialog
       >

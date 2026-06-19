@@ -2,11 +2,37 @@
 import { h } from "preact";
 import { render, screen, cleanup } from "@testing-library/preact";
 import { Dialog } from "../Dialog.js";
-import { expect, test, describe, afterEach } from "vitest";
+import { expect, test, describe, afterEach, vi } from "vitest";
 
 describe("Dialog and Modal", () => {
   afterEach(() => {
     cleanup();
+  });
+
+  test("focus restores on Escape", async () => {
+    const trigger = document.createElement("button");
+    trigger.id = "trigger";
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <Dialog isOpen={true} onClose={onClose}>
+        <div>Content</div>
+      </Dialog>
+    );
+
+    // Escape triggers onClose
+    const event = new KeyboardEvent("keydown", { key: "Escape" });
+    document.dispatchEvent(event);
+    expect(onClose).toHaveBeenCalled();
+
+    unmount();
+
+    // Focus hook restores asynchronously via setTimeout
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(trigger);
+    document.body.removeChild(trigger);
   });
 
   test("renders with accessible name", () => {
