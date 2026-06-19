@@ -106,8 +106,8 @@ export const KanbanTaskCard: FunctionComponent<{
       onMouseLeave={handleMouseLeave}
       tabIndex={0}
       draggable={!isReducedMotion}
-      onDragStart={onDragStart as any}
-      onDragEnd={onDragEnd as any}
+      onDragStart={!isReducedMotion ? (onDragStart as any) : undefined}
+      onDragEnd={!isReducedMotion ? (onDragEnd as any) : undefined}
       aria-roledescription="sortable"
       aria-describedby={`task-card-kbd-${task.recordId}`}
       onKeyDown={(e) => {
@@ -121,7 +121,7 @@ export const KanbanTaskCard: FunctionComponent<{
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       <span id={`task-card-kbd-${task.recordId}`} className="sr-only">
-        Keyboard reordering is not supported. Use drag and drop to reorder.
+        {isReducedMotion ? "Draggable reordering is disabled in reduced motion mode." : "Keyboard reordering is not supported. Use drag and drop to reorder."}
       </span>
       <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
       <WaveFluid accentHex={STATUS_CFG[task.status].hex} />
@@ -212,7 +212,7 @@ export const KanbanTaskCard: FunctionComponent<{
         <span className="text-[9px] font-mono text-slate-300 dark:text-slate-700">{liveStartedAt ? `· ${formatTimeAgo(liveStartedAt)}` : humanizedCreatedAt}</span>
       </div>
 
-      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 group-focus:translate-y-0 group-focus:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 focus-within:opacity-100 focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
+      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-md rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] translate-y-[-8px] opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus:pointer-events-auto group-focus:translate-y-0 group-focus:opacity-100 group-focus-visible:pointer-events-auto group-focus-visible:translate-y-0 group-focus-visible:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-20">
         <button
           type="button"
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30"
@@ -223,6 +223,7 @@ export const KanbanTaskCard: FunctionComponent<{
         </button>
         <button
           type="button"
+          ref={triggerRef as any}
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-status-red rounded-full transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/30"
           title={`Delete task ${task.id}`} aria-label={`Delete task ${task.id}`}
           onClick={async (e) => {
