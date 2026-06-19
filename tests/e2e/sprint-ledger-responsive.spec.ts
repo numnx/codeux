@@ -67,7 +67,14 @@ test.describe('Sprint Ledger Responsive Layout E2E Tests', () => {
     await expect(mobileCompletionLabels.first()).toBeVisible();
     await expect(mobileControlsLabels.first()).toBeVisible();
 
-    // 5. Test Desktop Viewport Layout (width 1280px)
+    // 5. Test Tablet Viewport Layout (width 768px)
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.waitForTimeout(500); // Allow layout transition
+
+    await expect(page.locator('main')).toBeVisible();
+    await expect(newSprintBtn).toBeVisible();
+
+    // 6. Test Desktop Viewport Layout (width 1280px)
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.waitForTimeout(500); // Allow layout transition
 

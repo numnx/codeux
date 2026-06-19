@@ -98,6 +98,8 @@ describe("ExecutionTimeline", () => {
     );
 
     expect(screen.getByText("Runtime Timeline")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Runtime Timeline" })).toBeInTheDocument();
+    expect(screen.getByRole("log", { name: "Recent runtime events" })).toBeInTheDocument();
     expect(screen.getByText("run completed")).toBeInTheDocument();
     expect(screen.queryByText("No task run events recorded yet.")).not.toBeInTheDocument();
   });

@@ -16,21 +16,22 @@ export const TaskRow: FunctionComponent<TaskRowProps> = memo(({ task, state, onP
     const busy = state?.busy ?? false;
     return (
     <div
-        className="group relative flex items-center justify-between py-5 border-b border-black/[0.06] dark:border-white/[0.06] last:border-0 focus-within:ring-2 focus-within:ring-signal-500/30 focus-within:ring-offset-2 focus-within:z-10 focus-within:rounded-xl"
+        className="group relative flex min-w-0 flex-col gap-3 py-5 border-b border-black/[0.06] dark:border-white/[0.06] last:border-0 focus-within:ring-2 focus-within:ring-signal-500/30 focus-within:ring-offset-2 focus-within:z-10 focus-within:rounded-xl sm:flex-row sm:items-center sm:justify-between"
+        role="listitem"
     >
         {/* Hover backdrop */}
         <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-signal-500/0 via-signal-500/[0.03] to-signal-500/0 dark:via-signal-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-400 -z-10 rounded-xl" />
         <div aria-hidden="true" className="absolute inset-y-1 inset-x-0 bg-white/50 dark:bg-void-700/40 opacity-0 group-hover:opacity-100 transition-all duration-300 -z-10 rounded-xl" />
 
-        <div className="flex-1 grid grid-cols-12 gap-3 md:gap-5 items-center min-w-0">
+        <div className="grid w-full min-w-0 grid-cols-1 items-start gap-3 sm:grid-cols-12 sm:items-center md:gap-5">
             {/* ID */}
             <div className="hidden md:block col-span-1 font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                 #{task.id.split('-')[0].substring(0, 4)}
             </div>
 
             {/* Title */}
-            <div className="col-span-8 md:col-span-5 flex items-center min-w-0">
-                <span className={`text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate group-hover:translate-x-1.5 transition-transform duration-300 ease-out ${task.status === 'completed' ? 'opacity-50' : task.status === 'coding_completed' ? 'opacity-80' : ''}`}>
+            <div className="flex min-w-0 items-center sm:col-span-8 md:col-span-5">
+                <span title={task.title} className={`min-w-0 truncate text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-white group-hover:translate-x-1.5 transition-transform duration-300 ease-out ${task.status === 'completed' ? 'opacity-50' : task.status === 'coding_completed' ? 'opacity-80' : ''}`}>
                     {task.title}
                 </span>
                 {task.latestReview && (
@@ -47,7 +48,7 @@ export const TaskRow: FunctionComponent<TaskRowProps> = memo(({ task, state, onP
             </div>
 
             {/* Status */}
-            <div className={`col-span-4 md:col-span-2 flex items-center gap-2 min-w-0 px-2.5 py-1 rounded-full transition-colors duration-300 w-fit ${
+            <div aria-label={`Status: ${task.status.replace('_', ' ')}`} className={`flex w-fit min-w-0 items-center gap-2 rounded-full px-2.5 py-1 transition-colors duration-300 sm:col-span-4 md:col-span-2 ${
                 task.status === 'completed' ? 'bg-status-green/10' :
                 task.status === 'coding_completed' ? 'bg-cyan-500/10' :
                 task.status === 'in_progress' ? 'bg-signal-500/10' :
@@ -74,15 +75,15 @@ export const TaskRow: FunctionComponent<TaskRowProps> = memo(({ task, state, onP
             </div>
 
             {/* Time / Actions */}
-            <div className="hidden sm:flex col-span-2 items-center justify-end h-full relative overflow-hidden">
-                <div className="flex items-center gap-2 absolute right-0 transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-3">
+            <div className="flex min-w-0 items-center justify-between gap-3 sm:col-span-2 sm:h-full sm:justify-end sm:relative sm:overflow-hidden">
+                <div className="flex items-center gap-2 sm:absolute sm:right-0 sm:transition-all sm:duration-300 sm:opacity-100 sm:group-hover:opacity-0 sm:group-focus-within:opacity-0 sm:group-hover:translate-x-3">
                     <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} aria-hidden="true" />
                     <span className="sr-only">Duration: </span>
                     <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{task.time}</span>
                 </div>
 
                 {/* Quick actions */}
-                <div className="flex items-center gap-1 p-1 bg-white/90 dark:bg-void-700/95 backdrop-blur-xl rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] border border-black/[0.05] dark:border-white/[0.08] absolute right-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-[opacity,transform] duration-200 origin-right motion-safe:scale-95 motion-safe:group-hover:scale-100 motion-safe:group-focus-within:scale-100">
+                <div className="flex shrink-0 items-center gap-1 rounded-full border border-black/[0.05] bg-white/90 p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-[opacity,transform] duration-200 dark:border-white/[0.08] dark:bg-void-700/95 dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] sm:absolute sm:right-0 sm:opacity-0 sm:origin-right sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 sm:motion-safe:scale-95 sm:motion-safe:group-hover:scale-100 sm:motion-safe:group-focus-within:scale-100">
                     <button
                         type="button"
                         className="touch-target p-2 text-slate-600 dark:text-slate-400 hover:text-signal-600 dark:hover:text-signal-400 bg-transparent hover:bg-slate-100 dark:hover:bg-void-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors active:scale-95"

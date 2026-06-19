@@ -92,8 +92,8 @@ export const SettingsPage: FunctionComponent = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_110%_110%,rgba(255,184,0,0.025)_0%,transparent_60%)] dark:bg-[radial-gradient(ellipse_50%_40%_at_110%_110%,rgba(255,184,0,0.04)_0%,transparent_60%)]" />
       </div>
 
-      <div ref={headerRef} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-end">
-        <div className="flex flex-col gap-5">
+      <div ref={headerRef} className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-end">
+        <div className="flex min-w-0 flex-col gap-5">
           <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-mono">
             <Settings className="h-3.5 w-3.5" strokeWidth={2.5} />
             Configuration
@@ -118,11 +118,11 @@ export const SettingsPage: FunctionComponent = () => {
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-1 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
+            <div className="flex min-w-0 rounded-2xl border border-black/[0.06] bg-white/70 p-1 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
               <button
                 type="button"
                 onClick={() => setActiveScope("system")}
-                className={`rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
+                className={`min-h-[40px] rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
                   activeScope === "system"
                     ? "bg-signal-500/[0.12] text-signal-700 dark:text-signal-300"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -134,7 +134,7 @@ export const SettingsPage: FunctionComponent = () => {
                 type="button"
                 onClick={() => selectedProject && setActiveScope("project")}
                 disabled={!selectedProject}
-                className={`rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`min-h-[40px] rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   activeScope === "project"
                     ? "bg-signal-500/[0.12] text-signal-700 dark:text-signal-300"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -164,12 +164,12 @@ export const SettingsPage: FunctionComponent = () => {
           </div>
         </div>
 
-        <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+        <div className="min-w-0 rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
             <Compass className="h-3.5 w-3.5" strokeWidth={2.2} />
             Smart Find
           </div>
-          <div className="mt-3 flex items-center gap-3 rounded-[1rem] border border-black/[0.06] bg-black/[0.03] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <div className="mt-3 flex min-w-0 items-center gap-3 rounded-[1rem] border border-black/[0.06] bg-black/[0.03] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
             <Search className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.1} />
             <input
               ref={state.searchInputRef}
@@ -177,7 +177,7 @@ export const SettingsPage: FunctionComponent = () => {
               value={settingsSearch}
               onInput={(event) => setSettingsSearch((event.currentTarget as HTMLInputElement).value)}
               placeholder="Search categories, providers, CI, auth, prompts"
-              className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
+              className="min-w-0 w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
             />
             <div className="rounded-full border border-black/[0.06] bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.04]">
               /
@@ -192,7 +192,7 @@ export const SettingsPage: FunctionComponent = () => {
                 key={`quick-${category.id}`}
                 type="button"
                 onClick={() => switchCategory(category.id)}
-                className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+              className={`min-h-[36px] rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                   activeCategory === category.id
                     ? "border-signal-500/25 bg-signal-500/[0.12] text-signal-700 dark:border-signal-400/25 dark:bg-signal-400/[0.12] dark:text-signal-200"
                     : "border-black/[0.06] bg-white/80 text-slate-500 hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-slate-200"
@@ -216,7 +216,7 @@ export const SettingsPage: FunctionComponent = () => {
               type="button"
               onClick={() => void handleSave()}
               disabled={!activeDirty || activeSaving || loading || (activeScope === "project" && !selectedProject)}
-              className={`group inline-flex items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-bold transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`group inline-flex min-h-[44px] items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-bold transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 ${
                 saveMessage && !error
                   ? "bg-status-green text-white shadow-[0_4px_20px_rgba(0,171,132,0.3)]"
                   : "bg-slate-900 text-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] hover:bg-slate-700 dark:bg-white dark:text-void-900 dark:hover:bg-slate-100"
@@ -243,7 +243,7 @@ export const SettingsPage: FunctionComponent = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[300px_1fr]">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[300px_1fr]">
         <SettingsCategoryRail
           activeCategory={activeCategory}
           filteredCategories={filteredCategories}

@@ -181,24 +181,24 @@ const SprintSelector: FunctionComponent<{
   const selected = selectedId ? sprints.find((sprint: Sprint) => sprint.id === selectedId) : null;
 
   return (
-    <div className="relative">
+    <div className="relative w-full sm:w-auto">
       <button
         onClick={() => setOpen((current) => !current)}
-        className={`group flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all duration-300 ${
+        className={`group flex min-h-[44px] w-full min-w-0 items-center gap-3 rounded-2xl border px-5 py-3 text-left transition-all duration-300 sm:w-auto ${
           selected
             ? "bg-ember-500/[0.06] dark:bg-ember-500/[0.08] border-ember-500/20 dark:border-ember-500/25 shadow-[0_0_20px_rgba(255,184,0,0.06)]"
             : "bg-black/[0.03] dark:bg-white/[0.03] border-black/[0.06] dark:border-white/[0.06]"
         } hover:border-ember-500/40 dark:hover:border-ember-500/40`}
       >
         <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-400"} transition-colors`} strokeWidth={2} />
-        <span className={`text-sm font-bold tracking-tight ${selected ? "text-ember-600 dark:text-ember-400" : "text-slate-600 dark:text-slate-400"}`}>
+        <span className={`min-w-0 truncate text-sm font-bold tracking-tight ${selected ? "text-ember-600 dark:text-ember-400" : "text-slate-600 dark:text-slate-400"}`}>
           {selected ? formatSprintDisplay(selected, sprintKeyPrefix) : "All Sprints"}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 z-50 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-black/[0.06] bg-white/95 shadow-[0_20px_40px_rgba(0,0,0,0.12)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/95 dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
           <button
             onClick={() => { onSelect(null); setOpen(false); }}
             className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors duration-200 ${
@@ -729,8 +729,8 @@ export const TasksPage: FunctionComponent = () => {
       className={isTaskScopeReady ? "gap-16" : "gap-10"}
       padding={isTaskScopeReady ? "standard" : "sprintsEmpty"}
     >
-      <div ref={headerRef} className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-        <div className="flex flex-col gap-5">
+      <div ref={headerRef} className="flex min-w-0 flex-col justify-between gap-8 lg:flex-row lg:items-end">
+        <div className="flex min-w-0 flex-col gap-5">
           <div className="flex items-center gap-2.5 text-signal-500 font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
             <ListChecks className="w-3.5 h-3.5" strokeWidth={2.5} />
             Task Pipeline
@@ -760,7 +760,7 @@ export const TasksPage: FunctionComponent = () => {
           </p>
         </div>
 
-        <div className="flex flex-col items-start lg:items-end gap-4 shrink-0">
+        <div className="flex min-w-0 shrink-0 flex-col items-start gap-4 lg:items-end">
           <div className="flex items-center gap-2.5 flex-wrap">
             {stats.inProgress > 0 && (
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-signal-500/[0.08] border border-signal-500/20 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-400">
@@ -803,33 +803,37 @@ export const TasksPage: FunctionComponent = () => {
       </div>
 
       {isTaskScopeReady && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
+        <div className="-mt-4 flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:items-center">
           <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} sprintKeyPrefix={sprintKeyPrefix} />
 
-          <FilterStrip
-            options={[
-              { value: "all", label: "All" },
-              { value: "in_progress", label: "Running" },
-              { value: "pending", label: "Queued" },
-              { value: "completed", label: "Done" },
-            ]}
-            active={statusFilter}
-            onChange={(val) => setStatusFilter(val as StatusFilter)}
-          />
+          <div className="w-full min-w-0 overflow-x-auto pb-1 sm:w-auto">
+            <FilterStrip
+              options={[
+                { value: "all", label: "All" },
+                { value: "in_progress", label: "Running" },
+                { value: "pending", label: "Queued" },
+                { value: "completed", label: "Done" },
+              ]}
+              active={statusFilter}
+              onChange={(val) => setStatusFilter(val as StatusFilter)}
+            />
+          </div>
 
-          <FilterStrip
-            options={[
-              { value: "all", label: "Any Priority" },
-              { value: "critical", label: "Critical" },
-              { value: "high", label: "High" },
-              { value: "medium", label: "Medium" },
-              { value: "low", label: "Low" },
-            ]}
-            active={priorityFilter}
-            onChange={(val) => setPriorityFilter(val as PriorityFilter)}
-          />
+          <div className="w-full min-w-0 overflow-x-auto pb-1 sm:w-auto">
+            <FilterStrip
+              options={[
+                { value: "all", label: "Any Priority" },
+                { value: "critical", label: "Critical" },
+                { value: "high", label: "High" },
+                { value: "medium", label: "Medium" },
+                { value: "low", label: "Low" },
+              ]}
+              active={priorityFilter}
+              onChange={(val) => setPriorityFilter(val as PriorityFilter)}
+            />
+          </div>
 
-          <div className="ml-auto">
+          <div className="w-full sm:ml-auto sm:w-auto">
             <ListWindowSelector value={listWindow} onChange={setListWindow} label="Show" />
           </div>
         </div>
@@ -881,7 +885,7 @@ export const TasksPage: FunctionComponent = () => {
       )}
 
       {isTaskScopeReady && (
-        <div ref={boardRef} className={`grid gap-6 ${
+        <div ref={boardRef} className={`grid min-w-0 gap-6 ${
           columns.length === 1 ? "grid-cols-1" :
           columns.length === 2 ? "grid-cols-1 lg:grid-cols-2" :
           "grid-cols-1 lg:grid-cols-3"

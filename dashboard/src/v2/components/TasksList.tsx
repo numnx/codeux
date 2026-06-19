@@ -65,12 +65,12 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
     });
 
     return (
-        <div className="w-full relative z-10 px-2">
+        <section className="relative z-10 w-full min-w-0 px-2" aria-labelledby="active-streams-heading">
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-6 sm:gap-8">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-                    <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Active Streams</h2>
-                    <div className="w-full sm:w-auto">
+                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+                    <h2 id="active-streams-heading" className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Active Streams</h2>
+                    <div className="w-full min-w-0 overflow-x-auto pb-1 sm:w-auto">
                         <FilterStrip
                             options={FILTER_OPTIONS}
                             active={activeFilter}
@@ -80,13 +80,13 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
                         />
                     </div>
                 </div>
-                <div className="text-xs font-semibold text-slate-400 dark:text-slate-600 font-mono hidden sm:block">
+                <div className="text-xs font-semibold text-slate-400 dark:text-slate-600 font-mono">
                     {filteredTasks.length} active
                 </div>
             </div>
 
             {/* Task rows */}
-            <div ref={listRef} className="flex flex-col w-full space-y-3">
+            <div ref={listRef} className="flex w-full min-w-0 flex-col space-y-3" role="list">
                 {isLoading ? (
                     <>
                         <SkeletonRow />
@@ -109,7 +109,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
                             </div>
                         ) : null,
                         ...group.tasks.map((task) => (
-                            <div key={task.id} data-flip-id={task.id} className="task-flip-item sm:pl-4">
+                            <div key={task.id} data-flip-id={task.id} className="task-flip-item min-w-0 sm:pl-4">
                                 <TaskRow
                                     task={task}
                                     state={streamActions.getTaskState(task)}
@@ -128,6 +128,6 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
                     </div>
                 )}
             </div>
-        </div>
+        </section>
     );
 };

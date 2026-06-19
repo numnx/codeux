@@ -88,6 +88,8 @@ describe("AttentionLedger", () => {
         expect(screen.getByText("First summary")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Claim" })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /Attention Queue/i })).toBeNull();
+        expect(screen.getByRole("region", { name: "Attention Queue" })).toBeInTheDocument();
+        expect(screen.getByRole("list", { name: "Attention items" })).toBeInTheDocument();
     });
 
 
@@ -107,6 +109,9 @@ describe("AttentionLedger", () => {
         expect(screen.getByRole("button", { name: "Claiming" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "Resolving" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "Dismissing" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Claiming" })).toHaveAttribute("aria-busy", "true");
+        expect(screen.getByRole("button", { name: "Resolving" })).toHaveAttribute("aria-busy", "true");
+        expect(screen.getByRole("button", { name: "Dismissing" })).toHaveAttribute("aria-busy", "true");
     });
 
     it("renders a collapsible header when requested", () => {

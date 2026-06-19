@@ -306,7 +306,7 @@ export const InteractiveUsageChart: FunctionComponent<{
   };
 
   return (
-    <div ref={panelRef} className={`${PANEL_CLASS} rounded-[2.2rem] p-6 md:p-7 border border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] shadow-[var(--stats-card-shadow)]`}>
+    <section ref={panelRef} className={`${PANEL_CLASS} min-w-0 rounded-[2.2rem] p-5 md:p-7 border border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] shadow-[var(--stats-card-shadow)]`} aria-labelledby="usage-chart-heading">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/[0.08] to-transparent dark:via-white/[0.14]" />
       <div className="relative flex flex-col gap-8">
         {/* Screen reader summary */}
@@ -339,6 +339,7 @@ export const InteractiveUsageChart: FunctionComponent<{
             </tbody>
           </table>
         </div>
+        <div id="usage-chart-heading" className="sr-only">Interactive usage chart</div>
         <UsageGraphHeader
           title={zoomRange ? "Zoomed telemetry window" : stats.range.label}
           description="Normalized telemetry lines reveal shape instead of forcing tokens, duration, and invocation counts into one scale. Drag across the plot or the overview strip to zoom a timeframe, hover for exact bucket values, and use filters to focus the graph."
@@ -377,8 +378,8 @@ export const InteractiveUsageChart: FunctionComponent<{
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 items-start xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className={`${SUBPANEL_CLASS} flex flex-col border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-5 md:p-6`}>
+        <div className="grid min-w-0 grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className={`${SUBPANEL_CLASS} flex min-w-0 flex-col border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/20 p-4 md:p-6`}>
             <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--stats-label-color)]">Interactive Plot</div>
               <div className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--stats-detail-color)] border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 ${CHIP_CLASS} truncate max-w-full`}>
@@ -390,7 +391,7 @@ export const InteractiveUsageChart: FunctionComponent<{
               <button
                 type="button"
                 onClick={toggleFilters} aria-expanded={isFiltersOpen}
-                className={`group flex items-center gap-2 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border shadow-sm active:scale-95 ${CHIP_CLASS} ${
+                className={`group flex min-h-[36px] items-center gap-2 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-all border shadow-sm active:scale-95 ${CHIP_CLASS} ${
                   isFiltersOpen 
                     ? 'border-signal-500/30 bg-signal-500/[0.08] text-signal-500 shadow-signal-500/5' 
                     : 'border-[var(--stats-card-border)] bg-[var(--stats-card-bg)]/60 text-[var(--stats-detail-color)] hover:text-[var(--stats-value-color)] hover:border-[var(--stats-value-color)]/20'
@@ -403,7 +404,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                 <button
                   type="button"
                   onClick={() => setZoomRange(null)}
-                  className={`px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500 transition-all hover:bg-signal-500/10 border border-signal-500/20 rounded-full active:scale-95`}
+                  className={`min-h-[36px] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-signal-500 transition-all hover:bg-signal-500/10 border border-signal-500/20 rounded-full active:scale-95`}
                 >
                   Reset zoom <span className="sr-only">to {stats.range.label}</span>
                 </button>
@@ -423,7 +424,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                 aria-valuetext={activeBucket ? `${activeBucket.label}, ${visibleSeries.map(s => `${s.label}: ${s.formatter(s.values[activeIndex] ?? 0)}`).join(', ')}` : 'No bucket focused'}
               />
             </div>
-            <div ref={svgContainerRef} className="relative flex-1 min-h-[16rem] sm:min-h-[24rem] md:min-h-[30rem] lg:min-h-[36rem] w-full">
+            <div ref={svgContainerRef} className="relative min-h-[16rem] w-full min-w-0 flex-1 overflow-x-auto overscroll-contain sm:min-h-[24rem] md:min-h-[30rem] lg:min-h-[36rem]" role="region" aria-label="Scrollable chart plot">
               {error ? (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--stats-card-bg)]/50 backdrop-blur-sm">
                   <UsageGraphError message={error} onRetry={() => { refresh().catch(() => {}); }} />
@@ -456,7 +457,7 @@ export const InteractiveUsageChart: FunctionComponent<{
                   <UsageGraphEmpty />
                 </div>
               ) : (
-                <svg role="img" aria-labelledby="chart-summary-heading" viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+                <svg role="img" aria-labelledby="chart-summary-heading" viewBox={`0 0 ${width} ${height}`} className={`absolute inset-0 h-full min-w-[42rem] w-full overflow-visible transition-opacity duration-300 motion-reduce:transition-none ${loading ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
                   <defs>
                     {chartData.map((series) => (
                       <linearGradient key={`fill-${series.id}`} id={`stats-area-${series.id}`} x1="0" x2="0" y1="0" y2="1">
@@ -606,7 +607,7 @@ export const InteractiveUsageChart: FunctionComponent<{
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-6 w-full xl:w-auto">
+          <div className="flex w-full min-w-0 flex-col gap-6 xl:w-auto">
             <UsageSeriesSidebar
               series={chartData}
               enabledSeries={enabledSeries}
@@ -654,6 +655,6 @@ export const InteractiveUsageChart: FunctionComponent<{
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };

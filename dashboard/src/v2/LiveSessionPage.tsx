@@ -488,13 +488,15 @@ export const LiveSessionPage: FunctionComponent = () => {
             <SectionDivider label="Task Pipeline" />
 
             {/* ── Filter Strip ────────────────────────────────────────── */}
-            <div className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+            <div className="-mt-8 flex max-w-full gap-1 overflow-x-auto rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.04] sm:w-fit" role="tablist" aria-label="Task pipeline filters">
                 {TASK_FILTERS.map((filter) => (
                     <button
                         key={filter}
+                        type="button"
                         onClick={() => setFilter(filter)}
-                        className={`text-xs font-semibold tracking-wide px-4 py-1.5 rounded-lg
-                                   transition-all duration-200 flex items-center gap-2
+                        aria-pressed={activeFilter === filter}
+                        className={`flex min-h-[36px] flex-none items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-semibold tracking-wide
+                                   transition-all duration-200
                                    ${activeFilter === filter
                                        ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
                                        : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -513,10 +515,10 @@ export const LiveSessionPage: FunctionComponent = () => {
             </div>
 
             {/* ── Main Content Grid ───────────────────────────────────── */}
-            <div ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:gap-16">
+            <div ref={contentRef} className="grid min-w-0 grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-16">
 
                 {/* Task cards */}
-                <div className="xl:col-span-8 flex flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-5 xl:col-span-8">
                     {!hasSprintContext && !initialLoadComplete ? (
                         /* Initial load in progress — render nothing to avoid flashing idle placeholder */
                         null
@@ -562,7 +564,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 </div>
 
                 {/* Sidebar */}
-                <div className="xl:col-span-4 flex flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-5 xl:col-span-4">
                     <ExecutionTimelineProvider
                         execution={execution}
                         onOrchestrateSprint={handleOrchestrateSprint}

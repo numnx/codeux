@@ -379,8 +379,8 @@ export const BrowserPage: FunctionComponent = () => {
 
   return (
     <PageContainer padding="workbench" className="min-h-full" data-testid="browser-page-root">
-      <div className="mb-8 flex flex-col justify-between gap-8 lg:flex-row lg:items-end" data-testid="browser-page-header">
-        <div className="flex flex-col gap-4">
+      <div className="mb-8 flex min-w-0 flex-col justify-between gap-8 lg:flex-row lg:items-end" data-testid="browser-page-header">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
             <Compass className="h-3.5 w-3.5" strokeWidth={2} />
             Sprint Browser
@@ -463,7 +463,7 @@ export const BrowserPage: FunctionComponent = () => {
       )}
 
       {showInAppBrowser && previewEnabled && (
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
         <PreviewWindowChrome
           session={visibleSelectedSession}
           onNavigateBack={() => postNavigationCommand("back")}
@@ -503,7 +503,7 @@ export const BrowserPage: FunctionComponent = () => {
           ) : null}
         </PreviewWindowChrome>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <LaunchContainerPanel
             sprints={sprints}
             launchSprintId={launchSprintId}
@@ -542,12 +542,13 @@ export const BrowserPage: FunctionComponent = () => {
                   {script?.path || visibleSelectedSession?.startupScriptPath || "Open editor to load script"}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={handleRebuild}
                   disabled={!visibleSelectedSession || sessionActionPending}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-black/[0.08] px-3 text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
+                  aria-busy={sessionActionPending}
                 >
                   <RotateCcw className={`h-4 w-4 ${sessionActionPending ? 'animate-spin' : ''}`} strokeWidth={2} />
                   {sessionActionPending ? "Rebuilding..." : "Rebuild"}
@@ -556,7 +557,8 @@ export const BrowserPage: FunctionComponent = () => {
                   type="button"
                   onClick={handleStop}
                   disabled={!visibleSelectedSession || sessionActionPending}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-black/[0.08] px-3 text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
+                  aria-busy={sessionActionPending}
                 >
                   <Square className="h-4 w-4" strokeWidth={2} />
                   {sessionActionPending ? "Stopping..." : "Stop"}
@@ -565,7 +567,8 @@ export const BrowserPage: FunctionComponent = () => {
                   href={visibleSelectedSession ? getSafeUrl(`${buildPreviewOrigin(visibleSelectedSession.id)}${normalizePath(currentPath)}`) : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white ${!visibleSelectedSession ? "pointer-events-none opacity-50" : ""}`}
+                  className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-black/[0.08] px-3 text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white ${!visibleSelectedSession ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={!visibleSelectedSession}
                 >
                   <ExternalLink className="h-4 w-4" strokeWidth={2} />
                   Open
@@ -595,7 +598,8 @@ export const BrowserPage: FunctionComponent = () => {
                   type="button"
                   onClick={handleSaveScript}
                   disabled={savingScript || !scriptTargetSprint}
-                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+                  aria-busy={savingScript}
                 >
                   <Save className="h-4 w-4" strokeWidth={2} />
                   {savingScript ? "Saving..." : "Save"}

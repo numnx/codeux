@@ -35,7 +35,7 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
       : "bg-slate-400 dark:bg-slate-500";
 
   return (
-    <div className="group/sprint relative flex flex-col gap-4 rounded-[1.5rem] border border-black/[0.06] bg-gradient-to-r from-signal-500/[0.05] via-white/40 to-transparent px-5 py-4 backdrop-blur-sm dark:border-white/[0.07] dark:from-signal-500/[0.07] dark:via-void-800/40 sm:flex-row sm:items-center sm:justify-between">
+    <div className="group/sprint relative flex min-w-0 flex-col gap-4 rounded-[1.5rem] border border-black/[0.06] bg-gradient-to-r from-signal-500/[0.05] via-white/40 to-transparent px-4 py-4 backdrop-blur-sm dark:border-white/[0.07] dark:from-signal-500/[0.07] dark:via-void-800/40 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-4">
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-signal-500/20 bg-signal-500/10 text-signal-600 dark:text-signal-400">
           <Layers className="h-4 w-4" strokeWidth={2.1} />
@@ -56,14 +56,14 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
               {taskCount} task{taskCount === 1 ? "" : "s"}
             </span>
           </div>
-          <h3 className="mt-0.5 truncate font-display text-base font-black tracking-tight text-slate-900 dark:text-white">
+          <h3 title={sprint.name} className="mt-0.5 truncate font-display text-base font-black tracking-tight text-slate-900 dark:text-white">
             {sprint.name}
           </h3>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 sm:gap-5">
-        <div className="hidden min-w-[8rem] flex-col gap-1.5 md:flex">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:justify-end sm:gap-5">
+        <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[8rem]">
           <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
             <span>Progress</span>
             <span className="font-mono text-slate-600 dark:text-slate-300">{completion}%</span>
@@ -76,7 +76,7 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2" aria-label={`Controls for ${sprint.name}`}>
           <SprintControls
             isActive={state.isActive}
             isPaused={state.isPaused}

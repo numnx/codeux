@@ -87,6 +87,20 @@ describe("TasksList", () => {
         expect(screen.getByText("Test Task")).toBeInTheDocument();
     });
 
+    it("keeps stream rows and task actions accessible without hover-only controls", () => {
+        render(
+            <ProjectDataProvider initialProject={null}>
+                <TasksList pageData={pageData} />
+            </ProjectDataProvider>
+        );
+
+        expect(screen.getByRole("list")).toBeInTheDocument();
+        expect(screen.getByRole("listitem")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Rerun task task-1" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Configure task task-1" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Open live session for task task-1" })).toBeInTheDocument();
+    });
+
 
     it("hides task if it does not belong to an active sprint", () => {
         const noSprintPageData = {

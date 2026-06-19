@@ -99,7 +99,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
           return (
             <div
               key={session.id}
-              className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all lg:w-[calc(20%-0.6rem)] ${
+              className={`relative w-[min(18rem,calc(100vw-2.5rem))] flex-none snap-start rounded-[1.25rem] border p-4 transition-all sm:w-[280px] lg:w-[calc(20%-0.6rem)] ${
                 active
                   ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_10px_28px_rgba(0,224,160,0.1)] ring-1 ring-signal-500/25 dark:bg-signal-500/[0.1]"
                   : "border-black/[0.08] bg-white/68 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white/80 dark:border-white/[0.08] dark:bg-void-900/35 dark:hover:border-white/[0.14] dark:hover:bg-void-900/50"
@@ -113,7 +113,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
               <button
                 type="button"
                 onClick={() => onSelectSession(session.id)}
-                className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg"
+                className="min-h-[44px] w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg"
               >
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
@@ -151,7 +151,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                       onRemoveSession(session.id);
                     }
                   }}
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 ${
+                  className={`inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 ${
                     removing
                     ? "border-status-red/15 bg-status-red/5 text-status-red/50 cursor-not-allowed"
                     : "border-status-red/15 text-status-red hover:border-status-red/30 hover:bg-status-red/8"
@@ -166,7 +166,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                   href={canOpen ? getSafeUrl(origin) : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50 ${!canOpen ? "pointer-events-none opacity-50" : ""}`}
+                  className={`inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50 ${!canOpen ? "pointer-events-none opacity-50" : ""}`}
                   title="Open isolated preview in a new tab"
                   onClick={(e) => e.stopPropagation()}
                   aria-disabled={!canOpen}

@@ -276,6 +276,7 @@ describe("BrowserPage", () => {
     expect(pageRoot.className).toContain("md:px-20");
     expect(screen.getByTestId("browser-page-header")).toBeInTheDocument();
     expect(screen.getByTestId("browser-main-tool-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("browser-main-tool-panel").className).toContain("min-w-0");
     expect(screen.getAllByText("Sprint 2").length).toBeGreaterThan(0);
     expect(screen.getByText("Selected Sprint")).toBeInTheDocument();
     expect(screen.getAllByText("Launch Container").length).toBeGreaterThan(0);

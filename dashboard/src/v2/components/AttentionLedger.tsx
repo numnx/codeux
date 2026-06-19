@@ -91,8 +91,8 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
 
     const header = (
         <>
-            <div className="flex items-center gap-2.5">
-                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Attention Queue</span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                <span id="attention-queue-heading" className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Attention Queue</span>
                 <div className="flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em]">
                     <span className="rounded-full border border-status-amber/20 bg-status-amber/10 px-2 py-1 text-status-amber">
                         open {openCount}
@@ -112,7 +112,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
     );
 
     return (
-        <div className="group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+        <section className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]" aria-labelledby="attention-queue-heading">
             <WaveFluid accentHex="#00E0A0" />
             <BorderTrace accentHex="#00E0A0" />
 
@@ -122,7 +122,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                     aria-expanded={open}
                     aria-controls={contentId}
                     onClick={() => setOpen(!open)}
-                    className="relative z-10 flex w-full items-center justify-between gap-4 p-5 transition-colors duration-200 hover:bg-black/[0.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:hover:bg-white/[0.01] dark:focus-visible:ring-offset-void-800"
+                    className="relative z-10 flex min-h-[56px] w-full items-center justify-between gap-4 p-5 text-left transition-colors duration-200 hover:bg-black/[0.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:hover:bg-white/[0.01] dark:focus-visible:ring-offset-void-800"
                 >
                     {header}
                 </button>
@@ -140,7 +140,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                 No active blockers are waiting in the project attention queue.
                             </p>
                         ) : (
-                            <div ref={listRef} className="max-h-80 space-y-2 overflow-y-auto pr-1 dashboard-scrollbar">
+                            <div ref={listRef} className="max-h-80 space-y-2 overflow-y-auto overscroll-contain pr-1 dashboard-scrollbar" role="list" aria-label="Attention items">
                                 {visibleAttentionItems.map((item) => {
                                     const assignedWorkerLabel = item.assignedWorkerEndpointId
                                         ? workersByEndpointId.get(item.assignedWorkerEndpointId) || item.assignedWorkerEndpointId
@@ -160,12 +160,13 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                     return (
                                         <div
                                             key={item.id}
-                                            className="rounded-xl border border-black/[0.04] bg-black/[0.015] p-3 dark:border-white/[0.04] dark:bg-white/[0.015]"
+                                            className="min-w-0 rounded-xl border border-black/[0.04] bg-black/[0.015] p-3 dark:border-white/[0.04] dark:bg-white/[0.015]"
+                                            role="listitem"
                                         >
-                                            <div className="flex items-start justify-between gap-3">
+                                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                                 <div className="min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                        <span title={item.title} className="min-w-0 truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
                                                             {item.title}
                                                         </span>
                                                         <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${
@@ -199,7 +200,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="text-right text-[10px] font-mono text-slate-400">
+                                                <div className="shrink-0 text-left text-[10px] font-mono text-slate-400 sm:text-right">
                                                     {formatTime(item.updatedAt)}
                                                 </div>
                                             </div>
@@ -209,13 +210,14 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                 dangerouslySetInnerHTML={{ __html: renderMarkdown(item.summaryMarkdown || "No summary provided.") }}
                                             />
 
-                                            <div className="mt-3 flex flex-wrap gap-2">
+                                            <div className="mt-3 flex flex-wrap gap-2" aria-label={`Actions for ${item.title}`}>
                                                 {canClaim && snapshot.projectId && (
                                                     <button
                                                         type="button"
                                                         onClick={() => onClaimAttentionItem(snapshot.projectId!, item.id)}
                                                         disabled={pendingActionIds.has(claimActionId)}
-                                                        className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500 transition-colors hover:bg-signal-500/15 disabled:opacity-50"
+                                                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500 transition-colors hover:bg-signal-500/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        aria-busy={pendingActionIds.has(claimActionId)}
                                                     >
                                                         <Bot className={`h-3 w-3 ${pendingActionIds.has(claimActionId) ? "animate-pulse" : ""}`} strokeWidth={2} />
                                                         {pendingActionIds.has(claimActionId) ? "Claiming" : "Claim"}
@@ -226,7 +228,8 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         type="button"
                                                         onClick={() => onResolveAttentionItem(snapshot.projectId!, item.id)}
                                                         disabled={pendingActionIds.has(resolveActionId)}
-                                                        className="inline-flex items-center gap-1.5 rounded-full border border-status-green/20 bg-status-green/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-status-green transition-colors hover:bg-status-green/15 disabled:opacity-50"
+                                                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-status-green/20 bg-status-green/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-status-green transition-colors hover:bg-status-green/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        aria-busy={pendingActionIds.has(resolveActionId)}
                                                     >
                                                         <CheckCircle2 className={`h-3 w-3 ${pendingActionIds.has(resolveActionId) ? "animate-spin" : ""}`} strokeWidth={2} />
                                                         {pendingActionIds.has(resolveActionId) ? "Resolving" : "Resolve"}
@@ -237,7 +240,8 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         type="button"
                                                         onClick={() => onDismissAttentionItem(snapshot.projectId!, item.id)}
                                                         disabled={pendingActionIds.has(dismissActionId)}
-                                                        className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-black/[0.05] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+                                                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-black/[0.05] disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-400 dark:hover:bg-white/[0.05]"
+                                                        aria-busy={pendingActionIds.has(dismissActionId)}
                                                     >
                                                         <XCircle className={`h-3 w-3 ${pendingActionIds.has(dismissActionId) ? "animate-spin" : ""}`} strokeWidth={2} />
                                                         {pendingActionIds.has(dismissActionId) ? "Dismissing" : "Dismiss"}
@@ -252,6 +256,6 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     );
 });

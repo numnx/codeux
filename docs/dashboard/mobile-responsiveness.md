@@ -22,3 +22,21 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 
 4.  **Notification Panels**:
     *   Flyout menus and notification surfaces should be collision-aware with width and max-height constraints (e.g., `max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)]`) so they remain fully visible from the top nav at tablet widths without clipping.
+
+## Operational Surfaces
+
+Dense dashboard rows and panels should keep actions and status readable at 375px, 768px, and desktop widths:
+
+1.  **Rows and ledgers**:
+    *   Use `min-w-0` on row parents and text containers so truncation works instead of forcing horizontal overflow.
+    *   Keep primary actions keyboard reachable and visible in the document flow on narrow screens. Hover-revealed action rails may remain for desktop, but mobile layouts must not depend on hover.
+    *   Add `title` or equivalent accessible labels when visual text is truncated.
+
+2.  **Data-dense panels**:
+    *   Use named regions (`aria-label` or `aria-labelledby`) for timelines, DAG canvases, telemetry ledgers, and Git/CI panels.
+    *   Wrap long lists and visualizations in bounded scroll containers with `dashboard-scrollbar` and `overscroll-contain`.
+    *   Preserve table-like meaning on mobile by exposing labels near values when desktop headers are hidden.
+
+3.  **Graph and chart alternatives**:
+    *   Interactive visualizations must include screen-reader summaries and keyboard/touch alternatives for selecting or navigating data points.
+    *   Canvas-like or SVG-heavy surfaces should expose a scrollable region label and a compact list alternative when graph nodes are otherwise hard to target.

@@ -265,15 +265,23 @@ const DagNode = memo(({ node, dispatch, onNodeClick }: { node: SprintDagNodeMode
 
   return (
     <div
-      className={`group/dag-node pointer-events-auto absolute z-10 cursor-pointer hover:z-50 focus-within:z-50 ${tone.glow} ${tone.dim}`} onClick={() => onNodeClick?.(node)}
+      role="button"
+      tabIndex={0}
+      className={`group/dag-node pointer-events-auto absolute z-10 cursor-pointer text-left hover:z-50 focus:z-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${tone.glow} ${tone.dim}`}
+      onClick={() => onNodeClick?.(node)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onNodeClick?.(node);
+        }
+      }}
       style={{
         left: `${node.x}px`,
         top: `${node.y}px`,
         width: `${NODE_W}px`,
         height: `${NODE_H}px`,
       }}
-      tabIndex={0}
-      aria-label={`${node.task.id}: ${node.task.title}`}
+      aria-label={`${node.task.id}: ${node.task.title}. ${phaseLabel}. ${node.incoming.length} dependencies in, ${node.outgoing.length} dependencies out.`}
     >
       <div className="relative h-full w-full">
         {node.incoming.length > 0 && (
@@ -504,8 +512,10 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
     );
   }
 
+  const dagSummary = `${model.nodes.length} tasks across ${Math.max(1, model.columns.length)} dependency layers. ${model.metrics.runningCount} running, ${model.metrics.readyCount} ready, ${model.metrics.completedCount} completed.`;
+
   return (
-    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6">
+    <section className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6" aria-labelledby="sprint-dag-heading" aria-describedby="sprint-dag-summary">
       <WaveFluid accentHex="#00E0A0" />
       <BorderTrace accentHex="#00E0A0" />
 
@@ -525,16 +535,17 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
               <Workflow className="h-4 w-4" strokeWidth={1.6} />
               Dependency Constellation
             </div>
-            <h3 className="mt-2 font-display text-3xl font-black tracking-tight text-slate-900 dark:text-white md:text-[2.35rem]">
+            <h3 id="sprint-dag-heading" className="mt-2 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-[2.35rem]">
               Live sprint DAG, rendered as motion.
             </h3>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            <p id="sprint-dag-summary" className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
               Each node is a task on the current sprint. Flow moves left to right through real dependency edges, while color and motion show what is running, merge-waiting, blocked, or fully complete.
+              <span className="sr-only"> {dagSummary}</span>
             </p>
           </div>
 
-          <div className="w-full overflow-x-auto pb-1 xl:max-w-[58rem] xl:justify-end">
-            <div className="grid min-w-[52rem] grid-cols-5 gap-2.5">
+          <div className="w-full overflow-x-auto pb-1 xl:max-w-[58rem] xl:justify-end" aria-label="DAG metrics summary">
+            <div className="grid min-w-[44rem] grid-cols-5 gap-2.5 sm:min-w-[52rem]">
               {[
                 { label: "Roots", value: model.metrics.rootCount, icon: GitBranch, accent: "text-signal-500" },
                 { label: "Running", value: model.metrics.runningCount, icon: Activity, accent: "text-signal-500" },
@@ -582,9 +593,12 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
 
           <div
             ref={scrollRef}
-            className={`dag-scroll-shell h-[38rem] overflow-auto rounded-[1.35rem] border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(249,248,244,0.56))] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(24,20,17,0.88),rgba(8,6,5,0.76))] md:h-[46rem] ${
+            className={`dag-scroll-shell h-[32rem] touch-pan-x touch-pan-y overflow-auto rounded-[1.35rem] border border-black/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(249,248,244,0.56))] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(24,20,17,0.88),rgba(8,6,5,0.76))] sm:h-[38rem] md:h-[46rem] ${
               isDraggingState ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
+            role="region"
+            aria-label="Scrollable dependency graph canvas"
+            tabIndex={0}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUpOrLeave}
@@ -766,7 +780,32 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
             </div>
           </div>
         </div>
+
+        <div className="mt-4 rounded-[1.35rem] border border-black/[0.05] bg-white/70 p-3 dark:border-white/[0.05] dark:bg-void-900/45" aria-label="Dependency graph task list">
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Keyboard task list</div>
+          <div className="grid max-h-60 gap-2 overflow-y-auto pr-1 dashboard-scrollbar sm:grid-cols-2 xl:grid-cols-3">
+            {positionedNodes.map((node) => {
+              const tone = getNodeTone(node);
+              const phaseLabel = node.phase === "CODING_COMPLETED" ? "Coding Done" : tone.label;
+              return (
+                <button
+                  key={`list-${node.task.id}`}
+                  type="button"
+                  onClick={() => handleNodeClick(node)}
+                  className="flex min-h-[44px] min-w-0 items-center justify-between gap-3 rounded-xl border border-black/[0.05] bg-black/[0.02] px-3 py-2 text-left transition hover:border-signal-500/20 hover:bg-signal-500/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.05] dark:bg-white/[0.025]"
+                  aria-label={`Center task ${node.task.id}, ${node.task.title}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-bold text-slate-800 dark:text-slate-100">{node.task.title}</span>
+                    <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{node.task.id} · {node.incoming.length} in · {node.outgoing.length} out</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${tone.badge}`}>{phaseLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 };

@@ -58,7 +58,7 @@ export const StatsPage: FunctionComponent = () => {
   }, [stats, reducedMotion]);
 
   return (
-    <PageContainer containerRef={rootRef} padding="stats" className={`gap-8 xl:gap-12 ${styles.pageRoot}`} role="region" aria-label="Statistics">
+    <PageContainer containerRef={rootRef} padding="stats" className={`min-w-0 gap-8 xl:gap-12 ${styles.pageRoot}`} role="region" aria-label="Statistics">
       <StatsPageHero
         selectedProject={selectedProject}
         stats={stats}

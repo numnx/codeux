@@ -33,7 +33,7 @@ export const ExecutionTimeline: FunctionComponent<ExecutionTimelineProps> = memo
   }, [execution, resolvedActiveSprintRuns.length]);
 
   return (
-    <div className="group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+    <section className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]" aria-labelledby="runtime-timeline-heading">
       <WaveFluid accentHex="#00E0A0" />
       <BorderTrace accentHex="#00E0A0" />
 
@@ -43,11 +43,11 @@ export const ExecutionTimeline: FunctionComponent<ExecutionTimelineProps> = memo
           aria-expanded={open}
           aria-controls={contentId}
           onClick={() => setOpen((current) => !current)}
-          className="relative z-10 flex w-full items-center justify-between gap-4 p-5 text-left transition-colors duration-200 hover:bg-black/[0.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:hover:bg-white/[0.01] dark:focus-visible:ring-offset-void-800"
+          className="relative z-10 flex min-h-[56px] w-full items-center justify-between gap-4 p-5 text-left transition-colors duration-200 hover:bg-black/[0.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:hover:bg-white/[0.01] dark:focus-visible:ring-offset-void-800"
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <Workflow className="h-4 w-4 text-signal-500" strokeWidth={1.5} />
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Runtime Timeline</span>
+            <span id="runtime-timeline-heading" className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Runtime Timeline</span>
             {resolvedActiveSprintRuns.length > 0 && (
               <span className="rounded-md bg-signal-500/10 px-2 py-0.5 text-[9px] font-mono font-bold text-signal-500">
                 {resolvedActiveSprintRuns.length} active
@@ -61,9 +61,9 @@ export const ExecutionTimeline: FunctionComponent<ExecutionTimelineProps> = memo
         </button>
       ) : (
         <div className="relative z-10 flex items-center justify-between gap-4 p-5">
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <Workflow className="h-4 w-4 text-signal-500" strokeWidth={1.5} />
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Runtime Timeline</span>
+            <span id="runtime-timeline-heading" className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Runtime Timeline</span>
             {resolvedActiveSprintRuns.length > 0 && (
               <span className="rounded-md bg-signal-500/10 px-2 py-0.5 text-[9px] font-mono font-bold text-signal-500">
                 {resolvedActiveSprintRuns.length} active
@@ -78,12 +78,12 @@ export const ExecutionTimeline: FunctionComponent<ExecutionTimelineProps> = memo
           {timelineEvents.length === 0 ? (
             <p role="status" className="font-mono text-[11px] text-slate-400 dark:text-slate-600">No task run events recorded yet.</p>
           ) : (
-            <div className="max-h-72 overflow-y-auto pr-1 dashboard-scrollbar">
+            <div className="max-h-72 overflow-y-auto overscroll-contain pr-1 dashboard-scrollbar" role="log" aria-label="Recent runtime events">
               <RuntimeEventFeed events={timelineEvents} />
             </div>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 });

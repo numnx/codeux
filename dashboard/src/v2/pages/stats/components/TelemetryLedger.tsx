@@ -146,8 +146,8 @@ export const TelemetryLedger: FunctionComponent<{
   } = useProgressiveList(filteredItems, { initialCount: 12, stepCount: 8 });
 
   return (
-    <div className={`${PANEL_CLASS} p-6`}>
-      <div className="flex flex-col gap-5">
+    <section className={`${PANEL_CLASS} min-w-0 p-5 md:p-6`} aria-label={title}>
+      <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{eyebrow}</div>
@@ -203,7 +203,7 @@ export const TelemetryLedger: FunctionComponent<{
               className={`${INPUT_CLASS} w-full pl-10`}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex max-w-full flex-wrap gap-2 overflow-x-auto pb-1" aria-label={`${title} sorting controls`}>
             {([
               ["last", "Latest"],
               ["tokens", "Tokens"],
@@ -230,22 +230,22 @@ export const TelemetryLedger: FunctionComponent<{
             {emptyLabel}
           </div>
         ) : (
-          <div ref={scrollContainerRef} className="max-h-[42rem] overflow-y-auto pr-2 dashboard-scrollbar">
+          <div ref={scrollContainerRef} className="max-h-[42rem] overflow-y-auto overscroll-contain pr-2 dashboard-scrollbar" role="list" aria-label={`${title} rows`}>
             <div className="space-y-3">
               {visibleItems.map((item, index) => {
                 const shareOfTotal = totals.tokens > 0 ? (item.usage.totalTokens / totals.tokens) * 100 : 0;
                 const shareOfLeader = totals.leaderTokens > 0 ? (item.usage.totalTokens / totals.leaderTokens) * 100 : 0;
 
                 return (
-                  <div key={item.id} className={`${LEDGER_ROW_MODERN_CLASS} !p-5`}>
+                  <div key={item.id} className={`${LEDGER_ROW_MODERN_CLASS} !p-4 md:!p-5`} role="listitem">
                     <div className="flex flex-col gap-4">
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 items-start gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/75 text-xs font-black text-slate-900 shadow-[0_6px_16px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/55 dark:text-white">
                             {index + 1}
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
+                            <div title={item.label} className="truncate text-base font-black tracking-tight text-slate-900 dark:text-white">{item.label}</div>
                             {kindLabel === "sprints" ? (
                               <div className="text-[10px] text-slate-400">
                                 {formatTokens(item.usage.totalTokens / Math.max(1, item.usage.invocationCount))}/call
@@ -297,7 +297,7 @@ export const TelemetryLedger: FunctionComponent<{
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4 lg:hidden">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:hidden">
                         <div>
                           <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Tokens</div>
                           <div className="mt-1 text-lg font-black tracking-tight text-slate-900 dark:text-white">{formatTokens(item.usage.totalTokens)}</div>
@@ -326,7 +326,7 @@ export const TelemetryLedger: FunctionComponent<{
                             style={{ width: `${Math.min(100, Math.max(shareOfLeader > 0 ? 3 : 0, shareOfLeader))}%` }}
                           />
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                           <div className="flex flex-wrap gap-2">
                             <TokenChip icon={ArrowDownRight} label="In" value={item.usage.inputTokens} tone="border-signal-500/16 bg-signal-500/8 text-signal-600 dark:text-signal-400" />
                             <TokenChip icon={Database} label="Cached" value={item.usage.cachedInputTokens} tone="border-cyan-500/16 bg-cyan-500/8 text-cyan-600 dark:text-cyan-400" />
@@ -352,6 +352,6 @@ export const TelemetryLedger: FunctionComponent<{
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };
