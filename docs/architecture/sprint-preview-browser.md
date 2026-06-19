@@ -137,6 +137,7 @@ Current preview controls include:
 - `startupScriptPath`
 
 Startup hygiene:
+- Docker session lifecycle management (such as `docker ps` parsing, lock acquisition for atomic container operations, container removal, and name sanitization) has been extracted to `DockerSessionLifecycle` in `src/services/docker-session-lifecycle.ts` so both preview and file-browser share identical mechanics without diverging.
 - Code UX now removes any existing `code-ux.preview=true` containers on server startup before the preview reconciliation loop begins
 - Code UX also removes orphaned unlabeled setup-helper containers that were created by older inline setup-image preview flows
 - persisted preview sessions are reset back to `stopped` during that startup cleanup so stale containers do not survive process restarts
@@ -186,3 +187,10 @@ Current intentional limits:
 - one persisted preview session row per project+sprint pair
 - preview host routing assumes projects use relative URLs or origin-derived absolute URLs for API/websocket traffic
 - script detection prefers production-style preview/start commands and does not automatically fall back to `dev`
+
+## File Browser Limits and Policy
+
+To harden against large repository scans, the file browser implements several limits:
+- **MAX_TREE_ENTRIES (20,000):** Limits the number of file nodes returned by the `getTree` operation.
+- **MAX_FILE_BYTES (2MB):** Caps the maximum size of a file read by `readFile` or diff generation.
+- **Pruned Directories:** Directories like `node_modules`, `.git`, `dist`, `build` are pruned at scan time to prevent unbounded tree generation and expensive reads.

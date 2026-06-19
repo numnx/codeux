@@ -45,6 +45,15 @@ For **JSX blocks**: Decide on a merge strategy:
 
 Run `grep -n '<<<<<<<\\|=======\\|>>>>>>>' <resolved-file>` — exit code 1 (no matches) means clean.
 
+### 4a. Resolve lockfile and workspace configuration conflicts
+
+When conflicts occur in `pnpm-lock.yaml`, `yarn.lock`, or `pnpm-workspace.yaml`:
+
+1. **Avoid manual resolution**: Lockfiles are machine-generated and complex. Manual edits frequently break the dependency graph.
+2. **Use `--theirs`**: In a feature branch merge, the incoming branch (the one you are merging in) typically contains the updated dependency requirements for the new features. Use `git checkout --theirs <lockfile>` to accept the incoming dependency state.
+3. **Re-sync the workspace**: After accepting the lockfile changes, run `pnpm install` (use `corepack enable` first if you encounter environment issues) to ensure `node_modules` matches the lockfile and that any local changes to `package.json` are properly integrated.
+4. **Verify**: Ensure `pnpm install` completes without errors and that the workspace is consistent.
+
 ### 5. Stage and run quality gates
 
 ```bash

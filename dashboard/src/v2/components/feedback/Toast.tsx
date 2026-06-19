@@ -68,7 +68,13 @@ export const Toast: FunctionComponent<ToastProps> = ({
           duration: reducedMotion ? 0 : 0.4,
           ease: GSAP_EASINGS.smooth, // smooth easing curve
           onComplete: () => {
-            // Do not steal focus dynamically
+            if (type === "error" && actionButtonRef.current) {
+              const activeTag = document.activeElement?.tagName.toLowerCase();
+              const isTyping = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement as HTMLElement)?.isContentEditable;
+              if (!isTyping) {
+                actionButtonRef.current.focus();
+              }
+            }
           }
         }
       );

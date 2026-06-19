@@ -1,4 +1,5 @@
 import type { FunctionComponent } from "preact";
+import { useState, useMemo } from "preact/hooks";
 import {
   ChevronRight,
   ChevronDown,
@@ -15,6 +16,7 @@ import {
 import type { ExecutionInvocationRecord } from "../../../../types.js";
 import type { SystemSort, SystemSortKey } from "../../hooks/use-system-view-data.js";
 import { formatTokens, formatDuration, formatDateTime } from "../../stats-utils.js";
+import { DEFAULT_LIST_WINDOW, resolveListWindow } from "../../../../lib/list-window.js";
 import {
   LEDGER_ROW_MODERN_CLASS,
   CHIP_CLASS,
@@ -31,6 +33,35 @@ export interface InvocationsTableProps {
   loading?: boolean;
 }
 
+export function useInvocationsWindow(
+  invocations: ExecutionInvocationRecord[],
+  expandedId: string | null,
+  initialWindow = DEFAULT_LIST_WINDOW
+) {
+  const initialCount = typeof initialWindow === "number" ? initialWindow : resolveListWindow(initialWindow, invocations.length);
+  const [visibleCount, setVisibleCount] = useState(initialCount);
+
+  const visibleInvocations = useMemo(() => {
+    let visible = invocations.slice(0, visibleCount);
+    if (expandedId) {
+      const isVisible = visible.some((i) => i.id === expandedId);
+      if (!isVisible) {
+        const expandedItem = invocations.find((i) => i.id === expandedId);
+        if (expandedItem) {
+          visible = [...visible, expandedItem];
+        }
+      }
+    }
+    return visible;
+  }, [invocations, visibleCount, expandedId]);
+
+  return {
+    visibleInvocations,
+    hasMore: visibleCount < invocations.length,
+    revealMore: () => setVisibleCount((c: number) => c + (typeof initialWindow === "number" ? initialWindow : 20)),
+  };
+}
+
 export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
   invocations,
   sort,
@@ -43,6 +74,8 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
     ? null
     : invocations.find((invocation) => invocation.id === expandedId) ?? null;
 
+  const { visibleInvocations, hasMore, revealMore } = useInvocationsWindow(invocations, expandedId);
+
   const handleSort = (key: SystemSortKey) => {
     if (sort.key === key) {
       onSortChange({ key, dir: sort.dir === "asc" ? "desc" : "asc" });
@@ -52,11 +85,11 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
   };
 
   const renderSortIcon = (key: SystemSortKey) => {
-    if (sort.key !== key) return <ArrowUpDown className="ml-1 h-3 w-3" />;
+    if (sort.key !== key) return <ArrowUpDown aria-label="sortable" className="ml-1 h-3 w-3" />;
     return sort.dir === "asc" ? (
-      <ArrowUp className="ml-1 h-3 w-3 text-signal-500" />
+      <ArrowUp aria-label="sorted ascending" className="ml-1 h-3 w-3 text-signal-500" />
     ) : (
-      <ArrowDown className="ml-1 h-3 w-3 text-signal-500" />
+      <ArrowDown aria-label="sorted descending" className="ml-1 h-3 w-3 text-signal-500" />
     );
   };
 
@@ -115,7 +148,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
     return (
       <div className="space-y-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className={`${LEDGER_ROW_MODERN_CLASS} h-20 animate-pulse bg-slate-100/50 dark:bg-white/5`} />
+          <div key={i} className={`${LEDGER_ROW_MODERN_CLASS} h-20 motion-safe:animate-pulse bg-slate-100/50 dark:bg-white/5`} />
         ))}
       </div>
     );
@@ -189,7 +222,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
           </tr>
         </thead>
         <tbody className="block lg:table-row-group">
-          {invocations.map((invocation) => {
+          {visibleInvocations.map((invocation) => {
             const isExpanded = expandedId === invocation.id;
             const { icon: ProviderIcon, bg: providerBg, text: providerText } = getProviderIcon(invocation.provider);
             const duration = invocation.finishedAt
@@ -216,7 +249,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                               type="button"
                               onClick={() => onRowExpand(isExpanded ? null : invocation.id)}
                               aria-label={isExpanded ? `Collapse invocation ${invocation.id}` : `Expand invocation ${invocation.id}`}
-                              className={`rounded-full p-2 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5 ${
+                              className={`rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 hover:bg-black/[0.04] dark:hover:bg-white/5 ${
                                 isExpanded ? "text-signal-500" : "text-slate-400"
                               }`}
                             >
@@ -323,7 +356,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                             type="button"
                             onClick={() => onRowExpand(isExpanded ? null : invocation.id)}
                             aria-label={isExpanded ? `Collapse invocation ${invocation.id}` : `Expand invocation ${invocation.id}`}
-                            className={`rounded-full p-2 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5 ${
+                            className={`rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 hover:bg-black/[0.04] dark:hover:bg-white/5 ${
                               isExpanded ? "text-signal-500" : "text-slate-400"
                             }`}
                           >
@@ -358,6 +391,17 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
           })}
         </tbody>
       </table>
+      {hasMore && (
+        <div className="mt-4 flex justify-center pb-4">
+          <button
+            type="button"
+            onClick={revealMore}
+            className="rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          >
+            Show more invocations
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,9 +6,11 @@ import {
 } from "./execution/execution-invocation-query.js";
 import {
   queryExecutionInvocations,
+  queryProjectInvocations,
   queryExecutionInvocationMessages,
   queryExecutionInvocationsByProviderInvocationId,
   queryRunningRetryExecutionInvocations,
+  queryActiveExecutionInvocationsByTypes,
 } from "./execution/execution-invocations-query.js";
 import { randomUUID } from "crypto";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
@@ -446,8 +448,18 @@ export class ExecutionRepository {
     return queryExecutionInvocations(this.db, params);
   }
 
+  queryProjectInvocations(
+    params: import("../contracts/invocation-types.js").ProjectInvocationsQuery & { projectId: string }
+  ): import("../contracts/invocation-types.js").ProjectInvocationsQueryResult {
+    return queryProjectInvocations(this.db, params);
+  }
+
   listRunningRetryExecutionInvocations(): ExecutionInvocationRecord[] {
     return queryRunningRetryExecutionInvocations(this.db);
+  }
+
+  listActiveExecutionInvocationsByTypes(types: string[]): ExecutionInvocationRecord[] {
+    return queryActiveExecutionInvocationsByTypes(this.db, types);
   }
 
   listExecutionInvocationMessages(invocationId: string): ExecutionInvocationMessageRecord[] {
@@ -896,8 +908,8 @@ export class ExecutionRepository {
       );
 
       const created = requireTaskRun((id) => this.getTaskRun(id), id);
-      if (created.taskId) this.wallTimeQuery.invalidateTask(created.taskId);
-      if (created.sprintRunId) this.wallTimeQuery.invalidateSprintRun(created.sprintRunId);
+      if (created.taskId) this.wallTimeQuery.invalidateTask(created.projectId, created.taskId);
+      if (created.sprintRunId) this.wallTimeQuery.invalidateSprintRun(created.projectId, created.sprintRunId);
       this.notifyRealtime(created.projectId, false);
       return created;
       } catch (error) {
@@ -1112,6 +1124,22 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
+  listTaskRunsByStates(states: TaskRunRecord["state"][]): TaskRunRecord[] {
+    const normalizedStates = Array.from(new Set(states.map((state) => String(state || "").trim()).filter(Boolean)));
+    if (normalizedStates.length === 0) {
+      return [];
+    }
+
+    const rows = this.db.prepare(`
+      SELECT *
+      FROM task_runs
+      WHERE state IN (${normalizedStates.map(() => "?").join(", ")})
+      ORDER BY started_at DESC, rowid DESC
+    `).all(...normalizedStates) as unknown as TaskRunRow[];
+
+    return rows.map((row) => this.mapTaskRunRow(row));
+  }
+
   isSessionTerminal(sessionName: string): boolean {
     const normalized = sessionName.trim();
     if (!normalized) {
@@ -1277,8 +1305,8 @@ export class ExecutionRepository {
         taskRunId
       );
       const updated = requireTaskRun((id) => this.getTaskRun(id), taskRunId);
-      if (updated.taskId) this.wallTimeQuery.invalidateTask(updated.taskId);
-      if (updated.sprintRunId) this.wallTimeQuery.invalidateSprintRun(updated.sprintRunId);
+      if (updated.taskId) this.wallTimeQuery.invalidateTask(updated.projectId, updated.taskId);
+      if (updated.sprintRunId) this.wallTimeQuery.invalidateSprintRun(updated.projectId, updated.sprintRunId);
       this.notifyRealtime(updated.projectId, false);
       return updated;
       } catch (error) {
@@ -1374,8 +1402,8 @@ export class ExecutionRepository {
     options?: { createdAt?: string; sourceEventKey?: string | null },
   ): boolean {
     const taskRun = requireTaskRun((id) => this.getTaskRun(id), taskRunId);
-    if (taskRun.taskId) this.wallTimeQuery.invalidateTask(taskRun.taskId);
-    if (taskRun.sprintRunId) this.wallTimeQuery.invalidateSprintRun(taskRun.sprintRunId);
+    if (taskRun.taskId) this.wallTimeQuery.invalidateTask(taskRun.projectId, taskRun.taskId);
+    if (taskRun.sprintRunId) this.wallTimeQuery.invalidateSprintRun(taskRun.projectId, taskRun.sprintRunId);
     const result = this.db.prepare(`
       INSERT OR IGNORE INTO task_run_events (id, task_run_id, project_id, event_type, originator, payload_json, source_event_key, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)

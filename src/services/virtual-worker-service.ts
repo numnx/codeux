@@ -42,6 +42,7 @@ import {
   peekNextWorkerAttention,
   resolveWorkerExecutionMode,
 } from "../domain/workers/virtual-worker-scheduling-policy.js";
+import { planVirtualWorkerCycle } from "../domain/workers/virtual-worker-cycle-plan.js";
 
 const VIRTUAL_WORKER_RECONCILE_MS = 3_000;
 const VIRTUAL_WORKER_SESSION_POLL_MS = 2_000;
@@ -196,29 +197,29 @@ export class VirtualWorkerService {
     }
   }
 
-  scheduleProject(projectId: string, reason: string): void {
+  scheduleProject(projectId: string, reason: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): void {
     if (this.activeCycles.has(projectId) || this.scheduledProjects.has(projectId)) {
       return;
     }
-    if (!this.projectNeedsVirtualWorker(projectId)) {
+    if (!this.projectNeedsVirtualWorker(projectId, resolver)) {
       return;
     }
 
     this.scheduledProjects.add(projectId);
     queueMicrotask(() => {
       this.scheduledProjects.delete(projectId);
-      if (this.activeCycles.has(projectId) || !this.projectNeedsVirtualWorker(projectId)) {
+      if (this.activeCycles.has(projectId) || !this.projectNeedsVirtualWorker(projectId, resolver)) {
         return;
       }
 
-      const cycle = this.runProjectCycle(projectId, reason)
+      const cycle = this.runProjectCycle(projectId, reason, resolver)
         .catch((error) => {
           this.deps.logger?.error("Virtual worker cycle failed", { projectId, reason, error });
         })
         .finally(() => {
           this.activeCycles.delete(projectId);
-          if (this.projectNeedsVirtualWorker(projectId)) {
-            this.scheduleProject(projectId, "remaining_worker_work");
+          if (this.projectNeedsVirtualWorker(projectId, resolver)) {
+            this.scheduleProject(projectId, "remaining_worker_work", resolver);
           }
         });
 
@@ -227,9 +228,20 @@ export class VirtualWorkerService {
   }
 
   async reconcile(): Promise<void> {
+    const cycleCache = new Map<string, DashboardSettings>();
+    const resolver = (pId: string, sId?: string | null): DashboardSettings => {
+      const key = `${pId}:${sId ?? ""}`;
+      if (cycleCache.has(key)) {
+        return cycleCache.get(key)!;
+      }
+      const settings = this.resolveDashboardSettings(pId, sId);
+      cycleCache.set(key, settings);
+      return settings;
+    };
+
     for (const project of this.deps.projectManagementRepository.listProjects().projects) {
-      if (this.projectNeedsVirtualWorker(project.id)) {
-        this.scheduleProject(project.id, "reconcile");
+      if (this.projectNeedsVirtualWorker(project.id, resolver)) {
+        this.scheduleProject(project.id, "reconcile", resolver);
       }
     }
   }
@@ -242,19 +254,24 @@ export class VirtualWorkerService {
     return resolveEffectiveDashboardSettings(this.deps.settingsRepository, projectId, sprintId).settings;
   }
 
-  private projectNeedsVirtualWorker(projectId: string): boolean {
+  private projectNeedsVirtualWorker(projectId: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): boolean {
     return projectNeedsVirtualWorker(
       this.activeCycles.has(projectId),
-      this.peekNextWorkerAttention(projectId)
+      this.peekNextWorkerAttention(projectId, resolver)
     );
   }
 
-  private async runProjectCycle(projectId: string, reason: string): Promise<void> {
-    const cycleSettings = this.resolveCycleSettings(projectId);
-    const cycleProviderType = cycleSettings.aiProvider.providers[cycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
+  private async runProjectCycle(projectId: string, reason: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): Promise<void> {
+    const effectiveResolver = resolver || ((pId, sId) => this.resolveDashboardSettings(pId, sId));
+
+    // Create the virtual endpoint first so that downstream operations (like task dispatch) have a valid target ID.
+    // If the planner determines no work is needed, the endpoint is safely cleaned up in the finally block.
+    const initialCycleSettings = this.resolveCycleSettings(projectId, resolver);
+    const initialCycleProviderType = initialCycleSettings.aiProvider.providers[initialCycleSettings.workers.virtualWorkerProvider]?.provider || "codex";
+
     const endpoint = this.deps.workerEndpointRepository.createVirtualEndpoint({
       endpointKey: `virtual:${projectId}:${Date.now().toString(36)}:${sanitizeToken(randomUUID().slice(0, 8))}`,
-      displayName: `Virtual ${this.getProviderLabel(cycleProviderType)} Worker`,
+      displayName: `Virtual ${this.getProviderLabel(initialCycleProviderType)} Worker`,
       status: "connected",
       transport: "internal",
       capabilities: {
@@ -266,9 +283,31 @@ export class VirtualWorkerService {
     this.deps.projectWorkerAssignmentService.ensureWorkerAssignment(projectId, endpoint.id);
 
     try {
-      const attentionItem = this.pickNextWorkerAttention(projectId);
-      if (attentionItem) {
-        await this.handleAttentionItem(endpoint.id, attentionItem, reason);
+      const attentionItem = this.peekNextWorkerAttention(projectId, resolver);
+      const dispatchClaim = this.deps.workerTaskDispatchService.claimNextDispatchForWorker({
+        projectId,
+        workerEndpointId: endpoint.id,
+        executionMode: "VIRTUAL"
+      });
+
+      const plan = await planVirtualWorkerCycle({
+        projectId,
+        attentionItem,
+        dispatchClaim,
+        isProviderConcurrencyAvailable: async (pId, limit) => await this.deps.providerConcurrencyService.hasAvailableCapacity(pId, limit),
+        resolveSettings: effectiveResolver
+      });
+
+      if (plan.type === "HANDLE_ATTENTION") {
+        // We peeked earlier, so we need to properly claim it now exactly as pickNextWorkerAttention did
+        const nextItem = plan.attentionItem;
+        if (nextItem.status === "open") {
+          this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
+          nextItem.status = "claimed";
+        }
+        await this.handleAttentionItem(endpoint.id, nextItem, reason);
+      } else if (plan.type === "DISPATCH_READY") {
+        await this.handleTaskDispatch(endpoint.id, plan.dispatchClaim);
       }
     } finally {
       this.deps.projectWorkerAssignmentService.releaseWorkerAssignment(projectId, endpoint.id, "virtual_worker_cycle_complete");
@@ -276,22 +315,13 @@ export class VirtualWorkerService {
     }
   }
 
-  private peekNextWorkerAttention(projectId: string): ProjectAttentionItemRecord | null {
+  private peekNextWorkerAttention(projectId: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): ProjectAttentionItemRecord | null {
     const items = this.deps.projectAttentionService.listActiveProjectItems(projectId);
-    return peekNextWorkerAttention(items, (pId, sId) => this.resolveDashboardSettings(pId, sId));
+    const effectiveResolver = resolver || ((pId, sId) => this.resolveDashboardSettings(pId, sId));
+    return peekNextWorkerAttention(items, effectiveResolver);
   }
 
-  private pickNextWorkerAttention(projectId: string): ProjectAttentionItemRecord | null {
-    const nextItem = this.peekNextWorkerAttention(projectId);
 
-    if (nextItem && nextItem.status === "open") {
-      // Explicitly set the item's status to claimed so subsequent HI queries filter it out
-      this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
-      nextItem.status = "claimed";
-    }
-
-    return nextItem;
-  }
 
   private async handleTaskDispatch(workerEndpointId: string, claim: WorkerTaskDispatchClaim): Promise<void> {
     const settings = this.resolveDashboardSettings(claim.project.id, claim.sprint.id);
@@ -417,14 +447,15 @@ export class VirtualWorkerService {
     ].filter(Boolean).join("\n");
   }
 
-  private resolveCycleSettings(projectId: string): DashboardSettings {
+  private resolveCycleSettings(projectId: string, resolver?: (pId: string, sId?: string | null) => DashboardSettings): DashboardSettings {
+    const effectiveResolver = resolver || ((pId, sId) => this.resolveDashboardSettings(pId, sId));
     const attentionItem = this.deps.projectAttentionService.listActiveProjectItems(projectId)
       .find((item) => item.ownerType === "worker");
     if (attentionItem) {
-      return this.resolveDashboardSettings(projectId, attentionItem.sprintId);
+      return effectiveResolver(projectId, attentionItem.sprintId);
     }
 
-    return this.resolveDashboardSettings(projectId);
+    return effectiveResolver(projectId);
   }
 
   private async handleAttentionItem(workerEndpointId: string, item: ProjectAttentionItemRecord, reason: string): Promise<void> {
@@ -900,9 +931,13 @@ export class VirtualWorkerService {
       : (settings.git.defaultBranch || "main");
 
     const guardrailScope = { projectId: item.projectId, sprintId: item.sprintId };
-    const ciFixEval = item.taskId
-      ? this.deps.guardrailService?.evaluate(guardrailScope, item.taskId, "ci_fix") ?? null
-      : null;
+    // Task-level CI fixes key the guardrail by task id. Sprint-level fixes (e.g. the
+    // final feature→default merge gate) have no task, so key by a stable synthetic id
+    // derived from the attention item — otherwise an unfixable failure would retry
+    // forever and the sprint would wait indefinitely instead of escalating.
+    const guardrailKey = item.taskId
+      || `main-merge-ci-fix:${item.sprintRunId ?? item.id}`;
+    const ciFixEval = this.deps.guardrailService?.evaluate(guardrailScope, guardrailKey, "ci_fix") ?? null;
     const retryCount = ciFixEval?.count ?? 0;
     const maxRetries = ciFixEval?.cap ?? 0;
     const capLabel = maxRetries > 0 ? String(maxRetries) : "∞";
@@ -1073,9 +1108,7 @@ export class VirtualWorkerService {
           : `CI fix run completed on ${branchName} at ${headSha}.`,
       });
 
-      if (item.taskId) {
-        this.deps.guardrailService?.record(guardrailScope, item.taskId, "ci_fix");
-      }
+      this.deps.guardrailService?.record(guardrailScope, guardrailKey, "ci_fix");
 
       this.deps.projectAttentionService.resolveItem(item.id, {
         status: "resolved",

@@ -19,12 +19,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 // Mock GSAP
-// FilterStrip imports gsap as a named export; other components import the
-// default — expose both so the mock works regardless of import style. The mock
-// object is built inside the factory because vi.mock is hoisted above any
-// top-level variables.
-vi.mock("gsap", () => {
-  const gsapMock = {
+vi.mock("gsap", async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  const mockGsap = {
     context: vi.fn((fn) => {
       if (fn) fn();
       return { revert: vi.fn() };
@@ -38,7 +35,7 @@ vi.mock("gsap", () => {
     }),
     killTweensOf: vi.fn(),
   };
-  return { default: gsapMock, gsap: gsapMock };
+  return { ...actual, default: mockGsap, gsap: mockGsap };
 });
 
 vi.mock("../../context/project-data.js", () => {
@@ -140,5 +137,45 @@ describe("TasksPage.cards Integration", () => {
 
     // Additional dependency text verification
     expect(getByText("Foundation Setup")).toBeInTheDocument();
+  });
+
+  it("verifies optimistic task rendering and layout stability", () => {
+    (useProjectData as unknown as any).mockReturnValue({
+      projects: [{ id: "proj_1", name: "Project Alpha" }],
+      selectedProject: { id: "proj_1", name: "Project Alpha" },
+    });
+    (useSprints as unknown as any).mockReturnValue({
+      data: [{ id: "sprint_1", number: 1, active: true }],
+      loading: false,
+      selectedSprintId: "sprint_1",
+    });
+    (useProjectTasks as any).mockReturnValue({
+      tasks: [
+        createMockTask({
+          recordId: "opt_1",
+          id: "T-NEW",
+          title: "Optimistic Title",
+          status: "pending",
+          priority: "low",
+          assignee: "Me",
+          dependsOnTaskIds: [],
+          isOptimistic: true,
+        })
+      ],
+      loading: false,
+      error: null,
+    });
+
+    const { getByText, container } = render(
+      <ProjectDataContext.Provider value={{ projects: [{ id: "proj_1", name: "Project Alpha" } as any], selectedProject: { id: "proj_1", name: "Project Alpha" } as any } as any}>
+        <TasksPage />
+      </ProjectDataContext.Provider>
+    );
+
+    expect(getByText("Optimistic Title")).toBeInTheDocument();
+    const card = container.querySelector(".kanban-card");
+    expect(card).toHaveClass("border-dashed");
+    expect(card).toHaveClass("opacity-60");
+    expect(card).toHaveClass("pointer-events-none");
   });
 });

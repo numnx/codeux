@@ -1,3 +1,4 @@
+import { DockerContainerSummary, DockerSessionLifecycle, sanitizeContainerNameComponent } from "./docker-session-lifecycle.js";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as pathPosix from "path/posix";
@@ -23,27 +24,11 @@ import type { Logger } from "../shared/logging/logger.js";
 import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
 import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 import { resolveLanguageForPath } from "./file-browser-language.js";
+import { MAX_TREE_ENTRIES, MAX_FILE_BYTES, PRUNED_DIRECTORIES, normalizeAndValidatePath, isPrunedPath } from "./file-browser-scan-policy.js";
 
 const FILE_BROWSER_LABEL = "code-ux.file-browser=true";
 const FILE_BROWSER_IMAGE = "alpine:3.20";
 const CONTAINER_WORKSPACE_PATH = "/workspace";
-const MAX_TREE_ENTRIES = 20_000;
-const MAX_FILE_BYTES = 2_000_000;
-const PRUNED_DIRECTORIES = [
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "out",
-  ".next",
-  ".nuxt",
-  "coverage",
-  ".turbo",
-  ".cache",
-  ".vite",
-  ".svelte-kit",
-  "vendor",
-];
 
 interface SprintFileBrowserServiceDeps {
   sprintFileBrowserRepository: SprintFileBrowserRepository;
@@ -52,12 +37,6 @@ interface SprintFileBrowserServiceDeps {
   logger?: Logger;
 }
 
-interface DockerContainerSummary {
-  id: string;
-  name: string | null;
-  status: string | null;
-  labels: Record<string, string>;
-}
 
 interface GitRunResult {
   ok: boolean;
@@ -66,7 +45,8 @@ interface GitRunResult {
 }
 
 export class SprintFileBrowserService {
-  private readonly sessionLocks = new Map<string, Promise<unknown>>();
+  private readonly lifecycle = new DockerSessionLifecycle();
+  private readonly treeCache = new Map<string, { tree: FileBrowserTree; containerId: string; lastBuildAt: string | null }>();
 
   constructor(private readonly deps: SprintFileBrowserServiceDeps) {}
 
@@ -83,7 +63,8 @@ export class SprintFileBrowserService {
   }
 
   async startSession(projectId: string, sprintId: string, options?: { rebuild?: boolean }): Promise<FileBrowserSession> {
-    return await this.withSessionLock(this.buildSessionLockKey(projectId, sprintId), async () => {
+    return await this.lifecycle.withSessionLock(`${projectId}:${sprintId}`, async () => {
+
       const project = this.requireProject(projectId);
       const sprint = this.requireSprint(projectId, sprintId);
       const effectiveSettings = this.resolveSettings(projectId, sprintId);
@@ -99,6 +80,9 @@ export class SprintFileBrowserService {
       await this.stopOtherSessions(project.baseDir, projectId, sprintId);
 
       const existing = this.deps.sprintFileBrowserRepository.getSessionByProjectSprint(projectId, sprintId);
+      if (existing) {
+        this.treeCache.delete(existing.id);
+      }
       if (existing && !options?.rebuild) {
         const refreshedExisting = await this.refreshRuntimeState(existing);
         if (refreshedExisting.status === "running" || refreshedExisting.status === "starting") {
@@ -134,8 +118,8 @@ export class SprintFileBrowserService {
       });
 
       try {
-        await this.removeContainerIfPresent(existing?.containerId || existing?.containerName || containerName, project.baseDir);
-        await this.removeContainerIfPresent(containerName, project.baseDir);
+        await this.lifecycle.removeContainerIfPresent(existing?.containerId || existing?.containerName || containerName, project.baseDir);
+        await this.lifecycle.removeContainerIfPresent(containerName, project.baseDir);
 
         await this.materializeWorkspace(
           project.baseDir,
@@ -191,7 +175,7 @@ export class SprintFileBrowserService {
         return await this.refreshRuntimeState(updated);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        await this.removeContainerIfPresent(containerName, project.baseDir);
+        await this.lifecycle.removeContainerIfPresent(containerName, project.baseDir);
         return this.deps.sprintFileBrowserRepository.updateSession(session.id, {
           ...basePatch,
           status: "error",
@@ -210,9 +194,10 @@ export class SprintFileBrowserService {
 
   async stopSession(sessionId: string): Promise<FileBrowserSession> {
     const session = await this.requireSession(sessionId);
-    return await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
+    this.treeCache.delete(sessionId);
+    return await this.lifecycle.withSessionLock(`${session.projectId}:${session.sprintId}`, async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, process.cwd());
+      await this.lifecycle.removeContainerIfPresent(containerRef, process.cwd());
       return this.deps.sprintFileBrowserRepository.updateSession(sessionId, {
         status: "stopped",
         containerId: null,
@@ -225,9 +210,10 @@ export class SprintFileBrowserService {
 
   async removeSession(sessionId: string): Promise<void> {
     const session = await this.requireSession(sessionId);
-    await this.withSessionLock(this.buildSessionLockKey(session.projectId, session.sprintId), async () => {
+    this.treeCache.delete(sessionId);
+    await this.lifecycle.withSessionLock(`${session.projectId}:${session.sprintId}`, async () => {
       const containerRef = session.containerId || session.containerName || this.buildContainerName(session.projectId, session.sprintId);
-      await this.removeContainerIfPresent(containerRef, process.cwd());
+      await this.lifecycle.removeContainerIfPresent(containerRef, process.cwd());
       await runCommandStrict("docker", ["volume", "rm", `code-ux-file-browser-volume-${session.sprintId}`], process.cwd()).catch(() => undefined);
       this.deps.sprintFileBrowserRepository.deleteSession(sessionId);
     });
@@ -235,6 +221,10 @@ export class SprintFileBrowserService {
 
   async getTree(sessionId: string): Promise<FileBrowserTree> {
     const session = await this.requireRunningSession(sessionId);
+    const cached = this.treeCache.get(sessionId);
+    if (cached && cached.containerId === session.containerId && cached.lastBuildAt === session.lastBuildAt) {
+      return cached.tree;
+    }
     const script = this.buildTreeScript();
     const result = await commandRunner.run("docker", ["exec", session.containerId!, "sh", "-c", script], {
       cwd: process.cwd(),
@@ -242,14 +232,16 @@ export class SprintFileBrowserService {
     if (!result.ok) {
       throw new Error(result.stderr.trim() || "Failed to read file tree from container.");
     }
-    return this.buildTree(sessionId, result.stdout);
+    const tree = this.buildTree(sessionId, result.stdout);
+    this.treeCache.set(sessionId, { tree, containerId: session.containerId!, lastBuildAt: session.lastBuildAt });
+    return tree;
   }
 
   async readFile(sessionId: string, requestedPath: string): Promise<FileBrowserFileContent> {
     const session = await this.requireRunningSession(sessionId);
-    const relPath = this.normalizeRelativePath(requestedPath);
+    const relPath = normalizeAndValidatePath(requestedPath);
 
-    if (PRUNED_DIRECTORIES.some(pruned => relPath === pruned || relPath.startsWith(pruned + "/"))) {
+    if (isPrunedPath(relPath)) {
        throw new Error(`Invalid file path: ${relPath} is within a pruned directory`);
     }
 
@@ -332,7 +324,7 @@ export class SprintFileBrowserService {
     const featureBranch = session.featureBranch?.trim() || this.resolveSprintFeatureBranch(session.projectId, session.sprintId);
     const defaultBranch = session.defaultBranch?.trim() || project.defaultBranch?.trim() || "main";
     const settings = this.resolveSettings(session.projectId, session.sprintId);
-    const relPath = this.normalizeRelativePath(requestedPath);
+    const relPath = normalizeAndValidatePath(requestedPath);
 
     await this.fetchOrigin(project.baseDir, settings.git.githubMode === "REMOTE", {
       githubToken: settings.git.githubToken,
@@ -377,7 +369,7 @@ export class SprintFileBrowserService {
   }
 
   async cleanupStaleContainersOnStartup(): Promise<void> {
-    const containerIds = await this.listFileBrowserContainerIds();
+    const containerIds = (await this.listFileBrowserContainers(process.cwd())).map((c) => c.id);
     for (const containerId of containerIds) {
       await runCommandStrict("docker", ["rm", "-f", containerId], process.cwd()).catch(() => undefined);
     }
@@ -468,6 +460,7 @@ export class SprintFileBrowserService {
       if (!session.containerId && !session.containerName) {
         return session;
       }
+      this.treeCache.delete(session.id);
       return this.deps.sprintFileBrowserRepository.updateSession(session.id, {
         status: "stopped",
         containerId: null,
@@ -483,6 +476,7 @@ export class SprintFileBrowserService {
       });
 
     if (container.status !== "running") {
+      this.treeCache.delete(session.id);
       return this.deps.sprintFileBrowserRepository.updateSession(adopted.id, {
         status: "error",
         lastError: adopted.lastError || `File browser container is ${container.status}.`,
@@ -648,8 +642,8 @@ export class SprintFileBrowserService {
       return { content: null, truncated: false };
     }
 
-    const normalizedPath = this.normalizeRelativePath(filePath);
-    if (PRUNED_DIRECTORIES.some(pruned => normalizedPath === pruned || normalizedPath.startsWith(pruned + "/"))) {
+    const normalizedPath = normalizeAndValidatePath(filePath);
+    if (isPrunedPath(normalizedPath)) {
        throw new Error(`Invalid file path: ${filePath} is within a pruned directory`);
     }
 
@@ -821,7 +815,7 @@ export class SprintFileBrowserService {
       if (sameProject && sameSprint) {
         continue;
       }
-      await this.removeContainerIfPresent(container.id, cwd);
+      await this.lifecycle.removeContainerIfPresent(container.id, cwd);
     }
 
     const sessions = this.deps.sprintFileBrowserRepository.listSessions();
@@ -841,19 +835,6 @@ export class SprintFileBrowserService {
     }
   }
 
-  private async listFileBrowserContainerIds(): Promise<string[]> {
-    try {
-      const result = await runCommandStrict(
-        "docker",
-        ["ps", "-aq", "--filter", `label=${FILE_BROWSER_LABEL}`],
-        process.cwd(),
-      );
-      return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
-    } catch {
-      return [];
-    }
-  }
-
   private async listFileBrowserContainers(cwd: string): Promise<DockerContainerSummary[]> {
     try {
       const result = await runCommandStrict(
@@ -867,23 +848,7 @@ export class SprintFileBrowserService {
         ],
         cwd,
       );
-      return result.stdout
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [id, name, rawStatus, projectId, sprintId, sessionId] = line.split("\t");
-          return {
-            id,
-            name: name || null,
-            status: this.normalizeDockerState(rawStatus),
-            labels: {
-              "code-ux.project-id": projectId || "",
-              "code-ux.sprint-id": sprintId || "",
-              "code-ux.session-id": sessionId || "",
-            },
-          } satisfies DockerContainerSummary;
-        });
+      return this.lifecycle.parseDockerPsOutput(result.stdout, false);
     } catch {
       return [];
     }
@@ -914,90 +879,6 @@ export class SprintFileBrowserService {
       container.id === session.containerId
       || (session.containerName ? container.name === session.containerName : false),
     ) || null;
-  }
-
-  private normalizeDockerState(rawStatus: string | null | undefined): string | null {
-    const normalized = String(rawStatus || "").trim().toLowerCase();
-    if (!normalized) {
-      return null;
-    }
-    if (normalized.startsWith("up ")) {
-      return "running";
-    }
-    if (normalized.startsWith("exited ")) {
-      return "exited";
-    }
-    if (normalized.startsWith("created")) {
-      return "created";
-    }
-    if (normalized.startsWith("restarting")) {
-      return "restarting";
-    }
-    return normalized;
-  }
-
-  private async removeContainerIfPresent(containerRef: string, cwd: string): Promise<void> {
-    if (!containerRef.trim()) {
-      return;
-    }
-    await runCommandStrict("docker", ["rm", "-f", containerRef], cwd).catch(() => undefined);
-  }
-
-  private buildSessionLockKey(projectId: string, sprintId: string): string {
-    return `${projectId}:${sprintId}`;
-  }
-
-  private async withSessionLock<T>(lockKey: string, operation: () => Promise<T>): Promise<T> {
-    const previous = this.sessionLocks.get(lockKey) || Promise.resolve();
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const queued = previous.finally(() => gate);
-    this.sessionLocks.set(lockKey, queued);
-    await previous.catch(() => undefined);
-    try {
-      return await operation();
-    } finally {
-      release?.();
-      if (this.sessionLocks.get(lockKey) === queued) {
-        this.sessionLocks.delete(lockKey);
-      }
-    }
-  }
-
-  private normalizeRelativePath(requestedPath: string): string {
-    const trimmed = (requestedPath || "").trim().replace(/\\/g, "/");
-
-    if (!trimmed) {
-      throw new Error(`Invalid file path: path cannot be empty`);
-    }
-
-    const decoded = decodeURIComponent(trimmed);
-    if (decoded.includes("../") || decoded.includes("..\\") || decoded === "..") {
-      throw new Error(`Invalid file path: encoded traversal is not allowed`);
-    }
-
-    if (/^[a-zA-Z]:[\\\/]/.test(trimmed) || trimmed.startsWith("/")) {
-      throw new Error(`Invalid file path: absolute paths are not allowed`);
-    }
-
-    if (/[\x00-\x1F\x7F]/.test(trimmed)) {
-      throw new Error(`Invalid file path: control characters are not allowed`);
-    }
-
-    const withoutLeading = trimmed.replace(/^\.\//, "").replace(/^\/+/, "");
-    const normalized = pathPosix.normalize(withoutLeading);
-
-    if (!normalized || normalized === "." || normalized === ".." || normalized.startsWith("../") || normalized.includes("../")) {
-      throw new Error(`Invalid file path: ${requestedPath}`);
-    }
-
-    if (normalized === ".git" || normalized.startsWith(".git/")) {
-      throw new Error(`Invalid file path: .git internals are not allowed`);
-    }
-
-    return normalized;
   }
 
   private shellQuote(value: string): string {
@@ -1089,8 +970,7 @@ export class SprintFileBrowserService {
   }
 
   private buildContainerName(projectId: string, sprintId: string): string {
-    const sanitize = (value: string) => value.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").slice(0, 22);
-    return `code-ux-filebrowser-${sanitize(projectId)}-${sanitize(sprintId)}`.slice(0, 63);
+    return `code-ux-filebrowser-${sanitizeContainerNameComponent(projectId, 22)}-${sanitizeContainerNameComponent(sprintId, 22)}`.slice(0, 63);
   }
 
 }

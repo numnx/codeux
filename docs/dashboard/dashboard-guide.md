@@ -696,13 +696,25 @@ For provider-backed runs, session polling is now used to ingest durable runtime 
 - Immutable settings state updates are centralized in `dashboard/src/lib/settings-updaters.ts`; settings sections consume these typed helpers instead of manually reconstructing nested objects.
 - Task cards use button semantics and ARIA expansion state for title/details/log toggles.
 - The v2 frontend is organized into page-scoped module boundaries (overview, sprints, tasks, stats, live), exclusively loading resources they need.
-- The Sprints page uses a data/view-model split: `useSprintsPageData` manages side effects and API calls, while deterministic derived state like counts, mappings, and display overrides is extracted into pure view-model helpers (`sprints-page-view-models.ts`).
+- The Sprints page uses a data/action/view-model split: `useSprintsPageData` coordinates state, `useSprintsPageActions` manages side effects and API calls, `useSprintsPageModals` manages transient UI state, and deterministic derived state is extracted into pure view-model helpers (`sprints-page-view-models.ts`).
 - A shared dashboard resource layer manages resource keys, caching, and invalidation, deduplicating fetches and avoiding UI flashing during background updates.
 - Heavy list views use a progressive list strategy (`useProgressiveList`) with an intersection observer to render items in batches and prevent main-thread blocking.
 - Backend read-model optimizations efficiently project data to support the resource layer while leaving API routes and backend contracts entirely unchanged.
 - Extensionless dashboard routes like `/sprints` are served by the SPA app shell on direct load or refresh. This routing behavior remains consistent even when Code UX itself is running inside a preview container.
 
 - A "Live Preview" CTA link now appears in the Live view header when the relevant sprint has an active (`running`) preview session with a resolved `hostPort`. The link securely routes directly to the iframe preview origin (`buildPreviewUrl`) at the `lastKnownPath`.
+
+
+## Interaction Patterns
+
+The dashboard relies on consistent interaction primitives across all v2 views:
+
+- **Cursor Affordance**: All interactive controls (buttons, links, tab controls, form toggles, menu/popover triggers, DAG nodes, cards, and dismissible overlays) explicitly use a pointer cursor. Disabled controls retain `cursor-not-allowed` or default arrow cursors.
+- **Async Feedback & Loading**: Active states (like waiting for CI, running tasks, or loading large datasets) use visual indicators like spinners or pulsing dots.
+- **Reduced Motion**: All animated feedback (like CI spinners or GSAP transitions) uses Tailwind's `motion-reduce:animate-none` or explicit reduced-motion checks to disable looping animations if the user prefers reduced motion.
+- **Overlays & Modals**: Dismissible surfaces (dialogs, side panels, search overlays) can be closed via explicit buttons, clicking the backdrop, or pressing the Escape key. Focus is trapped within the overlay while open and restored to the trigger when closed.
+- **Data Views**: Complex data views (like the Sprint Ledger or Stats page) maintain sticky sort/filter controls while the data scrolls. List windowing and progressive rendering ensure smooth interactions even with large datasets.
+- **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges) and provides localized options to clean up state before proceeding.
 
 ## Accessibility Patterns
 

@@ -58,6 +58,7 @@ async function createFixture() {
         : (resolver || settingsRepository).resolveProjectDashboardSettings(projectId).settings.workers.executionMode
     ),
   );
+  workerTaskDispatchService.claimNextDispatchForWorker = vi.fn().mockReturnValue(null);
 
   return {
     dir,
@@ -80,6 +81,87 @@ afterEach(async () => {
 describe("VirtualWorkerService", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+  });
+
+  it("duplicate attention items in the same sprint do not repeatedly hit settingsRepository during one scheduling pass", async () => {
+    const {
+      settingsRepository,
+      sessionTracking,
+      projectManagementRepository,
+      executionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectAttentionService,
+      workerTaskDispatchService,
+    } = await createFixture();
+
+    const virtualProject = projectManagementRepository.createProject({
+      name: "Virtual Project",
+      sourceType: "local",
+      sourceRef: "/workspace/virtual-project",
+      defaultBranch: "main",
+    });
+
+    settingsRepository.saveProjectSettings(virtualProject.id, {
+      workers: {
+        executionMode: "VIRTUAL",
+        virtualWorkerProvider: "codex",
+      },
+    });
+
+    const sprint = projectManagementRepository.createSprint(virtualProject.id, {
+      name: "Sprint 1",
+      number: 1,
+      goal: "Test caching",
+    });
+
+    // Create duplicate open attention items in the same sprint
+    for (let i = 0; i < 5; i++) {
+      projectAttentionService.openItem({
+        projectId: virtualProject.id,
+        sprintId: sprint.id,
+        taskId: null,
+        sprintRunId: null,
+        dispatchId: null,
+        attentionType: "action_required",
+        severity: "high",
+        ownerType: "worker",
+        title: `Virtual attention ${i}`,
+        summaryMarkdown: "Needs worker action.",
+        payload: null,
+      });
+    }
+
+    const virtualWorkerService = new VirtualWorkerService({
+      settingsRepository,
+      sessionTracking,
+      executionRepository,
+      projectManagementRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectWorkerAssignmentService: new ProjectWorkerAssignmentService(
+        projectWorkerAssignmentRepository,
+        workerEndpointRepository,
+      ),
+      projectAttentionService,
+      workerTaskDispatchService,
+      cliWorkflowService: {
+        startTask: vi.fn(),
+      } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
+    });
+
+    // Mock resolveEffectiveDashboardSettings by spying on settingsRepository
+    const settingsSpy = vi.spyOn(settingsRepository, "getProjectSettings");
+
+    await virtualWorkerService.reconcile();
+
+    // The first resolution gets cached, the subsequent ones hit the cache
+    // 2 times: once for resolveDashboardSettings(projectId) and once for resolveDashboardSettings(projectId, sprintId)
+    // because sprintId ?? "" resolves to different keys.
+    expect(settingsSpy).toHaveBeenCalledTimes(1);
   });
 
   it("reconcile only schedules projects that still need virtual worker execution", async () => {
@@ -157,13 +239,16 @@ describe("VirtualWorkerService", () => {
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
     const scheduleSpy = vi.spyOn(virtualWorkerService, "scheduleProject");
 
     await virtualWorkerService.reconcile();
 
     expect(scheduleSpy).toHaveBeenCalledTimes(1);
-    expect(scheduleSpy).toHaveBeenCalledWith(virtualProject.id, "reconcile");
+    expect(scheduleSpy).toHaveBeenCalledWith(virtualProject.id, "reconcile", expect.any(Function));
   });
 
   it("escalates unsupported worker attention items to a human attention item", async () => {
@@ -236,6 +321,9 @@ describe("VirtualWorkerService", () => {
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     virtualWorkerService.scheduleProject(project.id, "test_attention_escalation");
@@ -257,7 +345,7 @@ describe("VirtualWorkerService", () => {
     expect(projectWorkerAssignmentRepository.listAssignmentsForProject(project.id, { activeOnly: true })).toHaveLength(0);
   });
 
-  it("pickNextWorkerAttention skips merge_required items", async () => {
+  it("peekNextWorkerAttention skips merge_required items", async () => {
     const {
       settingsRepository,
       sessionTracking,
@@ -313,10 +401,13 @@ describe("VirtualWorkerService", () => {
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     // Access private method directly — merge_required items must be skipped
-    const result = (virtualWorkerService as any).pickNextWorkerAttention(project.id);
+    const result = (virtualWorkerService as any).peekNextWorkerAttention(project.id);
     expect(result).toBeNull();
 
     // merge_conflict items should still be picked up
@@ -334,7 +425,7 @@ describe("VirtualWorkerService", () => {
       payload: null,
     });
 
-    const conflictResult = (virtualWorkerService as any).pickNextWorkerAttention(project.id);
+    const conflictResult = (virtualWorkerService as any).peekNextWorkerAttention(project.id);
     expect(conflictResult).not.toBeNull();
     expect(conflictResult.attentionType).toBe("merge_conflict");
   });
@@ -374,6 +465,9 @@ describe("VirtualWorkerService", () => {
       workerTaskDispatchService,
       cliWorkflowService: {
         startTask: vi.fn(),
+      } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
       } as any,
     });
 
@@ -457,6 +551,9 @@ describe("VirtualWorkerService", () => {
       cliWorkflowService: {
         startTask: vi.fn(),
       } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     expect((virtualWorkerService as any).projectNeedsVirtualWorker(project.id)).toBe(true);
@@ -488,6 +585,9 @@ describe("VirtualWorkerService", () => {
       projectAttentionService,
       workerTaskDispatchService,
       cliWorkflowService: { startTask: vi.fn() } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     virtualWorkerService.start();
@@ -524,6 +624,9 @@ describe("VirtualWorkerService", () => {
       projectAttentionService,
       workerTaskDispatchService,
       cliWorkflowService: { startTask: vi.fn() } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     expect((virtualWorkerService as any).getProviderLabel("claude-code")).toBe("Claude Code");
@@ -557,6 +660,9 @@ describe("VirtualWorkerService", () => {
       projectAttentionService,
       workerTaskDispatchService,
       cliWorkflowService: { startTask: vi.fn() } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     expect((virtualWorkerService as any).readRequiredString("hello", "test")).toBe("hello");
@@ -616,6 +722,9 @@ describe("VirtualWorkerService", () => {
       projectAttentionService,
       workerTaskDispatchService,
       cliWorkflowService: { startTask: vi.fn() } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
 
     // Cover resolveDashboardSettings with sprintId
@@ -654,6 +763,9 @@ describe("VirtualWorkerService", () => {
       workerTaskDispatchService,
       cliWorkflowService: {
         startTask: vi.fn(),
+      } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
       } as any,
     });
 
@@ -1270,6 +1382,9 @@ describe("VirtualWorkerService", () => {
       instructionService: {} as any,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
     });
     return { ...deps, virtualWorkerService };
   }
