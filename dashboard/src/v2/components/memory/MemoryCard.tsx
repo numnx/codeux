@@ -79,7 +79,7 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
                     type="button"
                     aria-label={`Delete ${cat.label} memory: ${content.substring(0, 30)}...`}
                     onClick={handleDelete}
-                    className="absolute top-1 right-1 z-10 p-1 rounded-full transition-all duration-150 hover:bg-status-red/10 text-slate-400 hover:text-status-red cursor-pointer"
+                    className="absolute top-1 right-1 z-10 p-1 rounded-full transition-all duration-150 hover:bg-status-red/10 text-slate-400 hover:text-status-red cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900"
                 >
                     <X size={14} />
                 </button>
