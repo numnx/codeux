@@ -49,7 +49,7 @@ export const TitleBar: FunctionComponent<TitleBarProps> = ({ appearanceVariant =
         type="button"
         onClick={() => void windowApi.minimize()}
         aria-label="Minimize window"
-        className="h-full w-11 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:bg-black/[0.06] dark:focus-visible:bg-white/[0.06]"
+        className="titlebar-no-drag h-full w-11 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:bg-black/[0.06] dark:focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal-500/60"
       >
         <Minus aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
@@ -57,7 +57,7 @@ export const TitleBar: FunctionComponent<TitleBarProps> = ({ appearanceVariant =
         type="button"
         onClick={() => void windowApi.toggleMaximize()}
         aria-label={isMaximized ? "Restore window" : "Maximize window"}
-        className="h-full w-11 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:bg-black/[0.06] dark:focus-visible:bg-white/[0.06]"
+        className="titlebar-no-drag h-full w-11 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:bg-black/[0.06] dark:focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal-500/60"
       >
         {isMaximized ? (
           <Copy aria-hidden="true" className="w-3 h-3 -scale-x-100" strokeWidth={1.75} />
@@ -69,7 +69,7 @@ export const TitleBar: FunctionComponent<TitleBarProps> = ({ appearanceVariant =
         type="button"
         onClick={() => void windowApi.close()}
         aria-label="Close window"
-        className="h-full w-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white hover:bg-[#E81123] focus:outline-none focus-visible:bg-[#E81123] focus-visible:text-white transition-colors"
+        className="titlebar-no-drag h-full w-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white hover:bg-[#E81123] focus:outline-none focus-visible:bg-[#E81123] focus-visible:text-white focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 transition-colors"
       >
         <X aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
@@ -94,7 +94,7 @@ export const TitleBar: FunctionComponent<TitleBarProps> = ({ appearanceVariant =
     >
       {trafficLightSpacer}
       <div className="flex items-center gap-2 px-3 h-full flex-1 min-w-0">
-        <div className="w-4 h-4 rounded-md overflow-hidden ring-1 ring-inset ring-white/[0.08] shadow-[0_0_10px_rgba(0,224,160,0.25)] shrink-0">
+        <div aria-hidden="true" className="w-4 h-4 rounded-md overflow-hidden ring-1 ring-inset ring-white/[0.08] shadow-[0_0_10px_rgba(0,224,160,0.25)] shrink-0">
           <RobotLogo size={16} rounded={false} />
         </div>
         <span className="text-[11px] font-semibold tracking-[0.08em] text-slate-600 dark:text-slate-300 truncate">

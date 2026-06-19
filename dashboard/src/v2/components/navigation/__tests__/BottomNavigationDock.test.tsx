@@ -21,7 +21,7 @@ vi.mock('@tanstack/react-router', async () => {
     return {
         ...actual as any,
         useRouterState: vi.fn(),
-        Link: forwardRef(({ children, to, className }: any, ref: any) => <a ref={ref} href={to} data-testid={`link-${to}`} className={className}>{children}</a>)
+        Link: forwardRef(({ children, to, className, ...props }: any, ref: any) => <a ref={ref} href={to} data-testid={`link-${to}`} className={className} {...props}>{children}</a>)
     };
 });
 
@@ -85,5 +85,17 @@ describe('BottomNavigationDock (KineticDock)', () => {
         // or ensure no crash/override happens during keyboard focus.
         const iconWrapper = overviewLink.querySelector('svg');
         expect(iconWrapper?.getAttribute('class')).toContain('group-focus-visible:-translate-y-1.5');
+    });
+
+    it('should provide stable accessible names and mark the active dock route', () => {
+        vi.spyOn(RouterHook, 'useRouterState').mockReturnValue({ matches: [{ pathname: '/tasks' }] } as any);
+
+        render(<KineticDock />);
+
+        const tasksLink = screen.getByRole('link', { name: 'Tasks navigation' });
+        const overviewLink = screen.getByRole('link', { name: 'Overview navigation' });
+
+        expect(tasksLink).toHaveAttribute('aria-current', 'page');
+        expect(overviewLink).not.toHaveAttribute('aria-current');
     });
 });

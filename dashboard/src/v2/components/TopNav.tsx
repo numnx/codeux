@@ -210,6 +210,11 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
 
     const filteredProjects = useMemo(() => projects.filter(p => p.name.toLowerCase().includes(projectFilter.toLowerCase())), [projects, projectFilter]);
     const filteredSprints = useMemo(() => sprints.filter(s => s.name.toLowerCase().includes(sprintFilter.toLowerCase())), [sprints, sprintFilter]);
+    const projectSelectorLabel = `Project selector, selected project: ${selectedProject?.name || (loading ? "Loading projects" : "None")}`;
+    const sprintSelectorDisabled = sprintsLoading || sprints.length === 0;
+    const sprintSelectorLabel = sprintsLoading
+        ? "Sprint selector, loading sprints"
+        : `Sprint selector, selected sprint: ${selectedSprint ? formatSprintDisplay(selectedSprint, sprintKeyPrefix) : "All Sprints"}`;
 
     useLayoutEffect(() => {
         if (sprintDropdownOpen && sprintDropdownRef.current) {
@@ -278,6 +283,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                 {/* Project Selector */}
                 <div className="relative hidden md:block" ref={dropdownRef} onKeyDown={projectKb.onContainerKeyDown}>
                     <button
+                        type="button"
                         ref={projectKb.toggleRef}
                         onKeyDown={projectKb.onToggleKeyDown}
                         onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -285,7 +291,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                         aria-haspopup="listbox"
                         aria-expanded={dropdownOpen}
                         id="project-selector-button"
-                        aria-label={`Selected project: ${selectedProject?.name || "None"}`}
+                        aria-label={projectSelectorLabel}
                         aria-controls="project-listbox"
                         aria-activedescendant={dropdownOpen && filteredProjects.length > 0 ? `project-option-${selectedProject?.id || 'none'}` : undefined}
                         aria-busy={projectSwitchBusy || loading ? "true" : "false"}
@@ -323,6 +329,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     id={`project-option-${source.id}`}
                                     role="option"
                                     aria-selected={selectedProject?.id === source.id}
+                                    aria-label={`${source.name}${selectedProject?.id === source.id ? ", selected" : ""}`}
                                     onClick={async () => {
                                         setProjectSwitchBusy(true);
                                         try {
@@ -374,25 +381,27 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                 {selectedProject && (
                     <div className="relative hidden md:block" ref={sprintDropdownRef} onKeyDown={sprintKb.onContainerKeyDown}>
                         <button
+                            type="button"
                             ref={sprintKb.toggleRef}
                             onKeyDown={sprintKb.onToggleKeyDown}
                             aria-haspopup="listbox"
                             aria-expanded={sprintDropdownOpen}
                             id="sprint-selector-button"
-                            aria-label={`Selected sprint: ${sprintsLoading ? "Loading..." : selectedSprint ? formatSprintDisplay(selectedSprint, sprintKeyPrefix) : "All Sprints"}`}
+                            aria-label={sprintSelectorLabel}
                             aria-controls="sprint-listbox"
                             aria-activedescendant={sprintDropdownOpen && sprints.length > 0 ? `sprint-option-${selectedSprintId || 'none'}` : undefined}
                             aria-busy={sprintSwitchBusy || sprintsLoading ? "true" : "false"}
+                            disabled={sprintSelectorDisabled}
                             onClick={(e) => {
-                                if (sprints.length === 0) {
+                                if (sprintSelectorDisabled) {
                                     e.preventDefault();
                                     return;
                                 }
                                 setSprintDropdownOpen(!sprintDropdownOpen);
                             }}
-                            aria-disabled={sprints.length === 0}
+                            aria-disabled={sprintSelectorDisabled}
                             className={`focus-visible:ring-2 focus-visible:ring-signal-500/50 flex h-9 items-center gap-2.5 rounded-xl border border-transparent bg-black/[0.04] px-3.5 py-0 transition-all group dark:bg-white/[0.04] ${
-                                sprints.length > 0
+                                !sprintSelectorDisabled
                                     ? 'hover:border-black/[0.08] dark:hover:border-white/[0.08] cursor-pointer'
                                     : 'opacity-50 cursor-not-allowed'
                             }`}
@@ -431,6 +440,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     id="sprint-option-none"
                                     role="option"
                                     aria-selected={selectedSprintId === null}
+                                    aria-label={`All Sprints${selectedSprintId === null ? ", selected" : ""}`}
                                     onClick={async () => {
                                         setSprintSwitchBusy(true);
                                         try {
@@ -455,6 +465,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                         id={`sprint-option-${sprint.id}`}
                                         role="option"
                                         aria-selected={selectedSprintId === sprint.id}
+                                        aria-label={`${formatSprintDisplay(sprint, sprintKeyPrefix)}${selectedSprintId === sprint.id ? ", selected" : ""}`}
                                         onClick={async () => {
                                             setSprintSwitchBusy(true);
                                             try {

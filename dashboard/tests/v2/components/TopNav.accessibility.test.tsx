@@ -10,20 +10,22 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { createContext } from "preact";
 
 const mockProjectDataContext = createContext({});
+let mockProjectData = {
+    projects: [
+        { id: "proj-1", name: "Project Alpha", status: "idle" },
+        { id: "proj-2", name: "Project Beta", status: "idle" }
+    ],
+    selectedProject: { id: "proj-1", name: "Project Alpha", status: "idle" },
+    loading: false,
+    createProject: vi.fn().mockResolvedValue(undefined),
+    selectProject: vi.fn().mockResolvedValue(undefined),
+};
 
 // Mock required contexts and hooks
 vi.mock("../../../src/v2/context/project-data.js", () => {
     return {
         ProjectDataContext: createContext({}),
-        useProjectData: () => ({
-            projects: [
-                { id: "proj-1", name: "Project Alpha", status: "idle" },
-                { id: "proj-2", name: "Project Beta", status: "idle" }
-            ],
-            selectedProject: { id: "proj-1", name: "Project Alpha", status: "idle" },
-            loading: false,
-            selectProject: vi.fn().mockResolvedValue(undefined),
-        })
+        useProjectData: () => mockProjectData
     };
 });
 
@@ -86,7 +88,7 @@ vi.mock("gsap", () => ({
 
 // Mock Router link
 vi.mock("@tanstack/react-router", () => ({
-    Link: ({ children }: any) => <a href="#">{children}</a>
+    Link: ({ children, to = "#", ...props }: any) => <a href={to} {...props}>{children}</a>
 }));
 
 vi.mock("../../../src/v2/components/top-nav/GlobalSearch.js", () => ({
@@ -94,7 +96,7 @@ vi.mock("../../../src/v2/components/top-nav/GlobalSearch.js", () => ({
 }))
 
 vi.mock("../../../src/v2/components/top-nav/BrandSection.js", () => ({
-    BrandSection: () => <div data-testid="brand-section">Brand</div>
+    BrandSection: ({ isMobileMenuOpen }: any) => <div data-testid="brand-section" data-open={String(!!isMobileMenuOpen)}>Brand</div>
 }))
 
 vi.mock("../../../src/v2/components/top-nav/TelemetryStats.js", () => ({
@@ -116,6 +118,7 @@ vi.mock("../../../src/v2/hooks/useThemeSetting.js", () => ({
 }));
 
 import { TopNav } from "../../../src/v2/components/TopNav.js";
+import { TitleBar } from "../../../src/v2/components/TitleBar.js";
 import { ThemeProvider } from "../../../src/v2/hooks/useThemeSetting.js";
 
 expect.extend(matchers);
@@ -134,6 +137,16 @@ describe("TopNav Selectors Accessibility", () => {
             selectedSprint: { id: "spr-1", name: "Sprint 1", number: 1, status: "idle" },
             loading: false,
             selectSprint: vi.fn().mockResolvedValue(undefined),
+        };
+        mockProjectData = {
+            projects: [
+                { id: "proj-1", name: "Project Alpha", status: "idle" },
+                { id: "proj-2", name: "Project Beta", status: "idle" }
+            ],
+            selectedProject: { id: "proj-1", name: "Project Alpha", status: "idle" },
+            loading: false,
+            createProject: vi.fn().mockResolvedValue(undefined),
+            selectProject: vi.fn().mockResolvedValue(undefined),
         };
     });
 
@@ -246,10 +259,10 @@ describe("TopNav Selectors Accessibility", () => {
     it("announces selected state in aria-label", async () => {
         renderNav();
         const projectBtn = document.getElementById("project-selector-button");
-        expect(projectBtn).toHaveAttribute("aria-label", "Selected project: Project Alpha");
+        expect(projectBtn).toHaveAttribute("aria-label", "Project selector, selected project: Project Alpha");
 
         const sprintBtn = document.getElementById("sprint-selector-button");
-        expect(sprintBtn?.getAttribute("aria-label")).toMatch(/^Selected sprint:/);
+        expect(sprintBtn?.getAttribute("aria-label")).toMatch(/^Sprint selector, selected sprint:/);
     });
 
     it("can select an option using keyboard", async () => {
@@ -278,8 +291,28 @@ describe("TopNav Selectors Accessibility", () => {
         const sprintBtn = document.getElementById("sprint-selector-button") as HTMLButtonElement;
 
         expect(sprintBtn).toHaveAttribute("aria-disabled", "true");
+        expect(sprintBtn).toBeDisabled();
         await user.click(sprintBtn);
         expect(sprintBtn).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("marks selector triggers busy during loading states", () => {
+        mockProjectData.loading = true;
+        mockSprintsData.loading = true;
+        mockSprintsData.data = [];
+        mockSprintsData.selectedSprintId = null;
+        mockSprintsData.selectedSprint = null;
+
+        renderNav();
+
+        const projectBtn = document.getElementById("project-selector-button");
+        const sprintBtn = document.getElementById("sprint-selector-button") as HTMLButtonElement;
+
+        expect(projectBtn).toHaveAttribute("aria-busy", "true");
+        expect(projectBtn).toHaveAccessibleName("Project selector, selected project: Project Alpha");
+        expect(sprintBtn).toHaveAttribute("aria-busy", "true");
+        expect(sprintBtn).toHaveAccessibleName("Sprint selector, loading sprints");
+        expect(sprintBtn).toBeDisabled();
     });
 
 
@@ -308,4 +341,40 @@ describe("TopNav Selectors Accessibility", () => {
         expect(themeBtn).toHaveAttribute("aria-label", expect.stringContaining("Light"));
     });
 
+});
+
+describe("TitleBar Accessibility", () => {
+    afterEach(() => {
+        cleanup();
+        vi.unstubAllGlobals();
+    });
+
+    it("names Electron window controls and removes them from draggable regions", async () => {
+        const windowApi = {
+            minimize: vi.fn().mockResolvedValue(undefined),
+            toggleMaximize: vi.fn().mockResolvedValue(undefined),
+            close: vi.fn().mockResolvedValue(undefined),
+            getState: vi.fn().mockResolvedValue({ isMaximized: false, isFullScreen: false, platform: "win32" }),
+            onStateChange: vi.fn(() => vi.fn()),
+        };
+        vi.stubGlobal("__APP_VERSION__", "test");
+        vi.stubGlobal("codeUxDesktop", undefined);
+        Object.defineProperty(window, "codeUxDesktop", {
+            configurable: true,
+            value: { platform: "win32", window: windowApi },
+        });
+
+        render(<TitleBar />);
+
+        const minimize = screen.getByRole("button", { name: "Minimize window" });
+        const maximize = screen.getByRole("button", { name: "Maximize window" });
+        const close = screen.getByRole("button", { name: "Close window" });
+
+        expect(minimize).toHaveClass("titlebar-no-drag");
+        expect(maximize).toHaveClass("titlebar-no-drag");
+        expect(close).toHaveClass("titlebar-no-drag");
+        expect(minimize.className).toContain("focus-visible:ring-2");
+        expect(maximize.className).toContain("focus-visible:ring-2");
+        expect(close.className).toContain("focus-visible:ring-2");
+    });
 });

@@ -16,7 +16,7 @@ test('Global accessibility elements are present and have correct roles', async (
   await expect(search).toBeAttached();
 
   // 4. Verify project selector
-  const combobox = page.getByRole('button', { name: /selected project:/i });
+  const combobox = page.getByRole('button', { name: /project selector/i });
   // The trigger has aria-haspopup="listbox" but is a button, so getByRole('button') is more precise. We can also verify aria-haspopup.
   await expect(combobox).toBeAttached();
   await expect(combobox).toHaveAttribute('aria-haspopup', 'listbox');

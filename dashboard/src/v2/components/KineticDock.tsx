@@ -197,13 +197,14 @@ export const KineticDock: FunctionComponent = () => {
             <Link
                 key={item.label}
                 to={item.path}
+                aria-label={`${item.label} navigation`}
                 aria-current={isActive ? 'page' : undefined}
                 ref={(el: HTMLAnchorElement | null) => { itemRefs.current[globalIndex] = el; }}
                 onMouseEnter={() => prefetchRoute(item.path)}
                 onPointerDown={() => prefetchRoute(item.path)}
                 onFocus={() => prefetchRoute(item.path)}
                 data-tour-id={`nav-${item.label.toLowerCase()}`}
-                className="relative group flex flex-col items-center justify-center w-[52px] h-[52px] rounded-[1.4rem] transition-colors duration-300 decoration-none"
+                className="relative group flex flex-col items-center justify-center w-[52px] h-[52px] rounded-[1.4rem] transition-colors duration-300 decoration-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
             >
                 <div className="absolute inset-0 bg-transparent group-hover:bg-black/[0.04] dark:group-hover:bg-white/[0.05] group-focus-visible:bg-black/[0.04] dark:group-focus-visible:bg-white/[0.05] rounded-[1.4rem] pointer-events-none transition-colors duration-300" />
 
@@ -246,6 +247,7 @@ export const KineticDock: FunctionComponent = () => {
                 {/* Active Signal Indicator */}
                 <div
                     ref={indicatorRef}
+                    aria-hidden="true"
                     style={{ left: `${indicatorState.left}px` }}
                     className={`absolute bottom-2 h-[3px] w-7 rounded-full
                                bg-signal-500 shadow-[0_0_12px_rgba(0,224,160,0.8)]
@@ -258,7 +260,7 @@ export const KineticDock: FunctionComponent = () => {
                 {LEFT_ITEMS.map((item, i) => renderItem(item, i))}
 
                 {/* Thin vertical divider */}
-                <div className="w-px h-5 bg-black/[0.1] dark:bg-white/[0.1] mx-0.5 self-center shrink-0" />
+                <div aria-hidden="true" className="w-px h-5 bg-black/[0.1] dark:bg-white/[0.1] mx-0.5 self-center shrink-0" />
 
                 {/* Main nav items */}
                 {rightItems.map((item, i) => renderItem(item, LEFT_ITEMS.length + i))}

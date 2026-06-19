@@ -18,7 +18,7 @@ interface NavItemProps {
 export const NavItem: FunctionComponent<NavItemProps> = ({ item, isActive, isMinimized, isMobile, onClose, elementRef }) => {
     return (
         <Link
-            aria-label={isMinimized && !isMobile ? item.label : undefined}
+            aria-label={`${item.label} navigation`}
             ref={elementRef}
             to={item.path}
             onClick={isMobile ? onClose : undefined}

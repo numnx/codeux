@@ -55,6 +55,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
     });
 
     const trapRef = useFocusTrap(!!isMobile && !!isOpen, { onClose: isMobile ? onClose : undefined, restoreFocus: true, initialFocusRef: undefined });
+    const isMobileClosed = !!isMobile && !isOpen;
 
     const browserVisible = !selectedProject || (
         (effectiveSettings?.settings.sprintPreview.enabled ?? true)
@@ -68,6 +69,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
     const matches = useRouterState({ select: (s) => s.matches });
     const currentPath = (matches && matches.length > 0) ? (matches[matches.length - 1]?.pathname || "/") : "/";
     const activeIndex = navItems.findIndex(i => i.path === currentPath);
+    const isSettingsActive = currentPath === "/config";
     const durations = useGsapDurations();
 
     useLayoutEffect(() => {
@@ -135,6 +137,20 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
         }
     }, [isMobile, isOpen, prefersReducedMotion]);
 
+    useEffect(() => {
+        const sidebar = sidebarRef.current;
+        if (!sidebar || !isMobile) return;
+
+        if (isMobileClosed) {
+            sidebar.setAttribute("inert", "");
+            sidebar.inert = true;
+            return;
+        }
+
+        sidebar.removeAttribute("inert");
+        sidebar.inert = false;
+    }, [isMobile, isMobileClosed]);
+
     // Auto-minimize on click outside (Desktop only)
     useEffect(() => {
         if (isMobile) return;
@@ -175,8 +191,10 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
             aria-label="Primary Navigation"
             role={isMobile ? "dialog" : undefined}
             aria-modal={isMobile ? "true" : undefined}
+            aria-hidden={isMobileClosed ? "true" : undefined}
             tabIndex={-1}
             ref={(el) => { (sidebarRef as any).current = el; (trapRef as any).current = el; }}
+            {...(isMobileClosed ? ({ inert: "" } as Record<string, string>) : {})}
             className={`${isMobile ? 'h-[100dvh]' : 'h-full'} shrink-0 border-r border-black/[0.05] dark:border-white/[0.04] bg-[#F5F3EF]/60 dark:bg-void-900 flex flex-col justify-between py-8 z-50 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
                 isMobile 
                     ? 'fixed left-0 top-0 w-[260px] -translate-x-full opacity-0 shadow-2xl bg-[#F5F3EF] dark:bg-void-900 overflow-y-auto overflow-x-hidden'
@@ -243,6 +261,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
                     onPointerDown={() => prefetchRoute("/config")}
                     onFocus={() => prefetchRoute("/config")}
                     aria-label="Settings"
+                    aria-current={isSettingsActive ? "page" : undefined}
                     data-tour-id="nav-config" 
                     className={`relative flex items-center ${isMinimized && !isMobile ? 'justify-center mx-4' : 'gap-3.5 px-5 mx-4'} py-3 min-h-[44px] rounded-2xl transition-all duration-300 group mb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 focus-visible:rounded-2xl focus-visible:z-10 decoration-none`}
                 >

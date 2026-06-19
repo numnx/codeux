@@ -7,6 +7,7 @@ import {
   createRootRoute,
   RouterProvider,
   Outlet,
+  useRouterState,
 } from "@tanstack/react-router";
 import { KineticDock } from "./v2/components/KineticDock.js";
 import { Sidebar } from "./v2/components/layout/Sidebar.js";
@@ -54,6 +55,12 @@ const AppLayout = () => {
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const currentPath = useRouterState({
+    select: (state) => {
+      const match = state.matches[state.matches.length - 1];
+      return match?.pathname || "/";
+    },
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -181,6 +188,10 @@ const AppLayout = () => {
   useEffect(() => {
     applyAppearanceSettings({ zoomLevel });
   }, [zoomLevel]);
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [currentPath]);
 
   const navMode = appearanceSettings?.navigationMode || "DOCK";
   const showSidebar = isMobile || navMode === "SIDEBAR";

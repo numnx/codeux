@@ -2,6 +2,7 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "preact/hooks";
 import { Sidebar } from "../../../src/v2/components/layout/Sidebar";
 import { BrandSection } from "../../../src/v2/components/top-nav/BrandSection";
 import "@testing-library/jest-dom/vitest";
@@ -76,6 +77,26 @@ describe("Sidebar Mobile Accessibility", () => {
         const aside = screen.getByRole("dialog", { name: /primary navigation/i });
         expect(aside).toBeInTheDocument();
         expect(aside).toHaveAttribute("aria-modal", "true");
+        expect(aside).not.toHaveAttribute("aria-hidden");
+        expect(aside).not.toHaveAttribute("inert");
+    });
+
+    it("should remove closed mobile navigation from AT and tab order", async () => {
+        render(
+            <div>
+                <button type="button" data-testid="outside">Outside</button>
+                <Sidebar isMobile={true} isOpen={false} onClose={() => {}} />
+            </div>
+        );
+
+        const aside = document.getElementById("primary-navigation");
+        expect(aside).toHaveAttribute("aria-hidden", "true");
+        expect(aside).toHaveAttribute("inert");
+        expect(screen.queryByRole("dialog", { name: /primary navigation/i })).not.toBeInTheDocument();
+
+        screen.getByTestId("outside").focus();
+        await userEvent.tab();
+        expect(document.activeElement).not.toBe(aside?.querySelector("a, button"));
     });
 
     it("should wire mobile menu trigger correctly", () => {
@@ -97,6 +118,34 @@ describe("Sidebar Mobile Accessibility", () => {
 
         await userEvent.keyboard("{Escape}");
         expect(onClose).toHaveBeenCalled();
+    });
+
+    it("should restore focus to the mobile menu trigger after Escape closes navigation", async () => {
+        const MobileShell = () => {
+            const [open, setOpen] = useState(false);
+            return (
+                <div>
+                    <BrandSection isMobile={true} isMobileMenuOpen={open} onMenuToggle={() => setOpen((value) => !value)} />
+                    <Sidebar isMobile={true} isOpen={open} onClose={() => setOpen(false)} />
+                </div>
+            );
+        };
+
+        render(<MobileShell />);
+
+        const trigger = screen.getByRole("button", { name: /open navigation menu/i });
+        trigger.focus();
+        await userEvent.click(trigger);
+
+        await waitFor(() => {
+            expect(screen.getByRole("dialog", { name: /primary navigation/i })).toBeInTheDocument();
+        });
+
+        await userEvent.keyboard("{Escape}");
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /open navigation menu/i })).toHaveFocus();
+        });
     });
 
     it("should trap focus within the sidebar", async () => {
