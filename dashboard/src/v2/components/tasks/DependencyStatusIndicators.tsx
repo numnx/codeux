@@ -20,10 +20,11 @@ export const DependencyStatusIndicators: FunctionComponent<{
               ? "bg-signal-500/[0.08] border-signal-500/20 text-signal-500"
               : "bg-slate-400/[0.08] border-slate-400/20 text-slate-500"
           }`}
-          title={`Depends on ${dep.title} (${dep.status})`} aria-label={`Depends on ${dep.title}, status: ${dep.status.replace('_', ' ')}`}
+          title={`Depends on ${dep.title} (${dep.status})`}
         >
-          <span className="sr-only">Depends on task </span><ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
-          <span>{dep.id}</span>
+          <span className="sr-only">Depends on task {dep.id}, status: {dep.status.replace('_', ' ')}. Title: {dep.title}</span>
+          <ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          <span aria-hidden="true">{dep.id}</span>
         </div>
       ))}
     </div>

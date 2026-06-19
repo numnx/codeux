@@ -1,7 +1,7 @@
 import type { FunctionComponent, ComponentProps } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
-import { useGsapDurations } from "../../lib/motion/constants.js";
+import { useGsapDurations, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export type ToggleProps = Omit<ComponentProps<"button">, "value" | "onChange" | "aria-label" | "aria-labelledby"> & {
@@ -27,7 +27,7 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
     }
     gsap.to(thumbRef.current, {
       x: value ? 20 : 0,
-      duration: reducedMotion ? 0 : durations.base,
+      duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.controlFeedback.duration,
       ease: reducedMotion ? 'none' : 'back.out(1.7)',
       overwrite: true
     });
@@ -40,7 +40,7 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
       role="switch"
       onClick={() => onChange(!value)}
       disabled={disabled}
-      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] ${
+      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors duration-[150ms] motion-reduce:duration-0 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 ${
         value
           ? danger
             ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] enabled:hover:bg-status-red/90"

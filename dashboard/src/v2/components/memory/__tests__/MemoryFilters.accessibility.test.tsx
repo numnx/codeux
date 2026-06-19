@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { h } from "preact";
-import { render } from "@testing-library/preact";
+import { render, fireEvent } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { expect, test, describe, afterEach } from "vitest";
 import { MemoryFilters } from "../MemoryFilters.js";
@@ -56,4 +56,32 @@ describe("MemoryFilters Accessibility", () => {
         expect(getByRole("combobox", { name: "Select sprint" })).toBeInTheDocument();
         expect(getByRole("combobox", { name: "Select agent preset" })).toBeInTheDocument();
     });
+    test("tab keyboard navigation works", async () => {
+        activeTierSignal.value = "short_term";
+        const { getByRole } = render(
+            <MemoryFilters
+                stats={{ sprint: 5, agent: 2, project: 10, activeModel: "test", staleEmbeddings: 0 }}
+                sprints={[]}
+                agentPresets={[]}
+                showModels={false}
+                setShowModels={() => {}}
+                setShowAddModal={() => {}}
+                lobotomize={false}
+                handleLobotomizeToggle={() => {}}
+            />
+        );
+
+        const shortTermTab = getByRole("tab", { name: /Short Term/ });
+        const longTermTab = getByRole("tab", { name: /Long Term/ });
+
+        shortTermTab.focus();
+        await fireEvent.keyDown(shortTermTab, { key: "ArrowRight", code: "ArrowRight" });
+        expect(activeTierSignal.value).toBe("long_term");
+        expect(document.activeElement).toBe(longTermTab);
+
+        await fireEvent.keyDown(longTermTab, { key: "ArrowLeft", code: "ArrowLeft" });
+        expect(activeTierSignal.value).toBe("short_term");
+        expect(document.activeElement).toBe(shortTermTab);
+    });
+
 });
