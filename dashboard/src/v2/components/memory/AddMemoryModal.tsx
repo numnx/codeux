@@ -1,5 +1,6 @@
 import { FunctionComponent } from "preact";
 import { useState } from "preact/hooks";
+import { Loader2 } from "lucide-preact";
 import { createMemory } from "../../lib/memory-api.js";
 import type { MemoryScope, MemoryCategory } from "../../memory-types.js";
 
@@ -73,12 +74,12 @@ export const AddMemoryModal: FunctionComponent<{
                     </button>
                     <button onClick={handleSubmit}
                         disabled={!content.trim() || saving}
-                        aria-disabled={!content.trim() || saving}
-                        className="flex-1 py-2.5 rounded-xl text-xs font-bold
+                        aria-disabled={!content.trim() || saving} aria-busy={saving}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2
                                    bg-signal-500 text-void-900 hover:bg-signal-400
                                    shadow-[0_2px_12px_rgba(0,224,160,0.3)]
                                    transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {saving ? "Saving…" : "Add Memory"}
+                        {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</> : "Add Memory"}
                     </button>
                 </div>
             </div>

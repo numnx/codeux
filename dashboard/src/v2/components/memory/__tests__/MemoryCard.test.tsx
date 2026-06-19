@@ -98,4 +98,12 @@ describe("MemoryCard", () => {
         expect(card).toBeInTheDocument();
         expect(card).toHaveAttribute("aria-selected", "false");
     });
+
+    test("activates on keyboard enter", async () => {
+        const onClick = vi.fn();
+        const { getByRole } = render(<MemoryCard id="t1" content="c" category="context" strength={0.5} onClick={onClick} />);
+        const card = getByRole("option");
+        await fireEvent.keyDown(card, { key: "Enter" });
+        expect(onClick).toHaveBeenCalled();
+    });
 });

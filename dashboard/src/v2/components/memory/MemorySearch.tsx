@@ -1,5 +1,5 @@
 import { FunctionComponent } from "preact";
-import { Search } from "lucide-preact";
+import { Search, X } from "lucide-preact";
 import { searchQuerySignal } from "./memoryState.js";
 
 export const MemorySearch: FunctionComponent = () => {
@@ -20,9 +20,12 @@ export const MemorySearch: FunctionComponent = () => {
                     onClick={() => searchQuerySignal.value = ""}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-mono font-bold"
                 >
-                    ESC
+                    <X className="w-3.5 h-3.5" /><span className="sr-only">Clear search</span>
                 </button>
             )}
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+                {searchQuerySignal.value ? `Searching for ${searchQuerySignal.value}` : "Search cleared"}
+            </div>
         </div>
     );
 };

@@ -42,7 +42,7 @@ export const MemoryFilters: FunctionComponent<{
                         <button
                             key={tab.key}
                             role="tab"
-                            aria-selected={activeTier === tab.key}
+                            aria-selected={activeTier === tab.key} aria-current={activeTier === tab.key ? "page" : undefined}
                             aria-controls="memory-panel"
                             className={`text-[10px] font-bold font-mono px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900
                             ${activeTier === tab.key
@@ -64,7 +64,7 @@ export const MemoryFilters: FunctionComponent<{
                         onChange={(e) => selectedSprintIdSignal.value = (e.target as HTMLSelectElement).value || undefined}
                         className="text-[11px] font-mono font-bold px-3 py-1.5 rounded-lg
                                    bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08]
-                                   text-slate-600 dark:text-slate-300 cursor-pointer
+                                   text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
                                    focus:outline-none focus:border-signal-500/40">
                         {sprints.map(s => (
                             <option key={s.id} value={s.id}>
@@ -81,7 +81,7 @@ export const MemoryFilters: FunctionComponent<{
                         onChange={(e) => selectedAgentPresetIdSignal.value = (e.target as HTMLSelectElement).value || undefined}
                         className="text-[11px] font-mono font-bold px-3 py-1.5 rounded-lg
                                    bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08]
-                                   text-slate-600 dark:text-slate-300 cursor-pointer
+                                   text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
                                    focus:outline-none focus:border-signal-500/40">
                         <option value="">All Agents</option>
                         {agentPresets.map(a => (
@@ -95,11 +95,11 @@ export const MemoryFilters: FunctionComponent<{
                     className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold
                                bg-signal-500/10 text-signal-500 hover:bg-signal-500/20
                                border border-signal-500/20
-                               transition-colors duration-200">
+                               transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add Memory
                 </button>
                 <button aria-pressed={showModels} onClick={() => setShowModels(!showModels)}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900
                                border transition-colors duration-200
                                ${showModels
                                    ? "bg-signal-500/[0.12] border-signal-500/30 text-signal-500"
@@ -112,7 +112,7 @@ export const MemoryFilters: FunctionComponent<{
                     )}
                 </button>
                 <button aria-pressed={lobotomize} onClick={handleLobotomizeToggle}
-                    className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold text-xs border
+                    className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold text-xs border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900
                                transition-[background-color,box-shadow,border-color] duration-300
                                ${lobotomize
                                    ? "bg-status-red text-white border-status-red shadow-[0_0_24px_rgba(227,0,15,0.4)] hover:shadow-[0_0_36px_rgba(227,0,15,0.6)]"

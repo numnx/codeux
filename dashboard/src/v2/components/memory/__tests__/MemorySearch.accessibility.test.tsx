@@ -26,4 +26,10 @@ describe("MemorySearch Accessibility", () => {
         const clearButton = getByRole("button", { name: "Clear search" });
         expect(clearButton).toBeInTheDocument();
     });
+
+    test("announces search query in live region", () => {
+        searchQuerySignal.value = "test search";
+        const { getByText } = render(<MemorySearch />);
+        expect(getByText("Searching for test search")).toBeInTheDocument();
+    });
 });

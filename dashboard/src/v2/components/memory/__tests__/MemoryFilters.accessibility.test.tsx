@@ -56,4 +56,10 @@ describe("MemoryFilters Accessibility", () => {
         expect(getByRole("combobox", { name: "Select sprint" })).toBeInTheDocument();
         expect(getByRole("combobox", { name: "Select agent preset" })).toBeInTheDocument();
     });
+
+    test("lobotomize active state uses correct pressed state", () => {
+        const { getByRole } = render(<MemoryFilters stats={{sprint:0,agent:0,project:0,activeModel:"test",staleEmbeddings:0}} sprints={[]} agentPresets={[]} showModels={false} setShowModels={() => {}} setShowAddModal={() => {}} lobotomize={true} handleLobotomizeToggle={() => {}} />);
+        const button = getByRole("button", { name: /Lobotomize Active/ });
+        expect(button).toHaveAttribute("aria-pressed", "true");
+    });
 });

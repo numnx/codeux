@@ -37,19 +37,21 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
     const cat = CAT[category] || CAT.context;
     const isSelected = useComputed(() => activeMemoryIdSignal.value === id);
     const { isOpen: isConfirmOpen, options: confirmOptions, requestConfirm, handleConfirm, handleCancel, triggerRef } = useConfirmDialog();
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleDelete = async (e: Event) => {
         e.stopPropagation();
         const confirmed = await requestConfirm({
             title: "Delete Memory",
-            body: `Are you sure you want to delete this memory from ${cat.label}?`,
+            body: `Are you sure you want to permanently delete this ${cat.label} memory? This will remove it from the agent's context and cannot be undone.`,
             confirmLabel: "Delete Memory",
             cancelLabel: "Cancel",
             destructive: true
         });
 
         if (confirmed) {
-            memoryMutationsSignal.value.removeMemory(id);
+            setIsDeleting(true);
+            try { await memoryMutationsSignal.value.removeMemory(id); } finally { setIsDeleting(false); }
         }
     };
 
@@ -58,6 +60,7 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
             role="option"
             tabIndex={0}
             aria-selected={isSelected.value}
+            aria-busy={isDeleting}
             aria-label={`${cat.label} memory, strength ${Math.round(strength * 100)}%. ${content}`}
             onClick={onClick}
             onKeyDown={(e) => {
@@ -67,9 +70,9 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
                 }
             }}
             className={`
-                group relative cursor-pointer p-4 rounded-[1.25rem] border transition-all duration-200 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900
+                group relative cursor-pointer ${isDeleting ? "opacity-50 pointer-events-none" : ""} p-4 rounded-[1.25rem] border transition-all duration-200 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-900
                 ${isSelected.value
-                    ? "bg-white dark:bg-void-800 border-signal-500 shadow-[0_4px_24px_rgba(0,224,160,0.15)]"
+                    ? "bg-white dark:bg-void-800 border-signal-500 shadow-[0_4px_24px_rgba(0,224,160,0.15)] ring-1 ring-signal-500"
                     : "bg-white/60 dark:bg-void-800/50 border-black/[0.06] dark:border-white/[0.06] hover:bg-white dark:hover:bg-void-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
                 }
             `}

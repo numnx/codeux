@@ -714,7 +714,8 @@ The dashboard relies on consistent interaction primitives across all v2 views:
 - **Reduced Motion**: All animated feedback (like CI spinners or GSAP transitions) uses Tailwind's `motion-reduce:animate-none` or explicit reduced-motion checks to disable looping animations if the user prefers reduced motion.
 - **Overlays & Modals**: Dismissible surfaces (dialogs, side panels, search overlays) can be closed via explicit buttons, clicking the backdrop, or pressing the Escape key. Focus is trapped within the overlay while open and restored to the trigger when closed.
 - **Data Views**: Complex data views (like the Sprint Ledger or Stats page) maintain sticky sort/filter controls while the data scrolls. List windowing and progressive rendering ensure smooth interactions even with large datasets.
-- **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges) and provides localized options to clean up state before proceeding.
+- **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task or permanently deleting memory records, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges, or permanent agent context loss) and provides localized options to clean up state before proceeding. Destructive "Lobotomize" modes use high-visibility danger styling (`ring-status-red`) to unmistakably convey risk.
+- **Selection & Pending States**: Data views and interactive lists (like Memory Cards) must provide clear visual and semantic indication of selection (e.g. `ring-signal-500` outline, `aria-selected`) and pending status for ongoing operations (e.g. `aria-busy`, `opacity-50`, and spinners).
 
 ## Accessibility Patterns
 
