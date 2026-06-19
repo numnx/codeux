@@ -146,9 +146,8 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
           </Row>
 
         </div>
-        <Row label="Auto-create PRs" description={settings.git.githubMode === "LOCAL" ? "Open pull requests automatically for remote git workflows. (Disabled in Local mode)" : "Open pull requests automatically for remote git workflows."} badge={getBadge("git.autoCreatePr")}>
-          <Toggle aria-label="Auto-create PRs" aria-description={settings.git.githubMode === "LOCAL" ? "Open pull requests automatically for remote git workflows. (Disabled in Local mode)" : "Open pull requests automatically for remote git workflows."} value={settings.git.githubMode === "LOCAL" ? false : settings.git.autoCreatePr}
-            disabled={settings.git.githubMode === "LOCAL"}
+        <Row label="Auto-create PRs" description="Open pull requests automatically for remote git workflows." badge={getBadge("git.autoCreatePr")} disabledReason={settings.git.githubMode === "LOCAL" ? "Disabled because Local GitHub mode is active." : undefined}>
+          <Toggle aria-label="Auto-create PRs" aria-description="Open pull requests automatically for remote git workflows." value={settings.git.githubMode === "LOCAL" ? false : settings.git.autoCreatePr} disabled={settings.git.githubMode === "LOCAL"}
             onChange={(value) => update({
               git: {
                 ...settings.git,
@@ -157,9 +156,8 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
             })}
           />
         </Row>
-        <Row label="Auto-close linked issues" description={settings.git.githubMode === "LOCAL" ? "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete. (Disabled in Local mode)" : "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete."} badge={getBadge("git.autoCloseLinkedIssues")}>
-          <Toggle aria-label="Auto-close linked issues" aria-description={settings.git.githubMode === "LOCAL" ? "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete. (Disabled in Local mode)" : "Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete."} value={settings.git.githubMode === "LOCAL" ? false : settings.git.autoCloseLinkedIssues}
-            disabled={settings.git.githubMode === "LOCAL"}
+        <Row label="Auto-close linked issues" description="Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete." badge={getBadge("git.autoCloseLinkedIssues")} disabledReason={settings.git.githubMode === "LOCAL" ? "Disabled because Local GitHub mode is active." : undefined}>
+          <Toggle aria-label="Auto-close linked issues" aria-description="Close imported GitHub/GitLab issues after the sprint finishes and the main merge gate is complete." value={settings.git.githubMode === "LOCAL" ? false : settings.git.autoCloseLinkedIssues} disabled={settings.git.githubMode === "LOCAL"}
             onChange={(value) => update({
               git: {
                 ...settings.git,

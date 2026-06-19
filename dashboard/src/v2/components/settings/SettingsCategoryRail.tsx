@@ -70,6 +70,7 @@ export const SettingsCategoryRail: FunctionComponent<SettingsCategoryRailProps> 
             key={category.id}
             type="button"
             onClick={() => onSwitchCategory(category.id)}
+            aria-current={isActive ? "step" : undefined}
             className={`group relative flex w-full items-center gap-3.5 rounded-[1.1rem] px-4 py-3.5 text-left transition-colors duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isDanger ? "focus-visible:outline-status-red" : "focus-visible:outline-signal-500"} ${
               isActive
                 ? isDanger

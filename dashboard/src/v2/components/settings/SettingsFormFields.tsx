@@ -15,9 +15,10 @@ export const SelectInput: FunctionComponent<{
   disabled?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
-}> = ({ value, onChange, options, disabled, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledby }) => (
+  "aria-invalid"?: boolean | "true" | "false";
+}> = ({ value, onChange, options, disabled, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledby, "aria-invalid": ariaInvalid }) => (
   <div className="min-w-[220px]">
-    <AvantgardeSelect value={value} onChange={onChange} options={options} disabled={disabled} aria-label={ariaLabel} aria-labelledby={ariaLabelledby} />
+    <AvantgardeSelect value={value} onChange={onChange} options={options} disabled={disabled} aria-label={ariaLabel} aria-labelledby={ariaLabelledby} aria-invalid={ariaInvalid} />
   </div>
 );
 
@@ -26,7 +27,9 @@ export const PillChoiceGroup: FunctionComponent<{
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string; hint?: string }>;
   disabled?: boolean;
-}> = ({ value, onChange, options, disabled }) => (
+  "aria-label"?: string;
+  "aria-description"?: string;
+}> = ({ value, onChange, options, disabled, "aria-label": ariaLabel, "aria-description": ariaDescription }) => (
   <div className="flex flex-wrap gap-2">
     {options.map((option) => {
       const active = option.value === value;
@@ -36,7 +39,7 @@ export const PillChoiceGroup: FunctionComponent<{
           type="button"
           disabled={disabled}
           onClick={() => onChange(option.value)}
-          className={`group relative min-w-[104px] overflow-hidden rounded-[1rem] border px-4 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 ${
+          aria-label={ariaLabel} aria-description={ariaDescription} className={`group relative min-w-[104px] overflow-hidden rounded-[1rem] border px-4 py-2 text-left transition-[border-color,background-color,color,transform,box-shadow] duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 ${
             active
               ? "border-signal-500/30 bg-signal-500/[0.11] text-signal-700 shadow-[0_10px_20px_rgba(0,224,160,0.08)] hover:bg-signal-500/[0.15] dark:border-signal-400/30 dark:bg-signal-400/[0.12] dark:text-signal-200 dark:hover:bg-signal-400/[0.16]"
               : "border-black/[0.06] bg-white/70 text-slate-600 hover:-translate-y-px hover:border-black/[0.12] hover:bg-black/[0.02] hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -74,13 +77,15 @@ export const TextInput: FunctionComponent<{
   disabled?: boolean;
   "aria-label"?: string;
   "aria-description"?: string;
-}> = ({ value, onChange, placeholder, mono, disabled, "aria-label": ariaLabel, "aria-description": ariaDescription }) => (
+  "aria-invalid"?: boolean | "true" | "false";
+}> = ({ value, onChange, placeholder, mono, disabled, "aria-label": ariaLabel, "aria-description": ariaDescription, "aria-invalid": ariaInvalid }) => (
   <UiInput
     value={value}
     placeholder={placeholder}
     disabled={disabled}
     aria-label={ariaLabel}
     aria-description={ariaDescription}
+    aria-invalid={ariaInvalid}
     onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
     className={mono ? "font-mono" : "font-sans"}
   />
@@ -114,7 +119,8 @@ export const NumberInput: FunctionComponent<{
   disabled?: boolean;
   "aria-label"?: string;
   "aria-description"?: string;
-}> = ({ value, onChange, min, max, step = 1, disabled, "aria-label": ariaLabel, "aria-description": ariaDescription }) => (
+  "aria-invalid"?: boolean | "true" | "false";
+}> = ({ value, onChange, min, max, step = 1, disabled, "aria-label": ariaLabel, "aria-description": ariaDescription, "aria-invalid": ariaInvalid }) => (
   <input
     type="number"
     value={value}
@@ -124,6 +130,7 @@ export const NumberInput: FunctionComponent<{
     disabled={disabled}
     aria-label={ariaLabel}
     aria-description={ariaDescription}
+    aria-invalid={ariaInvalid}
     onInput={(event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
     className="w-32 rounded-[1rem] border border-black/[0.06] hover:border-black/[0.12] bg-white/80 px-3.5 py-2.5 text-sm font-mono text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-signal-500/40 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-500 focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:bg-white/[0.05] dark:text-slate-200"
   />
@@ -157,8 +164,9 @@ export const Row: FunctionComponent<{
   last?: boolean;
   badge?: ComponentChildren;
   info?: ComponentChildren;
+  disabledReason?: string;
   onReset?: () => void;
-}> = ({ label, description, children, last, badge, info, onReset }) => (
+}> = ({ label, description, children, last, badge, info, disabledReason, onReset }) => (
   <div
     className={`group flex flex-col gap-4 rounded-[1.35rem] border border-black/[0.05] hover:border-black/[0.1] bg-black/[0.02] hover:bg-black/[0.03] px-4 py-4 md:flex-row md:items-start md:justify-between transition-colors duration-200 ${!last ? "" : ""} dark:border-white/[0.05] dark:hover:border-white/[0.1] dark:bg-white/[0.02] dark:hover:bg-white/[0.03]`}
   >
@@ -193,6 +201,9 @@ export const Row: FunctionComponent<{
       </div>
       {description ? (
         <div className="mt-0.5 text-xs font-medium leading-relaxed text-slate-400 group-hover:text-slate-500 dark:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-200">{description}</div>
+      ) : null}
+      {disabledReason ? (
+        <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{disabledReason}</div>
       ) : null}
     </div>
     <div className="w-full shrink-0 md:w-auto md:max-w-[34rem] lg:max-w-none">

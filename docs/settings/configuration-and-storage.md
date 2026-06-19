@@ -500,3 +500,7 @@ Runtime precedence for dashboard port is:
 6. Default `4444`
 
 If the configured port is already occupied, startup automatically increments by one (`4444`, `4445`, `4446`, ...) until a free port is found.
+
+## Accessibility and Form Safety
+
+Settings views enforce accessibility through explicit ARIA labeling, context-aware disabled reasoning, search result affordances, and predictable visual feedback. Fields map inherited state visually via "Inherited" badges which are strictly rendered for explicit overrides in the frontend while ensuring the backend source logic correctly resolves final state. Errors and success messages use ARIA live regions without causing unhandled page jumps.
