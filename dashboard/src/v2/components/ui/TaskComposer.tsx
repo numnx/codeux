@@ -77,15 +77,19 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
     event.preventDefault();
     if (!state.isValid) {
       state.setHasAttemptedSubmit(true);
-      if (!state.isTitleValid && titleInputRef.current) {
-        if (!reducedMotion) {
-          gsap.to(titleInputRef.current, {
-            keyframes: [{ x: -6 }, { x: 6 }, { x: -4 }, { x: 4 }, { x: 0 }],
-            duration: 0.4,
-            ease: "power2.inOut"
-          });
+      setTimeout(() => {
+        const firstInvalidField = fieldsRef.current?.querySelector('[aria-invalid="true"]') as HTMLElement | null;
+        if (firstInvalidField) {
+          firstInvalidField.focus();
+          if (!reducedMotion) {
+            gsap.to(firstInvalidField, {
+              keyframes: [{ x: -6 }, { x: 6 }, { x: -4 }, { x: 4 }, { x: 0 }],
+              duration: 0.4,
+              ease: "power2.inOut"
+            });
+          }
         }
-      }
+      }, 0);
       return;
     }
 
@@ -98,7 +102,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
       await onSubmit(state.getPayload());
       state.setIsSubmitting(false);
       setSuccess("Task submitted successfully.");
-      onClose();
+      setTimeout(() => onClose(), 1000);
     } catch (err) {
       state.setIsSubmitting(false);
       const msg = err instanceof Error ? err.message : String(err);
@@ -154,7 +158,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 value={state.sprintId}
                 onInput={(event) => state.setSprintId((event.target as HTMLSelectElement).value)}
                 onBlur={() => state.setFieldTouched('sprintId')}
-                className={`w-full bg-transparent text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg px-1 py-0.5 -ml-1 border ${(state.hasAttemptedSubmit || state.touchedFields.sprintId) && !state.isSprintIdValid ? 'border-red-500' : 'border-transparent'}`} aria-invalid={!state.isSprintIdValid}
+                className={`w-full bg-transparent text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg px-1 py-0.5 -ml-1 border ${(state.hasAttemptedSubmit || state.touchedFields.sprintId) && !state.isSprintIdValid ? 'border-red-500' : 'border-transparent'}`} aria-invalid={!state.isSprintIdValid && (state.hasAttemptedSubmit || state.touchedFields.sprintId) ? "true" : "false"}
                 required
               >
                 <option value="" disabled>Select sprint</option>
@@ -207,7 +211,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               onInput={(event) => state.setTitle((event.target as HTMLInputElement).value)}
               onBlur={() => state.setFieldTouched('title')}
               placeholder="Fix navigation layout shift"
-              className={`w-full border-0 border-b-2 bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem] ${(state.hasAttemptedSubmit || state.touchedFields.title) && !state.isTitleValid ? 'border-red-500' : 'border-black/[0.08] dark:border-white/[0.08]'}`} aria-invalid={!state.isTitleValid}
+              className={`w-full border-0 border-b-2 bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem] ${(state.hasAttemptedSubmit || state.touchedFields.title) && !state.isTitleValid ? 'border-red-500' : 'border-black/[0.08] dark:border-white/[0.08]'}`} aria-invalid={!state.isTitleValid && (state.hasAttemptedSubmit || state.touchedFields.title) ? "true" : "false"}
               required
               autoFocus
             />
@@ -242,7 +246,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     onBlur={() => state.setFieldTouched('description')}
                     placeholder="Summarize the intent and outcome."
                     className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
-                    aria-invalid={!state.isDescriptionValid}
+                    aria-invalid={!state.isDescriptionValid && (state.hasAttemptedSubmit || state.touchedFields.description) ? "true" : "false"}
                   />
                 </div>
                 <div
@@ -270,7 +274,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     onBlur={() => state.setFieldTouched('promptMarkdown')}
                     placeholder="Detailed markdown instructions for the agent."
                     className="min-h-[160px] w-full resize-none rounded-[1.7rem] bg-transparent px-4 py-4 text-sm leading-relaxed font-mono text-slate-700 outline-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:text-slate-300 dark:placeholder:text-slate-600 sm:px-5"
-                    aria-invalid={!state.isPromptMarkdownValid}
+                    aria-invalid={!state.isPromptMarkdownValid && (state.hasAttemptedSubmit || state.touchedFields.promptMarkdown) ? "true" : "false"}
                   />
                 </div>
                 <div
@@ -297,9 +301,11 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
                 <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Dependencies</label>
-                {state.dependencyOptions.length === 0 && availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 0 && (
+                {state.dependencyOptions.length === 0 && availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 0 ? (
                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-500 ml-2 bg-amber-500/10 px-1.5 py-0.5 rounded">Cycle Prevented</span>
-                )}
+                ) : state.dependsOnTaskIds.length > 0 ? (
+                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-ember-500 ml-2 bg-ember-500/10 px-1.5 py-0.5 rounded">{state.dependsOnTaskIds.length} Selected</span>
+                ) : null}
               </div>
               {availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 5 && (
                 <input
@@ -357,7 +363,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.priorityError}</div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2" onBlur={() => state.setFieldTouched('priority')}>
+            <div className="grid grid-cols-2 gap-2" onBlur={() => state.setFieldTouched('priority')} aria-invalid={!state.isPriorityValid && (state.hasAttemptedSubmit || state.touchedFields.priority) ? "true" : "false"} tabIndex={-1}>
               {PRIORITY_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -379,11 +385,13 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             <div className="flex items-center gap-2 mb-3">
               <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
               <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</label>
-              {(state.hasAttemptedSubmit || state.touchedFields.executorType) && state.executorTypeError && (
+              {(state.hasAttemptedSubmit || state.touchedFields.executorType) && state.executorTypeError ? (
                 <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.executorTypeError}</div>
-              )}
+              ) : state.executorType ? (
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-signal-500 bg-signal-500/10 px-1.5 py-0.5 rounded">Selected</div>
+              ) : null}
             </div>
-            <div className="grid gap-3" onBlur={() => state.setFieldTouched('executorType')}>
+            <div className="grid gap-3" onBlur={() => state.setFieldTouched('executorType')} aria-invalid={!state.isExecutorTypeValid && (state.hasAttemptedSubmit || state.touchedFields.executorType) ? "true" : "false"} tabIndex={-1}>
               {EXECUTOR_OPTIONS.map((option) => {
                 const isActive = state.executorType === option.value;
                 return (
