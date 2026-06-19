@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect } from "preact/hooks";
 import { gsap } from "gsap";
-import { useGsapDurations } from "../../lib/motion/constants.js";
+import { useGsapDurations, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 /**
  * Generic tab filter strip. Pass a const array of option strings,
@@ -37,6 +38,8 @@ export function FilterStrip<T extends string>({
     const isFirstRender = useRef(true);
     const durations = useGsapDurations();
 
+    const reducedMotion = useReducedMotion();
+
     useLayoutEffect(() => {
         const btn = buttonRefs.current[activeIndex];
         if (!btn || !pillRef.current) return;
@@ -48,7 +51,7 @@ export function FilterStrip<T extends string>({
             gsap.to(pillRef.current, {
                 x: btn.offsetLeft,
                 width: btn.offsetWidth,
-                duration: durations.base,
+                duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.selectionMovement.duration,
                 ease: 'power2.out'
             });
         }
@@ -105,7 +108,7 @@ export function FilterStrip<T extends string>({
                         onClick={() => onChange(value)}
                         onKeyDown={(e) => handleKeyDown(e as any, idx)}
                         // Note the z-10 so the button text is on top of the absolute indicator behind it
-                        className={`relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors duration-200 touch-target ${
+                        className={`relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors duration-[200ms] motion-reduce:duration-0 active:brightness-95 dark:active:brightness-110 touch-target ${
                             isActive
                                 ? 'text-slate-900 dark:text-white'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'

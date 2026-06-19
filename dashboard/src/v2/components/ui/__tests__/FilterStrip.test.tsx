@@ -143,3 +143,26 @@ test('renders clear button with accessible name when showClear is true', () => {
     const clearBtnDefault = screen.getByRole('button', { name: 'Clear filters' });
     expect(clearBtnDefault).toBeInTheDocument();
 });
+
+test('respects reduced motion when changing tabs', () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+    }));
+
+    const options = ['a', 'b'] as const;
+    const onChange = vi.fn();
+    render(<FilterStrip options={options} active="a" onChange={onChange} />);
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0]).toBeInTheDocument();
+
+    window.matchMedia = originalMatchMedia;
+});
