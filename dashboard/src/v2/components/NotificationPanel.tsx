@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
+import { GSAP_INTERACTION_TOKENS, useGsapDurations } from "../lib/motion/constants.js";
 import { CheckCheck, RefreshCw, X } from "lucide-preact";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 import type { DashboardNotification } from "../hooks/use-notifications.js";
@@ -49,6 +50,7 @@ export const NotificationPanel: FunctionComponent<{
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const durations = useGsapDurations();
 
   useLayoutEffect(() => {
     if (!panelRef.current) return;
@@ -61,19 +63,19 @@ export const NotificationPanel: FunctionComponent<{
           y: 0,
           opacity: 1,
           scale: 1,
-          duration: prefersReducedMotion ? 0 : 0.25,
-          ease: "power2.out",
+          duration: durations.base,
+          ease: GSAP_INTERACTION_TOKENS.enterExit.ease,
         },
       );
       gsap.fromTo(
         panelRef.current?.querySelectorAll("[data-notification-item]") || [],
         { opacity: 0, x: 10 },
-        { opacity: 1, x: 0, duration: prefersReducedMotion ? 0 : 0.22, stagger: 0.035, ease: "power2.out" },
+        { opacity: 1, x: 0, duration: durations.base, stagger: 0.035, ease: GSAP_INTERACTION_TOKENS.enterExit.ease },
       );
     });
 
     return () => ctx.revert();
-  }, [prefersReducedMotion, notifications.length]);
+  }, [durations, notifications.length]);
 
   return (
     <div
@@ -168,19 +170,32 @@ export const NotificationPanel: FunctionComponent<{
                       {notification.actionLabel && notification.onAction ? (
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            if (document.activeElement === e.currentTarget) {
+                              const fallback = document.querySelector('[role="main"]') || document.body;
+                              (fallback as HTMLElement).focus();
+                              (e.currentTarget as HTMLElement).blur();
+                            }
                             onMarkRead(notification.id);
                             notification.onAction?.();
                           }}
-                          className="rounded-full border border-signal-500/20 bg-signal-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-300"
+                          className="rounded-full border border-black/10 bg-black/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 hover:bg-black/10 hover:text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
                         >
                           {notification.actionLabel}
                         </button>
                       ) : null}
                       {notification.dismissible ? (
                         <button
+
                           type="button"
-                          onClick={() => onDismiss(notification.id)}
+                          onClick={(e) => {
+                            if (document.activeElement === e.currentTarget) {
+                              const fallback = document.querySelector('[role="main"]') || document.body;
+                              (fallback as HTMLElement).focus();
+                              (e.currentTarget as HTMLElement).blur();
+                            }
+                            onDismiss(notification.id);
+                          }}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-black/[0.05] hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
                           aria-label={`Dismiss ${notification.title}`}
                         >

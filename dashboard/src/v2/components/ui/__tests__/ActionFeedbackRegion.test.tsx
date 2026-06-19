@@ -44,7 +44,7 @@ describe("ActionFeedbackRegion", () => {
     expect(err).toHaveAttribute("aria-live", "assertive");
   });
 
-  it("applies contextual accessible names to buttons and aria-hidden to progress", () => {
+  it("applies contextual accessible names to buttons and aria-hidden to progress and does not auto-dismiss error or pending", () => {
     render(
       <ActionFeedbackRegion
         status="success"
@@ -58,5 +58,14 @@ describe("ActionFeedbackRegion", () => {
     const dismissBtn = screen.getByRole("button", { name: "Dismiss: Saved successfully" });
     expect(retryBtn).toBeInTheDocument();
     expect(dismissBtn).toBeInTheDocument();
+  });
+
+  it("does not render progress for pending or error statuses", () => {
+    const { unmount } = render(<ActionFeedbackRegion status="error" message="Error msg" />);
+    expect(document.querySelector(".absolute.bottom-0")).not.toBeInTheDocument();
+    unmount();
+
+    render(<ActionFeedbackRegion status="pending" message="Pending msg" />);
+    expect(document.querySelector(".absolute.bottom-0")).not.toBeInTheDocument();
   });
 });
