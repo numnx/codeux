@@ -81,7 +81,7 @@ const SprintsProjectPlaceholder: FunctionComponent<{
     <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
       <div>
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[1.35rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_32px_rgba(0,224,160,0.16)]">
-          <Layers className="h-7 w-7" strokeWidth={1.7} />
+          <Layers className="h-7 w-7" strokeWidth={1.7} aria-hidden="true" />
         </div>
         <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-signal-500">
           Sprint Workspace Standby
@@ -106,22 +106,22 @@ const SprintsProjectPlaceholder: FunctionComponent<{
             to="/projects"
             className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/75 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all hover:-translate-y-px hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white"
           >
-            <FolderOpen className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.1} />
+            <FolderOpen className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.1} aria-hidden="true" />
             Manage Projects
-            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.1} />
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.1} aria-hidden="true" />
           </Link>
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 dark:border-white/[0.06] dark:bg-white/[0.035]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_65%_at_50%_0%,rgba(255,184,0,0.12),transparent_68%)]" />
-        <div className="relative z-10 space-y-3">
+        <div className="relative overflow-hidden rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 dark:border-white/[0.06] dark:bg-white/[0.035]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_65%_at_50%_0%,rgba(255,184,0,0.12),transparent_68%)]" />
+        <ul className="relative z-10 space-y-3">
           {[
             { label: "Project", value: hasProjects ? "selectable" : "required", tone: "text-ember-500" },
             { label: "Gallery", value: "waiting", tone: "text-signal-500" },
             { label: "Planning", value: "locked", tone: "text-slate-500 dark:text-slate-400" },
           ].map((item, index) => (
-            <div
+            <li
               key={item.label}
               className="rounded-[1.15rem] border border-white/60 bg-white/72 p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.04]"
             >
@@ -130,13 +130,13 @@ const SprintsProjectPlaceholder: FunctionComponent<{
                   <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{item.label}</div>
                   <div className={`mt-1 text-xs font-bold uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</div>
                 </div>
-                <div className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-ember-500" : index === 1 ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`}>
+                <div aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-ember-500" : index === 1 ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`}>
                   <span className="block h-full w-full rounded-full animate-ping bg-current opacity-40" />
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   </div>
@@ -377,7 +377,7 @@ export const SprintsPage: FunctionComponent = () => {
         <div ref={headerRef} className="flex flex-wrap items-end justify-between gap-8">
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-2.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-signal-500">
-              <Target className="h-4 w-4" strokeWidth={2.5} />
+              <Target className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
               Iteration Cycles
             </div>
             <h1 className="font-display text-5xl font-black leading-[0.92] tracking-tighter text-slate-900 dark:text-white md:text-7xl">
@@ -396,31 +396,33 @@ export const SprintsPage: FunctionComponent = () => {
               className="mt-2"
             />
             {selectedProject && (
-              <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
+              <div role="status" aria-label={planningRoute.available ? `Planning route available via ${planningRoute.label}` : "No planning worker available"} className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
                 planningRoute.available
                   ? "border-signal-500/20 bg-signal-500/[0.08] text-signal-600 dark:text-signal-300"
                   : "border-status-red/20 bg-status-red/10 text-status-red"
               }`}>
-                <Radio className="h-3.5 w-3.5" strokeWidth={2.1} />
+                <Radio className="h-3.5 w-3.5" strokeWidth={2.1} aria-hidden="true" />
                 {planningRoute.available ? `Planning via ${planningRoute.label}` : "No planning worker available"}
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <ul aria-label="Sprint summary" className="flex flex-wrap items-center gap-2">
             {[
               { label: "Total", value: sortedSprints.length, icon: Target },
               { label: "Completed", value: completedCount, icon: CheckCircle2 },
               { label: "In Work", value: inWorkCount, icon: Activity },
             ].map(({ label, value, icon: Icon }) => (
-              <div
+              <li
                 key={label}
                 className="inline-flex items-center gap-3 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300"
               >
-                <Icon className="h-3.5 w-3.5 text-signal-500" strokeWidth={2} />
+                <Icon className="h-3.5 w-3.5 text-signal-500" strokeWidth={2} aria-hidden="true" />
                 {label} <span className="font-mono text-slate-700 dark:text-white">{value}</span>
-              </div>
+              </li>
             ))}
+          </ul>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setShowSprintGallery((current) => !current)}
@@ -429,9 +431,9 @@ export const SprintsPage: FunctionComponent = () => {
               className="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/72 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all hover:-translate-y-px hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:text-white"
             >
               {showSprintGallery ? (
-                <EyeOff className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.2} />
+                <EyeOff className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.2} aria-hidden="true" />
               ) : (
-                <Eye className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} />
+                <Eye className="h-3.5 w-3.5 text-signal-500" strokeWidth={2.2} aria-hidden="true" />
               )}
               {showSprintGallery ? "Hide Gallery" : "Show Gallery"}
             </button>
@@ -457,7 +459,7 @@ export const SprintsPage: FunctionComponent = () => {
                   : "bg-ember-500 text-void-900 hover:-translate-y-px hover:bg-ember-400"
               }`}
             >
-              {showQuicksprint ? <X className="h-3.5 w-3.5" strokeWidth={2.3} /> : <Zap className="h-3.5 w-3.5" strokeWidth={2.3} />}
+              {showQuicksprint ? <X className="h-3.5 w-3.5" strokeWidth={2.3} aria-hidden="true" /> : <Zap className="h-3.5 w-3.5" strokeWidth={2.3} aria-hidden="true" />}
               {showQuicksprint ? "Close Quicksprint" : "Quicksprint"}
             </button>
             <button
@@ -482,7 +484,7 @@ export const SprintsPage: FunctionComponent = () => {
                   : "bg-signal-500 text-void-900 hover:-translate-y-px hover:bg-signal-400"
               }`}
             >
-              {(showCreateComposer || editingSprint) ? <X className="h-3.5 w-3.5" strokeWidth={2.3} /> : <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />}
+              {(showCreateComposer || editingSprint) ? <X className="h-3.5 w-3.5" strokeWidth={2.3} aria-hidden="true" /> : <Plus className="h-3.5 w-3.5" strokeWidth={2.3} aria-hidden="true" />}
               {(showCreateComposer || editingSprint) ? "Close Composer" : "New Sprint"}
             </button>
           </div>
@@ -498,7 +500,9 @@ export const SprintsPage: FunctionComponent = () => {
                     : "max-h-[240rem] overflow-visible translate-y-0 scale-100 opacity-100 blur-0"
                 }`}
               >
-                <div ref={bubblesRef} className="flex flex-wrap justify-center gap-10 py-6 xl:gap-12">
+                <section aria-labelledby="sprint-gallery-heading">
+                  <h2 id="sprint-gallery-heading" className="sr-only">Sprint gallery</h2>
+                <div ref={bubblesRef} role="list" className="flex flex-wrap justify-center gap-10 py-6 xl:gap-12">
                   {showcaseSprints.map((sprint, index) => {
                     const activeRun = activeRunsBySprintId.get(sprint.id);
                     const pendingActionId = activeRun ? `sprint-stop:${activeRun.id}` : `sprint-start:${sprint.id}`;
@@ -511,78 +515,82 @@ export const SprintsPage: FunctionComponent = () => {
                     );
 
   return (
-                      <SprintCell
-                        key={sprint.id}
-                        sprint={sprint}
-                        isEven={index % 2 === 0}
-                        accentColor={ACCENT_CYCLE[index % ACCENT_CYCLE.length]}
-                        primaryBusy={pendingActionIds.has(pendingActionId)}
-                        showcaseBusy={pendingActionIds.has(pinActionId)}
-                        isPaused={isPaused}
-                        pauseResumeBusy={pauseResumeBusy}
-                        humanIntervention={interventionBySprintId.get(sprint.id) || null}
-                        onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
-                        onPauseResume={pauseResumeRun ? () => { handleSprintPauseResume(sprint.id); } : undefined}
-                        onAddTasks={() => { void handleOpenAppendTasks(sprint); }}
-                        onMarkCompleted={() => { void handleMarkCompleted(sprint.id); }}
-                        onEdit={() => {
-                          setEditingSprint(sprint);
-                          setShowCreateComposer(false);
-                          setLinkedIssues(sprint.linkedIssues || []);
-                        }}
-                        onDelete={() => {
-                          void requestConfirm({
-                            title: "Delete Sprint?",
-                            body: "Are you sure you want to delete this sprint? All associated tasks and execution history will be permanently removed.",
-                            confirmLabel: "Delete Sprint",
-                            cancelLabel: "Cancel",
-                            destructive: true,
-                          }).then((confirmed) => {
-                            if (confirmed) {
-                              void handleDeleteSprint(sprint.id);
-                            }
-                          });
-                        }}
-                        onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
-                        onOverrides={() => { setOverrideSprint(sprint); }}
-                        onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
-                      />
+                      <div key={sprint.id} role="listitem">
+                        <SprintCell
+                          sprint={sprint}
+                          isEven={index % 2 === 0}
+                          accentColor={ACCENT_CYCLE[index % ACCENT_CYCLE.length]}
+                          primaryBusy={pendingActionIds.has(pendingActionId)}
+                          showcaseBusy={pendingActionIds.has(pinActionId)}
+                          isPaused={isPaused}
+                          pauseResumeBusy={pauseResumeBusy}
+                          humanIntervention={interventionBySprintId.get(sprint.id) || null}
+                          onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
+                          onPauseResume={pauseResumeRun ? () => { handleSprintPauseResume(sprint.id); } : undefined}
+                          onAddTasks={() => { void handleOpenAppendTasks(sprint); }}
+                          onMarkCompleted={() => { void handleMarkCompleted(sprint.id); }}
+                          onEdit={() => {
+                            setEditingSprint(sprint);
+                            setShowCreateComposer(false);
+                            setLinkedIssues(sprint.linkedIssues || []);
+                          }}
+                          onDelete={() => {
+                            void requestConfirm({
+                              title: "Delete Sprint?",
+                              body: "Are you sure you want to delete this sprint? All associated tasks and execution history will be permanently removed.",
+                              confirmLabel: "Delete Sprint",
+                              cancelLabel: "Cancel",
+                              destructive: true,
+                            }).then((confirmed) => {
+                              if (confirmed) {
+                                void handleDeleteSprint(sprint.id);
+                              }
+                            });
+                          }}
+                          onExport={() => { void handleOpenExport(sprint.id, sprint.name); }}
+                          onOverrides={() => { setOverrideSprint(sprint); }}
+                          onToggleShowcase={() => { void handleToggleShowcase(sprint); }}
+                        />
+                      </div>
                     );
                   })}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingSprint(null);
-                      setLinkedIssues([]);
-                      setShowCreateComposer(true);
-                    }}
-                    disabled={!selectedProject}
-                    className="group relative flex h-72 w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80"
-                  >
-                    <div
-                      className="absolute inset-0 animate-organic border-2 border-dashed border-signal-500/25 transition-all duration-500 group-hover:border-signal-500/60"
-                      style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
-                    />
-                    <div
-                      className="absolute inset-0 animate-organic-reverse bg-signal-500/0 transition-all duration-500 group-hover:bg-signal-500/[0.04]"
-                      style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
-                    />
-                    <div className="relative z-10 flex flex-col items-center gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-signal-500/30 transition-all duration-400 group-hover:border-signal-500 group-hover:bg-signal-500/10">
-                        <Plus className="h-6 w-6 text-signal-500/40 transition-all duration-400 group-hover:rotate-90 group-hover:scale-110 group-hover:text-signal-500" />
+                  <div role="listitem">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSprint(null);
+                        setLinkedIssues([]);
+                        setShowCreateComposer(true);
+                      }}
+                      disabled={!selectedProject}
+                      className="group relative flex h-72 w-72 shrink-0 cursor-pointer items-center justify-center perspective-1000 lg:h-80 lg:w-80"
+                    >
+                      <div
+                        className="absolute inset-0 animate-organic border-2 border-dashed border-signal-500/25 transition-all duration-500 group-hover:border-signal-500/60"
+                        style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
+                      />
+                      <div
+                        className="absolute inset-0 animate-organic-reverse bg-signal-500/0 transition-all duration-500 group-hover:bg-signal-500/[0.04]"
+                        style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
+                      />
+                      <div className="relative z-10 flex flex-col items-center gap-4">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-signal-500/30 transition-all duration-400 group-hover:border-signal-500 group-hover:bg-signal-500/10">
+                          <Plus className="h-6 w-6 text-signal-500/40 transition-all duration-400 group-hover:rotate-90 group-hover:scale-110 group-hover:text-signal-500" aria-hidden="true" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-300 transition-colors duration-300 group-hover:text-signal-500 dark:text-slate-600">
+                            New Sprint
+                          </span>
+                          <span className="font-mono text-[9px] text-slate-200 transition-colors duration-300 group-hover:text-slate-400 dark:text-slate-700">
+                            {nextId.toUpperCase()}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-300 transition-colors duration-300 group-hover:text-signal-500 dark:text-slate-600">
-                          New Sprint
-                        </span>
-                        <span className="font-mono text-[9px] text-slate-200 transition-colors duration-300 group-hover:text-slate-400 dark:text-slate-700">
-                          {nextId.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 </div>
+                </section>
               </div>
 
               <div
@@ -592,7 +600,8 @@ export const SprintsPage: FunctionComponent = () => {
                     : "pointer-events-none max-h-0 overflow-hidden translate-y-10 scale-[0.985] opacity-0 blur-[10px]"
                 }`}
               >
-                <div className="relative">
+                <section aria-labelledby="sprint-composer-heading" className="relative">
+                  <h2 id="sprint-composer-heading" className="sr-only">{editingSprint ? "Edit sprint" : "New sprint"}</h2>
                   <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] bg-[radial-gradient(circle_at_top,rgba(0,224,160,0.08),transparent_46%)] dark:bg-[radial-gradient(circle_at_top,rgba(0,224,160,0.12),transparent_46%)]" />
                   <SprintComposer
                     nextId={nextId}
@@ -628,7 +637,7 @@ export const SprintsPage: FunctionComponent = () => {
                       )));
                     }}
                   />
-                </div>
+                </section>
               </div>
 
               <div
@@ -638,7 +647,8 @@ export const SprintsPage: FunctionComponent = () => {
                     : "pointer-events-none max-h-0 overflow-hidden translate-y-10 scale-[0.985] opacity-0 blur-[10px]"
                 }`}
               >
-                <div className="relative">
+                <section aria-labelledby="quicksprint-heading" className="relative">
+                  <h2 id="quicksprint-heading" className="sr-only">Quicksprint</h2>
                   <QuicksprintPanel
                     projectId={selectedProject.id}
                     onClose={() => setShowQuicksprint(false)}
@@ -656,11 +666,12 @@ export const SprintsPage: FunctionComponent = () => {
                     onUpdateTemplate={handleUpdateQuicksprintTemplate}
                     onDeleteTemplate={handleDeleteQuicksprintTemplate}
                   />
-                </div>
+                </section>
               </div>
             </div>
 
-            <div className="rounded-[2.2rem] border border-black/[0.06] bg-white/70 shadow-[0_12px_36px_rgba(15,23,42,0.05)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/62 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
+            <section aria-labelledby="sprint-ledger-heading" className="rounded-[2.2rem] border border-black/[0.06] bg-white/70 shadow-[0_12px_36px_rgba(15,23,42,0.05)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/62 dark:shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
+              <h2 id="sprint-ledger-heading" className="sr-only">Sprint ledger</h2>
               <SprintLedger
                 initialQuery={searchParams?.sprintKey as string | undefined}
                 sprints={progressiveSprints}
@@ -707,7 +718,7 @@ export const SprintsPage: FunctionComponent = () => {
                 onBulkShowcaseEnable={handleBulkShowcaseEnable}
                 onBulkShowcaseDisable={handleBulkShowcaseDisable}
               />
-            </div>
+            </section>
           </>
         ) : (
           <SprintsProjectPlaceholder

@@ -339,7 +339,8 @@ export const AgentsPage: FunctionComponent = () => {
 
       {/* Roster summary strip — only when project is loaded */}
       {selectedProject && presets.length > 0 && (
-        <section aria-label="Roster Summary" className="grid w-full grid-cols-2 gap-4 lg:grid-cols-4">
+        <section aria-labelledby="agent-roster-summary-heading" className="grid w-full grid-cols-2 gap-4 lg:grid-cols-4">
+          <h2 id="agent-roster-summary-heading" className="sr-only">Roster summary</h2>
           <RosterStat label="Total Agents" value={rosterStats.total} accent="signal" icon={Bot} />
           <RosterStat label="Synced" value={rosterStats.synced} accent="signal" icon={ShieldCheck} />
           <RosterStat label="Drift" value={rosterStats.drift} accent={rosterStats.drift > 0 ? "amber" : "slate"} icon={AlertTriangle} />
@@ -377,7 +378,8 @@ export const AgentsPage: FunctionComponent = () => {
       ) : presets.length > 0 || instructionFiles.length > 0 ? (
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start">
           {/* Sidebar rail */}
-          <aside className="flex w-full flex-col gap-6 xl:w-[340px] xl:shrink-0">
+          <aside aria-labelledby="agent-roster-heading" className="flex w-full flex-col gap-6 xl:w-[340px] xl:shrink-0">
+            <h2 id="agent-roster-heading" className="sr-only">Agent roster</h2>
             {/* Agents group */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between px-1">
@@ -391,15 +393,16 @@ export const AgentsPage: FunctionComponent = () => {
                 )}
               </div>
               {presets.length > 0 ? (
-                <div className="flex flex-col gap-2.5">
+                <div role="list" aria-label="Agents" className="flex flex-col gap-2.5">
                   {presets.map((preset) => (
-                    <AgentPresetShowcaseCard
-                      key={preset.id}
-                      preset={preset}
-                      routeTags={routeTagsByPresetId.get(preset.id) ?? []}
-                      isSelected={selectedPresetId === preset.id && !selectedFileId}
-                      onClick={() => selectAgent(preset.id)}
-                    />
+                    <div key={preset.id} role="listitem">
+                      <AgentPresetShowcaseCard
+                        preset={preset}
+                        routeTags={routeTagsByPresetId.get(preset.id) ?? []}
+                        isSelected={selectedPresetId === preset.id && !selectedFileId}
+                        onClick={() => selectAgent(preset.id)}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (

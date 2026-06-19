@@ -8,7 +8,7 @@ import { SkeletonCard } from "./layout/SkeletonLoader.js";
 import { useProjectData } from "../context/project-data.js";
 import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 
-export const SourcesGrid: FunctionComponent = () => {
+export const SourcesGrid: FunctionComponent<{ headingId?: string }> = ({ headingId }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { projects, loading: projectsLoading } = useProjectData();
     const prefersReducedMotion = useReducedMotion();
@@ -47,6 +47,7 @@ export const SourcesGrid: FunctionComponent = () => {
                 watermark="DATA"
                 icon={<Activity className="w-5 h-5 text-signal-500" strokeWidth={2.5} />}
                 title="Projects & Sources"
+                titleId={headingId}
             />
 
             <div

@@ -598,38 +598,39 @@ export const ProjectsPage: FunctionComponent = () => {
                     {/* Header right */}
                     <div className="flex flex-col items-end gap-4 shrink-0">
                         {/* Status pills */}
-                        <div className="flex items-center gap-2.5">
+                        <ul aria-label="Project summary" className="flex items-center gap-2.5">
                             {runningCount > 0 && (
-                                <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full
+                                <li className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full
                                                bg-status-green/[0.08] text-status-green
                                                border border-status-green/20
                                                flex items-center gap-2
                                                shadow-[0_0_16px_rgba(0,171,132,0.08)]">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-status-green relative">
+                                    <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-status-green relative">
                                         <span className="absolute inset-0 rounded-full animate-ping bg-status-green opacity-70" />
                                     </span>
                                     {runningCount} Running
-                                </div>
+                                </li>
                             )}
-                            <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full
+                            <li className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full
                                            bg-black/[0.04] dark:bg-white/[0.04] text-slate-500
                                            border border-black/[0.06] dark:border-white/[0.06]
                                            flex items-center gap-2">
-                                <FolderOpen className="w-3 h-3" strokeWidth={2} />
+                                <FolderOpen className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                                 {sources.length} Total
-                            </div>
-                        </div>
+                            </li>
+                        </ul>
 
                         {/* CTA */}
                         <div className="flex items-center gap-3">
                             <button
+                                type="button"
                                 onClick={() => {
                                     setModalSourceType('new_project');
                                     setShowModal(true);
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 bg-ember-500 hover:bg-ember-400 text-void-900 font-bold text-sm rounded-2xl transition-all active:scale-95 shadow-[0_4px_20px_rgba(255,184,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,184,0,0.4)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-500"
                             >
-                                <Sparkles className="w-4 h-4" />
+                                <Sparkles className="w-4 h-4" aria-hidden="true" />
                                 New Project
                             </button>
                         </div>
@@ -637,11 +638,14 @@ export const ProjectsPage: FunctionComponent = () => {
                 </div>
 
                 {/* ── Filter Tab Strip ────────────────────────────────── */}
-                <div className="-mt-4 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+                <nav aria-labelledby="project-filters-heading" className="-mt-4 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+                    <h2 id="project-filters-heading" className="sr-only">Project filters</h2>
                     {(['All', 'Running', 'Idle', 'Failed'] as Filter[]).map(f => (
                         <button
                             key={f}
+                            type="button"
                             onClick={() => setActiveFilter(f)}
+                            aria-pressed={activeFilter === f}
                             className={`text-xs font-semibold tracking-wide px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2
                                 ${activeFilter === f
                                     ? 'bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]'
@@ -658,10 +662,11 @@ export const ProjectsPage: FunctionComponent = () => {
                             </span>
                         </button>
                     ))}
-                </div>
+                </nav>
 
                 {/* ── Cards Grid ──────────────────────────────────────── */}
-                <div ref={gridRef} className="grid grid-cols-1 grid-rows-1 relative">
+                <section aria-labelledby="project-list-heading" ref={gridRef} className="grid grid-cols-1 grid-rows-1 relative">
+                    <h2 id="project-list-heading" className="sr-only">Projects</h2>
                     <SkeletonLoader
                         show={showSkeletons}
                         className="col-start-1 row-start-1"
@@ -675,9 +680,9 @@ export const ProjectsPage: FunctionComponent = () => {
                         )}
                     >
                     {!loading ? (
-                        <div className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        <div role="list" className="col-start-1 row-start-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                             {filtered.map(source => (
-                                <div key={source.id} className="project-card-entry h-full">
+                                <div key={source.id} role="listitem" className="project-card-entry h-full">
                                     <ProjectCard
                                         source={source}
                                         isSelected={selectedProjectId === source.id}
@@ -699,7 +704,7 @@ export const ProjectsPage: FunctionComponent = () => {
                                     />
                                 </div>
                             ))}
-                            <div className="project-card-entry h-full">
+                            <div role="listitem" className="project-card-entry h-full">
                                 <AddCard onClick={() => {
                                     setModalSourceType('local');
                                     setShowModal(true);
@@ -708,7 +713,7 @@ export const ProjectsPage: FunctionComponent = () => {
                         </div>
                     ) : null}
                     </SkeletonLoader>
-                </div>
+                </section>
             </PageContainer>
 
             {showModal && (

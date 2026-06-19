@@ -54,7 +54,7 @@ export const SprintLedgerHeader: FunctionComponent<SprintLedgerHeaderProps> = ({
   return (
     <div
       role="region"
-      aria-label="Sprint Ledger"
+      aria-labelledby="sprint-ledger-header-heading"
       className="relative overflow-visible border-b border-black/[0.06] px-4 py-5 dark:border-white/[0.06] sm:px-6 lg:px-7"
     >
       <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
@@ -63,7 +63,7 @@ export const SprintLedgerHeader: FunctionComponent<SprintLedgerHeaderProps> = ({
             <Heart className="h-3.5 w-3.5" strokeWidth={2.3} />
             Sprint Ledger
           </div>
-          <h2 className="mt-3 font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+          <h2 id="sprint-ledger-header-heading" className="mt-3 font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
             All sprints, fully sortable.
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">

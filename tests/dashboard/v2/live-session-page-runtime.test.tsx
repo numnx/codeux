@@ -927,4 +927,32 @@ describe("LiveSessionPage Integration Isolation", () => {
     expect(ciRunCard).not.toBeNull();
     expect(ciRunCard?.querySelector("svg.animate-spin")).toBeTruthy();
   });
+
+  it("exposes one page heading with named visualization, filters, task list, and runtime sidebar landmarks", () => {
+    vi.mocked(useDashboardRuntimeData).mockReturnValue({
+      error: null,
+      gitStatus: null,
+      gitStatusError: null,
+      initialLoadComplete: true,
+      transportState: "connected",
+      isRecovering: false,
+      snapshotUpdatedAt: new Date().toISOString(),
+      refreshGitStatus: vi.fn(),
+      refreshRuntimeStatus: vi.fn(),
+      selectedSprintId: "s1",
+      status: { subtasks: [], timestamp: "2024-01-01T00:00:00Z", project_id: "p1", sprint_id: "s1" },
+      execution: mockExecution,
+      stats: { total: 0 } as any,
+      tasksWithLiveActivities: [],
+    } as any);
+
+    render(<LiveSessionPage />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: /sprint pipeline/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /live sprint visualization/i })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /live task filters/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /live task pipeline/i })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /runtime details/i })).toBeInTheDocument();
+  });
 });

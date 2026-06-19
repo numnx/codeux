@@ -430,7 +430,6 @@ export const LiveSessionPage: FunctionComponent = () => {
 
     return (
         <PageContainer className="gap-16">
-            <h1 className="sr-only">Live Session</h1>
             <ConfirmDialog isOpen={isConfirmOpen} options={confirmOptions} onConfirm={handleConfirm} onCancel={handleCancel} />
             <LiveTransportBanner
                 transportState={transportState}
@@ -458,41 +457,47 @@ export const LiveSessionPage: FunctionComponent = () => {
             />
 
             {/* ── Header View: Stats or Boat Race ─────────────────────── */}
-            {headerView === "stats" ? (
-                <SprintStatsDeck
-                    hasSprintContext={hasSprintContext}
-                    stats={visibleStats}
-                    tasks={visibleTasksWithLiveActivities}
-                    sprintTiming={sprintTiming}
-                />
-            ) : headerView === "race" ? (
-                /* ── Boat Race View ───────────────────────────────── */
-                <Suspense fallback={<SkeletonPanel />}>
-                    <SprintBoatRace
-                        tasks={visibleTasksWithLiveActivities}
-                        dispatches={sprintDispatches}
+            <section aria-labelledby="live-visualization-heading">
+                <h2 id="live-visualization-heading" className="sr-only">Live sprint visualization</h2>
+                {headerView === "stats" ? (
+                    <SprintStatsDeck
                         hasSprintContext={hasSprintContext}
-                    />
-                </Suspense>
-            ) : (
-                <Suspense fallback={<SkeletonPanel />}>
-                    <SprintDag
+                        stats={visibleStats}
                         tasks={visibleTasksWithLiveActivities}
-                        dispatches={sprintDispatches}
-                        hasSprintContext={hasSprintContext}
+                        sprintTiming={sprintTiming}
                     />
-                </Suspense>
-            )}
+                ) : headerView === "race" ? (
+                    /* ── Boat Race View ───────────────────────────────── */
+                    <Suspense fallback={<SkeletonPanel />}>
+                        <SprintBoatRace
+                            tasks={visibleTasksWithLiveActivities}
+                            dispatches={sprintDispatches}
+                            hasSprintContext={hasSprintContext}
+                        />
+                    </Suspense>
+                ) : (
+                    <Suspense fallback={<SkeletonPanel />}>
+                        <SprintDag
+                            tasks={visibleTasksWithLiveActivities}
+                            dispatches={sprintDispatches}
+                            hasSprintContext={hasSprintContext}
+                        />
+                    </Suspense>
+                )}
+            </section>
 
             {/* ── Section Divider ─────────────────────────────────────── */}
             <SectionDivider label="Task Pipeline" />
 
             {/* ── Filter Strip ────────────────────────────────────────── */}
-            <div className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+            <nav aria-labelledby="live-task-filters-heading" className="-mt-8 flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit">
+                <h2 id="live-task-filters-heading" className="sr-only">Live task filters</h2>
                 {TASK_FILTERS.map((filter) => (
                     <button
                         key={filter}
+                        type="button"
                         onClick={() => setFilter(filter)}
+                        aria-pressed={activeFilter === filter}
                         className={`text-xs font-semibold tracking-wide px-4 py-1.5 rounded-lg
                                    transition-all duration-200 flex items-center gap-2
                                    ${activeFilter === filter
@@ -510,13 +515,14 @@ export const LiveSessionPage: FunctionComponent = () => {
                         </span>
                     </button>
                 ))}
-            </div>
+            </nav>
 
             {/* ── Main Content Grid ───────────────────────────────────── */}
             <div ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:gap-16">
 
                 {/* Task cards */}
-                <div className="xl:col-span-8 flex flex-col gap-5">
+                <section aria-labelledby="live-task-list-heading" className="xl:col-span-8 flex flex-col gap-5">
+                    <h2 id="live-task-list-heading" className="sr-only">Live task pipeline</h2>
                     {!hasSprintContext && !initialLoadComplete ? (
                         /* Initial load in progress — render nothing to avoid flashing idle placeholder */
                         null
@@ -540,29 +546,33 @@ export const LiveSessionPage: FunctionComponent = () => {
                             </div>
                         </div>
                     ) : (
-                        taskCardItems.map(({ key, task, phase, taskTiming, events, isRerunning, isForceCompleting, forceCompleteError, dispatchInfo }) => (
-                            <LiveTaskCard
-                                key={key}
-                                task={task}
-                                allTasks={visibleTasksWithLiveActivities}
-                                phase={phase}
-                                taskTiming={taskTiming}
-                                events={events}
-                                onRerun={handleRerun}
-                                onEdit={handleEditTask}
-                                onForceComplete={handleForceCompleteTask}
-                                isRerunning={isRerunning}
-                                isForceCompleting={isForceCompleting}
-                                forceCompleteError={forceCompleteError}
-                                dispatchInfo={dispatchInfo}
-                                agentPreset={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId) ?? null : null}
-                            />
-                        ))
+                        <div role="list" className="flex flex-col gap-5">
+                            {taskCardItems.map(({ key, task, phase, taskTiming, events, isRerunning, isForceCompleting, forceCompleteError, dispatchInfo }) => (
+                                <div key={key} role="listitem">
+                                    <LiveTaskCard
+                                        task={task}
+                                        allTasks={visibleTasksWithLiveActivities}
+                                        phase={phase}
+                                        taskTiming={taskTiming}
+                                        events={events}
+                                        onRerun={handleRerun}
+                                        onEdit={handleEditTask}
+                                        onForceComplete={handleForceCompleteTask}
+                                        isRerunning={isRerunning}
+                                        isForceCompleting={isForceCompleting}
+                                        forceCompleteError={forceCompleteError}
+                                        dispatchInfo={dispatchInfo}
+                                        agentPreset={task.agentPresetId ? agentPresetsMap.get(task.agentPresetId) ?? null : null}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     )}
-                </div>
+                </section>
 
                 {/* Sidebar */}
-                <div className="xl:col-span-4 flex flex-col gap-5">
+                <aside aria-labelledby="live-runtime-sidebar-heading" className="xl:col-span-4 flex flex-col gap-5">
+                    <h2 id="live-runtime-sidebar-heading" className="sr-only">Runtime details</h2>
                     <ExecutionTimelineProvider
                         execution={execution}
                         onOrchestrateSprint={handleOrchestrateSprint}
@@ -586,7 +596,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             defaultOpen={hasSprintContext}
                         />
                     </ExecutionTimelineProvider>
-                </div>
+                </aside>
             </div>
         </PageContainer>
     );

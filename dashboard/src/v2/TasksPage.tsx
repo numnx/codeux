@@ -81,14 +81,14 @@ const TaskScopePlaceholder: FunctionComponent<{
       <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
         <div>
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[1.35rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_32px_rgba(0,224,160,0.16)]">
-            <ListChecks className="h-7 w-7" strokeWidth={1.7} />
+            <ListChecks className="h-7 w-7" strokeWidth={1.7} aria-hidden="true" />
           </div>
           <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-signal-500">
             {eyebrow}
           </div>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl font-black leading-[0.98] tracking-tight text-slate-900 dark:text-white md:text-5xl">
+          <h2 className="mt-3 max-w-3xl font-display text-4xl font-black leading-[0.98] tracking-tight text-slate-900 dark:text-white md:text-5xl">
             {title}
-          </h1>
+          </h2>
           <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400 md:text-base">
             {body}
           </p>
@@ -109,7 +109,7 @@ const TaskScopePlaceholder: FunctionComponent<{
                 to="/sprints"
                 className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-signal-500 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-void-900 shadow-[0_10px_30px_rgba(0,224,160,0.22)] transition-all hover:-translate-y-px hover:bg-signal-400 focus-visible:ring-2 focus-visible:ring-signal-500/40"
               >
-                <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.3} aria-hidden="true" />
                 Plan Sprint
               </Link>
             )}
@@ -117,22 +117,22 @@ const TaskScopePlaceholder: FunctionComponent<{
               to={isProjectMode ? "/projects" : "/sprints"}
               className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/75 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all hover:-translate-y-px hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white"
             >
-              <FolderGit2 className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.1} />
+              <FolderGit2 className="h-3.5 w-3.5 text-ember-500" strokeWidth={2.1} aria-hidden="true" />
               {isProjectMode ? "Manage Projects" : "Open Sprints"}
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.1} />
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.1} aria-hidden="true" />
             </Link>
           </div>
         </div>
 
         <div className="relative overflow-hidden rounded-[1.7rem] border border-black/[0.06] bg-black/[0.025] p-5 dark:border-white/[0.06] dark:bg-white/[0.035]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_65%_at_50%_0%,rgba(255,184,0,0.12),transparent_68%)]" />
-          <div className="relative z-10 space-y-3">
+          <ul className="relative z-10 space-y-3">
             {[
               { label: "Project", value: isProjectMode ? "required" : "ready", tone: isProjectMode ? "text-ember-500" : "text-status-green" },
               { label: "Sprint", value: isProjectMode ? "waiting" : "required", tone: isProjectMode ? "text-signal-500" : "text-ember-500" },
               { label: "Tasks", value: "locked", tone: "text-slate-500 dark:text-slate-400" },
             ].map((item, index) => (
-              <div
+              <li
                 key={item.label}
                 className="rounded-[1.15rem] border border-white/60 bg-white/72 p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.04]"
               >
@@ -141,13 +141,13 @@ const TaskScopePlaceholder: FunctionComponent<{
                     <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{item.label}</div>
                     <div className={`mt-1 text-xs font-bold uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</div>
                   </div>
-                  <div className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-ember-500" : index === 1 ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`}>
+                  <div aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-ember-500" : index === 1 ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`}>
                     <span className="block h-full w-full rounded-full animate-ping bg-current opacity-40" />
                   </div>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </section>
@@ -161,10 +161,10 @@ const ColumnHeader: FunctionComponent<{ status: TaskStatus; count: number }> = m
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-2.5">
-        <Icon className={`w-5 h-5 ${cfg.color}`} strokeWidth={2} />
-        <span className={`text-sm font-bold tracking-tight ${cfg.color}`}>{cfg.label}</span>
+        <Icon className={`w-5 h-5 ${cfg.color}`} strokeWidth={2} aria-hidden="true" />
+        <h3 id={`task-column-${status}-heading`} className={`text-sm font-bold tracking-tight ${cfg.color}`}>{cfg.label}</h3>
       </div>
-      <span className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] ${cfg.color}`}>
+      <span aria-label={`${count} ${cfg.label} tasks`} className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] ${cfg.color}`}>
         {count}
       </span>
     </div>
@@ -183,29 +183,35 @@ const SprintSelector: FunctionComponent<{
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-haspopup="menu"
         className={`group flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all duration-300 ${
           selected
             ? "bg-ember-500/[0.06] dark:bg-ember-500/[0.08] border-ember-500/20 dark:border-ember-500/25 shadow-[0_0_20px_rgba(255,184,0,0.06)]"
             : "bg-black/[0.03] dark:bg-white/[0.03] border-black/[0.06] dark:border-white/[0.06]"
         } hover:border-ember-500/40 dark:hover:border-ember-500/40`}
       >
-        <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-400"} transition-colors`} strokeWidth={2} />
+        <Target className={`w-4 h-4 ${selected ? "text-ember-500" : "text-slate-400"} transition-colors`} strokeWidth={2} aria-hidden="true" />
         <span className={`text-sm font-bold tracking-tight ${selected ? "text-ember-600 dark:text-ember-400" : "text-slate-600 dark:text-slate-400"}`}>
           {selected ? formatSprintDisplay(selected, sprintKeyPrefix) : "All Sprints"}
         </span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} strokeWidth={2} aria-hidden="true" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 z-50 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
+        <div role="menu" className="absolute left-0 top-full mt-2 w-80 z-50 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.08] rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden">
           <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={!selectedId}
             onClick={() => { onSelect(null); setOpen(false); }}
             className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors duration-200 ${
               !selectedId ? "bg-signal-500/[0.06] dark:bg-signal-500/[0.08]" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
             }`}
           >
-            <ListChecks className="w-4 h-4 text-signal-500" strokeWidth={2} />
+            <ListChecks className="w-4 h-4 text-signal-500" strokeWidth={2} aria-hidden="true" />
             <div className="flex-1">
               <span className="text-sm font-bold text-slate-800 dark:text-white">All Sprints</span>
             </div>
@@ -218,12 +224,15 @@ const SprintSelector: FunctionComponent<{
             return (
               <button
                 key={sprint.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isActive}
                 onClick={() => { onSelect(sprint.id); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors duration-200 ${
                   isActive ? "bg-ember-500/[0.06] dark:bg-ember-500/[0.08]" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
                 }`}
               >
-                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                <div aria-hidden="true" className={`w-2 h-2 rounded-full shrink-0 ${
                   sprint.status === "running" ? "bg-status-green shadow-[0_0_8px_rgba(0,171,132,0.6)] animate-pulse" :
                   sprint.status === "paused" ? "bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.45)]" :
                   sprint.status === "completed" ? "bg-signal-500" :
@@ -761,26 +770,26 @@ export const TasksPage: FunctionComponent = () => {
         </div>
 
         <div className="flex flex-col items-start lg:items-end gap-4 shrink-0">
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <ul aria-label="Task board summary" className="flex items-center gap-2.5 flex-wrap">
             {stats.inProgress > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-signal-500/[0.08] border border-signal-500/20 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-signal-500 relative">
+              <li className="flex items-center gap-2 px-4 py-2 rounded-full bg-signal-500/[0.08] border border-signal-500/20 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-400">
+                <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-signal-500 relative">
                   <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-70" />
                 </span>
                 {stats.inProgress} Running
-              </div>
+              </li>
             )}
             {stats.critical > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-status-red/[0.06] border border-status-red/20 text-[10px] font-bold uppercase tracking-[0.14em] text-status-red">
-                <Flame className="w-3 h-3" strokeWidth={2.5} />
+              <li className="flex items-center gap-2 px-4 py-2 rounded-full bg-status-red/[0.06] border border-status-red/20 text-[10px] font-bold uppercase tracking-[0.14em] text-status-red">
+                <Flame className="w-3 h-3" strokeWidth={2.5} aria-hidden="true" />
                 {stats.critical} Critical
-              </div>
+              </li>
             )}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-              <ListChecks className="w-3 h-3" strokeWidth={2} />
+            <li className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+              <ListChecks className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
               {stats.total} Total
-            </div>
-          </div>
+            </li>
+          </ul>
 
           <Button
             onClick={() => {
@@ -803,7 +812,8 @@ export const TasksPage: FunctionComponent = () => {
       </div>
 
       {isTaskScopeReady && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
+        <section aria-labelledby="task-board-controls-heading" className="flex flex-col sm:flex-row items-start sm:items-center gap-4 -mt-4">
+          <h2 id="task-board-controls-heading" className="sr-only">Task board controls</h2>
           <SprintSelector sprints={sprints} selectedId={taskScopeSprintId} onSelect={handleSprintScopeSelect} sprintKeyPrefix={sprintKeyPrefix} />
 
           <FilterStrip
@@ -832,13 +842,14 @@ export const TasksPage: FunctionComponent = () => {
           <div className="ml-auto">
             <ListWindowSelector value={listWindow} onChange={setListWindow} label="Show" />
           </div>
-        </div>
+        </section>
       )}
 
       {isTaskScopeReady && selectedSprintModel && (
-        <div className="-mt-6">
+        <section aria-labelledby="selected-sprint-progress-heading" className="-mt-6">
+          <h2 id="selected-sprint-progress-heading" className="sr-only">Selected sprint progress</h2>
           <SprintProgressCard sprint={selectedSprintModel} tasks={filteredTasks} />
-        </div>
+        </section>
       )}
 
       {!selectedProject && (
@@ -864,7 +875,8 @@ export const TasksPage: FunctionComponent = () => {
       )}
 
       {isTaskScopeReady && (showComposer || editingTask) && (
-        <div ref={composerRef} className="scroll-mt-8">
+        <section ref={composerRef} aria-labelledby="task-composer-heading" className="scroll-mt-8">
+          <h2 id="task-composer-heading" className="sr-only">{editingTask ? "Edit task" : "New task"}</h2>
           <TaskComposer
             key={editingTask?.recordId || "new"}
             sprints={sprints}
@@ -877,17 +889,19 @@ export const TasksPage: FunctionComponent = () => {
             }}
             onSubmit={handleTaskSubmit}
           />
-        </div>
+        </section>
       )}
 
       {isTaskScopeReady && (
+        <section aria-labelledby="task-board-heading">
+          <h2 id="task-board-heading" className="sr-only">Kanban task board</h2>
         <div ref={boardRef} className={`grid gap-6 ${
           columns.length === 1 ? "grid-cols-1" :
           columns.length === 2 ? "grid-cols-1 lg:grid-cols-2" :
           "grid-cols-1 lg:grid-cols-3"
         }`}>
           {columns.map(({ status, count, tasks: columnTasks }) => (
-            <div key={status} className="flex flex-col">
+            <section key={status} aria-labelledby={`task-column-${status}-heading`} className="flex flex-col">
               <ColumnHeader status={status} count={count} />
               <div
               className={`flex-1 grid grid-cols-1 grid-rows-1 p-4 rounded-[1.5rem] min-h-[200px] bg-black/[0.015] dark:bg-white/[0.015] border relative transition-colors duration-300 ${dropTargetContext?.status === status ? "border-signal-500/50 bg-signal-500/5" : "border-black/[0.03] dark:border-white/[0.03]"}`}
@@ -912,7 +926,7 @@ export const TasksPage: FunctionComponent = () => {
                     {statusFilter !== "all" || priorityFilter !== "all" ? "matching current filters" : taskScopeSprintId ? "in this sprint" : "in this project"}.
                   </div>
                 ) : !loading ? (
-                  <div className="col-start-1 row-start-1 flex flex-col gap-4">
+                  <div role="list" aria-label={`${STATUS_CFG[status].label} tasks`} className="col-start-1 row-start-1 flex flex-col gap-4">
                     {columnTasks.map((task, index) => {
                       const isDraggedOver = dropTargetContext?.status === status && dropTargetContext?.index === index;
                       const viewModel = taskViewModels.get(task.recordId);
@@ -924,6 +938,7 @@ export const TasksPage: FunctionComponent = () => {
                         <div className="h-24 mb-4 rounded-[1.5rem] border-2 border-dashed border-signal-500/50 bg-signal-500/10 transition-all duration-300" />
                       )}
                       <div
+                        role="listitem"
                         key={task.recordId}
                         className="task-card-entry"
                         data-task-id={task.recordId}
@@ -952,9 +967,10 @@ export const TasksPage: FunctionComponent = () => {
                 ) : null}
                 </SkeletonLoader>
               </div>
-            </div>
+            </section>
           ))}
         </div>
+        </section>
       )}
 
       {showAddProjectModal && (

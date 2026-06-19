@@ -180,7 +180,7 @@ export const KnowledgePage: FunctionComponent = () => {
       <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
-            <Library className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Library className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
             Knowledge Base
           </div>
           <h1 className="font-display text-4xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -192,24 +192,22 @@ export const KnowledgePage: FunctionComponent = () => {
             demand via <code className="rounded bg-black/[0.05] px-1 py-0.5 font-mono text-[11px] dark:bg-white/[0.06]">search_knowledge</code>.
           </p>
           {documents.length > 0 && (
-            <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-              <span>{documents.length} document{documents.length === 1 ? "" : "s"}</span>
-              <span>·</span>
-              <span>{readyCount} ready</span>
-              <span>·</span>
-              <span>{totalChunks} embedded chunks</span>
-            </div>
+            <ul aria-label="Knowledge library summary" className="flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+              <li>{documents.length} document{documents.length === 1 ? "" : "s"}</li>
+              <li>{readyCount} ready</li>
+              <li>{totalChunks} embedded chunks</li>
+            </ul>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label="Knowledge document actions" className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setAddMode("upload")}
             disabled={!pid}
             className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-lg shadow-signal-500/15 transition-all hover:scale-[1.03] hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-void-900"
           >
-            <Upload className="h-4 w-4" strokeWidth={2.5} />
+            <Upload className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
             Upload
           </button>
           <button
@@ -218,7 +216,7 @@ export const KnowledgePage: FunctionComponent = () => {
             disabled={!pid}
             className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/60 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
           >
-            <StickyNote className="h-4 w-4" strokeWidth={2.4} />
+            <StickyNote className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
             Paste
           </button>
           <button
@@ -227,7 +225,7 @@ export const KnowledgePage: FunctionComponent = () => {
             disabled={!pid}
             className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/60 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
           >
-            <FolderGit2 className="h-4 w-4" strokeWidth={2.4} />
+            <FolderGit2 className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
             From repo
           </button>
           <button
@@ -236,16 +234,16 @@ export const KnowledgePage: FunctionComponent = () => {
             disabled={!pid || projects.filter((project) => project.id !== pid).length === 0}
             className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/60 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
           >
-            <Copy className="h-4 w-4" strokeWidth={2.4} />
+            <Copy className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
             From project
           </button>
-        </div>
+        </nav>
       </div>
 
       {/* Embedding model gate */}
       {modelActive === false && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
-          <AlertTriangle className="h-5 w-5 shrink-0" strokeWidth={2.2} />
+        <div role="status" className="flex items-center gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
+          <AlertTriangle className="h-5 w-5 shrink-0" strokeWidth={2.2} aria-hidden="true" />
           <span>
             No embedding model is active. Download and select one on the{" "}
             <a href="/memory" className="font-bold underline">Memory</a> page before adding documents.
@@ -254,8 +252,8 @@ export const KnowledgePage: FunctionComponent = () => {
       )}
 
       {error && (
-        <div className="flex items-start gap-3 rounded-2xl border border-status-red/25 bg-status-red/[0.06] px-5 py-3 text-sm text-status-red">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.2} />
+        <div role="alert" className="flex items-start gap-3 rounded-2xl border border-status-red/25 bg-status-red/[0.06] px-5 py-3 text-sm text-status-red">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
           <span className="flex-1">{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Dismiss"><X className="h-4 w-4" /></button>
         </div>
@@ -272,33 +270,38 @@ export const KnowledgePage: FunctionComponent = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : documents.length === 0 ? (
-        <div
+        <section
+          aria-labelledby="knowledge-empty-heading"
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={`flex flex-col items-center gap-4 rounded-[1.8rem] border-2 border-dashed px-8 py-20 text-center transition-colors ${dragging ? "border-signal-500 bg-signal-500/[0.05]" : "border-black/[0.08] dark:border-white/[0.08]"}`}
         >
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-500">
-            <Sparkles className="h-7 w-7" strokeWidth={2} />
+            <Sparkles className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-lg font-bold text-slate-700 dark:text-slate-200">Build your knowledge base</p>
+            <h2 id="knowledge-empty-heading" className="text-lg font-bold text-slate-700 dark:text-slate-200">Build your knowledge base</h2>
             <p className="text-sm text-slate-400 dark:text-slate-500">Drag files here, or use Upload / Paste / From repo above.</p>
           </div>
-        </div>
+        </section>
       ) : (
-        <div
+        <section
+          aria-labelledby="knowledge-library-heading"
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={`grid grid-cols-1 gap-4 rounded-[1.5rem] transition-colors sm:grid-cols-2 xl:grid-cols-3 ${dragging ? "ring-2 ring-signal-500/40" : ""}`}
         >
+          <h2 id="knowledge-library-heading" className="sr-only">Knowledge documents</h2>
+          <div role="list" className="contents">
           {documents.map((doc) => {
             const { Icon, cls } = docIcon(doc);
             const subscribers = doc.subscriberAgentIds.map((id) => agentNameById.get(id)?.name).filter(Boolean) as string[];
             return (
-              <div
+              <article
                 key={doc.id}
+                role="listitem"
                 className="group relative flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:border-white/[0.06] dark:bg-void-800/50"
               >
                 <div className="flex items-start gap-3">
@@ -344,10 +347,11 @@ export const KnowledgePage: FunctionComponent = () => {
                     {subscribers.length > 4 && <span className="text-[10px] font-bold text-slate-400">+{subscribers.length - 4}</span>}
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
-        </div>
+          </div>
+        </section>
       )}
 
       {addMode === "upload" && <UploadModal busy={busy} onClose={() => setAddMode(null)} onFiles={handleUpload} />}

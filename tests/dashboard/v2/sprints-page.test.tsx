@@ -394,4 +394,43 @@ describe("SprintsPage", () => {
       fireEvent.click(newSprintBtn);
     }
   });
+
+  it("exposes a single page heading and named sprint landmarks", () => {
+    vi.mocked(useSprintsPageData).mockReturnValue({
+      selectedProject: { id: "proj-1", name: "Project Alpha" },
+      projects: [{ id: "proj-1", name: "Project Alpha" }],
+      planningRoute: { available: true, label: "Planner" },
+      sortedSprints: [],
+      showcaseSprints: [],
+      activeRunsBySprintId: new Map(),
+      pauseResumeRunsBySprintId: new Map(),
+      interventionBySprintId: new Map(),
+      nextId: "spr-123",
+      virtualProviders: [],
+      pendingActionIds: new Set(),
+      planningPresets: [],
+      quicksprintTemplates: [],
+      showQuicksprint: false,
+      setShowQuicksprint: vi.fn(),
+      showCreateComposer: false,
+      setShowCreateComposer: vi.fn(),
+      editingSprint: null,
+      setEditingSprint: vi.fn(),
+      showImportModal: false,
+      setShowImportModal: vi.fn(),
+      completedCount: 0,
+      inWorkCount: 0,
+      feedback: { status: "idle", message: null },
+      clearFeedback: vi.fn(),
+    } as any);
+
+    render(<SprintsPage />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: /active sprints/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /sprint gallery/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /sprint ledger/i })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /sprint summary/i })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: /planning route available via planner/i })).toBeInTheDocument();
+  });
 });

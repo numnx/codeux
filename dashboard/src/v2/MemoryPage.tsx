@@ -720,7 +720,7 @@ export const MemoryPage: FunctionComponent = () => {
             <div ref={headerRef} className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2.5 text-signal-500 font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
-                        <Brain className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        <Brain className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
                         Neural Memory
                     </div>
                     <div className="relative overflow-hidden">
@@ -755,7 +755,8 @@ export const MemoryPage: FunctionComponent = () => {
 
             {/* ── Model Management ────────────────────────────────────── */}
             {showModels && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <section aria-labelledby="memory-models-heading" className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <h2 id="memory-models-heading" className="sr-only">Embedding models</h2>
                     {models.map((model: EmbeddingModelWithStatus) => (
                         <ModelCard key={model.id} model={model}
                             onDownload={handleDownloadModel}
@@ -770,15 +771,15 @@ export const MemoryPage: FunctionComponent = () => {
                             Loading embedding models…
                         </p>
                     )}
-                </div>
+                </section>
             )}
 
             {/* ── Re-embed banner ─────────────────────────────────────── */}
             {showModels && stats.staleEmbeddings > 0 && !reembed?.active && (
-                <div className="flex items-center gap-4 px-5 py-4 rounded-2xl
+                <div role="status" className="flex items-center gap-4 px-5 py-4 rounded-2xl
                                bg-amber-500/[0.06] border border-amber-500/20
                                dark:bg-amber-500/[0.04] dark:border-amber-400/15">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" strokeWidth={2.5} />
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" strokeWidth={2.5} aria-hidden="true" />
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
                             {stats.staleEmbeddings} {stats.staleEmbeddings === 1 ? "memory needs" : "memories need"} re-embedding
@@ -791,7 +792,7 @@ export const MemoryPage: FunctionComponent = () => {
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold shrink-0
                                    bg-amber-500 text-white hover:bg-amber-600
                                    transition-colors duration-200 shadow-[0_2px_8px_rgba(245,158,11,0.25)]">
-                        <RefreshCw className="w-3 h-3" strokeWidth={2.5} />
+                        <RefreshCw className="w-3 h-3" strokeWidth={2.5} aria-hidden="true" />
                         Re-embed All
                     </button>
                 </div>
@@ -799,12 +800,12 @@ export const MemoryPage: FunctionComponent = () => {
 
             {/* ── Re-embed progress ───────────────────────────────────── */}
             {showModels && reembed?.active && (
-                <div className="flex flex-col gap-3 px-5 py-4 rounded-2xl
+                <div role="status" className="flex flex-col gap-3 px-5 py-4 rounded-2xl
                                bg-signal-500/[0.06] border border-signal-500/20
                                dark:bg-signal-500/[0.04] dark:border-signal-500/15">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <RefreshCw className="w-3.5 h-3.5 text-signal-500 animate-spin" strokeWidth={2.5} />
+                            <RefreshCw className="w-3.5 h-3.5 text-signal-500 animate-spin" strokeWidth={2.5} aria-hidden="true" />
                             <span className="text-xs font-bold text-signal-600 dark:text-signal-400">Re-embedding memories…</span>
                         </div>
                         <span className="text-[10px] font-mono text-signal-500">
@@ -820,9 +821,9 @@ export const MemoryPage: FunctionComponent = () => {
 
             {/* ── Re-embed complete ───────────────────────────────────── */}
             {showModels && reembed && !reembed.active && reembed.completed > 0 && stats.staleEmbeddings === 0 && (
-                <div className="flex items-center gap-3 px-5 py-3 rounded-2xl
+                <div role="status" className="flex items-center gap-3 px-5 py-3 rounded-2xl
                                bg-signal-500/[0.06] border border-signal-500/20">
-                    <Check className="w-4 h-4 text-signal-500" strokeWidth={2.5} />
+                    <Check className="w-4 h-4 text-signal-500" strokeWidth={2.5} aria-hidden="true" />
                     <p className="text-xs font-bold text-signal-600 dark:text-signal-400">
                         Re-embedding complete — {reembed.completed} {reembed.completed === 1 ? "memory" : "memories"} updated.
                     </p>
@@ -831,10 +832,10 @@ export const MemoryPage: FunctionComponent = () => {
 
             {/* ── Lobotomize warning ──────────────────────────────────── */}
             {lobotomize && (
-                <div className="flex items-center gap-3 px-5 py-3 rounded-2xl
+                <div role="alert" className="flex items-center gap-3 px-5 py-3 rounded-2xl
                                bg-status-red/[0.08] border border-status-red/25 text-status-red"
                     style={{ animation: "lobotomize-pulse 2s ease-in-out infinite" }}>
-                    <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2.5} />
+                    <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
                     <p className="text-xs font-bold">
                         <span className="uppercase tracking-[0.14em]">Warning — Lobotomize mode active.</span>
                         {" "}Click any node then use the inspector to excise memories permanently.
@@ -843,13 +844,15 @@ export const MemoryPage: FunctionComponent = () => {
             )}
 
             {/* ── Neural Canvas ───────────────────────────────────────── */}
-            <div
+            <section
+                aria-labelledby="memory-map-heading"
                 className="flex w-full overflow-hidden rounded-[2rem]
                            bg-white/50 dark:bg-void-800/40 backdrop-blur-2xl
                            border border-black/[0.05] dark:border-white/[0.05]
                            shadow-[0_8px_48px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_48px_rgba(0,0,0,0.4)]"
                 style={{ height: "max(600px, calc(100vh - 440px))" }}
             >
+                <h2 id="memory-map-heading" className="sr-only">Memory graph and inspector</h2>
                 <div ref={wrapRef} className="flex-1 relative overflow-hidden">
                     <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
@@ -925,7 +928,7 @@ export const MemoryPage: FunctionComponent = () => {
                     nodes={S.current.graph.nodes}
                     onSelectNode={onSelectNode}
                 />
-            </div>
+            </section>
 
             {/* ── Category summary ────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">

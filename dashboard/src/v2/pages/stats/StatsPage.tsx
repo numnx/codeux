@@ -58,7 +58,7 @@ export const StatsPage: FunctionComponent = () => {
   }, [stats, reducedMotion]);
 
   return (
-    <PageContainer containerRef={rootRef} padding="stats" className={`gap-8 xl:gap-12 ${styles.pageRoot}`} role="region" aria-label="Statistics">
+    <PageContainer containerRef={rootRef} padding="stats" className={`gap-8 xl:gap-12 ${styles.pageRoot}`}>
       <StatsPageHero
         selectedProject={selectedProject}
         stats={stats}
@@ -74,41 +74,46 @@ export const StatsPage: FunctionComponent = () => {
       />
 
       {!selectedProject ? (
-        <div className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
+        <section aria-labelledby="stats-empty-heading" className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.25rem] border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </div>
-          <div className="text-lg font-black text-slate-900 dark:text-white">Select a project</div>
+          <h2 id="stats-empty-heading" className="text-lg font-black text-slate-900 dark:text-white">Select a project</h2>
           <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Choose a project to load telemetry and execution history.</div>
-        </div>
+        </section>
       ) : loading && !stats ? (
-        <div className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
+        <section aria-labelledby="stats-loading-heading" className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.25rem] border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8 animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8 animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
           </div>
-          <div className="text-lg font-black text-slate-900 dark:text-white">Loading telemetry field</div>
+          <h2 id="stats-loading-heading" className="text-lg font-black text-slate-900 dark:text-white">Loading telemetry field</h2>
           <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Gathering statistics for {selectedProject.name}...</div>
-        </div>
+        </section>
       ) : error && !stats ? (
-        <div className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
+        <section aria-labelledby="stats-error-heading" className={`${PANEL_CLASS} flex flex-col items-center justify-center py-24 text-center`}>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.25rem] border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400">
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="h-8 w-8"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           </div>
-          <div className="text-lg font-black text-red-600 dark:text-red-400">{error}</div>
+          <h2 id="stats-error-heading" className="text-lg font-black text-red-600 dark:text-red-400">{error}</h2>
           <Button variant="danger" size="sm" onClick={() => refresh()} className="mt-4">
             Retry
           </Button>
-        </div>
+        </section>
       ) : stats ? (
         <>
-          <TopCardsModeRenderer
-            mode={visualMode}
-            stats={stats}
-            providerSegments={providerSegments}
-            tokenSegments={tokenSegments}
-            sourceSegments={sourceSegments}
-          />
+          <section aria-labelledby="stats-summary-heading">
+            <h2 id="stats-summary-heading" className="sr-only">Telemetry summary</h2>
+            <TopCardsModeRenderer
+              mode={visualMode}
+              stats={stats}
+              providerSegments={providerSegments}
+              tokenSegments={tokenSegments}
+              sourceSegments={sourceSegments}
+            />
+          </section>
 
+          <section aria-labelledby="stats-analysis-heading">
+            <h2 id="stats-analysis-heading" className="sr-only">Telemetry analysis</h2>
             <AnalysisStudioSection
               stats={stats}
               loading={loading}
@@ -123,6 +128,7 @@ export const StatsPage: FunctionComponent = () => {
               setVisualMode={setVisualMode}
               chartState={chartState}
             />
+          </section>
           </>
       ) : null}
     </PageContainer>

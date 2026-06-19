@@ -291,9 +291,10 @@ export const FileBrowserPage: FunctionComponent = () => {
   if (!selectedProject) {
     return (
       <PageContainer padding="workbench">
-        <div class="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-8 text-sm text-slate-600 shadow-[0_16px_44px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-void-900/45 dark:text-slate-300">
-          Select a project to open the sprint file browser. The workspace launches one containerized snapshot of the selected sprint branch.
-        </div>
+        <section aria-labelledby="file-browser-project-required-heading" class="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-8 text-sm text-slate-600 shadow-[0_16px_44px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-void-900/45 dark:text-slate-300">
+          <h1 id="file-browser-project-required-heading" class="font-display text-2xl font-black text-slate-900 dark:text-white">Select a project to open the sprint file browser.</h1>
+          <p class="mt-3">The workspace launches one containerized snapshot of the selected sprint branch.</p>
+        </section>
       </PageContainer>
     );
   }
@@ -330,13 +331,14 @@ export const FileBrowserPage: FunctionComponent = () => {
       </div>
 
       {error && (
-        <div class="mb-5 rounded-2xl border border-status-red/25 bg-status-red/[0.12] px-4 py-3 text-sm text-status-red dark:border-status-red/30 dark:bg-status-red/[0.14]">
+        <div role="alert" class="mb-5 rounded-2xl border border-status-red/25 bg-status-red/[0.12] px-4 py-3 text-sm text-status-red dark:border-status-red/30 dark:bg-status-red/[0.14]">
           {error}
         </div>
       )}
 
       {/* Control bar */}
-      <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-black/[0.06] bg-white/74 px-4 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
+      <section aria-labelledby="file-browser-controls-heading" class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-black/[0.06] bg-white/74 px-4 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
+        <h2 id="file-browser-controls-heading" class="sr-only">File browser controls</h2>
         <div class="flex flex-wrap items-center gap-3">
           {statusPill && (
             <span class="inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-black/[0.02] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] dark:border-white/[0.08] dark:bg-white/[0.03]">
@@ -409,7 +411,7 @@ export const FileBrowserPage: FunctionComponent = () => {
             Stop
           </button>
         </div>
-      </div>
+      </section>
 
       {!runningSession ? (
         <LaunchPanel
@@ -421,9 +423,11 @@ export const FileBrowserPage: FunctionComponent = () => {
           lastError={selectedSession?.status === "error" ? selectedSession.lastError : null}
         />
       ) : (
-        <div class="grid h-[calc(100vh-340px)] min-h-[520px] grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]" data-testid="file-browser-main-tool-panel">
+        <section aria-labelledby="file-browser-workspace-heading" class="grid h-[calc(100vh-340px)] min-h-[520px] grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]" data-testid="file-browser-main-tool-panel">
+          <h2 id="file-browser-workspace-heading" class="sr-only">File browser workspace</h2>
           {/* Sidebar panel */}
-          <div class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
+          <aside aria-labelledby="file-browser-sidebar-heading" class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/42">
+            <h3 id="file-browser-sidebar-heading" class="sr-only">{mode === "files" ? "Files" : "Changed files"}</h3>
             {mode === "files" ? (
               <>
                 <div class="border-b border-black/[0.05] p-3 dark:border-white/[0.05]">
@@ -491,10 +495,11 @@ export const FileBrowserPage: FunctionComponent = () => {
                 )}
               </>
             )}
-          </div>
+          </aside>
 
           {/* Viewer panel */}
-          <div class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/46">
+          <section aria-labelledby="file-browser-viewer-heading" class="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-black/[0.06] bg-white/74 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-md dark:border-white/[0.07] dark:bg-void-900/46">
+            <h3 id="file-browser-viewer-heading" class="sr-only">File viewer</h3>
             <div class="flex items-center justify-between gap-3 border-b border-black/[0.05] px-4 py-2.5 dark:border-white/[0.06]">
               <div class="min-w-0 truncate font-mono text-[12px] text-slate-500 dark:text-slate-400">
                 {mode === "files"
@@ -520,8 +525,8 @@ export const FileBrowserPage: FunctionComponent = () => {
                 <DiffViewer diff={diff} loading={diffLoading} error={diffError} isDark={isDark} sideBySide={sideBySide} />
               )}
             </div>
-          </div>
-        </div>
+          </section>
+        </section>
       )}
     </PageContainer>
   );

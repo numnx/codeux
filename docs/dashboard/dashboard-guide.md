@@ -721,6 +721,7 @@ The dashboard relies on consistent interaction primitives across all v2 views:
 This dashboard enforces accessibility best practices to ensure an inclusive experience:
 
 - **Dialogs & Modals**: Implemented using proper ARIA roles (`role="dialog"` or `role="alertdialog"`). They manage focus by trapping it within the overlay and restoring it to the trigger upon closing. If a dialog has no focusable elements, the container itself uses `tabIndex={-1}` and an outline-removal class for programmatic focus.
+- **Page Structure**: Main v2 pages expose exactly one meaningful `h1`, then organize major workspaces with named `section`, `aside`, `nav`, list, and table semantics. Prefer `aria-labelledby` pointing at visible or screen-reader-only headings over generic `aria-label` when a heading already names the region.
 - **Menus & Overlays**: Use explicit ARIA roles such as `menu`, `menuitem`, `listbox`, and `option`. Keyboard navigation (up/down arrows, Enter/Space, Escape) is strictly supported.
 - **Forms**: All inputs must have associated labels (`<label>` or `aria-label`/`aria-labelledby`). Validation feedback uses `aria-invalid` and dynamically injects messages into `aria-live` regions.
 - **Live Regions**: Non-visual state changes (like toast notifications or saving states) are announced using `aria-live="polite"` or `aria-live="assertive"`. Loading spinners use `aria-hidden="true"` with a visually hidden fallback, while their containers use `aria-busy="true"`.

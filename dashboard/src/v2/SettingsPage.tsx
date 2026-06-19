@@ -95,7 +95,7 @@ export const SettingsPage: FunctionComponent = () => {
       <div ref={headerRef} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-end">
         <div className="flex flex-col gap-5">
           <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-mono">
-            <Settings className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Settings className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
             Configuration
           </div>
 
@@ -118,10 +118,11 @@ export const SettingsPage: FunctionComponent = () => {
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-1 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
+            <nav aria-label="Settings scope" className="rounded-2xl border border-black/[0.06] bg-white/70 p-1 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
               <button
                 type="button"
                 onClick={() => setActiveScope("system")}
+                aria-pressed={activeScope === "system"}
                 className={`rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
                   activeScope === "system"
                     ? "bg-signal-500/[0.12] text-signal-700 dark:text-signal-300"
@@ -134,6 +135,7 @@ export const SettingsPage: FunctionComponent = () => {
                 type="button"
                 onClick={() => selectedProject && setActiveScope("project")}
                 disabled={!selectedProject}
+                aria-pressed={activeScope === "project"}
                 className={`rounded-[1rem] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   activeScope === "project"
                     ? "bg-signal-500/[0.12] text-signal-700 dark:text-signal-300"
@@ -142,9 +144,9 @@ export const SettingsPage: FunctionComponent = () => {
               >
                 Project
               </button>
-            </div>
+            </nav>
 
-            <div className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
+            <div role="status" className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
               {activeScope === "system"
                 ? "Editing live system defaults"
                 : selectedProject
@@ -152,28 +154,29 @@ export const SettingsPage: FunctionComponent = () => {
                   : "Select a project to edit overrides"}
             </div>
 
-            <div className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
+            <div role="status" className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-xs font-semibold text-slate-500 backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:text-slate-300">
               {filteredCategories.length} visible categor{filteredCategories.length === 1 ? "y" : "ies"}
             </div>
 
             {activeDirty ? (
-              <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 backdrop-blur-2xl dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-200">
+              <div role="status" className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 backdrop-blur-2xl dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-200">
                 Unsaved edits
               </div>
             ) : null}
           </div>
         </div>
 
-        <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            <Compass className="h-3.5 w-3.5" strokeWidth={2.2} />
+        <section aria-labelledby="settings-search-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+          <h2 id="settings-search-heading" className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            <Compass className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
             Smart Find
-          </div>
+          </h2>
           <div className="mt-3 flex items-center gap-3 rounded-[1rem] border border-black/[0.06] bg-black/[0.03] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.1} />
+            <Search className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.1} aria-hidden="true" />
             <input
               ref={state.searchInputRef}
               type="text"
+              aria-labelledby="settings-search-heading"
               value={settingsSearch}
               onInput={(event) => setSettingsSearch((event.currentTarget as HTMLInputElement).value)}
               placeholder="Search categories, providers, CI, auth, prompts"
@@ -183,7 +186,7 @@ export const SettingsPage: FunctionComponent = () => {
               /
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <nav aria-label="Filtered setting shortcuts" className="mt-3 flex flex-wrap gap-2">
             {filteredCategories
               .filter((c) => !["general", "models", "sprint", "browser"].includes(c.id))
               .slice(0, 4)
@@ -201,7 +204,7 @@ export const SettingsPage: FunctionComponent = () => {
                 {category.label}
               </button>
             ))}
-          </div>
+          </nav>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {activeScope === "project" ? (
               <ActionButton
@@ -224,23 +227,23 @@ export const SettingsPage: FunctionComponent = () => {
             >
               {activeSaving ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+                  <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={2.5} aria-hidden="true" />
                   Saving
                 </>
               ) : saveMessage && !error ? (
                 <>
-                  <Check className="h-4 w-4" strokeWidth={2.5} />
+                  <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
                   Saved
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" strokeWidth={2} />
+                  <Zap className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" strokeWidth={2} aria-hidden="true" />
                   Save Changes
                 </>
               )}
             </button>
           </div>
-        </div>
+        </section>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[300px_1fr]">
@@ -251,18 +254,19 @@ export const SettingsPage: FunctionComponent = () => {
           onSwitchCategory={switchCategory}
         />
 
-        <div ref={contentRef} className="flex min-w-0 flex-col gap-5">
+        <section ref={contentRef} aria-labelledby="settings-panel-heading" className="flex min-w-0 flex-col gap-5">
           <div className="mb-1 flex flex-wrap items-center gap-3">
             <activeCategoryConfig.icon
               className={`h-4 w-4 ${activeCategoryConfig.danger ? "text-status-red" : "text-signal-500"}`}
               strokeWidth={2}
+              aria-hidden="true"
             />
-            <span className={`font-mono text-[10px] font-bold uppercase tracking-[0.2em] ${
+            <h2 id="settings-panel-heading" className={`font-mono text-[10px] font-bold uppercase tracking-[0.2em] ${
               activeCategoryConfig.danger ? "text-status-red/70" : "text-signal-500"
             }`}
             >
               {activeCategoryConfig.label}
-            </span>
+            </h2>
             <span className="rounded-full border border-black/[0.06] bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
               {activeCategoryConfig.description}
             </span>
@@ -276,7 +280,7 @@ export const SettingsPage: FunctionComponent = () => {
           ) : null}
 
           <SettingsContentPanels state={state} />
-        </div>
+        </section>
       </div>
 
       {showUnsavedModal && (

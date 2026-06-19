@@ -339,4 +339,13 @@ expect(gsap.fromTo).toHaveBeenCalled();
     expect(screen.queryByText("T1")).not.toBeInTheDocument();
     expect(screen.getByText("No task telemetry landed in this window yet.")).toBeInTheDocument();
   });
+
+  it("exposes one page heading and named telemetry summary and analysis landmarks", () => {
+    render(<StatsPage />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: /statistics/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /telemetry summary/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /telemetry analysis/i })).toBeInTheDocument();
+  });
 });

@@ -494,7 +494,8 @@ export const SchedulerPage: FunctionComponent = () => {
         </div>
       </header>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section aria-labelledby="scheduler-summary-heading" className="grid gap-3 md:grid-cols-3">
+        <h2 id="scheduler-summary-heading" className="sr-only">Schedule summary</h2>
         {[
           { label: "Active entries", value: schedulerStats.activeCount, detail: "ready to fire", icon: Play, tone: "text-signal-500" },
           { label: "Repeating", value: schedulerStats.repeatingCount, detail: "recurrence rules", icon: Repeat, tone: "text-signal-500" },
@@ -522,11 +523,12 @@ export const SchedulerPage: FunctionComponent = () => {
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <aside data-testid="scheduler-form-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+      <section aria-labelledby="scheduler-workspace-heading" className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <h2 id="scheduler-workspace-heading" className="sr-only">Schedule workspace</h2>
+        <aside aria-labelledby="scheduler-form-heading" data-testid="scheduler-form-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              <h3 id="scheduler-form-heading" className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 {editingEntry ? "Edit entry" : "Add entry"}
               </h3>
               <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -759,10 +761,10 @@ export const SchedulerPage: FunctionComponent = () => {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <section data-testid="scheduler-calendar-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
+          <section aria-labelledby="scheduler-calendar-heading" data-testid="scheduler-calendar-panel" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                <h3 id="scheduler-calendar-heading" className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                   {view === "calendar" ? "Calendar view" : "24 hour view"}
                 </h3>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -882,10 +884,10 @@ export const SchedulerPage: FunctionComponent = () => {
             )}
           </section>
 
-          <section className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
+          <section aria-labelledby="scheduled-entries-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">Scheduled entries</h3>
+                <h3 id="scheduled-entries-heading" className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">Scheduled entries</h3>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Pause, resume, or remove future automation.</p>
               </div>
               <Check className="h-5 w-5 text-signal-500" />

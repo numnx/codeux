@@ -417,4 +417,15 @@ describe("BrowserPage", () => {
 
     expect(mockRemovePreviewSession).toHaveBeenCalledWith("sess-1");
   });
+
+  it("exposes one page heading with named preview sessions, browser, and controls landmarks", () => {
+    render(<BrowserPage />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: /build previews per sprint/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /preview sessions/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /sprint preview browser/i })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /browser controls/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /container logs/i })).toBeInTheDocument();
+  });
 });

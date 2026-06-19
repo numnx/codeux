@@ -47,12 +47,12 @@ export const SettingsCategoryRail: FunctionComponent<SettingsCategoryRailProps> 
   const normalizedSearch = settingsSearch.trim().toLowerCase();
 
   return (
-    <div className="sticky top-16 flex flex-col gap-3 rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-3 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+    <nav aria-labelledby="settings-categories-heading" className="sticky top-16 flex flex-col gap-3 rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-3 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
       <div className="rounded-[1.25rem] border border-black/[0.06] bg-black/[0.03] px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-        <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">
-          <Layers3 className="h-3.5 w-3.5" strokeWidth={2} />
+        <h2 id="settings-categories-heading" className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">
+          <Layers3 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
           Categories
-        </div>
+        </h2>
         <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
           {normalizedSearch
             ? `Showing ${filteredCategories.length} categories for “${settingsSearch.trim()}”.`
@@ -60,17 +60,19 @@ export const SettingsCategoryRail: FunctionComponent<SettingsCategoryRailProps> 
         </div>
       </div>
 
+      <ul className="flex flex-col gap-3">
       {filteredCategories.map((category) => {
         const isActive = activeCategory === category.id;
         const isDanger = category.danger;
         const isSearchMatch = Boolean(normalizedSearch && (CATEGORY_SEARCH_HINTS[category.id]?.some(hint => hint.includes(normalizedSearch)) || category.label.toLowerCase().includes(normalizedSearch) || category.description.toLowerCase().includes(normalizedSearch)));
 
         return (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => onSwitchCategory(category.id)}
-            className={`group relative flex w-full items-center gap-3.5 rounded-[1.1rem] px-4 py-3.5 text-left transition-colors duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isDanger ? "focus-visible:outline-status-red" : "focus-visible:outline-signal-500"} ${
+          <li key={category.id}>
+            <button
+              type="button"
+              onClick={() => onSwitchCategory(category.id)}
+              aria-current={isActive ? "page" : undefined}
+              className={`group relative flex w-full items-center gap-3.5 rounded-[1.1rem] px-4 py-3.5 text-left transition-colors duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isDanger ? "focus-visible:outline-status-red" : "focus-visible:outline-signal-500"} ${
               isActive
                 ? isDanger
                   ? "bg-status-red/[0.07] dark:bg-status-red/[0.08]"
@@ -97,6 +99,7 @@ export const SettingsCategoryRail: FunctionComponent<SettingsCategoryRailProps> 
                   : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
               }`}
               strokeWidth={1.75}
+              aria-hidden="true"
             />
 
             <div className="min-w-0 flex-1">
@@ -114,15 +117,17 @@ export const SettingsCategoryRail: FunctionComponent<SettingsCategoryRailProps> 
                 {category.description}
               </div>
             </div>
-          </button>
+            </button>
+          </li>
         );
       })}
+      </ul>
 
       {filteredCategories.length === 0 ? (
         <NoticePanel title="No matches">
           Try broader terms like `routing`, `CI`, `auth`, `agent`, or `memory`.
         </NoticePanel>
       ) : null}
-    </div>
+    </nav>
   );
 };

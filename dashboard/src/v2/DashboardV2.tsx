@@ -49,7 +49,7 @@ export const DashboardV2: FunctionComponent = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div role="status" aria-live="polite" aria-label="Status: Cluster Optimal" className="px-4 md:px-5 py-2 md:py-2.5 text-[10px] md:text-xs font-bold uppercase tracking-[0.14em] rounded-full bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border border-signal-500/15 dark:border-signal-500/20 flex items-center gap-2.5 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-md">
+                    <div role="status" aria-live="polite" aria-label="Cluster status: optimal" className="px-4 md:px-5 py-2 md:py-2.5 text-[10px] md:text-xs font-bold uppercase tracking-[0.14em] rounded-full bg-signal-500/8 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border border-signal-500/15 dark:border-signal-500/20 flex items-center gap-2.5 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-md">
                         <span aria-hidden="true" className="w-2 h-2 rounded-full bg-signal-500 relative">
                             <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />
                         </span>
@@ -59,7 +59,8 @@ export const DashboardV2: FunctionComponent = () => {
             </header>
 
             {/* Metrics Section */}
-            <section aria-label="Metrics" className="w-full relative z-20">
+            <section aria-labelledby="overview-metrics-heading" className="w-full relative z-20">
+                <h2 id="overview-metrics-heading" className="sr-only">Cluster metrics</h2>
                 <HeaderStats pageData={pageData} />
             </section>
 
@@ -70,20 +71,21 @@ export const DashboardV2: FunctionComponent = () => {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 md:gap-24 flex-grow relative z-20">
                 {/* Sources and Tasks */}
                 <div className="xl:col-span-8 flex flex-col gap-24">
-                    <section aria-label="Sources" className="w-full relative">
+                    <section aria-labelledby="overview-sources-heading" className="w-full relative">
                         {/* Subtle signal glow — very restrained */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(0,224,160,0.03) 0%, rgba(0,224,160,0.01) 40%, transparent 70%)' }} />
-                        <SourcesGrid />
+                        <SourcesGrid headingId="overview-sources-heading" />
                     </section>
 
-                    <section aria-label="Tasks" className="w-full relative">
+                    <section aria-labelledby="overview-streams-heading" className="w-full relative">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[130%] rounded-full pointer-events-none -z-10" style={{ background: 'radial-gradient(circle, rgba(255,184,0,0.03) 0%, rgba(255,184,0,0.01) 40%, transparent 70%)' }} />
-                        <TasksList pageData={pageData} />
+                        <TasksList pageData={pageData} headingId="overview-streams-heading" />
                     </section>
                 </div>
 
                 {/* Live Telemetry */}
-                <aside aria-label="Live Telemetry" className="xl:col-span-4 h-full relative">
+                <aside aria-labelledby="overview-telemetry-heading" className="xl:col-span-4 h-full relative">
+                    <h2 id="overview-telemetry-heading" className="sr-only">Live telemetry</h2>
                     <Suspense fallback={<SkeletonPanel />}>
                         <OverviewTelemetry />
                     </Suspense>

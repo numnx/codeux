@@ -13,7 +13,10 @@ type TaskFilter = "All Tasks" | "Running" | "Queued" | "Completed";
 
 const FILTER_OPTIONS = ["All Tasks", "Running", "Queued", "Completed"] as const;
 
-export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("../hooks/use-overview-page-data.js").useOverviewPageData> }> = ({ pageData }) => {
+export const TasksList: FunctionComponent<{
+    pageData: ReturnType<typeof import("../hooks/use-overview-page-data.js").useOverviewPageData>;
+    headingId?: string;
+}> = ({ pageData, headingId }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
 
@@ -69,7 +72,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-6 sm:gap-8">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-                    <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Active Streams</h2>
+                    <h2 id={headingId} className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Active Streams</h2>
                     <div className="w-full sm:w-auto">
                         <FilterStrip
                             options={FILTER_OPTIONS}
@@ -86,19 +89,19 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
             </div>
 
             {/* Task rows */}
-            <div ref={listRef} className="flex flex-col w-full space-y-3">
+            <div ref={listRef} role="list" className="flex flex-col w-full space-y-3">
                 {isLoading ? (
                     <>
-                        <SkeletonRow />
-                        <SkeletonRow />
-                        <SkeletonRow />
-                        <SkeletonRow />
-                        <SkeletonRow />
+                        <div role="listitem"><SkeletonRow /></div>
+                        <div role="listitem"><SkeletonRow /></div>
+                        <div role="listitem"><SkeletonRow /></div>
+                        <div role="listitem"><SkeletonRow /></div>
+                        <div role="listitem"><SkeletonRow /></div>
                     </>
                 ) : filteredTasks.length > 0 ? (
                     sprintGroups.flatMap((group) => [
                         group.sprint ? (
-                            <div key={`sprint-${group.sprintId}`} data-flip-id={`sprint-${group.sprintId}`}>
+                            <div key={`sprint-${group.sprintId}`} role="listitem" data-flip-id={`sprint-${group.sprintId}`}>
                                 <SprintStreamRow
                                     sprint={group.sprint}
                                     taskCount={group.tasks.length}
@@ -109,7 +112,7 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
                             </div>
                         ) : null,
                         ...group.tasks.map((task) => (
-                            <div key={task.id} data-flip-id={task.id} className="task-flip-item sm:pl-4">
+                            <div key={task.id} role="listitem" data-flip-id={task.id} className="task-flip-item sm:pl-4">
                                 <TaskRow
                                     task={task}
                                     state={streamActions.getTaskState(task)}
@@ -119,8 +122,8 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
                         )),
                     ])
                 ) : (
-                    <div data-flip-id="empty-state" className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                        <svg className="w-12 h-12 mb-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div role="listitem" data-flip-id="empty-state" className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                        <svg aria-hidden="true" className="w-12 h-12 mb-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                         </svg>
                         <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">No Results Found</div>

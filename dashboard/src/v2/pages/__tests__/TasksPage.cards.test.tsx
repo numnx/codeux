@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, cleanup } from "@testing-library/preact";
+import { render, cleanup, screen } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { createContext } from "preact";
 import { TasksPage } from "../../TasksPage.js";
@@ -177,5 +177,47 @@ describe("TasksPage.cards Integration", () => {
     expect(card).toHaveClass("border-dashed");
     expect(card).toHaveClass("opacity-60");
     expect(card).toHaveClass("pointer-events-none");
+  });
+
+  it("exposes one page heading with named controls and kanban board landmarks", () => {
+    (useProjectData as unknown as any).mockReturnValue({
+      projects: [{ id: "proj_1", name: "Project Alpha" }],
+      selectedProject: { id: "proj_1", name: "Project Alpha" },
+    });
+    (useSprints as unknown as any).mockReturnValue({
+      data: [{ id: "sprint_1", number: 1, name: "Sprint One", active: true }],
+      loading: false,
+      selectedSprintId: "sprint_1",
+      selectSprint: vi.fn(),
+      refetch: vi.fn(),
+    });
+    (useProjectTasks as any).mockReturnValue({
+      tasks: [
+        createMockTask({
+          recordId: "task_rec_1",
+          id: "T-100",
+          title: "Foundation Setup",
+          status: "pending",
+          priority: "high",
+        }),
+      ],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    });
+
+    render(
+      <ProjectDataContext.Provider value={{ projects: [{ id: "proj_1", name: "Project Alpha" } as any], selectedProject: { id: "proj_1", name: "Project Alpha" } as any } as any}>
+        <TasksPage />
+      </ProjectDataContext.Provider>
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: /task board/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /task board controls/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /selected sprint progress/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /kanban task board/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /queued/i })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /queued tasks/i })).toBeInTheDocument();
   });
 });

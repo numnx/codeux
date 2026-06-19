@@ -73,7 +73,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                 <div className="flex flex-col gap-5">
                     {/* Eyebrow */}
                     <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
-                        <Radio className="w-3.5 h-3.5 text-status-red" strokeWidth={2.5} />
+                        <Radio className="w-3.5 h-3.5 text-status-red" strokeWidth={2.5} aria-hidden="true" />
                         <span className="text-status-red">Live Session</span>
                         {(liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber) != null && (
                             <span className="text-slate-400 ml-1">· Sprint {liveSprintRun?.sprintNumber ?? pausedInterventionRun?.sprintNumber}</span>
@@ -88,10 +88,10 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         >
                             LIVE
                         </h2>
-                        <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-[0.92] font-display relative z-10">
+                        <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-[0.92] font-display relative z-10">
                             Sprint <br />
                             <span className="text-signal-500">Pipeline.</span>
-                        </h2>
+                        </h1>
                     </div>
 
                     <p className="text-lg text-slate-500 dark:text-slate-500 font-medium max-w-xl mt-1 leading-relaxed">
@@ -121,7 +121,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                                 onClick={() => setHeaderView("stats")}
                                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-300 ${headerView === "stats" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
-                                <BarChart3 className="w-3 h-3" strokeWidth={2} />
+                                <BarChart3 className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                                 Stats
                             </button>
                             <button
@@ -129,7 +129,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                                 onClick={() => setHeaderView("race")}
                                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-300 ${headerView === "race" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
-                                <Ship className="w-3 h-3" strokeWidth={2} />
+                                <Ship className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                                 Race
                             </button>
                             <button
@@ -137,13 +137,13 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                                 onClick={() => setHeaderView("dag")}
                                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-300 ${headerView === "dag" ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
                             >
-                                <Workflow className="w-3 h-3" strokeWidth={2} />
+                                <Workflow className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                                 DAG
                             </button>
                         </div>
 
-                        <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/10 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/25 dark:border-signal-500/25 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : showStatusPanel ? "bg-status-amber/10 text-status-amber border-status-amber/25" : "bg-black/10 dark:bg-white/10 text-slate-500 border-black/25 dark:border-white/25"}`}>
-                            <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : showStatusPanel ? "bg-status-amber" : "bg-slate-400"}`}>
+                        <div role="status" aria-label={`Live session status: ${hasLiveSprint ? `${visibleStats.running} running` : showStatusPanel ? sprintStatusPresentation.statusLabel : hasSprintContext ? "Snapshot loaded" : !initialLoadComplete ? "Connecting" : "Waiting"}`} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/10 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/25 dark:border-signal-500/25 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : showStatusPanel ? "bg-status-amber/10 text-status-amber border-status-amber/25" : "bg-black/10 dark:bg-white/10 text-slate-500 border-black/25 dark:border-white/25"}`}>
+                            <span aria-hidden="true" className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : showStatusPanel ? "bg-status-amber" : "bg-slate-400"}`}>
                                 {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
                             </span>
                             {hasLiveSprint ? `${visibleStats.running} Running` : showStatusPanel ? sprintStatusPresentation.statusLabel : hasSprintContext ? "Snapshot loaded" : !initialLoadComplete ? "Connecting" : "Waiting"}
@@ -153,7 +153,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         )}
                         {visibleStats.failed > 0 && (
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full bg-status-red/10 text-status-red border border-status-red/25 flex items-center gap-2.5 backdrop-blur-md">
-                                <span className="w-2 h-2 rounded-full bg-status-red relative">
+                                <span aria-hidden="true" className="w-2 h-2 rounded-full bg-status-red relative">
                                     <span className="absolute inset-0 rounded-full animate-ping bg-status-red opacity-50" />
                                 </span>
                                 {visibleStats.failed} Failed
@@ -173,7 +173,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-status-amber">
-                                <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.2} />
+                                <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.2} aria-hidden="true" />
                                 {sprintStatusPresentation.title}
                             </div>
                             <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white font-display">

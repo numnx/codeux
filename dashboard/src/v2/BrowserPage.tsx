@@ -370,9 +370,12 @@ export const BrowserPage: FunctionComponent = () => {
   if (!selectedProject) {
     return (
       <PageContainer padding="workbench">
-        <div className="rounded-[2rem] border border-black/[0.06] bg-white/60 p-8 text-sm text-slate-500 backdrop-blur-md dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+        <section aria-labelledby="browser-project-required-heading" className="rounded-[2rem] border border-black/[0.06] bg-white/60 p-8 text-sm text-slate-500 backdrop-blur-md dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+          <h1 id="browser-project-required-heading" className="font-display text-2xl font-black text-slate-900 dark:text-white">Select a project first.</h1>
+          <p className="mt-3">
           Select a project first. The in-app browser launches one isolated preview container per sprint.
-        </div>
+          </p>
+        </section>
       </PageContainer>
     );
   }
@@ -382,7 +385,7 @@ export const BrowserPage: FunctionComponent = () => {
       <div className="mb-8 flex flex-col justify-between gap-8 lg:flex-row lg:items-end" data-testid="browser-page-header">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-signal-500">
-            <Compass className="h-3.5 w-3.5" strokeWidth={2} />
+            <Compass className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
             Sprint Browser
           </div>
           <h1 className="font-display text-5xl font-black leading-[0.92] tracking-tighter text-slate-900 dark:text-white md:text-7xl">
@@ -398,20 +401,20 @@ export const BrowserPage: FunctionComponent = () => {
             onClick={() => void refreshSessions()}
           className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/75 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-all hover:-translate-y-px hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={2} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={2} aria-hidden="true" />
             Refresh
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-5 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm text-status-red">
+        <div role="alert" className="mb-5 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm text-status-red">
           {error}
         </div>
       )}
 
       {actionFeedback.status !== "idle" && actionFeedback.message && (
-        <div className="mb-5 flex items-start gap-3 p-3 rounded-xl border bg-black/[0.02] dark:bg-white/[0.03] border-black/[0.06] dark:border-white/[0.06]">
+        <div role="status" className="mb-5 flex items-start gap-3 p-3 rounded-xl border bg-black/[0.02] dark:bg-white/[0.03] border-black/[0.06] dark:border-white/[0.06]">
           <div className={`flex-1 text-sm font-medium mt-0.5 ${actionFeedback.status === 'error' ? 'text-status-red' : actionFeedback.status === 'success' ? 'text-status-green' : 'text-signal-700 dark:text-signal-400'}`}>
             {actionFeedback.status === 'pending' && <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
             {actionFeedback.message}
@@ -438,7 +441,8 @@ export const BrowserPage: FunctionComponent = () => {
         </div>
       )}
 
-      <div className="mb-5">
+      <section aria-labelledby="browser-sessions-heading" className="mb-5">
+        <h2 id="browser-sessions-heading" className="sr-only">Preview sessions</h2>
         <PreviewSessionSlider
           sessions={sessionCards}
           selectedSessionId={activeSessionId}
@@ -446,24 +450,26 @@ export const BrowserPage: FunctionComponent = () => {
           onRemoveSession={(sessionId) => void handleRemove(sessionId)}
           removingSessionIds={removingSessionIds}
         />
-      </div>
+      </section>
 
       {(!showInAppBrowser || !previewEnabled) && (
-        <div className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 text-sm text-slate-500 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-md dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+        <section aria-labelledby="browser-preview-disabled-heading" className="rounded-[2rem] border border-black/[0.06] bg-white/70 p-8 text-sm text-slate-500 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-md dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
           <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Browser Preview</div>
-          <div className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">
+          <h2 id="browser-preview-disabled-heading" className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">
             {!previewEnabled ? "Preview runtime is disabled." : "In-app browser workspace is hidden."}
-          </div>
+          </h2>
           <p className="mt-2 max-w-2xl leading-6">
             {!previewEnabled
               ? "Enable `Preview runtime enabled` in Browser Preview settings to launch and rebuild preview containers again."
               : "Enable `Show in-app browser workspace` in Browser Preview settings to restore the embedded browser surface in the dashboard."}
           </p>
-        </div>
+        </section>
       )}
 
       {showInAppBrowser && previewEnabled && (
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]" data-testid="browser-main-tool-panel">
+        <section aria-labelledby="browser-preview-heading">
+          <h2 id="browser-preview-heading" className="sr-only">Sprint preview browser</h2>
         <PreviewWindowChrome
           session={visibleSelectedSession}
           onNavigateBack={() => postNavigationCommand("back")}
@@ -502,8 +508,10 @@ export const BrowserPage: FunctionComponent = () => {
             </div>
           ) : null}
         </PreviewWindowChrome>
+        </section>
 
-        <div className="space-y-5">
+        <aside aria-labelledby="browser-controls-heading" className="space-y-5">
+          <h2 id="browser-controls-heading" className="sr-only">Browser controls</h2>
           <LaunchContainerPanel
             sprints={sprints}
             launchSprintId={launchSprintId}
@@ -512,20 +520,20 @@ export const BrowserPage: FunctionComponent = () => {
             launchEnabled={launchEnabled}
             launchBusy={launching}
           />
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+          <section aria-labelledby="selected-preview-session-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Selected Sprint</div>
-                <div className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
+                <h3 id="selected-preview-session-heading" className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
                   {scriptTargetSprint?.name || "All sprints"}
-                </div>
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowScriptEditor((value) => !value)}
                 className="inline-flex h-10 items-center gap-2 rounded-2xl border border-black/[0.08] px-3 text-xs font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
               >
-                <FileCode2 className="h-4 w-4" strokeWidth={2} />
+                <FileCode2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                 Script
               </button>
             </div>
@@ -549,7 +557,7 @@ export const BrowserPage: FunctionComponent = () => {
                   disabled={!visibleSelectedSession || sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
                 >
-                  <RotateCcw className={`h-4 w-4 ${sessionActionPending ? 'animate-spin' : ''}`} strokeWidth={2} />
+                  <RotateCcw className={`h-4 w-4 ${sessionActionPending ? 'animate-spin' : ''}`} strokeWidth={2} aria-hidden="true" />
                   {sessionActionPending ? "Rebuilding..." : "Rebuild"}
                 </button>
                 <button
@@ -558,7 +566,7 @@ export const BrowserPage: FunctionComponent = () => {
                   disabled={!visibleSelectedSession || sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
                 >
-                  <Square className="h-4 w-4" strokeWidth={2} />
+                  <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   {sessionActionPending ? "Stopping..." : "Stop"}
                 </button>
                 <a
@@ -567,29 +575,29 @@ export const BrowserPage: FunctionComponent = () => {
                   rel="noopener noreferrer"
                   className={`inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white ${!visibleSelectedSession ? "pointer-events-none opacity-50" : ""}`}
                 >
-                  <ExternalLink className="h-4 w-4" strokeWidth={2} />
+                  <ExternalLink className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   Open
                 </a>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Runtime notes</div>
+          <section aria-labelledby="browser-runtime-notes-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+            <h3 id="browser-runtime-notes-heading" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Runtime notes</h3>
             <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
               <p>Ports are assigned from the sprint preview range and bound to `127.0.0.1` to avoid conflicts with the main dashboard.</p>
               <p>Each preview container runs from a dedicated sprint snapshot directory, so multiple active sprints from the same project stay isolated without registering git worktrees.</p>
             </div>
-          </div>
+          </section>
 
           {showScriptEditor && (
-            <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+            <section aria-labelledby="startup-script-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Startup script</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                  <h3 id="startup-script-heading" className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {script?.mode === "script" ? "Custom file" : "Auto-generated fallback"}
-                  </div>
+                  </h3>
                 </div>
                 <button
                   type="button"
@@ -597,25 +605,26 @@ export const BrowserPage: FunctionComponent = () => {
                   disabled={savingScript || !scriptTargetSprint}
                   className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
                 >
-                  <Save className="h-4 w-4" strokeWidth={2} />
+                  <Save className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   {savingScript ? "Saving..." : "Save"}
                 </button>
               </div>
               <textarea
+                aria-labelledby="startup-script-heading"
                 value={scriptDraft}
                 onInput={(event) => setScriptDraft((event.currentTarget as HTMLTextAreaElement).value)}
                 className="h-72 w-full rounded-[1.5rem] border border-black/[0.08] bg-slate-100/80 p-4 font-mono text-[12px] leading-6 text-slate-800 outline-none transition focus:border-signal-500/40 dark:border-white/[0.08] dark:bg-void-950 dark:text-slate-100"
               />
-            </div>
+            </section>
           )}
 
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Container logs</div>
+          <section aria-labelledby="container-logs-heading" className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+            <h3 id="container-logs-heading" className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Container logs</h3>
             <pre className="max-h-[360px] overflow-auto rounded-[1.5rem] bg-slate-100/80 p-4 font-mono text-[11px] leading-6 text-slate-700 dark:bg-void-950 dark:text-slate-300">
               {logs || "No logs yet."}
             </pre>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
       )}
     </PageContainer>
