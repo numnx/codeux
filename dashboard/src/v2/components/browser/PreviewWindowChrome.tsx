@@ -80,7 +80,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {session.sprintName}
             </span>
-            <div className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] ${statusTone[session.status]}`}>
+            <div className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] ${statusTone[session.status]}`} aria-label={`Status: ${session.status}`}>
               {session.status}
             </div>
           </div>
@@ -159,7 +159,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
               )}
             </button>
           </div>
-          <div className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${statusTone[session.status]}`}>
+          <div className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${statusTone[session.status]}`} aria-label={`Status: ${session.status}`}>
             {session.status}
           </div>
         </div>
@@ -168,6 +168,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             type="button"
             onClick={onNavigateBack}
             disabled={!navigationEnabled}
+            aria-disabled={!navigationEnabled}
             title={navigationEnabled ? "Go back" : "Back navigation requires a running container"}
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
           >
@@ -177,6 +178,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             type="button"
             onClick={onNavigateForward}
             disabled={!navigationEnabled}
+            aria-disabled={!navigationEnabled}
             title={navigationEnabled ? "Go forward" : "Forward navigation requires a running container"}
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
           >
@@ -186,6 +188,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             type="button"
             onClick={onReload}
             disabled={!navigationEnabled}
+            aria-disabled={!navigationEnabled}
             title={navigationEnabled ? "Reload preview" : "Reload requires a running container"}
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
           >
@@ -202,6 +205,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
               value={addressValue}
               onInput={(event) => onAddressChange((event.currentTarget as HTMLInputElement).value)}
               disabled={!navigationEnabled}
+              aria-disabled={!navigationEnabled}
               title={navigationEnabled ? "Preview address" : "Address entry requires a running container"}
               placeholder={navigationEnabled ? "Enter path..." : "Container not running..."}
               className="h-10 w-full rounded-2xl border border-black/[0.08] bg-white/80 px-4 font-mono text-sm text-slate-800 outline-none transition focus:border-signal-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-100"

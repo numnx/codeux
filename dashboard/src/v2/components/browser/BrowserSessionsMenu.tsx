@@ -197,8 +197,8 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                     <div className="flex items-center justify-between min-w-0 w-full gap-2">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className="flex items-center gap-1.5 shrink-0 bg-black/[0.04] dark:bg-white/[0.04] px-1.5 py-0.5 rounded-md">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${statusColors[session.status] || "bg-slate-400"}`} />
-                                                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{session.status}</span>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${statusColors[session.status] || "bg-slate-400"}`} aria-hidden="true" />
+                                                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400" aria-label={`Session status: ${session.status}`}>{session.status}</span>
                                             </div>
                                             <span className="text-sm font-semibold truncate text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                                                 {session.sprintName || "Unknown Sprint"}
@@ -207,7 +207,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                         <ExternalLink aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-signal-500 transition-colors" />
                                     </div>
                                     <div className="flex items-center pl-1">
-                                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate" aria-label={`Port mapping: ${formatPort(session)}`}>
                                             {formatPort(session)}
                                         </span>
                                     </div>

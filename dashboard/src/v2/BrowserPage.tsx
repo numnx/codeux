@@ -69,9 +69,11 @@ export const BrowserPage: FunctionComponent = () => {
   const [addressValue, setAddressValue] = useState("/");
   const [currentPath, setCurrentPath] = useState("/");
   const [showScriptEditor, setShowScriptEditor] = useState(false);
+  const isScriptDirty = script?.content !== undefined && scriptDraft !== script.content;
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [launchSprintId, setLaunchSprintId] = useState("");
   const [frameSrc, setFrameSrc] = useState("");
+  const [iframeLoading, setIframeLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{status: 'idle' | 'pending' | 'success' | 'error', message: string | null}>({status: 'idle', message: null});
 
   const browserFeedback = useActionFeedback();
@@ -123,6 +125,7 @@ export const BrowserPage: FunctionComponent = () => {
       currentPathRef.current = nextPath;
       setCurrentPath(nextPath);
       setAddressValue(nextPath);
+      setIframeLoading(true);
       setFrameSrc(`${buildPreviewOrigin(visibleSelectedSession.id)}${nextPath}`);
 
       return;
@@ -138,6 +141,7 @@ export const BrowserPage: FunctionComponent = () => {
     if (!visibleSelectedSession || !frameSrc) {
       return;
     }
+    setIframeLoading(true);
     setFrameSrc(`${buildPreviewOrigin(visibleSelectedSession.id)}${normalizePath(currentPathRef.current)}`);
 
   }, [visibleSelectedSession?.status, visibleSelectedSession?.hostPort]);
@@ -253,6 +257,7 @@ export const BrowserPage: FunctionComponent = () => {
     if (!visibleSelectedSession) {
       return;
     }
+    setIframeLoading(true);
     setFrameSrc(`${buildPreviewOrigin(visibleSelectedSession.id)}${normalizePath(path)}`);
 
   };
@@ -269,6 +274,7 @@ export const BrowserPage: FunctionComponent = () => {
       const session = await startPreviewSession(selectedProject.id, sprintId);
       setActiveSessionId(session.id);
       await refreshSessions(true);
+      setIframeLoading(true);
       setFrameSrc(`${buildPreviewOrigin(session.id)}${normalizePath(currentPathRef.current)}`);
 
       browserFeedback.setSuccess("Container launched successfully");
@@ -358,6 +364,7 @@ export const BrowserPage: FunctionComponent = () => {
     if (navigationEnabled) {
       postNavigationCommand("push", nextPath);
     } else if (visibleSelectedSession) {
+      setIframeLoading(true);
       setFrameSrc(`${buildPreviewOrigin(visibleSelectedSession.id)}${nextPath}`);
 
     }
@@ -482,12 +489,12 @@ export const BrowserPage: FunctionComponent = () => {
         >
           {visibleSelectedSession && frameSrc ? (
             <div className="relative h-full w-full">
-              {!navigationEnabled && (
+              {(!navigationEnabled || iframeLoading) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm dark:bg-void-950/50">
                   <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/90 px-6 py-4 shadow-sm dark:bg-void-900/90">
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-signal-500 border-t-transparent" />
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {visibleSelectedSession.status === "starting" ? "Container starting..." : "Waiting for connection..."}
+                      {visibleSelectedSession.status === "starting" ? "Container starting..." : iframeLoading ? "Loading preview..." : "Waiting for connection..."}
                     </span>
                   </div>
                 </div>
@@ -498,6 +505,7 @@ export const BrowserPage: FunctionComponent = () => {
                 title={`Sprint preview ${visibleSelectedSession.sprintName}`}
                 src={frameSrc}
                 className="h-full w-full border-0 bg-white"
+                onLoad={() => setIframeLoading(false)}
               />
             </div>
           ) : null}
@@ -547,6 +555,7 @@ export const BrowserPage: FunctionComponent = () => {
                   type="button"
                   onClick={handleRebuild}
                   disabled={!visibleSelectedSession || sessionActionPending}
+                  aria-busy={sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
                 >
                   <RotateCcw className={`h-4 w-4 ${sessionActionPending ? 'animate-spin' : ''}`} strokeWidth={2} />
@@ -556,6 +565,7 @@ export const BrowserPage: FunctionComponent = () => {
                   type="button"
                   onClick={handleStop}
                   disabled={!visibleSelectedSession || sessionActionPending}
+                  aria-busy={sessionActionPending}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] text-xs font-semibold text-slate-700 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-300/50 disabled:bg-slate-200/60 disabled:text-slate-500 disabled:opacity-100 dark:border-white/[0.08] dark:text-slate-200 dark:hover:border-white/[0.16] dark:hover:text-white dark:disabled:border-slate-700 dark:disabled:bg-slate-800/60 dark:disabled:text-slate-500"
                 >
                   <Square className="h-4 w-4" strokeWidth={2} />
@@ -594,11 +604,12 @@ export const BrowserPage: FunctionComponent = () => {
                 <button
                   type="button"
                   onClick={handleSaveScript}
-                  disabled={savingScript || !scriptTargetSprint}
+                  disabled={savingScript || !scriptTargetSprint || !isScriptDirty}
+                  aria-busy={savingScript}
                   className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
                 >
                   <Save className="h-4 w-4" strokeWidth={2} />
-                  {savingScript ? "Saving..." : "Save"}
+                  {savingScript ? "Saving..." : !isScriptDirty ? "Saved" : "Save"}
                 </button>
               </div>
               <textarea
@@ -610,7 +621,10 @@ export const BrowserPage: FunctionComponent = () => {
           )}
 
           <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Container logs</div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Container logs</div>
+              <button type="button" onClick={() => { setLogs("Refreshing..."); void fetchPreviewLogs(visibleSelectedSession?.id || "", 160).then(r => setLogs(r.logs)).catch(() => setLogs("Failed to refresh logs.")); }} disabled={!visibleSelectedSession} className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600 transition hover:bg-black/[0.04] disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-400 dark:hover:bg-white/[0.04]"><RefreshCw className="h-3 w-3" />Refresh</button>
+            </div>
             <pre className="max-h-[360px] overflow-auto rounded-[1.5rem] bg-slate-100/80 p-4 font-mono text-[11px] leading-6 text-slate-700 dark:bg-void-950 dark:text-slate-300">
               {logs || "No logs yet."}
             </pre>

@@ -252,7 +252,7 @@ describe("BrowserPage", () => {
 
     render(<BrowserPage />);
 
-    expect(screen.getByText("Waiting for connection...")).toBeInTheDocument();
+    expect(screen.getByText("Loading preview...")).toBeInTheDocument();
   });
 
   afterEach(() => {

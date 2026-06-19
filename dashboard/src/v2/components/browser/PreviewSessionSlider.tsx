@@ -120,6 +120,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                     {session.sprintName}
                   </span>
                   <span
+                    aria-label={`Status: ${session.status}`}
                     className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] flex items-center gap-1.5 ${
                       statusTone[session.status]
                     }`}
@@ -130,11 +131,11 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                 </div>
 
                 <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
-                  <Globe
+                  <Globe aria-label={`Health: ${session.healthStatus}`}
                     className={`h-3.5 w-3.5 ${healthTone[session.healthStatus]}`}
                     strokeWidth={2}
                   />
-                  <span>{formatPortMapping(session)}</span>
+                  <span aria-label={`Port mapping: ${formatPortMapping(session)}`}>{formatPortMapping(session)}</span>
                 </div>
 
                 <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
@@ -157,7 +158,8 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                     : "border-status-red/15 text-status-red hover:border-status-red/30 hover:bg-status-red/8"
                   }`}
                   title="Remove preview container"
-                  aria-disabled={removing}
+                  disabled={removing}
+                  aria-busy={removing}
                 >
                   {removing ? <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3 w-3" strokeWidth={2.5} />}
                   {removing ? "Removing..." : "Remove"}
