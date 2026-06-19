@@ -2,15 +2,17 @@ import type { FunctionComponent, ComponentProps } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { useGsapDurations } from "../../lib/motion/constants.js";
+import { Loader2 } from "lucide-preact";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export type ToggleProps = Omit<ComponentProps<"button">, "value" | "onChange" | "aria-label" | "aria-labelledby"> & {
   value: boolean;
   onChange: (value: boolean) => void;
   danger?: boolean;
+  pending?: boolean;
 } & ({ "aria-label": string } | { "aria-labelledby": string });
 
-export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger, disabled, className = "", ...props }) => {
+export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger, pending, disabled, className = "", ...props }) => {
   const thumbRef = useRef<HTMLSpanElement>(null);
   const durations = useGsapDurations();
   const reducedMotion = useReducedMotion();
@@ -19,6 +21,9 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
   useLayoutEffect(() => {
     gsap.set(thumbRef.current, { x: value ? 20 : 0 });
   }, []);
+
+  const isBusy = props["aria-busy"] === true || props["aria-busy"] === "true";
+  const isPending = pending || isBusy;
 
   useLayoutEffect(() => {
     if (isInitialMount.current) {
@@ -38,14 +43,20 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
       {...props}
       type="button"
       role="switch"
-      onClick={() => onChange(!value)}
+      onClick={() => {
+        if (!disabled && !isPending) {
+          onChange(!value);
+        }
+      }}
       disabled={disabled}
-      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] ${
+      aria-disabled={disabled || isPending}
+      aria-busy={isPending}
+      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-inherit aria-disabled:active:scale-100 motion-safe:enabled:active:scale-[0.98] ${
         value
           ? danger
-            ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] enabled:hover:bg-status-red/90"
-            : "border-signal-500/40 bg-signal-500 shadow-[0_0_16px_rgba(0,224,160,0.22)] enabled:hover:bg-signal-500/90"
-          : "border-black/[0.12] bg-black/[0.08] enabled:hover:bg-black/[0.12] enabled:hover:border-black/[0.16] dark:border-white/[0.12] dark:bg-white/[0.08] dark:enabled:hover:bg-white/[0.12] dark:enabled:hover:border-white/[0.16]"
+            ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] enabled:hover:bg-status-red/90 aria-disabled:hover:bg-status-red"
+            : "border-signal-500/40 bg-signal-500 shadow-[0_0_16px_rgba(0,224,160,0.22)] enabled:hover:bg-signal-500/90 aria-disabled:hover:bg-signal-500"
+          : "border-black/[0.12] bg-black/[0.08] enabled:hover:bg-black/[0.12] enabled:hover:border-black/[0.16] dark:border-white/[0.12] dark:bg-white/[0.08] dark:enabled:hover:bg-white/[0.12] dark:enabled:hover:border-white/[0.16] aria-disabled:hover:bg-black/[0.08] aria-disabled:hover:border-black/[0.12] dark:aria-disabled:hover:bg-white/[0.08] dark:aria-disabled:hover:border-white/[0.12]"
       } ${className}`}
       aria-checked={value}
       aria-pressed={"aria-pressed" in props ? props["aria-pressed"] : undefined}
@@ -60,21 +71,25 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
           value ? "group-enabled:group-active:translate-x-4" : ""
         }`}
       >
-        <svg
-          className={`h-3 w-3 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {value ? (
-            <path d="M5 13l4 4L19 7" />
-          ) : (
-            <path d="M18 6L6 18M6 6l12 12" />
-          )}
-        </svg>
+        {isPending ? (
+          <Loader2 className={`h-3 w-3 animate-spin motion-reduce:animate-none ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`} />
+        ) : (
+          <svg
+            className={`h-3 w-3 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {value ? (
+              <path d="M5 13l4 4L19 7" />
+            ) : (
+              <path d="M18 6L6 18M6 6l12 12" />
+            )}
+          </svg>
+        )}
       </span>
     </button>
   );

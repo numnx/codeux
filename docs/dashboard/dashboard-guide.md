@@ -715,6 +715,7 @@ The dashboard relies on consistent interaction primitives across all v2 views:
 - **Overlays & Modals**: Dismissible surfaces (dialogs, side panels, search overlays) can be closed via explicit buttons, clicking the backdrop, or pressing the Escape key. Focus is trapped within the overlay while open and restored to the trigger when closed.
 - **Data Views**: Complex data views (like the Sprint Ledger or Stats page) maintain sticky sort/filter controls while the data scrolls. List windowing and progressive rendering ensure smooth interactions even with large datasets.
 - **Destructive Actions & Flows**: Major flows with side effects, such as rerunning a task, require explicit confirmation. The confirmation dialog warns about potential downstream impacts (e.g., downstream task resets, existing git merges) and provides localized options to clean up state before proceeding.
+- **Shared Control Feedback Contract**: Common UI controls prefer using ARIA attributes like `aria-disabled` and `aria-busy` over native `disabled` to improve layout stability, enable screen reader announcements of pending states, and avoid skipped tab targets while pending. Animation states like `animate-spin` on these controls must use `motion-reduce:animate-none` to honor reduced-motion expectations.
 
 ## Accessibility Patterns
 

@@ -136,9 +136,10 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
       ref={containerRef}
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
+      aria-busy={displayedStatus === "pending"}
       className={`relative overflow-hidden flex items-start gap-3 p-3 rounded-xl border ${config.colors} ${className}`}
     >
-      <Icon key={displayedStatus} className={`w-5 h-5 shrink-0 ${displayedStatus === "pending" ? "animate-spin" : ""} motion-safe:animate-[icon-pop_0.18s_ease-out]`} />
+      <Icon key={displayedStatus} className={`w-5 h-5 shrink-0 ${displayedStatus === "pending" ? "animate-spin motion-reduce:animate-none" : ""} motion-safe:animate-[icon-pop_0.18s_ease-out]`} />
       <div className="flex-1 text-sm font-medium mt-0.5 relative">
         <div ref={messageRef}>
           {displayedMessage}

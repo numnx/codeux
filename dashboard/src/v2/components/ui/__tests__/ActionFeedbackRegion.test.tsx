@@ -35,7 +35,15 @@ describe("ActionFeedbackRegion", () => {
     const el = screen.getByRole("status");
     expect(el).toBeInTheDocument();
     expect(el).toHaveAttribute("aria-live", "polite");
+    expect(el).toHaveAttribute("aria-busy", "false");
     expect(screen.getByText("Success message")).toBeInTheDocument();
+    unmount();
+
+    render(<ActionFeedbackRegion status="pending" message="Pending message" />);
+    const pendingEl = screen.getByRole("status");
+    expect(pendingEl).toBeInTheDocument();
+    expect(pendingEl).toHaveAttribute("aria-live", "polite");
+    expect(pendingEl).toHaveAttribute("aria-busy", "true");
     unmount();
 
     render(<ActionFeedbackRegion status="error" message="Error message" />);

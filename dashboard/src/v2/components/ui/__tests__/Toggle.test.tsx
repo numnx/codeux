@@ -35,3 +35,29 @@ test('handles disabled controls', () => {
     const toggle = screen.getByRole('switch', { name: 'Toggle Z' });
     expect(toggle).toBeDisabled();
 });
+
+test('handles pending controls via prop', () => {
+    const onChange = vi.fn();
+    render(<Toggle value={false} onChange={onChange} aria-label="Toggle Pending" pending />);
+
+    const toggle = screen.getByRole('switch', { name: 'Toggle Pending' });
+    expect(toggle).not.toBeDisabled();
+    expect(toggle).toHaveAttribute('aria-disabled', 'true');
+    expect(toggle).toHaveAttribute('aria-busy', 'true');
+
+    fireEvent.click(toggle);
+    expect(onChange).not.toHaveBeenCalled();
+});
+
+test('handles pending controls via aria-busy', () => {
+    const onChange = vi.fn();
+    render(<Toggle value={false} onChange={onChange} aria-label="Toggle Busy" aria-busy="true" />);
+
+    const toggle = screen.getByRole('switch', { name: 'Toggle Busy' });
+    expect(toggle).not.toBeDisabled();
+    expect(toggle).toHaveAttribute('aria-disabled', 'true');
+    expect(toggle).toHaveAttribute('aria-busy', 'true');
+
+    fireEvent.click(toggle);
+    expect(onChange).not.toHaveBeenCalled();
+});

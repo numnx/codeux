@@ -8,7 +8,7 @@ import { useMagnetic } from "../../hooks/use-magnetic.js";
 import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
-export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] touch-target";
+export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 motion-safe:active:scale-[0.98] touch-target";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   success?: boolean;
@@ -141,7 +141,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
             </div>
 
             <div key={`pending-${feedback.status}`} data-active={isPending} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isPending ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             </div>
 
             <div key={`success-${feedback.status}`} data-active={isSuccess} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isSuccess ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>

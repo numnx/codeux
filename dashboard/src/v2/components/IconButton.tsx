@@ -28,7 +28,7 @@ export const IconButton: FunctionComponent<IconButtonProps> = memo(({ children, 
 
     const handleClick = useCallback(
         (e: any) => {
-            if (isPending) {
+            if (disabled || isPending) {
                 e?.preventDefault();
                 return;
             }
@@ -53,7 +53,8 @@ export const IconButton: FunctionComponent<IconButtonProps> = memo(({ children, 
         <button
             {...props}
             onClick={handleClick}
-            disabled={disabled || isPending}
+            disabled={disabled}
+            aria-disabled={disabled || isPending}
             aria-label={ariaLabel || title}
             aria-busy={isPending}
             className={`flex items-center justify-center p-2 rounded-xl relative hover:bg-black/5 dark:hover:bg-white/5 ${SHARED_INTERACTION_CLASSES} ${className}`}
@@ -63,7 +64,7 @@ export const IconButton: FunctionComponent<IconButtonProps> = memo(({ children, 
             </div>
 
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isPending ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-                <Loader2 className={`w-5 h-5 ${reducedMotion ? "" : "animate-spin"}`} aria-hidden="true" />
+                <Loader2 className="w-5 h-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             </div>
 
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isSuccess ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
