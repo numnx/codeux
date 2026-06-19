@@ -20,9 +20,14 @@
   scale: 1.02;
   box-shadow: 0 20px 40px rgba(0,0,0,0.2);
   outline: 2px solid rgba(0, 224, 160, 1);
+  cursor: grabbing;
 }
 .kanban-card-reduced-motion {
   transition: none !important;
   transform: none !important;
   scale: 1 !important;
+}
+.kanban-card-reduced-motion:hover {
+  box-shadow: var(--v2-shadow-premium);
+  outline: 1px solid rgba(0, 224, 160, 0.4);
 }

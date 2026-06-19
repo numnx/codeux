@@ -30,7 +30,22 @@ export function useTaskCardMotion(ref: RefObject<HTMLElement>, status: string, i
 
 export function useTaskCardDragMotion(ref: RefObject<HTMLElement>, isDragging: boolean, isReducedMotion: boolean) {
   useEffect(() => {
-    if (!ref.current || isReducedMotion) return;
+    if (!ref.current) return;
+
+    if (isReducedMotion) {
+      if (isDragging) {
+        gsap.set(ref.current, {
+          opacity: 0.5,
+          scale: 1, // Keep scale 1 in reduced motion
+          boxShadow: 'none', // Removed heavy shadow in reduced motion
+        });
+      } else {
+        gsap.set(ref.current, {
+          clearProps: 'opacity,scale,boxShadow,transform'
+        });
+      }
+      return;
+    }
 
     if (isDragging) {
       gsap.killTweensOf(ref.current);
