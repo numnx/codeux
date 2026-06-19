@@ -1,6 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { memo } from "preact/compat";
-import { ArrowRight } from "lucide-preact";
+import { ArrowRight, CheckCircle2, PlayCircle, AlertCircle, Clock } from "lucide-preact";
 import type { DependencyIndicator } from "../../lib/tasks/task-card-view-model.js";
 
 export const DependencyStatusIndicators: FunctionComponent<{
@@ -11,18 +11,29 @@ export const DependencyStatusIndicators: FunctionComponent<{
   return (
     <div className="relative z-10 mt-3 flex flex-wrap gap-1.5">
       {indicators.map((dep) => (
-        <div
+                <div
           key={dep.recordId}
           className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] ${
             dep.status === "completed"
               ? "bg-status-green/[0.08] border-status-green/20 text-status-green"
               : dep.status === "coding_completed" || dep.status === "in_progress"
               ? "bg-signal-500/[0.08] border-signal-500/20 text-signal-500"
+              : dep.status === "QA_REVIEW_FAILED"
+              ? "bg-status-red/[0.08] border-status-red/20 text-status-red"
               : "bg-slate-400/[0.08] border-slate-400/20 text-slate-500"
           }`}
           title={`Depends on ${dep.title} (${dep.status})`} aria-label={`Depends on ${dep.title}, status: ${dep.status.replace('_', ' ')}`}
         >
-          <span className="sr-only">Depends on task </span><ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          <span className="sr-only">Depends on task </span>
+          {dep.status === "completed" ? (
+            <CheckCircle2 className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          ) : dep.status === "coding_completed" || dep.status === "in_progress" ? (
+            <PlayCircle className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          ) : dep.status === "QA_REVIEW_FAILED" ? (
+            <AlertCircle className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          ) : (
+            <Clock className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
+          )}
           <span>{dep.id}</span>
         </div>
       ))}

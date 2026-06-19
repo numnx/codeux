@@ -117,11 +117,12 @@ export const KanbanTaskCard: FunctionComponent<{
           // Optional: Toggle accessible drag mode if implemented
         }
       }}
-      className={`kanban-card group relative flex flex-col bg-white/80 dark:bg-void-800/75 backdrop-blur-sm rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 ${task.isOptimistic ? "border-dashed border-2 border-slate-300 dark:border-slate-600 opacity-60 pointer-events-none" : "border border-black/[0.06] dark:border-white/[0.06]"} ${isReducedMotion ? 'kanban-card-reduced-motion' : ''} ${isDragging ? 'opacity-50 ring-2 ring-signal-500 scale-[1.02] shadow-[0_20px_40px_rgba(0,0,0,0.2)]' : ''}`}
+      className={`kanban-card group relative flex flex-col bg-white/80 dark:bg-void-800/75 backdrop-blur-sm rounded-[1.75rem] p-7 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 aria-disabled:border-dashed aria-disabled:border-2 aria-disabled:border-slate-300 aria-disabled:dark:border-slate-600 aria-disabled:opacity-60 aria-disabled:pointer-events-none ${!task.isOptimistic ? "border border-black/[0.06] dark:border-white/[0.06]" : ""} ${isReducedMotion ? 'kanban-card-reduced-motion' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      aria-disabled={task.isOptimistic ? "true" : "false"}
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       <span id={`task-card-kbd-${task.recordId}`} className="sr-only">
-        Keyboard reordering is not supported. Use drag and drop to reorder.
+        Keyboard reordering is not supported. Use drag and drop with a pointer to reorder. Press Enter or Space to interact with the card.
       </span>
       <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-signal-500/[0.03] dark:group-hover:bg-signal-500/[0.05]" />
       <WaveFluid accentHex={STATUS_CFG[task.status].hex} />

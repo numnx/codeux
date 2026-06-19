@@ -6,6 +6,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import userEvent from "@testing-library/user-event";
 import gsap from "gsap";
 import { KanbanTaskCard } from "../KanbanTaskCard.js";
+import { useReducedMotion } from "../../../hooks/use-reduced-motion.js";
 import type { TaskCardViewModel } from "../../../lib/tasks/task-card-view-model.js";
 
 expect.extend(matchers);
@@ -39,6 +40,10 @@ vi.mock("gsap", async (importOriginal) => {
   };
   return { ...actual, default: mockGsap, gsap: mockGsap };
 });
+
+vi.mock("../../../hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: vi.fn().mockReturnValue(false)
+}));
 
 describe("KanbanTaskCard Integration", () => {
   afterEach(() => {
@@ -202,9 +207,14 @@ describe("KanbanTaskCard Integration", () => {
     const dependencyIndicator = getByTitle(/Depends on Backend API/i);
     expect(dependencyIndicator).toBeInTheDocument();
 
+    // Verify updated keyboard accessible text
+    const srText = getByText(/Keyboard reordering is not supported\. Use drag and drop with a pointer to reorder\./i);
+    expect(srText).toBeInTheDocument();
+
     // The card itself should be focusable via tabIndex={0}
     const card = container.querySelector(".kanban-card");
     expect(card).toHaveAttribute("tabIndex", "0");
+    expect(card).toHaveAttribute("aria-disabled", "false");
 
     // Simulate focus to verify visibility/interaction
     if (card) {
@@ -215,6 +225,41 @@ describe("KanbanTaskCard Integration", () => {
     const actionsContainer = editBtn.parentElement;
     expect(actionsContainer).toHaveClass("group-focus:opacity-100");
     });
+
+  it("renders optimistic task correctly using aria-disabled", () => {
+    const optimisticViewModel = {
+      ...mockViewModel,
+      task: { ...mockViewModel.task, isOptimistic: true as const }
+    };
+
+    const { container } = render(
+      <KanbanTaskCard
+        viewModel={optimisticViewModel}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    );
+
+    const card = container.querySelector(".kanban-card");
+    expect(card).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("applies reduced motion fallback behavior when dragging", () => {
+    vi.mocked(useReducedMotion).mockReturnValueOnce(true);
+
+    const { container } = render(
+      <KanbanTaskCard
+        viewModel={mockViewModel}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        isDragging={true}
+      />
+    );
+
+    const card = container.querySelector(".kanban-card");
+    // Ensure that dragging class is still added despite reduced motion
+    expect(card).toHaveClass("is-dragging");
+  });
 
   it("renders status transition clearly when a task status updates", () => {
     const { container, rerender } = render(
