@@ -38,7 +38,7 @@ export function TableBody({ children }: { children: ComponentChildren }) {
   return <tbody className="block lg:table-row-group">{children}</tbody>;
 }
 
-export function TableRow({ children, className = "", selected, onClick }: { children: ComponentChildren; className?: string; selected?: boolean; onClick?: (e: MouseEvent) => void }) {
+export function TableRow({ children, className = "", selected, onClick, style }: { children: ComponentChildren; className?: string; selected?: boolean; onClick?: (e: MouseEvent) => void; style?: import("preact").JSX.CSSProperties }) {
   const selectedClass = selected ? "bg-signal-500/5 ring-2 ring-inset ring-signal-500/30" : "";
   const cursorClass = onClick ? "cursor-pointer" : "";
   return (
@@ -47,6 +47,7 @@ export function TableRow({ children, className = "", selected, onClick }: { chil
       aria-selected={selected}
       role="row"
       className={`group mb-3 block overflow-hidden rounded-[1.5rem] border shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_48px_rgba(15,23,42,0.08)] focus-within:ring-2 focus-within:ring-signal-500/20 dark:shadow-[0_16px_40px_rgba(0,0,0,0.18)] lg:table-row lg:overflow-visible lg:rounded-none lg:border-0 lg:shadow-none lg:hover:bg-black/[0.015] dark:lg:hover:bg-white/[0.02] lg:transition-colors lg:duration-150 ${cursorClass} ${selectedClass} ${className}`}
+      style={style}
     >
       {children}
     </tr>
