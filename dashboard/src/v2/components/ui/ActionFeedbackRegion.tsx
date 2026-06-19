@@ -61,7 +61,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
             duration: durations.fast,
             onComplete: () => {
               setDisplayedMessage(message);
-              gsap.fromTo(messageRef.current, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: durations.fast });
+              gsap.fromTo(messageRef.current, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: durations.fast, ease: GSAP_EASINGS.smooth });
             }
           });
         });
