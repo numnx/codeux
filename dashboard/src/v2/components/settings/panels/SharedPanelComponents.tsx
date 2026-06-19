@@ -190,9 +190,10 @@ export const Row: FunctionComponent<{
   badge?: string;
   last?: boolean;
   info?: ComponentChildren;
+  disabledReason?: string;
   onReset?: () => void;
-}> = ({ label, description, children, badge, last, info, onReset }) => (
-  <SharedRow label={label} description={description} badge={badge ? <OverrideBadge label={badge} contextLabel={label} onReset={onReset} /> : undefined} last={last} info={info}>
+}> = ({ label, description, children, badge, last, info, disabledReason, onReset }) => (
+  <SharedRow label={label} description={description} badge={badge && badge !== "Inherited" ? <OverrideBadge label={badge} contextLabel={label} onReset={onReset} /> : undefined} last={last} info={info} disabledReason={disabledReason}>
     {children}
   </SharedRow>
 );

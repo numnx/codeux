@@ -98,22 +98,22 @@ export const SettingsBody: FunctionComponent<{
   children: ComponentChildren;
 }> = ({ error, message, loading, loadingLabel = "Loading\u2026", children }) => (
   <div className="px-7 py-6">
-    {error ? (
-      <div className="mb-5">
+    <div aria-live="polite" className="flex flex-col gap-5">
+      {error ? (
         <NoticePanel title="Error" tone="warning">{error}</NoticePanel>
-      </div>
-    ) : null}
+      ) : null}
 
-    {message ? (
-      <div className="mb-5">
+      {message ? (
         <NoticePanel title="Success" tone="success">{message}</NoticePanel>
-      </div>
-    ) : null}
+      ) : null}
+    </div>
 
-    {loading ? (
-      <NoticePanel title="Loading">{loadingLabel}</NoticePanel>
-    ) : (
-      children
-    )}
+    <div className={error || message ? "mt-5" : ""}>
+      {loading ? (
+        <NoticePanel title="Loading">{loadingLabel}</NoticePanel>
+      ) : (
+        children
+      )}
+    </div>
   </div>
 );
