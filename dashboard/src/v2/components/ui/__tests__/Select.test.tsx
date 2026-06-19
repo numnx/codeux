@@ -30,3 +30,14 @@ test('handles disabled controls', () => {
     const select = screen.getByRole('combobox', { name: 'Disabled Select' });
     expect(select).toBeDisabled();
 });
+
+test('applies valid attributes correctly', () => {
+    render(
+        <Select aria-label="Valid Select" valid={true}>
+            <option value="1">Option 1</option>
+        </Select>
+    );
+
+    const select = screen.getByRole('combobox', { name: 'Valid Select' });
+    expect(select).toHaveAttribute('data-valid', 'true');
+});
