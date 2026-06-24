@@ -81,6 +81,56 @@ describe("SprintComposer", () => {
     expect(document.body.querySelectorAll('img[src="/lobe-icons/codex-color.svg"]').length).toBeGreaterThan(1);
   });
 
+  it("resets a stale model override when switching route providers", async () => {
+    const { getByRole, getByText, queryByText } = render(
+      <SprintComposer
+        {...defaultProps}
+        virtualProviders={[
+          {
+            providerConfigId: "codex-primary",
+            provider: "codex",
+            displayLabel: "Codex Primary",
+            iconProviderId: "codex",
+            effectiveModel: "gpt-5.5",
+            modelOptions: [
+              { value: "gpt-5.5", label: "gpt-5.5" },
+              { value: "gpt-5.5-mini", label: "gpt-5.5-mini" },
+            ],
+          },
+          {
+            providerConfigId: "gemini-primary",
+            provider: "gemini",
+            displayLabel: "Gemini Primary",
+            iconProviderId: "gemini",
+            effectiveModel: "gemini-2.5-pro",
+            modelOptions: [
+              { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+            ],
+          },
+        ]}
+        defaultRouteOptionLabel="Default Route (Codex Primary)"
+        defaultModelOptionLabel="Default Model (gpt-5.5)"
+        defaultRouteIconProviderId="codex"
+      />
+    );
+
+    fireEvent.click(getByRole("button", { name: "Planning Route" }));
+    fireEvent.click(getByText("Codex Primary"));
+
+    fireEvent.click(getByRole("button", { name: "Model Override" }));
+    fireEvent.click(getByText("gpt-5.5-mini"));
+
+    expect(getByText("gpt-5.5-mini")).toBeInTheDocument();
+
+    fireEvent.click(getByRole("button", { name: "Planning Route" }));
+    fireEvent.click(getByText("Gemini Primary"));
+
+    await waitFor(() => {
+      expect(getByText("Default Model (gemini-2.5-pro)")).toBeInTheDocument();
+    });
+    expect(queryByText("gpt-5.5-mini")).not.toBeInTheDocument();
+  });
+
   it("renders linked issue cards and submits them", async () => {
     const onSubmit = vi.fn();
     const issue = {

@@ -22,15 +22,10 @@ import { PlanningProgressOverlay } from "../ui/PlanningProgressOverlay.js";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
+import type { VirtualProviderDisplayMetadata } from "../../lib/settings-view-models.js";
 
-interface VirtualProviderOption {
-  id?: string;
-  providerConfigId?: string;
-  provider?: string;
-  label?: string;
-  displayLabel?: string;
-  iconProviderId?: ProviderId;
-  effectiveModel?: string;
+interface VirtualProviderOption extends VirtualProviderDisplayMetadata {
+  modelOptions?: Array<{ value: string; label: string }>;
 }
 
 /* ─── Icon Map ──────────────────────────────────────────────────────── */
@@ -296,11 +291,12 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
     for (const vp of virtualProviders) {
       opts.push({
         type: "virtual",
-        id: vp.providerConfigId || vp.id || vp.provider || "",
-        label: vp.displayLabel || vp.label || vp.providerConfigId || vp.id || vp.provider || "Provider",
-        provider: vp.providerConfigId || vp.id || vp.provider,
-        iconProviderId: vp.iconProviderId || (vp.provider as ProviderId | undefined) || (vp.id as ProviderId | undefined),
+        id: vp.providerConfigId,
+        label: vp.displayLabel,
+        provider: vp.provider,
+        iconProviderId: vp.iconProviderId,
         effectiveModel: vp.effectiveModel,
+        modelOptions: vp.modelOptions,
       });
     }
     return opts;
@@ -309,8 +305,10 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   const showModelOverride = routeOverride?.type === "virtual";
   const modelProviderId = routeOverride?.iconProviderId;
   const modelOptions = useMemo(
-    () => (showModelOverride && modelProviderId ? getProviderModelOptions(modelProviderId) : []),
-    [showModelOverride, modelProviderId],
+    () => (showModelOverride && routeOverride?.type === "virtual"
+      ? routeOverride.modelOptions || (modelProviderId ? getProviderModelOptions(modelProviderId) : [])
+      : []),
+    [modelProviderId, routeOverride, showModelOverride],
   );
   const defaultModelLabel = routeOverride?.effectiveModel
     ? `Default Model (${routeOverride.effectiveModel})`

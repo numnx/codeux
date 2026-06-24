@@ -39,6 +39,7 @@ export interface PlanningRouteOption {
   provider?: string;
   iconProviderId?: ProviderId;
   effectiveModel?: string;
+  modelOptions?: Array<{ value: string; label: string }>;
 }
 
 export function toPlanningOverrides(

@@ -19,6 +19,7 @@ import {
   getDefaultModelOptionLabel,
   getDefaultRouteOptionLabel,
   getProviderDisplayMetadata,
+  getProviderInstanceModelOptions,
   getVirtualProviderDisplayMetadata,
 } from "../../lib/settings-view-models.js";
 import { useProjectData } from "../../context/project-data.js";
@@ -381,7 +382,20 @@ export function useSprintsPageData() {
   });
 
   const virtualProviders = useMemo(
-    () => getVirtualProviderDisplayMetadata(systemSettings),
+    () => getVirtualProviderDisplayMetadata(systemSettings).map((provider) => {
+      const providerConfig = systemSettings?.integrations.providers[provider.providerConfigId] || null;
+      const modelOptions = providerConfig
+        ? getProviderInstanceModelOptions(
+          provider.providerConfigId,
+          { provider: providerConfig.provider, model: providerConfig.customModel || provider.effectiveModel },
+          systemSettings,
+        )
+        : [{ value: provider.effectiveModel, label: provider.effectiveModel }];
+      return {
+        ...provider,
+        modelOptions,
+      };
+    }),
     [systemSettings],
   );
   const defaultVirtualProvider = useMemo(

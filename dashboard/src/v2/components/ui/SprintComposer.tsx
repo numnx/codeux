@@ -36,15 +36,10 @@ import { AgentSelectAvatarIcon } from "../agents/AgentSelectAvatarIcon.js";
 import { getSafeUrl } from "../../lib/safe-url.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
 import type { ProviderId } from "../../types.js";
+import type { VirtualProviderDisplayMetadata } from "../../lib/settings-view-models.js";
 
-interface VirtualProviderOption {
-  id?: string;
-  providerConfigId?: string;
-  provider?: string;
-  label?: string;
-  displayLabel?: string;
-  iconProviderId?: ProviderId;
-  effectiveModel?: string;
+interface VirtualProviderOption extends VirtualProviderDisplayMetadata {
+  modelOptions?: Array<{ value: string; label: string }>;
 }
 
 interface SprintComposerProps {
@@ -467,20 +462,23 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       id: c.id,
       label: c.displayName,
     })),
-    ...virtualProviders.map(v => ({
+    ...virtualProviders.map((v) => ({
       type: 'virtual' as const,
-      id: v.providerConfigId || v.id || v.provider || "",
-      label: v.displayLabel || v.label || v.providerConfigId || v.id || v.provider || "Provider",
-      provider: v.providerConfigId || v.id || v.provider,
-      iconProviderId: v.iconProviderId || (v.provider as ProviderId | undefined) || (v.id as ProviderId | undefined),
+      id: v.providerConfigId,
+      label: v.displayLabel,
+      provider: v.provider,
+      iconProviderId: v.iconProviderId,
       effectiveModel: v.effectiveModel,
+      modelOptions: v.modelOptions,
     }))
   ];
 
   const currentRoute = state.routeOverride || null;
   const showModelOverride = currentRoute?.type === 'virtual';
   const modelProviderId = currentRoute?.iconProviderId;
-  const modelOptions = modelProviderId ? getProviderModelOptions(modelProviderId) : [];
+  const modelOptions = currentRoute?.type === "virtual"
+    ? currentRoute.modelOptions || (modelProviderId ? getProviderModelOptions(modelProviderId) : [])
+    : [];
   const defaultModelLabel = currentRoute?.effectiveModel
     ? `Default Model (${currentRoute.effectiveModel})`
     : defaultModelOptionLabel;
