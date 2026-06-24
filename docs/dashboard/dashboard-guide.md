@@ -394,6 +394,7 @@ Legacy runtime:
 ### Dashboard view
 - Task statistics
 - Execution runtime panel for sprint runs, dispatch queue state, live project connections, worker assignment, lease ownership, and recent runtime events
+  - Queued/deferred dispatches show a stable status indicator `Waiting for slot (current/limit)` when an invocation is waiting for a provider concurrency slot.
 - Live runtime visuals are only considered active when the selected project has a `running` or `queued` sprint run; cancelled, paused, and completed runs fall back to a waiting state
 - When no sprint is running but a paused sprint needs human intervention, the overview telemetry now switches from an empty state to an attention state with the exact reason and operator instructions
 - Task pipeline cards
@@ -671,6 +672,16 @@ For provider-backed runs, session polling is now used to ingest durable runtime 
 - Session IDs and states appear in task cards.
 - Provider activity is mirrored into `task_run_events` and shown through the runtime feed.
 - PR URL is shown once the workflow creates the PR.
+
+## Provider Authentication Modes
+
+Provider credentials and authentication modes support local auth-copy mounts, API keys, or dashboard-guided Docker logins.
+
+### Mutual-Exclusion Contract
+To prevent credential and runtime config conflicts, provider configurations enforce a strict mutual-exclusion contract between API keys and local mounting:
+- **API Key mode**: API key input is rendered, and switching away from this mode dynamically clears the saved API key. Qwen Code and OpenCode authentication sub-modes (e.g. Alibaba Cloud Coding Plan, Custom model provider/endpoint options) are available only in API Key mode.
+- **Local Copy mode / Dashboard Login mode**: Local auth paths (e.g., host paths like `~/.qwen` or `~/.config/gcloud`) or Dashboard Login paths (`~/.code-ux/credentials/{providerConfigId}`) are rendered only when selected. Switching to local copy or dashboard-guided login automatically clears runtime API keys, custom base URLs, and custom models to prevent coexistence conflicts.
+- **Mode-Incompatible Controls**: Any mode-incompatible inputs (such as Claude/Codex custom base URLs and custom models) that remain visible in local copy mode are clearly disabled to reflect the active configuration state.
 
 ## Security Notes
 
