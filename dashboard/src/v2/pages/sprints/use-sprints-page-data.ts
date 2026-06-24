@@ -368,7 +368,6 @@ export function useSprintsPageData() {
     addTaskForSprint,
     setAddTaskSprintTasks,
     setAddTaskForSprint,
-    setShowQuicksprint,
     reloadQuicksprintTemplates,
     createProject,
   });

@@ -61,6 +61,7 @@ interface SprintComposerProps {
     clientRequestId?: string;
     sprintKeyOverride?: string;
     signal?: AbortSignal;
+    shouldHandleResult?: () => boolean;
   }) => Promise<void> | void;
   onCancelPlanningRequest?: (clientRequestId: string) => Promise<void> | void;
   onStartNewSprint?: () => void;
@@ -304,6 +305,14 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     activeRequestRef.current = { id: clientRequestId, detached: false, cancelled: false };
     const controller = new AbortController();
     abortRef.current = controller;
+    const shouldHandleResult = (): boolean => {
+      const activeRequest = activeRequestRef.current;
+      return !isUnmountedRef.current
+        && !!activeRequest
+        && activeRequest.id === clientRequestId
+        && !activeRequest.detached
+        && !activeRequest.cancelled;
+    };
     setIsImproving(true);
     clearFeedback();
     setPending(PLANNING_ACTION_LABELS.improve);
@@ -315,8 +324,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         planningAgentPresetId: state.planningAgentPresetId || undefined,
         overrides: toPlanningOverrides(state.routeOverride, state.modelOverride, state.planningAgentPresetId),
       });
-      const activeRequest = activeRequestRef.current;
-      if (!isUnmountedRef.current && activeRequest && activeRequest.id === clientRequestId && !activeRequest.detached && !activeRequest.cancelled) {
+      if (shouldHandleResult()) {
         state.setGoal(improvedGoal);
         state.setOriginalPrompt(rawPrompt);
         setSuccess("Prompt refined");
@@ -334,7 +342,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         setError(error instanceof Error ? error.message : String(error), { retryAction: handleImprovePrompt, retryLabel: "Retry Improve", autoDismiss: false });
       }
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
       const activeRequest = activeRequestRef.current;
       if (activeRequest?.id === clientRequestId) {
         activeRequestRef.current = null;
@@ -367,6 +377,14 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     activeRequestRef.current = { id: clientRequestId, detached: false, cancelled: false };
     const controller = new AbortController();
     abortRef.current = controller;
+    const shouldHandleResult = (): boolean => {
+      const activeRequest = activeRequestRef.current;
+      return !isUnmountedRef.current
+        && !!activeRequest
+        && activeRequest.id === clientRequestId
+        && !activeRequest.detached
+        && !activeRequest.cancelled;
+    };
     setIsSubmitting(true);
     clearFeedback();
     const actionType = state.submitMode === "plan_only" ? "plan_only" : state.submitMode === "replan" ? "replan" : "plan_and_start";
@@ -386,9 +404,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         clientRequestId,
         sprintKeyOverride: state.sprintKeyOverride.trim() || undefined,
         signal: controller.signal,
+        shouldHandleResult,
       });
-      const activeRequest = activeRequestRef.current;
-      if (!isUnmountedRef.current && activeRequest?.id === clientRequestId && !activeRequest.detached && !activeRequest.cancelled) {
+      if (shouldHandleResult()) {
         onClose();
       }
     } catch (error) {
@@ -404,7 +422,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         setError(error instanceof Error ? error.message : String(error), { retryAction: () => fieldsRef.current?.requestSubmit(), retryLabel: "Retry Request", autoDismiss: false });
       }
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
       const activeRequest = activeRequestRef.current;
       if (activeRequest?.id === clientRequestId) {
         activeRequestRef.current = null;

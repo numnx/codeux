@@ -145,4 +145,58 @@ describe("QuicksprintPanel", () => {
     // We didn't cancel, so we can now resolve the execution
     resolveExecute!();
   });
+
+  it("opens a fresh quicksprint without cancelling the previous planning request", async () => {
+    let resolveFirstExecute: () => void;
+    let resolveSecondExecute: () => void;
+    const firstExecutePromise = new Promise<void>((resolve) => {
+      resolveFirstExecute = resolve;
+    });
+    const secondExecutePromise = new Promise<void>((resolve) => {
+      resolveSecondExecute = resolve;
+    });
+    const mockOnExecute = vi
+      .fn()
+      .mockReturnValueOnce(firstExecutePromise)
+      .mockReturnValueOnce(secondExecutePromise);
+    const mockOnClose = vi.fn();
+
+    const { getByText } = render(
+      <QuicksprintPanel {...defaultProps} onExecute={mockOnExecute} onClose={mockOnClose} />
+    );
+
+    fireEvent.click(getByText("API Tests"));
+    const firstSubmitButton = getByText("Plan & Start");
+    fireEvent.click(firstSubmitButton);
+
+    await waitFor(() => {
+      expect(getByText("Quicksprint in motion")).toBeInTheDocument();
+    });
+    const firstSignal = mockOnExecute.mock.calls[0]?.[6] as AbortSignal;
+    expect(firstSignal).toBeInstanceOf(AbortSignal);
+
+    fireEvent.click(getByText("New Quicksprint"));
+
+    expect(firstSignal.aborted).toBe(false);
+    expect(getByText("Launch A Quicksprint.")).toBeInTheDocument();
+
+    fireEvent.click(getByText("API Tests"));
+    const secondSubmitButton = getByText("Plan & Start");
+    expect(secondSubmitButton).not.toBeDisabled();
+    fireEvent.click(secondSubmitButton);
+
+    await waitFor(() => {
+      expect(mockOnExecute).toHaveBeenCalledTimes(2);
+    });
+
+    resolveFirstExecute!();
+    await Promise.resolve();
+    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(secondSubmitButton).toBeDisabled();
+
+    resolveSecondExecute!();
+    await waitFor(() => {
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+  });
 });
