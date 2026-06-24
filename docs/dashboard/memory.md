@@ -34,5 +34,7 @@ Memory records encapsulate the base `content` string alongside its vectorized by
 
 ## UI Updates and Accessibility
 - Added keyboard-accessible clear search functionality to `MemorySearch.tsx` (supports clearing via `Escape` and a dedicated clear button).
-- Improved memory list accessibility and reduced motion fallbacks in `MemoryList.tsx`.
-- `MemoryFilters.tsx` implements proper tab semantics and uses clear danger state indicators for lobotomize mode.
+- Improved memory list accessibility and reduced motion fallbacks in `MemoryList.tsx`. Memory search and filter controls feature explicit labels, and result counts are announced to screen readers after filter changes.
+- `MemoryFilters.tsx` implements proper tab semantics with accessible labels, and uses clear danger state indicators for lobotomize mode.
+- Memory cards expose names, metadata, and selection state programmatically, avoiding reliance on color, border, or position alone.
+- The inspector/details panel acts as a labelled complementary region with proper keyboard focus behaviors that hide when inactive to prevent trapping focus.

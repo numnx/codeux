@@ -132,7 +132,7 @@ export const MemoryList: FunctionComponent<{
     }
 
     return (
-        <div id="memory-panel" className="flex flex-col gap-3 h-full overflow-y-auto dashboard-scrollbar p-2" ref={listRef} role="listbox">
+        <div id="memory-panel" className="flex flex-col gap-3 h-full overflow-y-auto dashboard-scrollbar p-2" ref={listRef} role="listbox" aria-label="Memories">
             <div className="sr-only" aria-live="polite" aria-atomic="true">
                 {renderedNodes.length} memories found
             </div>
