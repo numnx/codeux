@@ -38,17 +38,16 @@ export const ThreadListCard: FunctionComponent<{
       const isReplay = !!thread.runtimeState?.replayRequired;
 
       return (
-        <div key={thread.id} className="group relative overflow-hidden rounded-[1.75rem]">
+        <div key={thread.id} className="group relative overflow-hidden rounded-3xl">
           <button
             type="button"
             onClick={() => onSelect(thread.id)}
-            className={`w-full rounded-[1.75rem] p-5 pr-16 text-left transition-all duration-200
-              bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl
+            className={`w-full rounded-3xl p-5 pr-16 text-left transition-all duration-200
               shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500
               ${isSelected
-                ? "border-2 border-signal-500 shadow-[0_0_24px_rgba(0,224,160,0.12)] transition-all duration-300"
-                : "border-2 border-black/[0.06] dark:border-white/[0.06] hover:border-slate-400 dark:hover:border-white/[0.2]"
+                ? "bg-signal-500/[0.05] border border-black/[0.06] dark:border-white/[0.06] border-l-[3px] border-l-signal-500"
+                : "bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.06] border-l-[3px] border-l-transparent hover:border-slate-300 dark:hover:border-white/[0.12]"
               }`}
           >
             {/* Ghost ID watermark */}
@@ -107,9 +106,13 @@ export const ThreadListCard: FunctionComponent<{
                 {/* Right column */}
                 <div className="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
                   <div className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statusTone(thread.pendingMessageCount)}`}>
-                    {thread.pendingMessageCount > 0 ? `${thread.pendingMessageCount} pending` : "synced"}
+                    {thread.pendingMessageCount > 0 ? (
+                      <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-signal-500 animate-pulse" /> pending</span>
+                    ) : (
+                      "synced"
+                    )}
                   </div>
-                  <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                     {formatRelativeChatTime(thread.lastMessageAt)}
                   </div>
                   {thread.messageCount > 0 && (
