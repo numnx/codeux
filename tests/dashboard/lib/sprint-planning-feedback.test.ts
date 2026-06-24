@@ -38,6 +38,22 @@ describe("getPlanningFeedback", () => {
     expect(feedbackLong.text).toBe("Finalizing new structure...");
   });
 
+  it("should return progressive feedback for draft action", () => {
+    const feedback0 = getPlanningFeedback("draft", 0);
+    expect(feedback0.text).toBe("Registering sprint definition...");
+
+    const feedbackLong = getPlanningFeedback("draft", 100000);
+    expect(feedbackLong.text).toBe("Finalizing draft...");
+  });
+
+  it("should return progressive feedback for append_tasks action", () => {
+    const feedback0 = getPlanningFeedback("append_tasks", 0);
+    expect(feedback0.text).toBe("Registering manual tasks...");
+
+    const feedbackLong = getPlanningFeedback("append_tasks", 100000);
+    expect(feedbackLong.text).toBe("Finalizing new tasks...");
+  });
+
   it("should loop ship progress continuously", () => {
     // At 0ms, shipProgress should be 0
     expect(getPlanningFeedback("plan_only", 0).shipProgress).toBe(0);

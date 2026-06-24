@@ -83,6 +83,14 @@ describe("Sprint Composer State Helpers", () => {
       expect(resolveSubmitOriginalPrompt("replan", null, "New goal text")).toBeNull();
     });
 
+    it("returns null when mode is append_tasks and originalPrompt is null", () => {
+      expect(resolveSubmitOriginalPrompt("append_tasks", null, "New goal text")).toBeNull();
+    });
+
+    it("returns existing originalPrompt when mode is append_tasks", () => {
+      expect(resolveSubmitOriginalPrompt("append_tasks", "Existing original", "New goal text")).toBe("Existing original");
+    });
+
     it("trims returned goal", () => {
       expect(resolveSubmitOriginalPrompt("plan_and_start", null, "  Spaced goal  ")).toBe("Spaced goal");
     });

@@ -1,5 +1,5 @@
 
-export type PlanningActionType = "improve" | "plan_only" | "plan_and_start" | "replan";
+export type PlanningActionType = "improve" | "plan_only" | "plan_and_start" | "replan" | "draft" | "append_tasks";
 
 export interface PlanningFeedback {
   text: string;
@@ -36,6 +36,16 @@ const STAGES: Record<PlanningActionType, Array<{ text: string; threshold: number
     { text: "Generating new subtasks...", threshold: 0.75 },
     { text: "Finalizing new structure...", threshold: 0.95 },
   ],
+  draft: [
+    { text: "Registering sprint definition...", threshold: 0.10 },
+    { text: "Saving draft...", threshold: 0.50 },
+    { text: "Finalizing draft...", threshold: 0.90 },
+  ],
+  append_tasks: [
+    { text: "Registering manual tasks...", threshold: 0.10 },
+    { text: "Linking to sprint...", threshold: 0.50 },
+    { text: "Finalizing new tasks...", threshold: 0.90 },
+  ],
 };
 
 const SHIP_LOOP_MS = 12_000; // ship crosses the track every 12 seconds
@@ -45,6 +55,8 @@ export const PLANNING_ACTION_LABELS: Record<PlanningActionType, string> = {
   plan_only: "Generating subtasks...",
   plan_and_start: "Planning and initiating...",
   replan: "Updating execution plan...",
+  draft: "Saving sprint draft...",
+  append_tasks: "Appending manual tasks...",
 };
 
 export function getPlanningFeedback(actionType: PlanningActionType, elapsedMs: number): PlanningFeedback {

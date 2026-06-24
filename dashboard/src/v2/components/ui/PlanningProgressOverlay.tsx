@@ -95,6 +95,10 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         return "The Planning agent is researching the codebase to decompose your sprint into grounded, atomic subtasks. Execution will wait for your review.";
       case "plan_and_start":
         return "The Planning agent is researching the codebase to decompose your sprint into grounded, atomic subtasks and will begin execution immediately.";
+      case "draft":
+        return "The sprint definition is being saved as a draft for later planning.";
+      case "append_tasks":
+        return "Manual tasks are being appended to this sprint without affecting existing ones.";
       default:
         return "The Planning agent is researching the codebase to decompose your sprint into grounded, atomic subtasks.";
     }

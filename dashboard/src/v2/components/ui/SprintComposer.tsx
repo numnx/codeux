@@ -212,6 +212,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
       if (state.submitMode === "plan_only") return "plan_only";
       if (state.submitMode === "plan_and_start") return "plan_and_start";
       if (state.submitMode === "replan") return "replan";
+      if (state.submitMode === "draft") return "draft";
+      if (state.submitMode === "append_tasks") return "append_tasks";
     }
     return null;
   }, [isImproving, isSubmitting, state.submitMode]);
@@ -269,7 +271,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     activeRequestRef.current = null;
     setIsImproving(false);
     setIsSubmitting(false);
-    clearFeedback();
+    setError("Planning request cancelled", { autoDismiss: true });
     if (previousFocusRef.current) {
       const el = previousFocusRef.current;
       setTimeout(() => el.focus(), 0);
@@ -296,6 +298,11 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     if (!state.name.trim() || !state.goal.trim()) {
       setHasAttemptedSubmit(true);
       setHasAttemptedImprove(true);
+      if (!state.name.trim()) {
+        fieldsRef.current?.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+      } else {
+        fieldsRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+      }
       return;
     }
     previousFocusRef.current = document.activeElement as HTMLElement | null;
@@ -354,6 +361,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     event.preventDefault();
     if (!state.name.trim()) {
       setHasAttemptedSubmit(true);
+      fieldsRef.current?.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
       return;
     }
 
@@ -369,7 +377,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     abortRef.current = controller;
     setIsSubmitting(true);
     clearFeedback();
-    const actionType = state.submitMode === "plan_only" ? "plan_only" : state.submitMode === "replan" ? "replan" : "plan_and_start";
+    const actionType = state.submitMode === "draft" ? "draft" : state.submitMode === "append_tasks" ? "append_tasks" : state.submitMode === "plan_only" ? "plan_only" : state.submitMode === "replan" ? "replan" : "plan_and_start";
     setPending(PLANNING_ACTION_LABELS[actionType]);
     try {
       await onSubmit({
@@ -607,7 +615,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               <button
                 type="button"
                 onClick={() => { void handleImprovePrompt(); }}
-                disabled={isBusy || !state.name.trim() || !state.goal.trim()}
+                disabled={isBusy}
                 aria-busy={isImproving}
                 className="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 transition-colors hover:bg-signal-500/[0.14] disabled:cursor-not-allowed disabled:opacity-50 dark:text-signal-300"
               >
@@ -858,7 +866,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             )}
             <button
               type="submit"
-              disabled={isBusy || !state.name.trim()}
+              disabled={isBusy}
               aria-busy={isSubmitting}
               className="inline-flex items-center justify-center gap-2.5 rounded-[1.2rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-px hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-void-900"
             >
