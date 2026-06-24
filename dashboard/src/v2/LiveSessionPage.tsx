@@ -528,7 +528,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                                 : "Launch a sprint to activate live task telemetry, protocol output, and runtime activity for this project."}
                         />
                     ) : taskCardItems.length === 0 ? (
-                        <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border-2 border-dashed border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-16 text-center">
+                        <div className="group relative overflow-hidden border border-black/[0.04] dark:border-white/[0.04] rounded-[1.75rem] p-16 text-center">
                             <div className="relative z-10">
                                 <Play className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
                                 <p className="text-sm text-slate-400 dark:text-slate-600 font-medium">

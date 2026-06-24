@@ -5,8 +5,6 @@ import { memo } from "preact/compat";
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Code2, GitBranch, Hourglass, Sparkles, Timer, Workflow, XCircle } from "lucide-preact";
 import type { ExecutionTaskDispatchSummary, Subtask } from "../../types.js";
 import { buildSprintDagModel, type SprintDagEdgeModel, type SprintDagNodeModel } from "../lib/sprint-dag.js";
-import { WaveFluid } from "./ui/WaveFluid.js";
-import { BorderTrace } from "./ui/BorderTrace.js";
 
 interface SprintDagProps {
   tasks?: Subtask[];
@@ -485,9 +483,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
 
   if (!hasSprintContext || safeTasks.length === 0) {
     return (
-      <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-        <WaveFluid accentHex="#00E0A0" />
-        <BorderTrace accentHex="#00E0A0" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-8 shadow-sm backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75">
         <div className="relative z-10 flex min-h-[22rem] flex-col items-center justify-center text-center">
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.3rem] border border-signal-500/20 bg-signal-500/10 text-signal-500 shadow-[0_0_24px_rgba(0,224,160,0.16)]">
             <Workflow className="h-8 w-8" strokeWidth={1.4} />
@@ -505,19 +501,7 @@ export const SprintDag: FunctionComponent<SprintDagProps> = ({ tasks, dispatches
   }
 
   return (
-    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] md:p-6">
-      <WaveFluid accentHex="#00E0A0" />
-      <BorderTrace accentHex="#00E0A0" />
-
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="dag-aurora absolute -left-20 top-8 h-56 w-56 rounded-full" style={{ background: 'radial-gradient(circle, rgba(0,224,160,0.08) 0%, transparent 70%)' }} />
-        <div className="dag-aurora absolute right-[-4rem] top-1/3 h-64 w-64 rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,184,0,0.08) 0%, transparent 70%)', animationDelay: "-4s" }} />
-        <div className="dag-grid-pan absolute inset-0 opacity-40 dark:opacity-50" style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(100,116,139,0.18) 1px, transparent 0)",
-          backgroundSize: "26px 26px",
-        }} />
-      </div>
-
+    <div className="group relative overflow-hidden rounded-[2rem] border border-black/[0.06] bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-white/[0.06] dark:bg-void-800/75 md:p-6">
       <div className="relative z-10">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>

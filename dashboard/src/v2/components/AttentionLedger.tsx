@@ -10,8 +10,6 @@ import { formatTime } from "../../lib/time.js";
 import { MARKDOWN_PROSE_CLASS } from "./ui/MarkdownEditorField.js";
 import { useExecutionTimeline } from "../../hooks/ExecutionTimelineContext.js";
 import { ATTENTION_OWNER_LABELS, ATTENTION_SEVERITY_TONE, ATTENTION_TYPE_LABELS, ATTENTION_STATUS_TONE, shortenRuntimeId } from "./live-session/ExecutionRuntimePanel.js";
-import { BorderTrace } from "./ui/BorderTrace.js";
-import { WaveFluid } from "./ui/WaveFluid.js";
 
 type AttentionLedgerProps = {
     collapsible?: boolean;
@@ -111,10 +109,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
     );
 
     return (
-        <div className="group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-            <WaveFluid accentHex="#00E0A0" />
-            <BorderTrace accentHex="#00E0A0" />
-
+        <div className="group relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 shadow-sm backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
             {collapsible ? (
                 <button
                     type="button"

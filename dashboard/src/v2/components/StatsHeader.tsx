@@ -144,7 +144,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
 
                         <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full border flex items-center gap-2.5 backdrop-blur-md ${hasLiveSprint ? "bg-signal-500/10 dark:bg-signal-500/10 text-signal-600 dark:text-signal-400 border-signal-500/25 dark:border-signal-500/25 shadow-[0_0_20px_rgba(0,224,160,0.08)]" : showStatusPanel ? "bg-status-amber/10 text-status-amber border-status-amber/25" : "bg-black/10 dark:bg-white/10 text-slate-500 border-black/25 dark:border-white/25"}`}>
                             <span className={`w-2 h-2 rounded-full relative ${hasLiveSprint ? "bg-signal-500" : showStatusPanel ? "bg-status-amber" : "bg-slate-400"}`}>
-                                {hasLiveSprint && <span className="absolute inset-0 rounded-full animate-ping bg-signal-400 opacity-60" />}
+                                {hasLiveSprint && <span className="absolute inset-0 rounded-full motion-safe:animate-ping bg-signal-400 opacity-60" />}
                             </span>
                             {hasLiveSprint ? `${visibleStats.running} Running` : showStatusPanel ? sprintStatusPresentation.statusLabel : hasSprintContext ? "Snapshot loaded" : !initialLoadComplete ? "Connecting" : "Waiting"}
                         </div>
@@ -154,7 +154,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
                         {visibleStats.failed > 0 && (
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] rounded-full bg-status-red/10 text-status-red border border-status-red/25 flex items-center gap-2.5 backdrop-blur-md">
                                 <span className="w-2 h-2 rounded-full bg-status-red relative">
-                                    <span className="absolute inset-0 rounded-full animate-ping bg-status-red opacity-50" />
+                                    <span className="absolute inset-0 rounded-full motion-safe:animate-ping bg-status-red opacity-50" />
                                 </span>
                                 {visibleStats.failed} Failed
                             </div>
@@ -169,7 +169,7 @@ export const StatsHeader: FunctionComponent<StatsHeaderProps> = memo(({
             </div>
 
             {showStatusPanel && (
-                <div className="relative overflow-hidden rounded-[1.75rem] border border-status-amber/18 bg-status-amber/8 p-6 shadow-[0_12px_30px_rgba(245,158,11,0.08)]">
+                <div className="relative overflow-hidden rounded-[1.75rem] border border-status-amber/20 bg-status-amber/10 p-6 shadow-sm">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-status-amber">

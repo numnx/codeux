@@ -6,8 +6,6 @@ import {
     Clock, ChevronDown, ChevronRight, Eye, EyeOff,
     FileText, RotateCcw, GitPullRequest, ExternalLink, Timer, CheckCheck, PencilLine,
 } from "lucide-preact";
-import { WaveFluid } from "./ui/WaveFluid.js";
-import { BorderTrace } from "./ui/BorderTrace.js";
 import { MARKDOWN_PROSE_CLASS } from "./ui/MarkdownEditorField.js";
 import { TaskStagePills } from "./SprintStatsDeck.js";
 import { RuntimeEventFeed } from "./RuntimeEventFeed.js";
@@ -299,17 +297,14 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
         <div
             ref={cardRef}
             tabIndex={0}
-            className="group relative overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-signal-500 focus-visible:ring-offset-4 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800
+            className={`group relative overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-signal-500 focus-visible:ring-offset-4 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800
                        bg-white/80 dark:bg-void-800/75
                        backdrop-blur-sm
-                       border border-black/[0.06] dark:border-white/[0.06]
+                       border ${taskPhase === "RUNNING" ? cfg.border : 'border-black/[0.06] dark:border-white/[0.06]'}
                        rounded-[1.75rem] p-7
-                       shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
-                       transition-[border-color] duration-300"
+                       shadow-sm
+                       transition-colors duration-300`}
         >
-            <WaveFluid accentHex={cfg.hex} isActive={taskPhase === "RUNNING"} />
-            <BorderTrace accentHex={cfg.hex} />
-
             <div
                 ref={flareRef}
                 className="absolute inset-0 rounded-[1.75rem] pointer-events-none opacity-0 mix-blend-screen"
@@ -317,7 +312,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
             />
 
             {/* Hover tint */}
-            <div className="absolute inset-0 pointer-events-none transition-colors duration-300 group-hover:bg-black/[0.01] dark:group-hover:bg-white/[0.01] group-focus-within:bg-black/[0.01] dark:group-focus-within:bg-white/[0.01]" />
+            <div className={`absolute inset-0 pointer-events-none transition-colors duration-300 ${taskPhase === "RUNNING" ? 'bg-black/[0.01] dark:bg-white/[0.01]' : 'group-hover:bg-black/[0.01] dark:group-hover:bg-white/[0.01] group-focus-within:bg-black/[0.01] dark:group-focus-within:bg-white/[0.01]'}`} />
 
             {/* Ghost ID watermark */}
             <div

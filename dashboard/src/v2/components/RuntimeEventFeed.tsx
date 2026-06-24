@@ -62,7 +62,7 @@ const RuntimeEventFeed: FunctionComponent<{ events?: ExecutionRuntimeEventSummar
                 const cfg = getOriginatorCfg(event.originator || "system");
                 const isError = event.eventType.toLowerCase().includes("error") || event.eventType.toLowerCase().includes("fail");
                 return (
-                    <div key={event.id} className={`flex gap-3 border-l-2 ${isError ? 'border-status-red' : cfg.border} ${isError ? 'bg-status-red/[0.04]' : ''} pl-3 py-2 group/entry hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-r-lg transition-colors duration-200`}>
+                    <div key={event.id} className={`flex gap-3 border-l ${isError ? 'border-status-red border-l-2' : cfg.border} ${isError ? 'bg-status-red/[0.04]' : ''} pl-3 py-2 group/entry hover:bg-black/[0.01] dark:hover:bg-white/[0.01] rounded-r-lg transition-colors duration-200`}>
                         <div className="flex-grow min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                                 <span className={`text-[9px] font-bold uppercase tracking-[0.14em] ${isError ? 'text-status-red' : cfg.text}`}>
