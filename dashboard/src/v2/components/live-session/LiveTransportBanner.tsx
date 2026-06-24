@@ -16,6 +16,7 @@ export interface LiveTransportBannerProps {
 
 export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = ({
   transportState,
+  isRecovering,
   error,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,7 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
       className={`flex items-center gap-4 rounded-2xl border backdrop-blur-md overflow-hidden ${wrapperClass}`}
       role={isUrgent ? "alert" : "status"}
       aria-live={isUrgent ? "assertive" : "polite"}
+      aria-busy={isRecovering}
       style={{ padding: isReducedMotion && isVisible ? "16px 20px" : 0, marginBottom: isReducedMotion && isVisible ? 24 : 0 }}
     >
       <div className={`flex items-center justify-center ${iconClass}`}>

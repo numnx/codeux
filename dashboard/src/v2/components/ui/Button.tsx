@@ -97,8 +97,9 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
 
   const handleClick = useCallback(
     (e: any) => {
-      if (isPending) {
+      if (disabled || isPending || props["aria-disabled"] === true || props["aria-disabled"] === "true") {
         e?.preventDefault();
+        e?.stopPropagation();
         return;
       }
       if (!onClick) return;
@@ -132,8 +133,8 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
       ref={buttonRef}
       onClick={handleClick}
-      disabled={disabled}
-      aria-disabled={disabled || isPending}
+      disabled={disabled && !isPending}
+      aria-disabled={disabled || isPending || props["aria-disabled"] === true || props["aria-disabled"] === "true"}
       aria-busy={isPending}
       className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
     >
