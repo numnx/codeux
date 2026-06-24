@@ -94,4 +94,27 @@ describe("Toast System", () => {
     // Focus should remain on the button that triggered the action, not jump to Retry
     expect(document.activeElement).toBe(btn);
   });
+
+  it("preserves focus context when dismissing a toast from a focused dismiss button", async () => {
+    render(
+      <ToastProvider>
+        <TestComponent />
+      </ToastProvider>
+    );
+
+    const btn = screen.getByText("Add Success");
+    fireEvent.click(btn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Success msg")).toBeInTheDocument();
+    });
+
+    const dismissBtn = screen.getByLabelText("Dismiss toast");
+    dismissBtn.focus();
+    expect(document.activeElement).toBe(dismissBtn);
+
+    fireEvent.click(dismissBtn);
+
+    expect(document.activeElement).not.toBe(dismissBtn);
+  });
 });

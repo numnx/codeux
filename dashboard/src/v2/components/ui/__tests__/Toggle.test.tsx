@@ -35,3 +35,25 @@ test('handles disabled controls', () => {
     const toggle = screen.getByRole('switch', { name: 'Toggle Z' });
     expect(toggle).toBeDisabled();
 });
+
+test('respects reduced motion', () => {
+    // We already mock ResizeObserver globally, to test useReducedMotion we can mock matchMedia
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+    }));
+
+    render(<Toggle value={true} onChange={vi.fn()} aria-label="Toggle Reduced" />);
+
+    const toggle = screen.getByRole('switch', { name: 'Toggle Reduced' });
+    expect(toggle).toBeInTheDocument();
+
+    window.matchMedia = originalMatchMedia;
+});

@@ -45,7 +45,7 @@ describe("MemoryCard", () => {
         expect(getByText("test-content")).toBeInTheDocument();
     });
 
-    test("shows X button when lobotomizeModeSignal is true and deletes on click", async () => {
+    test("shows Danger button when lobotomizeModeSignal is true and deletes on click", async () => {
         lobotomizeModeSignal.value = true;
         memoriesSignal.value = [{ id: "test-id" }];
 

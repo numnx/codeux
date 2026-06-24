@@ -5,10 +5,10 @@ import { Check, X, Loader2 } from "lucide-preact";
 import gsap from "gsap";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useMagnetic } from "../../hooks/use-magnetic.js";
-import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
+import { useGsapDurations, GSAP_EASINGS, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
-export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] touch-target";
+export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-[150ms] motion-reduce:duration-0 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] active:brightness-95 dark:active:brightness-110 touch-target";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   success?: boolean;
@@ -84,7 +84,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
         gsap.fromTo(
           activeIcon,
           { x: -4, scale: 0.6, opacity: 0 },
-          { x: 0, scale: 1, opacity: 1, duration: reducedMotion ? 0 : 0.2, ease: "power2.out", clearProps: "all" }
+          { x: 0, scale: 1, opacity: 1, duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.controlFeedback.duration, ease: "power2.out", clearProps: "all" }
         );
       }
     }

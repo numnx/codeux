@@ -47,28 +47,29 @@ export const AddMemoryModal: FunctionComponent<{
                                border border-black/[0.06] dark:border-white/[0.06]
                                text-slate-800 dark:text-slate-200
                                placeholder:text-slate-400
-                               focus:outline-none focus:ring-2 focus:ring-signal-500/20 focus:border-signal-500/40
+                               focus:outline-none focus:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500
                                resize-none" />
                 <div className="flex items-center gap-3">
                     <select value={category} onChange={e => setCategory((e.target as HTMLSelectElement).value as MemoryCategory)}
                         className="flex-1 px-3 py-2 rounded-lg text-xs font-medium
                                    bg-black/[0.03] dark:bg-white/[0.03]
                                    border border-black/[0.06] dark:border-white/[0.06]
-                                   text-slate-700 dark:text-slate-300">
+                                   text-slate-700 dark:text-slate-300
+                                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500">
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-slate-400">{Math.round(strength * 100)}%</span>
                         <input type="range" min="0.1" max="1" step="0.1" value={strength}
                             onInput={e => setStrength(parseFloat((e.target as HTMLInputElement).value))}
-                            className="w-20 accent-signal-500" />
+                            className="w-20 accent-signal-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500" />
                     </div>
                 </div>
                 <div className="flex items-center gap-2 pt-2">
                     <button onClick={onClose}
                         className="flex-1 py-2.5 rounded-xl text-xs font-bold
                                    bg-black/[0.04] dark:bg-white/[0.04] text-slate-500 hover:text-slate-900 dark:hover:text-white
-                                   transition-colors duration-200">
+                                   transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500">
                         Cancel
                     </button>
                     <button onClick={handleSubmit}
@@ -77,7 +78,7 @@ export const AddMemoryModal: FunctionComponent<{
                         className="flex-1 py-2.5 rounded-xl text-xs font-bold
                                    bg-signal-500 text-void-900 hover:bg-signal-400
                                    shadow-[0_2px_12px_rgba(0,224,160,0.3)]
-                                   transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                   transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500">
                         {saving ? "Saving…" : "Add Memory"}
                     </button>
                 </div>

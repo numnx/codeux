@@ -24,6 +24,8 @@ import type { ExecutionHumanInterventionSummary } from "../../../../../src/contr
 import { formatSprintKey, STATUS_LABELS } from "../../lib/sprint-ledger-state.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
 import { SprintControls } from "./SprintControls.js";
+import { INTERACTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useResolvedMotionDuration } from "../../hooks/use-reduced-motion.js";
 import { TableRow, TableCell } from "../ui/Table.js";
 import { getSprintStatusPresentation } from "../../lib/sprint-status-presentation.js";
 import { computeSprintActionMenuPosition } from "../../lib/sprint-menu-positioning.js";
@@ -147,7 +149,11 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   const isPauseResumePending = pendingPauseResumeActionId.length > 0 && pendingActionIds.has(pendingPauseResumeActionId);
   const isPinPending = pendingActionIds.has(pinActionId);
   const isDeletePending = pendingActionIds.has(deleteActionId);
-  const isRowPending = isTogglePending || isPauseResumePending || isPinPending || isDeletePending;
+  // The menu icon only needs to show a loader if deleting/pinning. toggle and pause are shown in their own controls.
+  const isRowPending = isPinPending || isDeletePending;
+
+  const duration = useResolvedMotionDuration(INTERACTION_TOKENS.selectionMovement.duration);
+  const ease = INTERACTION_TOKENS.selectionMovement.ease;
 
   const rowTone = isSelected
     ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_18px_44px_rgba(0,224,160,0.12)]"
@@ -181,13 +187,14 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
 
   return (
     <TableRow
-      className={`group transition-all duration-300 hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
+      className={`group transition-all hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
+      style={{ transitionDuration: duration, transitionTimingFunction: ease }}
     >
       <TableCell isFirst className={`lg:w-[80px] lg:min-w-[80px] ${desktopCellTone}`}>
         <button
           type="button"
           onClick={() => onToggleRow(sprint.id)}
-          disabled={isRowPending || isAnyBulkPending}
+          disabled={isDeletePending || isAnyBulkPending}
           className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-white/72 text-slate-400 transition-colors hover:border-signal-500/25 hover:text-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.07] dark:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
           title={isSelected ? "Deselect sprint" : "Select sprint"}
           aria-label={isSelected ? `Deselect sprint ${sprint.name}` : `Select sprint ${sprint.name}`}
@@ -201,7 +208,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         <button
           type="button"
           onClick={() => onToggleShowcase(sprint)}
-          disabled={isPinPending}
+          disabled={isPinPending || isDeletePending}
           className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-all focus-visible:ring-2 focus-visible:ring-signal-500/30 ${
             sprint.showcasePinned
               ? "border-status-red/20 bg-status-red/10 text-status-red shadow-[0_8px_20px_rgba(239,68,68,0.10)]"
@@ -330,12 +337,12 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
           {onOpenRowMenu ? (
             <button
               type="button"
-              disabled={isRowPending}
+              disabled={isDeletePending}
               onClick={(e) => onOpenRowMenu(e, sprint.id)}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               title="Open sprint actions" aria-label={`Open actions menu for sprint ${sprint.name}`}
             >
-              {isRowPending ? (
+              {isDeletePending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />
               ) : (
                 <MoreVertical className="h-3.5 w-3.5" />
@@ -370,13 +377,13 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             >
               <button
                 type="button"
-                disabled={isRowPending}
+                disabled={isDeletePending}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[0.06] bg-white/80 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 title="Open sprint actions" aria-label={`Open actions menu for sprint ${sprint.name}`}
               >
-                {isRowPending ? (
+                {isDeletePending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-signal-500" strokeWidth={2.2} />
                 ) : (
                   <MoreVertical className="h-3.5 w-3.5" />

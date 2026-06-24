@@ -5,6 +5,7 @@ import { ActionFeedbackRegion } from "../ui/ActionFeedbackRegion.js";
 
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import gsap from "gsap";
+import { GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
 import { useComputed } from "@preact/signals";
 import { MemoryCard } from "./MemoryCard.js";
 import { searchQuerySignal, activeMemoryIdSignal, memoryMutationsSignal } from "./memoryState.js";
@@ -37,6 +38,21 @@ export const MemoryList: FunctionComponent<{
 
     useEffect(() => {
         if (reducedMotion) {
+            const currentIds = new Set(filteredNodes.value.map((n: any) => n.node.id));
+            const renderedIds = new Set(renderedNodes.map((n: any) => n.node.id));
+            const removedIds = Array.from(renderedIds).filter(id => !currentIds.has(id));
+            if (removedIds.length > 0 && listRef.current) {
+                const elementsToRemove = removedIds.map(id => listRef.current?.querySelector(`[data-memory-id="${id}"]`)).filter(Boolean);
+                if (elementsToRemove.length > 0) {
+                    gsap.set(elementsToRemove, {
+                        opacity: 0,
+                        scale: 0.95,
+                        height: 0,
+                        marginBottom: 0,
+                        padding: 0
+                    });
+                }
+            }
             setRenderedNodes(filteredNodes.value);
             return;
         }
@@ -54,8 +70,8 @@ export const MemoryList: FunctionComponent<{
                     height: 0,
                     marginBottom: 0,
                     padding: 0,
-                    duration: 0.2,
-                    ease: "power2.in",
+                    duration: GSAP_INTERACTION_TOKENS.expansionCollapse.duration,
+                    ease: GSAP_INTERACTION_TOKENS.expansionCollapse.ease,
                     onComplete: () => {
                         setRenderedNodes(filteredNodes.value);
                     }
@@ -67,8 +83,17 @@ export const MemoryList: FunctionComponent<{
     }, [filteredNodes.value, reducedMotion, renderedNodes]);
 
     useLayoutEffect(() => {
-        if (!listRef.current || reducedMotion) {
-            prevRenderedIds.current = new Set(renderedNodes.map((n: any) => n.node.id as string));
+        if (!listRef.current) return;
+        if (reducedMotion) {
+            const currentRenderedIds = new Set(renderedNodes.map((n: any) => n.node.id));
+            const addedIds = Array.from(currentRenderedIds).filter(id => !prevRenderedIds.current.has(id));
+            if (addedIds.length > 0) {
+                const addedElements = addedIds.map(id => listRef.current?.querySelector(`[data-memory-id="${id}"]`)).filter(Boolean);
+                if (addedElements.length > 0) {
+                    gsap.set(addedElements, { opacity: 1, y: 0, clearProps: "all" });
+                }
+            }
+            prevRenderedIds.current = currentRenderedIds as unknown as Set<string>;
             return;
         }
 
@@ -84,9 +109,9 @@ export const MemoryList: FunctionComponent<{
                 }, {
                     opacity: 1,
                     y: 0,
-                    duration: 0.3,
+                    duration: GSAP_INTERACTION_TOKENS.enterExit.duration,
                     stagger: 0.05,
-                    ease: "power2.out",
+                    ease: GSAP_INTERACTION_TOKENS.enterExit.ease,
                     clearProps: "all"
                 });
             }
@@ -96,17 +121,18 @@ export const MemoryList: FunctionComponent<{
     }, [renderedNodes, reducedMotion]);
 
     if (renderedNodes.length === 0) {
-
+        const isEmpty = nodes.length === 0;
+        const message = isEmpty ? "No memories exist" : "No memories match your search or filters";
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <div className="sr-only" aria-live="polite" aria-atomic="true">No memories found</div>
-                <p className="text-sm font-medium">No memories found</p>
+                <div className="sr-only" aria-live="polite" aria-atomic="true">{message}</div>
+                <p className="text-sm font-medium">{message}</p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-3 h-full overflow-y-auto dashboard-scrollbar p-2" ref={listRef} role="listbox">
+        <div id="memory-panel" className="flex flex-col gap-3 h-full overflow-y-auto dashboard-scrollbar p-2" ref={listRef} role="listbox">
             <div className="sr-only" aria-live="polite" aria-atomic="true">
                 {renderedNodes.length} memories found
             </div>

@@ -2,6 +2,7 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { Heart, Loader2, Play, Trash2, X } from "lucide-preact";
 import gsap from "gsap";
+import { useGsapDurations, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
 
 export interface SprintLedgerBulkActionsProps {
   selectedCount: number;
@@ -31,27 +32,41 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
   onClearSelection,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { expansionCollapse } = GSAP_INTERACTION_TOKENS;
+  const { base: duration } = useGsapDurations();
+
+  const durations = useGsapDurations();
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
+    const duration = durations.base;
+
     if (selectedCount > 0) {
-      gsap.to(el, {
-        height: "auto",
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      });
+      if (duration === 0) {
+        gsap.set(el, { height: "auto", opacity: 1 });
+      } else {
+        gsap.to(el, {
+          height: "auto",
+          opacity: 1,
+          duration,
+          ease: GSAP_INTERACTION_TOKENS.expansionCollapse.ease,
+        });
+      }
     } else {
-      gsap.to(el, {
-        height: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.inOut",
-      });
+      if (duration === 0) {
+        gsap.set(el, { height: 0, opacity: 0 });
+      } else {
+        gsap.to(el, {
+          height: 0,
+          opacity: 0,
+          duration,
+          ease: GSAP_INTERACTION_TOKENS.expansionCollapse.ease,
+        });
+      }
     }
-  }, [selectedCount]);
+  }, [selectedCount, durations]);
 
   return (
     <div

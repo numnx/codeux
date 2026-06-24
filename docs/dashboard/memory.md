@@ -31,3 +31,8 @@ To preserve memory efficiency, the core scoring and sorting operate strictly on 
 ## Storage Requirements
 
 Memory records encapsulate the base `content` string alongside its vectorized byte representation (`embeddingBlob`). The byte buffer must correctly decode based on its stored `embeddingDimension`. The system expects IEEE 754 32-bit floats.
+
+## UI Updates and Accessibility
+- Added keyboard-accessible clear search functionality to `MemorySearch.tsx` (supports clearing via `Escape` and a dedicated clear button).
+- Improved memory list accessibility and reduced motion fallbacks in `MemoryList.tsx`.
+- `MemoryFilters.tsx` implements proper tab semantics and uses clear danger state indicators for lobotomize mode.
