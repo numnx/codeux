@@ -172,7 +172,13 @@ const isForeignSessionMatch = (
   task: Subtask,
   session: JulesSession,
 ): boolean => {
-  if (!deps.executionRepository || !task.record_id || !task.project_id || !task.sprint_id) {
+  if (
+    !deps.executionRepository
+    || typeof deps.executionRepository.getLatestTaskRunBySessionId !== "function"
+    || !task.record_id
+    || !task.project_id
+    || !task.sprint_id
+  ) {
     return false;
   }
 
