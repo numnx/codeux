@@ -23,6 +23,7 @@ interface AvantgardeSelectProps {
   variant?: "default" | "compact" | "card";
   className?: string;
   searchable?: boolean;
+  invalid?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
 }
@@ -74,6 +75,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   variant = "default",
   className = "",
   searchable = false,
+  invalid = false,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledby,
 }) => {
@@ -326,6 +328,9 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
               ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-400 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
               : `cursor-pointer bg-white/52 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:bg-white/[0.045] dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.18)] ${open ? 'border-signal-500/30 dark:border-signal-500/30' : 'border-black/[0.06] hover:border-black/[0.12] dark:border-white/[0.06] dark:hover:border-white/[0.12]'}`
           }`;
+
+  const finalTriggerClass = `${triggerClass} ${invalid ? '!border-ember-500 !text-ember-600 dark:!border-ember-500 dark:!text-ember-400' : ''} ${invalid && !reducedMotion ? 'animate-form-shake' : ''}`;
+
   const panel = isRendered && position
     ? createPortal(
         <div
@@ -421,8 +426,9 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
             setOpen(true);
           }
         }}
-        className={triggerClass}
+        className={finalTriggerClass}
         disabled={disabled}
+        aria-invalid={invalid ? "true" : "false"}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
