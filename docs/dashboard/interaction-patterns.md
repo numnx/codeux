@@ -58,3 +58,4 @@ All interaction timings automatically respect the user's system preferences or d
 - When a user prefers reduced motion, the aforementioned hooks (`useInteractionTokens`, `useGsapInteractionTokens`) automatically resolve all duration values to `0` or `"0ms"`.
 - This ensures visual state changes happen instantly while preserving logical flows and React/Preact lifecycle events that depend on state transitions.
 - Do not hardcode custom fallback logic for `duration`. Use the hooks, and the components will naturally skip the animation timing.
+- Shared controls (e.g., `Button`, `Input`, `Select`, `Toggle`, `AvantgardeSelect`, `FilterStrip`) must consume `INTERACTION_TOKENS` and `GSAP_INTERACTION_TOKENS` via React inline style properties instead of inventing local timing constants or using Tailwind static transition utilities (e.g., `duration-300`).

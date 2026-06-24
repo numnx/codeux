@@ -2,6 +2,7 @@ import type { FunctionComponent, ComponentProps } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
 import { useGsapDurations, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 export type ToggleProps = Omit<ComponentProps<"button">, "value" | "onChange" | "aria-label" | "aria-labelledby"> & {
@@ -14,6 +15,7 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
   const thumbRef = useRef<HTMLSpanElement>(null);
   const durations = useGsapDurations();
   const reducedMotion = useReducedMotion();
+  const tokens = useInteractionTokens();
   const isInitialMount = useRef(true);
 
   useLayoutEffect(() => {
@@ -28,7 +30,7 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
     gsap.to(thumbRef.current, {
       x: value ? 20 : 0,
       duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.controlFeedback.duration,
-      ease: reducedMotion ? 'none' : 'back.out(1.7)',
+      ease: reducedMotion ? 'none' : GSAP_INTERACTION_TOKENS.controlFeedback.ease,
       overwrite: true
     });
   }, [value, reducedMotion, durations.base]);
@@ -40,14 +42,16 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
       role="switch"
       onClick={() => onChange(!value)}
       disabled={disabled}
-      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors duration-[150ms] motion-reduce:duration-0 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 ${
+      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 ${
         value
           ? danger
             ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] enabled:hover:bg-status-red/90"
             : "border-signal-500/40 bg-signal-500 shadow-[0_0_16px_rgba(0,224,160,0.22)] enabled:hover:bg-signal-500/90"
           : "border-black/[0.12] bg-black/[0.08] enabled:hover:bg-black/[0.12] enabled:hover:border-black/[0.16] dark:border-white/[0.12] dark:bg-white/[0.08] dark:enabled:hover:bg-white/[0.12] dark:enabled:hover:border-white/[0.16]"
       } ${className}`}
+      style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease, ...((props.style || {}) as any) }}
       aria-checked={value}
+      aria-disabled={disabled}
       aria-pressed={"aria-pressed" in props ? props["aria-pressed"] : undefined}
     >
       <span
@@ -61,7 +65,8 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
         }`}
       >
         <svg
-          className={`h-3 w-3 transition-all duration-300 ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
+          className={`h-3 w-3 transition-all ${value ? (danger ? "text-status-red" : "text-signal-500") : "text-slate-400 dark:text-slate-500"}`}
+          style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

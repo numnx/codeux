@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect } from "preact/hooks";
 import { gsap } from "gsap";
 import { useGsapDurations, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 /**
@@ -16,7 +17,7 @@ export function FilterStrip<T extends string>({
     ariaLabel,
     ariaLabelledBy,
 }: {
-    options: readonly (T | { value: T; label: string; ariaLabel?: string })[];
+    options: readonly (T | { value: T; label: string; ariaLabel?: string; disabled?: boolean })[];
     active: T;
     onChange: (value: T) => void;
     showClear?: boolean;
@@ -39,6 +40,7 @@ export function FilterStrip<T extends string>({
     const durations = useGsapDurations();
 
     const reducedMotion = useReducedMotion();
+    const tokens = useInteractionTokens();
 
     useLayoutEffect(() => {
         const btn = buttonRefs.current[activeIndex];
@@ -52,7 +54,7 @@ export function FilterStrip<T extends string>({
                 x: btn.offsetLeft,
                 width: btn.offsetWidth,
                 duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.selectionMovement.duration,
-                ease: 'power2.out'
+                ease: GSAP_INTERACTION_TOKENS.selectionMovement.ease
             });
         }
     }, [activeIndex, durations.base, options]);
@@ -94,6 +96,7 @@ export function FilterStrip<T extends string>({
                 const value = isObj ? option.value : (option as T);
                 const label = isObj ? option.label : (option as string);
                 const optionAriaLabel = isObj ? option.ariaLabel : undefined;
+                const isDisabled = isObj ? !!option.disabled : false;
                 const isActive = active === value;
 
                 return (
@@ -104,15 +107,18 @@ export function FilterStrip<T extends string>({
                         role="tab"
                         aria-label={optionAriaLabel}
                         aria-selected={isActive}
+                        aria-disabled={isDisabled}
+                        disabled={isDisabled}
                         tabIndex={isActive ? 0 : -1}
-                        onClick={() => onChange(value)}
-                        onKeyDown={(e) => handleKeyDown(e as any, idx)}
+                        onClick={() => !isDisabled && onChange(value)}
+                        onKeyDown={(e) => !isDisabled && handleKeyDown(e as any, idx)}
                         // Note the z-10 so the button text is on top of the absolute indicator behind it
-                        className={`relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors duration-[200ms] motion-reduce:duration-0 active:brightness-95 dark:active:brightness-110 touch-target ${
+                        className={`relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-colors active:brightness-95 dark:active:brightness-110 touch-target disabled:opacity-50 disabled:cursor-not-allowed ${
                             isActive
                                 ? 'text-slate-900 dark:text-white'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
+                        style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
                     >
                         {label}
                     </button>
@@ -124,7 +130,8 @@ export function FilterStrip<T extends string>({
                     type="button"
                     onClick={onClear}
                     aria-label={`Clear filters${ariaLabel ? ` for ${ariaLabel}` : ''}`}
-                    className="relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all duration-300 overflow-hidden animate-in fade-in zoom-in-95 touch-target ml-1 border-l border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-void-600/50"
+                    className="relative z-10 flex-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all overflow-hidden animate-in fade-in zoom-in-95 touch-target ml-1 border-l border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-void-600/50"
+                    style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
                 >
                     Clear All
                 </button>

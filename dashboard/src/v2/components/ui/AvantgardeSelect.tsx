@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } fr
 import { createPortal } from "preact/compat";
 import { Check, ChevronDown } from "lucide-preact";
 import gsap from "gsap";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
 
@@ -24,6 +25,8 @@ interface AvantgardeSelectProps {
   searchable?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
+  "aria-invalid"?: boolean | "false" | "true" | "grammar" | "spelling";
+  valid?: boolean;
 }
 
 interface DropdownPosition {
@@ -75,6 +78,8 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   searchable = false,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledby,
+  valid,
+  ...props
 }) => {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -85,6 +90,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<DropdownPosition | null>(null);
   const reducedMotion = useReducedMotion();
+  const tokens = useInteractionTokens();
   const durations = useGsapDurations();
 
   const updatePosition = useCallback(() => {
@@ -306,6 +312,8 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   }, [activeIndex, open]);
 
 
+  const isInvalid = valid === false || ("aria-invalid" in props && props["aria-invalid"] !== "false" && props["aria-invalid"] !== false);
+
   const triggerClass =
     variant === "compact"
       ? `flex w-full items-center justify-between gap-2 bg-transparent py-1 text-[11px] font-bold uppercase tracking-[0.14em] outline-none focus-visible:ring-2 focus-visible:ring-signal-500/20 transition-colors ${
@@ -323,7 +331,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
             disabled
               ? "cursor-not-allowed border-black/[0.04] bg-black/[0.02] text-slate-400 opacity-60 dark:border-white/[0.04] dark:bg-white/[0.02]"
               : `cursor-pointer bg-white/52 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:bg-white/[0.045] dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.18)] ${open ? 'border-signal-500/30 dark:border-signal-500/30' : 'border-black/[0.06] hover:border-black/[0.12] dark:border-white/[0.06] dark:hover:border-white/[0.12]'}`
-          }`;
+          } ${isInvalid ? 'border-status-red bg-status-red/[0.04] text-status-red shadow-[0_0_0_1px_rgba(211,47,47,0.2)] focus-visible:ring-status-red/50' : ''}`;
   const panel = isRendered && position
     ? createPortal(
         <div
@@ -419,7 +427,10 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
           }
         }}
         className={triggerClass}
+        style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
         disabled={disabled}
+        aria-disabled={disabled}
+        aria-invalid={isInvalid ? "true" : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
@@ -428,7 +439,8 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
         {selected?.icon ? <span className="flex-shrink-0">{renderOptionIcon(selected.icon)}</span> : null}
         <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          style={{ transitionDuration: tokens.expansionCollapse.duration, transitionTimingFunction: tokens.expansionCollapse.ease }}
           strokeWidth={2}
         />
       </button>

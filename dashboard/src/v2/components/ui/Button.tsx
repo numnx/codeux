@@ -6,9 +6,10 @@ import gsap from "gsap";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useMagnetic } from "../../hooks/use-magnetic.js";
 import { useGsapDurations, GSAP_EASINGS, GSAP_INTERACTION_TOKENS } from "../../lib/motion/constants.js";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
-export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-[150ms] motion-reduce:duration-0 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] active:brightness-95 dark:active:brightness-110 touch-target";
+export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] active:brightness-95 dark:active:brightness-110 touch-target";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   success?: boolean;
@@ -53,6 +54,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   const isError = feedback.status === "error";
   const durations = useGsapDurations();
   const reducedMotion = useReducedMotion();
+  const tokens = useInteractionTokens();
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
         gsap.fromTo(
           activeIcon,
           { x: -4, scale: 0.6, opacity: 0 },
-          { x: 0, scale: 1, opacity: 1, duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.controlFeedback.duration, ease: "power2.out", clearProps: "all" }
+          { x: 0, scale: 1, opacity: 1, duration: reducedMotion ? 0 : GSAP_INTERACTION_TOKENS.controlFeedback.duration, ease: GSAP_INTERACTION_TOKENS.controlFeedback.ease, clearProps: "all" }
         );
       }
     }
@@ -132,23 +134,24 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       aria-disabled={disabled || isPending}
       aria-busy={isPending}
       className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
+      style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease, ...((props.style || {}) as any) }}
     >
       <div ref={contentRef} className={`flex items-center justify-center gap-2`}>
         {(Icon || isPending || isSuccess || isError) && (
           <div ref={iconContainerRef} className="relative flex items-center justify-center w-4 h-4 shrink-0">
-            <div data-active={!isPending && !isSuccess && !isError} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isPending || isSuccess || isError ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}>
+            <div data-active={!isPending && !isSuccess && !isError} style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }} className={`absolute inset-0 flex items-center justify-center transition-all ${isPending || isSuccess || isError ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}>
               {Icon && <Icon className="w-4 h-4" aria-hidden="true" />}
             </div>
 
-            <div key={`pending-${feedback.status}`} data-active={isPending} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isPending ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
+            <div key={`pending-${feedback.status}`} data-active={isPending} style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }} className={`absolute inset-0 flex items-center justify-center transition-all ${isPending ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             </div>
 
-            <div key={`success-${feedback.status}`} data-active={isSuccess} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isSuccess ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
+            <div key={`success-${feedback.status}`} data-active={isSuccess} style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }} className={`absolute inset-0 flex items-center justify-center transition-all ${isSuccess ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
               <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
 
-            <div key={`error-${feedback.status}`} data-active={isError} className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isError ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
+            <div key={`error-${feedback.status}`} data-active={isError} style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }} className={`absolute inset-0 flex items-center justify-center transition-all ${isError ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}>
               <X className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
           </div>
