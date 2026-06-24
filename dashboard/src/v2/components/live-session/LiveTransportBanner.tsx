@@ -92,7 +92,7 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
   return (
     <div
       ref={containerRef}
-      className={`flex items-center gap-4 rounded-2xl border backdrop-blur-md overflow-hidden ${wrapperClass}`}
+      className={`flex items-center gap-4 rounded-2xl border bg-white shadow-sm dark:bg-void-800 overflow-hidden ${wrapperClass}`}
       role={isUrgent ? "alert" : "status"}
       aria-live={isUrgent ? "assertive" : "polite"}
       style={{ padding: isReducedMotion && isVisible ? "16px 20px" : 0, marginBottom: isReducedMotion && isVisible ? 24 : 0 }}
