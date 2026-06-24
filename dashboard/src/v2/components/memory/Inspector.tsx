@@ -51,6 +51,9 @@ export const Inspector: FunctionComponent<{
 
     return (
         <div
+            role="region"
+            aria-label="Memory Details"
+            aria-hidden={!node ? "true" : "false"}
             className="absolute right-0 top-0 bottom-0 w-[300px] z-30
                        bg-white/80 dark:bg-void-800/80 backdrop-blur-3xl
                        border-l border-black/[0.06] dark:border-white/[0.06]
@@ -61,9 +64,11 @@ export const Inspector: FunctionComponent<{
                 transform: `translateX(${node ? "0" : "100%"})`,
                 transitionTimingFunction: "cubic-bezier(0.33, 1, 0.68, 1)",
                 pointerEvents: node ? "auto" : "none",
+                visibility: node ? "visible" : "hidden",
             }}
         >
             <button onClick={onClose}
+                aria-label="Close memory details"
                 className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center
                            bg-black/[0.04] dark:bg-white/[0.04] hover:bg-black/[0.08] dark:hover:bg-white/[0.08]
                            transition-colors duration-200">

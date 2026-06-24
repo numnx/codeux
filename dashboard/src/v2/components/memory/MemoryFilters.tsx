@@ -33,7 +33,7 @@ export const MemoryFilters: FunctionComponent<{
 
     return (
         <div className="flex flex-col items-end gap-3.5 shrink-0">
-            <div className="flex items-center gap-2.5" role="tablist">
+            <div className="flex items-center gap-2.5" role="tablist" aria-label="Memory tiers">
                 {TIER_TABS.map(tab => {
                     const count = tab.key === "short_term"
                         ? (stats.sprint + stats.agent)
@@ -62,8 +62,11 @@ export const MemoryFilters: FunctionComponent<{
                                         nextIndex = (currentIndex - 1 + TIER_TABS.length) % TIER_TABS.length;
                                     }
                                     activeTierSignal.value = TIER_TABS[nextIndex].key;
-                                    const nextTab = e.currentTarget.parentElement?.children[nextIndex] as HTMLElement;
-                                    nextTab?.focus();
+                                    const parent = e.currentTarget.parentElement;
+                                    setTimeout(() => {
+                                        const nextTab = parent?.children[nextIndex] as HTMLElement;
+                                        nextTab?.focus();
+                                    }, 0);
                                 }
                             }}
 >
